@@ -110,11 +110,21 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
   const initiateGitHubOAuth = useMutation(api.oauth.github.initiateGitHubOAuth);
   const initiateVercelOAuth = useMutation(api.oauth.vercel.initiateVercelOAuth);
 
+  // Pre-flight: query file count so we can warn before attempting publish
+  const builderFiles = useQuery(
+    api.fileSystemOntology.getFilesByApp,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+  const fileCount = builderFiles?.length ?? 0;
+
   // OAuth connect state
   const [isConnectingGitHub, setIsConnectingGitHub] = useState(false);
   const [isConnectingVercel, setIsConnectingVercel] = useState(false);
 
   // Build log state
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [showBuildLogs, setShowBuildLogs] = useState(false);
   const [buildLogs, setBuildLogs] = useState<string | null>(null);
   const [buildLogError, setBuildLogError] = useState<string | null>(null);
@@ -225,6 +235,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           organizationId,
           appId: builderAppId,
           vercelProjectId,
+          pollCount: pollCountRef.current,
         });
 
         if (status.readyState === "READY") {
@@ -255,6 +266,13 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     if (!effectiveSessionId || !organizationId || !builderAppId || !repoName) return;
     setError(null);
     setDeployStartTime(Date.now());
+
+    // Pre-flight: ensure files exist before calling GitHub
+    if (fileCount === 0) {
+      setError("No files found for this app. Try sending another message to v0 first to regenerate files.");
+      setDeployStep("error");
+      return;
+    }
 
     try {
       // Step 1: Push to GitHub
@@ -306,7 +324,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     }
   }, [
     effectiveSessionId, organizationId, builderAppId, repoName,
-    isPrivate, builderApp, envVars,
+    isPrivate, builderApp, envVars, fileCount,
     createRepo, deployToVercel, updateDeployment,
   ]);
 
@@ -326,6 +344,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     setBuildLogError(null);
     setSuggestedFixes([]);
     setShowBuildLogs(false);
+    setShowErrorDetails(false);
     setDeploymentIdForLogs(null);
     setHealResult(null);
     setIsHealing(false);
@@ -721,58 +740,71 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
             </div>
           )}
 
-          {/* Error message */}
+          {/* Error message — collapsible accordion */}
           {isError && error && (
-            <div className="bg-red-950/50 border border-red-800 rounded-lg p-2.5 mb-3 space-y-2">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-300 whitespace-pre-wrap break-words">
-                  {error.length > 200 ? error.substring(0, 200) + "..." : error}
-                </p>
-              </div>
+            <div className="bg-red-950/50 border border-red-800 rounded-lg mb-3 overflow-hidden">
+              <button
+                onClick={() => setShowErrorDetails(!showErrorDetails)}
+                className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-red-950/30 transition-colors"
+              >
+                <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                <span className="text-xs text-red-300 truncate flex-1">
+                  {error.length > 80 ? error.substring(0, 80) + "..." : error}
+                </span>
+                {showErrorDetails ? <ChevronUp className="h-3 w-3 text-red-400 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 text-red-400 flex-shrink-0" />}
+              </button>
 
-              {/* Suggested fixes */}
-              {suggestedFixes.length > 0 && (
-                <div className="border-t border-red-800/50 pt-2">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Wrench className="h-3 w-3 text-amber-400" />
-                    <span className="text-[10px] font-medium text-amber-300 uppercase tracking-wider">Suggested Fixes</span>
-                  </div>
-                  <ul className="space-y-1">
-                    {suggestedFixes.map((fix, i) => (
-                      <li key={i} className="text-[11px] text-amber-200/80 pl-4 relative">
-                        <span className="absolute left-1.5 top-1.5 w-1 h-1 rounded-full bg-amber-500" />
-                        {fix}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {showErrorDetails && (
+                <div className="px-2.5 pb-2.5 space-y-2 border-t border-red-800/50 max-h-48 overflow-y-auto">
+                  {/* Full error message */}
+                  <p className="text-xs text-red-300 whitespace-pre-wrap break-words pt-2">
+                    {error}
+                  </p>
 
-              {/* View Build Logs toggle */}
-              {deploymentIdForLogs && (
-                <div className="border-t border-red-800/50 pt-2">
-                  <button
-                    onClick={showBuildLogs ? () => setShowBuildLogs(false) : handleViewBuildLogs}
-                    disabled={isLoadingLogs}
-                    className="flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-zinc-300 transition-colors"
-                  >
-                    {isLoadingLogs ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <FileText className="h-3 w-3" />
-                    )}
-                    {showBuildLogs ? "Hide" : "View"} Build Logs
-                    {showBuildLogs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  </button>
-
-                  {showBuildLogs && buildLogs && (
-                    <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-zinc-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
-                      {buildLogs}
-                    </pre>
+                  {/* Suggested fixes */}
+                  {suggestedFixes.length > 0 && (
+                    <div className="border-t border-red-800/50 pt-2">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Wrench className="h-3 w-3 text-amber-400" />
+                        <span className="text-[10px] font-medium text-amber-300 uppercase tracking-wider">Suggested Fixes</span>
+                      </div>
+                      <ul className="space-y-1">
+                        {suggestedFixes.map((fix, i) => (
+                          <li key={i} className="text-[11px] text-amber-200/80 pl-4 relative">
+                            <span className="absolute left-1.5 top-1.5 w-1 h-1 rounded-full bg-amber-500" />
+                            {fix}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                  {showBuildLogs && buildLogError && (
-                    <p className="mt-1 text-[10px] text-red-400">{buildLogError}</p>
+
+                  {/* View Build Logs toggle */}
+                  {deploymentIdForLogs && (
+                    <div className="border-t border-red-800/50 pt-2">
+                      <button
+                        onClick={showBuildLogs ? () => setShowBuildLogs(false) : handleViewBuildLogs}
+                        disabled={isLoadingLogs}
+                        className="flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-zinc-300 transition-colors"
+                      >
+                        {isLoadingLogs ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <FileText className="h-3 w-3" />
+                        )}
+                        {showBuildLogs ? "Hide" : "View"} Build Logs
+                        {showBuildLogs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+
+                      {showBuildLogs && buildLogs && (
+                        <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-zinc-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
+                          {buildLogs}
+                        </pre>
+                      )}
+                      {showBuildLogs && buildLogError && (
+                        <p className="mt-1 text-[10px] text-red-400">{buildLogError}</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -925,16 +957,24 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           />
         )}
 
-        {/* Deployment error from previous attempt */}
+        {/* Deployment error from previous attempt — collapsible */}
         {deployment?.deploymentError && (
-          <div className="bg-red-950/50 border border-red-800 rounded-lg p-2.5 mb-3">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-red-300 font-medium">Previous deployment failed</p>
-                <p className="text-xs text-red-400/70 mt-0.5">{deployment.deploymentError}</p>
+          <div className="bg-red-950/50 border border-red-800 rounded-lg mb-3 overflow-hidden">
+            <button
+              onClick={() => setShowErrorDetails(!showErrorDetails)}
+              className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-red-950/30 transition-colors"
+            >
+              <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+              <span className="text-xs text-red-300 font-medium flex-1">Previous deployment failed</span>
+              {showErrorDetails ? <ChevronUp className="h-3 w-3 text-red-400 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 text-red-400 flex-shrink-0" />}
+            </button>
+            {showErrorDetails && (
+              <div className="px-2.5 pb-2.5 border-t border-red-800/50">
+                <p className="text-xs text-red-400/70 mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap break-words">
+                  {deployment.deploymentError}
+                </p>
               </div>
-            </div>
+            )}
           </div>
         )}
 

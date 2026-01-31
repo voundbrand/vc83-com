@@ -789,6 +789,150 @@ function SystemMessage({
 // HEAL PROGRESS MESSAGE (deployment self-heal)
 // ============================================================================
 
+/**
+ * FILE DIFF VIEWER
+ * Shows before/after file changes from self-heal fixes.
+ * Collapsible per-file with line-by-line diff coloring.
+ */
+function FileDiffViewer({ fileDiffs }: {
+  fileDiffs: Array<{ filePath: string; oldContent: string; newContent: string; explanation: string }>;
+}) {
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
+  const [showAll, setShowAll] = useState(false);
+
+  const toggleFile = (path: string) => {
+    setExpandedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  return (
+    <div className="mt-2 border-t border-white/10 pt-2">
+      <button
+        onClick={() => setShowAll(!showAll)}
+        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-300 mb-1"
+      >
+        {showAll ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        <FileText className="w-3 h-3" />
+        Files Changed ({fileDiffs.length})
+      </button>
+
+      {showAll && (
+        <div className="space-y-1.5">
+          {fileDiffs.map((diff) => {
+            const isExpanded = expandedFiles.has(diff.filePath);
+            const isNewFile = !diff.oldContent;
+            return (
+              <div key={diff.filePath} className="rounded bg-black/20 overflow-hidden">
+                <button
+                  onClick={() => toggleFile(diff.filePath)}
+                  className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-white/5 transition-colors"
+                >
+                  {isExpanded ? <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 flex-shrink-0" />}
+                  <span className="text-[11px] text-zinc-300 truncate font-mono">{diff.filePath}</span>
+                  {isNewFile && <span className="text-[9px] text-emerald-500 ml-auto flex-shrink-0">NEW</span>}
+                </button>
+                {isExpanded && (
+                  <div className="px-2 pb-2">
+                    <p className="text-[10px] text-zinc-500 mb-1 italic">{diff.explanation}</p>
+                    <div className="max-h-60 overflow-auto rounded bg-zinc-950 p-1.5">
+                      <DiffLines oldContent={diff.oldContent} newContent={diff.newContent} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * DIFF LINES
+ * Simple line-by-line unified diff with red/green coloring.
+ */
+function DiffLines({ oldContent, newContent }: { oldContent: string; newContent: string }) {
+  const oldLines = oldContent.split("\n");
+  const newLines = newContent.split("\n");
+
+  // Simple LCS-based diff for small files, truncated line comparison for large
+  const maxLines = Math.max(oldLines.length, newLines.length);
+  if (maxLines > 500) {
+    // For very large files, just show new content
+    return (
+      <pre className="text-[10px] font-mono leading-relaxed text-emerald-400 whitespace-pre overflow-x-auto">
+        {newContent.substring(0, 3000)}
+        {newContent.length > 3000 && "\n... (truncated)"}
+      </pre>
+    );
+  }
+
+  // Build a simple unified diff using longest common subsequence
+  const diffLines = computeSimpleDiff(oldLines, newLines);
+
+  return (
+    <pre className="text-[10px] font-mono leading-relaxed whitespace-pre overflow-x-auto">
+      {diffLines.map((line, i) => (
+        <div
+          key={i}
+          className={
+            line.type === "add"
+              ? "text-emerald-400 bg-emerald-950/30"
+              : line.type === "remove"
+                ? "text-red-400 bg-red-950/30"
+                : "text-zinc-500"
+          }
+        >
+          <span className="select-none inline-block w-4 text-right mr-1 text-zinc-600">
+            {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
+          </span>
+          {line.text}
+        </div>
+      ))}
+    </pre>
+  );
+}
+
+/** Simple diff: compare old/new lines, output unified diff entries */
+function computeSimpleDiff(
+  oldLines: string[],
+  newLines: string[]
+): Array<{ type: "add" | "remove" | "same"; text: string }> {
+  const result: Array<{ type: "add" | "remove" | "same"; text: string }> = [];
+  const oldSet = new Set(oldLines);
+  const newSet = new Set(newLines);
+
+  let oi = 0;
+  let ni = 0;
+
+  while (oi < oldLines.length || ni < newLines.length) {
+    if (oi < oldLines.length && ni < newLines.length && oldLines[oi] === newLines[ni]) {
+      result.push({ type: "same", text: oldLines[oi] });
+      oi++;
+      ni++;
+    } else if (oi < oldLines.length && !newSet.has(oldLines[oi])) {
+      result.push({ type: "remove", text: oldLines[oi] });
+      oi++;
+    } else if (ni < newLines.length && !oldSet.has(newLines[ni])) {
+      result.push({ type: "add", text: newLines[ni] });
+      ni++;
+    } else if (oi < oldLines.length) {
+      result.push({ type: "remove", text: oldLines[oi] });
+      oi++;
+    } else {
+      result.push({ type: "add", text: newLines[ni] });
+      ni++;
+    }
+  }
+
+  return result;
+}
+
 function HealProgressMessage({
   content,
   healData,
@@ -887,6 +1031,11 @@ function HealProgressMessage({
               </span>
             )}
           </div>
+        )}
+
+        {/* File diffs - collapsible per-file view */}
+        {healData.fileDiffs && healData.fileDiffs.length > 0 && (
+          <FileDiffViewer fileDiffs={healData.fileDiffs} />
         )}
 
         {/* Retry button for failed heals */}
@@ -1464,7 +1613,7 @@ export function BuilderChatPanel() {
           const message = result.progressMessages.join("\n");
           if (result.success) {
             addAssistantMessage(message, {
-              healData: { type: "heal_progress", strategy: result.strategy, fixCount: result.fixCount, rootCause: result.rootCause },
+              healData: { type: "heal_progress", strategy: result.strategy, fixCount: result.fixCount, rootCause: result.rootCause, fileDiffs: result.fileDiffs },
             });
             addAssistantMessage("Fixes pushed to GitHub. Vercel is rebuilding - I'll update you when it's done.", {
               healData: { type: "heal_progress" },

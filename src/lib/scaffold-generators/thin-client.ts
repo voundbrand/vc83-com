@@ -46,12 +46,19 @@ export function generateThinClientScaffold(config: PublishConfig): ScaffoldFile[
   files.push(generateTypesIndex(config));
   files.push(generateProvidersWrapper(config));
   files.push(generateTailwindConfig());
+  files.push(generatePostcssConfig());
+  files.push(generateNextConfig());
   files.push(generateTsConfig());
   files.push(generatePackageJson(config));
   files.push(generateEnvExample(config.envVars));
   files.push(generateReadme(config));
   files.push(generateMiddleware(config));
   files.push(generateGitignore());
+  files.push(generateGlobalsCss());
+  files.push(generateRootLayout(config));
+  files.push(generateRootPage());
+  files.push(generateShadcnUtils());
+  files.push(generateComponentsJson());
 
   // Category-specific helpers
   for (const categoryId of config.selectedCategories) {
@@ -1180,6 +1187,34 @@ function generatePackageJson(config: PublishConfig): ScaffoldFile {
     next: "14.2.5",
     react: "^18.2.0",
     "react-dom": "^18.2.0",
+    // v0 common dependencies (always included to prevent build failures)
+    "lucide-react": "^0.400.0",
+    geist: "^1.3.0",
+    "@vercel/analytics": "^1.3.1",
+    "@vercel/speed-insights": "^1.0.12",
+    // shadcn/ui essentials
+    clsx: "^2.1.0",
+    "tailwind-merge": "^2.2.0",
+    "class-variance-authority": "^0.7.0",
+    "tailwindcss-animate": "^1.0.7",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-accordion": "^1.1.2",
+    "@radix-ui/react-alert-dialog": "^1.0.5",
+    "@radix-ui/react-avatar": "^1.0.4",
+    "@radix-ui/react-checkbox": "^1.0.4",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-popover": "^1.0.7",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-scroll-area": "^1.0.5",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-switch": "^1.0.3",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-toast": "^1.1.5",
+    "@radix-ui/react-toggle": "^1.0.3",
+    "@radix-ui/react-tooltip": "^1.0.7",
   };
 
   const devDeps: Record<string, string> = {
@@ -1355,6 +1390,206 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 `,
+  };
+}
+
+// ============================================================================
+// NEXT.JS BUILD-CRITICAL FILES
+// ============================================================================
+
+function generatePostcssConfig(): ScaffoldFile {
+  return {
+    path: "postcss.config.mjs",
+    label: "PostCSS configuration (required for Tailwind)",
+    content: `/** @type {import('postcss-load-config').Config} */
+const config = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+
+export default config;
+`,
+  };
+}
+
+function generateNextConfig(): ScaffoldFile {
+  return {
+    path: "next.config.mjs",
+    label: "Next.js configuration",
+    content: `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.convex.cloud',
+      },
+    ],
+  },
+};
+
+export default nextConfig;
+`,
+  };
+}
+
+function generateGlobalsCss(): ScaffoldFile {
+  return {
+    path: "app/globals.css",
+    label: "Global styles with Tailwind directives",
+    content: `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+`,
+  };
+}
+
+function generateRootLayout(config: PublishConfig): ScaffoldFile {
+  return {
+    path: "app/layout.tsx",
+    label: "Root layout with providers and global styles",
+    content: `import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Providers } from '@/components/providers';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: '${config.appName}',
+  description: '${config.description || "Built with l4yercak3 and v0.dev"}',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
+}
+`,
+  };
+}
+
+function generateRootPage(): ScaffoldFile {
+  return {
+    path: "app/page.tsx",
+    label: "Root page (placeholder — v0 components override this)",
+    content: `export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold">Welcome</h1>
+      <p className="mt-4 text-lg text-muted-foreground">Your app is live.</p>
+    </main>
+  );
+}
+`,
+  };
+}
+
+function generateShadcnUtils(): ScaffoldFile {
+  return {
+    path: "lib/utils.ts",
+    label: "shadcn/ui utility (cn helper)",
+    content: `import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+`,
+  };
+}
+
+function generateComponentsJson(): ScaffoldFile {
+  return {
+    path: "components.json",
+    label: "shadcn/ui configuration",
+    content: JSON.stringify(
+      {
+        "$schema": "https://ui.shadcn.com/schema.json",
+        style: "default",
+        rsc: true,
+        tsx: true,
+        tailwind: {
+          config: "tailwind.config.ts",
+          css: "app/globals.css",
+          baseColor: "slate",
+          cssVariables: true,
+        },
+        aliases: {
+          components: "@/components",
+          utils: "@/lib/utils",
+        },
+      },
+      null,
+      2
+    ) + "\n",
   };
 }
 

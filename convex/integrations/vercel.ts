@@ -328,7 +328,7 @@ export const deployToVercel = action({
     let deploymentUrl: string | null = null;
     try {
       // Wait a moment for Vercel to start the auto-deployment
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
       const deploymentsResponse = await vercelFetch<{ deployments: VercelDeployment[] }>(
         `/v6/deployments?projectId=${project.id}&limit=1`,
@@ -341,6 +341,35 @@ export const deployToVercel = action({
         deploymentId = deployment.uid;
         deploymentUrl = `https://${deployment.url}`;
         console.log("[Vercel] Initial deployment found:", deploymentId, deployment.readyState);
+      } else {
+        // Auto-deploy didn't trigger — manually create deployment from git source
+        console.log("[Vercel] No auto-deployment detected, triggering manual deployment...");
+        try {
+          const manualDeployment = await vercelFetch<{ id: string; url: string; readyState: string }>(
+            "/v13/deployments",
+            accessToken,
+            teamId,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                name: args.projectName,
+                project: project.id,
+                gitSource: {
+                  type: "github",
+                  repo: repoSlug,
+                  ref: "main",
+                },
+                target: "production",
+              }),
+            }
+          );
+          deploymentId = manualDeployment.id;
+          deploymentUrl = `https://${manualDeployment.url}`;
+          console.log("[Vercel] Manual deployment created:", deploymentId, manualDeployment.readyState);
+        } catch (manualErr) {
+          console.warn("[Vercel] Manual deployment trigger failed:", manualErr);
+          // Non-fatal: polling will continue to check for deployments
+        }
       }
     } catch (err) {
       console.warn("[Vercel] Could not fetch initial deployment:", err);
@@ -383,6 +412,7 @@ export const checkVercelDeploymentStatus = action({
     organizationId: v.id("organizations"),
     appId: v.id("objects"),
     vercelProjectId: v.string(),
+    pollCount: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<{
     readyState: string;
@@ -434,7 +464,55 @@ export const checkVercelDeploymentStatus = action({
       );
 
       if (response.deployments.length === 0) {
-        console.log("[Vercel] No deployments found for project:", args.vercelProjectId);
+        const pollCount = args.pollCount || 0;
+        console.log("[Vercel] No deployments found for project:", args.vercelProjectId, "poll:", pollCount);
+
+        // After ~30 seconds (6 polls at 5s) with no deployments, try manual trigger
+        if (pollCount === 6) {
+          console.log("[Vercel] No auto-deployment after 30s, attempting manual trigger...");
+          try {
+            // Get project info to find the linked repo
+            const projectInfo = await vercelFetch<{ link?: { repo?: string } }>(
+              `/v9/projects/${args.vercelProjectId}`,
+              accessToken,
+              teamId
+            );
+            const linkedRepo = projectInfo.link?.repo;
+            if (linkedRepo) {
+              const manualDeploy = await vercelFetch<{ id: string; url: string }>(
+                "/v13/deployments",
+                accessToken,
+                teamId,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    name: args.vercelProjectId,
+                    project: args.vercelProjectId,
+                    gitSource: {
+                      type: "github",
+                      repo: linkedRepo,
+                      ref: "main",
+                    },
+                    target: "production",
+                  }),
+                }
+              );
+              console.log("[Vercel] Manual deployment triggered:", manualDeploy.id);
+              return {
+                readyState: "BUILDING",
+                url: `https://${manualDeploy.url}`,
+                deploymentId: manualDeploy.id,
+                createdAt: Date.now(),
+                buildingAt: Date.now(),
+                readyAt: null,
+                error: null,
+              };
+            }
+          } catch (manualErr) {
+            console.warn("[Vercel] Manual deployment trigger in poll failed:", manualErr);
+          }
+        }
+
         return {
           readyState: "QUEUED",
           url: null,

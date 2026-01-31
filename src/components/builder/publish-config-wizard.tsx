@@ -609,6 +609,15 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
   const createRepo = useAction(api.integrations.github.createRepoFromBuilderApp);
   const generateDeployUrl = useMutation(api.builderAppOntology.generateBuilderAppDeployUrl);
 
+  // Pre-flight: query file count to validate before publish
+  const builderFiles = useQuery(
+    api.fileSystemOntology.getFilesByApp,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+  const fileCount = builderFiles?.length ?? 0;
+
   const copyToClipboard = useCallback(async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -618,6 +627,12 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
   // Handle publish (final step action)
   const handlePublish = useCallback(async () => {
     if (!effectiveSessionId || !organizationId || !builderAppId) return;
+
+    // Pre-flight: ensure v0 files exist
+    if (fileCount === 0) {
+      setError("No files found for this app. Try sending another message to v0 first to regenerate files.");
+      return;
+    }
 
     setIsPublishing(true);
     setError(null);
@@ -656,7 +671,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
     } finally {
       setIsPublishing(false);
     }
-  }, [effectiveSessionId, organizationId, builderAppId, config, createRepo]);
+  }, [effectiveSessionId, organizationId, builderAppId, config, createRepo, fileCount]);
 
   const handleGenerateDeployUrl = useCallback(async () => {
     if (!effectiveSessionId || !builderAppId || !publishResult) return;

@@ -346,6 +346,7 @@ export const selfHealDeploy = action({
     strategy: "surgical" | "v0_regeneration";
     fixCount: number;
     rootCause: string;
+    fileDiffs?: Array<{ filePath: string; oldContent: string; newContent: string; explanation: string }>;
     error?: string;
   }> => {
     const { api, internal } = getApi();
@@ -420,6 +421,8 @@ export const selfHealDeploy = action({
 
         for (const fix of analysis.fixes) {
           const fileIdx = updatedFiles.findIndex((f) => f.path === fix.filePath);
+          // Capture old content before overwriting (for diff viewer)
+          fix.oldContent = fileIdx >= 0 ? updatedFiles[fileIdx].content : "";
           if (fileIdx >= 0) {
             updatedFiles[fileIdx] = {
               ...updatedFiles[fileIdx],
@@ -472,8 +475,8 @@ export const selfHealDeploy = action({
           buildLogExcerpt: args.buildLogs.substring(0, 500),
           fixes: analysis.fixes.map((f: CodeFix) => ({
             filePath: f.filePath,
-            oldContent: "",
-            newContent: "",
+            oldContent: f.oldContent,
+            newContent: f.newContent,
             explanation: f.explanation,
           })),
           success: true, // Will be confirmed by next deploy status check
@@ -493,6 +496,12 @@ export const selfHealDeploy = action({
           strategy: "surgical",
           fixCount: analysis.fixes.length,
           rootCause: analysis.rootCause,
+          fileDiffs: analysis.fixes.map((f: CodeFix) => ({
+            filePath: f.filePath,
+            oldContent: f.oldContent,
+            newContent: f.newContent,
+            explanation: f.explanation,
+          })),
         };
 
       } else {

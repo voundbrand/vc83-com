@@ -8,7 +8,7 @@
  * Intercepts link clicks for multi-page prototype navigation.
  */
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useBuilder } from "@/contexts/builder-context";
 import { PageRenderer } from "./page-renderer";
 import { SectionPropertiesPanel } from "./section-properties-panel";
@@ -20,7 +20,11 @@ import {
   Eye,
   ExternalLink,
   ArrowLeft,
+  FileCode,
 } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
+import { FileExplorerPanel } from "./file-explorer-panel";
 
 // Thinking phrases that cycle during generation (matches chat panel)
 const thinkingPhrases = [
@@ -176,9 +180,25 @@ export function BuilderPreviewPanel() {
     aiProvider,
     v0DemoUrl,
     v0WebUrl,
+    // VFS access
+    builderAppId,
+    sessionId,
   } = useBuilder();
 
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
+  const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
+
+  // Query builder files for code view
+  const builderFilesRaw = useQuery(
+    api.fileSystemOntology.getFilesByApp,
+    sessionId && builderAppId
+      ? { sessionId, appId: builderAppId }
+      : "skip"
+  );
+  const generatedFiles = useMemo(() => {
+    if (!builderFilesRaw) return [];
+    return builderFilesRaw.map((f) => ({ path: f.path, content: f.content, language: f.language }));
+  }, [builderFilesRaw]);
 
   // Navigation history for back button
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
@@ -294,6 +314,36 @@ export function BuilderPreviewPanel() {
 
         {/* Right side controls */}
         <div className="flex items-center gap-2">
+          {/* Preview/Code toggle - only for v0 apps with files */}
+          {aiProvider === "v0" && v0DemoUrl && generatedFiles.length > 0 && (
+            <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("preview")}
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
+                  viewMode === "preview"
+                    ? "bg-zinc-700 text-purple-400 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+                title="Preview"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Preview
+              </button>
+              <button
+                onClick={() => setViewMode("code")}
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
+                  viewMode === "code"
+                    ? "bg-zinc-700 text-purple-400 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+                title="View source code"
+              >
+                <FileCode className="w-3.5 h-3.5" />
+                Code
+              </button>
+            </div>
+          )}
+
           {/* Edit/Preview toggle */}
           {pageSchema && (
             <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
@@ -462,7 +512,7 @@ export function BuilderPreviewPanel() {
         )}
 
         {/* V0 iframe preview - show when using v0 provider with demo URL */}
-        {aiProvider === "v0" && v0DemoUrl && (
+        {aiProvider === "v0" && v0DemoUrl && viewMode === "preview" && (
           <div className="p-4 h-full">
             {/* V0 info bar */}
             <div className="mb-2 flex items-center justify-between">
@@ -490,6 +540,13 @@ export function BuilderPreviewPanel() {
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
               />
             </div>
+          </div>
+        )}
+
+        {/* Code view - file explorer when toggled */}
+        {aiProvider === "v0" && v0DemoUrl && viewMode === "code" && (
+          <div className="h-full">
+            <FileExplorerPanel generatedFiles={generatedFiles} />
           </div>
         )}
 

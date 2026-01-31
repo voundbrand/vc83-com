@@ -261,6 +261,7 @@ export const runChatHealAttempt = action({
     fixCount: number;
     rootCause: string;
     filesChanged: string[];
+    fileDiffs?: Array<{ filePath: string; oldContent: string; newContent: string; explanation: string }>;
     progressMessages: string[];
     error?: string;
   }> => {
@@ -398,7 +399,8 @@ export const runChatHealAttempt = action({
         strategy: result.strategy,
         fixCount: result.fixCount,
         rootCause: result.rootCause,
-        filesChanged: [],
+        filesChanged: result.fileDiffs?.map((d: { filePath: string }) => d.filePath) || [],
+        fileDiffs: result.fileDiffs,
         progressMessages,
         error: result.error,
       };

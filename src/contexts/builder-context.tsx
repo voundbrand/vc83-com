@@ -281,6 +281,12 @@ export interface BuilderMessage {
     fixCount?: number;
     rootCause?: string;
     buildLogs?: string;
+    fileDiffs?: Array<{
+      filePath: string;
+      oldContent: string;
+      newContent: string;
+      explanation: string;
+    }>;
   };
 }
 
@@ -573,6 +579,8 @@ export function BuilderProvider({
   // @ts-ignore - Convex type instantiation is excessively deep
   const sendChatMessage = useAction(api.ai.chat.sendMessage);
   const sendV0Message = useAction(api.integrations.v0.builderChat);
+  const createBuilderAppMutation = useMutation(api.builderAppOntology.createBuilderApp);
+  const updateBuilderAppMutation = useMutation(api.builderAppOntology.updateBuilderApp);
   const saveGeneratedPage = useMutation(api.pageBuilder.saveGeneratedPage);
   const sendPlatformAlert = useAction(api.ai.platformAlerts.sendPlatformAlert);
 
@@ -727,6 +735,53 @@ export function BuilderProvider({
           onConversationCreated?.(newConversationId, v0Result.slug);
         }
 
+        // Persist v0 files to builderFiles table via builder app
+        if (v0Result.files && v0Result.files.length > 0 && sessionId) {
+          console.log("[Builder:v0] v0 returned", v0Result.files.length, "files:", v0Result.files.map((f: { name?: string }) => f.name));
+          const v0Files = v0Result.files.map((f: { name?: string; path?: string; content: string; language?: string }) => {
+            const filePath = f.path || f.name || "unknown";
+            const ext = filePath.split(".").pop()?.toLowerCase() || "";
+            const langMap: Record<string, string> = { ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", css: "css", json: "json", md: "markdown", html: "html" };
+            return {
+              path: filePath,
+              content: f.content,
+              language: f.language || langMap[ext] || "typescript",
+            };
+          });
+
+          try {
+            if (!builderAppId) {
+              // First response — create builder app with files
+              const result = await createBuilderAppMutation({
+                sessionId,
+                organizationId,
+                name: v0Result.message.substring(0, 60) || "v0 App",
+                subtype: "v0_generated",
+                v0ChatId: v0Result.v0ChatId,
+                v0WebUrl: v0Result.webUrl,
+                v0DemoUrl: v0Result.demoUrl || undefined,
+                files: v0Files,
+                conversationId: v0Result.conversationId
+                  ? (v0Result.conversationId as Id<"aiConversations">)
+                  : undefined,
+              });
+              setBuilderAppId(result.appId);
+              console.log("[Builder:v0] Created builder app:", result.appId, "with", v0Files.length, "files");
+            } else {
+              // Follow-up response — update existing app files
+              await updateBuilderAppMutation({
+                sessionId,
+                appId: builderAppId,
+                files: v0Files,
+                v0DemoUrl: v0Result.demoUrl || undefined,
+              });
+              console.log("[Builder:v0] Updated builder app files:", v0Files.length, "files");
+            }
+          } catch (err) {
+            console.error("[Builder:v0] Failed to persist files:", err);
+          }
+        }
+
         // Create assistant message (v0 responses are text, not JSON schemas)
         const assistantMessage: BuilderMessage = {
           id: generateMessageId(),
@@ -742,6 +797,7 @@ export function BuilderProvider({
           hasDemoUrl: !!v0Result.demoUrl,
           filesCount: v0Result.files?.length || 0,
           conversationId: v0Result.conversationId,
+          builderAppId,
         });
 
         return;
@@ -938,6 +994,32 @@ export function BuilderProvider({
           onConversationCreated?.(newConversationId, v0Result.slug);
         }
 
+        // Persist v0 files to builderFiles table
+        if (v0Result.files && v0Result.files.length > 0 && sessionId && builderAppId) {
+          console.log("[Builder:v0] Follow-up: v0 returned", v0Result.files.length, "files:", v0Result.files.map((f: { name?: string }) => f.name));
+          const v0Files = v0Result.files.map((f: { name?: string; path?: string; content: string; language?: string }) => {
+            const filePath = f.path || f.name || "unknown";
+            const ext = filePath.split(".").pop()?.toLowerCase() || "";
+            const langMap: Record<string, string> = { ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", css: "css", json: "json", md: "markdown", html: "html" };
+            return {
+              path: filePath,
+              content: f.content,
+              language: f.language || langMap[ext] || "typescript",
+            };
+          });
+          try {
+            await updateBuilderAppMutation({
+              sessionId,
+              appId: builderAppId,
+              files: v0Files,
+              v0DemoUrl: v0Result.demoUrl || undefined,
+            });
+            console.log("[Builder:v0] Updated builder app files:", v0Files.length, "files");
+          } catch (err) {
+            console.error("[Builder:v0] Failed to update files:", err);
+          }
+        }
+
         // Create assistant message (v0 responses are text, not JSON schemas)
         const assistantMessage: BuilderMessage = {
           id: generateMessageId(),
@@ -953,6 +1035,7 @@ export function BuilderProvider({
           hasDemoUrl: !!v0Result.demoUrl,
           filesCount: v0Result.files?.length || 0,
           conversationId: v0Result.conversationId,
+          builderAppId,
         });
 
         return;
@@ -1100,7 +1183,7 @@ export function BuilderProvider({
     async (message: string) => {
       await sendMessageInternal(message);
     },
-    [organizationId, user, conversationId, pageSchema, sendChatMessage, sendV0Message, selectedModel, isPlanningMode, aiProvider, v0ChatId]
+    [organizationId, user, conversationId, pageSchema, sendChatMessage, sendV0Message, selectedModel, isPlanningMode, aiProvider, v0ChatId, builderAppId, sessionId, createBuilderAppMutation, updateBuilderAppMutation]
   );
 
   // Save the current page as a project

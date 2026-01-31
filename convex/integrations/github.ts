@@ -148,6 +148,34 @@ function generatePackageJson(appName: string, sdkVersion: string): string {
       next: "14.2.5",
       react: "^18.2.0",
       "react-dom": "^18.2.0",
+      // v0 common dependencies
+      "lucide-react": "^0.400.0",
+      geist: "^1.3.0",
+      "@vercel/analytics": "^1.3.1",
+      "@vercel/speed-insights": "^1.0.12",
+      // shadcn/ui essentials
+      clsx: "^2.1.0",
+      "tailwind-merge": "^2.2.0",
+      "class-variance-authority": "^0.7.0",
+      "tailwindcss-animate": "^1.0.7",
+      "@radix-ui/react-slot": "^1.0.2",
+      "@radix-ui/react-accordion": "^1.1.2",
+      "@radix-ui/react-alert-dialog": "^1.0.5",
+      "@radix-ui/react-avatar": "^1.0.4",
+      "@radix-ui/react-checkbox": "^1.0.4",
+      "@radix-ui/react-dialog": "^1.0.5",
+      "@radix-ui/react-dropdown-menu": "^2.0.6",
+      "@radix-ui/react-label": "^2.0.2",
+      "@radix-ui/react-popover": "^1.0.7",
+      "@radix-ui/react-progress": "^1.0.3",
+      "@radix-ui/react-scroll-area": "^1.0.5",
+      "@radix-ui/react-select": "^2.0.0",
+      "@radix-ui/react-separator": "^1.0.3",
+      "@radix-ui/react-switch": "^1.0.3",
+      "@radix-ui/react-tabs": "^1.0.4",
+      "@radix-ui/react-toast": "^1.1.5",
+      "@radix-ui/react-toggle": "^1.0.3",
+      "@radix-ui/react-tooltip": "^1.0.7",
     },
     devDependencies: {
       "@types/node": "^20",
@@ -156,6 +184,9 @@ function generatePackageJson(appName: string, sdkVersion: string): string {
       eslint: "^8",
       "eslint-config-next": "14.2.5",
       typescript: "^5",
+      tailwindcss: "^3.4.1",
+      postcss: "^8",
+      autoprefixer: "^10",
     },
   };
 
@@ -232,6 +263,751 @@ See the [SDK documentation](https://docs.l4yercak3.com/sdk) for more details.
 Deploy to Vercel for the best Next.js experience:
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+`;
+}
+
+/**
+ * Post-process v0-generated files to fix known compatibility issues.
+ *
+ * v0 generates code that references packages and components not in the repo.
+ * Instead of guessing, we SCAN the actual files and dynamically resolve:
+ *
+ * 1. Geist fonts: v0 uses `next/font/google` for Geist → patch to `geist` package
+ * 2. Missing shadcn stubs: scan for `@/components/ui/*` → generate component stubs
+ * 3. Missing npm packages: scan all imports → merge into package.json
+ */
+function patchV0CompatibilityIssues(files: GitHubFile[]): GitHubFile[] {
+  console.log(`[GitHub] patchV0CompatibilityIssues called with ${files.length} files`);
+
+  // Phase 1a: Patch Geist font imports in layout files
+  const patched = files.map((f) => {
+    if (f.path === "app/layout.tsx" || f.path === "src/app/layout.tsx") {
+      return { ...f, content: patchGeistFontImports(f.content) };
+    }
+    return f;
+  });
+
+  // Phase 1b: Patch globals.css — v0 generates Tailwind v4 syntax but we use v3
+  let needsShadcnTailwindConfig = false;
+  for (let i = 0; i < patched.length; i++) {
+    const f = patched[i];
+    if (f.path === "app/globals.css" || f.path === "src/app/globals.css") {
+      if (f.content.includes("@import 'tailwindcss'") || f.content.includes("@import \"tailwindcss\"")) {
+        console.log("[GitHub] Patching globals.css: Tailwind v4 -> v3 syntax");
+        patched[i] = { ...f, content: convertGlobalsCssToV3(f.content) };
+        needsShadcnTailwindConfig = true;
+      }
+    }
+  }
+
+  // Phase 1c: If we patched globals.css, also ensure tailwind.config has shadcn theme
+  if (needsShadcnTailwindConfig) {
+    for (let i = 0; i < patched.length; i++) {
+      if (patched[i].path === "tailwind.config.ts" || patched[i].path === "tailwind.config.js") {
+        console.log("[GitHub] Patching tailwind.config with shadcn/ui theme");
+        patched[i] = { ...patched[i], path: "tailwind.config.ts", content: generateShadcnTailwindConfig() };
+        break;
+      }
+    }
+  }
+
+  try {
+    // Phase 2: Scan all files for imports
+    const existingPaths = new Set(patched.map((f) => f.path));
+    const neededStubsList: string[] = [];
+    const detectedNpmPkgList: string[] = [];
+
+    for (let i = 0; i < patched.length; i++) {
+      const f = patched[i];
+      if (!f.path.endsWith(".tsx") && !f.path.endsWith(".ts") && !f.path.endsWith(".jsx") && !f.path.endsWith(".js")) continue;
+
+      // 2a. Detect @/components/ui/* imports → need stubs
+      const uiRegex = /from\s+["']@\/components\/ui\/([\w-]+)["']/g;
+      let uiMatch: RegExpExecArray | null;
+      while ((uiMatch = uiRegex.exec(f.content)) !== null) {
+        const componentName = uiMatch[1];
+        const stubPath = `components/ui/${componentName}.tsx`;
+        if (!existingPaths.has(stubPath) && !neededStubsList.includes(componentName)) {
+          neededStubsList.push(componentName);
+        }
+      }
+
+      // 2b. Detect npm package imports using line-by-line parsing
+      // (regex exec with /g was unreliable in Convex runtime)
+      const lines = f.content.split("\n");
+      for (let li = 0; li < lines.length; li++) {
+        const line = lines[li];
+        // Only process import/from lines
+        if (line.indexOf("import") === -1 && line.indexOf("from") === -1) continue;
+        // Extract quoted strings after "from" or "import"
+        const fromIdx = line.lastIndexOf("from");
+        const quoteSearchStart = fromIdx >= 0 ? fromIdx : 0;
+        const remainder = line.substring(quoteSearchStart);
+        // Find quoted package name
+        const sqMatch = remainder.match(/["']([@a-zA-Z][^"']*)['"]/);
+        if (!sqMatch) continue;
+        const pkg = sqMatch[1];
+        // Skip relative, alias, Next.js, React
+        if (pkg.startsWith(".") || pkg.startsWith("@/") || pkg.startsWith("~/")) continue;
+        if (pkg === "react" || pkg === "react-dom" || pkg.startsWith("next/") || pkg === "next") continue;
+        const basePkg = pkg.startsWith("@")
+          ? pkg.split("/").slice(0, 2).join("/")
+          : pkg.split("/")[0];
+        if (!detectedNpmPkgList.includes(basePkg)) {
+          detectedNpmPkgList.push(basePkg);
+          console.log(`[GitHub] npm import: "${pkg}" -> "${basePkg}" in ${f.path}:${li + 1}`);
+        }
+      }
+    }
+
+    console.log(`[GitHub] Scan complete: ${neededStubsList.length} stubs needed, ${detectedNpmPkgList.length} npm packages: [${detectedNpmPkgList.join(", ")}]`);
+
+    // Phase 3: Generate stubs for missing shadcn components
+    for (let i = 0; i < neededStubsList.length; i++) {
+      const name = neededStubsList[i];
+      const stub = generateShadcnStub(name);
+      if (stub) {
+        patched.push({
+          path: `components/ui/${name}.tsx`,
+          content: stub,
+          language: "typescript",
+        });
+        existingPaths.add(`components/ui/${name}.tsx`);
+        console.log(`[GitHub] Generated stub: components/ui/${name}.tsx`);
+      }
+    }
+
+    // Phase 4: Merge detected npm packages into package.json
+    if (detectedNpmPkgList.length > 0) {
+      const pkgFileIdx = patched.findIndex((f) => f.path === "package.json");
+      console.log(`[GitHub] package.json index: ${pkgFileIdx}`);
+      if (pkgFileIdx >= 0) {
+        const pkgJson = JSON.parse(patched[pkgFileIdx].content);
+        const existingDeps: Record<string, string> = { ...pkgJson.dependencies };
+        let addedCount = 0;
+
+        for (let i = 0; i < detectedNpmPkgList.length; i++) {
+          const pkg = detectedNpmPkgList[i];
+          if (existingDeps[pkg]) {
+            console.log(`[GitHub] Skipping ${pkg} - already in deps`);
+            continue;
+          }
+          const version = getKnownPackageVersion(pkg);
+          if (version) {
+            existingDeps[pkg] = version;
+            addedCount++;
+            console.log(`[GitHub] Adding ${pkg}@${version} to package.json`);
+          } else {
+            console.log(`[GitHub] Unknown package ${pkg} - not in registry`);
+          }
+        }
+
+        if (addedCount > 0) {
+          pkgJson.dependencies = existingDeps;
+          patched[pkgFileIdx] = {
+            ...patched[pkgFileIdx],
+            content: JSON.stringify(pkgJson, null, 2),
+          };
+          console.log(`[GitHub] Auto-added ${addedCount} npm packages to package.json`);
+        }
+      } else {
+        console.log(`[GitHub] WARNING: No package.json found in files!`);
+      }
+    }
+
+    console.log(`[GitHub] v0 compat done: ${neededStubsList.length} stubs, ${detectedNpmPkgList.length} npm pkgs`);
+  } catch (err) {
+    console.error(`[GitHub] ERROR in patchV0CompatibilityIssues phases 2-4:`, String(err));
+  }
+
+  return patched;
+}
+
+/**
+ * Known npm package versions for v0-generated apps.
+ * When we detect an import, we look up the version here.
+ * Returns null for unknown packages (they won't be added — self-heal can fix later).
+ */
+function getKnownPackageVersion(pkg: string): string | null {
+  const KNOWN_VERSIONS: Record<string, string> = {
+    // Fonts
+    geist: "^1.3.0",
+    // Icons
+    "lucide-react": "^0.400.0",
+    // shadcn/ui essentials
+    clsx: "^2.1.0",
+    "tailwind-merge": "^2.2.0",
+    "class-variance-authority": "^0.7.0",
+    // Vercel packages
+    "@vercel/analytics": "^1.3.1",
+    "@vercel/speed-insights": "^1.0.12",
+    // Radix UI primitives (shadcn components use these)
+    "@radix-ui/react-accordion": "^1.1.2",
+    "@radix-ui/react-alert-dialog": "^1.0.5",
+    "@radix-ui/react-aspect-ratio": "^1.0.3",
+    "@radix-ui/react-avatar": "^1.0.4",
+    "@radix-ui/react-checkbox": "^1.0.4",
+    "@radix-ui/react-collapsible": "^1.0.3",
+    "@radix-ui/react-context-menu": "^2.1.5",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-hover-card": "^1.0.7",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-menubar": "^1.0.4",
+    "@radix-ui/react-navigation-menu": "^1.1.4",
+    "@radix-ui/react-popover": "^1.0.7",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-radio-group": "^1.1.3",
+    "@radix-ui/react-scroll-area": "^1.0.5",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-slider": "^1.1.2",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-switch": "^1.0.3",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-toast": "^1.1.5",
+    "@radix-ui/react-toggle": "^1.0.3",
+    "@radix-ui/react-toggle-group": "^1.0.4",
+    "@radix-ui/react-tooltip": "^1.0.7",
+    // Date utilities
+    "date-fns": "^3.6.0",
+    // Form handling
+    "react-hook-form": "^7.52.0",
+    "@hookform/resolvers": "^3.6.0",
+    zod: "^3.23.0",
+    // Animation
+    "framer-motion": "^11.2.0",
+    // Data display
+    recharts: "^2.12.0",
+    // Misc common
+    "react-day-picker": "^8.10.0",
+    "cmdk": "^1.0.0",
+    "sonner": "^1.5.0",
+    "vaul": "^0.9.0",
+    "embla-carousel-react": "^8.1.0",
+    "input-otp": "^1.2.4",
+    "react-resizable-panels": "^2.0.0",
+    "next-themes": "^0.3.0",
+    // Tailwind plugins
+    "tailwindcss-animate": "^1.0.7",
+    "@tailwindcss/typography": "^0.5.13",
+  };
+
+  return KNOWN_VERSIONS[pkg] || null;
+}
+
+/**
+ * Fix Geist font imports in layout.tsx files.
+ * Generate a Tailwind v3 config with shadcn/ui theme extensions.
+ * Maps CSS variables (--background, --foreground, etc.) to Tailwind classes.
+ */
+function generateShadcnTailwindConfig(): string {
+  return `import type { Config } from "tailwindcss";
+
+const config: Config = {
+  darkMode: ["class"],
+  content: [
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        card: {
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        popover: {
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
+        },
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+        },
+        secondary: {
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
+        },
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
+        },
+        destructive: {
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
+        },
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        chart: {
+          "1": "var(--chart-1)",
+          "2": "var(--chart-2)",
+          "3": "var(--chart-3)",
+          "4": "var(--chart-4)",
+          "5": "var(--chart-5)",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+};
+
+export default config;
+`;
+}
+
+/**
+ * Convert v0-generated Tailwind v4 globals.css to v3-compatible format.
+ *
+ * v0 generates: @import 'tailwindcss' with oklch() colors and @custom-variant
+ * Fix to:       @tailwind base/components/utilities with hsl() CSS variables
+ *
+ * Extracts CSS variable definitions and converts oklch() values to simple numeric
+ * HSL-ish values that work with Tailwind v3's theme system.
+ */
+function convertGlobalsCssToV3(v4Content: string): string {
+  // Extract CSS variables from :root and .dark blocks
+  const rootVars: Record<string, string> = {};
+  const darkVars: Record<string, string> = {};
+
+  // Parse :root block
+  const rootMatch = v4Content.match(/:root\s*\{([^}]+)\}/);
+  if (rootMatch) {
+    const varLines = rootMatch[1].split("\n");
+    for (const line of varLines) {
+      const m = line.match(/--([a-z-]+)\s*:\s*(.+?)\s*;/);
+      if (m) rootVars[m[1]] = m[2].trim();
+    }
+  }
+
+  // Parse .dark block
+  const darkMatch = v4Content.match(/\.dark\s*\{([^}]+)\}/);
+  if (darkMatch) {
+    const varLines = darkMatch[1].split("\n");
+    for (const line of varLines) {
+      const m = line.match(/--([a-z-]+)\s*:\s*(.+?)\s*;/);
+      if (m) darkVars[m[1]] = m[2].trim();
+    }
+  }
+
+  // Convert oklch/other values to simple passthrough values
+  // Tailwind v3 uses these as raw values in hsl(), so we keep them as-is
+  // but strip oklch() wrapper since the theme references them directly
+  function simplifyValue(val: string): string {
+    // oklch(0.985 0.002 264) → just keep as-is, will be used as CSS var
+    return val;
+  }
+
+  // Build :root vars string
+  const rootVarLines = Object.entries(rootVars)
+    .map(([k, v]) => `    --${k}: ${simplifyValue(v)};`)
+    .join("\n");
+  const darkVarLines = Object.entries(darkVars)
+    .map(([k, v]) => `    --${k}: ${simplifyValue(v)};`)
+    .join("\n");
+
+  // Extract --radius if present
+  const radiusVal = rootVars["radius"] || "0.5rem";
+
+  // Ensure --radius is present
+  if (!rootVars["radius"]) {
+    rootVars["radius"] = "0.5rem";
+  }
+
+  // Rebuild var lines with all extracted variables
+  const finalRootLines = Object.entries(rootVars)
+    .map(([k, v]) => `  --${k}: ${v};`)
+    .join("\n");
+  const finalDarkLines = Object.entries(darkVars)
+    .map(([k, v]) => `  --${k}: ${v};`)
+    .join("\n");
+
+  return `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+${finalRootLines}
+}
+
+${finalDarkLines ? `.dark {\n${finalDarkLines}\n}` : ""}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+`;
+}
+
+/**
+ * v0 generates: import { Geist, Geist_Mono } from "next/font/google"
+ * Fix to:       import { GeistSans } from "geist/font/sans"
+ *               import { GeistMono } from "geist/font/mono"
+ */
+function patchGeistFontImports(content: string): string {
+  // Check if file uses Geist from next/font/google (the broken pattern)
+  if (!content.includes("Geist") || !content.includes("next/font/google")) {
+    return content;
+  }
+
+  let patched = content;
+
+  // Replace the import statement
+  // Handles: import { Geist, Geist_Mono } from "next/font/google"
+  // Also:    import { Geist } from "next/font/google"
+  patched = patched.replace(
+    /import\s*\{[^}]*Geist[^}]*\}\s*from\s*["']next\/font\/google["'];?\s*/g,
+    `import { GeistSans } from "geist/font/sans";\nimport { GeistMono } from "geist/font/mono";\n`
+  );
+
+  // Replace font instantiation calls
+  // Handles: const geistSans = Geist({ ... })  →  (remove, use GeistSans directly)
+  // Handles: const geistMono = Geist_Mono({ ... })  →  (remove, use GeistMono directly)
+  patched = patched.replace(
+    /const\s+(\w+)\s*=\s*Geist\(\{[^}]*\}\);?\s*/g,
+    "// Geist font loaded via geist/font/sans package\n"
+  );
+  patched = patched.replace(
+    /const\s+(\w+)\s*=\s*Geist_Mono\(\{[^}]*\}\);?\s*/g,
+    "// Geist Mono font loaded via geist/font/mono package\n"
+  );
+
+  // Replace className references
+  // v0 typically does: className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+  // Fix to:           className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+  patched = patched.replace(/\bgeistSans\.variable\b/g, "GeistSans.variable");
+  patched = patched.replace(/\bgeistMono\.variable\b/g, "GeistMono.variable");
+  patched = patched.replace(/\bgeistSans\.className\b/g, "GeistSans.className");
+  patched = patched.replace(/\bgeistMono\.className\b/g, "GeistMono.className");
+
+  return patched;
+}
+
+/**
+ * Generate a minimal shadcn/ui component stub.
+ * These are lightweight wrappers that prevent "Module not found" build errors.
+ * v0 imports these but they don't exist in the repo by default.
+ */
+function generateShadcnStub(componentName: string): string | null {
+  const stubs: Record<string, string> = {
+    button: `import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: { variant: "default", size: "default" },
+  }
+);
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+  }
+);
+Button.displayName = "Button";
+
+export { Button, buttonVariants };
+`,
+    card: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+const Card = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+  )
+);
+Card.displayName = "Card";
+
+const CardHeader = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
+  )
+);
+CardHeader.displayName = "CardHeader";
+
+const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, ...props }, ref) => (
+    <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+  )
+);
+CardTitle.displayName = "CardTitle";
+
+const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  )
+);
+CardDescription.displayName = "CardDescription";
+
+const CardContent = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  )
+);
+CardContent.displayName = "CardContent";
+
+const CardFooter = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />
+  )
+);
+CardFooter.displayName = "CardFooter";
+
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };
+`,
+    input: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => (
+    <input
+      type={type}
+      className={cn(
+        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      ref={ref}
+      {...props}
+    />
+  )
+);
+Input.displayName = "Input";
+
+export { Input };
+`,
+    label: `import * as React from "react";
+import * as LabelPrimitive from "@radix-ui/react-label";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+);
+
+const Label = React.forwardRef<
+  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> & VariantProps<typeof labelVariants>
+>(({ className, ...props }, ref) => (
+  <LabelPrimitive.Root ref={ref} className={cn(labelVariants(), className)} {...props} />
+));
+Label.displayName = LabelPrimitive.Root.displayName;
+
+export { Label };
+`,
+    badge: `import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const badgeVariants = cva(
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        outline: "text-foreground",
+      },
+    },
+    defaultVariants: { variant: "default" },
+  }
+);
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+
+function Badge({ className, variant, ...props }: BadgeProps) {
+  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+}
+
+export { Badge, badgeVariants };
+`,
+    separator: `import * as React from "react";
+import * as SeparatorPrimitive from "@radix-ui/react-separator";
+import { cn } from "@/lib/utils";
+
+const Separator = React.forwardRef<
+  React.ElementRef<typeof SeparatorPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>
+>(({ className, orientation = "horizontal", decorative = true, ...props }, ref) => (
+  <SeparatorPrimitive.Root
+    ref={ref}
+    decorative={decorative}
+    orientation={orientation}
+    className={cn(
+      "shrink-0 bg-border",
+      orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]",
+      className
+    )}
+    {...props}
+  />
+));
+Separator.displayName = SeparatorPrimitive.Root.displayName;
+
+export { Separator };
+`,
+    textarea: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, ...props }, ref) => (
+    <textarea
+      className={cn(
+        "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      ref={ref}
+      {...props}
+    />
+  )
+);
+Textarea.displayName = "Textarea";
+
+export { Textarea };
+`,
+    avatar: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+const Avatar = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement>>(
+  ({ className, ...props }, ref) => (
+    <span ref={ref} className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)} {...props} />
+  )
+);
+Avatar.displayName = "Avatar";
+
+const AvatarImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement>>(
+  ({ className, ...props }, ref) => (
+    <img ref={ref} className={cn("aspect-square h-full w-full", className)} {...props} />
+  )
+);
+AvatarImage.displayName = "AvatarImage";
+
+const AvatarFallback = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement>>(
+  ({ className, ...props }, ref) => (
+    <span ref={ref} className={cn("flex h-full w-full items-center justify-center rounded-full bg-muted", className)} {...props} />
+  )
+);
+AvatarFallback.displayName = "AvatarFallback";
+
+export { Avatar, AvatarImage, AvatarFallback };
+`,
+    scroll_area: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+const ScrollArea = React.forwardRef<HTMLDivElement, any>(
+  ({ className, children, ...props }, ref) => (
+    <div ref={ref} className={cn("relative overflow-auto", className)} {...props}>
+      {children}
+    </div>
+  )
+);
+ScrollArea.displayName = "ScrollArea";
+
+const ScrollBar = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("", className)} {...props} />
+  )
+);
+ScrollBar.displayName = "ScrollBar";
+
+export { ScrollArea, ScrollBar };
+`,
+  };
+
+  // Handle kebab-case → snake_case lookup (e.g., "scroll-area" → "scroll_area")
+  const normalizedName = componentName.replace(/-/g, "_");
+  const knownStub = stubs[normalizedName] || stubs[componentName];
+  if (knownStub) return knownStub;
+
+  // Generic fallback: scan the importing files to find what names they import,
+  // then generate a passthrough div wrapper for each. This prevents build failures
+  // for shadcn components we don't have pre-built stubs for.
+  return generateGenericShadcnStub(componentName);
+}
+
+/**
+ * Generate a generic passthrough stub for an unknown shadcn component.
+ * Converts kebab-case filename to PascalCase export names.
+ * E.g., "dropdown-menu" → DropdownMenu, DropdownMenuContent, etc.
+ *
+ * Since we don't know the exact exports, we generate a flexible
+ * forwarded-ref div wrapper and export it under common naming patterns.
+ */
+function generateGenericShadcnStub(componentName: string): string {
+  // Convert "dropdown-menu" → "DropdownMenu"
+  const pascal = componentName
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join("");
+
+  // Common shadcn sub-component suffixes
+  const suffixes = [
+    "", "Trigger", "Content", "Header", "Footer",
+    "Title", "Description", "Close", "Item", "Group",
+    "Value", "Viewport", "Root",
+  ];
+
+  const exports = suffixes.map((suffix) => {
+    const name = `${pascal}${suffix}`;
+    return `const ${name} = React.forwardRef<HTMLDivElement, any>(
+  ({ className, ...props }, ref) => <div ref={ref} className={cn("", className)} {...props} />
+);
+${name}.displayName = "${name}";`;
+  });
+
+  const exportNames = suffixes.map((s) => `${pascal}${s}`).join(", ");
+
+  return `"use client";
+import * as React from "react";
+import { cn } from "@/lib/utils";
+
+${exports.join("\n\n")}
+
+export { ${exportNames} };
 `;
 }
 
@@ -320,27 +1096,57 @@ function generateGlobalsCss(): string {
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 `;
 }
@@ -697,10 +1503,12 @@ export const createRepoFromBuilderApp = action({
             name: args.repoName,
             description: args.description || `${app.name} - Built with l4yercak3`,
             private: args.isPrivate,
-            auto_init: false, // We'll add files manually
+            auto_init: true, // Creates initial commit so Git Trees API works
           }),
         });
         console.log("[GitHub] Repository created:", repoResponse.html_url);
+        // Wait for GitHub to finish initializing the repo (initial commit)
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (createErr) {
         const errMsg = createErr instanceof Error ? createErr.message : String(createErr);
         // Handle 422 "name already exists" - fetch the existing repo instead
@@ -735,7 +1543,14 @@ export const createRepoFromBuilderApp = action({
         language: f.language,
       }));
 
-      console.log("[GitHub] v0 generatedFiles:", generatedFiles.map((f: GitHubFile) => f.path));
+      console.log("[GitHub] builderFiles for appId", args.appId, ":", generatedFiles.length, "files:", generatedFiles.map((f: GitHubFile) => f.path));
+
+      if (generatedFiles.length === 0) {
+        throw new Error(
+          `No files found in builderFiles table for appId ${args.appId}. ` +
+          `Ensure the v0 response was persisted via createBuilderApp/updateBuilderApp before publishing.`
+        );
+      }
 
       // Build the file list: v0 files + scaffold files
       // If scaffold files are provided by the wizard, use them instead of legacy defaults.
@@ -884,8 +1699,92 @@ next-env.d.ts
 `,
             language: "gitignore",
           },
+          // PostCSS config (required for Tailwind CSS)
+          {
+            path: "postcss.config.mjs",
+            content: `/** @type {import('postcss-load-config').Config} */
+const config = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+
+export default config;
+`,
+            language: "javascript",
+          },
+          // Tailwind config (if not already in v0 files)
+          ...(generatedFiles.some((f) => f.path === "tailwind.config.ts" || f.path === "tailwind.config.js")
+            ? []
+            : [
+                {
+                  path: "tailwind.config.ts",
+                  content: `import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+
+export default config;
+`,
+                  language: "typescript",
+                },
+              ]),
+          // shadcn lib/utils.ts (v0 apps import cn() from @/lib/utils)
+          ...(generatedFiles.some((f) => f.path === "lib/utils.ts")
+            ? []
+            : [
+                {
+                  path: "lib/utils.ts",
+                  content: `import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+`,
+                  language: "typescript",
+                },
+              ]),
+          // components.json (shadcn/ui configuration)
+          {
+            path: "components.json",
+            content: JSON.stringify(
+              {
+                "$schema": "https://ui.shadcn.com/schema.json",
+                style: "default",
+                rsc: true,
+                tsx: true,
+                tailwind: {
+                  config: "tailwind.config.ts",
+                  css: "app/globals.css",
+                  baseColor: "slate",
+                  cssVariables: true,
+                },
+                aliases: {
+                  components: "@/components",
+                  utils: "@/lib/utils",
+                },
+              },
+              null,
+              2
+            ),
+            language: "json",
+          },
         ];
       }
+
+      // 2b. Post-process: fix known v0 compatibility issues in generated files
+      allFiles = patchV0CompatibilityIssues(allFiles);
 
       console.log("[GitHub] All files to commit:", allFiles.map((f) => f.path));
 
@@ -927,6 +1826,9 @@ next-env.d.ts
         sha: string;
       }> = [];
 
+      console.log("[GitHub] Creating blobs for", allFiles.length, "files...");
+      const blobErrors: string[] = [];
+
       for (const file of allFiles) {
         try {
           const blob = await githubFetch<{ sha: string }>(
@@ -947,12 +1849,17 @@ next-env.d.ts
             sha: blob.sha,
           });
         } catch (error) {
-          console.error("[GitHub] Failed to create blob for:", file.path, error);
+          const errMsg = error instanceof Error ? error.message : String(error);
+          console.error("[GitHub] Failed to create blob for:", file.path, errMsg);
+          blobErrors.push(`${file.path}: ${errMsg}`);
         }
       }
 
       if (treeItems.length === 0) {
-        throw new Error("No files could be committed to GitHub");
+        const detail = allFiles.length === 0
+          ? "No files found (builderFiles table empty and no scaffold files)"
+          : `All ${allFiles.length} blob creations failed: ${blobErrors.slice(0, 3).join("; ")}`;
+        throw new Error(`No files could be committed to GitHub. ${detail}`);
       }
 
       // 3c. Create tree (with base_tree for existing repos)
