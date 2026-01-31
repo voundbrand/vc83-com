@@ -574,6 +574,9 @@ export const oauthStates = defineTable({
     v.literal("organizational")
   ),
 
+  // Optional return URL - where to redirect after OAuth completes
+  returnUrl: v.optional(v.string()),
+
   // Expiration (short-lived: 10 minutes)
   createdAt: v.number(),
   expiresAt: v.number(),

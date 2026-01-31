@@ -132,10 +132,12 @@ export const API_CATEGORIES: ApiCategory[] = [
     icon: "CalendarCheck",
     scopes: ["bookings:read", "bookings:write", "availability:read", "availability:write"],
     endpoints: [
-      { method: "GET", path: "/api/v1/bookings", description: "List bookings" },
-      { method: "POST", path: "/api/v1/bookings", description: "Create a booking" },
-      { method: "GET", path: "/api/v1/availability", description: "Get availability slots" },
-      { method: "POST", path: "/api/v1/availability", description: "Create availability" },
+      { method: "GET", path: "/api/v1/resource-bookings", description: "List resource bookings" },
+      { method: "POST", path: "/api/v1/resource-bookings", description: "Create a resource booking (admin)" },
+      { method: "POST", path: "/api/v1/resource-bookings/checkout", description: "Customer checkout booking" },
+      { method: "GET", path: "/api/v1/resource-bookings/{id}", description: "Get booking details" },
+      { method: "GET", path: "/api/v1/resources/{resourceId}/slots", description: "Get available time slots" },
+      { method: "GET", path: "/api/v1/resources/{resourceId}/availability", description: "Get availability schedule" },
     ],
   },
 ];

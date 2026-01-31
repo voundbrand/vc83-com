@@ -51,6 +51,7 @@ interface WindowManagerContextType {
   minimizeWindow: (id: string) => void
   restoreWindow: (id: string) => void
   isWindowOpen: (id: string) => boolean
+  isRestored: boolean
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | undefined>(undefined)
@@ -325,6 +326,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         minimizeWindow,
         restoreWindow,
         isWindowOpen,
+        isRestored,
       }}
     >
       {children}

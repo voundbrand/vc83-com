@@ -391,6 +391,27 @@ export function ProductForm({
       // Bookable Configuration (for bookable resource/service types)
       if (isBookableSubtype(formData.subtype) && formData.bookableConfig) {
         customProperties.bookableConfig = formData.bookableConfig;
+
+        // Persist availability model and model-specific fields at top level
+        // so the Convex backend dispatchers can read them directly.
+        const bc = formData.bookableConfig;
+        customProperties.availabilityModel = bc.availabilityModel || "time_slot";
+
+        if (bc.availabilityModel === "date_range_inventory") {
+          customProperties.inventoryCount = bc.inventoryCount;
+          customProperties.minimumStayNights = bc.minimumStayNights;
+          customProperties.maximumStayNights = bc.maximumStayNights;
+          customProperties.checkInTime = bc.checkInTime;
+          customProperties.checkOutTime = bc.checkOutTime;
+          customProperties.baseNightlyRateCents = bc.baseNightlyRateCents;
+        } else if (bc.availabilityModel === "event_bound_seating") {
+          customProperties.totalSeats = bc.totalSeats;
+          customProperties.maxSeatsPerBooking = bc.maxSeatsPerBooking;
+        } else if (bc.availabilityModel === "departure_bound") {
+          customProperties.totalPassengerSeats = bc.totalPassengerSeats;
+          customProperties.vehicleType = bc.vehicleType;
+          customProperties.boardingMinutesBefore = bc.boardingMinutesBefore;
+        }
       }
 
       // Form linking (generalized - works for all product types)

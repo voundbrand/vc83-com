@@ -684,6 +684,7 @@ import {
   checkInResourceBooking,
   completeResourceBooking,
   cancelResourceBooking,
+  customerCheckout,
 } from "./api/v1/resourceBookings";
 import {
   handleOptions as aiChatHandleOptions,
@@ -2772,6 +2773,23 @@ http.route({
   pathPrefix: "/api/v1/resource-bookings/",
   method: "GET",
   handler: getResourceBooking,
+});
+
+// OPTIONS /api/v1/resource-bookings/checkout - CORS preflight
+http.route({
+  path: "/api/v1/resource-bookings/checkout",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// POST /api/v1/resource-bookings/checkout - Customer checkout booking
+http.route({
+  path: "/api/v1/resource-bookings/checkout",
+  method: "POST",
+  handler: customerCheckout,
 });
 
 // POST /api/v1/resource-bookings/:id/confirm - Confirm booking

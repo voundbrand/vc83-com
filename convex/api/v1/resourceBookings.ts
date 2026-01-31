@@ -626,6 +626,145 @@ export const completeResourceBooking = httpAction(async (ctx, request) => {
  *
  * POST /api/v1/resource-bookings/:id/cancel
  */
+/**
+ * CUSTOMER CHECKOUT - RESOURCE BOOKING
+ * Customer-facing endpoint for booking a resource time slot.
+ * Creates booking + CRM contact + optional transaction.
+ *
+ * POST /api/v1/resource-bookings/checkout
+ *
+ * Request Body:
+ * {
+ *   resourceId: string,              // Product/resource ID to book
+ *   startDateTime: number,           // Unix timestamp
+ *   endDateTime: number,             // Unix timestamp
+ *   timezone?: string,               // e.g. "Europe/Berlin"
+ *   customer: {
+ *     firstName: string,
+ *     lastName: string,
+ *     email: string,
+ *     phone?: string
+ *   },
+ *   participants?: number,           // Number of people (default: 1)
+ *   notes?: string,                  // Customer notes
+ *   source?: string                  // "web" | "mobile" | "v0-app"
+ * }
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   bookingId: string,
+ *   status: string,
+ *   contactId?: string,
+ *   remainingCapacity: number,
+ *   totalAmountCents: number
+ * }
+ */
+export const customerCheckout = httpAction(async (ctx, request) => {
+  try {
+    // 1. Universal authentication (API key, OAuth, or CLI session)
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const authContext = authResult.context;
+
+    // 2. Require bookings:write scope
+    const scopeCheck = requireScopes(authContext, ["bookings:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Parse request body
+    const body = await request.json();
+
+    // 4. Validate required fields
+    if (!body.resourceId) {
+      return new Response(
+        JSON.stringify({ error: "resourceId is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (typeof body.startDateTime !== "number" || typeof body.endDateTime !== "number") {
+      return new Response(
+        JSON.stringify({ error: "startDateTime and endDateTime are required (Unix timestamps)" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (body.endDateTime <= body.startDateTime) {
+      return new Response(
+        JSON.stringify({ error: "endDateTime must be after startDateTime" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!body.customer || !body.customer.firstName || !body.customer.lastName || !body.customer.email) {
+      return new Response(
+        JSON.stringify({ error: "customer object with firstName, lastName, and email is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Run the internal checkout mutation
+    const result = await ctx.runMutation(internal.api.v1.resourceBookingsInternal.customerCheckoutInternal, {
+      organizationId: authContext.organizationId,
+      resourceId: body.resourceId as Id<"objects">,
+      startDateTime: body.startDateTime,
+      endDateTime: body.endDateTime,
+      timezone: body.timezone,
+      customer: body.customer,
+      participants: body.participants || 1,
+      notes: body.notes,
+      source: body.source || "web",
+    });
+
+    return new Response(
+      JSON.stringify(result),
+      {
+        status: 201,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("API POST /resource-bookings/checkout error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    if (errorMessage.includes("Conflict") || errorMessage.includes("capacity")) {
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (errorMessage.includes("not found")) {
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+/**
+ * CANCEL RESOURCE BOOKING
+ * Cancel a booking with optional refund
+ *
+ * POST /api/v1/resource-bookings/:id/cancel
+ */
 export const cancelResourceBooking = httpAction(async (ctx, request) => {
   try {
     const authResult = await authenticateRequest(ctx, request);

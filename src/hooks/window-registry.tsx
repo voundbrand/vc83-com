@@ -175,6 +175,10 @@ const AiSystemWindow = lazy(() =>
   import("@/components/window-content/ai-system-window").then(m => ({ default: m.AiSystemWindow }))
 );
 
+const BuilderBrowserWindow = lazy(() =>
+  import("@/components/window-content/builder-browser-window").then(m => ({ default: m.BuilderBrowserWindow }))
+);
+
 /**
  * Registry of all available windows
  */
@@ -629,6 +633,16 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       icon: "🧠",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
+    }
+  },
+
+  "builder-browser": {
+    createComponent: () => <BuilderBrowserWindow />,
+    defaultConfig: {
+      title: "AI Builder",
+      icon: "🌐",
+      position: { x: 80, y: 40 },
+      size: { width: 1100, height: 750 }
     }
   }
 };

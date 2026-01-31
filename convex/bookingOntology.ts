@@ -30,7 +30,18 @@ import { query, mutation, internalQuery, internalMutation } from "./_generated/s
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+
+// Lazy-load internal to avoid TS2589 deep type instantiation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _internalCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getInternal(): any {
+  if (!_internalCache) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _internalCache = require("./_generated/api").internal;
+  }
+  return _internalCache;
+}
 
 // ============================================================================
 // TYPES AND VALIDATORS
@@ -520,6 +531,14 @@ export const createBooking = mutation({
     // Admin booking
     isAdminBooking: v.optional(v.boolean()),
     bookedViaEventId: v.optional(v.id("objects")),
+
+    // Model-specific: event-bound seating
+    eventId: v.optional(v.id("objects")),
+    seatCount: v.optional(v.number()),
+
+    // Model-specific: departure-bound
+    departureId: v.optional(v.id("objects")),
+    passengerCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -535,16 +554,39 @@ export const createBooking = mutation({
       }
     }
 
-    // Check for conflicts on all resources
+    // Determine availability model from primary resource
+    const primaryResource = await ctx.db.get(args.resourceIds[0]);
+    const primaryProps = primaryResource?.customProperties as Record<string, unknown> | undefined;
+    const availabilityModel = (primaryProps?.availabilityModel as string) || "time_slot";
+
+    // Check for conflicts based on availability model
     for (const resourceId of args.resourceIds) {
-      const hasConflict = await ctx.runQuery(internal.availabilityOntology.checkConflict, {
-        resourceId,
-        startDateTime: args.startDateTime,
-        endDateTime: args.endDateTime,
-      });
-      if (hasConflict) {
-        const resource = await ctx.db.get(resourceId);
-        throw new Error(`Conflict detected for resource: ${resource?.name || resourceId}`);
+      if (availabilityModel === "event_bound_seating" || availabilityModel === "departure_bound") {
+        // Seat-based models: use model-aware conflict check
+        const result = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
+          resourceId,
+          organizationId: args.organizationId,
+          startDateTime: args.startDateTime,
+          endDateTime: args.endDateTime,
+          seatCount: args.seatCount || args.passengerCount || 1,
+          eventId: args.eventId,
+          departureId: args.departureId,
+        });
+        if (result.hasConflict) {
+          const resource = await ctx.db.get(resourceId);
+          throw new Error(result.reason || `Conflict detected for resource: ${resource?.name || resourceId}`);
+        }
+      } else {
+        // Time-slot / date-range: use classic overlap check
+        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
+          resourceId,
+          startDateTime: args.startDateTime,
+          endDateTime: args.endDateTime,
+        });
+        if (hasConflict) {
+          const resource = await ctx.db.get(resourceId);
+          throw new Error(`Conflict detected for resource: ${resource?.name || resourceId}`);
+        }
       }
     }
 
@@ -614,6 +656,13 @@ export const createBooking = mutation({
         // Source
         isAdminBooking: args.isAdminBooking || false,
         bookedViaEventId: args.bookedViaEventId || null,
+
+        // Model-specific references (for seat release on cancellation)
+        availabilityModel: availabilityModel,
+        eventId: args.eventId || null,
+        seatCount: args.seatCount || null,
+        departureId: args.departureId || null,
+        passengerCount: args.passengerCount || null,
       },
       createdBy: userId,
       createdAt: Date.now(),
@@ -641,6 +690,31 @@ export const createBooking = mutation({
         linkType: "booked_by",
         createdBy: userId,
         createdAt: Date.now(),
+      });
+    }
+
+    // Model-specific post-creation: claim seats atomically
+    if (availabilityModel === "event_bound_seating" && args.eventId) {
+      // Find the seat map for this event
+      const seatMapLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q) =>
+          q.eq("fromObjectId", args.eventId!).eq("linkType", "has_seat_map")
+        )
+        .collect();
+      if (seatMapLinks.length > 0) {
+        await ctx.runMutation(getInternal().venueOntology.bookSeatsInternal, {
+          seatMapId: seatMapLinks[0].toObjectId,
+          seatCount: args.seatCount || 1,
+          bookingId,
+          sessionId: args.sessionId,
+        });
+      }
+    } else if (availabilityModel === "departure_bound" && args.departureId) {
+      await ctx.runMutation(getInternal().departureOntology.bookDepartureSeatsInternal, {
+        departureId: args.departureId,
+        passengerCount: args.passengerCount || 1,
+        bookingId,
       });
     }
 
@@ -713,7 +787,7 @@ export const createRecurringBooking = mutation({
     // Check ALL dates for conflicts (block entire series if any conflict)
     for (const occ of occurrences) {
       for (const resourceId of args.resourceIds) {
-        const hasConflict = await ctx.runQuery(internal.availabilityOntology.checkConflict, {
+        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
           resourceId,
           startDateTime: occ.start,
           endDateTime: occ.end,
@@ -905,7 +979,7 @@ export const updateBooking = mutation({
         .collect();
 
       for (const link of resourceLinks) {
-        const hasConflict = await ctx.runQuery(internal.availabilityOntology.checkConflict, {
+        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
           resourceId: link.toObjectId,
           startDateTime: newStart,
           endDateTime: newEnd,
@@ -975,13 +1049,13 @@ export const confirmBooking = mutation({
     });
 
     // Trigger sequence enrollment for booking_confirmed
-    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+    await ctx.runMutation(getInternal().sequences.sequenceProcessor.processBookingTrigger, {
       bookingId: args.bookingId,
       triggerEvent: "booking_confirmed",
     });
 
     // Push confirmed booking to linked external calendars
-    await ctx.scheduler.runAfter(0, internal.calendarSyncOntology.pushBookingToCalendar, {
+    await ctx.scheduler.runAfter(0, getInternal().calendarSyncOntology.pushBookingToCalendar, {
       bookingId: args.bookingId,
       organizationId: booking.organizationId,
     });
@@ -1024,7 +1098,7 @@ export const checkInBooking = mutation({
     });
 
     // Trigger sequence enrollment for booking_checked_in
-    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+    await ctx.runMutation(getInternal().sequences.sequenceProcessor.processBookingTrigger, {
       bookingId: args.bookingId,
       triggerEvent: "booking_checked_in",
     });
@@ -1060,7 +1134,7 @@ export const completeBooking = mutation({
     });
 
     // Trigger sequence enrollment for booking_completed
-    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+    await ctx.runMutation(getInternal().sequences.sequenceProcessor.processBookingTrigger, {
       bookingId: args.bookingId,
       triggerEvent: "booking_completed",
     });
@@ -1107,16 +1181,19 @@ export const cancelBooking = mutation({
     });
 
     // Handle booking cancellation - exit enrollments and cancel pending messages
-    await ctx.runMutation(internal.sequences.sequenceProcessor.processBookingTrigger, {
+    await ctx.runMutation(getInternal().sequences.sequenceProcessor.processBookingTrigger, {
       bookingId: args.bookingId,
       triggerEvent: "booking_cancelled",
     });
 
     // Delete cancelled booking from linked external calendars
-    await ctx.scheduler.runAfter(0, internal.calendarSyncOntology.deleteBookingFromCalendar, {
+    await ctx.scheduler.runAfter(0, getInternal().calendarSyncOntology.deleteBookingFromCalendar, {
       bookingId: args.bookingId,
       organizationId: booking.organizationId,
     });
+
+    // Release seats for seat-based models
+    await releaseSeatsOnCancellation(ctx, booking);
 
     return { bookingId: args.bookingId, status: "cancelled" };
   },
@@ -1183,6 +1260,11 @@ export const createBookingInternal = internalMutation({
     notes: v.optional(v.string()),
     internalNotes: v.optional(v.string()),
     isAdminBooking: v.optional(v.boolean()),
+    // Model-specific
+    eventId: v.optional(v.id("objects")),
+    seatCount: v.optional(v.number()),
+    departureId: v.optional(v.id("objects")),
+    passengerCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Validate resources
@@ -1193,15 +1275,35 @@ export const createBookingInternal = internalMutation({
       }
     }
 
-    // Check conflicts
+    // Determine availability model from primary resource
+    const primaryResource = await ctx.db.get(args.resourceIds[0]);
+    const primaryProps = primaryResource?.customProperties as Record<string, unknown> | undefined;
+    const availabilityModel = (primaryProps?.availabilityModel as string) || "time_slot";
+
+    // Check conflicts based on model
     for (const resourceId of args.resourceIds) {
-      const hasConflict = await ctx.runQuery(internal.availabilityOntology.checkConflict, {
-        resourceId,
-        startDateTime: args.startDateTime,
-        endDateTime: args.endDateTime,
-      });
-      if (hasConflict) {
-        throw new Error(`Conflict detected for resource ${resourceId}`);
+      if (availabilityModel === "event_bound_seating" || availabilityModel === "departure_bound") {
+        const result = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
+          resourceId,
+          organizationId: args.organizationId,
+          startDateTime: args.startDateTime,
+          endDateTime: args.endDateTime,
+          seatCount: args.seatCount || args.passengerCount || 1,
+          eventId: args.eventId,
+          departureId: args.departureId,
+        });
+        if (result.hasConflict) {
+          throw new Error(result.reason || `Conflict detected for resource ${resourceId}`);
+        }
+      } else {
+        const hasConflict = await ctx.runQuery(getInternal().availabilityOntology.checkConflict, {
+          resourceId,
+          startDateTime: args.startDateTime,
+          endDateTime: args.endDateTime,
+        });
+        if (hasConflict) {
+          throw new Error(`Conflict detected for resource ${resourceId}`);
+        }
       }
     }
 
@@ -1248,6 +1350,12 @@ export const createBookingInternal = internalMutation({
         internalNotes: args.internalNotes || "",
         isAdminBooking: args.isAdminBooking || false,
         bookedViaEventId: null,
+        // Model-specific references
+        availabilityModel,
+        eventId: args.eventId || null,
+        seatCount: args.seatCount || null,
+        departureId: args.departureId || null,
+        passengerCount: args.passengerCount || null,
       },
       createdBy: args.userId,
       createdAt: Date.now(),
@@ -1275,6 +1383,29 @@ export const createBookingInternal = internalMutation({
         linkType: "booked_by",
         createdBy: args.userId,
         createdAt: Date.now(),
+      });
+    }
+
+    // Model-specific post-creation: claim seats atomically
+    if (availabilityModel === "event_bound_seating" && args.eventId) {
+      const seatMapLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q: any) =>
+          q.eq("fromObjectId", args.eventId!).eq("linkType", "has_seat_map")
+        )
+        .collect();
+      if (seatMapLinks.length > 0) {
+        await ctx.runMutation(getInternal().venueOntology.bookSeatsInternal, {
+          seatMapId: seatMapLinks[0].toObjectId,
+          seatCount: args.seatCount || 1,
+          bookingId,
+        });
+      }
+    } else if (availabilityModel === "departure_bound" && args.departureId) {
+      await ctx.runMutation(getInternal().departureOntology.bookDepartureSeatsInternal, {
+        departureId: args.departureId,
+        passengerCount: args.passengerCount || 1,
+        bookingId,
       });
     }
 
@@ -1467,6 +1598,62 @@ function formatDate(ts: number): string {
   return d.toISOString().split("T")[0];
 }
 
+/**
+ * Release seats when a booking is cancelled.
+ * Looks up the primary resource's availability model and releases
+ * seats from the appropriate seat counter (venue seat map or departure).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function releaseSeatsOnCancellation(ctx: any, booking: any) {
+  const bookingProps = booking.customProperties as Record<string, unknown>;
+
+  // Get primary resource to determine model
+  const resourceLinks = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q: any) =>
+      q.eq("fromObjectId", booking._id).eq("linkType", "books_resource")
+    )
+    .collect();
+
+  if (resourceLinks.length === 0) return;
+
+  const resource = await ctx.db.get(resourceLinks[0].toObjectId);
+  if (!resource) return;
+
+  const resourceProps = resource.customProperties as Record<string, unknown> | undefined;
+  const model = (resourceProps?.availabilityModel as string) || "time_slot";
+
+  if (model === "event_bound_seating") {
+    const eventId = bookingProps.eventId as string;
+    const seatCount = (bookingProps.seatCount as number) || (bookingProps.participants as number) || 1;
+    if (eventId) {
+      // Find seat map
+      const seatMapLinks = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q: any) =>
+          q.eq("fromObjectId", eventId).eq("linkType", "has_seat_map")
+        )
+        .collect();
+      if (seatMapLinks.length > 0) {
+        await ctx.runMutation(getInternal().venueOntology.unbookSeatsInternal, {
+          seatMapId: seatMapLinks[0].toObjectId,
+          seatCount,
+        });
+      }
+    }
+  } else if (model === "departure_bound") {
+    const departureId = bookingProps.departureId as string;
+    const passengerCount = (bookingProps.passengerCount as number) || (bookingProps.participants as number) || 1;
+    if (departureId) {
+      await ctx.runMutation(getInternal().departureOntology.unbookDepartureSeatsInternal, {
+        departureId,
+        passengerCount,
+      });
+    }
+  }
+  // time_slot and date_range_inventory don't need explicit seat release
+}
+
 // ============================================================================
 // PHASE 4: PAYMENT INTEGRATION
 // ============================================================================
@@ -1589,7 +1776,7 @@ export const processBookingPaymentInternal = internalMutation({
 
     // Create the transaction
     const transactionId: Id<"objects"> = await ctx.runMutation(
-      internal.transactionOntology.createBookingTransactionInternal,
+      getInternal().transactionOntology.createBookingTransactionInternal,
       {
         organizationId: args.organizationId,
         bookingId: args.bookingId,
@@ -1679,7 +1866,7 @@ export const recordBookingPayment = mutation({
     // Handle partial payments differently - they don't map to a specific transaction type
     const paymentType = args.paymentType === "partial" ? "balance" : args.paymentType;
 
-    const result: BookingPaymentResult = await ctx.runMutation(internal.bookingOntology.processBookingPaymentInternal, {
+    const result: BookingPaymentResult = await ctx.runMutation(getInternal().bookingOntology.processBookingPaymentInternal, {
       bookingId: args.bookingId,
       organizationId: booking.organizationId,
       paymentType: paymentType as "deposit" | "full" | "balance",
@@ -1750,7 +1937,7 @@ export const processBookingCancellationWithRefund = internalMutation({
     let refundTransactionId: Id<"objects"> | undefined;
     if (refundAmountCents > 0) {
       refundTransactionId = await ctx.runMutation(
-        internal.transactionOntology.processBookingRefundInternal,
+        getInternal().transactionOntology.processBookingRefundInternal,
         {
           organizationId: args.organizationId,
           bookingId: args.bookingId,
@@ -1832,7 +2019,7 @@ export const processBalanceOnCheckIn = internalMutation({
     }
 
     // Process the balance payment
-    const result: BookingPaymentResult = await ctx.runMutation(internal.bookingOntology.processBookingPaymentInternal, {
+    const result: BookingPaymentResult = await ctx.runMutation(getInternal().bookingOntology.processBookingPaymentInternal, {
       bookingId: args.bookingId,
       organizationId: args.organizationId,
       paymentType: "balance",
@@ -1895,7 +2082,7 @@ export const checkInWithPayment = mutation({
 
     // Collect balance if requested
     if (args.collectBalance) {
-      balanceResult = await ctx.runMutation(internal.bookingOntology.processBalanceOnCheckIn, {
+      balanceResult = await ctx.runMutation(getInternal().bookingOntology.processBalanceOnCheckIn, {
         bookingId: args.bookingId,
         organizationId: booking.organizationId,
         userId,
@@ -1952,7 +2139,7 @@ export const cancelWithRefund = mutation({
       throw new Error("Cannot cancel a booking that is already cancelled or completed");
     }
 
-    const result: BookingCancellationResult = await ctx.runMutation(internal.bookingOntology.processBookingCancellationWithRefund, {
+    const result: BookingCancellationResult = await ctx.runMutation(getInternal().bookingOntology.processBookingCancellationWithRefund, {
       bookingId: args.bookingId,
       organizationId: booking.organizationId,
       userId,

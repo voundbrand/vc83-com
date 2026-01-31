@@ -8,7 +8,21 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { api, internal } from "./_generated/api";
+// Lazy-load `api` and `internal` to avoid TS2589 deep type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _apiModule: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getApiModule(): any {
+  if (!_apiModule) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _apiModule = require("./_generated/api");
+  }
+  return _apiModule;
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getInternal(): any { return getApiModule().internal; }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getApi(): any { return getApiModule().api; }
 
 // ============================================================================
 // RETRY HELPERS
@@ -456,7 +470,7 @@ export const syncFromGoogle = internalAction({
   args: { connectionId: v.id("oauthConnections") },
   handler: async (ctx, args) => {
     const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+      getInternal().oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection || connection.status !== "active")
@@ -475,7 +489,7 @@ export const syncFromGoogle = internalAction({
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
           result = await ctx.runAction(
-            api.oauth.googleClient.getCalendarEvents,
+            getApi().oauth.googleClient.getCalendarEvents,
             {
               connectionId: args.connectionId,
               timeMin,
@@ -495,7 +509,7 @@ export const syncFromGoogle = internalAction({
 
       if (!result) {
         await ctx.runMutation(
-          internal.calendarSyncOntology.updateSyncTimestamp,
+          getInternal().calendarSyncOntology.updateSyncTimestamp,
           {
             connectionId: args.connectionId,
             error: "No response from Google Calendar API",
@@ -542,7 +556,7 @@ export const syncFromGoogle = internalAction({
         const isBusy = transparency !== "transparent";
 
         await ctx.runMutation(
-          internal.calendarSyncOntology.upsertExternalEvent,
+          getInternal().calendarSyncOntology.upsertExternalEvent,
           {
             organizationId: connection.organizationId,
             connectionId: args.connectionId,
@@ -563,7 +577,7 @@ export const syncFromGoogle = internalAction({
       }
 
       await ctx.runMutation(
-        internal.calendarSyncOntology.deleteStaleEvents,
+        getInternal().calendarSyncOntology.deleteStaleEvents,
         {
           organizationId: connection.organizationId,
           connectionId: args.connectionId,
@@ -573,7 +587,7 @@ export const syncFromGoogle = internalAction({
       );
 
       await ctx.runMutation(
-        internal.calendarSyncOntology.updateSyncTimestamp,
+        getInternal().calendarSyncOntology.updateSyncTimestamp,
         { connectionId: args.connectionId }
       );
 
@@ -582,7 +596,7 @@ export const syncFromGoogle = internalAction({
       const errorMsg =
         error instanceof Error ? error.message : "Unknown sync error";
       await ctx.runMutation(
-        internal.calendarSyncOntology.updateSyncTimestamp,
+        getInternal().calendarSyncOntology.updateSyncTimestamp,
         {
           connectionId: args.connectionId,
           error: errorMsg,
@@ -601,7 +615,7 @@ export const syncFromMicrosoft = internalAction({
   args: { connectionId: v.id("oauthConnections") },
   handler: async (ctx, args) => {
     const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+      getInternal().oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection || connection.status !== "active")
@@ -620,7 +634,7 @@ export const syncFromMicrosoft = internalAction({
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
           result = await ctx.runAction(
-            internal.oauth.graphClient.graphRequest,
+            getInternal().oauth.graphClient.graphRequest,
             {
               connectionId: args.connectionId,
               endpoint: `/me/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$top=250`,
@@ -638,7 +652,7 @@ export const syncFromMicrosoft = internalAction({
 
       if (!result) {
         await ctx.runMutation(
-          internal.calendarSyncOntology.updateSyncTimestamp,
+          getInternal().calendarSyncOntology.updateSyncTimestamp,
           {
             connectionId: args.connectionId,
             error: "No response from Microsoft Calendar API",
@@ -679,7 +693,7 @@ export const syncFromMicrosoft = internalAction({
         const isBusy = showAs !== "free" && showAs !== "tentative";
 
         await ctx.runMutation(
-          internal.calendarSyncOntology.upsertExternalEvent,
+          getInternal().calendarSyncOntology.upsertExternalEvent,
           {
             organizationId: connection.organizationId,
             connectionId: args.connectionId,
@@ -704,7 +718,7 @@ export const syncFromMicrosoft = internalAction({
       }
 
       await ctx.runMutation(
-        internal.calendarSyncOntology.deleteStaleEvents,
+        getInternal().calendarSyncOntology.deleteStaleEvents,
         {
           organizationId: connection.organizationId,
           connectionId: args.connectionId,
@@ -714,7 +728,7 @@ export const syncFromMicrosoft = internalAction({
       );
 
       await ctx.runMutation(
-        internal.calendarSyncOntology.updateSyncTimestamp,
+        getInternal().calendarSyncOntology.updateSyncTimestamp,
         { connectionId: args.connectionId }
       );
 
@@ -723,7 +737,7 @@ export const syncFromMicrosoft = internalAction({
       const errorMsg =
         error instanceof Error ? error.message : "Unknown sync error";
       await ctx.runMutation(
-        internal.calendarSyncOntology.updateSyncTimestamp,
+        getInternal().calendarSyncOntology.updateSyncTimestamp,
         {
           connectionId: args.connectionId,
           error: errorMsg,
@@ -742,7 +756,7 @@ export const syncAllConnections = internalAction({
   args: {},
   handler: async (ctx): Promise<{ successCount: number; errorCount: number; total: number }> => {
     const connections = await ctx.runQuery(
-      internal.calendarSyncOntology.getActiveSyncConnections,
+      getInternal().calendarSyncOntology.getActiveSyncConnections,
       {}
     );
 
@@ -753,12 +767,12 @@ export const syncAllConnections = internalAction({
       try {
         if (conn.provider === "google") {
           await ctx.runAction(
-            internal.calendarSyncOntology.syncFromGoogle,
+            getInternal().calendarSyncOntology.syncFromGoogle,
             { connectionId: conn._id }
           );
         } else if (conn.provider === "microsoft") {
           await ctx.runAction(
-            internal.calendarSyncOntology.syncFromMicrosoft,
+            getInternal().calendarSyncOntology.syncFromMicrosoft,
             { connectionId: conn._id }
           );
         }
@@ -873,7 +887,7 @@ export const pushBookingToCalendar = internalAction({
   handler: async (ctx, args) => {
     // Get booking details
     const booking = await ctx.runQuery(
-      internal.bookingOntology.getBookingInternal,
+      getInternal().bookingOntology.getBookingInternal,
       { bookingId: args.bookingId, organizationId: args.organizationId }
     );
 
@@ -892,7 +906,7 @@ export const pushBookingToCalendar = internalAction({
     if (resourceIds.length === 0) {
       // Try to get from objectLinks
       const links = await ctx.runQuery(
-        internal.calendarSyncOntology.getBookingResourceLinks,
+        getInternal().calendarSyncOntology.getBookingResourceLinks,
         { bookingId: args.bookingId }
       );
       resourceIds.push(...links.map((l: { resourceId: string }) => l.resourceId));
@@ -907,7 +921,7 @@ export const pushBookingToCalendar = internalAction({
     for (const resourceId of resourceIds) {
       // Get calendar connections for this resource
       const connections = await ctx.runQuery(
-        internal.calendarSyncOntology.getResourceCalendarConnections,
+        getInternal().calendarSyncOntology.getResourceCalendarConnections,
         {
           resourceId: resourceId as Id<"objects">,
           organizationId: booking.organizationId,
@@ -931,7 +945,7 @@ export const pushBookingToCalendar = internalAction({
 
           if (conn.provider === "google") {
             const result = await ctx.runAction(
-              internal.oauth.googleClient.googleRequest,
+              getInternal().oauth.googleClient.googleRequest,
               {
                 connectionId: conn.connectionId,
                 endpoint: "/calendars/primary/events",
@@ -950,7 +964,7 @@ export const pushBookingToCalendar = internalAction({
             }
           } else if (conn.provider === "microsoft") {
             const result = await ctx.runAction(
-              internal.oauth.graphClient.graphRequest,
+              getInternal().oauth.graphClient.graphRequest,
               {
                 connectionId: conn.connectionId,
                 endpoint: "/me/events",
@@ -971,7 +985,7 @@ export const pushBookingToCalendar = internalAction({
 
           if (externalEventId) {
             await ctx.runMutation(
-              internal.calendarSyncOntology.storeExternalEventId,
+              getInternal().calendarSyncOntology.storeExternalEventId,
               {
                 bookingId: args.bookingId,
                 provider: conn.provider,
@@ -1024,7 +1038,7 @@ export const deleteBookingFromCalendar = internalAction({
   },
   handler: async (ctx, args) => {
     const booking = await ctx.runQuery(
-      internal.bookingOntology.getBookingInternal,
+      getInternal().bookingOntology.getBookingInternal,
       { bookingId: args.bookingId, organizationId: args.organizationId }
     );
 
@@ -1042,7 +1056,7 @@ export const deleteBookingFromCalendar = internalAction({
       try {
         if (provider === "google") {
           await ctx.runAction(
-            internal.oauth.googleClient.googleRequest,
+            getInternal().oauth.googleClient.googleRequest,
             {
               connectionId: eventInfo.connectionId as Id<"oauthConnections">,
               endpoint: `/calendars/primary/events/${eventInfo.externalEventId}`,
@@ -1052,7 +1066,7 @@ export const deleteBookingFromCalendar = internalAction({
           deleteCount++;
         } else if (provider === "microsoft") {
           await ctx.runAction(
-            internal.oauth.graphClient.graphRequest,
+            getInternal().oauth.graphClient.graphRequest,
             {
               connectionId: eventInfo.connectionId as Id<"oauthConnections">,
               endpoint: `/me/events/${eventInfo.externalEventId}`,

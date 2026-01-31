@@ -1604,6 +1604,143 @@ function generateScheduleSummary(
 }
 
 // ============================================================================
+// MODEL-AWARE AVAILABILITY DISPATCHER
+// ============================================================================
+
+/**
+ * CHECK CONFLICT BY MODEL (INTERNAL)
+ * Dispatches conflict detection based on product's availabilityModel.
+ * - time_slot / date_range_inventory: use existing time-overlap check
+ * - event_bound_seating: check seat map via venueOntology
+ * - departure_bound: check departure seat count via departureOntology
+ */
+export const checkConflictByModel = internalQuery({
+  args: {
+    resourceId: v.id("objects"),
+    organizationId: v.id("organizations"),
+    startDateTime: v.number(),
+    endDateTime: v.number(),
+    excludeBookingId: v.optional(v.id("objects")),
+    // For seat-based models
+    seatCount: v.optional(v.number()),
+    // For event-bound
+    eventId: v.optional(v.id("objects")),
+    // For departure-bound
+    departureId: v.optional(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    const resource = await ctx.db.get(args.resourceId);
+    if (!resource) return { hasConflict: true, reason: "Resource not found" };
+
+    const resourceProps = resource.customProperties as Record<string, unknown> | undefined;
+    const model = (resourceProps?.availabilityModel as string) || "time_slot";
+
+    switch (model) {
+      case "time_slot":
+      case "date_range_inventory": {
+        // Use existing time-overlap + capacity check
+        const bufferBefore = (resourceProps?.bufferBefore as number) || 0;
+        const bufferAfter = (resourceProps?.bufferAfter as number) || 0;
+        const capacity = (resourceProps?.capacity as number) || 1;
+
+        const effectiveStart = args.startDateTime - bufferBefore * 60000;
+        const effectiveEnd = args.endDateTime + bufferAfter * 60000;
+
+        const bookings = await getBookingsInRange(ctx, args.resourceId, effectiveStart, effectiveEnd);
+
+        let overlapCount = 0;
+        for (const booking of bookings) {
+          if (args.excludeBookingId && booking._id === args.excludeBookingId) continue;
+          if (booking.status === "cancelled") continue;
+
+          const bookingProps = booking.customProperties as Record<string, unknown>;
+          const bookingStart = bookingProps.startDateTime as number;
+          const bookingEnd = bookingProps.endDateTime as number;
+
+          if (bookingStart < effectiveEnd && bookingEnd > effectiveStart) {
+            overlapCount++;
+          }
+        }
+
+        return {
+          hasConflict: overlapCount >= capacity,
+          reason: overlapCount >= capacity ? "At capacity" : null,
+        };
+      }
+
+      case "event_bound_seating": {
+        if (!args.eventId) {
+          return { hasConflict: true, reason: "eventId required for event_bound_seating" };
+        }
+        const seatCount = args.seatCount || 1;
+
+        // Look up seat map for this event
+        const seatMapLinks = await ctx.db
+          .query("objectLinks")
+          .withIndex("by_from_link_type", (q: any) =>
+            q.eq("fromObjectId", args.eventId).eq("linkType", "has_seat_map")
+          )
+          .collect();
+
+        if (seatMapLinks.length === 0) {
+          return { hasConflict: true, reason: "No seat map found for event" };
+        }
+
+        const seatMap = await ctx.db.get(seatMapLinks[0].toObjectId);
+        if (!seatMap || seatMap.type !== "event_seat_map") {
+          return { hasConflict: true, reason: "Invalid seat map" };
+        }
+
+        const smProps = seatMap.customProperties as Record<string, unknown>;
+        const totalSeats = (smProps.totalSeats as number) || 0;
+        const bookedCount = (smProps.bookedCount as number) || 0;
+        // Count active holds
+        const holds = (smProps.holds as Record<string, { count: number; expiresAt: number }>) || {};
+        const now = Date.now();
+        let heldCount = 0;
+        for (const hold of Object.values(holds)) {
+          if (hold.expiresAt > now) heldCount += hold.count;
+        }
+        const available = totalSeats - bookedCount - heldCount;
+
+        return {
+          hasConflict: seatCount > available,
+          reason: seatCount > available ? `Only ${available} seats available` : null,
+          seatMapId: seatMap._id,
+          available,
+        };
+      }
+
+      case "departure_bound": {
+        if (!args.departureId) {
+          return { hasConflict: true, reason: "departureId required for departure_bound" };
+        }
+        const passengerCount = args.seatCount || 1;
+
+        const departure = await ctx.db.get(args.departureId);
+        if (!departure || departure.type !== "departure") {
+          return { hasConflict: true, reason: "Departure not found" };
+        }
+
+        const dProps = departure.customProperties as Record<string, unknown>;
+        const totalSeats = (dProps.totalSeats as number) || 0;
+        const bookedCount = (dProps.bookedCount as number) || 0;
+        const available = totalSeats - bookedCount;
+
+        return {
+          hasConflict: passengerCount > available,
+          reason: passengerCount > available ? `Only ${available} seats available` : null,
+          available,
+        };
+      }
+
+      default:
+        return { hasConflict: true, reason: `Unknown availability model: ${model}` };
+    }
+  },
+});
+
+// ============================================================================
 // INTERNAL QUERIES/MUTATIONS (for API endpoints)
 // ============================================================================
 
