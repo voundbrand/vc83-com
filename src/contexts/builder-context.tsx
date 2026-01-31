@@ -272,6 +272,16 @@ export interface BuilderMessage {
     actionUrl?: string;
     isAdminAlert?: boolean;
   };
+  /** Heal-specific metadata for deployment self-heal messages */
+  healData?: {
+    type: "heal_start" | "heal_progress" | "heal_success" | "heal_failed";
+    attemptNumber?: number;
+    maxAttempts?: number;
+    strategy?: "surgical" | "v0_regeneration";
+    fixCount?: number;
+    rootCause?: string;
+    buildLogs?: string;
+  };
 }
 
 interface BuilderContextType {
@@ -399,6 +409,10 @@ interface BuilderContextType {
   loadProject: (projectId: Id<"objects">) => Promise<void>;
   reset: () => void;
   clearError: () => void;
+
+  // Programmatic message injection (for deploy heal flow, etc.)
+  addSystemMessage: (content: string, errorDetails?: BuilderMessage["errorDetails"], healData?: BuilderMessage["healData"]) => void;
+  addAssistantMessage: (content: string, options?: { processingTime?: number; healData?: BuilderMessage["healData"] }) => void;
 }
 
 // ============================================================================
@@ -1413,6 +1427,37 @@ export function BuilderProvider({
     setGenerationError(null);
   }, []);
 
+  // Programmatic message injection for deploy heal flow
+  const addSystemMessage = useCallback(
+    (content: string, errorDetails?: BuilderMessage["errorDetails"], healData?: BuilderMessage["healData"]) => {
+      const msg: BuilderMessage = {
+        id: generateMessageId(),
+        role: "system",
+        content,
+        timestamp: Date.now(),
+        errorDetails,
+        healData,
+      };
+      setMessages((prev) => [...prev, msg]);
+    },
+    []
+  );
+
+  const addAssistantMessage = useCallback(
+    (content: string, options?: { processingTime?: number; healData?: BuilderMessage["healData"] }) => {
+      const msg: BuilderMessage = {
+        id: generateMessageId(),
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        processingTime: options?.processingTime,
+        healData: options?.healData,
+      };
+      setMessages((prev) => [...prev, msg]);
+    },
+    []
+  );
+
   // Retry the last user message (removes error message first)
   const retryLastMessage = useCallback(async () => {
     if (!lastUserMessageRef.current || isGenerating) return;
@@ -1696,6 +1741,9 @@ export function BuilderProvider({
     loadProject,
     reset,
     clearError,
+    // Programmatic message injection
+    addSystemMessage,
+    addAssistantMessage,
   };
 
   return (

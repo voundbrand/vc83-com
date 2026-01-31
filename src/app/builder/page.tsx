@@ -93,6 +93,17 @@ function BuilderLandingPageInner() {
       router.push("/builder/new");
     }
   }, [conversationId, isSignedIn, isLoading, router]);
+
+  // Auto-redirect to workspace if user just logged in with a pending prompt
+  useEffect(() => {
+    if (isSignedIn && !isLoading) {
+      const pendingPrompt = sessionStorage.getItem("builder_pending_prompt");
+      if (pendingPrompt) {
+        // Prompt is already in sessionStorage — workspace will pick it up
+        router.push("/builder/new");
+      }
+    }
+  }, [isSignedIn, isLoading, router]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [headline, setHeadline] = useState(headlineVariations[0]);
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
@@ -364,7 +375,15 @@ function BuilderLandingPageInner() {
       if (isDocsMode) {
         sessionStorage.setItem("builder_pending_docs_mode", "true");
       }
-      router.push("/");
+      // Tell root page to redirect back to builder after auth
+      sessionStorage.setItem("auth_return_url", "/builder");
+      // If inside an iframe (e.g., the fake browser window), navigate the top window
+      const loginUrl = "/?openLogin=builder";
+      if (window.self !== window.top) {
+        window.top!.location.href = loginUrl;
+      } else {
+        router.push(loginUrl);
+      }
       return;
     }
 
@@ -506,18 +525,34 @@ function BuilderLandingPageInner() {
             </>
           ) : (
             <>
-              <Link
-                href="/"
+              <button
+                onClick={() => {
+                  sessionStorage.setItem("auth_return_url", "/builder");
+                  const loginUrl = "/?openLogin=builder";
+                  if (window.self !== window.top) {
+                    window.top!.location.href = loginUrl;
+                  } else {
+                    router.push(loginUrl);
+                  }
+                }}
                 className="px-4 py-2 text-sm text-zinc-300 hover:text-white transition-colors"
               >
                 Sign In
-              </Link>
-              <Link
-                href="/"
+              </button>
+              <button
+                onClick={() => {
+                  sessionStorage.setItem("auth_return_url", "/builder");
+                  const loginUrl = "/?openLogin=builder";
+                  if (window.self !== window.top) {
+                    window.top!.location.href = loginUrl;
+                  } else {
+                    router.push(loginUrl);
+                  }
+                }}
                 className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-zinc-200 transition-colors"
               >
                 Sign Up
-              </Link>
+              </button>
             </>
           )}
         </div>

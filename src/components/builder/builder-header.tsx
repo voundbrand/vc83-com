@@ -5,16 +5,16 @@
  *
  * Top navigation header for l4yercak3 Builder.
  * Full-width header with logo (hover for slide-out drawer), and action buttons on right.
- * No separator lines - everything belongs together.
+ * Includes v0-style Publish dropdown button in the top-right.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Share2, MoreHorizontal, Gift, ArrowLeft, Settings } from "lucide-react";
-import { FaGithub } from "react-icons/fa";
+import { Share2, ArrowLeft, Settings, ChevronDown } from "lucide-react";
 import { BuilderLogoMenu } from "./builder-logo-menu";
 import { BuilderUserMenu } from "./builder-user-menu";
+import { PublishDropdown } from "./publish-dropdown";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { BookingWindow } from "@/components/window-content/booking-window";
 
@@ -26,12 +26,26 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({
-  onPublish,
-  onShare,
 }: BuilderHeaderProps) {
   const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
+  const [publishHighlight, setPublishHighlight] = useState(false);
   const { openWindow } = useWindowManager();
+
+  // Listen for highlight-publish-button event from connection panel
+  const handleHighlight = useCallback(() => {
+    setPublishHighlight(true);
+    // Auto-open the dropdown after a short delay
+    setTimeout(() => setIsPublishOpen(true), 400);
+    // Remove highlight after animation
+    setTimeout(() => setPublishHighlight(false), 3000);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("highlight-publish-button", handleHighlight);
+    return () => window.removeEventListener("highlight-publish-button", handleHighlight);
+  }, [handleHighlight]);
 
   return (
     <>
@@ -67,44 +81,40 @@ export function BuilderHeader({
         <div className="flex-1 h-full flex items-center justify-end px-4">
           {/* Right: Actions + User */}
           <div className="flex items-center gap-2">
-            {/* TODO: Re-enable these menu items when ready
+            {/* Share button */}
             <button
-              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
-            >
-              <Gift className="w-4 h-4" />
-              Refer
-            </button>
-
-            <button
-              className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
-              title="More options"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-
-            <button
-              className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
-              title="View on GitHub"
-              onClick={() => window.open("https://github.com", "_blank")}
-            >
-              <FaGithub className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={onShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 text-sm rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
             >
               <Share2 className="w-4 h-4" />
               Share
             </button>
 
-            <button
-              onClick={onPublish}
-              className="flex items-center px-4 py-1.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white transition-colors"
-            >
-              Publish
-            </button>
-            */}
+            {/* Publish Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsPublishOpen(!isPublishOpen)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  publishHighlight
+                    ? "bg-purple-500 text-white ring-2 ring-purple-400 ring-offset-2 ring-offset-zinc-950 animate-pulse shadow-lg shadow-purple-500/30"
+                    : "bg-zinc-100 text-zinc-900 hover:bg-white"
+                }`}
+              >
+                Publish
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {isPublishOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsPublishOpen(false)}
+                  />
+                  <div className="absolute top-10 right-0 z-50">
+                    <PublishDropdown />
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Settings Gear */}
             <button

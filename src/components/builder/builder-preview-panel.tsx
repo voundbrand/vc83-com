@@ -83,7 +83,7 @@ function PreviewLoadingState() {
         >
           {thinkingPhrases[phraseIndex]}
         </p>
-        <p className="text-zinc-500 text-sm">This usually takes a few seconds</p>
+        <p className="text-zinc-500 text-sm">This usually takes a minute or two</p>
       </div>
       {/* Inline keyframes for shimmer animation */}
       <style jsx>{`

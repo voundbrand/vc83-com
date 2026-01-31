@@ -8,11 +8,12 @@
  * endpoint details. Generates a scoped API key on connect.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useBuilder } from "@/contexts/builder-context";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import type { Id } from "@/../convex/_generated/dataModel";
 import {
   X,
   Check,
@@ -34,12 +35,14 @@ import {
   Save,
   Rocket,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 import {
   API_CATEGORIES,
   getScopesForCategories,
   type ApiCategory,
 } from "@/lib/api-catalog";
+import { EnvVarsSection } from "./env-vars-section";
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -68,21 +71,90 @@ interface ConnectionResult {
 }
 
 export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPanelProps) {
-  const { sessionId, organizationId, v0ChatId, v0DemoUrl, v0WebUrl, conversationId, setBuilderAppId } = useBuilder();
+  const { sessionId, organizationId, v0ChatId, v0DemoUrl, v0WebUrl, conversationId, builderAppId, setBuilderAppId } = useBuilder();
   const { sessionId: authSessionId } = useAuth();
+
+  const effectiveSessionId = authSessionId || sessionId;
 
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isUpdatingCategories, setIsUpdatingCategories] = useState(false);
   const [connectionResult, setConnectionResult] = useState<ConnectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Convex type instantiation is excessively deep
   const connectV0App = useAction(api.builderAppOntology.connectV0App);
+  const updateConnectionCategories = useMutation(api.builderAppOntology.updateConnectionCategories);
 
-  const effectiveSessionId = authSessionId || sessionId;
+  // Check for existing builder app by builderAppId or conversationId
+  const existingAppById = useQuery(
+    api.builderAppOntology.getBuilderApp,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+
+  const existingAppByConversation = useQuery(
+    api.builderAppOntology.getBuilderAppByConversationId,
+    effectiveSessionId && organizationId && conversationId && !builderAppId
+      ? { sessionId: effectiveSessionId, organizationId, conversationId }
+      : "skip"
+  );
+
+  const existingAppByV0Chat = useQuery(
+    api.builderAppOntology.getBuilderAppByV0ChatId,
+    effectiveSessionId && organizationId && v0ChatId && !builderAppId && !conversationId
+      ? { sessionId: effectiveSessionId, organizationId, v0ChatId }
+      : "skip"
+  );
+
+  const existingApp = existingAppById || existingAppByConversation || existingAppByV0Chat;
+
+  // Fetch env vars for the connected step (reads .env.example for full key + scans codebase)
+  const envVarsResult = useQuery(
+    api.builderAppOntology.getBuilderAppEnvVars,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
+  const detectedEnvVars = envVarsResult?.envVars || [];
+
+  // Track whether we've already restored state from an existing app
+  const [restoredFromExisting, setRestoredFromExisting] = useState(false);
+
+  // Restore connection state: pre-select previously connected categories
+  // instead of jumping straight to the result screen
+  useEffect(() => {
+    if (!existingApp || restoredFromExisting) return;
+
+    const props = existingApp.customProperties as {
+      appCode?: string;
+      connectionConfig?: {
+        apiKeyPrefix?: string;
+        baseUrl?: string;
+        selectedCategories?: string[];
+        envFileId?: string;
+      };
+    };
+
+    if (props?.connectionConfig) {
+      // Pre-select previously connected categories in the picker
+      const prevCategories = props.connectionConfig.selectedCategories || [];
+      if (prevCategories.length > 0) {
+        setSelectedCategories(new Set(prevCategories));
+      }
+      setRestoredFromExisting(true);
+
+      // Also restore builderAppId in context if it was found by conversation
+      if (!builderAppId) {
+        setBuilderAppId(existingApp._id as Id<"objects">);
+      }
+    }
+  }, [existingApp, restoredFromExisting, builderAppId, setBuilderAppId]);
 
   const toggleCategory = useCallback((categoryId: string) => {
     setSelectedCategories((prev) => {
@@ -138,6 +210,47 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
       setIsConnecting(false);
     }
   }, [selectedCategories, effectiveSessionId, organizationId, v0ChatId, v0WebUrl, v0DemoUrl, conversationId, connectV0App, setBuilderAppId]);
+
+  // Update categories without regenerating API key
+  const handleUpdateCategories = useCallback(async () => {
+    if (selectedCategories.size === 0 || !effectiveSessionId || !builderAppId) return;
+
+    setIsUpdatingCategories(true);
+    setError(null);
+
+    try {
+      const categoryIds = Array.from(selectedCategories);
+      const scopes = getScopesForCategories(categoryIds);
+
+      await updateConnectionCategories({
+        sessionId: effectiveSessionId,
+        appId: builderAppId,
+        selectedCategories: categoryIds,
+        scopes,
+      });
+
+      // Show the connection details with updated categories
+      const props = existingApp?.customProperties as {
+        appCode?: string;
+        connectionConfig?: {
+          apiKeyPrefix?: string;
+          baseUrl?: string;
+          envFileId?: string;
+        };
+      };
+      setConnectionResult({
+        apiKey: `${props?.connectionConfig?.apiKeyPrefix || "sk_****"}••••••••`,
+        baseUrl: props?.connectionConfig?.baseUrl || "https://agreeable-lion-828.convex.site",
+        appCode: props?.appCode || "",
+        selectedCategories: categoryIds,
+        envFileId: props?.connectionConfig?.envFileId || null,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update categories");
+    } finally {
+      setIsUpdatingCategories(false);
+    }
+  }, [selectedCategories, effectiveSessionId, builderAppId, updateConnectionCategories, existingApp]);
 
   const copyToClipboard = useCallback(async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -219,9 +332,18 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
             <Plug className="h-5 w-5 text-emerald-400" />
             <h2 className="text-lg font-semibold text-white">Connected</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setConnectionResult(null)}
+              className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+              title="Edit connected APIs"
+            >
+              Edit APIs
+            </button>
+            <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Success badge */}
@@ -267,19 +389,26 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
           </div>
         </div>
 
-        {/* Environment variables snippet */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Environment Variables</label>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 relative">
-            <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">{envSnippet}</pre>
-            <button
-              onClick={() => copyToClipboard(envSnippet, "env")}
-              className="absolute top-2 right-2 p-1.5 rounded hover:bg-zinc-700 text-zinc-400"
-            >
-              {copiedField === "env" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-            </button>
+        {/* Environment variables - same UI as publish dropdown */}
+        {detectedEnvVars.length > 0 ? (
+          <EnvVarsSection
+            envVars={detectedEnvVars}
+            footerHint="Add these to your .env file or paste into Vercel during deployment."
+          />
+        ) : (
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Environment Variables</label>
+            <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 relative">
+              <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">{envSnippet}</pre>
+              <button
+                onClick={() => copyToClipboard(envSnippet, "env")}
+                className="absolute top-2 right-2 p-1.5 rounded hover:bg-zinc-700 text-zinc-400"
+              >
+                {copiedField === "env" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Connected categories */}
         <div className="space-y-2">
@@ -392,25 +521,37 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
           </div>
         )}
 
-        {/* Publish CTA */}
-        {onSwitchToPublish && (
-          <div className="pt-2 border-t border-zinc-800">
-            <button
-              onClick={onSwitchToPublish}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors font-medium text-sm border border-zinc-700"
-            >
-              <Rocket className="h-4 w-4 text-purple-400" />
-              Ready to publish?
-              <ArrowRight className="h-3.5 w-3.5 text-zinc-400" />
-            </button>
-            <p className="text-[10px] text-zinc-600 text-center mt-1.5">
-              Configure auth, payments, and deploy to Vercel
-            </p>
-          </div>
-        )}
+        {/* Publish CTA - highlights the header Publish button */}
+        <div className="pt-2 border-t border-zinc-800">
+          <button
+            onClick={() => {
+              // Dispatch event to highlight the header Publish button
+              window.dispatchEvent(new CustomEvent("highlight-publish-button"));
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors font-medium text-sm border border-zinc-700"
+          >
+            <Rocket className="h-4 w-4 text-purple-400" />
+            Ready to publish?
+            <ArrowRight className="h-3.5 w-3.5 text-zinc-400" />
+          </button>
+          <p className="text-[10px] text-zinc-600 text-center mt-1.5">
+            Use the Publish button in the top right to deploy
+          </p>
+        </div>
       </div>
     );
   }
+
+  // Determine if already connected (existing app with connectionConfig)
+  const existingConfig = (existingApp?.customProperties as { connectionConfig?: { selectedCategories?: string[] } })?.connectionConfig;
+  const isAlreadyConnected = !!existingConfig;
+
+  // Check if user has changed categories from the saved ones
+  const savedCategories = new Set(existingConfig?.selectedCategories || []);
+  const categoriesChanged = isAlreadyConnected && (
+    selectedCategories.size !== savedCategories.size ||
+    Array.from(selectedCategories).some(c => !savedCategories.has(c))
+  );
 
   // Selection state - show API catalog
   return (
@@ -418,16 +559,34 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Plug className="h-5 w-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">Connect to Platform</h2>
+          <Plug className={`h-5 w-5 ${isAlreadyConnected ? "text-emerald-400" : "text-purple-400"}`} />
+          <h2 className="text-lg font-semibold text-white">
+            {isAlreadyConnected ? "Connected APIs" : "Connect to Platform"}
+          </h2>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
           <X className="h-4 w-4" />
         </button>
       </div>
 
+      {/* Already connected banner */}
+      {isAlreadyConnected && (
+        <div className="bg-emerald-950/50 border border-emerald-800 rounded-lg p-3 flex items-start gap-3">
+          <Check className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-emerald-200 text-sm font-medium">App already connected</p>
+            <p className="text-emerald-400/70 text-xs mt-0.5">
+              Select additional APIs and reconnect, or press Next to view your connection details.
+            </p>
+          </div>
+        </div>
+      )}
+
       <p className="text-sm text-zinc-400">
-        Select the API capabilities your app needs. We&apos;ll generate a scoped API key with access to only what you select.
+        {isAlreadyConnected
+          ? "Change your API selections and reconnect to generate a new key, or continue to your connection details."
+          : "Select the API capabilities your app needs. We\u0027ll generate a scoped API key with access to only what you select."
+        }
       </p>
 
       {/* Error */}
@@ -451,29 +610,122 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
         ))}
       </div>
 
-      {/* Connect button */}
-      <div className="pt-2">
-        <button
-          onClick={handleConnect}
-          disabled={selectedCategories.size === 0 || isConnecting}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          {isConnecting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Connecting...
-            </>
-          ) : (
-            <>
-              <Plug className="h-4 w-4" />
-              Connect ({selectedCategories.size} {selectedCategories.size === 1 ? "category" : "categories"})
-            </>
-          )}
-        </button>
-        {selectedCategories.size > 0 && (
-          <p className="text-xs text-zinc-500 mt-2 text-center">
-            {getScopesForCategories(Array.from(selectedCategories)).length} scopes will be granted
-          </p>
+      {/* Action buttons */}
+      <div className="pt-2 space-y-2">
+        {/* Regenerate key confirmation dialog */}
+        {showRegenConfirm && (
+          <div className="bg-amber-950/50 border border-amber-800 rounded-lg p-3 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm text-amber-200 font-medium">Regenerate API key?</p>
+                <p className="text-xs text-amber-400/70 mt-0.5">
+                  This will create a new API key and revoke the current one. Your deployed app will need to be updated with the new key.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRegenConfirm(false);
+                  handleConnect();
+                }}
+                disabled={isConnecting}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors text-sm font-medium"
+              >
+                {isConnecting ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Regenerating...</>
+                ) : (
+                  <>Yes, regenerate</>
+                )}
+              </button>
+              <button
+                onClick={() => setShowRegenConfirm(false)}
+                className="flex-1 px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors text-sm border border-zinc-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!showRegenConfirm && isAlreadyConnected && (
+          <>
+            {/* Next button - view existing connection details */}
+            <button
+              onClick={() => {
+                const props = existingApp?.customProperties as {
+                  appCode?: string;
+                  connectionConfig?: {
+                    apiKeyPrefix?: string;
+                    baseUrl?: string;
+                    selectedCategories?: string[];
+                    envFileId?: string;
+                  };
+                };
+                if (props?.connectionConfig) {
+                  setConnectionResult({
+                    apiKey: `${props.connectionConfig.apiKeyPrefix || "sk_****"}••••••••`,
+                    baseUrl: props.connectionConfig.baseUrl || "https://agreeable-lion-828.convex.site",
+                    appCode: props.appCode || "",
+                    selectedCategories: props.connectionConfig.selectedCategories || [],
+                    envFileId: props.connectionConfig.envFileId || null,
+                  });
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            >
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </button>
+
+            {/* Update categories (keep existing key) */}
+            {categoriesChanged && (
+              <button
+                onClick={handleUpdateCategories}
+                disabled={selectedCategories.size === 0 || isUpdatingCategories}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-zinc-700"
+              >
+                {isUpdatingCategories ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Updating...</>
+                ) : (
+                  <>Update Categories (keep existing key)</>
+                )}
+              </button>
+            )}
+
+            {/* Regenerate key */}
+            <button
+              onClick={() => setShowRegenConfirm(true)}
+              disabled={selectedCategories.size === 0}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors disabled:opacity-50"
+            >
+              <Key className="h-3 w-3" />
+              Regenerate API key
+            </button>
+          </>
+        )}
+
+        {/* Initial connect (not yet connected) */}
+        {!showRegenConfirm && !isAlreadyConnected && (
+          <>
+            <button
+              onClick={handleConnect}
+              disabled={selectedCategories.size === 0 || isConnecting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {isConnecting ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Connecting...</>
+              ) : (
+                <><Plug className="h-4 w-4" /> Connect ({selectedCategories.size} {selectedCategories.size === 1 ? "category" : "categories"})</>
+              )}
+            </button>
+            {selectedCategories.size > 0 && (
+              <p className="text-xs text-zinc-500 text-center">
+                {getScopesForCategories(Array.from(selectedCategories)).length} scopes will be granted
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

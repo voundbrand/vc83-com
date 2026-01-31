@@ -28,7 +28,7 @@ export default function BuilderLayout({
 }) {
   return (
     <div
-      className={`h-screen w-screen overflow-hidden ${playfairDisplay.variable} ${dmSans.variable}`}
+      className={`h-screen w-screen overflow-auto ${playfairDisplay.variable} ${dmSans.variable}`}
       style={{
         backgroundColor: '#18181b', // zinc-900 (neutral gray, no blue)
         fontFamily: 'var(--font-body), system-ui, sans-serif',

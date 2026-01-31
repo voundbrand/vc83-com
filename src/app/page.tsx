@@ -39,6 +39,7 @@ import { OrganizationSwitcherWindow } from "@/components/window-content/organiza
 import { BenefitsWindow } from "@/components/window-content/benefits-window"
 import { BookingWindow } from "@/components/window-content/booking-window"
 import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
@@ -54,7 +55,7 @@ export default function HomePage() {
   const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app"])
   // Note: locale management is now handled via TranslationContext if needed
   const [showStartMenu, setShowStartMenu] = useState(false)
-  const { windows, openWindow, restoreWindow, focusWindow } = useWindowManager()
+  const { windows, openWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
   const isMobile = useIsMobile()
   const { isSignedIn, signOut, sessionId } = useAuth()
   const organizations = useOrganizations()
@@ -306,14 +307,38 @@ export default function HomePage() {
 
   // Open welcome/login window or tutorial on mount based on auth status
   useEffect(() => {
+    // Wait for window manager to finish restoring from sessionStorage
+    if (!isRestored) {
+      return;
+    }
+
     // Only run once
     if (hasOpenedInitialWindow || isMobile) {
       return;
     }
 
-    // Not signed in: Show login immediately
+    // Not signed in: Show builder preview (and login window if redirected from builder)
     if (!isSignedIn) {
-      openLoginWindow();
+      const params = new URLSearchParams(window.location.search);
+      const openLogin = params.get('openLogin');
+
+      if (openLogin === 'builder') {
+        // User came from /builder — open the login window directly
+        openLoginWindow();
+        // Clean up the URL
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        // Default: show the builder browser preview
+        openWindow(
+          "builder-browser",
+          "AI Builder",
+          <BuilderBrowserWindow />,
+          { x: 80, y: 40 },
+          { width: 1100, height: 750 },
+          undefined,
+          "🌐"
+        );
+      }
       setHasOpenedInitialWindow(true);
       return;
     }
@@ -348,7 +373,7 @@ export default function HomePage() {
       setHasOpenedInitialWindow(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow])
+  }, [isMobile, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
 
   // Handle return from OAuth callbacks (Microsoft, etc.)
   useEffect(() => {
@@ -503,6 +528,16 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Handle post-auth redirect (e.g., return to /builder after login)
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const returnUrl = sessionStorage.getItem("auth_return_url");
+    if (returnUrl) {
+      sessionStorage.removeItem("auth_return_url");
+      window.location.href = returnUrl;
+    }
+  }, [isSignedIn]);
 
   // Handle onboarding after signup - show new welcome screen
   useEffect(() => {
