@@ -593,6 +593,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       const result = await initiateGitHubOAuth({
         sessionId: effectiveSessionId,
         connectionType: "organizational",
+        returnUrl: window.location.pathname + window.location.search,
       });
       // Open the GitHub OAuth page in a new tab
       window.open(result.authUrl, "_blank");

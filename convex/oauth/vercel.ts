@@ -35,6 +35,7 @@ export const initiateVercelOAuth = mutation({
   args: {
     sessionId: v.string(),
     connectionType: v.union(v.literal("personal"), v.literal("organizational")),
+    returnUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get current user from session
@@ -77,6 +78,7 @@ export const initiateVercelOAuth = mutation({
       organizationId: user.defaultOrgId,
       connectionType: args.connectionType,
       provider: "vercel",
+      returnUrl: args.returnUrl,
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
@@ -132,6 +134,7 @@ export const exchangeVercelCode = action({
   },
   handler: async (ctx, args): Promise<{
     connectionId: Id<"oauthConnections">;
+    returnUrl?: string;
   }> => {
     console.log("Exchanging Vercel authorization code...");
 
@@ -198,6 +201,11 @@ export const exchangeVercelCode = action({
       email: vercelUser.email,
     });
 
+    // Encrypt access token before storage
+    const encryptedAccessToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+      plaintext: tokenData.access_token,
+    });
+
     // Store connection in database
     const connectionId: Id<"oauthConnections"> = await ctx.runMutation(internal.oauth.vercel.storeConnection, {
       userId: stateRecord.userId,
@@ -205,7 +213,7 @@ export const exchangeVercelCode = action({
       connectionType: stateRecord.connectionType,
       providerAccountId: vercelUser.id,
       providerEmail: vercelUser.email || vercelUser.username,
-      accessToken: tokenData.access_token,
+      accessToken: encryptedAccessToken,
       // Vercel tokens don't expire, but we set a far future date
       tokenExpiresAt: Date.now() + (365 * 24 * 60 * 60 * 1000), // 1 year
       scopes: VERCEL_DEPLOYMENT_SCOPES,
@@ -219,7 +227,7 @@ export const exchangeVercelCode = action({
 
     console.log("Vercel connection stored successfully:", { connectionId });
 
-    return { connectionId };
+    return { connectionId, returnUrl: stateRecord.returnUrl };
   },
 });
 
@@ -250,7 +258,10 @@ export const verifyState = internalQuery({
       return null;
     }
 
-    return stateRecord;
+    return {
+      ...stateRecord,
+      returnUrl: stateRecord.returnUrl,
+    };
   },
 });
 

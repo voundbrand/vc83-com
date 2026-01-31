@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "../../../../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { fetchAction } from "convex/nextjs";
 
 /**
  * Vercel OAuth Callback Handler
  *
- * This endpoint receives the authorization code from Vercel after the user grants permission.
- * It exchanges the code for an access token and stores the connection.
+ * Receives the authorization code from Vercel after the user grants permission.
+ * Exchanges the code for an access token and redirects back to the app.
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,17 +21,18 @@ export async function GET(request: NextRequest) {
     hasError: !!error,
   });
 
-  // Handle OAuth errors
+  // Handle OAuth errors (user denied, etc.)
   if (error) {
     console.error("[Vercel OAuth Callback] Error from Vercel:", {
       error,
       errorDescription,
     });
-
     return NextResponse.redirect(
       new URL(
-        `/oauth/error?provider=vercel&error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || "")}`,
-        process.env.NEXT_PUBLIC_APP_URL
+        `/?window=integrations&error=${encodeURIComponent(
+          errorDescription || error
+        )}`,
+        request.url
       )
     );
   }
@@ -40,10 +41,7 @@ export async function GET(request: NextRequest) {
   if (!code || !state) {
     console.error("[Vercel OAuth Callback] Missing code or state");
     return NextResponse.redirect(
-      new URL(
-        "/oauth/error?provider=vercel&error=missing_params&description=Missing authorization code or state",
-        process.env.NEXT_PUBLIC_APP_URL
-      )
+      new URL("/?window=integrations&error=missing_oauth_params", request.url)
     );
   }
 
@@ -62,24 +60,32 @@ export async function GET(request: NextRequest) {
 
     console.log("[Vercel OAuth Callback] Connection successful:", {
       connectionId: result.connectionId,
+      returnUrl: result.returnUrl,
     });
 
-    // Redirect to success page
+    // If a returnUrl was provided (e.g. from builder), redirect back there
+    if (result.returnUrl) {
+      const returnUrl = new URL(result.returnUrl, request.url);
+      returnUrl.searchParams.set("success", "vercel_connected");
+      return NextResponse.redirect(returnUrl);
+    }
+
+    // Default: redirect back to integrations window
     return NextResponse.redirect(
       new URL(
-        `/?vercel_connected=true&connection_id=${result.connectionId}`,
-        process.env.NEXT_PUBLIC_APP_URL
+        `/?window=integrations&success=vercel_connected&connection_id=${result.connectionId}`,
+        request.url
       )
     );
-  } catch (error) {
-    console.error("[Vercel OAuth Callback] Error during token exchange:", error);
+  } catch (err) {
+    console.error("[Vercel OAuth Callback] Error during token exchange:", err);
 
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = err instanceof Error ? err.message : "connection_failed";
 
     return NextResponse.redirect(
       new URL(
-        `/oauth/error?provider=vercel&error=exchange_failed&description=${encodeURIComponent(errorMessage)}`,
-        process.env.NEXT_PUBLIC_APP_URL
+        `/?window=integrations&error=${encodeURIComponent(errorMessage)}`,
+        request.url
       )
     );
   }

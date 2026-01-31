@@ -63,9 +63,10 @@ export function generateVercelDeployUrl(
     }
   }
 
-  // Add project name
+  // Add project name (but NOT repository-name, since the repo already exists on GitHub
+  // from createRepoFromBuilderApp — adding repository-name would cause Vercel to try
+  // cloning it again under that name, which conflicts with the existing repo)
   params.set('project-name', defaultProjectName);
-  params.set('repository-name', defaultProjectName);
 
   return `https://vercel.com/new/clone?${params.toString()}`;
 }

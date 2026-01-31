@@ -20,6 +20,7 @@ const GOOGLE_REQUIRED_SCOPES = [
   "openid",
   "profile",
   "email",
+  "https://www.googleapis.com/auth/calendar",
 ];
 
 /**
@@ -219,6 +220,17 @@ export const handleGoogleCallback = action({
         verified_email: profile.verified_email,
       },
     });
+
+    // Fetch sub-calendars immediately after connection is established
+    try {
+      await ctx.runAction(
+        internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
+        { connectionId }
+      );
+    } catch (e) {
+      // Non-fatal: sub-calendars can be fetched later via UI refresh button
+      console.error("Failed to fetch sub-calendars after OAuth:", e);
+    }
 
     // Delete used state token
     await ctx.runMutation(internal.oauth.google.deleteState, {

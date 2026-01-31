@@ -44,7 +44,15 @@ export async function GET(request: NextRequest) {
       state,
     });
 
-    // Redirect back to integrations window with success message
+    // If a returnUrl was provided (e.g. from builder), redirect back there
+    if (result.returnUrl) {
+      const returnUrl = new URL(result.returnUrl, request.url);
+      returnUrl.searchParams.set("success", "github_connected");
+      returnUrl.searchParams.set("email", result.providerEmail);
+      return NextResponse.redirect(returnUrl);
+    }
+
+    // Default: redirect back to integrations window
     return NextResponse.redirect(
       new URL(
         `/?window=integrations&success=github_connected&email=${encodeURIComponent(

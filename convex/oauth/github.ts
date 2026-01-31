@@ -31,6 +31,7 @@ export const initiateGitHubOAuth = mutation({
   args: {
     sessionId: v.string(),
     connectionType: v.union(v.literal("personal"), v.literal("organizational")),
+    returnUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get current user from session
@@ -73,6 +74,7 @@ export const initiateGitHubOAuth = mutation({
       organizationId: user.defaultOrgId,
       connectionType: args.connectionType,
       provider: "github",
+      returnUrl: args.returnUrl,
       createdAt: Date.now(),
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
     });
@@ -80,10 +82,14 @@ export const initiateGitHubOAuth = mutation({
     // Get redirect URI from environment
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/github/callback`;
 
+    // Use standard OAuth App credentials (not GitHub App) for repo access
+    // GitHub Apps issue installation tokens that can't create repos via POST /user/repos
+    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID || process.env.GITHUB_INTEGRATION_CLIENT_ID || "";
+
     // DEBUG: Log environment variables (will appear in Convex logs)
     console.log("GitHub OAuth Environment Check:", {
-      hasClientId: !!process.env.GITHUB_INTEGRATION_CLIENT_ID,
-      clientIdLength: process.env.GITHUB_INTEGRATION_CLIENT_ID?.length || 0,
+      hasClientId: !!clientId,
+      clientIdLength: clientId.length,
       hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
       appUrl: process.env.NEXT_PUBLIC_APP_URL,
       redirectUri,
@@ -96,7 +102,7 @@ export const initiateGitHubOAuth = mutation({
 
     // Build OAuth URL
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID || "",
+      client_id: clientId,
       redirect_uri: redirectUri,
       scope: scopeString,
       state,
@@ -129,12 +135,14 @@ export const handleGitHubCallback = action({
     success: boolean;
     connectionId: Id<"oauthConnections">;
     providerEmail: string;
+    returnUrl?: string;
   }> => {
     // Verify state token (CSRF protection)
     const stateRecord: {
       userId: Id<"users">;
       organizationId: Id<"organizations">;
       connectionType: "personal" | "organizational";
+      returnUrl?: string;
     } | null = await ctx.runQuery(internal.oauth.github.verifyState, {
       state: args.state,
     });
@@ -151,8 +159,8 @@ export const handleGitHubCallback = action({
         "Accept": "application/json", // GitHub returns JSON when this header is present
       },
       body: JSON.stringify({
-        client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID || "",
-        client_secret: process.env.GITHUB_INTEGRATION_CLIENT_SECRET || "",
+        client_id: process.env.GITHUB_OAUTH_CLIENT_ID || process.env.GITHUB_INTEGRATION_CLIENT_ID || "",
+        client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET || process.env.GITHUB_INTEGRATION_CLIENT_SECRET || "",
         code: args.code,
       }),
     });
@@ -260,6 +268,7 @@ export const handleGitHubCallback = action({
       success: true,
       connectionId,
       providerEmail: userEmail,
+      returnUrl: stateRecord.returnUrl,
     };
   },
 });
@@ -426,6 +435,7 @@ export const verifyState = internalQuery({
     userId: Id<"users">;
     organizationId: Id<"organizations">;
     connectionType: "personal" | "organizational";
+    returnUrl?: string;
   } | null> => {
     const stateRecord = await ctx.db
       .query("oauthStates")
@@ -455,6 +465,7 @@ export const verifyState = internalQuery({
       userId: stateRecord.userId,
       organizationId: stateRecord.organizationId,
       connectionType: stateRecord.connectionType,
+      returnUrl: stateRecord.returnUrl,
     };
   },
 });
