@@ -23,6 +23,8 @@ __export(index_exports, {
   L4yercak3Provider: () => L4yercak3Provider,
   useAttendees: () => useAttendees,
   useBenefitClaims: () => useBenefitClaims,
+  useBuilderProjectLinkedData: () => useBuilderProjectLinkedData,
+  useBuilderProjects: () => useBuilderProjects,
   useCertificates: () => useCertificates,
   useCheckout: () => useCheckout,
   useCommissions: () => useCommissions,
@@ -62,6 +64,7 @@ var L4yercak3Client = class {
     this.invoices = new InvoicesAPI(this);
     this.benefits = new BenefitsAPI(this);
     this.certificates = new CertificatesAPI(this);
+    this.builderProjects = new BuilderProjectsAPI(this);
   }
   getEnvVar(name) {
     if (typeof process !== "undefined" && process.env) {
@@ -356,6 +359,47 @@ var CertificatesAPI = class {
   /** Verify a certificate by certificate number */
   async verify(certificateNumber) {
     return this.client.request("GET", `/api/v1/certificates/verify/${certificateNumber}`);
+  }
+};
+var BuilderProjectsAPI = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /** List builder projects with optional filtering */
+  async list(params) {
+    return this.client.request("GET", "/api/v1/builder-projects", { params });
+  }
+  /** Get a single builder project by ID */
+  async get(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}`);
+  }
+  /** Create a new builder project */
+  async create(data) {
+    return this.client.request("POST", "/api/v1/builder-projects", { body: data });
+  }
+  /** Update an existing builder project */
+  async update(id, data) {
+    return this.client.request("PATCH", `/api/v1/builder-projects/${id}`, { body: data });
+  }
+  /** Delete a builder project */
+  async delete(id) {
+    return this.client.request("DELETE", `/api/v1/builder-projects/${id}`);
+  }
+  /** Link objects to a builder project */
+  async linkObjects(id, data) {
+    return this.client.request("POST", `/api/v1/builder-projects/${id}/link`, { body: data });
+  }
+  /** Get linked objects for a builder project with full data */
+  async getLinkedData(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}/linked-data`);
+  }
+  /** Initiate deployment to Vercel */
+  async deploy(id) {
+    return this.client.request("POST", `/api/v1/builder-projects/${id}/deploy`);
+  }
+  /** Get deployment status */
+  async getDeploymentStatus(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}/deployment`);
   }
 };
 var L4yercak3Error = class extends Error {
@@ -1634,11 +1678,230 @@ function useCertificates() {
     clearError
   };
 }
+
+// src/react/hooks/useBuilderProject.ts
+var import_react11 = require("react");
+function useBuilderProjects() {
+  const client = useL4yercak3Client();
+  const [projects, setProjects] = (0, import_react11.useState)([]);
+  const [loading, setLoading] = (0, import_react11.useState)(false);
+  const [error, setError] = (0, import_react11.useState)(null);
+  const [total, setTotal] = (0, import_react11.useState)(0);
+  const [hasMore, setHasMore] = (0, import_react11.useState)(false);
+  const fetchProjects = (0, import_react11.useCallback)(
+    async (params) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.builderProjects.list(params);
+        setProjects(result.items);
+        setTotal(result.total);
+        setHasMore(result.hasMore);
+        return result;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const getProject = (0, import_react11.useCallback)(
+    async (id) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await client.builderProjects.get(id);
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const createProject = (0, import_react11.useCallback)(
+    async (data) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const project = await client.builderProjects.create(data);
+        setProjects((prev) => [...prev, project]);
+        setTotal((prev) => prev + 1);
+        return project;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const updateProject = (0, import_react11.useCallback)(
+    async (id, data) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const updated = await client.builderProjects.update(id, data);
+        setProjects((prev) => prev.map((p) => p.id === id ? updated : p));
+        return updated;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const deleteProject = (0, import_react11.useCallback)(
+    async (id) => {
+      setLoading(true);
+      setError(null);
+      try {
+        await client.builderProjects.delete(id);
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+        setTotal((prev) => prev - 1);
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const linkObjects = (0, import_react11.useCallback)(
+    async (id, data) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.builderProjects.linkObjects(id, data);
+        setProjects(
+          (prev) => prev.map(
+            (p) => p.id === id ? { ...p, linkedObjects: result.linkedObjects } : p
+          )
+        );
+        return result;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const deployProject = (0, import_react11.useCallback)(
+    async (id) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await client.builderProjects.deploy(id);
+        setProjects(
+          (prev) => prev.map(
+            (p) => p.id === id ? {
+              ...p,
+              status: "deploying",
+              deployment: {
+                ...p.deployment,
+                status: "deploying",
+                vercelProjectId: result.vercelProjectId
+              }
+            } : p
+          )
+        );
+        return result;
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client]
+  );
+  const clearError = (0, import_react11.useCallback)(() => {
+    setError(null);
+  }, []);
+  return {
+    projects,
+    loading,
+    error,
+    total,
+    hasMore,
+    fetchProjects,
+    getProject,
+    createProject,
+    updateProject,
+    deleteProject,
+    linkObjects,
+    deployProject,
+    clearError
+  };
+}
+function useBuilderProjectLinkedData(projectId) {
+  const client = useL4yercak3Client();
+  const [events, setEvents] = (0, import_react11.useState)([]);
+  const [products, setProducts] = (0, import_react11.useState)([]);
+  const [forms, setForms] = (0, import_react11.useState)([]);
+  const [contacts, setContacts] = (0, import_react11.useState)([]);
+  const [loading, setLoading] = (0, import_react11.useState)(false);
+  const [error, setError] = (0, import_react11.useState)(null);
+  const resolvedProjectId = projectId || (typeof process !== "undefined" ? process.env.L4YERCAK3_PROJECT_ID : void 0);
+  const refresh = (0, import_react11.useCallback)(async () => {
+    if (!resolvedProjectId) {
+      console.warn("[@l4yercak3/sdk] No project ID provided to useBuilderProjectLinkedData. Set L4YERCAK3_PROJECT_ID or pass projectId.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await client.builderProjects.getLinkedData(resolvedProjectId);
+      setEvents(data.events);
+      setProducts(data.products);
+      setForms(data.forms);
+      setContacts(data.contacts);
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [client, resolvedProjectId]);
+  (0, import_react11.useEffect)(() => {
+    if (resolvedProjectId) {
+      refresh();
+    }
+  }, [resolvedProjectId, refresh]);
+  return {
+    events,
+    products,
+    forms,
+    contacts,
+    loading,
+    error,
+    refresh
+  };
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   L4yercak3Provider,
   useAttendees,
   useBenefitClaims,
+  useBuilderProjectLinkedData,
+  useBuilderProjects,
   useCertificates,
   useCheckout,
   useCommissions,

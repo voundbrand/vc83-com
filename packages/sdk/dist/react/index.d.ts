@@ -592,6 +592,97 @@ interface CommissionPayoutListParams extends ListParams {
     memberId?: string;
     status?: CommissionPayoutStatus;
 }
+/** A builder project (v0-generated deployable app) */
+interface BuilderProject {
+    id: string;
+    name: string;
+    description?: string;
+    status: BuilderProjectStatus;
+    subtype: BuilderProjectSubtype;
+    appCode: string;
+    /** v0 chat/generation info */
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    /** Generated files from v0 */
+    generatedFiles: BuilderProjectFile[];
+    /** SDK version to use */
+    sdkVersion: string;
+    /** Required environment variables for deployment */
+    requiredEnvVars: BuilderProjectEnvVar[];
+    /** Linked database objects for dynamic data */
+    linkedObjects: BuilderProjectLinkedObjects;
+    /** Deployment info */
+    deployment: BuilderProjectDeployment;
+    createdAt: string;
+    updatedAt: string;
+}
+type BuilderProjectStatus = 'draft' | 'generating' | 'ready' | 'deploying' | 'deployed' | 'failed' | 'archived';
+type BuilderProjectSubtype = 'v0_generated' | 'template_based' | 'custom';
+/** A generated file in a builder project */
+interface BuilderProjectFile {
+    path: string;
+    content: string;
+    language: string;
+}
+/** Environment variable definition */
+interface BuilderProjectEnvVar {
+    key: string;
+    description: string;
+    required: boolean;
+    defaultValue?: string;
+}
+/** Linked objects for dynamic data in builder projects */
+interface BuilderProjectLinkedObjects {
+    events: string[];
+    products: string[];
+    forms: string[];
+    contacts: string[];
+}
+/** Deployment information for a builder project */
+interface BuilderProjectDeployment {
+    githubRepo?: string | null;
+    githubBranch?: string;
+    vercelProjectId?: string | null;
+    vercelDeployUrl?: string | null;
+    productionUrl?: string | null;
+    status: BuilderProjectDeploymentStatus;
+    lastDeployedAt?: number | null;
+    deploymentError?: string | null;
+}
+type BuilderProjectDeploymentStatus = 'not_deployed' | 'deploying' | 'deployed' | 'failed';
+/** Input for creating a builder project */
+interface BuilderProjectCreateInput {
+    name: string;
+    description?: string;
+    subtype: BuilderProjectSubtype;
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    files?: BuilderProjectFile[];
+}
+/** Input for updating a builder project */
+interface BuilderProjectUpdateInput {
+    name?: string;
+    description?: string;
+    status?: BuilderProjectStatus;
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    files?: BuilderProjectFile[];
+}
+/** Input for linking objects to a builder project */
+interface BuilderProjectLinkInput {
+    events?: string[];
+    products?: string[];
+    forms?: string[];
+    contacts?: string[];
+}
+/** List params for builder projects */
+interface BuilderProjectListParams extends ListParams {
+    status?: BuilderProjectStatus;
+    subtype?: BuilderProjectSubtype;
+}
 
 /**
  * @l4yercak3/sdk API Client
@@ -621,6 +712,7 @@ declare class L4yercak3Client {
     readonly invoices: InvoicesAPI;
     readonly benefits: BenefitsAPI;
     readonly certificates: CertificatesAPI;
+    readonly builderProjects: BuilderProjectsAPI;
     constructor(config?: L4yercak3ClientConfig);
     private getEnvVar;
     /** Make a raw API request */
@@ -789,6 +881,38 @@ declare class CertificatesAPI {
     get(id: string): Promise<Certificate>;
     /** Verify a certificate by certificate number */
     verify(certificateNumber: string): Promise<Certificate>;
+}
+declare class BuilderProjectsAPI {
+    private client;
+    constructor(client: L4yercak3Client);
+    /** List builder projects with optional filtering */
+    list(params?: BuilderProjectListParams): Promise<PaginatedResponse<BuilderProject>>;
+    /** Get a single builder project by ID */
+    get(id: string): Promise<BuilderProject>;
+    /** Create a new builder project */
+    create(data: BuilderProjectCreateInput): Promise<BuilderProject>;
+    /** Update an existing builder project */
+    update(id: string, data: BuilderProjectUpdateInput): Promise<BuilderProject>;
+    /** Delete a builder project */
+    delete(id: string): Promise<void>;
+    /** Link objects to a builder project */
+    linkObjects(id: string, data: BuilderProjectLinkInput): Promise<{
+        linkedObjects: BuilderProjectLinkedObjects;
+    }>;
+    /** Get linked objects for a builder project with full data */
+    getLinkedData(id: string): Promise<{
+        events: Event[];
+        products: Product[];
+        forms: Form[];
+        contacts: Contact[];
+    }>;
+    /** Initiate deployment to Vercel */
+    deploy(id: string): Promise<{
+        deployUrl: string;
+        vercelProjectId: string;
+    }>;
+    /** Get deployment status */
+    getDeploymentStatus(id: string): Promise<BuilderProject['deployment']>;
 }
 
 interface L4yercak3ContextValue {
@@ -1516,4 +1640,110 @@ interface UseCertificatesResult {
  */
 declare function useCertificates(): UseCertificatesResult;
 
-export { type CartItem, L4yercak3Provider, type L4yercak3ProviderProps, type UseAttendeesResult, type UseBenefitClaimsResult, type UseCertificatesResult, type UseCheckoutResult, type UseCommissionsResult, type UseContactsResult, type UseEventsResult, type UseFormSubmissionsResult, type UseFormsResult, type UseInvoicesResult, type UseOrdersResult, type UseOrganizationsResult, type UseProductsResult, useAttendees, useBenefitClaims, useCertificates, useCheckout, useCommissions, useContacts, useEvents, useFormSubmissions, useForms, useInvoices, useL4yercak3, useL4yercak3Client, useOrders, useOrganizations, useProducts };
+interface UseBuilderProjectsResult {
+    /** Current list of builder projects */
+    projects: BuilderProject[];
+    /** Whether a request is in progress */
+    loading: boolean;
+    /** Last error that occurred */
+    error: Error | null;
+    /** Total count of projects (from last fetch) */
+    total: number;
+    /** Whether there are more projects to load */
+    hasMore: boolean;
+    /** Fetch builder projects with optional filters */
+    fetchProjects: (params?: BuilderProjectListParams) => Promise<PaginatedResponse<BuilderProject>>;
+    /** Get a single builder project by ID */
+    getProject: (id: string) => Promise<BuilderProject>;
+    /** Create a new builder project */
+    createProject: (data: BuilderProjectCreateInput) => Promise<BuilderProject>;
+    /** Update an existing builder project */
+    updateProject: (id: string, data: BuilderProjectUpdateInput) => Promise<BuilderProject>;
+    /** Delete a builder project */
+    deleteProject: (id: string) => Promise<void>;
+    /** Link objects to a builder project */
+    linkObjects: (id: string, data: BuilderProjectLinkInput) => Promise<{
+        linkedObjects: BuilderProjectLinkedObjects;
+    }>;
+    /** Deploy a builder project to Vercel */
+    deployProject: (id: string) => Promise<{
+        deployUrl: string;
+        vercelProjectId: string;
+    }>;
+    /** Reset error state */
+    clearError: () => void;
+}
+/**
+ * Hook for managing builder projects.
+ *
+ * @example
+ * ```tsx
+ * function ProjectList() {
+ *   const { projects, loading, fetchProjects, deployProject } = useBuilderProjects();
+ *
+ *   useEffect(() => {
+ *     fetchProjects({ status: 'ready' });
+ *   }, []);
+ *
+ *   const handleDeploy = async (projectId: string) => {
+ *     const { deployUrl } = await deployProject(projectId);
+ *     window.open(deployUrl, '_blank');
+ *   };
+ *
+ *   return (
+ *     <div>
+ *       {projects.map(project => (
+ *         <div key={project.id}>
+ *           <h3>{project.name}</h3>
+ *           <button onClick={() => handleDeploy(project.id)}>Deploy</button>
+ *         </div>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+declare function useBuilderProjects(): UseBuilderProjectsResult;
+interface UseBuilderProjectLinkedDataResult {
+    /** Linked events */
+    events: Event[];
+    /** Linked products */
+    products: Product[];
+    /** Linked forms */
+    forms: Form[];
+    /** Linked contacts */
+    contacts: Contact[];
+    /** Whether data is loading */
+    loading: boolean;
+    /** Last error that occurred */
+    error: Error | null;
+    /** Refresh the linked data */
+    refresh: () => Promise<void>;
+}
+/**
+ * Hook for fetching linked data for a builder project.
+ * This is the key hook for v0-generated apps to fetch their dynamic data.
+ *
+ * @param projectId - The builder project ID (optional, auto-detected from env if not provided)
+ *
+ * @example
+ * ```tsx
+ * // In a v0-generated app
+ * function EventsPage() {
+ *   const { events, loading } = useBuilderProjectLinkedData();
+ *
+ *   if (loading) return <div>Loading...</div>;
+ *
+ *   return (
+ *     <div>
+ *       {events.map(event => (
+ *         <EventCard key={event.id} event={event} />
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+declare function useBuilderProjectLinkedData(projectId?: string): UseBuilderProjectLinkedDataResult;
+
+export { type CartItem, L4yercak3Provider, type L4yercak3ProviderProps, type UseAttendeesResult, type UseBenefitClaimsResult, type UseBuilderProjectLinkedDataResult, type UseBuilderProjectsResult, type UseCertificatesResult, type UseCheckoutResult, type UseCommissionsResult, type UseContactsResult, type UseEventsResult, type UseFormSubmissionsResult, type UseFormsResult, type UseInvoicesResult, type UseOrdersResult, type UseOrganizationsResult, type UseProductsResult, useAttendees, useBenefitClaims, useBuilderProjectLinkedData, useBuilderProjects, useCertificates, useCheckout, useCommissions, useContacts, useEvents, useFormSubmissions, useForms, useInvoices, useL4yercak3, useL4yercak3Client, useOrders, useOrganizations, useProducts };

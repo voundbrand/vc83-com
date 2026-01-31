@@ -47,6 +47,7 @@ var L4yercak3Client = class {
     this.invoices = new InvoicesAPI(this);
     this.benefits = new BenefitsAPI(this);
     this.certificates = new CertificatesAPI(this);
+    this.builderProjects = new BuilderProjectsAPI(this);
   }
   getEnvVar(name) {
     if (typeof process !== "undefined" && process.env) {
@@ -341,6 +342,47 @@ var CertificatesAPI = class {
   /** Verify a certificate by certificate number */
   async verify(certificateNumber) {
     return this.client.request("GET", `/api/v1/certificates/verify/${certificateNumber}`);
+  }
+};
+var BuilderProjectsAPI = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /** List builder projects with optional filtering */
+  async list(params) {
+    return this.client.request("GET", "/api/v1/builder-projects", { params });
+  }
+  /** Get a single builder project by ID */
+  async get(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}`);
+  }
+  /** Create a new builder project */
+  async create(data) {
+    return this.client.request("POST", "/api/v1/builder-projects", { body: data });
+  }
+  /** Update an existing builder project */
+  async update(id, data) {
+    return this.client.request("PATCH", `/api/v1/builder-projects/${id}`, { body: data });
+  }
+  /** Delete a builder project */
+  async delete(id) {
+    return this.client.request("DELETE", `/api/v1/builder-projects/${id}`);
+  }
+  /** Link objects to a builder project */
+  async linkObjects(id, data) {
+    return this.client.request("POST", `/api/v1/builder-projects/${id}/link`, { body: data });
+  }
+  /** Get linked objects for a builder project with full data */
+  async getLinkedData(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}/linked-data`);
+  }
+  /** Initiate deployment to Vercel */
+  async deploy(id) {
+    return this.client.request("POST", `/api/v1/builder-projects/${id}/deploy`);
+  }
+  /** Get deployment status */
+  async getDeploymentStatus(id) {
+    return this.client.request("GET", `/api/v1/builder-projects/${id}/deployment`);
   }
 };
 var L4yercak3Error = class extends Error {

@@ -598,6 +598,97 @@ interface WebhookEvent<T = Record<string, unknown>> {
     organizationId: string;
 }
 type WebhookEventType = 'contact.created' | 'contact.updated' | 'contact.deleted' | 'organization.created' | 'organization.updated' | 'event.created' | 'event.updated' | 'event.published' | 'event.cancelled' | 'attendee.registered' | 'attendee.checked_in' | 'attendee.cancelled' | 'form.submitted' | 'order.created' | 'order.paid' | 'order.refunded' | 'invoice.created' | 'invoice.sent' | 'invoice.paid' | 'invoice.overdue' | 'benefit_claim.submitted' | 'benefit_claim.approved' | 'benefit_claim.rejected' | 'benefit_claim.paid' | 'commission.calculated' | 'commission.paid' | 'certificate.issued';
+/** A builder project (v0-generated deployable app) */
+interface BuilderProject {
+    id: string;
+    name: string;
+    description?: string;
+    status: BuilderProjectStatus;
+    subtype: BuilderProjectSubtype;
+    appCode: string;
+    /** v0 chat/generation info */
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    /** Generated files from v0 */
+    generatedFiles: BuilderProjectFile[];
+    /** SDK version to use */
+    sdkVersion: string;
+    /** Required environment variables for deployment */
+    requiredEnvVars: BuilderProjectEnvVar[];
+    /** Linked database objects for dynamic data */
+    linkedObjects: BuilderProjectLinkedObjects;
+    /** Deployment info */
+    deployment: BuilderProjectDeployment;
+    createdAt: string;
+    updatedAt: string;
+}
+type BuilderProjectStatus = 'draft' | 'generating' | 'ready' | 'deploying' | 'deployed' | 'failed' | 'archived';
+type BuilderProjectSubtype = 'v0_generated' | 'template_based' | 'custom';
+/** A generated file in a builder project */
+interface BuilderProjectFile {
+    path: string;
+    content: string;
+    language: string;
+}
+/** Environment variable definition */
+interface BuilderProjectEnvVar {
+    key: string;
+    description: string;
+    required: boolean;
+    defaultValue?: string;
+}
+/** Linked objects for dynamic data in builder projects */
+interface BuilderProjectLinkedObjects {
+    events: string[];
+    products: string[];
+    forms: string[];
+    contacts: string[];
+}
+/** Deployment information for a builder project */
+interface BuilderProjectDeployment {
+    githubRepo?: string | null;
+    githubBranch?: string;
+    vercelProjectId?: string | null;
+    vercelDeployUrl?: string | null;
+    productionUrl?: string | null;
+    status: BuilderProjectDeploymentStatus;
+    lastDeployedAt?: number | null;
+    deploymentError?: string | null;
+}
+type BuilderProjectDeploymentStatus = 'not_deployed' | 'deploying' | 'deployed' | 'failed';
+/** Input for creating a builder project */
+interface BuilderProjectCreateInput {
+    name: string;
+    description?: string;
+    subtype: BuilderProjectSubtype;
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    files?: BuilderProjectFile[];
+}
+/** Input for updating a builder project */
+interface BuilderProjectUpdateInput {
+    name?: string;
+    description?: string;
+    status?: BuilderProjectStatus;
+    v0ChatId?: string;
+    v0WebUrl?: string;
+    v0DemoUrl?: string;
+    files?: BuilderProjectFile[];
+}
+/** Input for linking objects to a builder project */
+interface BuilderProjectLinkInput {
+    events?: string[];
+    products?: string[];
+    forms?: string[];
+    contacts?: string[];
+}
+/** List params for builder projects */
+interface BuilderProjectListParams extends ListParams {
+    status?: BuilderProjectStatus;
+    subtype?: BuilderProjectSubtype;
+}
 /** Error response from the API */
 interface ApiErrorResponse {
     message: string;
@@ -633,6 +724,7 @@ declare class L4yercak3Client {
     readonly invoices: InvoicesAPI;
     readonly benefits: BenefitsAPI;
     readonly certificates: CertificatesAPI;
+    readonly builderProjects: BuilderProjectsAPI;
     constructor(config?: L4yercak3ClientConfig);
     private getEnvVar;
     /** Make a raw API request */
@@ -802,6 +894,38 @@ declare class CertificatesAPI {
     /** Verify a certificate by certificate number */
     verify(certificateNumber: string): Promise<Certificate>;
 }
+declare class BuilderProjectsAPI {
+    private client;
+    constructor(client: L4yercak3Client);
+    /** List builder projects with optional filtering */
+    list(params?: BuilderProjectListParams): Promise<PaginatedResponse<BuilderProject>>;
+    /** Get a single builder project by ID */
+    get(id: string): Promise<BuilderProject>;
+    /** Create a new builder project */
+    create(data: BuilderProjectCreateInput): Promise<BuilderProject>;
+    /** Update an existing builder project */
+    update(id: string, data: BuilderProjectUpdateInput): Promise<BuilderProject>;
+    /** Delete a builder project */
+    delete(id: string): Promise<void>;
+    /** Link objects to a builder project */
+    linkObjects(id: string, data: BuilderProjectLinkInput): Promise<{
+        linkedObjects: BuilderProjectLinkedObjects;
+    }>;
+    /** Get linked objects for a builder project with full data */
+    getLinkedData(id: string): Promise<{
+        events: Event[];
+        products: Product[];
+        forms: Form[];
+        contacts: Contact[];
+    }>;
+    /** Initiate deployment to Vercel */
+    deploy(id: string): Promise<{
+        deployUrl: string;
+        vercelProjectId: string;
+    }>;
+    /** Get deployment status */
+    getDeploymentStatus(id: string): Promise<BuilderProject['deployment']>;
+}
 declare class L4yercak3Error extends Error {
     status: number;
     code?: string | undefined;
@@ -818,4 +942,4 @@ declare function getL4yercak3Client(): L4yercak3Client;
  */
 declare function createL4yercak3Client(config: L4yercak3ClientConfig): L4yercak3Client;
 
-export { type Address, type AddressInput, type ApiErrorResponse, type Attendee, type AttendeeListParams, type AttendeeStatus, type BenefitClaim, type BenefitClaimInput, type BenefitClaimListParams, type BenefitClaimStatus, type Certificate, type CertificateStatus, type CertificateType, type CheckoutSession, type CheckoutSessionCreateInput, type CommissionPayout, type CommissionPayoutListParams, type CommissionPayoutStatus, type Contact, type ContactActivity, type ContactCreateInput, type ContactListParams, type ContactNote, type ContactStatus, type ContactSubtype, type ContactUpdateInput, type Event, type EventCreateInput, type EventListParams, type EventStatus, type EventSubtype, type Form, type FormField, type FormFieldConditional, type FormFieldOption, type FormFieldType, type FormFieldValidation, type FormListParams, type FormSettings, type FormStatus, type FormSubmission, type FormSubmissionListParams, type FormSubmissionStatus, type FormSubtype, type Invoice, type InvoiceCreateInput, type InvoiceLineItem, type InvoiceListParams, type InvoiceReminder, type InvoiceStatus, type InvoiceType, L4yercak3Client, type L4yercak3ClientConfig, L4yercak3Error, type ListParams, type Order, type OrderItem, type OrderListParams, type OrderStatus, type Organization, type OrganizationCreateInput, type OrganizationListParams, type OrganizationSize, type OrganizationSubtype, type PaginatedResponse, type PaymentStatus, type Product, type ProductListParams, type ProductStatus, type Sponsor, type SponsorLevel, type Venue, type VenueInput, type WebhookEvent, type WebhookEventType, createL4yercak3Client, getL4yercak3Client };
+export { type Address, type AddressInput, type ApiErrorResponse, type Attendee, type AttendeeListParams, type AttendeeStatus, type BenefitClaim, type BenefitClaimInput, type BenefitClaimListParams, type BenefitClaimStatus, type BuilderProject, type BuilderProjectCreateInput, type BuilderProjectDeployment, type BuilderProjectDeploymentStatus, type BuilderProjectEnvVar, type BuilderProjectFile, type BuilderProjectLinkInput, type BuilderProjectLinkedObjects, type BuilderProjectListParams, type BuilderProjectStatus, type BuilderProjectSubtype, type BuilderProjectUpdateInput, type Certificate, type CertificateStatus, type CertificateType, type CheckoutSession, type CheckoutSessionCreateInput, type CommissionPayout, type CommissionPayoutListParams, type CommissionPayoutStatus, type Contact, type ContactActivity, type ContactCreateInput, type ContactListParams, type ContactNote, type ContactStatus, type ContactSubtype, type ContactUpdateInput, type Event, type EventCreateInput, type EventListParams, type EventStatus, type EventSubtype, type Form, type FormField, type FormFieldConditional, type FormFieldOption, type FormFieldType, type FormFieldValidation, type FormListParams, type FormSettings, type FormStatus, type FormSubmission, type FormSubmissionListParams, type FormSubmissionStatus, type FormSubtype, type Invoice, type InvoiceCreateInput, type InvoiceLineItem, type InvoiceListParams, type InvoiceReminder, type InvoiceStatus, type InvoiceType, L4yercak3Client, type L4yercak3ClientConfig, L4yercak3Error, type ListParams, type Order, type OrderItem, type OrderListParams, type OrderStatus, type Organization, type OrganizationCreateInput, type OrganizationListParams, type OrganizationSize, type OrganizationSubtype, type PaginatedResponse, type PaymentStatus, type Product, type ProductListParams, type ProductStatus, type Sponsor, type SponsorLevel, type Venue, type VenueInput, type WebhookEvent, type WebhookEventType, createL4yercak3Client, getL4yercak3Client };
