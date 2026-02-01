@@ -509,6 +509,11 @@ export const linkObjectsToBuilderApp = mutation({
     products: v.optional(v.array(v.id("objects"))),
     forms: v.optional(v.array(v.id("objects"))),
     contacts: v.optional(v.array(v.id("objects"))),
+    invoices: v.optional(v.array(v.id("objects"))),
+    tickets: v.optional(v.array(v.id("objects"))),
+    bookings: v.optional(v.array(v.id("objects"))),
+    workflows: v.optional(v.array(v.id("objects"))),
+    checkouts: v.optional(v.array(v.id("objects"))),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -537,6 +542,11 @@ export const linkObjectsToBuilderApp = mutation({
       products: args.products !== undefined ? args.products : (currentLinkedObjects.products || []),
       forms: args.forms !== undefined ? args.forms : (currentLinkedObjects.forms || []),
       contacts: args.contacts !== undefined ? args.contacts : (currentLinkedObjects.contacts || []),
+      invoices: args.invoices !== undefined ? args.invoices : (currentLinkedObjects.invoices || []),
+      tickets: args.tickets !== undefined ? args.tickets : (currentLinkedObjects.tickets || []),
+      bookings: args.bookings !== undefined ? args.bookings : (currentLinkedObjects.bookings || []),
+      workflows: args.workflows !== undefined ? args.workflows : (currentLinkedObjects.workflows || []),
+      checkouts: args.checkouts !== undefined ? args.checkouts : (currentLinkedObjects.checkouts || []),
     };
 
     await ctx.db.patch(args.appId, {
@@ -553,6 +563,11 @@ export const linkObjectsToBuilderApp = mutation({
       ...(args.products || []),
       ...(args.forms || []),
       ...(args.contacts || []),
+      ...(args.invoices || []),
+      ...(args.tickets || []),
+      ...(args.bookings || []),
+      ...(args.workflows || []),
+      ...(args.checkouts || []),
     ];
 
     for (const linkedId of allLinkedIds) {
@@ -587,12 +602,176 @@ export const linkObjectsToBuilderApp = mutation({
         products: args.products?.length || 0,
         forms: args.forms?.length || 0,
         contacts: args.contacts?.length || 0,
+        invoices: args.invoices?.length || 0,
+        tickets: args.tickets?.length || 0,
+        bookings: args.bookings?.length || 0,
+        workflows: args.workflows?.length || 0,
+        checkouts: args.checkouts?.length || 0,
       },
       performedBy: userId,
       performedAt: Date.now(),
     });
 
     return { success: true, linkedObjects: updatedLinkedObjects };
+  },
+});
+
+/**
+ * UPDATE CONNECTION STATUS
+ * Persists whether the user has completed the data-connection workflow
+ * so the publish dropdown doesn't require re-entering Connect mode.
+ */
+export const updateBuilderAppConnectionStatus = mutation({
+  args: {
+    sessionId: v.string(),
+    appId: v.id("objects"),
+    connectionStatus: v.string(),
+    connectionCompletedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const hasPermission = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      app.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    await ctx.db.patch(args.appId, {
+      customProperties: {
+        ...currentProps,
+        connectionStatus: args.connectionStatus,
+        connectionCompletedAt: args.connectionCompletedAt || Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * GET EXISTING RECORDS FOR CONNECTION
+ * Search for existing forms, contacts, products, etc. that match
+ * detected items from a v0 app's source files. Used by the
+ * ConnectionPanel to populate the "Link Existing" dropdown.
+ */
+export const getExistingRecordsForConnection = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    detectedItems: v.array(
+      v.object({
+        id: v.string(),
+        type: v.string(), // "contact" | "form" | "product" | "event"
+        name: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const typeMap: Record<string, string> = {
+      contact: "crm_contact",
+      form: "form",
+      product: "product",
+      event: "event",
+      invoice: "invoice",
+      ticket: "ticket",
+      booking: "booking",
+      workflow: "workflow",
+      checkout: "checkout_instance",
+    };
+
+    const results: Record<
+      string,
+      Array<{
+        id: string;
+        name: string;
+        similarity: number;
+        isExactMatch: boolean;
+        details: Record<string, unknown>;
+      }>
+    > = {};
+
+    // Cache per-type queries to avoid duplicate fetches
+    const typeCache: Record<string, Array<{ _id: Id<"objects">; name: string; type: string; subtype?: string; status: string }>> = {};
+
+    for (const item of args.detectedItems) {
+      const objectType = typeMap[item.type];
+      if (!objectType) {
+        results[item.id] = [];
+        continue;
+      }
+
+      // Fetch all records of this type for the org (cached per type)
+      if (!typeCache[objectType]) {
+        const records = await ctx.db
+          .query("objects")
+          .withIndex("by_org_type", (q) =>
+            q.eq("organizationId", args.organizationId).eq("type", objectType)
+          )
+          .collect();
+        typeCache[objectType] = records
+          .filter((r) => r.status !== "archived")
+          .map((r) => ({
+            _id: r._id,
+            name: r.name,
+            type: r.type,
+            subtype: r.subtype,
+            status: r.status,
+          }));
+      }
+
+      const records = typeCache[objectType];
+      const searchLower = (item.name || "").toLowerCase();
+
+      results[item.id] = records
+        .map((r) => {
+          const nameLower = (r.name || "").toLowerCase();
+          const isExactMatch = nameLower === searchLower;
+          let similarity = 0;
+          if (isExactMatch) {
+            similarity = 1.0;
+          } else if (
+            searchLower.length >= 3 &&
+            (nameLower.includes(searchLower) || searchLower.includes(nameLower))
+          ) {
+            similarity = 0.7;
+          } else if (
+            searchLower.length >= 3 &&
+            nameLower.startsWith(searchLower.substring(0, 3))
+          ) {
+            similarity = 0.3;
+          }
+          return {
+            id: r._id as string,
+            name: r.name,
+            similarity,
+            isExactMatch,
+            details: {
+              type: r.type,
+              subtype: r.subtype,
+              status: r.status,
+            },
+          };
+        })
+        .filter((m) => m.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 5);
+    }
+
+    return results;
   },
 });
 

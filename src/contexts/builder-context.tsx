@@ -16,8 +16,11 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { useMemo } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { analyzeV0FilesForConnections } from "@/lib/builder/v0-file-analyzer";
+import { API_CATEGORIES } from "@/lib/api-catalog";
 import type { Id } from "@convex/_generated/dataModel";
 import type { AIGeneratedPageSchema } from "@/lib/page-builder/page-schema";
 import { parseAndValidateAIResponse } from "@/lib/page-builder/validators";
@@ -42,7 +45,7 @@ export interface DetectedItem {
   /** Unique ID for this detected item */
   id: string;
   /** Type of item detected */
-  type: "product" | "event" | "contact";
+  type: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout";
   /** The placeholder data from the prototype page */
   placeholderData: {
     name?: string;
@@ -99,7 +102,7 @@ export interface LinkedRecord {
   /** Database record ID */
   recordId: string;
   /** Type of record */
-  recordType: "product" | "event" | "contact";
+  recordType: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout";
   /** Section ID this record is linked to */
   sectionId: string;
   /** Item ID within the section */
@@ -377,6 +380,20 @@ interface BuilderContextType {
   /** Execute all pending connections */
   executeConnections: () => Promise<boolean>;
 
+  /** Add a manual connection item to an empty section */
+  addManualConnectionItem: (sectionId: string, type: DetectedItem["type"]) => void;
+
+  /** Whether connection analysis is in progress */
+  isAnalyzingConnections: boolean;
+
+  /** Production URL from Vercel deployment (null if not deployed) */
+  productionUrl: string | null;
+
+  /** Whether the inspector mode is active (click-to-select in live preview) */
+  inspectorMode: boolean;
+  /** Toggle inspector mode */
+  setInspectorMode: (enabled: boolean) => void;
+
   /** Check if we can switch to a given mode */
   canSwitchToMode: (mode: BuilderMode) => boolean;
 
@@ -519,6 +536,98 @@ export function BuilderProvider({
   const [isAnalyzingConnections, setIsAnalyzingConnections] = useState(false);
 
   // ============================================================================
+  // BUILDER FILES QUERY (for v0 file analysis)
+  // ============================================================================
+
+  const builderFilesRaw = useQuery(
+    api.fileSystemOntology.getFilesByApp,
+    sessionId && builderAppId
+      ? { sessionId, appId: builderAppId }
+      : "skip"
+  );
+  const builderFiles = useMemo(() => {
+    if (!builderFilesRaw) return [];
+    return builderFilesRaw.map((f) => ({ path: f.path, content: f.content }));
+  }, [builderFilesRaw]);
+
+  // ============================================================================
+  // EXISTING RECORDS QUERY (for ConnectionPanel match suggestions)
+  // ============================================================================
+
+  const connectionSearchItems = useMemo(() => {
+    if (pendingConnections.length === 0) return null;
+    return pendingConnections.flatMap((section) =>
+      section.detectedItems.map((item) => ({
+        id: item.id,
+        type: item.type,
+        name: item.placeholderData.name || "",
+      }))
+    );
+  }, [pendingConnections]);
+
+  const existingRecordsResult = useQuery(
+    api.builderAppOntology.getExistingRecordsForConnection,
+    connectionSearchItems && sessionId && organizationId
+      ? {
+          sessionId,
+          organizationId,
+          detectedItems: connectionSearchItems,
+        }
+      : "skip"
+  );
+
+  // ============================================================================
+  // RESTORE CONNECTION STATE FROM DB
+  // ============================================================================
+
+  const builderAppData = useQuery(
+    api.builderAppOntology.getBuilderApp,
+    sessionId && builderAppId ? { sessionId, appId: builderAppId } : "skip"
+  );
+
+  // Derive production URL from builder app deployment data
+  const productionUrl = useMemo(() => {
+    if (!builderAppData) return null;
+    const deployment = (builderAppData.customProperties as Record<string, unknown>)?.deployment as { productionUrl?: string } | undefined;
+    return deployment?.productionUrl || null;
+  }, [builderAppData]);
+
+  // Inspector mode state (click-to-select in live preview iframe)
+  const [inspectorMode, setInspectorMode] = useState(false);
+
+  // Restore linked records from DB on load (survives refresh)
+  useEffect(() => {
+    if (!builderAppData) return;
+    const props = builderAppData.customProperties as Record<string, unknown>;
+    if (props?.connectionStatus === "completed") {
+      const linked = props?.linkedObjects as Record<string, string[]> | undefined;
+      if (linked && linkedRecords.length === 0) {
+        const restored: LinkedRecord[] = [];
+        const typeRestoreMap: Record<string, LinkedRecord["recordType"]> = {
+          contacts: "contact", forms: "form", products: "product", events: "event",
+          invoices: "invoice", bookings: "booking", tickets: "ticket",
+          workflows: "workflow", checkouts: "checkout",
+        };
+        for (const [type, ids] of Object.entries(linked)) {
+          const recordType = typeRestoreMap[type] || "form";
+          for (const id of ids || []) {
+            restored.push({
+              recordId: id,
+              recordType: recordType as LinkedRecord["recordType"],
+              sectionId: "restored",
+              itemId: "restored",
+              wasCreated: false,
+            });
+          }
+        }
+        if (restored.length > 0) {
+          setLinkedRecords(restored);
+        }
+      }
+    }
+  }, [builderAppData, linkedRecords.length]);
+
+  // ============================================================================
   // MULTI-PAGE PROJECT STATE
   // ============================================================================
 
@@ -572,6 +681,14 @@ export function BuilderProvider({
   const initialConversation = useQuery(
     api.ai.conversations.getConversation,
     initialConversationId ? { conversationId: initialConversationId } : "skip"
+  );
+
+  // Look up builder app by conversation ID (restores builderAppId on page refresh)
+  const builderAppByConversation = useQuery(
+    api.builderAppOntology.getBuilderAppByConversationId,
+    sessionId && organizationId && initialConversationId && !builderAppId
+      ? { sessionId, organizationId, conversationId: initialConversationId }
+      : "skip"
   );
 
   // Convex actions
@@ -640,6 +757,13 @@ export function BuilderProvider({
 
     console.log(`[Builder] Loaded conversation ${initialConversationId} with ${loadedMessages.length} messages`);
   }, [initialConversationId, initialConversation]);
+
+  // Restore builderAppId from DB when loading a conversation (survives refresh)
+  useEffect(() => {
+    if (!builderAppByConversation || builderAppId) return;
+    console.log("[Builder] Restored builderAppId from conversation:", builderAppByConversation._id);
+    setBuilderAppId(builderAppByConversation._id);
+  }, [builderAppByConversation, builderAppId]);
 
   // Check for pending prompt, model, and planning mode from sessionStorage on mount
   // Mode is pre-selected on landing page, so we send the message directly
@@ -1266,20 +1390,62 @@ export function BuilderProvider({
     console.log(`[Builder] Mode changed to: ${mode}`);
   }, [builderMode, canSwitchToMode, pageSchema, prototypePageJson]);
 
+  // Helper: get wizard-selected API categories from builder app data
+  const getWizardCategories = useCallback((): string[] => {
+    if (!builderAppData) return [];
+    const props = builderAppData.customProperties as Record<string, unknown>;
+    const config = props?.connectionConfig as { selectedCategories?: string[] } | undefined;
+    return config?.selectedCategories || [];
+  }, [builderAppData]);
+
   /**
    * Analyze current page for sections that need real data connections
    */
   const analyzePageForConnections = useCallback(async () => {
-    const schemaToAnalyze = pageSchema || prototypePageJson;
-    if (!schemaToAnalyze) {
-      console.warn("[Builder] No page schema to analyze");
-      return;
-    }
-
     setIsAnalyzingConnections(true);
     console.log("[Builder] Analyzing page for connections...");
 
     try {
+      // V0 apps: analyze React source files instead of JSON schema
+      if (aiProvider === "v0" && builderFiles.length > 0) {
+        const v0Connections = analyzeV0FilesForConnections(builderFiles);
+
+        // Inject empty sections for wizard-selected categories with no auto-detected items
+        const wizardCategories = getWizardCategories();
+        const categoryTypeMap: Record<string, DetectedItem["type"]> = {
+          forms: "form", crm: "contact", events: "event", products: "product",
+          invoices: "invoice", tickets: "ticket", bookings: "booking",
+          workflows: "workflow", checkout: "checkout",
+        };
+        for (const catId of wizardCategories) {
+          const itemType = categoryTypeMap[catId];
+          if (!itemType) continue;
+          const hasSection = v0Connections.some(s => s.detectedItems.some(i => i.type === itemType));
+          if (!hasSection) {
+            v0Connections.push({
+              sectionId: `wizard:${catId}`,
+              sectionType: catId,
+              sectionLabel: API_CATEGORIES.find(c => c.id === catId)?.label || catId,
+              detectedItems: [],
+              connectionStatus: "pending",
+            });
+          }
+        }
+
+        setPendingConnections(v0Connections);
+        console.log(`[Builder] v0 analysis: found ${v0Connections.length} sections with ${v0Connections.reduce((sum, c) => sum + c.detectedItems.length, 0)} items`);
+        setIsAnalyzingConnections(false);
+        return;
+      }
+
+      // Built-in provider: analyze JSON page schema
+      const schemaToAnalyze = pageSchema || prototypePageJson;
+      if (!schemaToAnalyze) {
+        console.warn("[Builder] No page schema to analyze");
+        setIsAnalyzingConnections(false);
+        return;
+      }
+
       const connections: SectionConnection[] = [];
       let itemIdCounter = 0;
 
@@ -1380,7 +1546,7 @@ export function BuilderProvider({
     } finally {
       setIsAnalyzingConnections(false);
     }
-  }, [pageSchema, prototypePageJson]);
+  }, [pageSchema, prototypePageJson, aiProvider, builderFiles, getWizardCategories]);
 
   /**
    * Update a single connection choice
@@ -1409,6 +1575,71 @@ export function BuilderProvider({
     }));
   }, []);
 
+  // Add a manual connection item to a section (for empty wizard-injected sections)
+  const addManualConnectionItem = useCallback((sectionId: string, type: DetectedItem["type"]) => {
+    const defaults: Record<string, Partial<DetectedItem["placeholderData"]>> = {
+      product: { name: "New Product", price: 0 },
+      event: { name: "New Event", date: new Date().toISOString() },
+      contact: { name: "New Contact" },
+      form: { name: "New Form" },
+      invoice: { name: "New Invoice" },
+      ticket: { name: "New Ticket" },
+      booking: { name: "New Booking" },
+      workflow: { name: "New Workflow" },
+      checkout: { name: "New Checkout" },
+    };
+    const newItem: DetectedItem = {
+      id: `manual-${Date.now()}`,
+      type,
+      placeholderData: defaults[type] || { name: "New Item" },
+      existingMatches: [],
+      connectionChoice: null,
+      linkedRecordId: null,
+      createdRecordId: null,
+    };
+    setPendingConnections(prev => prev.map(s =>
+      s.sectionId === sectionId
+        ? { ...s, detectedItems: [...s.detectedItems, newItem] }
+        : s
+    ));
+  }, []);
+
+  // Merge existing record matches into pendingConnections when query returns
+  useEffect(() => {
+    if (!existingRecordsResult) return;
+    setPendingConnections((prev) =>
+      prev.map((section) => ({
+        ...section,
+        detectedItems: section.detectedItems.map((item): DetectedItem => {
+          const matches = existingRecordsResult[item.id];
+          if (!matches || matches.length === 0) return item;
+          return {
+            ...item,
+            existingMatches: matches.map((m: { id: string; name: string; similarity: number; isExactMatch: boolean; details: Record<string, unknown> }) => ({
+              id: m.id,
+              name: m.name,
+              similarity: m.similarity,
+              isExactMatch: m.isExactMatch,
+              details: m.details,
+            })),
+          };
+        }),
+      }))
+    );
+  }, [existingRecordsResult]);
+
+  // Mutation references for executeConnections
+  const createFormMutation = useMutation(api.formsOntology.createForm);
+  const createContactMutation = useMutation(api.crmOntology.createContact);
+  const createProductMutation = useMutation(api.productOntology.createProduct);
+  const createEventMutation = useMutation(api.eventOntology.createEvent);
+  const createInvoiceMutation = useMutation(api.invoicingOntology.createDraftInvoice);
+  const createBookingMutation = useMutation(api.bookingOntology.createBooking);
+  const createWorkflowMutation = useMutation(api.workflows.workflowOntology.createWorkflow);
+  const createCheckoutMutation = useMutation(api.checkoutOntology.createCheckoutInstance);
+  const linkObjectsMutation = useMutation(api.builderAppOntology.linkObjectsToBuilderApp);
+  const updateConnectionStatusMutation = useMutation(api.builderAppOntology.updateBuilderAppConnectionStatus);
+
   /**
    * Execute all pending connections - create records and link them to the page
    */
@@ -1418,27 +1649,35 @@ export function BuilderProvider({
       return false;
     }
 
-    const schemaToConnect = pageSchema || prototypePageJson;
-    if (!schemaToConnect) {
-      setGenerationError("Cannot execute connections: no page schema");
+    if (!builderAppId) {
+      setGenerationError("Cannot execute connections: no builder app");
       return false;
     }
 
     console.log("[Builder] Executing connections...");
     const newLinkedRecords: LinkedRecord[] = [];
+    const idsByType: Record<string, Id<"objects">[]> = {
+      forms: [], contacts: [], products: [], events: [],
+      invoices: [], tickets: [], bookings: [], workflows: [], checkouts: [],
+    };
+    // Map DetectedItem type → linkObjects key
+    const typeToBucket: Record<string, string> = {
+      form: "forms", contact: "contacts", product: "products", event: "events",
+      invoice: "invoices", ticket: "tickets", booking: "bookings",
+      workflow: "workflows", checkout: "checkouts",
+    };
 
     try {
-      // TODO: Implement actual record creation/linking via Convex mutations
-      // For now, this is a placeholder that logs the connections
       for (const section of pendingConnections) {
         for (const item of section.detectedItems) {
-          if (item.connectionChoice === "skip") {
-            console.log(`[Builder] Skipping item: ${item.placeholderData.name}`);
+          if (item.connectionChoice === "skip" || !item.connectionChoice) {
             continue;
           }
 
+          const bucket = typeToBucket[item.type];
+
           if (item.connectionChoice === "link" && item.linkedRecordId) {
-            console.log(`[Builder] Linking item ${item.placeholderData.name} to record ${item.linkedRecordId}`);
+            const recordId = item.linkedRecordId as Id<"objects">;
             newLinkedRecords.push({
               recordId: item.linkedRecordId,
               recordType: item.type,
@@ -1446,24 +1685,147 @@ export function BuilderProvider({
               itemId: item.id,
               wasCreated: false,
             });
+            if (bucket) idsByType[bucket].push(recordId);
           }
 
           if (item.connectionChoice === "create") {
-            console.log(`[Builder] Would create new ${item.type}: ${item.placeholderData.name}`);
-            // TODO: Call actual creation mutation based on item.type
-            // const recordId = await createRecord(item);
-            // newLinkedRecords.push({ ... wasCreated: true });
+            let createdId: Id<"objects"> | null = null;
+
+            if (item.type === "contact") {
+              const nameParts = (item.placeholderData.name || "New Contact").split(" ");
+              createdId = await createContactMutation({
+                sessionId, organizationId, subtype: "lead",
+                firstName: nameParts[0] || "New",
+                lastName: nameParts.slice(1).join(" ") || "Contact",
+                email: item.placeholderData.email || "",
+                jobTitle: item.placeholderData.description,
+                source: "builder",
+              });
+            } else if (item.type === "form") {
+              createdId = await createFormMutation({
+                sessionId, organizationId, subtype: "registration",
+                name: item.placeholderData.name || "New Form",
+                description: item.placeholderData.description,
+                formSchema: { version: "1.0", fields: [], settings: {}, sections: [] },
+              });
+            } else if (item.type === "product") {
+              createdId = await createProductMutation({
+                sessionId, organizationId, subtype: "digital",
+                name: item.placeholderData.name || "New Product",
+                description: item.placeholderData.description,
+                price: typeof item.placeholderData.price === "number" ? item.placeholderData.price : 0,
+              });
+            } else if (item.type === "event") {
+              const now = Date.now();
+              createdId = await createEventMutation({
+                sessionId, organizationId, subtype: "meetup",
+                name: item.placeholderData.name || "New Event",
+                description: item.placeholderData.description,
+                startDate: now + 7 * 24 * 60 * 60 * 1000,
+                endDate: now + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+                location: "TBD",
+              });
+            } else if (item.type === "invoice") {
+              const invoiceResult = await createInvoiceMutation({
+                sessionId, organizationId,
+                billToName: item.placeholderData.name || "Draft Invoice",
+                billToEmail: "draft@example.com",
+                billToAddress: {},
+                lineItems: [],
+                subtotalInCents: 0, taxInCents: 0, totalInCents: 0,
+                currency: "EUR",
+                invoiceDate: Date.now(), dueDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+              });
+              createdId = invoiceResult.invoiceId;
+            } else if (item.type === "booking") {
+              const now = Date.now();
+              const bookingResult = await createBookingMutation({
+                sessionId, organizationId, subtype: "appointment",
+                customerName: item.placeholderData.name || "New Booking",
+                customerEmail: "booking@example.com",
+                startDateTime: now + 24 * 60 * 60 * 1000,
+                endDateTime: now + 24 * 60 * 60 * 1000 + 60 * 60 * 1000,
+                resourceIds: [],
+              });
+              createdId = bookingResult.bookingId;
+            } else if (item.type === "workflow") {
+              createdId = await createWorkflowMutation({
+                sessionId, organizationId,
+                workflow: {
+                  name: item.placeholderData.name || "New Workflow",
+                  subtype: "custom",
+                  status: "draft",
+                  behaviors: [],
+                  execution: { triggerOn: "manual", errorHandling: "continue" },
+                },
+              });
+            } else if (item.type === "checkout") {
+              const checkoutResult = await createCheckoutMutation({
+                sessionId, organizationId,
+                templateCode: "default",
+                name: item.placeholderData.name || "New Checkout",
+              });
+              createdId = checkoutResult.instanceId;
+            }
+            // Note: ticket type is intentionally excluded — tickets are internal-only
+
+            if (createdId) {
+              newLinkedRecords.push({
+                recordId: createdId,
+                recordType: item.type,
+                sectionId: section.sectionId,
+                itemId: item.id,
+                wasCreated: true,
+              });
+              if (bucket) idsByType[bucket].push(createdId);
+
+              // Update the item with the created record ID
+              setPendingConnections((prev) =>
+                prev.map((s) =>
+                  s.sectionId !== section.sectionId
+                    ? s
+                    : {
+                        ...s,
+                        detectedItems: s.detectedItems.map((i) =>
+                          i.id !== item.id ? i : { ...i, createdRecordId: createdId }
+                        ),
+                      }
+                )
+              );
+            }
           }
         }
       }
 
-      setLinkedRecords(prev => [...prev, ...newLinkedRecords]);
+      // Link all collected records to the builder app
+      const hasAnyIds = Object.values(idsByType).some(arr => arr.length > 0);
+      if (hasAnyIds) {
+        const linkArgs: Record<string, unknown> = { sessionId, appId: builderAppId };
+        for (const [key, ids] of Object.entries(idsByType)) {
+          if (ids.length > 0) linkArgs[key] = ids;
+        }
+        await linkObjectsMutation(linkArgs as Parameters<typeof linkObjectsMutation>[0]);
+      }
+
+      setLinkedRecords((prev) => [...prev, ...newLinkedRecords]);
 
       // Update connection status
-      setPendingConnections(prev => prev.map(section => ({
-        ...section,
-        connectionStatus: "connected",
-      })));
+      setPendingConnections((prev) =>
+        prev.map((section) => ({
+          ...section,
+          connectionStatus: "connected",
+        }))
+      );
+
+      // Persist connection completion to DB
+      if (builderAppId) {
+        await updateConnectionStatusMutation({
+          sessionId,
+          appId: builderAppId,
+          connectionStatus: "completed",
+          connectionCompletedAt: Date.now(),
+        });
+      }
 
       console.log(`[Builder] Connections executed: ${newLinkedRecords.length} records linked`);
       return true;
@@ -1473,7 +1835,7 @@ export function BuilderProvider({
       setGenerationError(errorMessage);
       return false;
     }
-  }, [organizationId, sessionId, pageSchema, prototypePageJson, pendingConnections]);
+  }, [organizationId, sessionId, builderAppId, pendingConnections, createFormMutation, createContactMutation, createProductMutation, createEventMutation, createInvoiceMutation, createBookingMutation, createWorkflowMutation, createCheckoutMutation, linkObjectsMutation, updateConnectionStatusMutation]);
 
   // Reset the builder state
   const reset = useCallback(() => {
@@ -1804,6 +2166,11 @@ export function BuilderProvider({
     analyzePageForConnections,
     updateConnectionChoice,
     executeConnections,
+    addManualConnectionItem,
+    isAnalyzingConnections,
+    productionUrl,
+    inspectorMode,
+    setInspectorMode,
     canSwitchToMode,
     // Multi-page project
     pages,
