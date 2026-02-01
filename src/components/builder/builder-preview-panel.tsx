@@ -8,7 +8,7 @@
  * Intercepts link clicks for multi-page prototype navigation.
  */
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useBuilder } from "@/contexts/builder-context";
 import { PageRenderer } from "./page-renderer";
 import { SectionPropertiesPanel } from "./section-properties-panel";
@@ -21,7 +21,11 @@ import {
   ExternalLink,
   ArrowLeft,
   FileCode,
+  RefreshCw,
+  Loader2,
+  MousePointer,
 } from "lucide-react";
+import type { DetectedItem, SectionConnection } from "@/contexts/builder-context";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { FileExplorerPanel } from "./file-explorer-panel";
@@ -183,6 +187,12 @@ export function BuilderPreviewPanel() {
     // VFS access
     builderAppId,
     sessionId,
+    // Phase B: Live preview + inspector
+    productionUrl,
+    inspectorMode,
+    setInspectorMode,
+    pendingConnections,
+    setPendingConnections,
   } = useBuilder();
 
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
@@ -190,6 +200,7 @@ export function BuilderPreviewPanel() {
 
   // Query builder files for code view
   const builderFilesRaw = useQuery(
+    // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
     api.fileSystemOntology.getFilesByApp,
     sessionId && builderAppId
       ? { sessionId, appId: builderAppId }
@@ -199,6 +210,117 @@ export function BuilderPreviewPanel() {
     if (!builderFilesRaw) return [];
     return builderFilesRaw.map((f) => ({ path: f.path, content: f.content, language: f.language }));
   }, [builderFilesRaw]);
+
+  // V0 iframe loading state
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Auto-retry: reload iframe multiple times to give v0 CDN time to deploy CSS.
+  // v0's Tailwind build can take 5-10s, so we retry at 3s, 6s, and 12s.
+  useEffect(() => {
+    if (!v0DemoUrl) return;
+    setIframeLoaded(false);
+    const retryDelays = [3000, 6000, 12000];
+    const timers = retryDelays.map((delay) =>
+      setTimeout(() => setIframeKey((prev) => prev + 1), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [v0DemoUrl]);
+
+  // Phase B: Preview source toggle (v0 demo vs live production URL)
+  const [previewSource, setPreviewSource] = useState<"v0" | "live">("v0");
+  const hasAutoSwitchedToLive = useRef(false);
+
+  // Auto-switch to live ONCE when production URL first becomes available
+  // (does not override manual user selection back to v0)
+  useEffect(() => {
+    if (productionUrl && !hasAutoSwitchedToLive.current) {
+      hasAutoSwitchedToLive.current = true;
+      setPreviewSource("live");
+    }
+  }, [productionUrl]);
+
+  // Element selected via inspector (for type prompt)
+  const [selectedElement, setSelectedElement] = useState<{
+    tag: string;
+    text: string;
+    suggestedType: string | null;
+    html: string;
+    className?: string;
+    id?: string;
+  } | null>(null);
+
+  // Listen for postMessage from inspector in iframe
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (!e.data?.type?.startsWith("builder:")) return;
+
+      switch (e.data.type) {
+        case "builder:inspector_loaded":
+          if (inspectorMode) {
+            iframeRef.current?.contentWindow?.postMessage({ type: "builder:activate_inspector" }, "*");
+          }
+          break;
+        case "builder:inspector_ready":
+          break;
+        case "builder:element_selected":
+          setSelectedElement(e.data.payload);
+          break;
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [inspectorMode]);
+
+  // Toggle inspector in iframe when mode changes
+  useEffect(() => {
+    if (!iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      { type: inspectorMode ? "builder:activate_inspector" : "builder:deactivate_inspector" },
+      "*"
+    );
+  }, [inspectorMode]);
+
+  // Handle element type selection from prompt
+  const handleElementTyped = useCallback((type: string, element: typeof selectedElement) => {
+    if (!element) return;
+    const itemId = `live-${Date.now()}`;
+    const newItem: DetectedItem = {
+      id: itemId,
+      type: type as DetectedItem["type"],
+      placeholderData: {
+        name: element.text.slice(0, 50) || `${type} element`,
+        description: `Selected from live preview: <${element.tag}>`,
+      },
+      existingMatches: [],
+      connectionChoice: null,
+      linkedRecordId: null,
+      createdRecordId: null,
+    };
+
+    const sectionId = `live-${type}`;
+    const existingSection = pendingConnections.find((s) => s.sectionId === sectionId);
+    if (existingSection) {
+      setPendingConnections(
+        pendingConnections.map((s) =>
+          s.sectionId === sectionId
+            ? { ...s, detectedItems: [...s.detectedItems, newItem] }
+            : s
+        )
+      );
+    } else {
+      setPendingConnections([...pendingConnections, {
+        sectionId,
+        sectionType: type,
+        sectionLabel: `${type.charAt(0).toUpperCase() + type.slice(1)}s (Live Preview)`,
+        detectedItems: [newItem],
+        connectionStatus: "pending" as const,
+      }]);
+    }
+
+    setSelectedElement(null);
+  }, [pendingConnections, setPendingConnections]);
 
   // Navigation history for back button
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
@@ -315,7 +437,7 @@ export function BuilderPreviewPanel() {
         {/* Right side controls */}
         <div className="flex items-center gap-2">
           {/* Preview/Code toggle - only for v0 apps with files */}
-          {aiProvider === "v0" && v0DemoUrl && generatedFiles.length > 0 && (
+          {aiProvider === "v0" && (v0DemoUrl || productionUrl) && generatedFiles.length > 0 && (
             <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
               <button
                 onClick={() => setViewMode("preview")}
@@ -511,22 +633,66 @@ export function BuilderPreviewPanel() {
           </div>
         )}
 
-        {/* V0 iframe preview - show when using v0 provider with demo URL */}
-        {aiProvider === "v0" && v0DemoUrl && viewMode === "preview" && (
+        {/* V0 iframe preview - show when using v0 provider with demo URL or production URL */}
+        {aiProvider === "v0" && (v0DemoUrl || productionUrl) && viewMode === "preview" && (
           <div className="p-4 h-full">
             {/* V0 info bar */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <div className={`w-2 h-2 rounded-full ${iframeLoaded ? "bg-green-500" : "bg-amber-500"} animate-pulse`} />
                 <span className="text-xs text-zinc-400">
-                  Live preview
+                  {iframeLoaded
+                    ? (previewSource === "live" ? "Live production" : "v0 preview")
+                    : "Loading preview..."}
                 </span>
+
+                {/* v0 / Live source toggle */}
+                {productionUrl && (
+                  <div className="flex items-center gap-0.5 bg-zinc-800 rounded p-0.5 text-xs ml-2">
+                    <button
+                      onClick={() => { setPreviewSource("v0"); setInspectorMode(false); setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
+                      className={`px-2 py-0.5 rounded transition-colors ${
+                        previewSource === "v0" ? "bg-zinc-700 text-purple-400" : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      v0
+                    </button>
+                    <button
+                      onClick={() => { setPreviewSource("live"); setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
+                      className={`px-2 py-0.5 rounded transition-colors ${
+                        previewSource === "live" ? "bg-zinc-700 text-purple-400" : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      Live
+                    </button>
+                  </div>
+                )}
+
+                {/* Inspector toggle (only when live) */}
+                {previewSource === "live" && productionUrl && (
+                  <button
+                    onClick={() => setInspectorMode(!inspectorMode)}
+                    className={`p-1 rounded transition-colors ${
+                      inspectorMode ? "bg-purple-600 text-white" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                    title={inspectorMode ? "Exit element selector" : "Select elements to connect"}
+                  >
+                    <MousePointer className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
+              <button
+                onClick={() => { setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
+                className="text-xs text-zinc-500 hover:text-zinc-300 p-1 rounded transition-colors"
+                title="Reload preview"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
             </div>
 
             {/* Iframe container with device viewport */}
             <div
-              className="mx-auto bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300"
+              className="relative mx-auto bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300"
               style={{
                 width: deviceWidths[deviceMode],
                 maxWidth: "100%",
@@ -534,17 +700,63 @@ export function BuilderPreviewPanel() {
               }}
             >
               <iframe
-                src={v0DemoUrl}
+                key={iframeKey}
+                ref={iframeRef}
+                src={previewSource === "live" && productionUrl ? productionUrl : (v0DemoUrl || productionUrl || "")}
                 className="w-full h-full border-0"
-                title="v0 Preview"
+                title={previewSource === "live" ? "Live Preview" : "v0 Preview"}
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                onLoad={() => {
+                  setIframeLoaded(true);
+                  if (previewSource === "live" && inspectorMode) {
+                    iframeRef.current?.contentWindow?.postMessage({ type: "builder:activate_inspector" }, "*");
+                  }
+                }}
               />
+              {!iframeLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/50">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                </div>
+              )}
+
+              {/* Element type prompt — appears when inspector selects an element */}
+              {selectedElement && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-800 border border-zinc-700 rounded-lg p-4 shadow-2xl max-w-sm w-full">
+                  <p className="text-sm text-zinc-300 mb-1">
+                    Selected: <code className="text-purple-400">&lt;{selectedElement.tag}&gt;</code>
+                  </p>
+                  <p className="text-xs text-zinc-500 truncate mb-3">{selectedElement.text}</p>
+                  <p className="text-xs text-zinc-400 mb-2">What type of element is this?</p>
+                  <div className="flex gap-2">
+                    {(["form", "product", "contact"] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => handleElementTyped(type, selectedElement)}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          selectedElement.suggestedType === type
+                            ? "bg-purple-600 text-white"
+                            : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                        }`}
+                      >
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                        {selectedElement.suggestedType === type && " *"}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setSelectedElement(null)}
+                      className="px-3 py-1.5 rounded text-xs bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Code view - file explorer when toggled */}
-        {aiProvider === "v0" && v0DemoUrl && viewMode === "code" && (
+        {aiProvider === "v0" && (v0DemoUrl || productionUrl) && viewMode === "code" && (
           <div className="h-full">
             <FileExplorerPanel generatedFiles={generatedFiles} />
           </div>

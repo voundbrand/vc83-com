@@ -129,142 +129,6 @@ async function githubFetch<T>(
   return response.json();
 }
 
-/**
- * Generate package.json content for a v0-generated app
- */
-function generatePackageJson(appName: string, sdkVersion: string): string {
-  const packageJson = {
-    name: appName.toLowerCase().replace(/\s+/g, "-"),
-    version: "0.1.0",
-    private: true,
-    scripts: {
-      dev: "next dev",
-      build: "next build",
-      start: "next start",
-      lint: "next lint",
-    },
-    dependencies: {
-      "@l4yercak3/sdk": `^${sdkVersion}`,
-      next: "14.2.5",
-      react: "^18.2.0",
-      "react-dom": "^18.2.0",
-      // v0 common dependencies
-      "lucide-react": "^0.400.0",
-      geist: "^1.3.0",
-      "@vercel/analytics": "^1.3.1",
-      "@vercel/speed-insights": "^1.0.12",
-      // shadcn/ui essentials
-      clsx: "^2.1.0",
-      "tailwind-merge": "^2.2.0",
-      "class-variance-authority": "^0.7.0",
-      "tailwindcss-animate": "^1.0.7",
-      "@radix-ui/react-slot": "^1.0.2",
-      "@radix-ui/react-accordion": "^1.1.2",
-      "@radix-ui/react-alert-dialog": "^1.0.5",
-      "@radix-ui/react-avatar": "^1.0.4",
-      "@radix-ui/react-checkbox": "^1.0.4",
-      "@radix-ui/react-dialog": "^1.0.5",
-      "@radix-ui/react-dropdown-menu": "^2.0.6",
-      "@radix-ui/react-label": "^2.0.2",
-      "@radix-ui/react-popover": "^1.0.7",
-      "@radix-ui/react-progress": "^1.0.3",
-      "@radix-ui/react-scroll-area": "^1.0.5",
-      "@radix-ui/react-select": "^2.0.0",
-      "@radix-ui/react-separator": "^1.0.3",
-      "@radix-ui/react-switch": "^1.0.3",
-      "@radix-ui/react-tabs": "^1.0.4",
-      "@radix-ui/react-toast": "^1.1.5",
-      "@radix-ui/react-toggle": "^1.0.3",
-      "@radix-ui/react-tooltip": "^1.0.7",
-    },
-    devDependencies: {
-      "@types/node": "^20",
-      "@types/react": "^18",
-      "@types/react-dom": "^18",
-      eslint: "^8",
-      "eslint-config-next": "14.2.5",
-      typescript: "^5",
-      tailwindcss: "^3.4.1",
-      postcss: "^8",
-      autoprefixer: "^10",
-    },
-  };
-
-  return JSON.stringify(packageJson, null, 2);
-}
-
-/**
- * Generate .env.example content
- */
-function generateEnvExample(
-  envVars: Array<{ key: string; description: string; required: boolean; defaultValue?: string }>
-): string {
-  const lines: string[] = [
-    "# l4yercak3 Configuration",
-    "# Copy this file to .env.local and fill in your values",
-    "",
-  ];
-
-  for (const envVar of envVars) {
-    lines.push(`# ${envVar.description}`);
-    if (envVar.required) {
-      lines.push(`# Required: Yes`);
-    }
-    lines.push(`${envVar.key}=${envVar.defaultValue || ""}`);
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
-
-/**
- * Generate README.md content
- */
-function generateReadme(appName: string, orgName: string): string {
-  return `# ${appName}
-
-Built with [l4yercak3](https://l4yercak3.com) and [v0.dev](https://v0.dev).
-
-## Getting Started
-
-1. Install dependencies:
-\`\`\`bash
-npm install
-\`\`\`
-
-2. Copy \`.env.example\` to \`.env.local\` and fill in your values:
-\`\`\`bash
-cp .env.example .env.local
-\`\`\`
-
-3. Run the development server:
-\`\`\`bash
-npm run dev
-\`\`\`
-
-Open [http://localhost:3000](http://localhost:3000) to see your app.
-
-## l4yercak3 SDK
-
-This app uses the l4yercak3 SDK for:
-- Event management
-- CRM contacts
-- Product checkout
-- Form handling
-
-See the [SDK documentation](https://docs.l4yercak3.com/sdk) for more details.
-
-## Organization
-
-**${orgName}**
-
-## Deployment
-
-Deploy to Vercel for the best Next.js experience:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-`;
-}
 
 /**
  * Post-process v0-generated files to fix known compatibility issues.
@@ -287,29 +151,9 @@ function patchV0CompatibilityIssues(files: GitHubFile[]): GitHubFile[] {
     return f;
   });
 
-  // Phase 1b: Patch globals.css — v0 generates Tailwind v4 syntax but we use v3
-  let needsShadcnTailwindConfig = false;
-  for (let i = 0; i < patched.length; i++) {
-    const f = patched[i];
-    if (f.path === "app/globals.css" || f.path === "src/app/globals.css") {
-      if (f.content.includes("@import 'tailwindcss'") || f.content.includes("@import \"tailwindcss\"")) {
-        console.log("[GitHub] Patching globals.css: Tailwind v4 -> v3 syntax");
-        patched[i] = { ...f, content: convertGlobalsCssToV3(f.content) };
-        needsShadcnTailwindConfig = true;
-      }
-    }
-  }
-
-  // Phase 1c: If we patched globals.css, also ensure tailwind.config has shadcn theme
-  if (needsShadcnTailwindConfig) {
-    for (let i = 0; i < patched.length; i++) {
-      if (patched[i].path === "tailwind.config.ts" || patched[i].path === "tailwind.config.js") {
-        console.log("[GitHub] Patching tailwind.config with shadcn/ui theme");
-        patched[i] = { ...patched[i], path: "tailwind.config.ts", content: generateShadcnTailwindConfig() };
-        break;
-      }
-    }
-  }
+  // Phase 1b: v0 generates Tailwind v4 syntax — we now support v4 natively
+  // No conversion needed. Keep v0's globals.css as-is.
+  console.log("[GitHub] Tailwind v4 CSS kept as-is (scaffold supports v4 natively)");
 
   try {
     // Phase 2: Scan all files for imports
@@ -496,165 +340,6 @@ function getKnownPackageVersion(pkg: string): string | null {
   return KNOWN_VERSIONS[pkg] || null;
 }
 
-/**
- * Fix Geist font imports in layout.tsx files.
- * Generate a Tailwind v3 config with shadcn/ui theme extensions.
- * Maps CSS variables (--background, --foreground, etc.) to Tailwind classes.
- */
-function generateShadcnTailwindConfig(): string {
-  return `import type { Config } from "tailwindcss";
-
-const config: Config = {
-  darkMode: ["class"],
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
-        },
-        popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
-        },
-        primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
-        },
-        secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
-        },
-        muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
-        },
-        accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
-        },
-        destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
-        },
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
-        chart: {
-          "1": "var(--chart-1)",
-          "2": "var(--chart-2)",
-          "3": "var(--chart-3)",
-          "4": "var(--chart-4)",
-          "5": "var(--chart-5)",
-        },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-};
-
-export default config;
-`;
-}
-
-/**
- * Convert v0-generated Tailwind v4 globals.css to v3-compatible format.
- *
- * v0 generates: @import 'tailwindcss' with oklch() colors and @custom-variant
- * Fix to:       @tailwind base/components/utilities with hsl() CSS variables
- *
- * Extracts CSS variable definitions and converts oklch() values to simple numeric
- * HSL-ish values that work with Tailwind v3's theme system.
- */
-function convertGlobalsCssToV3(v4Content: string): string {
-  // Extract CSS variables from :root and .dark blocks
-  const rootVars: Record<string, string> = {};
-  const darkVars: Record<string, string> = {};
-
-  // Parse :root block
-  const rootMatch = v4Content.match(/:root\s*\{([^}]+)\}/);
-  if (rootMatch) {
-    const varLines = rootMatch[1].split("\n");
-    for (const line of varLines) {
-      const m = line.match(/--([a-z-]+)\s*:\s*(.+?)\s*;/);
-      if (m) rootVars[m[1]] = m[2].trim();
-    }
-  }
-
-  // Parse .dark block
-  const darkMatch = v4Content.match(/\.dark\s*\{([^}]+)\}/);
-  if (darkMatch) {
-    const varLines = darkMatch[1].split("\n");
-    for (const line of varLines) {
-      const m = line.match(/--([a-z-]+)\s*:\s*(.+?)\s*;/);
-      if (m) darkVars[m[1]] = m[2].trim();
-    }
-  }
-
-  // Convert oklch/other values to simple passthrough values
-  // Tailwind v3 uses these as raw values in hsl(), so we keep them as-is
-  // but strip oklch() wrapper since the theme references them directly
-  function simplifyValue(val: string): string {
-    // oklch(0.985 0.002 264) → just keep as-is, will be used as CSS var
-    return val;
-  }
-
-  // Build :root vars string
-  const rootVarLines = Object.entries(rootVars)
-    .map(([k, v]) => `    --${k}: ${simplifyValue(v)};`)
-    .join("\n");
-  const darkVarLines = Object.entries(darkVars)
-    .map(([k, v]) => `    --${k}: ${simplifyValue(v)};`)
-    .join("\n");
-
-  // Extract --radius if present
-  const radiusVal = rootVars["radius"] || "0.5rem";
-
-  // Ensure --radius is present
-  if (!rootVars["radius"]) {
-    rootVars["radius"] = "0.5rem";
-  }
-
-  // Rebuild var lines with all extracted variables
-  const finalRootLines = Object.entries(rootVars)
-    .map(([k, v]) => `  --${k}: ${v};`)
-    .join("\n");
-  const finalDarkLines = Object.entries(darkVars)
-    .map(([k, v]) => `  --${k}: ${v};`)
-    .join("\n");
-
-  return `@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-${finalRootLines}
-}
-
-${finalDarkLines ? `.dark {\n${finalDarkLines}\n}` : ""}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-`;
-}
 
 /**
  * v0 generates: import { Geist, Geist_Mono } from "next/font/google"
@@ -1011,320 +696,6 @@ export { ${exportNames} };
 `;
 }
 
-/**
- * Generate lib/layercake.ts for SDK initialization
- */
-function generateLayercakeLib(): string {
-  return `/**
- * l4yercak3 SDK Configuration
- *
- * This file initializes the l4yercak3 SDK client.
- * Environment variables are automatically loaded from .env.local
- */
-
-import { getL4yercak3Client, L4yercak3Client } from '@l4yercak3/sdk';
-
-// Singleton client instance
-let client: L4yercak3Client | null = null;
-
-/**
- * Get the l4yercak3 client instance
- * Uses environment variables for configuration
- */
-export function getClient(): L4yercak3Client {
-  if (!client) {
-    client = getL4yercak3Client();
-  }
-  return client;
-}
-
-/**
- * Re-export hooks for convenient imports
- */
-export {
-  useContacts,
-  useEvents,
-  useCheckout,
-  useOrders,
-  useForms,
-  useProducts,
-  L4yercak3Provider,
-} from '@l4yercak3/sdk/react';
-`;
-}
-
-/**
- * Generate app/layout.tsx with L4yercak3Provider
- */
-function generateLayoutTsx(appName: string): string {
-  return `import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { L4yercak3Provider } from '@l4yercak3/sdk/react';
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: '${appName}',
-  description: 'Built with l4yercak3',
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
-        <L4yercak3Provider>
-          {children}
-        </L4yercak3Provider>
-      </body>
-    </html>
-  );
-}
-`;
-}
-
-/**
- * Generate app/globals.css - minimal global styles for Next.js
- */
-function generateGlobalsCss(): string {
-  return `@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --radius: 0.5rem;
-}
-
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-`;
-}
-
-/**
- * Generate tsconfig.json for Next.js TypeScript projects
- */
-function generateTsconfig(): string {
-  return JSON.stringify(
-    {
-      compilerOptions: {
-        lib: ["dom", "dom.iterable", "esnext"],
-        allowJs: true,
-        skipLibCheck: true,
-        strict: false,
-        noEmit: true,
-        esModuleInterop: true,
-        module: "esnext",
-        moduleResolution: "bundler",
-        resolveJsonModule: true,
-        isolatedModules: true,
-        jsx: "preserve",
-        incremental: true,
-        plugins: [{ name: "next" }],
-        paths: { "@/*": ["./*"] },
-      },
-      include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-      exclude: ["node_modules"],
-    },
-    null,
-    2
-  );
-}
-
-/**
- * Generate next.config.js
- */
-function generateNextConfig(): string {
-  return `/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Enable React strict mode for better development experience
-  reactStrictMode: true,
-
-  // Allow images from l4yercak3 storage
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.convex.cloud',
-      },
-    ],
-  },
-};
-
-module.exports = nextConfig;
-`;
-}
-
-/**
- * Generate app/page.tsx - root page that imports the main v0 component.
- *
- * v0 typically generates components at paths like:
- *   components/landing-page.tsx, components/app.tsx, etc.
- * but does NOT generate app/page.tsx. Without it, Next.js returns 404 at /.
- *
- * This function inspects generatedFiles to find the most likely "main" component
- * and creates a page.tsx that imports and renders it.
- */
-function generatePageTsx(
-  generatedFiles: Array<{ path: string; content: string; language: string }>
-): string {
-  // Strategy: find the main component from v0-generated files
-  // 1. Check if v0 generated a root page.tsx (no app/ prefix) — use it directly
-  // 2. Prefer files with names like "page", "app", "home", "landing", "main"
-  // 3. Fall back to the largest .tsx component file
-  // 4. Last resort: first .tsx component file
-
-  // Check if v0 generated a root-level page.tsx — promote it directly
-  const rootPageFile = generatedFiles.find(
-    (f) => f.path === "page.tsx" || f.path === "src/page.tsx"
-  );
-  if (rootPageFile) {
-    console.log("[GitHub:generatePageTsx] Found root page.tsx, promoting to app/page.tsx");
-    return rootPageFile.content;
-  }
-
-  const priorityNames = [
-    "page", "app", "home", "landing", "main", "index",
-    "hero", "landing-page", "home-page", "website", "site",
-  ];
-  const tsxFiles = generatedFiles.filter(
-    (f) =>
-      (f.path.endsWith(".tsx") || f.path.endsWith(".jsx")) &&
-      !f.path.includes("layout") &&
-      !f.path.includes("globals") &&
-      !f.path.includes("provider") &&
-      !f.path.includes("/ui/") // Exclude shadcn ui components
-  );
-
-  if (tsxFiles.length === 0) {
-    console.log("[GitHub:generatePageTsx] No .tsx/.jsx component files found, using placeholder");
-    return `export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold">Welcome</h1>
-      <p className="mt-4 text-lg text-gray-600">Your app is live.</p>
-    </main>
-  );
-}
-`;
-  }
-
-  // Find best candidate by priority name
-  let bestFile: (typeof tsxFiles)[0] | null = null;
-  let selectionReason = "first-file";
-
-  for (const name of priorityNames) {
-    const match = tsxFiles.find((f) => {
-      const filename = f.path.split("/").pop()?.toLowerCase() || "";
-      return filename.includes(name);
-    });
-    if (match) {
-      bestFile = match;
-      selectionReason = `priority-name-match:"${name}"`;
-      break;
-    }
-  }
-
-  // Fallback: pick the largest component file (most likely the main page)
-  if (!bestFile) {
-    const sorted = [...tsxFiles].sort((a, b) => b.content.length - a.content.length);
-    if (sorted[0] && sorted[0].content.length > 100) {
-      bestFile = sorted[0];
-      selectionReason = "largest-file";
-    }
-  }
-
-  // Last resort: first tsx file
-  if (!bestFile) {
-    bestFile = tsxFiles[0];
-    selectionReason = "first-file";
-  }
-
-  // If the best file IS already at app/page.tsx, skip generation
-  if (bestFile.path === "app/page.tsx") {
-    console.log("[GitHub:generatePageTsx] v0 already provided app/page.tsx, skipping generation");
-    return ""; // Signal: don't add, it already exists
-  }
-
-  // Derive import path and component name
-  // e.g. "components/landing-page.tsx" -> "@/components/landing-page"
-  const importPath = "@/" + bestFile.path.replace(/\.(tsx|jsx)$/, "");
-
-  // Try to extract the default export name from the file content
-  const defaultExportMatch =
-    bestFile.content.match(/export\s+default\s+function\s+(\w+)/) ||
-    bestFile.content.match(/export\s+default\s+(\w+)/) ||
-    bestFile.content.match(/function\s+(\w+)[\s\S]*?export\s+default\s+\1/);
-  const componentName = defaultExportMatch
-    ? defaultExportMatch[1]
-    : "MainComponent";
-
-  console.log("[GitHub:generatePageTsx] Analysis:", {
-    tsxFileCount: tsxFiles.length,
-    tsxPaths: tsxFiles.map((f) => f.path),
-    selectedFile: bestFile.path,
-    selectionReason,
-    componentName,
-    importPath,
-  });
-
-  return `import ${componentName} from '${importPath}';
-
-export default function Home() {
-  return <${componentName} />;
-}
-`;
-}
 
 // ============================================================================
 // INTERNAL QUERIES (for use by actions)
@@ -1584,203 +955,12 @@ export const createRepoFromBuilderApp = action({
           totalFiles: allFiles.length,
         });
       } else {
-        // LEGACY PATH: Default scaffold (backwards compatible)
-        const sdkVersion = customProps?.sdkVersion || "1.0.0";
-        const envVars = customProps?.requiredEnvVars || [];
-
-        allFiles = [
-          // Generated files from v0
-          ...generatedFiles,
-          // Package.json
-          {
-            path: "package.json",
-            content: generatePackageJson(app.name, sdkVersion),
-            language: "json",
-          },
-          // Environment example
-          {
-            path: ".env.example",
-            content: generateEnvExample(envVars),
-            language: "shell",
-          },
-          // README
-          {
-            path: "README.md",
-            content: generateReadme(app.name, org.name || "Unknown"),
-            language: "markdown",
-          },
-          // l4yercak3 lib
-          {
-            path: "lib/layercake.ts",
-            content: generateLayercakeLib(),
-            language: "typescript",
-          },
-          // Next.js config
-          {
-            path: "next.config.js",
-            content: generateNextConfig(),
-            language: "javascript",
-          },
-          // App layout (if not already in generated files)
-          ...(generatedFiles.some((f) => f.path === "app/layout.tsx")
-            ? []
-            : [
-                {
-                  path: "app/layout.tsx",
-                  content: generateLayoutTsx(app.name),
-                  language: "typescript",
-                },
-              ]),
-          // globals.css (if not already in generated files)
-          ...(generatedFiles.some((f) => f.path === "app/globals.css")
-            ? []
-            : [
-                {
-                  path: "app/globals.css",
-                  content: generateGlobalsCss(),
-                  language: "css",
-                },
-              ]),
-          // tsconfig.json (if not already in generated files)
-          ...(generatedFiles.some((f) => f.path === "tsconfig.json")
-            ? []
-            : [
-                {
-                  path: "tsconfig.json",
-                  content: generateTsconfig(),
-                  language: "json",
-                },
-              ]),
-          // app/page.tsx - root page (if not already in generated files)
-          ...(generatedFiles.some((f) => f.path === "app/page.tsx" || f.path === "src/app/page.tsx")
-            ? []
-            : (() => {
-                const pageContent = generatePageTsx(generatedFiles);
-                return pageContent
-                  ? [{ path: "app/page.tsx", content: pageContent, language: "typescript" }]
-                  : [];
-              })()),
-          // .gitignore
-          {
-            path: ".gitignore",
-            content: `# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-`,
-            language: "gitignore",
-          },
-          // PostCSS config (required for Tailwind CSS)
-          {
-            path: "postcss.config.mjs",
-            content: `/** @type {import('postcss-load-config').Config} */
-const config = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-};
-
-export default config;
-`,
-            language: "javascript",
-          },
-          // Tailwind config (if not already in v0 files)
-          ...(generatedFiles.some((f) => f.path === "tailwind.config.ts" || f.path === "tailwind.config.js")
-            ? []
-            : [
-                {
-                  path: "tailwind.config.ts",
-                  content: `import type { Config } from 'tailwindcss';
-
-const config: Config = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-};
-
-export default config;
-`,
-                  language: "typescript",
-                },
-              ]),
-          // shadcn lib/utils.ts (v0 apps import cn() from @/lib/utils)
-          ...(generatedFiles.some((f) => f.path === "lib/utils.ts")
-            ? []
-            : [
-                {
-                  path: "lib/utils.ts",
-                  content: `import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-`,
-                  language: "typescript",
-                },
-              ]),
-          // components.json (shadcn/ui configuration)
-          {
-            path: "components.json",
-            content: JSON.stringify(
-              {
-                "$schema": "https://ui.shadcn.com/schema.json",
-                style: "default",
-                rsc: true,
-                tsx: true,
-                tailwind: {
-                  config: "tailwind.config.ts",
-                  css: "app/globals.css",
-                  baseColor: "slate",
-                  cssVariables: true,
-                },
-                aliases: {
-                  components: "@/components",
-                  utils: "@/lib/utils",
-                },
-              },
-              null,
-              2
-            ),
-            language: "json",
-          },
-        ];
+        // NO-SCAFFOLD PATH: Just push v0 files (used by self-heal, etc.)
+        // The full scaffold should be provided by the client via scaffoldFiles.
+        // When no scaffold is provided, we only push the raw v0 files.
+        // Existing scaffold files in the repo are preserved via base_tree.
+        console.log("[GitHub] No scaffoldFiles provided — pushing v0 files only (existing repo scaffold preserved via base_tree)");
+        allFiles = [...generatedFiles];
       }
 
       // 2b. Post-process: fix known v0 compatibility issues in generated files
@@ -1823,7 +1003,7 @@ export function cn(...inputs: ClassValue[]) {
         path: string;
         mode: "100644";
         type: "blob";
-        sha: string;
+        sha: string | null;
       }> = [];
 
       console.log("[GitHub] Creating blobs for", allFiles.length, "files...");
@@ -1862,7 +1042,45 @@ export function cn(...inputs: ClassValue[]) {
         throw new Error(`No files could be committed to GitHub. ${detail}`);
       }
 
-      // 3c. Create tree (with base_tree for existing repos)
+      // 3c. Delete known legacy files that persist via base_tree from old deploys.
+      // Setting sha to null in a tree entry removes the file from the tree.
+      // We must first check which files actually exist — deleting a non-existent
+      // file causes GitHub to return 422 GitRPC::BadObjectState.
+      if (baseTreeSha) {
+        const legacyFilesToDelete = [
+          "lib/layercake.ts",       // Old L4yercak3 SDK wrapper (replaced by lib/api.ts)
+          "tailwind.config.ts",     // Not needed in Tailwind v4
+          "tailwind.config.js",     // Not needed in Tailwind v4
+        ];
+
+        // Fetch the current tree to see which files exist
+        let existingPaths: Set<string> = new Set();
+        try {
+          const baseTree = await githubFetch<{ tree: Array<{ path: string }> }>(
+            `/repos/${repoFullName}/git/trees/${baseTreeSha}?recursive=1`,
+            accessToken
+          );
+          existingPaths = new Set(baseTree.tree.map((t) => t.path));
+        } catch (err) {
+          console.warn("[GitHub] Could not fetch base tree for legacy cleanup:", err);
+        }
+
+        // Only delete files that exist in the repo AND aren't being overwritten
+        const newFilePaths = new Set(treeItems.map((t: { path?: string }) => t.path));
+        for (const legacyPath of legacyFilesToDelete) {
+          if (existingPaths.has(legacyPath) && !newFilePaths.has(legacyPath)) {
+            treeItems.push({
+              path: legacyPath,
+              mode: "100644",
+              type: "blob",
+              sha: null,
+            });
+            console.log("[GitHub] Marking legacy file for deletion:", legacyPath);
+          }
+        }
+      }
+
+      // 3d. Create tree (with base_tree for existing repos)
       const treePayload: Record<string, unknown> = { tree: treeItems };
       if (baseTreeSha) {
         treePayload.base_tree = baseTreeSha;

@@ -69,6 +69,17 @@ export const decryptToken = internalAction({
       throw new Error("OAUTH_ENCRYPTION_KEY environment variable is not set");
     }
 
+    // Validate that the input looks like an encrypted token (hex-encoded).
+    // Encrypted format: {iv:24 hex}{authTag:32 hex}{data:variable hex}
+    // Minimum length: 24 + 32 + 2 = 58 hex chars.
+    // If it's shorter or contains non-hex chars, it's likely a plaintext token.
+    const isHexEncrypted = args.encrypted.length >= 58 && /^[0-9a-f]+$/i.test(args.encrypted);
+    if (!isHexEncrypted) {
+      // Not encrypted — return as-is (legacy plaintext token)
+      console.log("[Encryption] Token is not in encrypted format, returning as plaintext");
+      return args.encrypted;
+    }
+
     // Convert base64 key to buffer
     const keyBuffer = Buffer.from(encryptionKey, "base64");
     if (keyBuffer.length !== 32) {

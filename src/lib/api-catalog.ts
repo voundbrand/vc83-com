@@ -140,6 +140,20 @@ export const API_CATEGORIES: ApiCategory[] = [
       { method: "GET", path: "/api/v1/resources/{resourceId}/availability", description: "Get availability schedule" },
     ],
   },
+  {
+    id: "checkout",
+    label: "Checkout & Orders",
+    description: "Manage checkout sessions, cart, order processing, and payment flows",
+    icon: "CreditCard",
+    scopes: ["checkout:read", "checkout:write"],
+    endpoints: [
+      { method: "POST", path: "/api/v1/checkout", description: "Create a checkout session" },
+      { method: "GET", path: "/api/v1/checkout/{sessionId}", description: "Get checkout session status" },
+      { method: "POST", path: "/api/v1/checkout/{sessionId}/complete", description: "Complete a checkout" },
+      { method: "GET", path: "/api/v1/orders", description: "List orders" },
+      { method: "GET", path: "/api/v1/orders/{orderId}", description: "Get order details" },
+    ],
+  },
 ];
 
 /**

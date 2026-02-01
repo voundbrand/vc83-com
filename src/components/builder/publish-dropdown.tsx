@@ -33,9 +33,12 @@ import {
   Wrench,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
 } from "lucide-react";
 import { EnvVarsSection } from "./env-vars-section";
 import { MessageSquare } from "lucide-react";
+import { generateThinClientScaffold, generateMinimalScaffold } from "@/lib/scaffold-generators/thin-client";
+import type { PublishConfig } from "@/contexts/publish-context";
 
 // ── Deploy step definitions ──
 type DeployStep =
@@ -77,7 +80,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
   // Queries
   const builderApp = useQuery(
-    // @ts-expect-error - TS2589: Deep type instantiation in Convex generated types
+    // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
     api.builderAppOntology.getBuilderApp,
     effectiveSessionId && builderAppId
       ? { sessionId: effectiveSessionId, appId: builderAppId }
@@ -118,6 +121,14 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       : "skip"
   );
   const fileCount = builderFiles?.length ?? 0;
+
+  // Query persisted publish config (needed for full scaffold regeneration on redeploy)
+  const publishConfig = useQuery(
+    api.builderAppOntology.getPublishConfig,
+    effectiveSessionId && builderAppId
+      ? { sessionId: effectiveSessionId, appId: builderAppId }
+      : "skip"
+  );
 
   // OAuth connect state
   const [isConnectingGitHub, setIsConnectingGitHub] = useState(false);
@@ -160,7 +171,18 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
   const deployStatus = deployment?.status || "not_deployed";
   const productionUrl = deployment?.productionUrl;
-  const isDeployed = deployStatus === "deployed" && productionUrl;
+  // Consider deployed if we have a production URL and status isn't actively failing/deploying
+  // (handles case where status was incorrectly reset but URL persists)
+  const isDeployed = !!productionUrl && deployStatus !== "deploying" && deployStatus !== "failed";
+
+  // Derive connection state from builder app
+  const appConnectionStatus = (builderApp?.customProperties as Record<string, unknown>)?.connectionStatus as string | undefined;
+  const appLinkedObjects = (builderApp?.customProperties as Record<string, unknown>)?.linkedObjects as Record<string, string[]> | undefined;
+  const hasConnections = appConnectionStatus === "completed" ||
+    (appLinkedObjects && Object.values(appLinkedObjects).some((arr) => arr && arr.length > 0));
+  const connectedRecordCount = appLinkedObjects
+    ? Object.values(appLinkedObjects).reduce((sum, arr) => sum + (arr?.length || 0), 0)
+    : 0;
 
   // Derive env vars from backend query
   const envVarsResult = useQuery(
@@ -275,8 +297,29 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     }
 
     try {
-      // Step 1: Push to GitHub
+      // Step 1: Push to GitHub (with full scaffold from persisted publish config)
       setDeployStep("pushing_github");
+      let scaffoldForPublish: Array<{ path: string; content: string; label?: string }>;
+      if (publishConfig) {
+        const scaffold = generateThinClientScaffold(publishConfig as unknown as PublishConfig);
+        scaffoldForPublish = scaffold.map((f) => ({
+          path: f.path,
+          content: f.content,
+          label: f.label,
+        }));
+        console.log("[Publish] Scaffold generated from publishConfig:", scaffoldForPublish.length, "files");
+      } else {
+        // Fallback: generate minimal scaffold (package.json, postcss, etc.)
+        // This ensures correct Next.js version and build config even without wizard
+        console.warn("[Publish] No publishConfig found — using minimal scaffold fallback");
+        const scaffold = generateMinimalScaffold(builderApp?.name);
+        scaffoldForPublish = scaffold.map((f) => ({
+          path: f.path,
+          content: f.content,
+          label: f.label,
+        }));
+        console.log("[Publish] Minimal scaffold generated:", scaffoldForPublish.length, "files");
+      }
       const repoResult = await createRepo({
         sessionId: effectiveSessionId,
         organizationId,
@@ -284,6 +327,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         repoName: repoName.trim(),
         description: builderApp?.description || "Built with l4yercak3 Builder",
         isPrivate,
+        scaffoldFiles: scaffoldForPublish,
       });
 
       // Step 2: Create Vercel project + set env vars
@@ -295,6 +339,13 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           value: ev.value,
           sensitive: ev.sensitive,
         }));
+
+      // Add builder mode flag for inspector (enables click-to-select in iframe)
+      envPayload.push({
+        key: "NEXT_PUBLIC_BUILDER_MODE",
+        value: "true",
+        sensitive: false,
+      });
 
       const deployResult = await deployToVercel({
         sessionId: effectiveSessionId,
@@ -361,6 +412,17 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     }
   }, [effectiveSessionId, builderAppId, updateDeployment]);
 
+  // ── DONE HANDLER (after successful deploy — just reset local UI, keep DB status) ──
+  const handleDone = useCallback(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    if (elapsedRef.current) clearInterval(elapsedRef.current);
+    setDeployStep("idle");
+    setError(null);
+    setVercelProjectId(null);
+    setDeployStartTime(null);
+    setElapsed(0);
+  }, []);
+
   // ── REDEPLOY HANDLER (re-push to GitHub, Vercel auto-deploys) ──
   const handleRedeploy = useCallback(async () => {
     if (!effectiveSessionId || !organizationId || !builderAppId || !repoName) return;
@@ -368,7 +430,32 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     setError(null);
 
     try {
-      // Re-push files to GitHub (updates existing repo, triggers Vercel rebuild)
+      // Regenerate the FULL scaffold from the persisted publish config.
+      // This ensures ALL scaffold files are present and up-to-date
+      // (package.json, tsconfig, postcss, .npmrc, vercel.json, etc.)
+      // instead of partial overrides that may be missing dependencies.
+      let scaffoldOverrides: Array<{ path: string; content: string; label?: string }>;
+      if (publishConfig) {
+        const scaffold = generateThinClientScaffold(publishConfig as unknown as PublishConfig);
+        scaffoldOverrides = scaffold.map((f) => ({
+          path: f.path,
+          content: f.content,
+          label: f.label,
+        }));
+        console.log("[Redeploy] Full scaffold from publishConfig:", scaffoldOverrides.length, "files");
+      } else {
+        // Fallback: generate minimal scaffold (package.json, postcss, etc.)
+        console.warn("[Redeploy] No publish config found — using minimal scaffold fallback");
+        const scaffold = generateMinimalScaffold(builderApp?.name);
+        scaffoldOverrides = scaffold.map((f) => ({
+          path: f.path,
+          content: f.content,
+          label: f.label,
+        }));
+        console.log("[Redeploy] Minimal scaffold generated:", scaffoldOverrides.length, "files");
+      }
+
+      // Re-push files to GitHub with scaffold overrides (triggers Vercel rebuild)
       await createRepo({
         sessionId: effectiveSessionId,
         organizationId,
@@ -376,6 +463,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         repoName: repoName.trim(),
         description: builderApp?.description || "Built with l4yercak3 Builder",
         isPrivate,
+        scaffoldFiles: scaffoldOverrides,
       });
 
       // Update deployment status and start polling
@@ -398,7 +486,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
   }, [
     effectiveSessionId, organizationId, builderAppId, repoName,
     isPrivate, builderApp, deployment?.vercelProjectId,
-    createRepo, updateDeployment,
+    createRepo, updateDeployment, publishConfig,
   ]);
 
   // ── VIEW BUILD LOGS ──
@@ -796,6 +884,12 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                         {showBuildLogs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </button>
 
+                      {showBuildLogs && isLoadingLogs && (
+                        <div className="mt-2 p-3 bg-black/50 rounded flex items-center gap-2">
+                          <Loader2 className="h-3 w-3 animate-spin text-zinc-500" />
+                          <span className="text-[10px] text-zinc-500">Fetching build logs...</span>
+                        </div>
+                      )}
                       {showBuildLogs && buildLogs && (
                         <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-zinc-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
                           {buildLogs}
@@ -894,7 +988,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <button
-                onClick={handleRetry}
+                onClick={handleDone}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white transition-colors"
               >
                 Done
@@ -975,6 +1069,16 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Data connection status */}
+        {bothConnected && hasConnections && (
+          <div className="bg-emerald-950/30 border border-emerald-800/50 rounded-lg p-2.5 mb-3 flex items-center gap-2">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+            <p className="text-xs text-emerald-300">
+              {connectedRecordCount} record{connectedRecordCount !== 1 ? "s" : ""} connected
+            </p>
           </div>
         )}
 

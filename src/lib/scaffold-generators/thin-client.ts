@@ -35,6 +35,31 @@ export interface ScaffoldFile {
 // ============================================================================
 
 /**
+ * Generate a MINIMAL scaffold with just build-critical infrastructure files.
+ * Used as a fallback when no PublishConfig is available (e.g. direct publish
+ * without going through the publish wizard).
+ *
+ * Includes: package.json, postcss, next.config, tsconfig, .npmrc, vercel.json,
+ * globals.css, lib/utils, components.json, and a root layout.
+ */
+export function generateMinimalScaffold(appName?: string): ScaffoldFile[] {
+  const minimalConfig: PublishConfig = {
+    appName: appName || "my-v0-app",
+    repoName: (appName || "my-v0-app").toLowerCase().replace(/\s+/g, "-"),
+    description: "",
+    isPrivate: true,
+    architecture: "thin-client",
+    backend: "none",
+    auth: "none",
+    payments: { stripe: false, l4yercak3Invoicing: false },
+    selectedCategories: [],
+    scopes: [],
+    envVars: [],
+  };
+  return generateThinClientScaffold(minimalConfig);
+}
+
+/**
  * Generate all scaffold files based on publish config.
  * These are ADDED alongside the v0-generated files.
  */
@@ -45,8 +70,9 @@ export function generateThinClientScaffold(config: PublishConfig): ScaffoldFile[
   files.push(generateApiWrapper(config));
   files.push(generateTypesIndex(config));
   files.push(generateProvidersWrapper(config));
-  files.push(generateTailwindConfig());
-  files.push(generatePostcssConfig());
+  const tailwindConfig = generateTailwindConfig();
+  if (tailwindConfig) files.push(tailwindConfig);
+  files.push(...generatePostcssConfig());
   files.push(generateNextConfig());
   files.push(generateTsConfig());
   files.push(generatePackageJson(config));
@@ -54,11 +80,15 @@ export function generateThinClientScaffold(config: PublishConfig): ScaffoldFile[
   files.push(generateReadme(config));
   files.push(generateMiddleware(config));
   files.push(generateGitignore());
+  files.push(generateNpmrc());
+  files.push(generateVercelJson());
   files.push(generateGlobalsCss());
   files.push(generateRootLayout(config));
-  files.push(generateRootPage());
+  // NOTE: No generateRootPage() — v0 always generates its own app/page.tsx
+  // and scaffold files take priority in merge, so including one would override v0's content.
   files.push(generateShadcnUtils());
   files.push(generateComponentsJson());
+  files.push(generateBuilderInspector());
 
   // Category-specific helpers
   for (const categoryId of config.selectedCategories) {
@@ -75,7 +105,7 @@ export function generateThinClientScaffold(config: PublishConfig): ScaffoldFile[
   }
 
   // Webhook handler (if any webhook-capable category selected)
-  const webhookCategories = ["forms", "events", "products", "invoices", "bookings"];
+  const webhookCategories = ["forms", "events", "products", "invoices", "bookings", "checkout"];
   if (config.selectedCategories.some((c) => webhookCategories.includes(c))) {
     files.push(generateWebhookHandler(config));
   }
@@ -347,7 +377,7 @@ ${typeBlocks.join("\n")}
 }
 
 function generateProvidersWrapper(config: PublishConfig): ScaffoldFile {
-  const imports: string[] = [`'use client';`, ""];
+  const imports: string[] = [`'use client';`, "", `// Builder inspector — enables click-to-select in builder iframe`, `import '@/lib/builder-inspector';`, ""];
   const providers: string[] = [];
 
   if (config.auth === "clerk") {
@@ -424,9 +454,17 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   // Add security headers
-  response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'origin-when-cross-origin');
+
+  // Allow iframe embedding when in builder mode (for live preview inspector)
+  const isBuilderMode = process.env.NEXT_PUBLIC_BUILDER_MODE === 'true';
+  if (isBuilderMode) {
+    response.headers.delete('X-Frame-Options');
+    response.headers.set('Content-Security-Policy', 'frame-ancestors *');
+  } else {
+    response.headers.set('X-Frame-Options', 'DENY');
+  }
 
 ${
   hasAuth
@@ -587,6 +625,8 @@ function generateCategoryHelper(categoryId: string): ScaffoldFile | null {
       return generateBookingsHelper();
     case "tickets":
       return generateTicketsHelper();
+    case "checkout":
+      return generateCheckoutHelper();
     default:
       return null;
   }
@@ -657,7 +697,7 @@ export async function createEvent(data: Partial<Event>): Promise<Event> {
 
 export async function updateEvent(eventId: string, data: Partial<Event>): Promise<Event> {
   return apiRequest(\`/api/v1/events/\${eventId}\`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: data,
   });
 }
@@ -689,7 +729,7 @@ export async function createProduct(data: Partial<Product>): Promise<Product> {
 
 export async function updateProduct(productId: string, data: Partial<Product>): Promise<Product> {
   return apiRequest(\`/api/v1/products/\${productId}\`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: data,
   });
 }
@@ -761,11 +801,11 @@ function generateBookingsHelper(): ScaffoldFile {
 import type { Booking, AvailabilitySlot, PaginatedResponse } from '@/types';
 
 export async function fetchBookings(): Promise<PaginatedResponse<Booking>> {
-  return apiRequest('/api/v1/bookings');
+  return apiRequest('/api/v1/resource-bookings');
 }
 
 export async function createBooking(data: Partial<Booking>): Promise<Booking> {
-  return apiRequest('/api/v1/bookings', {
+  return apiRequest('/api/v1/resource-bookings', {
     method: 'POST',
     body: data,
   });
@@ -773,11 +813,11 @@ export async function createBooking(data: Partial<Booking>): Promise<Booking> {
 
 export async function fetchAvailability(resourceId?: string): Promise<PaginatedResponse<AvailabilitySlot>> {
   const query = resourceId ? \`?resourceId=\${resourceId}\` : '';
-  return apiRequest(\`/api/v1/availability\${query}\`);
+  return apiRequest(\`/api/v1/resources/\${resourceId || 'all'}/availability\${query}\`);
 }
 
 export async function createAvailability(data: Partial<AvailabilitySlot>): Promise<AvailabilitySlot> {
-  return apiRequest('/api/v1/availability', {
+  return apiRequest('/api/v1/resources/availability', {
     method: 'POST',
     body: data,
   });
@@ -810,9 +850,48 @@ export async function createTicket(data: Partial<Ticket>): Promise<Ticket> {
 
 export async function updateTicket(ticketId: string, data: Partial<Ticket>): Promise<Ticket> {
   return apiRequest(\`/api/v1/tickets/\${ticketId}\`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: data,
   });
+}
+`,
+  };
+}
+
+function generateCheckoutHelper(): ScaffoldFile {
+  return {
+    path: "lib/checkout.ts",
+    label: "Checkout API helpers",
+    content: `import { apiRequest } from './api';
+import type { CheckoutSession, Order, PaginatedResponse } from '@/types';
+
+export async function createCheckoutSession(data: {
+  items: Array<{ productId: string; quantity: number }>;
+  successUrl?: string;
+  cancelUrl?: string;
+}): Promise<CheckoutSession> {
+  return apiRequest('/api/v1/checkout', {
+    method: 'POST',
+    body: data,
+  });
+}
+
+export async function getCheckoutSession(sessionId: string): Promise<CheckoutSession> {
+  return apiRequest(\`/api/v1/checkout/\${sessionId}\`);
+}
+
+export async function completeCheckout(sessionId: string): Promise<CheckoutSession> {
+  return apiRequest(\`/api/v1/checkout/\${sessionId}/complete\`, {
+    method: 'POST',
+  });
+}
+
+export async function fetchOrders(): Promise<PaginatedResponse<Order>> {
+  return apiRequest('/api/v1/orders');
+}
+
+export async function fetchOrder(orderId: string): Promise<Order> {
+  return apiRequest(\`/api/v1/orders/\${orderId}\`);
 }
 `,
   };
@@ -1030,6 +1109,66 @@ export default async function BookingsPage() {
         },
       ];
 
+    case "checkout":
+      return [
+        {
+          path: "app/checkout/page.tsx",
+          label: "Checkout page",
+          content: `'use client';
+
+import { useState } from 'react';
+import { createCheckoutSession } from '@/lib/checkout';
+
+export default function CheckoutPage() {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCheckout() {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const session = await createCheckoutSession({
+        items: [], // Populated from cart state
+        successUrl: \`\${window.location.origin}/checkout/success\`,
+        cancelUrl: \`\${window.location.origin}/checkout\`,
+      });
+      // Redirect to checkout session or show inline
+      if (session.url) {
+        window.location.href = session.url;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="border-b pb-4 mb-4">
+          <h2 className="text-lg font-semibold">Order Summary</h2>
+          <p className="text-gray-500 text-sm">Review your items before completing purchase</p>
+        </div>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>
+        )}
+        <button
+          onClick={handleCheckout}
+          disabled={isProcessing}
+          className="w-full py-3 px-4 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isProcessing ? 'Processing...' : 'Complete Purchase'}
+        </button>
+      </div>
+    </div>
+  );
+}
+`,
+        },
+      ];
+
     default:
       return [];
   }
@@ -1124,27 +1263,10 @@ export async function POST(request: NextRequest) {
 // CONFIG FILES
 // ============================================================================
 
-function generateTailwindConfig(): ScaffoldFile {
-  return {
-    path: "tailwind.config.ts",
-    label: "Tailwind CSS configuration",
-    content: `import type { Config } from 'tailwindcss';
-
-const config: Config = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-};
-
-export default config;
-`,
-  };
+function generateTailwindConfig(): ScaffoldFile | null {
+  // Tailwind v4 uses CSS-first configuration (@theme in globals.css)
+  // No tailwind.config.ts needed — return null to skip
+  return null;
 }
 
 function generateTsConfig(): ScaffoldFile {
@@ -1184,9 +1306,9 @@ function generateTsConfig(): ScaffoldFile {
 
 function generatePackageJson(config: PublishConfig): ScaffoldFile {
   const deps: Record<string, string> = {
-    next: "14.2.5",
-    react: "^18.2.0",
-    "react-dom": "^18.2.0",
+    next: "~15.3.0",
+    react: "^19.0.0",
+    "react-dom": "^19.0.0",
     // v0 common dependencies (always included to prevent build failures)
     "lucide-react": "^0.400.0",
     geist: "^1.3.0",
@@ -1196,7 +1318,6 @@ function generatePackageJson(config: PublishConfig): ScaffoldFile {
     clsx: "^2.1.0",
     "tailwind-merge": "^2.2.0",
     "class-variance-authority": "^0.7.0",
-    "tailwindcss-animate": "^1.0.7",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "^1.0.5",
@@ -1218,15 +1339,15 @@ function generatePackageJson(config: PublishConfig): ScaffoldFile {
   };
 
   const devDeps: Record<string, string> = {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    eslint: "^8",
-    "eslint-config-next": "14.2.5",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    eslint: "^9",
+    "eslint-config-next": "~15.3.0",
     typescript: "^5",
-    tailwindcss: "^3.4.1",
+    tailwindcss: "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
     postcss: "^8",
-    autoprefixer: "^10",
   };
 
   // Conditional dependencies
@@ -1252,6 +1373,10 @@ function generatePackageJson(config: PublishConfig): ScaffoldFile {
     },
     dependencies: deps,
     devDependencies: devDeps,
+    // Pin Next.js to 15.x — prevents npm from resolving to Next 16
+    overrides: {
+      next: "~15.3.0",
+    },
   };
 
   return {
@@ -1393,25 +1518,75 @@ next-env.d.ts
   };
 }
 
+function generateNpmrc(): ScaffoldFile {
+  return {
+    path: ".npmrc",
+    label: "npm configuration (handle peer dep conflicts)",
+    content: `# Allow installation despite peer dependency conflicts
+# (React 19 + Radix UI packages that declare React 18 peer deps)
+legacy-peer-deps=true
+`,
+  };
+}
+
+function generateVercelJson(): ScaffoldFile {
+  return {
+    path: "vercel.json",
+    label: "Vercel build configuration",
+    content: JSON.stringify(
+      {
+        installCommand: "rm -f package-lock.json && npm install --legacy-peer-deps",
+        headers: [
+          {
+            source: "/(.*)",
+            headers: [
+              // Allow iframe embedding in the builder (live preview).
+              // X-Frame-Options is removed; CSP frame-ancestors controls access.
+              { key: "X-Frame-Options", value: "" },
+              { key: "Content-Security-Policy", value: "frame-ancestors *" },
+            ],
+          },
+        ],
+      },
+      null,
+      2
+    ) + "\n",
+  };
+}
+
 // ============================================================================
 // NEXT.JS BUILD-CRITICAL FILES
 // ============================================================================
 
-function generatePostcssConfig(): ScaffoldFile {
-  return {
-    path: "postcss.config.mjs",
-    label: "PostCSS configuration (required for Tailwind)",
-    content: `/** @type {import('postcss-load-config').Config} */
+function generatePostcssConfig(): ScaffoldFile[] {
+  // Generate BOTH .js and .mjs to override any old postcss.config.js in the repo.
+  // Next.js resolves postcss.config.js before .mjs, so .js must be correct too.
+  return [
+    {
+      path: "postcss.config.js",
+      label: "PostCSS configuration (Tailwind v4 — CJS)",
+      content: `/** @type {import('postcss-load-config').Config} */
+module.exports = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+`,
+    },
+    {
+      path: "postcss.config.mjs",
+      label: "PostCSS configuration (Tailwind v4 — ESM)",
+      content: `/** @type {import('postcss-load-config').Config} */
 const config = {
   plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
+    "@tailwindcss/postcss": {},
   },
 };
 
 export default config;
 `,
-  };
+    },
+  ];
 }
 
 function generateNextConfig(): ScaffoldFile {
@@ -1429,6 +1604,19 @@ const nextConfig = {
       },
     ],
   },
+  // Allow iframe embedding when in builder mode (live preview inspector)
+  async headers() {
+    if (process.env.NEXT_PUBLIC_BUILDER_MODE !== 'true') return [];
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: '' },
+          { key: 'Content-Security-Policy', value: 'frame-ancestors *' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
@@ -1439,62 +1627,39 @@ export default nextConfig;
 function generateGlobalsCss(): ScaffoldFile {
   return {
     path: "app/globals.css",
-    label: "Global styles with Tailwind directives",
-    content: `@tailwind base;
-@tailwind components;
-@tailwind utilities;
+    label: "Global styles with Tailwind v4",
+    content: `@import "tailwindcss";
 
-:root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222.2 84% 4.9%);
+  --color-primary: hsl(222.2 47.4% 11.2%);
+  --color-primary-foreground: hsl(210 40% 98%);
+  --color-secondary: hsl(210 40% 96.1%);
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: hsl(210 40% 96.1%);
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-accent: hsl(210 40% 96.1%);
+  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(222.2 84% 4.9%);
   --radius: 0.5rem;
-}
-
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--color-border);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }
 `,
@@ -1532,6 +1697,114 @@ export default function RootLayout({
     </html>
   );
 }
+`,
+  };
+}
+
+function generateBuilderInspector(): ScaffoldFile {
+  return {
+    path: "lib/builder-inspector.ts",
+    label: "Builder element inspector (auto-activates in builder iframe)",
+    content: `"use client";
+/**
+ * Builder Inspector — click-to-select elements in live preview.
+ * Only activates when:
+ * 1. NEXT_PUBLIC_BUILDER_MODE=true
+ * 2. Running inside an iframe (window.parent !== window)
+ * 3. Parent sends "builder:activate_inspector" handshake
+ */
+
+const BUILDER_MODE = process.env.NEXT_PUBLIC_BUILDER_MODE === "true";
+
+let isActive = false;
+let highlightOverlay: HTMLDivElement | null = null;
+
+function createOverlay() {
+  const el = document.createElement("div");
+  el.id = "builder-inspector-overlay";
+  el.style.cssText = "position:fixed;pointer-events:none;border:2px solid #8b5cf6;border-radius:4px;background:rgba(139,92,246,0.08);z-index:99999;transition:all 0.15s ease;display:none;";
+  document.body.appendChild(el);
+  return el;
+}
+
+function getElementMeta(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  const tag = el.tagName.toLowerCase();
+  const text = el.innerText?.slice(0, 200) || "";
+  const isForm = tag === "form" || el.querySelector("form, input, textarea, select") !== null;
+  const isProduct = el.querySelector("[data-price], .price") !== null ||
+    /\\\\$\\\\d/.test(text);
+  const isContact = el.querySelector("a[href^='mailto:'], a[href^='tel:']") !== null ||
+    /email|phone|contact/i.test(text);
+
+  return {
+    tag,
+    id: el.id || undefined,
+    className: el.className?.toString()?.slice(0, 200) || undefined,
+    text: text.slice(0, 100),
+    rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+    suggestedType: isForm ? "form" : isProduct ? "product" : isContact ? "contact" : null,
+    html: el.outerHTML.slice(0, 500),
+  };
+}
+
+function handleMouseOver(e: MouseEvent) {
+  if (!isActive || !highlightOverlay) return;
+  const el = e.target as HTMLElement;
+  if (el === highlightOverlay) return;
+  const rect = el.getBoundingClientRect();
+  highlightOverlay.style.top = rect.top + "px";
+  highlightOverlay.style.left = rect.left + "px";
+  highlightOverlay.style.width = rect.width + "px";
+  highlightOverlay.style.height = rect.height + "px";
+  highlightOverlay.style.display = "block";
+}
+
+function handleMouseOut() {
+  if (highlightOverlay) highlightOverlay.style.display = "none";
+}
+
+function handleClick(e: MouseEvent) {
+  if (!isActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const el = e.target as HTMLElement;
+  const meta = getElementMeta(el);
+  window.parent.postMessage({ type: "builder:element_selected", payload: meta }, "*");
+}
+
+function activate() {
+  if (isActive) return;
+  isActive = true;
+  highlightOverlay = createOverlay();
+  document.addEventListener("mouseover", handleMouseOver, true);
+  document.addEventListener("mouseout", handleMouseOut, true);
+  document.addEventListener("click", handleClick, true);
+  document.body.style.cursor = "crosshair";
+  window.parent.postMessage({ type: "builder:inspector_ready" }, "*");
+}
+
+function deactivate() {
+  isActive = false;
+  document.removeEventListener("mouseover", handleMouseOver, true);
+  document.removeEventListener("mouseout", handleMouseOut, true);
+  document.removeEventListener("click", handleClick, true);
+  document.body.style.cursor = "";
+  highlightOverlay?.remove();
+  highlightOverlay = null;
+}
+
+// Listen for commands from parent
+if (BUILDER_MODE && typeof window !== "undefined" && window.parent !== window) {
+  window.addEventListener("message", (e) => {
+    if (e.data?.type === "builder:activate_inspector") activate();
+    if (e.data?.type === "builder:deactivate_inspector") deactivate();
+  });
+  // Announce presence
+  window.parent.postMessage({ type: "builder:inspector_loaded" }, "*");
+}
+
+export { activate, deactivate };
 `,
   };
 }
@@ -1606,6 +1879,8 @@ function getCategoryImportName(categoryId: string): string {
     invoices: "fetchInvoices, createInvoice, sendInvoice",
     bookings: "fetchBookings, createBooking, fetchAvailability",
     tickets: "fetchTickets, fetchTicket",
+    checkout: "createCheckoutSession, getCheckoutSession, completeCheckout",
+    workflows: "triggerWorkflow",
   };
   return names[categoryId] || "";
 }

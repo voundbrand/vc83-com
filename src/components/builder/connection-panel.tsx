@@ -31,6 +31,12 @@ import {
   Search,
   X,
   Loader2,
+  FileText,
+  Receipt,
+  Ticket,
+  CalendarCheck,
+  Zap,
+  CreditCard,
 } from "lucide-react";
 
 // ============================================================================
@@ -38,10 +44,16 @@ import {
 // ============================================================================
 
 const ItemTypeIcon = ({ type }: { type: DetectedItem["type"] }) => {
-  const icons = {
+  const icons: Record<DetectedItem["type"], React.ReactNode> = {
     product: <Package className="h-4 w-4 text-emerald-400" />,
     event: <Calendar className="h-4 w-4 text-blue-400" />,
     contact: <User className="h-4 w-4 text-purple-400" />,
+    form: <FileText className="h-4 w-4 text-orange-400" />,
+    invoice: <Receipt className="h-4 w-4 text-yellow-400" />,
+    ticket: <Ticket className="h-4 w-4 text-pink-400" />,
+    booking: <CalendarCheck className="h-4 w-4 text-cyan-400" />,
+    workflow: <Zap className="h-4 w-4 text-amber-400" />,
+    checkout: <CreditCard className="h-4 w-4 text-indigo-400" />,
   };
   return icons[type] || <Package className="h-4 w-4" />;
 };
@@ -229,13 +241,16 @@ function DetectedItemRow({ item, sectionId, onChoiceChange }: DetectedItemRowPro
 
       {/* Choice buttons */}
       <div className="flex flex-wrap gap-2 mb-2">
-        <ChoiceButton
-          active={item.connectionChoice === "create"}
-          onClick={() => handleChoiceChange("create")}
-          icon={<Plus className="h-3.5 w-3.5" />}
-          label="Create New"
-          variant="create"
-        />
+        {/* Tickets cannot be created from client (internalMutation only) */}
+        {item.type !== "ticket" && (
+          <ChoiceButton
+            active={item.connectionChoice === "create"}
+            onClick={() => handleChoiceChange("create")}
+            icon={<Plus className="h-3.5 w-3.5" />}
+            label="Create New"
+            variant="create"
+          />
+        )}
         <ChoiceButton
           active={item.connectionChoice === "link"}
           onClick={() => handleChoiceChange("link")}
@@ -289,14 +304,36 @@ interface SectionConnectionCardProps {
 function SectionConnectionCard({ connection, onChoiceChange }: SectionConnectionCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  const { addManualConnectionItem } = useBuilder();
   const completedItems = connection.detectedItems.filter((i) => i.connectionChoice !== null);
-  const progress = completedItems.length / connection.detectedItems.length;
+  const progress = connection.detectedItems.length > 0
+    ? completedItems.length / connection.detectedItems.length
+    : 0;
+
+  // Infer item type from the section for manual add
+  const sectionTypeToItemType: Record<string, DetectedItem["type"]> = {
+    pricing: "product", products: "product", team: "contact", crm: "contact",
+    forms: "form", events: "event", hero: "event", cta: "event",
+    invoices: "invoice", tickets: "ticket", bookings: "booking",
+    workflows: "workflow", checkout: "checkout",
+  };
+  const itemTypeForSection = sectionTypeToItemType[connection.sectionType] || "form";
 
   const sectionIcons: Record<string, React.ReactNode> = {
     pricing: <Package className="h-4 w-4" />,
+    products: <Package className="h-4 w-4" />,
+    form: <FileText className="h-4 w-4" />,
+    forms: <FileText className="h-4 w-4" />,
     team: <User className="h-4 w-4" />,
+    crm: <User className="h-4 w-4" />,
     hero: <Calendar className="h-4 w-4" />,
     cta: <Calendar className="h-4 w-4" />,
+    events: <Calendar className="h-4 w-4" />,
+    invoices: <Receipt className="h-4 w-4" />,
+    tickets: <Ticket className="h-4 w-4" />,
+    bookings: <CalendarCheck className="h-4 w-4" />,
+    workflows: <Zap className="h-4 w-4" />,
+    checkout: <CreditCard className="h-4 w-4" />,
   };
 
   return (
@@ -313,7 +350,9 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
           <div className="text-left">
             <div className="text-sm font-medium text-zinc-100">{connection.sectionLabel}</div>
             <div className="text-xs text-zinc-500">
-              {connection.detectedItems.length} item{connection.detectedItems.length !== 1 ? "s" : ""} detected
+              {connection.detectedItems.length > 0
+                ? `${connection.detectedItems.length} item${connection.detectedItems.length !== 1 ? "s" : ""} detected`
+                : "No items detected"}
             </div>
           </div>
         </div>
@@ -343,14 +382,36 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
       {/* Section items */}
       {isExpanded && (
         <div className="px-4 pb-3">
-          {connection.detectedItems.map((item) => (
-            <DetectedItemRow
-              key={item.id}
-              item={item}
-              sectionId={connection.sectionId}
-              onChoiceChange={onChoiceChange}
-            />
-          ))}
+          {connection.detectedItems.length === 0 ? (
+            <div className="text-center py-4 text-zinc-500">
+              <p className="text-sm mb-2">No items auto-detected</p>
+              <button
+                onClick={() => addManualConnectionItem(connection.sectionId, itemTypeForSection)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add manually
+              </button>
+            </div>
+          ) : (
+            <>
+              {connection.detectedItems.map((item) => (
+                <DetectedItemRow
+                  key={item.id}
+                  item={item}
+                  sectionId={connection.sectionId}
+                  onChoiceChange={onChoiceChange}
+                />
+              ))}
+              <button
+                onClick={() => addManualConnectionItem(connection.sectionId, itemTypeForSection)}
+                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                Add another
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -371,8 +432,9 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
     pendingConnections,
     updateConnectionChoice,
     executeConnections,
+    addManualConnectionItem,
+    isAnalyzingConnections,
     setBuilderMode,
-    aiProvider,
   } = useBuilder();
 
   const [isExecuting, setIsExecuting] = useState(false);
@@ -383,7 +445,7 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
     (sum, c) => sum + c.detectedItems.filter((i) => i.connectionChoice !== null).length,
     0
   );
-  const allItemsConfigured = completedItems === totalItems;
+  const allItemsConfigured = totalItems > 0 && completedItems === totalItems;
 
   // Handle execute all
   const handleExecuteAll = async () => {
@@ -435,7 +497,7 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
             className={`h-full transition-all ${
               allItemsConfigured ? "bg-emerald-500" : "bg-blue-500"
             }`}
-            style={{ width: `${(completedItems / totalItems) * 100}%` }}
+            style={{ width: `${totalItems > 0 ? (completedItems / totalItems) * 100 : 0}%` }}
           />
         </div>
       </div>
@@ -444,15 +506,10 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {pendingConnections.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">
-            {aiProvider === "v0" ? (
+            {isAnalyzingConnections ? (
               <>
-                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
-                <p className="text-zinc-300">v0 pages use custom React components</p>
-                <p className="text-xs mt-1">
-                  Connect mode works with the built-in page builder schema.
-                  Switch to the built-in provider to use data connections,
-                  or manually link data from your dashboard.
-                </p>
+                <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
+                <p className="text-zinc-300">Analyzing pages for connections...</p>
               </>
             ) : (
               <>

@@ -10,7 +10,7 @@
  * for authenticated API calls.
  */
 
-import { action, query, internalQuery } from "../_generated/server";
+import { action, query, internalQuery, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
@@ -68,6 +68,51 @@ interface VercelDeploymentEvent {
 }
 
 // ============================================================================
+// TOKEN HELPERS
+// ============================================================================
+
+/**
+ * Decrypt the access token from a Vercel connection.
+ * If the token is stored in plaintext (legacy), it re-encrypts it in-place
+ * so future calls don't hit the fallback path.
+ */
+async function decryptAccessToken(
+  ctx: { runAction: (ref: any, args: any) => Promise<any>; runMutation: (ref: any, args: any) => Promise<any> },
+  connection: { connectionId: Id<"oauthConnections">; accessToken: string }
+): Promise<string> {
+  const { internal } = getInternal();
+
+  // Check if the token looks like it's already encrypted (hex-encoded, min 58 chars)
+  const isEncrypted = connection.accessToken.length >= 58 && /^[0-9a-f]+$/i.test(connection.accessToken);
+
+  if (isEncrypted) {
+    // Normal path: decrypt the encrypted token
+    return ctx.runAction(internal.oauth.encryption.decryptToken, {
+      encrypted: connection.accessToken,
+    });
+  }
+
+  // Legacy plaintext token detected — re-encrypt it for future use
+  console.log("[Vercel] Plaintext token detected, re-encrypting for connection:", connection.connectionId);
+  const plaintext = connection.accessToken;
+
+  try {
+    const encrypted: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+      plaintext,
+    });
+    await ctx.runMutation(internal.integrations.vercel.reEncryptConnectionToken, {
+      connectionId: connection.connectionId,
+      encryptedToken: encrypted,
+    });
+    console.log("[Vercel] Token re-encrypted successfully");
+  } catch (err) {
+    console.warn("[Vercel] Failed to re-encrypt token (will retry next time):", err);
+  }
+
+  return plaintext;
+}
+
+// ============================================================================
 // INTERNAL QUERIES
 // ============================================================================
 
@@ -96,11 +141,29 @@ export const getVercelConnectionInternal = internalQuery({
 
     return {
       connected: true,
+      connectionId: connection._id,
       accessToken: connection.accessToken,
       username: connection.providerEmail || "Vercel",
       teamId: (connection.customProperties as { teamId?: string })?.teamId || null,
       connectedAt: connection._creationTime,
     };
+  },
+});
+
+/**
+ * Re-encrypt a legacy plaintext token on an OAuth connection.
+ * Called once when a plaintext token is detected, upgrading it to encrypted format.
+ */
+export const reEncryptConnectionToken = internalMutation({
+  args: {
+    connectionId: v.id("oauthConnections"),
+    encryptedToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      accessToken: args.encryptedToken,
+    });
+    console.log("[Vercel] Legacy plaintext token re-encrypted for connection:", args.connectionId);
   },
 });
 
@@ -238,17 +301,8 @@ export const deployToVercel = action({
       throw new Error("Vercel not connected. Please connect Vercel in Integrations settings.");
     }
 
-    // 2. Decrypt access token (fallback to plaintext for legacy connections)
-    let accessToken: string;
-    try {
-      accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
-        encrypted: connection.accessToken,
-      });
-    } catch (err) {
-      console.warn("[Vercel] Decrypt failed, trying token as plaintext (legacy):", err);
-      // Legacy: token may have been stored unencrypted before encryption was added
-      accessToken = connection.accessToken;
-    }
+    // 2. Decrypt access token (auto re-encrypts legacy plaintext tokens)
+    const accessToken = await decryptAccessToken(ctx, connection);
 
     const teamId = connection.teamId;
 
@@ -442,16 +496,8 @@ export const checkVercelDeploymentStatus = action({
       };
     }
 
-    // 2. Decrypt access token (fallback to plaintext for legacy connections)
-    let accessToken: string;
-    try {
-      accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
-        encrypted: connection.accessToken,
-      });
-    } catch {
-      console.warn("[Vercel] Decrypt failed, trying token as plaintext (legacy)");
-      accessToken = connection.accessToken;
-    }
+    // 2. Decrypt access token (auto re-encrypts legacy plaintext tokens)
+    const accessToken = await decryptAccessToken(ctx, connection);
 
     const teamId = connection.teamId;
 
@@ -525,11 +571,39 @@ export const checkVercelDeploymentStatus = action({
       }
 
       const deployment = response.deployments[0];
-      const productionUrl = `https://${deployment.url}`;
+      // Use the deployment-specific URL as fallback
+      let productionUrl = `https://${deployment.url}`;
       console.log("[Vercel] Deployment status:", deployment.readyState, deployment.uid, productionUrl);
 
       // 4. If deployment is READY, update builder app record
       if (deployment.readyState === "READY") {
+        // Prefer the project's production alias over the deployment-specific URL.
+        // Deployment URLs (e.g. xxx-yyy-team.vercel.app) have deployment protection
+        // on Pro/Team plans, blocking iframe embedding. The production alias
+        // (e.g. project-name.vercel.app) serves without protection.
+        try {
+          const projectInfo = await vercelFetch<{
+            name: string;
+            alias?: Array<{ domain: string; configuredBy?: string }>;
+          }>(
+            `/v9/projects/${args.vercelProjectId}`,
+            accessToken,
+            teamId
+          );
+          // Use the first production alias, or fall back to {name}.vercel.app
+          const prodAlias = projectInfo.alias?.find(
+            (a) => a.domain.endsWith(".vercel.app")
+          );
+          if (prodAlias) {
+            productionUrl = `https://${prodAlias.domain}`;
+          } else if (projectInfo.name) {
+            productionUrl = `https://${projectInfo.name}.vercel.app`;
+          }
+          console.log("[Vercel] Using production alias URL:", productionUrl);
+        } catch (aliasErr) {
+          console.warn("[Vercel] Could not fetch project alias, using deployment URL:", aliasErr);
+        }
+
         const { api } = getInternal();
         await ctx.runMutation(api.builderAppOntology.updateBuilderAppDeployment, {
           sessionId: args.sessionId,
@@ -696,14 +770,7 @@ export const getVercelBuildLogs = action({
       throw new Error("Vercel not connected");
     }
 
-    let accessToken: string;
-    try {
-      accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
-        encrypted: connection.accessToken,
-      });
-    } catch {
-      accessToken = connection.accessToken;
-    }
+    const accessToken = await decryptAccessToken(ctx, connection);
 
     const teamId = connection.teamId;
 
