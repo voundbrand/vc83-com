@@ -1,0 +1,5 @@
+[    4352ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[    4367ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[    4382ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[    4387ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[    5622ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0

@@ -7,7 +7,8 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Plus, Edit, FileText, ClipboardList, Palette } from "lucide-react";
+import { Loader2, Plus, Edit, FileText, ClipboardList, Palette, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
@@ -31,7 +32,12 @@ import { ResponsesTab } from "./responses-tab";
 
 type TabType = "create" | "forms" | "responses" | "templates";
 
-export function FormsWindow() {
+interface FormsWindowProps {
+  /** When true, shows back-to-desktop navigation (for /forms route) */
+  fullScreen?: boolean;
+}
+
+export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.forms");
@@ -113,13 +119,50 @@ export function FormsWindow() {
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-          <FileText size={16} />
-          {t("ui.forms.title")}
-        </h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {t("ui.forms.subtitle")}
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Back to desktop link (full-screen mode only) */}
+            {fullScreen && (
+              <Link
+                href="/"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Back to Desktop"
+              >
+                <ArrowLeft size={14} />
+              </Link>
+            )}
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <FileText size={16} />
+                {t("ui.forms.title")}
+              </h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                {t("ui.forms.subtitle")}
+              </p>
+            </div>
+          </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/forms"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

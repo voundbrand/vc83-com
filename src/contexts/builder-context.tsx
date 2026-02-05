@@ -337,6 +337,10 @@ interface BuilderContextType {
   isPlanningMode: boolean;
   setIsPlanningMode: (enabled: boolean) => void;
 
+  // Setup mode - Agent creation wizard (injects system knowledge into AI prompt)
+  isSetupMode: boolean;
+  setIsSetupMode: (enabled: boolean) => void;
+
   // ============================================================================
   // THREE-MODE ARCHITECTURE
   // ============================================================================
@@ -493,6 +497,9 @@ export function BuilderProvider({
 
   // Planning mode - AI discusses specs before executing tools
   const [isPlanningMode, setIsPlanningMode] = useState(false);
+
+  // Setup mode - Agent creation wizard (injects system knowledge into AI prompt)
+  const [isSetupMode, setIsSetupMode] = useState(false);
 
   // ============================================================================
   // V0 INTEGRATION STATE
@@ -784,6 +791,13 @@ export function BuilderProvider({
     if (shouldUsePlanningMode) {
       setIsPlanningMode(true);
       sessionStorage.removeItem("builder_pending_planning_mode");
+    }
+
+    // Check for pending setup mode (agent creation wizard)
+    const pendingSetupMode = sessionStorage.getItem("builder_pending_setup_mode");
+    if (pendingSetupMode === "true") {
+      setIsSetupMode(true);
+      sessionStorage.removeItem("builder_pending_setup_mode");
     }
 
     // Check for pending prompt and send it with the pre-selected mode
@@ -1191,6 +1205,7 @@ export function BuilderProvider({
         context: "page_builder",
         selectedModel,
         builderMode, // Pass the current builder mode for tool filtering
+        isSetupMode, // Pass setup mode for agent creation wizard (injects system knowledge)
       });
 
       // Calculate processing time
@@ -2152,6 +2167,8 @@ export function BuilderProvider({
     setIsEditMode,
     isPlanningMode,
     setIsPlanningMode,
+    isSetupMode,
+    setIsSetupMode,
     // Three-mode architecture
     builderMode,
     setBuilderMode,

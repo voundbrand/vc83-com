@@ -9,6 +9,8 @@ import { useState, useRef, useCallback } from "react";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { LeftSidebar } from "./components/left-sidebar";
 import { TopBar } from "./components/top-bar";
@@ -29,6 +31,8 @@ interface MediaLibraryDropboxProps {
     mimeType?: string;
   }) => void;
   selectionMode?: boolean;
+  /** When true, shows back-to-desktop navigation (for /media route) */
+  fullScreen?: boolean;
 }
 
 type ViewMode = "grid" | "list";
@@ -41,6 +45,7 @@ type MediaItem = any; // Uses the shape returned by listMedia query
 export default function MediaLibraryDropbox({
   onSelect,
   selectionMode = false,
+  fullScreen = false,
 }: MediaLibraryDropboxProps) {
   const [activeSection, setActiveSection] = useState<NavigationSection>("home");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -114,6 +119,42 @@ export default function MediaLibraryDropbox({
         className="w-56 flex-shrink-0 border-r-2 flex flex-col"
         style={{ borderColor: "var(--win95-border)" }}
       >
+        {/* Full Screen Navigation */}
+        {fullScreen && (
+          <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{ borderColor: "var(--win95-border)" }}>
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Back to Desktop"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+            <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Media Library</span>
+          </div>
+        )}
+        {/* Open full screen link (window mode only) */}
+        {!fullScreen && (
+          <div className="px-3 py-2 border-b-2 flex items-center justify-between" style={{ borderColor: "var(--win95-border)" }}>
+            <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Media Library</span>
+            <Link
+              href="/media"
+              className="px-2 py-1 text-xs font-bold flex items-center gap-1 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={12} />
+            </Link>
+          </div>
+        )}
         <LeftSidebar
           activeSection={activeSection}
           onSectionChange={setActiveSection}

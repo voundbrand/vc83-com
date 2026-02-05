@@ -8,7 +8,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Zap, List, FileText, Settings } from "lucide-react";
+import { Zap, List, FileText, Settings, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -20,7 +21,12 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type TabType = "list" | "builder" | "templates" | "settings";
 
-export function WorkflowsWindow() {
+interface WorkflowsWindowProps {
+  /** When true, shows back-to-desktop navigation (for /workflows route) */
+  fullScreen?: boolean;
+}
+
+export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
   const { t, isLoading } = useNamespaceTranslations("ui.workflows");
   const currentOrg = useCurrentOrganization();
   const { sessionId } = useAuth();
@@ -131,6 +137,16 @@ export function WorkflowsWindow() {
       {/* Header */}
       <div className="border-b-2 px-4 py-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <div className="flex items-center justify-between">
+          {/* Back to desktop link (full-screen mode only) */}
+          {fullScreen && (
+            <Link
+              href="/"
+              className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold mr-3"
+              title="Back to Desktop"
+            >
+              <ArrowLeft className="h-3 w-3" />
+            </Link>
+          )}
           <div>
             <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.title")}</h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -144,6 +160,17 @@ export function WorkflowsWindow() {
             <Zap className="h-3 w-3" />
             {t("ui.workflows.button.create")}
           </button>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/workflows"
+              className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold ml-2"
+              title="Open Full Screen"
+            >
+              <Maximize2 className="h-3 w-3" />
+            </Link>
+          )}
         </div>
       </div>
 

@@ -15,8 +15,11 @@ import {
   Trash2,
   AlertTriangle,
   Shield,
-  Lock
+  Lock,
+  ArrowLeft,
+  Maximize2
 } from "lucide-react";
+import Link from "next/link";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -29,6 +32,11 @@ type TabType = "documents" | "data-export" | "account-deletion";
 type ExportState = "idle" | "exporting" | "success" | "error";
 type DeletionState = "idle" | "confirming" | "deleting" | "deleted" | "error";
 
+interface ComplianceWindowProps {
+  /** When true, shows back-to-desktop navigation (for /compliance route) */
+  fullScreen?: boolean;
+}
+
 /**
  * Compliance Window
  *
@@ -38,7 +46,7 @@ type DeletionState = "idle" | "confirming" | "deleting" | "deleted" | "error";
  * This is a GDPR requirement - users must always be able to delete their data.
  * Other features (PDF conversion, data export) may be tier-gated.
  */
-export function ComplianceWindow() {
+export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps = {}) {
   // Tab state - default to account-deletion if Compliance app isn't fully available
   const { isAvailable: complianceAvailable, isLoading: licenseLoading } = useAppAvailability("compliance");
   const [activeTab, setActiveTab] = useState<TabType>(complianceAvailable ? "documents" : "account-deletion");
@@ -339,16 +347,49 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           background: "linear-gradient(to bottom, var(--win95-bg) 0%, var(--win95-surface) 100%)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <Shield size={32} style={{ color: "var(--win95-highlight)" }} />
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--win95-text)" }}>
-              Compliance Center
-            </h1>
-            <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-              GDPR tools: export your data, manage documents, control your account
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Back to desktop link (full-screen mode only) */}
+            {fullScreen && (
+              <Link
+                href="/"
+                className="p-2 border-2 rounded transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Back to Desktop"
+              >
+                <ArrowLeft size={20} />
+              </Link>
+            )}
+            <Shield size={32} style={{ color: "var(--win95-highlight)" }} />
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: "var(--win95-text)" }}>
+                Compliance Center
+              </h1>
+              <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
+                GDPR tools: export your data, manage documents, control your account
+              </p>
+            </div>
           </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/compliance"
+              className="p-2 border-2 rounded transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={20} />
+            </Link>
+          )}
         </div>
       </div>
 

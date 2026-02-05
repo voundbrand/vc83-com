@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, ShoppingCart, Settings, BarChart3 } from "lucide-react";
+import { FileText, ShoppingCart, Settings, BarChart3, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { CheckoutTemplatesTab } from "./checkout-templates-tab";
 import { CheckoutsListTab } from "./checkouts-list-tab";
 import { CreateCheckoutTab } from "./create-checkout-tab";
@@ -29,7 +30,12 @@ import { Id } from "../../../../convex/_generated/dataModel";
 
 type TabType = "checkouts" | "create" | "templates" | "settings" | "analytics";
 
-export function CheckoutWindow() {
+interface CheckoutWindowProps {
+  /** When true, shows back-to-desktop navigation (for /checkout-manager route) */
+  fullScreen?: boolean;
+}
+
+export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {}) {
   const [activeTab, setActiveTab] = useState<TabType>("checkouts");
   const [editingInstanceId, setEditingInstanceId] = useState<Id<"objects"> | null>(null);
   const { t, isLoading: translationsLoading} = useNamespaceTranslations("ui.checkout_window");
@@ -68,13 +74,50 @@ export function CheckoutWindow() {
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-          <ShoppingCart size={16} />
-          {translationsLoading ? "Checkout Manager" : t("ui.checkout_window.main.title")}
-        </h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {translationsLoading ? "Create and manage checkout pages for your products and events" : t("ui.checkout_window.main.description")}
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Back to desktop link (full-screen mode only) */}
+            {fullScreen && (
+              <Link
+                href="/"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Back to Desktop"
+              >
+                <ArrowLeft size={14} />
+              </Link>
+            )}
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <ShoppingCart size={16} />
+                {translationsLoading ? "Checkout Manager" : t("ui.checkout_window.main.title")}
+              </h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                {translationsLoading ? "Create and manage checkout pages for your products and events" : t("ui.checkout_window.main.description")}
+              </p>
+            </div>
+          </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/checkout-manager"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

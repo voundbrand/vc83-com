@@ -105,6 +105,10 @@ export interface TierLimits {
   maxBookingsPerMonth: number;
   maxRecurringSeriesLength: number;
   maxResourcesPerBooking: number;
+
+  // Credits
+  monthlyCredits: number;
+  dailyCreditsOnLogin: number;
 }
 
 export interface TierFeatures {
@@ -355,6 +359,10 @@ export const FREE_TIER: TierConfig = {
     maxBookingsPerMonth: 20,
     maxRecurringSeriesLength: 0, // No recurring on Free
     maxResourcesPerBooking: 1,
+
+    // Credits
+    monthlyCredits: 0,
+    dailyCreditsOnLogin: 5,
   },
 
   features: {
@@ -589,6 +597,10 @@ export const STARTER_TIER: TierConfig = {
     maxBookingsPerMonth: 200,
     maxRecurringSeriesLength: 12, // 12 weeks
     maxResourcesPerBooking: 3,
+
+    // Credits
+    monthlyCredits: 100,
+    dailyCreditsOnLogin: 5,
   },
 
   features: {
@@ -823,6 +835,10 @@ export const PROFESSIONAL_TIER: TierConfig = {
     maxBookingsPerMonth: 1000,
     maxRecurringSeriesLength: 52, // 52 weeks (1 year)
     maxResourcesPerBooking: 10,
+
+    // Credits
+    monthlyCredits: 500,
+    dailyCreditsOnLogin: 5,
   },
 
   features: {
@@ -1057,6 +1073,10 @@ export const AGENCY_TIER: TierConfig = {
     maxBookingsPerMonth: UNLIMITED,
     maxRecurringSeriesLength: UNLIMITED,
     maxResourcesPerBooking: UNLIMITED,
+
+    // Credits
+    monthlyCredits: 2000,
+    dailyCreditsOnLogin: 5,
   },
 
   features: {
@@ -1291,6 +1311,10 @@ export const ENTERPRISE_TIER: TierConfig = {
     maxBookingsPerMonth: UNLIMITED,
     maxRecurringSeriesLength: UNLIMITED,
     maxResourcesPerBooking: UNLIMITED,
+
+    // Credits
+    monthlyCredits: UNLIMITED,
+    dailyCreditsOnLogin: UNLIMITED,
   },
 
   features: {
@@ -1469,4 +1493,20 @@ export function formatLimit(limit: number): string {
     return "Unlimited";
   }
   return limit.toLocaleString();
+}
+
+/**
+ * Tier name type alias
+ */
+export type TierName = "free" | "starter" | "professional" | "agency" | "enterprise";
+
+/**
+ * HELPER: Get the next tier name for upgrade prompts
+ */
+const TIER_ORDER: TierName[] = ["free", "starter", "professional", "agency", "enterprise"];
+
+export function getNextTierName(currentTier: TierName): TierName | null {
+  const idx = TIER_ORDER.indexOf(currentTier);
+  if (idx === -1 || idx >= TIER_ORDER.length - 1) return null;
+  return TIER_ORDER[idx + 1];
 }

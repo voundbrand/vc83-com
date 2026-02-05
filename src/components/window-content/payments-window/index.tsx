@@ -9,12 +9,18 @@ import { ProvidersTab } from "./providers-tab";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { CreditCard, Loader2, AlertCircle, Building2, FileText, LayoutGrid } from "lucide-react";
+import { CreditCard, Loader2, AlertCircle, Building2, FileText, LayoutGrid, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 type TabType = "providers" | "stripe" | "invoicing";
 
-export function PaymentsWindow() {
+interface PaymentsWindowProps {
+  /** When true, shows back-to-desktop navigation (for /payments route) */
+  fullScreen?: boolean;
+}
+
+export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {}) {
   const [activeTab, setActiveTab] = useState<TabType>("providers");
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
@@ -146,6 +152,21 @@ export function PaymentsWindow() {
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
         <div className="flex items-center justify-between">
+          {/* Back to desktop link (full-screen mode only) */}
+          {fullScreen && (
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Back to Desktop"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+          )}
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <CreditCard size={16} />
@@ -167,6 +188,22 @@ export function PaymentsWindow() {
               </p>
             )}
           </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/payments"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
+          )}
         </div>
       </div>
 

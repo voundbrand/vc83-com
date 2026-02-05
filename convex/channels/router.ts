@@ -1,0 +1,361 @@
+/**
+ * CHANNEL ROUTER
+ *
+ * Routes outbound messages to the correct provider for a given org + channel.
+ * Reads channel_provider_binding objects from the ontology to determine routing.
+ *
+ * Binding object (type="channel_provider_binding") customProperties:
+ * {
+ *   channel: "whatsapp",
+ *   providerId: "chatwoot",
+ *   priority: 1,
+ *   enabled: true,
+ * }
+ */
+
+import { query, internalQuery, internalAction } from "../_generated/server";
+import { v } from "convex/values";
+import { getProvider } from "./registry";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { internal: internalApi } = require("../_generated/api") as {
+  internal: Record<string, Record<string, Record<string, unknown>>>;
+};
+import type {
+  ChannelType,
+  ProviderId,
+  OutboundMessage,
+  SendResult,
+  ProviderCredentials,
+} from "./types";
+
+/**
+ * Get the active provider binding for an org + channel.
+ * Returns the highest-priority enabled binding.
+ */
+export const getChannelBinding = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const bindings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "channel_provider_binding")
+      )
+      .collect();
+
+    const matching = bindings
+      .filter((b) => {
+        const props = b.customProperties as Record<string, unknown>;
+        return props?.channel === args.channel && props?.enabled === true;
+      })
+      .sort((a, b) => {
+        const ap =
+          ((a.customProperties as Record<string, unknown>)?.priority as number) || 99;
+        const bp =
+          ((b.customProperties as Record<string, unknown>)?.priority as number) || 99;
+        return ap - bp;
+      });
+
+    return matching[0] ?? null;
+  },
+});
+
+/**
+ * Get provider credentials for an org.
+ * Most providers: stored as type="{providerId}_settings" in the objects table.
+ * WhatsApp: stored in oauthConnections table (per-org OAuth).
+ */
+export const getProviderCredentials = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    providerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // WhatsApp Direct uses oauthConnections, not objects table
+    if (args.providerId === "whatsapp") {
+      const connection = await ctx.db
+        .query("oauthConnections")
+        .withIndex("by_org_and_provider", (q) =>
+          q.eq("organizationId", args.organizationId).eq("provider", "whatsapp")
+        )
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .first();
+
+      if (!connection) return null;
+
+      const metadata = connection.customProperties as Record<string, unknown>;
+      return {
+        providerId: "whatsapp",
+        whatsappPhoneNumberId: metadata?.phoneNumberId as string,
+        whatsappAccessToken: connection.accessToken, // Encrypted — decrypted in sendMessage action
+        whatsappWabaId: metadata?.wabaId as string,
+        whatsappOrganizationId: args.organizationId,
+        webhookSecret: process.env.META_APP_SECRET,
+      } as ProviderCredentials;
+    }
+
+    // Default: query objects table for per-org settings
+    const settingsType = `${args.providerId}_settings`;
+    const settings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", settingsType)
+      )
+      .first();
+
+    if (settings) {
+      return {
+        providerId: args.providerId,
+        ...(settings.customProperties as Record<string, unknown>),
+      } as ProviderCredentials;
+    }
+
+    // Fallback: platform-owned Infobip account (env vars)
+    if (args.providerId === "infobip") {
+      const apiKey = process.env.INFOBIP_API_KEY;
+      const baseUrl = process.env.INFOBIP_BASE_URL;
+      const globalSenderId = process.env.INFOBIP_SMS_SENDER_ID;
+      if (apiKey && baseUrl && globalSenderId) {
+        // Look up CPaaS X application + entity IDs for multi-tenant isolation
+        const applicationId = process.env.INFOBIP_APPLICATION_ID || undefined;
+
+        const entityObj = await ctx.db
+          .query("objects")
+          .withIndex("by_org_type", (q) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("type", "infobip_entity")
+          )
+          .first();
+        const entityId = (entityObj?.customProperties as Record<string, unknown>)
+          ?.entityId as string | undefined;
+
+        // Check for per-org sender config (platform_sms_config)
+        const smsConfig = await ctx.db
+          .query("objects")
+          .withIndex("by_org_type", (q) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("type", "platform_sms_config")
+          )
+          .first();
+
+        let orgSenderId = globalSenderId;
+        if (smsConfig) {
+          const smsProps = smsConfig.customProperties as Record<string, unknown>;
+          if (smsProps?.senderType === "alphanumeric" && smsProps?.alphanumericSender) {
+            orgSenderId = smsProps.alphanumericSender as string;
+          } else if (
+            smsProps?.senderType === "vln" &&
+            smsProps?.vlnStatus === "active" &&
+            smsProps?.vlnNumber
+          ) {
+            orgSenderId = smsProps.vlnNumber as string;
+          }
+        }
+
+        return {
+          providerId: "infobip",
+          infobipApiKey: apiKey,
+          infobipBaseUrl: baseUrl,
+          infobipSmsSenderId: orgSenderId,
+          infobipApplicationId: applicationId,
+          infobipEntityId: entityId,
+        } as ProviderCredentials;
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Send a message through the correct provider for an org + channel.
+ */
+export const sendMessage = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+    recipientIdentifier: v.string(),
+    content: v.string(),
+    contentHtml: v.optional(v.string()),
+    subject: v.optional(v.string()),
+    providerConversationId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<SendResult> => {
+    // 1. Find the provider binding for this channel
+    const binding = await (ctx.runQuery as Function)(
+      internalApi.channels.router.getChannelBinding,
+      {
+        organizationId: args.organizationId,
+        channel: args.channel,
+      }
+    ) as Record<string, unknown> | null;
+
+    // Platform SMS fallback: if no binding exists for SMS, use platform Infobip
+    let providerId: ProviderId;
+    if (!binding) {
+      if (
+        args.channel === "sms" &&
+        process.env.INFOBIP_API_KEY &&
+        process.env.INFOBIP_BASE_URL &&
+        process.env.INFOBIP_SMS_SENDER_ID
+      ) {
+        providerId = "infobip";
+      } else {
+        return {
+          success: false,
+          error: `No provider configured for channel: ${args.channel}`,
+        };
+      }
+    } else {
+      providerId = ((binding as Record<string, unknown>).customProperties as Record<string, unknown>)
+        ?.providerId as ProviderId;
+    }
+
+    const provider = getProvider(providerId);
+    if (!provider) {
+      return { success: false, error: `Provider not found: ${providerId}` };
+    }
+
+    // 2. Get credentials
+    let credentials = await (ctx.runQuery as Function)(
+      internalApi.channels.router.getProviderCredentials,
+      { organizationId: args.organizationId, providerId }
+    ) as ProviderCredentials | null;
+
+    if (!credentials) {
+      return {
+        success: false,
+        error: `No credentials for provider: ${providerId}`,
+      };
+    }
+
+    // 2b. Decrypt WhatsApp access token (stored encrypted in oauthConnections)
+    if (providerId === "whatsapp" && credentials.whatsappAccessToken) {
+      const decryptedToken = await (ctx.runAction as Function)(
+        internalApi.oauth.encryption.decryptToken,
+        { encrypted: credentials.whatsappAccessToken }
+      ) as string;
+      credentials = { ...credentials, whatsappAccessToken: decryptedToken };
+    }
+
+    // 3. Determine if this is a platform-owned send (no per-org binding)
+    const isPlatformSms = !binding && args.channel === "sms";
+
+    // 3b. Lazy provision CPaaS X entity for platform SMS (first send triggers provisioning)
+    if (isPlatformSms && !credentials.infobipEntityId) {
+      try {
+        await (ctx.runAction as Function)(
+          internalApi.channels.infobipCpaasX.provisionOrgEntity,
+          { organizationId: args.organizationId }
+        );
+        // Re-fetch credentials to include the new entityId
+        credentials = await (ctx.runQuery as Function)(
+          internalApi.channels.router.getProviderCredentials,
+          { organizationId: args.organizationId, providerId }
+        ) as ProviderCredentials;
+        if (!credentials) {
+          return { success: false, error: "Credentials lost after entity provisioning" };
+        }
+      } catch (e) {
+        // Entity provisioning failure should not block SMS delivery
+        console.error("[Router] CPaaS X entity provisioning failed (non-blocking):", e);
+      }
+    }
+
+    // 3c. Ensure platform application exists (lazy, one-time)
+    if (isPlatformSms && !credentials.infobipApplicationId) {
+      try {
+        await (ctx.runAction as Function)(
+          internalApi.channels.infobipCpaasX.ensurePlatformApplication,
+          {}
+        );
+        // Re-fetch credentials to include applicationId
+        credentials = await (ctx.runQuery as Function)(
+          internalApi.channels.router.getProviderCredentials,
+          { organizationId: args.organizationId, providerId }
+        ) as ProviderCredentials;
+        if (!credentials) {
+          return { success: false, error: "Credentials lost after application provisioning" };
+        }
+      } catch (e) {
+        console.error("[Router] CPaaS X application provisioning failed (non-blocking):", e);
+      }
+    }
+
+    // 4. Send through provider
+    const message: OutboundMessage = {
+      channel: args.channel as ChannelType,
+      recipientIdentifier: args.recipientIdentifier,
+      content: args.content,
+      contentHtml: args.contentHtml,
+      subject: args.subject,
+      metadata: {
+        providerConversationId: args.providerConversationId,
+      },
+    };
+
+    const result = await provider.sendMessage(credentials, message);
+
+    // 5. Deduct credits for platform SMS (per-org enterprise pays Infobip directly)
+    if (isPlatformSms && result.success) {
+      try {
+        await (ctx.runMutation as Function)(
+          internalApi.credits.index.deductCreditsInternalMutation,
+          {
+            organizationId: args.organizationId,
+            amount: 2, // sms_outbound cost
+            action: "sms_outbound",
+            description: `SMS to ${args.recipientIdentifier.slice(0, 6)}...`,
+          }
+        );
+      } catch (e) {
+        // Credit deduction failure shouldn't block SMS delivery
+        console.error("[Router] SMS credit deduction failed:", e);
+      }
+    }
+
+    return result;
+  },
+});
+
+/**
+ * Get all configured channel bindings for an org.
+ * Used by the agent config UI to show which channels have providers.
+ */
+export const getConfiguredChannels = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const bindings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "channel_provider_binding")
+      )
+      .collect();
+
+    return bindings
+      .filter((b) => {
+        const props = b.customProperties as Record<string, unknown>;
+        return props?.enabled === true;
+      })
+      .map((b) => {
+        const props = b.customProperties as Record<string, unknown>;
+        return {
+          channel: props?.channel as string,
+          providerId: props?.providerId as string,
+        };
+      });
+  },
+});

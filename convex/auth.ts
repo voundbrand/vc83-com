@@ -342,6 +342,19 @@ export const internalCreateSession = internalMutation({
   },
 });
 
+// Touch session to extend expiry (keep-alive for long-running UI sessions)
+export const touchSession = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || !session.userId || session.expiresAt <= Date.now()) return null;
+    await ctx.db.patch(session._id, {
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
+    });
+    return { success: true };
+  },
+});
+
 // Sign out mutation (doesn't need crypto)
 export const signOut = mutation({
   args: {

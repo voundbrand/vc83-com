@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box } from "lucide-react";
+import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
 import { DeploymentsTab } from "./deployments-tab";
@@ -67,7 +68,12 @@ interface SelectedDeployment {
   vercelUrl?: string;
 }
 
-export function WebPublishingWindow() {
+interface WebPublishingWindowProps {
+  /** When true, shows back-to-desktop navigation (for /publish route) */
+  fullScreen?: boolean;
+}
+
+export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowProps = {}) {
   const [activeTab, setActiveTab] = useState<TabType>("pages");
   const [editMode, setEditMode] = useState<EditMode | null>(null);
   const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
@@ -90,13 +96,50 @@ export function WebPublishingWindow() {
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-          <Globe size={16} />
-          {t("ui.web_publishing.header.title")}
-        </h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {t("ui.web_publishing.header.description")}
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Back to desktop link (full-screen mode only) */}
+            {fullScreen && (
+              <Link
+                href="/"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Back to Desktop"
+              >
+                <ArrowLeft size={14} />
+              </Link>
+            )}
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <Globe size={16} />
+                {t("ui.web_publishing.header.title")}
+              </h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                {t("ui.web_publishing.header.description")}
+              </p>
+            </div>
+          </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/publish"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

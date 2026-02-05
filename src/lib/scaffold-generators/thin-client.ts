@@ -105,7 +105,7 @@ export function generateThinClientScaffold(config: PublishConfig): ScaffoldFile[
   }
 
   // Webhook handler (if any webhook-capable category selected)
-  const webhookCategories = ["forms", "events", "products", "invoices", "bookings", "checkout"];
+  const webhookCategories = ["forms", "events", "products", "invoices", "bookings", "checkout", "conversations"];
   if (config.selectedCategories.some((c) => webhookCategories.includes(c))) {
     files.push(generateWebhookHandler(config));
   }
@@ -348,6 +348,30 @@ export interface Ticket {
 }`);
   }
 
+  if (config.selectedCategories.includes("conversations")) {
+    typeBlocks.push(`
+export interface Conversation {
+  _id: string;
+  agentId: string;
+  channel: 'whatsapp' | 'webchat' | 'sms' | 'email';
+  externalContactId?: string;
+  contactName?: string;
+  status: 'active' | 'closed' | 'handed_off';
+  createdAt: number;
+  lastMessageAt: number;
+  messageCount: number;
+}
+
+export interface ConversationMessage {
+  _id: string;
+  sessionId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: number;
+  metadata?: Record<string, unknown>;
+}`);
+  }
+
   return {
     path: "types/index.ts",
     label: "TypeScript type definitions",
@@ -516,6 +540,9 @@ function generateWebhookHandler(config: PublishConfig): ScaffoldFile {
   if (config.selectedCategories.includes("bookings")) {
     eventTypes.push("'booking.created'", "'booking.cancelled'");
   }
+  if (config.selectedCategories.includes("conversations")) {
+    eventTypes.push("'conversation.started'", "'conversation.closed'", "'conversation.handed_off'", "'message.received'");
+  }
 
   return {
     path: "app/api/webhook/route.ts",
@@ -588,6 +615,19 @@ ${config.selectedCategories.includes("forms") ? `      case 'form.submitted':
         // Handle paid invoice
         console.log('Invoice paid:', event.data);
         break;
+` : ""}${config.selectedCategories.includes("conversations") ? `      case 'conversation.started':
+        // Handle new conversation
+        console.log('Conversation started:', event.data);
+        break;
+      case 'conversation.handed_off':
+        // Handle human takeover request
+        console.log('Conversation handed off:', event.data);
+        // TODO: Notify support team
+        break;
+      case 'message.received':
+        // Handle new message in conversation
+        console.log('New message:', event.data);
+        break;
 ` : ""}      default:
         console.log(\`[Webhook] Unhandled event type: \${event.type}\`);
     }
@@ -627,6 +667,8 @@ function generateCategoryHelper(categoryId: string): ScaffoldFile | null {
       return generateTicketsHelper();
     case "checkout":
       return generateCheckoutHelper();
+    case "conversations":
+      return generateConversationsHelper();
     default:
       return null;
   }
@@ -897,6 +939,68 @@ export async function fetchOrder(orderId: string): Promise<Order> {
   };
 }
 
+function generateConversationsHelper(): ScaffoldFile {
+  return {
+    path: "lib/conversations.ts",
+    label: "Conversations API helpers",
+    content: `import { apiRequest } from './api';
+import type { Conversation, ConversationMessage, PaginatedResponse } from '@/types';
+
+export interface ConversationFilters {
+  status?: 'active' | 'closed' | 'handed_off';
+  channel?: 'whatsapp' | 'webchat' | 'sms' | 'email';
+  agentId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function fetchConversations(filters?: ConversationFilters): Promise<PaginatedResponse<Conversation>> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.channel) params.set('channel', filters.channel);
+  if (filters?.agentId) params.set('agentId', filters.agentId);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  const query = params.toString() ? \`?\${params.toString()}\` : '';
+  return apiRequest(\`/api/v1/conversations\${query}\`);
+}
+
+export async function fetchConversation(sessionId: string): Promise<Conversation> {
+  return apiRequest(\`/api/v1/conversations/\${sessionId}\`);
+}
+
+export async function fetchConversationMessages(sessionId: string): Promise<PaginatedResponse<ConversationMessage>> {
+  return apiRequest(\`/api/v1/conversations/\${sessionId}/messages\`);
+}
+
+export async function sendHumanMessage(sessionId: string, content: string): Promise<ConversationMessage> {
+  return apiRequest(\`/api/v1/conversations/\${sessionId}/messages\`, {
+    method: 'POST',
+    body: { content, role: 'assistant' },
+  });
+}
+
+export async function updateConversationStatus(
+  sessionId: string,
+  status: 'active' | 'closed' | 'handed_off'
+): Promise<Conversation> {
+  return apiRequest(\`/api/v1/conversations/\${sessionId}\`, {
+    method: 'PATCH',
+    body: { status },
+  });
+}
+
+export async function closeConversation(sessionId: string): Promise<Conversation> {
+  return updateConversationStatus(sessionId, 'closed');
+}
+
+export async function handOffConversation(sessionId: string): Promise<Conversation> {
+  return updateConversationStatus(sessionId, 'handed_off');
+}
+`,
+  };
+}
+
 // ============================================================================
 // CATEGORY-SPECIFIC PAGES
 // ============================================================================
@@ -1161,6 +1265,152 @@ export default function CheckoutPage() {
         >
           {isProcessing ? 'Processing...' : 'Complete Purchase'}
         </button>
+      </div>
+    </div>
+  );
+}
+`,
+        },
+      ];
+
+    case "conversations":
+      return [
+        {
+          path: "app/conversations/page.tsx",
+          label: "Conversations listing page",
+          content: `import { fetchConversations } from '@/lib/conversations';
+
+export default async function ConversationsPage() {
+  const { data: conversations } = await fetchConversations();
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-100 text-green-800',
+    closed: 'bg-gray-100 text-gray-800',
+    handed_off: 'bg-yellow-100 text-yellow-800',
+  };
+
+  const channelIcons: Record<string, string> = {
+    whatsapp: 'WhatsApp',
+    webchat: 'Web',
+    sms: 'SMS',
+    email: 'Email',
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Conversations</h1>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="divide-y">
+          {conversations.map((conv) => (
+            <a
+              key={conv._id}
+              href={\`/conversations/\${conv._id}\`}
+              className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">
+                  {conv.contactName?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div>
+                  <p className="font-medium">{conv.contactName || 'Unknown Contact'}</p>
+                  <p className="text-sm text-gray-500">
+                    {channelIcons[conv.channel] || conv.channel} · {conv.messageCount} messages
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={\`px-2 py-1 rounded-full text-xs font-medium \${statusColors[conv.status] || 'bg-gray-100 text-gray-800'}\`}>
+                  {conv.status.replace('_', ' ')}
+                </span>
+                <span className="text-sm text-gray-400">
+                  {new Date(conv.lastMessageAt).toLocaleDateString()}
+                </span>
+              </div>
+            </a>
+          ))}
+          {conversations.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              No conversations yet
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+`,
+        },
+        {
+          path: "app/conversations/[sessionId]/page.tsx",
+          label: "Conversation detail page",
+          content: `import { fetchConversation, fetchConversationMessages } from '@/lib/conversations';
+
+export default async function ConversationDetailPage({
+  params,
+}: {
+  params: { sessionId: string };
+}) {
+  const [conversation, messagesResponse] = await Promise.all([
+    fetchConversation(params.sessionId),
+    fetchConversationMessages(params.sessionId),
+  ]);
+  const messages = messagesResponse.data;
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <div className="mb-6">
+        <a href="/conversations" className="text-blue-600 hover:underline text-sm">
+          ← Back to conversations
+        </a>
+      </div>
+
+      <div className="bg-white rounded-lg shadow mb-6 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{conversation.contactName || 'Unknown Contact'}</h1>
+            <p className="text-sm text-gray-500">
+              {conversation.channel} · Started {new Date(conversation.createdAt).toLocaleString()}
+            </p>
+          </div>
+          <span className={\`px-3 py-1 rounded-full text-sm font-medium \${
+            conversation.status === 'active' ? 'bg-green-100 text-green-800' :
+            conversation.status === 'handed_off' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-gray-100 text-gray-800'
+          }\`}>
+            {conversation.status.replace('_', ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="divide-y max-h-[600px] overflow-y-auto">
+          {messages.map((msg) => (
+            <div
+              key={msg._id}
+              className={\`p-4 \${msg.role === 'user' ? 'bg-gray-50' : 'bg-white'}\`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={\`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium \${
+                  msg.role === 'user' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }\`}>
+                  {msg.role === 'user' ? 'U' : 'AI'}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-500 mb-1">
+                    {msg.role === 'user' ? 'Customer' : 'Agent'} ·{' '}
+                    {new Date(msg.createdAt).toLocaleTimeString()}
+                  </p>
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          {messages.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              No messages in this conversation
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1881,6 +2131,7 @@ function getCategoryImportName(categoryId: string): string {
     tickets: "fetchTickets, fetchTicket",
     checkout: "createCheckoutSession, getCheckoutSession, completeCheckout",
     workflows: "triggerWorkflow",
+    conversations: "fetchConversations, fetchConversation, fetchConversationMessages, sendHumanMessage, updateConversationStatus",
   };
   return names[categoryId] || "";
 }

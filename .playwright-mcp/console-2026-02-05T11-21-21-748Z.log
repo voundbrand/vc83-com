@@ -1,0 +1,113 @@
+[     895ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[     975ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     976ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     976ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     976ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     976ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     976ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     992ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     992ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     993ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[     994ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1192ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1192ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1193ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1193ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   43338ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   43338ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   43339ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   43339ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55248ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55248ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55248ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55249ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55249ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55250ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55250ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55250ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55251ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55252ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55252ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55252ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55263ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55263ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55263ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   55264ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   56279ms] [ERROR] [CONVEX M(interviewTemplateOntology:ensureDefaultTemplates)] [Request ID: b1b8f82735d2d582] Server Error
+Uncaught TypeError: dynamic module import unsupported
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+ @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[   56279ms] [ERROR] [InterviewSelector] Failed to seed templates: Error: [CONVEX M(interviewTemplateOntology:ensureDefaultTemplates)] [Request ID: b1b8f82735d2d582] Server Error
+Uncaught TypeError: dynamic module import unsupported
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+
+  Called by client
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+
+  Called by client
+    at BaseConvexClient.mutation (http://localhost:3000/_next/static/chunks/node_modules_c78893ce._.js:4557:19) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  127430ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127430ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127430ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127430ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127431ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127431ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127432ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127432ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127434ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127434ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127434ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127434ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127439ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127439ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127439ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127439ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127440ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127440ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127440ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127440ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127442ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127443ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127443ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127443ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127448ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127448ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127448ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127448ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127451ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127451ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127452ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  127452ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  132998ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  132998ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  132998ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  132998ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145117ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145118ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145118ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145118ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145119ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145119ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145120ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145120ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145122ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145123ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145123ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145123ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145138ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145138ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145138ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145138ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  145728ms] [ERROR] [CONVEX M(interviewTemplateOntology:ensureDefaultTemplates)] [Request ID: ff40d54ce02ed31a] Server Error
+Uncaught TypeError: dynamic module import unsupported
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+ @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  145728ms] [ERROR] [InterviewSelector] Failed to seed templates: Error: [CONVEX M(interviewTemplateOntology:ensureDefaultTemplates)] [Request ID: ff40d54ce02ed31a] Server Error
+Uncaught TypeError: dynamic module import unsupported
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+
+  Called by client
+    at handler (../convex/interviewTemplateOntology.ts:823:43)
+
+  Called by client
+    at BaseConvexClient.mutation (http://localhost:3000/_next/static/chunks/node_modules_c78893ce._.js:4557:19) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359

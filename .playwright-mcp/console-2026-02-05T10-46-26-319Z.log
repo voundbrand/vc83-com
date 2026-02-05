@@ -1,0 +1,426 @@
+[    1117ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1119ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1123ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1123ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    2067ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[   12030ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   12030ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   12036ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   12036ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   16813ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   16813ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   16820ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   16820ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   21561ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   21561ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   21568ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   21568ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   56199ms] [WARNING] [.WebGL-0x1040044f000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1009478354%3A1770288408839168&client_id=19450024372-6pavh8e8mdjvhfq9bk6hrv8gmus8csk2.apps.googleusercontent.com&o2v=2&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fauth%2Foauth%2Fcallback&response_type=code&scope=openid+profile+email&service=lso&state=a48ad4ce-ffbf-4480-bd84-3827aee4b91d&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAMUvUU5TEpc0_4Usx_TGo1XjAurBzKWFcZK9u6Vxbr_DWCXap3Esn0q0flI147oCd-mcjOQIrP8b7bTyDmQOvHPsZVT8rV8RsLK3FnWWykDtrGRBQiATo2MrFefjPwWDYMRm772_U9mWeOzi7iIJS9cr2prmXTY1XuD6kXOx7IaC_L6aJFCOglo5swk9h-FSS3VYEVLFzjRceWoj3NbXfwfwo0zTgdGcC7w5Ybg9sDWnEeFiIx9ErEuR0kzrCTHbBkDGvS543ZFPU7u8cBvIU07iOCM9hyYwc-ZjUb33ntYPq59k-KY54-mSQnYilITnxAJJDjEaC6Gc0eZZuCOnkPzlEtA0yWZrxHOLd_EchqUJeVmOXfSpYsROeHyztSqQr4ziQRdg9f8jsuQyzsJQsYC8XBqDnM-JIDheipsHQah0sOiVmQFCIU08_F3hVO9Aqm0lpTsQxuJ1hpKavxjTp23x4WAag%26flowName%3DGeneralOAuthFlow%26as%3DS1009478354%253A1770288408839168%26client_id%3D19450024372-6pavh8e8mdjvhfq9bk6hrv8gmus8csk2.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=http%3A%2F%2Flocalhost%3A3000&rart=ANgoxcfZm3OhGukFrmAtvoUTfBXzzPkyzyygOi3vNv0p7EyfPvEin1EYPaBWgcMDMmjEn9uk4OgceHQSVYhtYl5hxKoTbeZaijuUwaIw1MdMuZ64uXkNSEU:0
+[   70374ms] [WARNING] [.WebGL-0x1040044f000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1009478354%3A1770288408839168&client_id=19450024372-6pavh8e8mdjvhfq9bk6hrv8gmus8csk2.apps.googleusercontent.com&o2v=2&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fauth%2Foauth%2Fcallback&response_type=code&scope=openid+profile+email&service=lso&state=a48ad4ce-ffbf-4480-bd84-3827aee4b91d&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAMUvUU5TEpc0_4Usx_TGo1XjAurBzKWFcZK9u6Vxbr_DWCXap3Esn0q0flI147oCd-mcjOQIrP8b7bTyDmQOvHPsZVT8rV8RsLK3FnWWykDtrGRBQiATo2MrFefjPwWDYMRm772_U9mWeOzi7iIJS9cr2prmXTY1XuD6kXOx7IaC_L6aJFCOglo5swk9h-FSS3VYEVLFzjRceWoj3NbXfwfwo0zTgdGcC7w5Ybg9sDWnEeFiIx9ErEuR0kzrCTHbBkDGvS543ZFPU7u8cBvIU07iOCM9hyYwc-ZjUb33ntYPq59k-KY54-mSQnYilITnxAJJDjEaC6Gc0eZZuCOnkPzlEtA0yWZrxHOLd_EchqUJeVmOXfSpYsROeHyztSqQr4ziQRdg9f8jsuQyzsJQsYC8XBqDnM-JIDheipsHQah0sOiVmQFCIU08_F3hVO9Aqm0lpTsQxuJ1hpKavxjTp23x4WAag%26flowName%3DGeneralOAuthFlow%26as%3DS1009478354%253A1770288408839168%26client_id%3D19450024372-6pavh8e8mdjvhfq9bk6hrv8gmus8csk2.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=http%3A%2F%2Flocalhost%3A3000&rart=ANgoxcfZm3OhGukFrmAtvoUTfBXzzPkyzyygOi3vNv0p7EyfPvEin1EYPaBWgcMDMmjEn9uk4OgceHQSVYhtYl5hxKoTbeZaijuUwaIw1MdMuZ64uXkNSEU:0
+[   77859ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77859ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77864ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77864ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77872ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77872ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77882ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[   77892ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77892ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77895ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   77895ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   78143ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   78144ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   78144ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   78144ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  151453ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  151453ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  151454ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  151454ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167038ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167038ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167038ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167039ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167051ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167051ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167051ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167051ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167052ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167052ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167052ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167052ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  167480ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[  168609ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  168610ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195478ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195479ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195479ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195479ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195480ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195480ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195480ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195480ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195487ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195487ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195487ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195488ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195488ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195489ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195489ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195489ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195498ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195498ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195499ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  195499ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  215521ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  215521ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  215522ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  215522ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302084ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302085ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302085ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302085ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302087ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302087ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302088ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302088ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302091ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302091ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302092ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302092ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302106ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302106ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302107ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  302107ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321849ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321850ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321850ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321852ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321852ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321853ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321853ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321853ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321857ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321857ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321857ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  321858ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328530ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328531ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328531ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328531ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328532ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328533ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328533ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328533ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328538ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328538ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328539ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328539ms] [WARNING] [Translation] Loaded 6 window keys: [ui.windows.benefits.title, ui.windows.booking.title, ui.windows.finder.title, ui.windows.integrations.title, ui.windows.onboarding_welcome.title, ui.windows.web_publishing.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  328560ms] [ERROR] In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <button> button 
+
+  ...
+    <div className="min-h-scre..." style={{...}}>
+      <ClientOnly>
+        <div>
+        <FloatingWindow>
+        <FloatingWindow>
+        <FloatingWindow id="brain" title="Brain" initialPosition={{x:120,y:80}} zIndex={111}>
+          <div ref={{...}} className={"fixed re..."} style={{left:120,top:80, ...}} ...>
+            <div>
+            <div className="flex-1 ove..." style={{...}}>
+              <div className="flex-1 ove...">
+                <BrainWindow>
+                  <div className="flex flex-...">
+                    <div>
+                    <div className="flex-1 ove...">
+                      <ReviewMode sessionId="n97c3m033a..." organizationId="kn75f33b8x...">
+                        <div className="flex h-full">
+                          <div>
+                          <div className="flex-1 fle...">
+                            <div>
+                            <div className="flex-1 ove...">
+                              <div className="space-y-2 ...">
+>                               <button
+>                                 onClick={function onClick}
+>                                 className="w-full text-left p-4 rounded-lg border transition-all border-zinc-700 bg-..."
+>                               >
+                                  <div className="flex items...">
+                                    <div>
+                                    <div>
+                                    <div className="flex items...">
+>                                     <button
+>                                       onClick={function onClick}
+>                                       className="p-1 text-zinc-500 hover:text-zinc-300"
+>                                     >
+                                      ...
+                                ...
+            ...
+        ...
+ @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  328561ms] [ERROR] <%s> cannot contain a nested %s.
+See this log for the ancestor stack trace. button <button> @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 2373702ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2373702ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2373703ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2373703ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714071ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714072ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714072ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714073ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714073ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714073ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714073ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714073ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714080ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714080ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2714080ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2714081ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2982591ms] [ERROR] ./src/app/page.tsx:42:1
+Module not found: Can't resolve '@/components/onboarding-welcome-screen'
+  40 | import { BookingWindow } from "@/components/window-content/booking-window"
+  41 | import { BrainWindow } from "@/components/window-content/brain-window"
+> 42 | import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+  44 | import { useIsMobile } from "@/hooks/use-media-query"
+  45 | import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
+
+Import map: aliased to relative './src/components/onboarding-welcome-screen' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 2982607ms] [ERROR] ./src/app/page.tsx:42:1
+Module not found: Can't resolve '@/components/onboarding-welcome-screen'
+  40 | import { BookingWindow } from "@/components/window-content/booking-window"
+  41 | import { BrainWindow } from "@/components/window-content/brain-window"
+> 42 | import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+  44 | import { useIsMobile } from "@/hooks/use-media-query"
+  45 | import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
+
+Import map: aliased to relative './src/components/onboarding-welcome-screen' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 2990216ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2990224ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2990228ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2990229ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2990233ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2990235ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2990237ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 2990238ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 2990287ms] [ERROR] %o
+
+%s ReferenceError: OnboardingWelcomeScreen is not defined
+    at HomePage.useEffect (http://localhost:3000/_next/static/chunks/src_23533300._.js?id=%255Bproject%255D%252Fsrc%252Fapp%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:668:264)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:13122:22)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:886:74)
+    at commitHookEffectListMount (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6640:628)
+    at commitHookPassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6675:60)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7630:33)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17) The above error occurred in the <HomePage> component. It was handled by the <SessionExpiredBoundary> error boundary. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_cf1d9188._.js:1247
+[ 2990288ms] [ERROR] Session Expired Error: ReferenceError: OnboardingWelcomeScreen is not defined
+    at HomePage.useEffect (http://localhost:3000/_next/static/chunks/src_23533300._.js?id=%255Bproject%255D%252Fsrc%252Fapp%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:668:264)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:13122:22)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:886:74)
+    at commitHookEffectListMount (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6640:628)
+    at commitHookPassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6675:60)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7630:33)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17) {componentStack: 
+    at HomePage (http://localhost:3000/_next/stat…e_modules_next_dist_client_cf1d9188._.js:9899:11)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 3001188ms] [WARNING] [PostHog.js] You have already initialized PostHog! Re-initializing is a no-op @ http://localhost:3000/_next/static/chunks/node_modules_c78893ce._.js:14910
+[ 3001430ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001431ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001436ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001436ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001437ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001438ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001442ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001443ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001444ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001445ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001445ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001445ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001584ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001584ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001585ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001586ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001588ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001589ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001589ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001590ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001590ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001590ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001591ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001591ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001592ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001592ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001592ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001593ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001593ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001593ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001593ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001593ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001594ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001594ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3001594ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3001595ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3002149ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[ 3009975ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009975ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009975ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009976ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009976ms] [ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [true, [object Object]] [] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 3009976ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009977ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009977ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009977ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009977ms] [ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [true, [object Object]] [] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[ 3009978ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009978ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009979ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009979ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009980ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009981ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009981ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009982ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009983ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009984ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009984ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009985ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009985ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009985ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009985ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009986ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009986ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009986ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3009986ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3009986ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010192ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010192ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010192ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010192ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010193ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010193ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010193ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010193ms] [WARNING] [Translation] Loaded 0 window keys: [] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010193ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010193ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153
+[ 3010194ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ http://localhost:3000/_next/static/chunks/src_23533300._.js:152
+[ 3010194ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ http://localhost:3000/_next/static/chunks/src_23533300._.js:153

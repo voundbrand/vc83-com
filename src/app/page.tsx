@@ -38,8 +38,9 @@ import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
 import { BenefitsWindow } from "@/components/window-content/benefits-window"
 import { BookingWindow } from "@/components/window-content/booking-window"
-import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+import { BrainWindow } from "@/components/window-content/brain-window"
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+import { FinderWindow } from "@/components/window-content/finder-window"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
@@ -218,6 +219,14 @@ export default function HomePage() {
     openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📅')
   }
 
+  const openBrainWindow = () => {
+    openWindow("brain", "Brain", <BrainWindow />, { x: 120, y: 80 }, { width: 1000, height: 700 }, 'ui.windows.brain.title', '🧠')
+  }
+
+  const openFinderWindow = () => {
+    openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title', '📁')
+  }
+
   const openOrganizationSwitcherWindow = () => {
     const centerX = typeof window !== 'undefined' ? (window.innerWidth - 400) / 2 : 300;
     const centerY = typeof window !== 'undefined' ? (window.innerHeight - 400) / 2 : 150;
@@ -355,23 +364,9 @@ export default function HomePage() {
     }
 
     // Now we know: isSignedIn=true, currentOrg exists, tutorialProgress loaded
-    if (tutorialProgress === null) {
-      // First time user - show new onboarding welcome screen
-      openWindow(
-        "onboarding-welcome",
-        "Welcome",
-        <OnboardingWelcomeScreen />,
-        { x: 250, y: 100 },
-        { width: 900, height: 700 },
-        "ui.windows.onboarding_welcome.title",
-        "👋"
-      );
-      setHasOpenedInitialWindow(true);
-    } else {
-      // Returning user (progress exists) - show welcome window
-      openWelcomeWindow();
-      setHasOpenedInitialWindow(true);
-    }
+    // Show welcome window for all signed-in users
+    openWelcomeWindow();
+    setHasOpenedInitialWindow(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
 
@@ -539,31 +534,14 @@ export default function HomePage() {
     }
   }, [isSignedIn]);
 
-  // Handle onboarding after signup - show new welcome screen
+  // Handle onboarding after signup - clear the flag (no longer used)
   useEffect(() => {
-    // Check for onboarding flag from signup
+    // Check for onboarding flag from signup and clear it
     const showOnboarding = localStorage.getItem("show_onboarding_tutorial");
-
-    if (showOnboarding === "true" && isSignedIn && currentOrg) {
-      // Clear the flag immediately to prevent re-triggering
+    if (showOnboarding === "true") {
       localStorage.removeItem("show_onboarding_tutorial");
-
-      // Open new onboarding welcome screen instead of tutorial
-      openWindow(
-        "onboarding-welcome",
-        "Welcome",
-        <OnboardingWelcomeScreen />,
-        { x: 250, y: 100 },
-        { width: 900, height: 700 },
-        "ui.windows.onboarding_welcome.title",
-        "👋"
-      );
-
-      // Prevent other initial windows from opening
-      setHasOpenedInitialWindow(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, currentOrg])
+  }, [])
 
   // Build organization submenu items dynamically with truncation
   const truncateOrgName = (name: string, maxLength: number = 20) => {
@@ -611,9 +589,13 @@ export default function HomePage() {
     { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
     // AI Assistant
     { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) },
+    // Brain - Knowledge capture and AI learning hub
+    { label: t('ui.windows.brain.title') || "Brain", icon: "🧠", onClick: requireAuth(openBrainWindow) },
     // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
+    // Finder - Project file system
+    { label: t('ui.windows.finder.title') || "Finder", icon: "📁", onClick: requireAuth(openFinderWindow) },
     // Media Library
-    { label: t('ui.app.media_library'), icon: "📁", onClick: requireAuth(openMediaLibraryWindow) },
+    { label: t('ui.app.media_library'), icon: "🗂️", onClick: requireAuth(openMediaLibraryWindow) },
     // Payments
     { label: t('ui.app.payments'), icon: "💰", onClick: requireAuth(openPaymentsWindow) },
     // Products

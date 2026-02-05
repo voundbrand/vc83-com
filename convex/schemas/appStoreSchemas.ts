@@ -34,8 +34,10 @@ export const apps = defineTable({
     v.literal("free"),
     v.literal("starter"),
     v.literal("pro"),
+    v.literal("professional"),
     v.literal("personal"),
     v.literal("business"),
+    v.literal("agency"),
     v.literal("enterprise")
   )),
   

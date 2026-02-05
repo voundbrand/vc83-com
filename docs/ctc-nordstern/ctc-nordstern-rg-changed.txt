@@ -1,0 +1,34 @@
+Completed:
+
+Deleted 2 Remington invoices
+Renumbered 24 invoices (0003-0028 → 0021-0044)
+Updated invoice counter to 45
+Removed temporary admin functions (clean codebase)
+Remaining (manual):
+Regenerate PDFs for these 24 invoices via the UI "Regenerate PDF" button:
+
+New #	Customer
+0021	Potential² GmbH
+0022	DMA Umzüge Yersin
+0023	Frank Fröhlich
+0024	Nordic Way GmbH
+0025	Raumfreude
+0026	SwenRehwald
+0027	Rechtsanwaltskanzlei
+0028	Renninger
+0029	Schönheitsinstitut
+0030	KlausSchütte
+0031	ONE Managementberatung
+0032	AROBA Personal UG
+0033	Naturwahrnehmen
+0034	Goldmichi Edelmetallhandel
+0035	easy4you-Office
+0036	arcept
+0037	BNI Nordwest GmbH
+0038	Verleger Fortschritt GmbH
+0039	Steve Kaiser
+0040	Allianz Adrian Gretzinger
+0041	BEKRU Werke GmbH
+0042	Naturheilpraxis Fehnemann
+0043	Ronald Battistini
+0044	Trend in Form GmbH

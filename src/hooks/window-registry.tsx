@@ -155,10 +155,6 @@ const CheckoutFailedWindow = lazy(() =>
   import("@/components/window-content/checkout-failed-window").then(m => ({ default: m.CheckoutFailedWindow }))
 );
 
-const OnboardingWelcomeScreen = lazy(() =>
-  import("@/components/onboarding-welcome-screen").then(m => ({ default: m.OnboardingWelcomeScreen }))
-);
-
 const QuickStartICPSelector = lazy(() =>
   import("@/components/quick-start").then(m => ({ default: m.QuickStartICPSelector }))
 );
@@ -177,6 +173,14 @@ const AiSystemWindow = lazy(() =>
 
 const BuilderBrowserWindow = lazy(() =>
   import("@/components/window-content/builder-browser-window").then(m => ({ default: m.BuilderBrowserWindow }))
+);
+
+const BrainWindow = lazy(() =>
+  import("@/components/window-content/brain-window").then(m => ({ default: m.BrainWindow }))
+);
+
+const FinderWindow = lazy(() =>
+  import("@/components/window-content/finder-window").then(m => ({ default: m.FinderWindow }))
 );
 
 /**
@@ -557,17 +561,6 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     }
   },
 
-  "onboarding-welcome": {
-    createComponent: (props) => <OnboardingWelcomeScreen {...(props as Record<string, unknown>)} />,
-    defaultConfig: {
-      title: "Welcome",
-      titleKey: "ui.windows.onboarding_welcome.title",
-      icon: "👋",
-      position: { x: 250, y: 100 },
-      size: { width: 900, height: 700 }
-    }
-  },
-
   "tutorial-welcome": {
     createComponent: (props) => {
       // Note: onAction and onClose callbacks cannot be serialized in sessionStorage
@@ -637,12 +630,34 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "builder-browser": {
-    createComponent: () => <BuilderBrowserWindow />,
+    createComponent: (props) => <BuilderBrowserWindow initialSetupMode={props?.initialSetupMode as boolean | undefined} />,
     defaultConfig: {
       title: "AI Builder",
       icon: "🌐",
       position: { x: 80, y: 40 },
       size: { width: 1100, height: 750 }
+    }
+  },
+
+  "brain": {
+    createComponent: (props) => <BrainWindow initialMode={props?.initialMode as "learn" | "teach" | "review" | undefined} />,
+    defaultConfig: {
+      title: "Brain",
+      titleKey: "ui.windows.brain.title",
+      icon: "🧠",
+      position: { x: 120, y: 80 },
+      size: { width: 1000, height: 700 }
+    }
+  },
+
+  "finder": {
+    createComponent: () => <FinderWindow />,
+    defaultConfig: {
+      title: "Finder",
+      titleKey: "ui.windows.finder.title",
+      icon: "📁",
+      position: { x: 100, y: 60 },
+      size: { width: 1200, height: 800 }
     }
   }
 };

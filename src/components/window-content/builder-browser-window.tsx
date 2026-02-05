@@ -2,8 +2,14 @@
 
 import { ArrowLeft, ArrowRight, RotateCw, ExternalLink, Lock } from "lucide-react"
 
-export function BuilderBrowserWindow() {
-  const builderUrl = "/builder"
+interface BuilderBrowserWindowProps {
+  /** Opens builder in agent creation wizard mode */
+  initialSetupMode?: boolean;
+}
+
+export function BuilderBrowserWindow({ initialSetupMode }: BuilderBrowserWindowProps) {
+  // Add setup=true param if in agent setup mode
+  const builderUrl = initialSetupMode ? "/builder?setup=true" : "/builder"
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>

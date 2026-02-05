@@ -22,6 +22,7 @@ import { activityProtocolToolDefinition } from "./activityProtocolTool";
 import { sequencesToolDefinition } from "./sequencesTool";
 import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
+import { INTERVIEW_TOOLS } from "./interviewTools";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -3451,6 +3452,9 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Page Builder - Image Search
   search_unsplash_images: searchUnsplashImagesTool,
+
+  // Interview Tools (Guided Session Mode)
+  ...INTERVIEW_TOOLS,
 };
 
 /**

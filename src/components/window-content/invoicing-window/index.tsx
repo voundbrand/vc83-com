@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus, RefreshCw, Loader2, AlertCircle, Settings } from "lucide-react";
+import { FileText, CreditCard, Palette, X, Download, Mail, Edit, Lock, Calendar, User, History, Plus, RefreshCw, Loader2, AlertCircle, Settings, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id, type Doc } from "../../../../convex/_generated/dataModel";
@@ -39,9 +40,11 @@ type InvoiceSubTab = "draft" | "sealed";
 
 interface InvoicingWindowProps {
   initialTab?: TabType;
+  /** When true, shows back-to-desktop navigation (for /invoicing route) */
+  fullScreen?: boolean;
 }
 
-export function InvoicingWindow({ initialTab = "create" }: InvoicingWindowProps) {
+export function InvoicingWindow({ initialTab = "create", fullScreen = false }: InvoicingWindowProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -127,13 +130,50 @@ export function InvoicingWindow({ initialTab = "create" }: InvoicingWindowProps)
     <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-          <CreditCard size={16} />
-          {t("ui.invoicing_window.header.title")}
-        </h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {t("ui.invoicing_window.header.description")}
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Back to desktop link (full-screen mode only) */}
+            {fullScreen && (
+              <Link
+                href="/"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Back to Desktop"
+              >
+                <ArrowLeft size={14} />
+              </Link>
+            )}
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <CreditCard size={16} />
+                {t("ui.invoicing_window.header.title")}
+              </h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                {t("ui.invoicing_window.header.description")}
+              </p>
+            </div>
+          </div>
+
+          {/* Open full screen link (window mode only) */}
+          {!fullScreen && (
+            <Link
+              href="/invoicing"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
