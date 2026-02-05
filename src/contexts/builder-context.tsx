@@ -45,7 +45,7 @@ export interface DetectedItem {
   /** Unique ID for this detected item */
   id: string;
   /** Type of item detected */
-  type: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout";
+  type: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation";
   /** The placeholder data from the prototype page */
   placeholderData: {
     name?: string;
