@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
-import { Package, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-react";
+import { Package, Plus, List, Loader2, AlertCircle, Building2, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ProductsList } from "./products-list";
 import { ProductForm } from "./product-form";
@@ -11,7 +12,12 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type ViewMode = "list" | "create" | "edit";
 
-export function ProductsWindow() {
+interface ProductsWindowProps {
+  /** When true, shows back-to-desktop navigation (for /products route) */
+  fullScreen?: boolean;
+}
+
+export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {}) {
   const { t } = useNamespaceTranslations("ui.products");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedProductId, setSelectedProductId] = useState<Id<"objects"> | null>(null);
@@ -93,6 +99,21 @@ export function ProductsWindow() {
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
         <div className="flex items-center justify-between">
+          {/* Back to desktop link (full-screen mode only) */}
+          {fullScreen && (
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Back to Desktop"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+          )}
           <div>
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Package size={16} />
@@ -103,11 +124,29 @@ export function ProductsWindow() {
             </p>
           </div>
 
-          {/* Organization Info */}
-          <div className="text-right">
-            <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
-              {currentOrganization?.name}
-            </p>
+          {/* Organization Info & Full Screen Toggle */}
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                {currentOrganization?.name}
+              </p>
+            </div>
+
+            {/* Open full screen link (window mode only) */}
+            {!fullScreen && (
+              <Link
+                href="/products"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Open Full Screen"
+              >
+                <Maximize2 size={14} />
+              </Link>
+            )}
           </div>
         </div>
       </div>

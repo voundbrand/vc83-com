@@ -702,6 +702,23 @@ import {
   switchOrganization as aiChatSwitchOrganization,
 } from "./api/v1/aiChat";
 
+// Agent Conversations API (wraps agentSessions for external REST access)
+import {
+  listConversations as agentListConversations,
+  getConversation as agentGetConversation,
+  getConversationMessages as agentGetConversationMessages,
+  sendConversationMessage as agentSendConversationMessage,
+  updateConversation as agentUpdateConversation,
+} from "./api/v1/conversations";
+
+// Sub-Organizations API (parent-child org hierarchy for agency model)
+import {
+  createChildOrganization,
+  listChildOrganizations,
+  getChildOrganization,
+  updateChildOrganization,
+} from "./api/v1/subOrganizations";
+
 /**
  * Layer 1: READ APIs (Before Checkout)
  */
@@ -3083,6 +3100,311 @@ http.route({
   path: "/api/v1/activity/settings",
   method: "PATCH",
   handler: activityUpdateSettings,
+});
+
+// ============================================================================
+// AGENT CONVERSATIONS API
+// ============================================================================
+//
+// REST API for agent session conversations - used by builder-generated portals.
+// Wraps internal agentSessions functions for external access.
+// Scopes: conversations:read, conversations:write
+// ============================================================================
+
+// OPTIONS /api/v1/conversations - CORS preflight
+http.route({
+  path: "/api/v1/conversations",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// GET /api/v1/conversations - List agent conversations
+http.route({
+  path: "/api/v1/conversations",
+  method: "GET",
+  handler: agentListConversations,
+});
+
+// OPTIONS /api/v1/conversations/:sessionId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/conversations/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// GET /api/v1/conversations/:sessionId - Get conversation detail
+http.route({
+  pathPrefix: "/api/v1/conversations/",
+  method: "GET",
+  handler: agentGetConversation,
+});
+
+// PATCH /api/v1/conversations/:sessionId - Update conversation status
+http.route({
+  pathPrefix: "/api/v1/conversations/",
+  method: "PATCH",
+  handler: agentUpdateConversation,
+});
+
+// POST /api/v1/conversations/:sessionId/messages - Send human takeover message
+http.route({
+  pathPrefix: "/api/v1/conversations/",
+  method: "POST",
+  handler: agentSendConversationMessage,
+});
+
+// ============================================================================
+// SUB-ORGANIZATIONS API
+// ============================================================================
+//
+// REST API for parent-child organization hierarchy (agency model).
+// Agencies create sub-orgs for their clients; credit pools are shared.
+// Scopes: organizations:read, organizations:write
+// ============================================================================
+
+// OPTIONS /api/v1/organizations/children - CORS preflight
+http.route({
+  path: "/api/v1/organizations/children",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// POST /api/v1/organizations/children - Create child organization
+http.route({
+  path: "/api/v1/organizations/children",
+  method: "POST",
+  handler: createChildOrganization,
+});
+
+// GET /api/v1/organizations/children - List child organizations
+http.route({
+  path: "/api/v1/organizations/children",
+  method: "GET",
+  handler: listChildOrganizations,
+});
+
+// OPTIONS /api/v1/organizations/children/:childId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/organizations/children/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+// GET /api/v1/organizations/children/:childId - Get child organization
+http.route({
+  pathPrefix: "/api/v1/organizations/children/",
+  method: "GET",
+  handler: getChildOrganization,
+});
+
+// PATCH /api/v1/organizations/children/:childId - Update child organization
+http.route({
+  pathPrefix: "/api/v1/organizations/children/",
+  method: "PATCH",
+  handler: updateChildOrganization,
+});
+
+// ============================================================================
+// WEBCHAT API (PUBLIC)
+// ============================================================================
+//
+// Public API for the webchat widget. Embedded on any website to enable
+// AI-powered chat with organization agents.
+//
+// Layer 4 in comms platform: End User ↔ AI Agent communications.
+// No auth required - uses session tokens for visitor identification.
+// Rate limited by IP address.
+//
+// See: docs/bring_it_all_together/05-WEBCHAT-WIDGET.md
+// See: docs/bring_it_all_together/12-COMMS-PLATFORM-SPEC.md
+// ============================================================================
+
+// OPTIONS /api/v1/webchat/message - CORS preflight
+http.route({
+  path: "/api/v1/webchat/message",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    // Allow any origin for public webchat widget
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
+
+// POST /api/v1/webchat/message - Send message from webchat visitor
+http.route({
+  path: "/api/v1/webchat/message",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      // Parse request body
+      const body = await request.json();
+      const { organizationId, agentId, sessionToken, message, visitorInfo } = body as {
+        organizationId: string;
+        agentId: string;
+        sessionToken?: string;
+        message: string;
+        visitorInfo?: { name?: string; email?: string; phone?: string };
+      };
+
+      // Validate required fields
+      if (!organizationId || !agentId || !message) {
+        return new Response(
+          JSON.stringify({ error: "Missing required fields: organizationId, agentId, message" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      // Get client IP for rate limiting
+      const ipAddress =
+        request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+        request.headers.get("x-real-ip") ||
+        "unknown";
+
+      // Check rate limit
+      const rateLimitResult = await ctx.runQuery(internal.api.v1.webchatApi.checkRateLimit, {
+        ipAddress,
+        organizationId: organizationId as Id<"organizations">,
+      });
+
+      if (!rateLimitResult.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: "Rate limit exceeded",
+            retryAfterMs: rateLimitResult.retryAfterMs,
+          }),
+          { status: 429, headers: corsHeaders }
+        );
+      }
+
+      // Record rate limit entry
+      await ctx.runMutation(internal.api.v1.webchatApi.recordRateLimitEntry, {
+        ipAddress,
+        organizationId: organizationId as Id<"organizations">,
+      });
+
+      // Handle the message
+      const result = await ctx.runAction(internal.api.v1.webchatApi.handleWebchatMessage, {
+        organizationId: organizationId as Id<"organizations">,
+        agentId: agentId as Id<"objects">,
+        sessionToken,
+        message,
+        visitorInfo,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ error: result.error, sessionToken: result.sessionToken }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          sessionToken: result.sessionToken,
+          response: result.response,
+          agentName: result.agentName,
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    } catch (error) {
+      console.error("[Webchat] Error handling message:", error);
+      return new Response(
+        JSON.stringify({ error: getErrorMessage(error) }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/v1/webchat/config/:agentId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/webchat/config/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
+
+// GET /api/v1/webchat/config/:agentId - Get widget configuration
+http.route({
+  pathPrefix: "/api/v1/webchat/config/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      // Extract agent ID from URL path
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split("/");
+      const agentId = pathParts[pathParts.length - 1];
+
+      if (!agentId) {
+        return new Response(
+          JSON.stringify({ error: "Missing agentId in path" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      // Get webchat config
+      const config = await ctx.runQuery(internal.api.v1.webchatApi.getWebchatConfig, {
+        agentId: agentId as Id<"objects">,
+      });
+
+      if (!config) {
+        return new Response(
+          JSON.stringify({ error: "Agent not found or webchat not enabled" }),
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      return new Response(JSON.stringify(config), { status: 200, headers: corsHeaders });
+    } catch (error) {
+      console.error("[Webchat] Error getting config:", error);
+      return new Response(
+        JSON.stringify({ error: getErrorMessage(error) }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+  }),
 });
 
 export default http;

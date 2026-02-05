@@ -154,6 +154,20 @@ export const API_CATEGORIES: ApiCategory[] = [
       { method: "GET", path: "/api/v1/orders/{orderId}", description: "Get order details" },
     ],
   },
+  {
+    id: "conversations",
+    label: "Conversations & Messaging",
+    description: "View agent conversations, message history, and handle human takeover",
+    icon: "MessageSquare",
+    scopes: ["conversations:read", "conversations:write"],
+    endpoints: [
+      { method: "GET", path: "/api/v1/conversations", description: "List agent conversations" },
+      { method: "GET", path: "/api/v1/conversations/{sessionId}", description: "Get conversation details" },
+      { method: "GET", path: "/api/v1/conversations/{sessionId}/messages", description: "Get message history" },
+      { method: "POST", path: "/api/v1/conversations/{sessionId}/messages", description: "Send human takeover message" },
+      { method: "PATCH", path: "/api/v1/conversations/{sessionId}", description: "Update conversation status" },
+    ],
+  },
 ];
 
 /**

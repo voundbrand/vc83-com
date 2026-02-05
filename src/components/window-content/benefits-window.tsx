@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Gift, DollarSign, ClipboardList, Heart } from "lucide-react"
+import { Gift, DollarSign, ClipboardList, Heart, ArrowLeft, Maximize2 } from "lucide-react"
+import Link from "next/link"
 import { BenefitsList } from "./benefits-window/benefits-list"
 import { BenefitDetail } from "./benefits-window/benefit-detail"
 import { CommissionsList } from "./benefits-window/commissions-list"
@@ -12,7 +13,12 @@ import type { Id } from "../../../convex/_generated/dataModel"
 
 type ViewType = "benefits" | "commissions" | "my-claims" | "my-earnings"
 
-export function BenefitsWindow() {
+interface BenefitsWindowProps {
+  /** When true, shows back-to-desktop navigation (for /benefits route) */
+  fullScreen?: boolean;
+}
+
+export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {}) {
   const [activeView, setActiveView] = useState<ViewType>("benefits")
   const [selectedBenefitId, setSelectedBenefitId] = useState<Id<"objects"> | null>(null)
   const [selectedCommissionId, setSelectedCommissionId] = useState<Id<"objects"> | null>(null)
@@ -34,6 +40,16 @@ export function BenefitsWindow() {
           background: 'var(--win95-bg-light)'
         }}
       >
+        {/* Back to desktop link (full-screen mode only) */}
+        {fullScreen && (
+          <Link
+            href="/"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Back to Desktop"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+        )}
         <button
           onClick={() => handleViewSwitch("benefits")}
           className={`retro-button px-4 py-2 flex items-center gap-2 ${
@@ -86,6 +102,20 @@ export function BenefitsWindow() {
           <Heart size={16} />
           <span className="font-pixel text-xs">My Earnings</span>
         </button>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Open full screen link (window mode only) */}
+        {!fullScreen && (
+          <Link
+            href="/benefits"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Open Full Screen"
+          >
+            <Maximize2 size={16} />
+          </Link>
+        )}
       </div>
 
       {/* Content Area */}

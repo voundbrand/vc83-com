@@ -18,6 +18,7 @@ import {
 } from "./modelAdapters";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
 import { PAGE_BUILDER_SYSTEM_PROMPT, getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
+import { getKnowledgeContent } from "./systemKnowledge";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
@@ -135,6 +136,7 @@ export const sendMessage = action({
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
+    isSetupMode: v.optional(v.boolean()), // Setup mode for agent creation wizard (injects system knowledge)
   },
   handler: async (ctx, args): Promise<{
     conversationId: Id<"aiConversations">;
@@ -478,6 +480,53 @@ Remember: You're not just answering questions - you're helping users accomplish 
     let systemPrompt = isPageBuilderContext
       ? getPageBuilderPrompt(args.builderMode)
       : normalChatPrompt;
+
+    // For setup mode (agent creation wizard), inject ALL system knowledge (~78KB)
+    // This includes: meta-context, hero-definition, guide-positioning, plan-and-cta,
+    // knowledge-base-structure, follow-up-sequences, and all adapted frameworks
+    if (args.isSetupMode && isPageBuilderContext) {
+      const setupKnowledge = getKnowledgeContent("setup");
+      if (setupKnowledge.length > 0) {
+        const knowledgeBlock = setupKnowledge
+          .map((k) => `## ${k.name}\n\n${k.content}`)
+          .join("\n\n---\n\n");
+
+        systemPrompt = `${systemPrompt}
+
+---
+
+# SETUP MODE: Agent Creation Wizard
+
+You are helping an agency owner configure an AI agent for their client. Follow the system knowledge frameworks below to guide them through the setup process.
+
+**Your role:**
+1. Interview the agency owner about their client's business using the Hero Definition Framework
+2. Help position the AI agent as a helpful guide using the Guide Positioning Framework
+3. Create a clear action plan using the Plan and CTA Framework
+4. Build a comprehensive knowledge base using the Knowledge Base Structure Guide
+5. Design effective conversations using the Conversation Design Framework
+
+**Output format:**
+Generate files in the builder file explorer:
+- \`agent-config.json\` - Agent configuration (system prompt, FAQ, tools, channels)
+- \`kb/hero-profile.md\` - Client business profile
+- \`kb/guide-positioning.md\` - AI agent personality and voice
+- \`kb/action-plan.md\` - Customer journey and CTAs
+- \`kb/faq.md\` - Common questions and answers
+- \`kb/services.md\` - Products and services offered
+- \`kb/policies.md\` - Business policies (hours, returns, etc.)
+- \`kb/success-stories.md\` - Testimonials and case studies
+- \`kb/industry-context.md\` - Industry-specific knowledge
+
+---
+
+# System Knowledge Library
+
+${knowledgeBlock}`;
+
+        console.log(`[AI Chat] Injected ${setupKnowledge.length} setup knowledge documents (~${Math.round(knowledgeBlock.length / 1024)}KB)`);
+      }
+    }
 
     // For page builder context, inject RAG design patterns if available
     if (isPageBuilderContext && args.message) {

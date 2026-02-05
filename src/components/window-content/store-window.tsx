@@ -23,13 +23,16 @@ import {
   Gift,
   ArrowRight,
   ArrowDown,
+  ArrowLeft,
   Phone,
   Loader2,
   Clock,
   AlertCircle,
   X,
   RefreshCw,
+  Maximize2,
 } from "lucide-react";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
 
@@ -55,6 +58,11 @@ const TIER_ORDER: Record<string, number> = {
 
 type TabType = "plans" | "ai";
 
+interface StoreWindowProps {
+  /** When true, shows back-to-desktop navigation (for /store route) */
+  fullScreen?: boolean;
+}
+
 /**
  * NOTE: Stripe Price IDs are managed on the backend via Convex environment variables.
  * The frontend only needs to pass the tier name and billing period.
@@ -64,7 +72,7 @@ type TabType = "plans" | "ai";
  * - Token Packs: STRIPE_TOKENS_{TIER}_PRICE_ID
  */
 
-export function StoreWindow() {
+export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
   const { addItem } = useShoppingCart();
   const { t } = useNamespaceTranslations("ui.store");
   const { openWindow } = useWindowManager();
@@ -255,11 +263,38 @@ export function StoreWindow() {
             borderColor: "var(--win95-border)",
           }}
         >
-          <h2 className="font-pixel text-sm text-white flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4" />
-            {t("ui.store.title")}
-          </h2>
-          <p className="text-xs mt-1 text-white/80">{t("ui.store.subtitle")}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Back to desktop link (full-screen mode only) */}
+              {fullScreen && (
+                <Link
+                  href="/"
+                  className="p-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  title="Back to Desktop"
+                >
+                  <ArrowLeft className="w-4 h-4 text-white" />
+                </Link>
+              )}
+              <div>
+                <h2 className="font-pixel text-sm text-white flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  {t("ui.store.title")}
+                </h2>
+                <p className="text-xs mt-1 text-white/80">{t("ui.store.subtitle")}</p>
+              </div>
+            </div>
+
+            {/* Open full screen link (window mode only) */}
+            {!fullScreen && (
+              <Link
+                href="/store"
+                className="p-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                title="Open Full Screen"
+              >
+                <Maximize2 className="w-4 h-4 text-white" />
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Tab Navigation */}

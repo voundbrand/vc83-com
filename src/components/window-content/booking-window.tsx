@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, MapPin, Clock, Users, Settings } from "lucide-react"
+import { Calendar, MapPin, Clock, Users, Settings, ArrowLeft, Maximize2 } from "lucide-react"
+import Link from "next/link"
 import { BookingsList } from "./booking-window/bookings-list"
 import { BookingDetail } from "./booking-window/booking-detail"
 import { LocationsList } from "./booking-window/locations-list"
@@ -14,10 +15,12 @@ import type { Id } from "../../../convex/_generated/dataModel"
 type ViewType = "bookings" | "locations" | "availability" | "settings"
 
 interface BookingWindowProps {
-  initialTab?: ViewType
+  initialTab?: ViewType;
+  /** When true, shows back-to-desktop navigation (for /booking route) */
+  fullScreen?: boolean;
 }
 
-export function BookingWindow({ initialTab }: BookingWindowProps = {}) {
+export function BookingWindow({ initialTab, fullScreen = false }: BookingWindowProps = {}) {
   const [activeView, setActiveView] = useState<ViewType>(initialTab || "bookings")
   const [selectedBookingId, setSelectedBookingId] = useState<Id<"objects"> | null>(null)
   const [selectedLocationId, setSelectedLocationId] = useState<Id<"objects"> | null>(null)
@@ -45,6 +48,16 @@ export function BookingWindow({ initialTab }: BookingWindowProps = {}) {
           background: 'var(--win95-bg-light)'
         }}
       >
+        {/* Back to desktop link (full-screen mode only) */}
+        {fullScreen && (
+          <Link
+            href="/"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Back to Desktop"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+        )}
         <button
           onClick={() => handleViewSwitch("bookings")}
           className={`retro-button px-4 py-2 flex items-center gap-2 ${
@@ -97,6 +110,20 @@ export function BookingWindow({ initialTab }: BookingWindowProps = {}) {
           <Settings size={16} />
           <span className="font-pixel text-xs">Settings</span>
         </button>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Open full screen link (window mode only) */}
+        {!fullScreen && (
+          <Link
+            href="/booking"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Open Full Screen"
+          >
+            <Maximize2 size={16} />
+          </Link>
+        )}
       </div>
 
       {/* Content Area */}

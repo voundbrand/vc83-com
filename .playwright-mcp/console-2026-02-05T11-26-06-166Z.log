@@ -1,0 +1,621 @@
+[    1149ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[    1215ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1216ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1216ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1216ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1217ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1217ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1219ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1219ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1220ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1220ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1229ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1230ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1233ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1234ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1234ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1235ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1253ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1253ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1264ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1264ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1276ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1277ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1277ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1278ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1278ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1279ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1280ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1280ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1503ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1504ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1504ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1504ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1504ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1505ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1505ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1505ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1506ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1506ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1506ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[    1506ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24148ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24148ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24148ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24149ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24149ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24150ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24150ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24150ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24152ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24153ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24153ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[   24153ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117644ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117645ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117646ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117646ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117646ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117647ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117647ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117647ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117650ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117651ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117652ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117652ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117665ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117666ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117666ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117666ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117668ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117668ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117668ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117668ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117670ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117671ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117671ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117672ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117683ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117683ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117684ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117684ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117684ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117684ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117685ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117685ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117687ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117689ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117689ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117690ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117754ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117755ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117756ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117757ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117758ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117759ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117862ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117862ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117862ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117863ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117863ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117863ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117864ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117864ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117866ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117866ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117866ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117866ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117876ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117876ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117876ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117877ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117877ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117877ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117877ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117877ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117878ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117879ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117879ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117879ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117922ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117922ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117922ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117922ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117923ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117923ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117923ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117924ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117925ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117925ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117926ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117926ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117941ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117941ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117941ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117941ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117942ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117942ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117942ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117942ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117944ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117944ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117945ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  117945ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118016ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118016ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118016ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118016ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118016ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118017ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118017ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118017ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118019ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118019ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118019ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118019ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118102ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118103ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118103ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118103ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118104ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118104ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118104ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118104ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118106ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118106ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118106ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118106ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118189ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118189ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118190ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118190ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118190ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118191ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118191ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118191ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118192ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118193ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118193ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118193ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118707ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118707ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118708ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118708ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118709ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118709ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118710ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118710ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118711ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118712ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118712ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118712ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118724ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118725ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118725ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118725ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118726ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118726ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118726ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118727ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118729ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118730ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118730ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118730ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118741ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118741ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118742ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118742ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118743ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118743ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118743ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118743ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118746ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118746ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118746ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118746ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118758ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118758ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118759ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118759ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118759ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118760ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118760ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118760ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118762ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118763ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118763ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118763ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118775ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118776ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118776ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118776ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118777ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118777ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118777ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118777ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118779ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118779ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118779ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118779ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118822ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118822ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118822ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118822ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118823ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118823ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118823ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118823ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118825ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118825ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118825ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118825ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118838ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118838ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118839ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118839ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118839ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118839ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118840ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118840ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118842ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118842ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118842ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118842ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118915ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118915ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118915ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118915ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118916ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118916ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118916ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118916ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118918ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118919ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118919ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118919ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118991ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118991ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118991ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118991ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118992ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118992ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118992ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118992ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118994ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118994ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118994ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  118995ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  119354ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  119355ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  119355ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  119355ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326575ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326575ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326576ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326577ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326578ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326578ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326578ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326578ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326638ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326638ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326638ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326638ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326638ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326643ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326644ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326644ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326644ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326644ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326644ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326645ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326645ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326645ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326645ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326645ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326706ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326706ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326706ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  326706ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327207ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[  327522ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327523ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327523ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327523ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327523ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327523ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327524ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327524ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327524ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327524ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327525ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327525ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327526ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327527ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327527ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327527ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327960ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327960ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327960ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  327960ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334223ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334224ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334224ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334224ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334224ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334224ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334225ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334225ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334226ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334226ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334226ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334226ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334280ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334281ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334282ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334282ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  334282ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  602744ms] [ERROR] ./src/app/page.tsx:42:1
+Module not found: Can't resolve '@/components/onboarding-welcome-screen'
+  40 | import { BookingWindow } from "@/components/window-content/booking-window"
+  41 | import { BrainWindow } from "@/components/window-content/brain-window"
+> 42 | import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+  44 | import { useIsMobile } from "@/hooks/use-media-query"
+  45 | import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
+
+Import map: aliased to relative './src/components/onboarding-welcome-screen' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  602776ms] [ERROR] ./src/app/page.tsx:42:1
+Module not found: Can't resolve '@/components/onboarding-welcome-screen'
+  40 | import { BookingWindow } from "@/components/window-content/booking-window"
+  41 | import { BrainWindow } from "@/components/window-content/brain-window"
+> 42 | import { OnboardingWelcomeScreen } from "@/components/onboarding-welcome-screen"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+  44 | import { useIsMobile } from "@/hooks/use-media-query"
+  45 | import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
+
+Import map: aliased to relative './src/components/onboarding-welcome-screen' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  610496ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610496ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610496ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610496ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610496ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610496ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610497ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610497ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610504ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610505ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610505ms] [WARNING] [Translation] Missing window title: "ui.windows.onboarding_welcome.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610505ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  610509ms] [ERROR] %o
+
+%s ReferenceError: OnboardingWelcomeScreen is not defined
+    at HomePage.useEffect (http://localhost:3000/_next/static/chunks/src_23533300._.js?id=%255Bproject%255D%252Fsrc%252Fapp%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:668:264)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:13122:22)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:886:74)
+    at commitHookEffectListMount (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6640:628)
+    at commitHookPassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6675:60)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7630:33)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17) The above error occurred in the <HomePage> component. It was handled by the <SessionExpiredBoundary> error boundary. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_cf1d9188._.js:1247
+[  610515ms] [ERROR] Session Expired Error: ReferenceError: OnboardingWelcomeScreen is not defined
+    at HomePage.useEffect (http://localhost:3000/_next/static/chunks/src_23533300._.js?id=%255Bproject%255D%252Fsrc%252Fapp%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:668:264)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:13122:22)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:886:74)
+    at commitHookEffectListMount (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6640:628)
+    at commitHookPassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:6675:60)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7630:33)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7633:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7673:17)
+    at recursivelyTraversePassiveMountEffects (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7621:106)
+    at commitPassiveMountOnFiber (http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:7629:17) {componentStack: 
+    at HomePage (http://localhost:3000/_next/stat…e_modules_next_dist_client_cf1d9188._.js:9899:11)} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  621341ms] [WARNING] [PostHog.js] You have already initialized PostHog! Re-initializing is a no-op @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621588ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621588ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621594ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621595ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621595ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621596ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621601ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621602ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621604ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621604ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621605ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621605ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621737ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621739ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621740ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621742ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621744ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621744ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621744ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621744ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621745ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621745ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621745ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621746ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621746ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621747ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621747ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621747ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621763ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621765ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621766ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621767ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621772ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621773ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621773ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  621773ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  622228ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[  630129ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630129ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630129ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630129ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630130ms] [ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [true, [object Object]] [] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  630131ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630131ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630131ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630131ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630131ms] [ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [true, [object Object]] [] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b0daae9a._.js:2359
+[  630132ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630132ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630132ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630133ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630134ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630135ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630135ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630135ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630136ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630136ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630137ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630137ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630138ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630138ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630138ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630139ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630139ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630140ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630140ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630140ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630235ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630236ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630237ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630237ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630238ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630238ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630238ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630238ms] [WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630238ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630239ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630239ms] [WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[  630239ms] [WARNING] [Translation] Loaded 32 window keys: [ui.windows.about.title, ui.windows.ai_assistant.title, ui.windows.all_apps.title, ui.windows.benefits.title, ui.windows.booking.title, ui.windows.cart.title, ui.windows.certificates.title, ui.windows.checkout.title, ui.windows.compliance.title, ui.windows.control_panel.title, ui.windows.crm.title, ui.windows.events.title, ui.windows.finder.title, ui.windows.forms.title, ui.windows.integrations.title] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0

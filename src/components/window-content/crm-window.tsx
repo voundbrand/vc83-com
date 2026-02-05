@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Users, Building2, LayoutGrid, TrendingUp, Library, Settings } from "lucide-react"
+import { Users, Building2, LayoutGrid, TrendingUp, Library, Settings, ArrowLeft, Maximize2 } from "lucide-react"
+import Link from "next/link"
 import { ContactsList } from "./crm-window/contacts-list"
 import { ContactDetail } from "./crm-window/contact-detail"
 import { OrganizationsList } from "./crm-window/organizations-list"
@@ -15,7 +16,12 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 type ViewType = "contacts" | "organizations" | "pipeline"
 type PipelineSubView = "active" | "templates" | "settings"
 
-export function CRMWindow() {
+interface CRMWindowProps {
+  /** When true, shows back-to-desktop navigation (for /crm route) */
+  fullScreen?: boolean;
+}
+
+export function CRMWindow({ fullScreen = false }: CRMWindowProps) {
   const { t } = useNamespaceTranslations("ui.crm")
   const [activeView, setActiveView] = useState<ViewType>("contacts")
   const [pipelineSubView, setPipelineSubView] = useState<PipelineSubView>("active")
@@ -46,6 +52,16 @@ export function CRMWindow() {
           background: 'var(--win95-bg-light)'
         }}
       >
+        {/* Back to desktop link (full-screen mode only) */}
+        {fullScreen && (
+          <Link
+            href="/"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Back to Desktop"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+        )}
         <button
           onClick={() => handleViewSwitch("contacts")}
           className={`retro-button px-4 py-2 flex items-center gap-2 ${
@@ -85,6 +101,20 @@ export function CRMWindow() {
           <LayoutGrid size={16} />
           <span className="font-pixel text-xs">{t("ui.crm.tabs.pipeline")}</span>
         </button>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Open full screen link (window mode only) */}
+        {!fullScreen && (
+          <Link
+            href="/crm"
+            className="retro-button px-3 py-2 flex items-center gap-2"
+            title="Open Full Screen"
+          >
+            <Maximize2 size={16} />
+          </Link>
+        )}
       </div>
 
       {/* Content Area */}

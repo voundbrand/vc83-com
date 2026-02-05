@@ -37,6 +37,7 @@ import {
   Check,
   MessageSquare,
   Plug,
+  Sparkles,
 } from "lucide-react";
 import { BuilderLogoMenu } from "@/components/builder/builder-logo-menu";
 
@@ -93,6 +94,16 @@ function BuilderLandingPageInner() {
       router.push("/builder/new");
     }
   }, [conversationId, isSignedIn, isLoading, router]);
+
+  // Handle setup mode URL parameter - for agent creation wizard
+  const setupParam = searchParams.get("setup");
+  useEffect(() => {
+    if (setupParam === "true" && isSignedIn && !isLoading) {
+      // Store setup mode flag for the workspace to pick up
+      sessionStorage.setItem("builder_pending_setup_mode", "true");
+      router.push("/builder/new");
+    }
+  }, [setupParam, isSignedIn, isLoading, router]);
 
   // Auto-redirect to workspace if user just logged in with a pending prompt
   useEffect(() => {
@@ -411,10 +422,39 @@ function BuilderLandingPageInner() {
 
   const handleQuickAction = (action: string) => {
     const prompts: Record<string, string> = {
-      "Contact Form": "Create a contact form with name, email, and message fields",
-      "Image Editor": "Create a simple image editor with crop and filter options",
-      "Mini Game": "Create a fun mini game like snake or tetris",
-      "Finance Calculator": "Create a finance calculator for loans and investments",
+      "Contact Form": `Create a professional contact form page with:
+- Modern, clean design with a hero section explaining why to get in touch
+- Form fields: Full name, email, phone (optional), subject dropdown, message textarea
+- Form validation with helpful error messages
+- Success state with confirmation message
+- Business contact info sidebar (email, phone, address, business hours)
+- FAQ accordion section below the form
+- Social proof: "Typically respond within 24 hours" badge`,
+      "Image Editor": `Create a browser-based image editor with:
+- Drag & drop image upload area
+- Canvas-based editing with real-time preview
+- Tools: Crop, rotate, flip, brightness/contrast sliders, saturation
+- Filter presets: Original, Grayscale, Sepia, Vintage, High Contrast
+- Undo/redo history stack
+- Export options: Download as PNG/JPEG with quality slider
+- Responsive design that works on tablet and desktop`,
+      "Mini Game": `Create an addictive Snake game with:
+- Clean, modern UI with neon color scheme
+- Smooth animations and satisfying sound effects
+- Score counter with high score persistence (localStorage)
+- Difficulty levels: Easy, Medium, Hard (affects speed)
+- Mobile-friendly touch controls + keyboard support
+- Game over screen with retry button and score sharing
+- Leaderboard showing top 10 local scores`,
+      "Finance Calculator": `Create a comprehensive loan calculator with:
+- Tabs for: Mortgage, Auto Loan, Personal Loan
+- Inputs: Loan amount, interest rate, term (months/years), down payment
+- Real-time calculation of monthly payment
+- Amortization schedule table (expandable/collapsible)
+- Visual pie chart showing principal vs interest breakdown
+- Total interest paid and total cost summary
+- "Compare rates" feature showing how different rates affect payments
+- Print/export functionality for the amortization schedule`,
     };
     setPrompt(prompts[action] || "");
   };
@@ -884,6 +924,48 @@ function BuilderLandingPageInner() {
 
         {/* Quick Actions */}
         <div className="flex flex-wrap justify-center gap-2 mb-20">
+          {/* Layers - Automation workflows (highlighted purple) */}
+          <button
+            onClick={() => {
+              if (!isSignedIn) {
+                sessionStorage.setItem("auth_return_url", "/layers");
+                const loginUrl = "/?openLogin=true";
+                if (window.self !== window.top) {
+                  window.top!.location.href = loginUrl;
+                } else {
+                  router.push(loginUrl);
+                }
+              } else {
+                router.push("/layers");
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/50 rounded-full text-sm text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 hover:border-purple-400 transition-colors"
+          >
+            <Layers className="w-4 h-4" />
+            Layers
+          </button>
+          {/* New Agent - Setup Mode (highlighted cyan) */}
+          <button
+            onClick={() => {
+              sessionStorage.setItem("builder_pending_setup_mode", "true");
+              if (!isSignedIn) {
+                sessionStorage.setItem("auth_return_url", "/builder");
+                const loginUrl = "/?openLogin=builder";
+                if (window.self !== window.top) {
+                  window.top!.location.href = loginUrl;
+                } else {
+                  router.push(loginUrl);
+                }
+              } else {
+                router.push("/builder/new");
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/50 rounded-full text-sm text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 hover:border-cyan-400 transition-colors"
+          >
+            <Sparkles className="w-4 h-4" />
+            New Agent
+          </button>
+          {/* Standard quick actions */}
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (

@@ -18,6 +18,7 @@ import { v } from "convex/values";
 
 export interface AuthenticatedUser {
   userId: Id<"users">;
+  organizationId: Id<"organizations">;
   session: {
     _id: Id<"sessions">;
     userId: Id<"users">;
@@ -27,7 +28,6 @@ export interface AuthenticatedUser {
 }
 
 export interface UserContext extends AuthenticatedUser {
-  organizationId?: Id<"organizations">;
   roleId?: Id<"roles">;
   roleName?: string;
   isGlobal: boolean;
@@ -69,6 +69,7 @@ export async function getAuthenticatedUser(
 
   return {
     userId: session.userId,
+    organizationId: session.organizationId,
     session: {
       _id: session._id,
       userId: session.userId,
@@ -85,7 +86,7 @@ export async function getAuthenticatedUser(
  * @returns Authenticated user with session details
  *
  * @example
- * const { userId, session } = await requireAuthenticatedUser(ctx, args.sessionId);
+ * const { userId, organizationId, session } = await requireAuthenticatedUser(ctx, args.sessionId);
  */
 export async function requireAuthenticatedUser(
   ctx: QueryCtx | MutationCtx,
@@ -107,6 +108,7 @@ export async function requireAuthenticatedUser(
 
   return {
     userId: session.userId,
+    organizationId: session.organizationId,
     session: {
       _id: session._id,
       userId: session.userId,
@@ -140,6 +142,7 @@ export async function getUserContext(
     if (globalRole && globalRole.name === "super_admin") {
       return {
         userId,
+        organizationId: organizationId || user.defaultOrgId || ("" as Id<"organizations">),
         session: { _id: "" as Id<"sessions">, userId, email: user.email, expiresAt: 0 },
         roleId: user.global_role_id,
         roleName: globalRole.name,
@@ -178,8 +181,8 @@ export async function getUserContext(
 
   return {
     userId,
+    organizationId: organizationId!,
     session: { _id: "" as Id<"sessions">, userId, email: user.email, expiresAt: 0 },
-    organizationId,
     roleId: membership.role,
     roleName: role.name,
     isGlobal: false,

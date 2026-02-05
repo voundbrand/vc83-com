@@ -98,6 +98,27 @@ import { rateLimitSchemas } from "./schemas/rateLimitSchemas";
 // 🛡️ SECURITY SCHEMAS (Anomaly detection and security event monitoring)
 import { securitySchemas } from "./schemas/securitySchemas";
 
+// 💳 CREDIT SYSTEM SCHEMAS (Unified credit currency for AI/agent/automation)
+import { creditBalances, creditTransactions, creditPurchases } from "./schemas/creditSchemas";
+
+// 🔀 LAYER EXECUTION SCHEMAS (Workflow run tracking)
+import { layerExecutions, layerNodeExecutions } from "./schemas/layerExecutionSchemas";
+
+// 📁 PROJECT FILE SYSTEM SCHEMAS (Virtual file system + cross-org sharing)
+import {
+  projectFiles,
+  projectShares,
+  userFileBookmarks,
+  userRecentFiles,
+  organizationTags,
+} from "./schemas/projectFileSchemas";
+
+// 🤖 AGENT SESSION SCHEMAS (Agent ↔ external contact conversations)
+import { agentSessions, agentSessionMessages } from "./schemas/agentSessionSchemas";
+
+// 💬 WEBCHAT SCHEMAS (Public webchat widget API - Layer 4 comms)
+import { webchatSessions, webchatRateLimits } from "./schemas/webchatSchemas";
+
 // 📊 GROWTH TRACKING SCHEMAS (Launch metrics and KPI tracking)
 import {
   dailyGrowthMetrics,
@@ -283,6 +304,30 @@ export default defineSchema({
 
   // 📁 BUILDER VFS: Individual file records for builder apps
   builderFiles,              // Per-file storage replacing customProperties.generatedFiles[]
+
+  // 💳 CREDIT SYSTEM: Unified credit currency for all usage
+  creditBalances,            // Per-org credit balance (daily/monthly/purchased pools)
+  creditTransactions,        // Audit trail of all credit movements
+  creditPurchases,           // Credit pack purchase records (Stripe-linked)
+
+  // 🔀 LAYER EXECUTION: Workflow run tracking
+  layerExecutions,           // One record per workflow execution run
+  layerNodeExecutions,       // Per-node execution within a workflow run
+
+  // 📁 PROJECT FILE SYSTEM: Virtual file system + sharing
+  projectFiles,              // File/folder entries (org-level or project-scoped)
+  projectShares,             // Cross-organization sharing records
+  userFileBookmarks,         // Per-user file favorites
+  userRecentFiles,           // Per-user recent file access tracking
+  organizationTags,          // Org-wide tag definitions for file labeling
+
+  // 🤖 AGENT SESSIONS: Agent ↔ external contact conversations
+  agentSessions,             // Conversation sessions (org + channel + contact)
+  agentSessionMessages,      // Individual messages within sessions
+
+  // 💬 WEBCHAT: Public webchat widget API (Layer 4 comms)
+  webchatSessions,           // Anonymous visitor sessions (24h expiry)
+  webchatRateLimits,         // IP-based rate limiting for public endpoints
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

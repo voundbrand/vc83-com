@@ -140,6 +140,20 @@ export function analyzeV0FilesForConnections(
       });
     }
 
+    // Detect conversation/chat UI
+    const conversationDetections = detectConversations(file);
+    for (const detection of conversationDetections) {
+      items.push({
+        id: `detected_${++itemCounter}`,
+        type: "conversation",
+        placeholderData: { name: detection.name, description: detection.description },
+        existingMatches: [],
+        connectionChoice: null,
+        linkedRecordId: null,
+        createdRecordId: null,
+      });
+    }
+
     if (items.length > 0) {
       const sectionType = inferSectionType(items);
       const label = inferSectionLabel(file.path, sectionType, items);
@@ -309,6 +323,25 @@ function detectCheckout(file: { path: string; content: string }): SimpleDetectio
   return [{ name: name.replace(/([a-z])([A-Z])/g, "$1 $2"), description: `Detected in ${file.path}` }];
 }
 
+function detectConversations(file: { path: string; content: string }): SimpleDetection[] {
+  const content = file.content;
+  // Look for chat/messaging UI patterns
+  const hasChatUI = /chat|message|conversation|inbox|thread|live.?support|customer.?support/i.test(content);
+  const hasMessageList = /(?:const|let|var)\s+(?:messages|chatMessages|conversationMessages|threads|conversations)\s*=/i.test(content);
+  const hasChatComponents = /MessageList|ChatWindow|ConversationList|ChatBubble|MessageInput/i.test(content);
+  const hasSendMessageHandler = /sendMessage|handleSend|onSendMessage|submitMessage/i.test(content);
+
+  // Need at least 2 signals to avoid false positives
+  const signals = [hasChatUI, hasMessageList, hasChatComponents, hasSendMessageHandler].filter(Boolean).length;
+  if (signals < 2) return [];
+
+  const componentName = extractComponentName(file.path) || "Chat";
+  // Only count if we have strong signals (component name or data array)
+  if (!hasMessageList && !hasChatComponents && !/(Chat|Message|Conversation|Inbox|Support)/i.test(componentName)) return [];
+
+  return [{ name: componentName.replace(/([a-z])([A-Z])/g, "$1 $2"), description: `Detected in ${file.path}` }];
+}
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -351,6 +384,7 @@ function inferSectionType(items: DetectedItem[]): string {
     checkout: "checkout",
     event: "events",
     workflow: "workflows",
+    conversation: "conversations",
   };
   // Use the first item's type to determine section type
   return typeMap[items[0].type] || "form";
@@ -376,6 +410,7 @@ function inferSectionLabel(
     checkout: "Checkout",
     events: "Events",
     workflows: "Workflow",
+    conversations: "Conversations",
   };
 
   const label = typeLabels[sectionType] || "Section";

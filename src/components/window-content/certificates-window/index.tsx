@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
-import { Award, Plus, List, Loader2, AlertCircle, Building2 } from "lucide-react";
+import { Award, Plus, List, Loader2, AlertCircle, Building2, ArrowLeft, Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CertificatesList } from "./certificates-list";
 import { CertificateForm } from "./certificate-form";
@@ -11,7 +12,12 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 type ViewMode = "list" | "create" | "edit";
 
-export function CertificatesWindow() {
+interface CertificatesWindowProps {
+  /** When true, shows back-to-desktop navigation (for /certificates route) */
+  fullScreen?: boolean;
+}
+
+export function CertificatesWindow({ fullScreen = false }: CertificatesWindowProps = {}) {
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.certificates");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedCertificateId, setSelectedCertificateId] = useState<Id<"objects"> | null>(null);
@@ -95,7 +101,22 @@ export function CertificatesWindow() {
       {/* Header */}
       <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
         <div className="flex items-center justify-between">
-          <div>
+          {/* Back to desktop link (full-screen mode only) */}
+          {fullScreen && (
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Back to Desktop"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+          )}
+          <div className="flex-1">
             <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
               <Award size={16} />
               {t("ui.certificates.title")}
@@ -104,20 +125,37 @@ export function CertificatesWindow() {
               {t("ui.certificates.description")}
             </p>
           </div>
-          {viewMode === "list" && (
-            <button
-              onClick={handleCreateNew}
-              className="px-4 py-2 text-xs font-bold flex items-center gap-2"
-              style={{
-                background: "var(--win95-highlight)",
-                color: "var(--win95-bg-light)",
-                border: "2px solid var(--win95-border)",
-              }}
-            >
-              <Plus size={14} />
-              {t("ui.certificates.button.issue_certificate")}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {viewMode === "list" && (
+              <button
+                onClick={handleCreateNew}
+                className="px-4 py-2 text-xs font-bold flex items-center gap-2"
+                style={{
+                  background: "var(--win95-highlight)",
+                  color: "var(--win95-bg-light)",
+                  border: "2px solid var(--win95-border)",
+                }}
+              >
+                <Plus size={14} />
+                {t("ui.certificates.button.issue_certificate")}
+              </button>
+            )}
+            {/* Open full screen link (window mode only) */}
+            {!fullScreen && (
+              <Link
+                href="/certificates"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                style={{
+                  borderColor: "var(--win95-border)",
+                  background: "var(--win95-button-face)",
+                  color: "var(--win95-text)",
+                }}
+                title="Open Full Screen"
+              >
+                <Maximize2 size={14} />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

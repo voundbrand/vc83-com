@@ -367,17 +367,6 @@ export const seed = internalMutation({
 
       // === ONBOARDING WINDOWS ===
       {
-        key: "ui.windows.onboarding_welcome.title",
-        values: {
-          en: "Welcome",
-          de: "Willkommen",
-          pl: "Witaj",
-          es: "Bienvenido",
-          fr: "Bienvenue",
-          ja: "ようこそ",
-        }
-      },
-      {
         key: "ui.windows.benefits.title",
         values: {
           en: "Benefits",
@@ -386,6 +375,52 @@ export const seed = internalMutation({
           es: "Beneficios",
           fr: "Avantages",
           ja: "特典",
+        }
+      },
+      {
+        key: "ui.windows.booking.title",
+        values: {
+          en: "Booking",
+          de: "Buchung",
+          pl: "Rezerwacja",
+          es: "Reserva",
+          fr: "Réservation",
+          ja: "予約",
+        }
+      },
+
+      // === AI WINDOWS ===
+      {
+        key: "ui.windows.ai_system.title",
+        values: {
+          en: "AI System",
+          de: "KI-System",
+          pl: "System AI",
+          es: "Sistema de IA",
+          fr: "Système IA",
+          ja: "AIシステム",
+        }
+      },
+      {
+        key: "ui.windows.brain.title",
+        values: {
+          en: "Brain",
+          de: "Gehirn",
+          pl: "Mózg",
+          es: "Cerebro",
+          fr: "Cerveau",
+          ja: "ブレイン",
+        }
+      },
+      {
+        key: "ui.windows.finder.title",
+        values: {
+          en: "Finder",
+          de: "Finder",
+          pl: "Wyszukiwarka",
+          es: "Buscador",
+          fr: "Finder",
+          ja: "ファインダー",
         }
       },
     ];

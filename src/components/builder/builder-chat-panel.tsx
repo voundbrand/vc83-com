@@ -95,6 +95,8 @@ function CollapsedSidebar({
         return { icon: <Rocket className="w-5 h-5 mb-0.5" />, label: "Publish", color: "text-amber-400 bg-amber-500/10" };
       case "docs":
         return { icon: <FileText className="w-5 h-5 mb-0.5" />, label: "Docs", color: "text-purple-400 bg-purple-500/10" };
+      case "setup":
+        return { icon: <Sparkles className="w-5 h-5 mb-0.5" />, label: "Setup", color: "text-cyan-400 bg-cyan-500/10" };
       default:
         return { icon: <Zap className="w-5 h-5 mb-0.5" />, label: "Build", color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900" };
     }
@@ -171,6 +173,7 @@ function SidebarModeButton({
       case "connect": return <Plug className={size} />;
       case "publish": return <Rocket className={size} />;
       case "docs": return <FileText className={size} />;
+      case "setup": return <Sparkles className={size} />;
     }
   };
 
@@ -199,6 +202,11 @@ function SidebarModeButton({
       description: "Editor mode",
       color: "text-purple-400 bg-purple-500/10",
     },
+    setup: {
+      label: "Setup",
+      description: "Agent wizard",
+      color: "text-cyan-400 bg-cyan-500/10",
+    },
   };
 
   const current = modeConfig[currentMode];
@@ -224,7 +232,7 @@ function SidebarModeButton({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute left-full top-0 ml-2 w-40 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800">
-            {(["auto", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
+            {(["auto", "setup", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
               const isDisabled = mode === "connect" && !canConnect;
@@ -331,7 +339,7 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
 // UNIFIED MODE TYPE
 // ============================================================================
 
-type BuilderUIMode = "auto" | "connect" | "publish" | "docs";
+type BuilderUIMode = "auto" | "connect" | "publish" | "docs" | "setup";
 
 // ============================================================================
 // MODE SELECTOR (All 4 modes: Auto, Plan, Connect, Docs)
@@ -389,6 +397,13 @@ function ModeSelector({
       color: "text-purple-400",
       bgColor: "bg-purple-500/10",
     },
+    setup: {
+      icon: <Sparkles className="w-4 h-4" />,
+      label: "Setup",
+      description: "AI agent wizard",
+      color: "text-cyan-400",
+      bgColor: "bg-cyan-500/10",
+    },
   };
 
   const current = modeConfig[currentMode];
@@ -427,7 +442,7 @@ function ModeSelector({
             onClick={() => setIsOpen(false)}
           />
           <div className={`absolute ${direction === "up" ? "bottom-full mb-2" : "top-full mt-2"} left-0 w-48 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800`}>
-            {(["auto", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
+            {(["auto", "setup", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
               const isDisabled = mode === "connect" && !canConnect;
@@ -1536,6 +1551,9 @@ export function BuilderChatPanel() {
     // Programmatic message injection
     addSystemMessage,
     addAssistantMessage,
+    // Setup mode (agent creation wizard)
+    isSetupMode,
+    setIsSetupMode,
   } = useBuilder();
 
   const [input, setInput] = useState("");
@@ -1649,6 +1667,7 @@ export function BuilderChatPanel() {
 
   // Docs mode state
   const [isDocsMode, setIsDocsMode] = useState(false);
+  // Note: isSetupMode and setIsSetupMode come from useBuilder() context
 
   // ============================================================================
   // UNIFIED MODE HANDLING
@@ -1657,19 +1676,26 @@ export function BuilderChatPanel() {
   const currentUIMode: BuilderUIMode = useMemo(() => {
     if (showConnectionPanel && builderMode === "connect") return "connect";
     if (isDocsMode) return "docs";
+    if (isSetupMode) return "setup";
     return "auto";
-  }, [showConnectionPanel, builderMode, isDocsMode]);
+  }, [showConnectionPanel, builderMode, isDocsMode, isSetupMode]);
 
   // Handle unified mode change from the dropdown
   const handleUIModeChange = async (mode: BuilderUIMode) => {
     // Reset all modes first
     setIsDocsMode(false);
     setShowConnectionPanel(false);
+    setIsSetupMode(false);
 
     switch (mode) {
       case "auto":
         // Build mode = prototype builder mode
         setBuilderMode("prototype");
+        break;
+      case "setup":
+        // Setup mode = agent creation wizard with system knowledge
+        setBuilderMode("prototype");
+        setIsSetupMode(true);
         break;
       case "connect":
         if (!canSwitchToMode("connect")) return;
