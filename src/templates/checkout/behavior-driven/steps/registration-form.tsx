@@ -211,11 +211,6 @@ export function RegistrationFormStep({
     return !!ticketFormMap[ticketNum];
   };
 
-  // Get the form ID for a specific ticket
-  const getTicketFormId = (ticketNum: number) => {
-    return ticketFormMap[ticketNum];
-  };
-
   // Legacy: tickets needing forms (for validation)
   const ticketsNeedingForms = useMemo(() => {
     return allTickets.filter(ticketNum => !!ticketFormMap[ticketNum]);
@@ -342,10 +337,6 @@ export function RegistrationFormStep({
   if (uniqueFormIds.length > 0 && !allFormsLoaded) {
     return <div className="p-6">{t("ui.checkout_template.behavior_driven.registration_form.messages.loading")}</div>;
   }
-
-  // Extract form schema with proper typing (legacy - for single form)
-  const formSchema = (form as { customProperties?: { formSchema?: FormSchema } })?.customProperties
-    ?.formSchema;
 
   // Get form schema for a specific ticket
   const getFormSchemaForTicket = (ticketNum: number): FormSchema | undefined => {

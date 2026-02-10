@@ -222,7 +222,7 @@ export const slotReservationHandler: BehaviorHandler<
    */
   validate: (
     config: SlotReservationConfig,
-    _context?: Partial<BehaviorContext>
+    _?: Partial<BehaviorContext>
   ): ValidationError[] => {
     const errors: ValidationError[] = [];
 

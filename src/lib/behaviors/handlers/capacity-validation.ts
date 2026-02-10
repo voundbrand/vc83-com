@@ -272,7 +272,7 @@ export const capacityValidationHandler: BehaviorHandler<
    */
   validate: (
     config: CapacityValidationConfig,
-    _context?: Partial<BehaviorContext>
+    _?: Partial<BehaviorContext>
   ): ValidationError[] => {
     const errors: ValidationError[] = [];
 

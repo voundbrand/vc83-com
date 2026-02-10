@@ -60,8 +60,6 @@ export function PaymentStep({
   const createPaymentIntent = useAction(api.checkoutSessions.createPaymentIntentForSession);
   // New: Fast checkout confirmation (returns quickly, fulfillment runs async)
   const confirmPaymentFast = useAction(api.checkoutSessions.confirmPaymentAndStartFulfillment);
-  // Legacy: Full checkout (waits for all fulfillment to complete)
-  const completeCheckout = useAction(api.checkoutSessions.completeCheckoutAndFulfill);
 
   // Check if invoice checkout via behaviors OR checkout configuration
   const behaviorResults = checkoutData.behaviorResults;
