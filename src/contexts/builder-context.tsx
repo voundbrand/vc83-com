@@ -102,7 +102,7 @@ export interface LinkedRecord {
   /** Database record ID */
   recordId: string;
   /** Type of record */
-  recordType: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout";
+  recordType: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation";
   /** Section ID this record is linked to */
   sectionId: string;
   /** Item ID within the section */

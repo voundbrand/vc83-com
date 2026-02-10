@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const api = (require("../../../../convex/_generated/api") as { api: any }).api;
 import { CreditBalance } from "@/components/credit-balance";
 import {

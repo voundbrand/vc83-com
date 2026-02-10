@@ -53,3 +53,5 @@ next-env.d.ts
 
 # documentation folders
 /docs/geschlossene-gesellschaft/
+# l4yercak3 systems submodule (managed separately)
+docs/l4yercak3_systems

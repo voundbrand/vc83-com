@@ -8,6 +8,8 @@ import {
   Background,
   BackgroundVariant,
   type Node,
+  type Edge,
+  type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -17,6 +19,7 @@ import type { NodeDefinition, LayerWorkflowData } from "../../../convex/layers/t
 import { getNodeDefinition } from "../../../convex/layers/nodeRegistry";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import { nodeTypes } from "./custom-nodes";
 import { edgeTypes } from "./custom-edges";
@@ -64,7 +67,6 @@ export function LayersCanvas() {
 
   // Session keep-alive (throttled to once per 5 min)
   const lastTouchRef = useRef(0);
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const touchSessionMutation = useMutation(api.auth.touchSession);
   const keepAlive = useCallback(() => {
     if (!sessionId) return;
@@ -120,11 +122,8 @@ export function LayersCanvas() {
   } = store;
 
   // Convex mutations
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const createWorkflow = useMutation(api.layers.layerWorkflowOntology.createWorkflow);
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const saveWorkflow = useMutation(api.layers.layerWorkflowOntology.saveWorkflow);
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const setWorkflowProjectMutation = useMutation(api.layers.layerWorkflowOntology.setWorkflowProject);
 
   // Load projects for project picker
@@ -218,7 +217,7 @@ export function LayersCanvas() {
 
   // --- connection validation (prevent cycles + duplicate edges) ---
   const isValidConnection = useCallback(
-    (connection: { source: string | null; target: string | null; sourceHandle: string | null; targetHandle: string | null }) => {
+    (connection: Edge | Connection) => {
       const { source, target, sourceHandle, targetHandle } = connection;
       if (!source || !target) return false;
       // No self-loops
@@ -337,7 +336,6 @@ export function LayersCanvas() {
   }, [isDirty, sessionId, workflowId, handleSave]);
 
   // --- Execution ---
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const runWorkflowAction = useAction(api.layers.runWorkflow.runWorkflow);
 
   const executionDetails = useQuery(
@@ -477,7 +475,7 @@ export function LayersCanvas() {
       {/* Top Bar */}
       <header className="flex h-12 items-center justify-between border-b border-zinc-800 px-4" style={{ background: "#0a0a0b" }}>
         <div className="flex items-center gap-3">
-          <a
+          <Link
             href="/"
             className="flex items-center justify-center rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
             title="Back to home"
@@ -485,7 +483,7 @@ export function LayersCanvas() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-          </a>
+          </Link>
           <span className="text-sm font-semibold tracking-wide">
             LAYERS
           </span>
@@ -673,13 +671,13 @@ export function LayersCanvas() {
                       <div className="truncate text-[10px] text-zinc-500">{user.email}</div>
                     </div>
                     <div className="p-1">
-                      <a
+                      <Link
                         href="/"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                         Home
-                      </a>
+                      </Link>
                       <button
                         onClick={async () => {
                           setShowUserMenu(false);
@@ -696,12 +694,12 @@ export function LayersCanvas() {
               )}
             </div>
           ) : (
-            <a
+            <Link
               href="/?openLogin=layers"
               className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
             >
               Sign In
-            </a>
+            </Link>
           )}
         </div>
       </header>
@@ -811,12 +809,12 @@ function MobileGate() {
           The visual workflow canvas needs a larger screen for drag-and-drop, node connections, and canvas navigation.
         </p>
       </div>
-      <a
+      <Link
         href="/"
         className="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
       >
         Back to dashboard
-      </a>
+      </Link>
     </div>
   );
 }

@@ -80,7 +80,6 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
   // Queries
   const builderApp = useQuery(
-    // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
     api.builderAppOntology.getBuilderApp,
     effectiveSessionId && builderAppId
       ? { sessionId: effectiveSessionId, appId: builderAppId }

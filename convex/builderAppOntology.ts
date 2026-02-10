@@ -1097,7 +1097,6 @@ export const connectV0App = action({
     envFileId: string | null;
   }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // @ts-expect-error — dynamic import type depth exceeds TS limit
     const { api } = await import("./_generated/api") as any;
 
     // 1. Create the builder app record

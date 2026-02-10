@@ -21,7 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 import type { ViewMode, SortOption } from "./finder-toolbar";
-import type { FinderMode } from "./finder-sidebar";
+import type { FinderMode } from "./finder-types";
 import type { ProjectFile } from "./finder-types";
 
 // ============================================================================

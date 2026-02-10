@@ -37,6 +37,7 @@ import {
   CalendarCheck,
   Zap,
   CreditCard,
+  MessageSquare,
 } from "lucide-react";
 
 // ============================================================================
@@ -54,6 +55,7 @@ const ItemTypeIcon = ({ type }: { type: DetectedItem["type"] }) => {
     booking: <CalendarCheck className="h-4 w-4 text-cyan-400" />,
     workflow: <Zap className="h-4 w-4 text-amber-400" />,
     checkout: <CreditCard className="h-4 w-4 text-indigo-400" />,
+    conversation: <MessageSquare className="h-4 w-4 text-teal-400" />,
   };
   return icons[type] || <Package className="h-4 w-4" />;
 };

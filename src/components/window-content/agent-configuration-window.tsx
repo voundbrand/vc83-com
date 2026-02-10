@@ -448,7 +448,7 @@ function AgentFormTab({
   );
 
   // Query configured channel providers for this org (require() to avoid TS2589)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const channelApi = (require("../../../convex/_generated/api") as { api: any }).api;
   const configuredChannels = useQuery(
     channelApi.channels.router.getConfiguredChannels,

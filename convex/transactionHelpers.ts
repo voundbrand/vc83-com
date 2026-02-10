@@ -401,7 +401,7 @@ export async function createTransactionsForPurchase(
                 return null;
               })
             );
-            eventSponsors = sponsors.filter((s) => s !== null) as Array<{ name: string; level?: string; logoUrl?: string }>;
+            eventSponsors = sponsors.filter((s: { name: string; level?: string; logoUrl?: string } | null) => s !== null) as Array<{ name: string; level?: string; logoUrl?: string }>;
             console.log(`   Sponsors: ${eventSponsors!.length} found`);
           }
 

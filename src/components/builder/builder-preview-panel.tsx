@@ -200,7 +200,6 @@ export function BuilderPreviewPanel() {
 
   // Query builder files for code view
   const builderFilesRaw = useQuery(
-    // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
     api.fileSystemOntology.getFilesByApp,
     sessionId && builderAppId
       ? { sessionId, appId: builderAppId }

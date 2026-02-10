@@ -43,7 +43,6 @@ export function InterviewRunner({
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
-  // @ts-expect-error - Convex TS2589 deep type instantiation
   const context = useQuery(api.ai.interviewRunner.getCurrentContext, { sessionId });
   const progress = useQuery(api.ai.interviewRunner.getInterviewProgress, { sessionId });
   const resumeInterview = useMutation(api.ai.interviewRunner.resumeInterview);

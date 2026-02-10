@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../../convex/_generated/dataModel";
 

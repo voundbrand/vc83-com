@@ -87,7 +87,6 @@ export function FinderPickerDialog({
 
   // Org-scoped files
   const orgFiles = useQuery(
-    // @ts-expect-error — deep type instantiation from large schema
     api.projectFileSystem.listFiles,
     scope === "org" && sessionId
       ? {

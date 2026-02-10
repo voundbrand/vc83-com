@@ -20,7 +20,7 @@ const aiWorkflowNodeSchema = z.object({
     x: z.number(),
     y: z.number(),
   }),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 
 const aiWorkflowEdgeSchema = z.object({

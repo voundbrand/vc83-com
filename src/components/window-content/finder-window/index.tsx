@@ -114,7 +114,6 @@ export function FinderWindow() {
 
   // Org-scoped files
   const orgFiles = useQuery(
-    // @ts-expect-error — deep type instantiation from large schema
     api.projectFileSystem.listFiles,
     isOrgMode && sessionId && activeOrgId
       ? {
@@ -227,7 +226,6 @@ export function FinderWindow() {
       recordAccessMutation({
         sessionId,
         fileId: file._id as Id<"projectFiles">,
-        organizationId: activeOrgId as Id<"organizations">,
       }).catch(() => {});
     }
 
@@ -300,7 +298,6 @@ export function FinderWindow() {
       await toggleBookmarkMutation({
         sessionId,
         fileId: selection.selectedFiles[0]._id as Id<"projectFiles">,
-        organizationId: activeOrgId as Id<"organizations">,
       });
     } catch (err) {
       console.error("Bookmark toggle failed:", err);

@@ -296,7 +296,7 @@ function MarkdownPreview({ content }: { content: string }) {
 }
 
 function simpleMarkdownToHtml(md: string): string {
-  let html = md
+  const html = md
     // Escape HTML
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

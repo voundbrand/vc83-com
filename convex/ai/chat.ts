@@ -35,7 +35,7 @@ interface ChatMessage {
  */
 function generateSessionTitle(
   message: string,
-  context?: "normal" | "page_builder"
+  context?: "normal" | "page_builder" | "layers_builder"
 ): string {
   // Strip any mode prefixes like [PLANNING MODE] or [DOCS MODE]
   const cleanMessage = message
@@ -134,7 +134,7 @@ export const sendMessage = action({
     userId: v.id("users"),
     selectedModel: v.optional(v.string()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
-    context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"))), // Context for system prompt selection
+    context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"), v.literal("layers_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
     isSetupMode: v.optional(v.boolean()), // Setup mode for agent creation wizard (injects system knowledge)
   },

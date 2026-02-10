@@ -62,7 +62,6 @@ export function ToolChest({ onNodeDragStart, sessionId }: ToolChestProps) {
   const allNodes = useMemo(() => getAllNodeDefinitions(), []);
 
   // Upvote system
-  // @ts-ignore - TS2589: Deep type instantiation in Convex generated types (intermittent)
   const upvoteIntegration = useMutation(api.layers.layerWorkflowOntology.upvoteIntegration);
   const upvoteCounts = useQuery(
     api.layers.layerWorkflowOntology.getUpvoteCounts,

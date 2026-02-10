@@ -81,7 +81,6 @@ export function FinderToolbar({
 
   // Breadcrumbs — project-scoped
   const breadcrumbs = useQuery(
-    // @ts-expect-error — deep type instantiation from large schema
     api.projectFileSystem.getBreadcrumbs,
     projectId
       ? { sessionId, projectId: projectId as Id<"objects">, path: currentPath }

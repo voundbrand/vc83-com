@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { CreditBalance } from "./credit-balance";
 import type { Id } from "../../convex/_generated/dataModel";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const creditsApi = (require("../../convex/_generated/api") as { api: any }).api;
 
 interface CreditBalanceWidgetProps {
