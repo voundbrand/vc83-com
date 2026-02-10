@@ -41,6 +41,7 @@ import { BookingWindow } from "@/components/window-content/booking-window"
 import { BrainWindow } from "@/components/window-content/brain-window"
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
 import { FinderWindow } from "@/components/window-content/finder-window"
+import { WaitingForApprovalScreen } from "@/components/waiting-for-approval-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
@@ -58,7 +59,7 @@ export default function HomePage() {
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
   const isMobile = useIsMobile()
-  const { isSignedIn, signOut, sessionId } = useAuth()
+  const { isSignedIn, signOut, sessionId, user } = useAuth()
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
@@ -101,6 +102,12 @@ export default function HomePage() {
     isSignedIn && currentOrg && sessionId ? { tutorialId: "welcome", sessionId } : "skip"
   )
 
+  // Check beta access status (always check, even for non-logged-in users)
+  const betaStatus = useQuery(
+    api.betaAccess.checkBetaAccessStatus,
+    { sessionId: sessionId || undefined }
+  )
+
   const openWelcomeWindow = () => {
     openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
   }
@@ -112,6 +119,7 @@ export default function HomePage() {
   const openLoginWindow = () => {
     openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 60 }, { width: 450, height: 720 }, 'ui.app.user_account', '👤')
   }
+
 
   // const openLayerDocsWindow = () => {
   //   openWindow("layer-docs", "L4YER.docs", <LayerDocsWindow />, { x: 150, y: 80 }, { width: 1000, height: 650 })
@@ -659,6 +667,22 @@ export default function HomePage() {
       onClick: isSignedIn ? handleLogout : openLoginWindow
     },
   ]
+
+  // Check if user needs beta access approval (block entire app if pending/rejected/none)
+  // Super admins bypass this check
+  const shouldShowBetaBlock = isSignedIn && betaStatus && !betaStatus.hasAccess && !isSuperAdmin;
+
+  // If user needs beta approval, show the waiting screen instead of the normal UI
+  if (shouldShowBetaBlock) {
+    return (
+      <WaitingForApprovalScreen
+        status={betaStatus.status as "pending" | "rejected" | "none"}
+        requestedAt={betaStatus.requestedAt}
+        rejectionReason={betaStatus.rejectionReason}
+        userEmail={user?.email || ""}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen relative" style={{

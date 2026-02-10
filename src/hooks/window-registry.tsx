@@ -183,6 +183,7 @@ const FinderWindow = lazy(() =>
   import("@/components/window-content/finder-window").then(m => ({ default: m.FinderWindow }))
 );
 
+
 /**
  * Registry of all available windows
  */

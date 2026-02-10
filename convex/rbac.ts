@@ -80,6 +80,7 @@ export const PERMISSION_CATEGORIES = {
   APP_MANAGEMENT: 'app_management',
   VERTICAL_SPECIFIC: 'vertical_specific',
   TRANSLATION: 'translation',
+  PLATFORM_ADMIN: 'platform_admin',
 } as const;
 
 /**
@@ -279,6 +280,15 @@ export const BASE_PERMISSIONS = [
     action: 'manage',
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
     description: 'OAuth-Verbindungen, API-Schlüssel und Webhooks verwalten'
+  },
+
+  // Platform Administration (Super Admin only)
+  {
+    name: 'manage_platform_settings',
+    resource: 'platform',
+    action: 'manage',
+    category: PERMISSION_CATEGORIES.PLATFORM_ADMIN,
+    description: 'Manage platform-wide settings including beta access gating'
   },
 
   // Translation Management - Simple permissions

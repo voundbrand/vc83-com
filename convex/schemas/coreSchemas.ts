@@ -33,6 +33,21 @@ export const users = defineTable({
   // Account deletion (grace period)
   scheduledDeletionDate: v.optional(v.number()), // 2-week grace period before permanent deletion
 
+  // Beta access control
+  betaAccessStatus: v.optional(v.union(
+    v.literal("approved"),      // Can use full platform
+    v.literal("pending"),       // Requested, waiting for review
+    v.literal("rejected"),      // Request denied
+    v.literal("none")           // No request made yet (default for new users)
+  )),
+  betaAccessRequestedAt: v.optional(v.number()),
+  betaAccessApprovedAt: v.optional(v.number()),
+  betaAccessApprovedBy: v.optional(v.id("users")),
+  betaAccessRejectionReason: v.optional(v.string()),
+  betaRequestReason: v.optional(v.string()),      // Why they want access
+  betaRequestUseCase: v.optional(v.string()),     // How they plan to use it
+  betaReferralSource: v.optional(v.string()),     // How they heard about us
+
   // Metadata
   isActive: v.optional(v.boolean()),
   createdAt: v.optional(v.number()),
@@ -40,6 +55,8 @@ export const users = defineTable({
 })
   .index("email", ["email"])
   .index("by_default_org", ["defaultOrgId"])
+  .index("by_beta_status", ["betaAccessStatus"])
+  .index("by_beta_request_date", ["betaAccessRequestedAt"])
   .searchIndex("search_by_name", {
     searchField: "firstName",
   });
@@ -706,3 +723,18 @@ export const accountLinkingStates = defineTable({
   .index("by_state", ["state"])                // Primary lookup
   .index("by_target_user", ["targetUserId", "status"])  // Find pending links for user
   .index("by_source_provider", ["sourceProvider", "sourceProviderUserId"]); // Prevent duplicate link requests
+
+// ============================================================================
+// PLATFORM SETTINGS
+// ============================================================================
+// Global platform-wide configuration (beta access toggle, feature flags, etc.)
+
+export const platformSettings = defineTable({
+  key: v.string(),              // Setting key (e.g., "betaAccessEnabled")
+  value: v.any(),               // Setting value (boolean, string, number, object)
+  description: v.optional(v.string()),
+  updatedBy: v.optional(v.id("users")),
+  updatedAt: v.number(),
+  createdAt: v.number(),
+})
+  .index("by_key", ["key"]);    // Unique lookup by setting key

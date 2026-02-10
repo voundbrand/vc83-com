@@ -335,27 +335,51 @@ export const signUpHandler = httpAction(async (ctx, request) => {
     );
     const orgName = org?.name || `${firstName}'s Organization`;
 
-    // Send welcome email (async)
-    await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
-      email: normalizedEmail,
-      firstName: firstName.trim(),
-      organizationName: orgName,
-      apiKeyPrefix: "n/a",
-    });
+    // Check if beta gating is enabled
+    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
 
-    // Send sales notification (async)
-    await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
-      eventType: "free_signup",
-      user: {
+    if (betaGatingEnabled) {
+      // Send beta access request notifications (async)
+      await Promise.all([
+        // Notify sales team about beta request
+        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+          email: normalizedEmail,
+          firstName: firstName.trim(),
+          lastName: (lastName || "").trim(),
+          requestReason: "New signup during beta period",
+          useCase: undefined,
+          referralSource: "Email/password signup",
+        }),
+        // Send confirmation to requester
+        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+          email: normalizedEmail,
+          firstName: firstName.trim(),
+        }),
+      ]);
+    } else {
+      // Beta gating disabled - send normal welcome email
+      // Send welcome email (async)
+      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
         email: normalizedEmail,
         firstName: firstName.trim(),
-        lastName: (lastName || "").trim(),
-      },
-      organization: {
-        name: orgName,
-        planTier: "free",
-      },
-    });
+        organizationName: orgName,
+        apiKeyPrefix: "n/a",
+      });
+
+      // Send sales notification (async)
+      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        eventType: "free_signup",
+        user: {
+          email: normalizedEmail,
+          firstName: firstName.trim(),
+          lastName: (lastName || "").trim(),
+        },
+        organization: {
+          name: orgName,
+          planTier: "free",
+        },
+      });
+    }
 
     // Create Stripe customer (async)
     await ctx.scheduler.runAfter(0, internal.onboarding.createStripeCustomerForFreeUser, {

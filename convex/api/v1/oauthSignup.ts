@@ -233,7 +233,7 @@ export const exchangeOAuthCode = internalAction({
 
 /**
  * Find or Create User from OAuth (Internal)
- * 
+ *
  * Finds existing user by email or creates a new user account.
  * Returns user ID and default organization ID.
  */
@@ -270,6 +270,9 @@ export const findOrCreateUserFromOAuth = internalMutation({
       };
     }
 
+    // Check if beta access gating is enabled
+    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+
     // Create new user (reuse onboarding logic)
     const userId = await ctx.db.insert("users", {
       email,
@@ -277,6 +280,10 @@ export const findOrCreateUserFromOAuth = internalMutation({
       lastName: args.lastName,
       isPasswordSet: false, // OAuth users don't have passwords
       isActive: true,
+      // Set beta access status based on gating setting
+      betaAccessStatus: betaGatingEnabled ? "pending" : "approved",
+      betaAccessRequestedAt: betaGatingEnabled ? Date.now() : undefined,
+      betaAccessApprovedAt: betaGatingEnabled ? undefined : Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -507,27 +514,51 @@ export const completeOAuthSignup = action({
       // Get organization name for async tasks
       const orgName = stateRecord.organizationName || `${userInfo.name.firstName}${userInfo.name.lastName ? ` ${userInfo.name.lastName}` : ''}'s Organization`;
 
-      // Send welcome email (async)
-      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
-        email: userInfo.email,
-        firstName: userInfo.name.firstName,
-        organizationName: orgName,
-        apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
-      });
+      // Check if beta gating is enabled
+      const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
 
-      // Send sales notification (async)
-      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
-        eventType: "free_signup",
-        user: {
+      if (betaGatingEnabled) {
+        // Send beta access request notifications (async)
+        await Promise.all([
+          // Notify sales team about beta request
+          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+            email: userInfo.email,
+            firstName: userInfo.name.firstName,
+            lastName: userInfo.name.lastName,
+            requestReason: "New signup during beta period",
+            useCase: undefined,
+            referralSource: "OAuth signup",
+          }),
+          // Send confirmation to requester
+          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+            email: userInfo.email,
+            firstName: userInfo.name.firstName,
+          }),
+        ]);
+      } else {
+        // Beta gating disabled - send normal welcome email
+        // Send welcome email (async)
+        await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
           email: userInfo.email,
           firstName: userInfo.name.firstName,
-          lastName: userInfo.name.lastName,
-        },
-        organization: {
-          name: orgName,
-          planTier: "free",
-        },
-      });
+          organizationName: orgName,
+          apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
+        });
+
+        // Send sales notification (async)
+        await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+          eventType: "free_signup",
+          user: {
+            email: userInfo.email,
+            firstName: userInfo.name.firstName,
+            lastName: userInfo.name.lastName,
+          },
+          organization: {
+            name: orgName,
+            planTier: "free",
+          },
+        });
+      }
 
       // Create Stripe customer (async) - enables upgrade path
       try {

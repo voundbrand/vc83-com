@@ -137,27 +137,51 @@ export const signupFreeAccount = action({
       console.error("Failed to create Stripe customer:", error);
     }
 
-    // 9. Send welcome email (async, don't wait)
-    await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
-      email,
-      firstName: args.firstName,
-      organizationName: result.organization.name,
-      apiKeyPrefix: result.apiKeyPrefix,
-    });
+    // 9. Check if beta gating is enabled
+    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
 
-    // 10. Send sales notification (async, don't wait)
-    await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
-      eventType: "free_signup",
-      user: {
+    if (betaGatingEnabled) {
+      // Send beta access request notifications (async)
+      await Promise.all([
+        // Notify sales team about beta request
+        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+          email,
+          firstName: args.firstName,
+          lastName: args.lastName,
+          requestReason: "New signup during beta period",
+          useCase: undefined,
+          referralSource: "Platform signup",
+        }),
+        // Send confirmation to requester
+        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+          email,
+          firstName: args.firstName,
+        }),
+      ]);
+    } else {
+      // Beta gating disabled - send normal welcome email
+      // 10. Send welcome email (async, don't wait)
+      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
         email,
         firstName: args.firstName,
-        lastName: args.lastName,
-      },
-      organization: {
-        name: result.organization.name,
-        planTier: "free", // New users always start on free tier
-      },
-    });
+        organizationName: result.organization.name,
+        apiKeyPrefix: result.apiKeyPrefix,
+      });
+
+      // 11. Send sales notification (async, don't wait)
+      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        eventType: "free_signup",
+        user: {
+          email,
+          firstName: args.firstName,
+          lastName: args.lastName,
+        },
+        organization: {
+          name: result.organization.name,
+          planTier: "free", // New users always start on free tier
+        },
+      });
+    }
 
     // 11. Return result with plaintext API key (only shown once!)
     return {
@@ -229,7 +253,13 @@ export const createFreeAccountInternal = internalMutation({
     apiKeyHash: v.string(),
     apiKeyPrefix: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    sessionId: Id<"sessions">;
+    user: { id: Id<"users">; email: string; firstName: string; lastName: string };
+    organization: { id: Id<"organizations">; name: string; slug: string };
+    apiKeyPrefix: string;
+  }> => {
     // 1. Check if user already exists
     const existingUser = await ctx.db
       .query("users")
@@ -243,13 +273,20 @@ export const createFreeAccountInternal = internalMutation({
       });
     }
 
-    // 2. Create user
-    const userId = await ctx.db.insert("users", {
+    // 2. Check if beta gating is enabled
+    const betaGatingEnabled: boolean = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+
+    // 3. Create user
+    const userId: Id<"users"> = await ctx.db.insert("users", {
       email: args.email,
       firstName: args.firstName,
       lastName: args.lastName,
       isPasswordSet: true,
       isActive: true,
+      // Set beta access status based on gating setting
+      betaAccessStatus: betaGatingEnabled ? "pending" : "approved",
+      betaAccessRequestedAt: betaGatingEnabled ? Date.now() : undefined,
+      betaAccessApprovedAt: betaGatingEnabled ? undefined : Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -365,7 +402,7 @@ export const createFreeAccountInternal = internalMutation({
     });
 
     // 11. Create session
-    const sessionId = await ctx.db.insert("sessions", {
+    const sessionId: Id<"sessions"> = await ctx.db.insert("sessions", {
       userId,
       email: args.email,
       organizationId,

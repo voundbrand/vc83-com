@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as accountManagement from "../accountManagement.js";
 import type * as actions_apiKeys from "../actions/apiKeys.js";
+import type * as actions_betaAccessEmails from "../actions/betaAccessEmails.js";
 import type * as actions_mux from "../actions/mux.js";
 import type * as actions_salesNotificationEmail from "../actions/salesNotificationEmail.js";
 import type * as actions_welcomeEmail from "../actions/welcomeEmail.js";
@@ -159,6 +160,7 @@ import type * as availabilityOntology from "../availabilityOntology.js";
 import type * as b2bInvoiceHelper from "../b2bInvoiceHelper.js";
 import type * as benefitsMemberSync from "../benefitsMemberSync.js";
 import type * as benefitsOntology from "../benefitsOntology.js";
+import type * as betaAccess from "../betaAccess.js";
 import type * as bookingOntology from "../bookingOntology.js";
 import type * as builderAppOntology from "../builderAppOntology.js";
 import type * as calendarSyncOntology from "../calendarSyncOntology.js";
@@ -285,6 +287,7 @@ import type * as migrateCleanupTemplates from "../migrateCleanupTemplates.js";
 import type * as migratePdfTemplates from "../migratePdfTemplates.js";
 import type * as migrateTemplateSubtypes from "../migrateTemplateSubtypes.js";
 import type * as migrations_addOrganizationIdToSessions from "../migrations/addOrganizationIdToSessions.js";
+import type * as migrations_betaAccessMigration from "../migrations/betaAccessMigration.js";
 import type * as migrations_cleanupDuplicateOAuthConnections from "../migrations/cleanupDuplicateOAuthConnections.js";
 import type * as migrations_cleanupExpiredOAuthStates from "../migrations/cleanupExpiredOAuthStates.js";
 import type * as migrations_deleteOldSessions from "../migrations/deleteOldSessions.js";
@@ -617,6 +620,7 @@ import type * as zapier_webhooks from "../zapier/webhooks.js";
 declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
   "actions/apiKeys": typeof actions_apiKeys;
+  "actions/betaAccessEmails": typeof actions_betaAccessEmails;
   "actions/mux": typeof actions_mux;
   "actions/salesNotificationEmail": typeof actions_salesNotificationEmail;
   "actions/welcomeEmail": typeof actions_welcomeEmail;
@@ -761,6 +765,7 @@ declare const fullApi: ApiFromModules<{
   b2bInvoiceHelper: typeof b2bInvoiceHelper;
   benefitsMemberSync: typeof benefitsMemberSync;
   benefitsOntology: typeof benefitsOntology;
+  betaAccess: typeof betaAccess;
   bookingOntology: typeof bookingOntology;
   builderAppOntology: typeof builderAppOntology;
   calendarSyncOntology: typeof calendarSyncOntology;
@@ -887,6 +892,7 @@ declare const fullApi: ApiFromModules<{
   migratePdfTemplates: typeof migratePdfTemplates;
   migrateTemplateSubtypes: typeof migrateTemplateSubtypes;
   "migrations/addOrganizationIdToSessions": typeof migrations_addOrganizationIdToSessions;
+  "migrations/betaAccessMigration": typeof migrations_betaAccessMigration;
   "migrations/cleanupDuplicateOAuthConnections": typeof migrations_cleanupDuplicateOAuthConnections;
   "migrations/cleanupExpiredOAuthStates": typeof migrations_cleanupExpiredOAuthStates;
   "migrations/deleteOldSessions": typeof migrations_deleteOldSessions;

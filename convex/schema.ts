@@ -39,6 +39,7 @@ import {
   // Multi-provider identity system
   userIdentities,
   accountLinkingStates,
+  platformSettings,
 } from "./schemas/coreSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
@@ -192,6 +193,9 @@ export default defineSchema({
   // 🔑 MULTI-PROVIDER IDENTITY: OAuth identity linking
   userIdentities,          // Links OAuth providers (Google, Apple, Microsoft) to users
   accountLinkingStates,    // Temporary state for account linking confirmation flow
+
+  // ⚙️ PLATFORM SETTINGS: Global configuration
+  platformSettings,        // Platform-wide settings (beta access toggle, feature flags, etc.)
 
   // 🔐 RBAC: Role-Based Access Control
   roles,

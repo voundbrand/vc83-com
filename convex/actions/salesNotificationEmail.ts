@@ -27,6 +27,7 @@ export const sendSalesNotification = internalAction({
   args: {
     eventType: v.union(
       v.literal("free_signup"),
+      v.literal("beta_approved"),
       v.literal("starter_upgrade"),
       v.literal("platform_tier_upgrade"), // Generic tier upgrade (starter, professional, agency, enterprise)
       v.literal("build_sprint_app"),
@@ -176,6 +177,110 @@ function generateSalesNotificationEmail(args: {
         <li>Monitor their usage in the admin dashboard</li>
         <li>Check if they download the template</li>
         <li>Follow up in 3 days if no activity</li>
+        <li>Track for upgrade opportunity (€199/month Starter)</li>
+      </ul>
+
+      <p><a href="https://l4yercak3.com/admin/users/${user.email}" class="button">View User Profile</a></p>
+    </div>
+
+    <div class="footer">
+      <p>L4YERCAK3 Sales Notification</p>
+    </div>
+  </div>
+</body>
+</html>
+      `.trim();
+      break;
+
+    case "beta_approved":
+      subject = `✅ Beta Access Approved: ${user.firstName} ${user.lastName}`;
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #2A2A2A;
+      background-color: #F3F4F6;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #FFFFFF;
+      border: 3px solid #10b981;
+      box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
+    }
+    .header {
+      background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+      padding: 30px;
+      text-align: center;
+      border-bottom: 3px solid #10b981;
+    }
+    .header h1 {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 20px;
+      color: #FFFFFF;
+      margin: 0;
+      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .info-box {
+      background: #F9FAFB;
+      border-left: 4px solid #10b981;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 15px 40px;
+      background-color: #10b981;
+      color: #FFFFFF;
+      text-decoration: none;
+      font-weight: bold;
+      border: 3px solid #10b981;
+      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
+      font-size: 16px;
+    }
+    .footer {
+      background-color: #F9FAFB;
+      padding: 20px 30px;
+      text-align: center;
+      border-top: 3px solid #10b981;
+      font-size: 14px;
+      color: #6B7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Beta User Approved</h1>
+    </div>
+
+    <div class="content">
+      <h2 style="color: #10b981;">Beta Access Granted!</h2>
+
+      <div class="info-box">
+        <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>Organization:</strong> ${organization.name}</p>
+        <p><strong>Plan:</strong> ${organization.planTier}</p>
+        <p><strong>Approved:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+      </div>
+
+      <h2>📊 Next Steps</h2>
+      <ul>
+        <li>User has been sent welcome email and can now access the platform</li>
+        <li>Monitor their onboarding progress in the admin dashboard</li>
+        <li>Follow up in 7 days to check on their experience</li>
         <li>Track for upgrade opportunity (€199/month Starter)</li>
       </ul>
 

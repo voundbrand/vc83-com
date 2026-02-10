@@ -8,6 +8,8 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-banner";
 import { FirstLoginPasskeyModal } from "@/components/first-login-passkey-modal";
 import { captureRefCode, getRefCode, clearRefCode } from "@/lib/affiliate-capture";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup" | "signup">("check");
@@ -32,6 +34,9 @@ export function LoginWindow() {
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
+
+  // Check if beta access gating is enabled
+  const betaGatingStatus = useQuery(api.betaAccess.getBetaGatingStatus);
 
   // Capture affiliate referral code from ?ref= URL parameter on mount
   useEffect(() => {
@@ -359,18 +364,34 @@ export function LoginWindow() {
     return (
       <div className="h-full flex flex-col retro-bg p-6">
         <div className="text-center mb-6">
-          <div className="text-6xl mb-4">🎉</div>
+          <div className="text-6xl mb-4">{betaGatingStatus?.enabled ? "⏳" : "🎉"}</div>
           <h2 className="font-pixel text-xl retro-text mb-2">
-            Welcome to l4yercak3!
+            {betaGatingStatus?.enabled ? "Beta Access Requested" : "Welcome to l4yercak3!"}
           </h2>
           <p className="text-sm retro-text-secondary">
-            Your account is ready. Here's your API key to connect external tools.
+            {betaGatingStatus?.enabled
+              ? "Your account has been created. You'll need approval to access the platform."
+              : "Your account is ready. Here's your API key to connect external tools."}
           </p>
         </div>
 
-        <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
-          <strong>What's this for?</strong> Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.
-        </div>
+        {/* Beta Access Warning */}
+        {betaGatingStatus?.enabled && (
+          <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
+            <p className="text-sm mb-2">
+              <strong>⏳ Awaiting Approval</strong>
+            </p>
+            <p className="text-xs">
+              We'll review your request within 24-48 hours. You'll receive an email confirmation once approved. Keep your API key safe for when you get access.
+            </p>
+          </div>
+        )}
+
+        {!betaGatingStatus?.enabled && (
+          <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
+            <strong>What's this for?</strong> Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.
+          </div>
+        )}
 
         <div className="mb-6">
           <label className="block text-xs font-pixel mb-2 retro-text">
@@ -525,6 +546,15 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               </p>
             </div>
 
+            {/* Beta Access Notice */}
+            {betaGatingStatus?.enabled && (
+              <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
+                <p className="text-xs">
+                  <strong>🔒 Private Beta:</strong> We're currently in private beta. New signups will require approval before accessing the platform.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="retro-error mb-4">
                 {error}
@@ -677,12 +707,23 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2">🎂</div>
                 <h2 className="font-pixel text-lg retro-text">
-                  Start Building with l4yercak3
+                  {betaGatingStatus?.enabled ? "Apply for Beta Access" : "Start Building with l4yercak3"}
                 </h2>
                 <p className="text-xs mt-2 retro-text-secondary">
-                  100 contacts • 1 API key • Free forever
+                  {betaGatingStatus?.enabled
+                    ? "Request access to our private beta"
+                    : "100 contacts • 1 API key • Free forever"}
                 </p>
               </div>
+
+              {/* Beta Access Notice */}
+              {betaGatingStatus?.enabled && (
+                <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
+                  <p className="text-xs">
+                    <strong>🔒 Beta Access Required:</strong> Your account will be created, but you'll need admin approval before accessing the platform. We'll email you when approved.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="retro-error">

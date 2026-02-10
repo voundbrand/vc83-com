@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, Grid3x3, FileText, Package, Cpu } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
 import { TemplatesTab } from "./templates-tab";
 import { TemplateSetsTab } from "./template-sets-tab";
 import { PlatformAiModelsTab } from "./platform-ai-models-tab";
+import { BetaAccessTab } from "./beta-access-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -19,9 +20,10 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  * - App Availability: Manage which apps are available to which orgs (super admin only)
  * - Templates: Manage which templates are available to which orgs (super admin only)
  * - Platform AI Models: Manage which AI models are available platform-wide (super admin only)
+ * - Beta Access: Manage platform-wide beta access gating (super admin only)
  */
 
-type TabType = "list" | "create" | "template-sets" | "app-availability" | "templates" | "platform-ai-models";
+type TabType = "list" | "create" | "template-sets" | "app-availability" | "templates" | "platform-ai-models" | "beta-access";
 
 export function OrganizationsWindow() {
   const { t } = useNamespaceTranslations("ui.organizations");
@@ -102,7 +104,7 @@ export function OrganizationsWindow() {
           Template Sets
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--win95-border)',
             background: activeTab === "platform-ai-models" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
@@ -112,6 +114,18 @@ export function OrganizationsWindow() {
         >
           <Cpu size={14} />
           Platform AI Models
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--win95-border)',
+            background: activeTab === "beta-access" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+            color: activeTab === "beta-access" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("beta-access")}
+        >
+          <Shield size={14} />
+          Beta Access
         </button>
       </div>
 
@@ -123,6 +137,7 @@ export function OrganizationsWindow() {
         {activeTab === "app-availability" && <AppAvailabilityTab />}
         {activeTab === "templates" && <TemplatesTab />}
         {activeTab === "platform-ai-models" && <PlatformAiModelsTab />}
+        {activeTab === "beta-access" && <BetaAccessTab />}
       </div>
     </div>
   );

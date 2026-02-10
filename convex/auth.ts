@@ -169,8 +169,19 @@ export const internalSetupPassword = internalMutation({
       }
     }
 
+    // Auto-approve beta access for invited users
+    let user = await ctx.db.get(args.userId);
+    if (user?.invitedBy && (!user.betaAccessStatus || user.betaAccessStatus === "none")) {
+      await ctx.db.patch(args.userId, {
+        betaAccessStatus: "approved",
+        betaAccessApprovedAt: Date.now(),
+        betaAccessApprovedBy: user.invitedBy,
+      });
+      // Refetch user with updated beta status
+      user = await ctx.db.get(args.userId);
+    }
+
     // Create a session (org-scoped for security)
-    const user = await ctx.db.get(args.userId);
     if (!user) {
       throw new Error("User not found");
     }
