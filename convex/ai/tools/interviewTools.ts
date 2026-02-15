@@ -266,6 +266,167 @@ export const getExtractedDataTool: AITool = {
 };
 
 // ============================================================================
+// COMPLETE ONBOARDING TOOL
+// ============================================================================
+
+const completeOnboardingTool: AITool = {
+  name: "complete_onboarding",
+  description: "Complete the onboarding interview. Creates the user's organization, bootstraps their AI agent, and switches Telegram routing so their next message goes to their own agent. ONLY call this after the user has confirmed all collected information is correct.",
+  parameters: {
+    type: "object",
+    properties: {},
+    required: [],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(ctx: ToolExecutionContext) {
+    const agentSessionId = ctx.agentSessionId as Id<"agentSessions"> | undefined;
+    const channel = ctx.channel;
+    const contactId = ctx.contactId;
+
+    if (!agentSessionId || !channel || !contactId) {
+      return {
+        success: false,
+        error: "Missing session context for onboarding completion",
+      };
+    }
+
+    try {
+      const result = await ctx.runAction(getInternal().onboarding.completeOnboarding.run, {
+        sessionId: agentSessionId,
+        telegramChatId: contactId,
+        channel,
+        organizationId: ctx.organizationId,
+      });
+      return result;
+    } catch (e) {
+      console.error("[complete_onboarding tool] Error:", e);
+      return {
+        success: false,
+        error: String(e),
+      };
+    }
+  },
+};
+
+// ============================================================================
+// VERIFY TELEGRAM LINK TOOL (Path A: Email Verification)
+// ============================================================================
+
+const verifyTelegramLinkTool: AITool = {
+  name: "verify_telegram_link",
+  description:
+    "Link this Telegram chat to an existing l4yercak3 account. Two-step process: " +
+    "1) action='lookup_email' — checks if the email exists and sends a 6-digit verification code. " +
+    "2) action='verify_code' — verifies the code the user enters and links their Telegram to their org. " +
+    "Use this when a user says they already have a l4yercak3 account.",
+  parameters: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        description: "Either 'lookup_email' (step 1: send code) or 'verify_code' (step 2: verify code)",
+        enum: ["lookup_email", "verify_code"],
+      },
+      email: {
+        type: "string",
+        description: "The user's email address (required for action='lookup_email')",
+      },
+      code: {
+        type: "string",
+        description: "The 6-digit verification code (required for action='verify_code')",
+      },
+    },
+    required: ["action"],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: { action: string; email?: string; code?: string }
+  ) {
+    const contactId = ctx.contactId; // telegramChatId
+    if (!contactId) {
+      return { success: false, error: "No Telegram chat context" };
+    }
+
+    if (args.action === "lookup_email") {
+      if (!args.email) {
+        return { success: false, error: "Email is required for lookup" };
+      }
+
+      // Look up the user by email
+      const userResult = await ctx.runQuery(
+        getInternal().onboarding.telegramLinking.lookupUserByEmail,
+        { email: args.email }
+      );
+
+      if (!userResult) {
+        return {
+          success: false,
+          found: false,
+          message: "No account found with that email. Would you like to continue setting up a new account?",
+        };
+      }
+
+      // Generate and store a verification code
+      const codeResult = await ctx.runMutation(
+        getInternal().onboarding.telegramLinking.generateVerificationCode,
+        {
+          userId: userResult.userId,
+          email: userResult.email,
+          telegramChatId: contactId,
+          organizationId: userResult.organizationId,
+        }
+      );
+
+      console.log(
+        `[verify_telegram_link] Verification code for ${args.email}: ${codeResult.code}`
+      );
+
+      return {
+        success: true,
+        found: true,
+        organizationName: userResult.organizationName,
+        message: `Account found for ${userResult.organizationName}. A 6-digit verification code has been generated. Ask the user to check their email for the code.`,
+        _devCode: codeResult.code,
+      };
+    }
+
+    if (args.action === "verify_code") {
+      if (!args.code) {
+        return { success: false, error: "Code is required for verification" };
+      }
+
+      const result = await ctx.runMutation(
+        getInternal().onboarding.telegramLinking.verifyCodeAndLink,
+        {
+          code: args.code.trim(),
+          telegramChatId: contactId,
+        }
+      );
+
+      if (result.success) {
+        return {
+          success: true,
+          linked: true,
+          organizationName: result.organizationName,
+          message: `Telegram connected to ${result.organizationName}! Your next message will go to your agent.`,
+        };
+      }
+
+      return {
+        success: false,
+        linked: false,
+        message: result.error || "Verification failed. Please try again.",
+      };
+    }
+
+    return { success: false, error: `Unknown action: ${args.action}` };
+  },
+};
+
+// ============================================================================
 // EXPORT ALL INTERVIEW TOOLS
 // ============================================================================
 
@@ -275,4 +436,6 @@ export const INTERVIEW_TOOLS: Record<string, AITool> = {
   request_clarification: requestClarificationTool,
   get_interview_progress: getInterviewProgressTool,
   get_extracted_data: getExtractedDataTool,
+  complete_onboarding: completeOnboardingTool,
+  verify_telegram_link: verifyTelegramLinkTool,
 };

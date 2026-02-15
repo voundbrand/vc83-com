@@ -41,6 +41,10 @@ export interface ToolExecutionContext extends ActionCtx {
   userId: Id<"users">;
   conversationId?: Id<"aiConversations">;
   sessionId?: string;
+  agentId?: Id<"objects">;
+  agentSessionId?: Id<"agentSessions">;
+  channel?: string;
+  contactId?: string;
 }
 
 /**

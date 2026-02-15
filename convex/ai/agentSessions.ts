@@ -307,6 +307,24 @@ export const handOffSession = mutation({
 /**
  * Get active sessions for an org (for UI dashboard)
  */
+/**
+ * Get recent sessions for an agent (used by soul evolution reflection).
+ */
+export const getRecentSessionsForAgent = internalQuery({
+  args: {
+    agentId: v.id("objects"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("agentSessions")
+      .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
+      .order("desc")
+      .take(args.limit ?? 20);
+    return sessions;
+  },
+});
+
 export const getActiveSessions = query({
   args: {
     sessionId: v.string(),
