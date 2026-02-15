@@ -80,6 +80,12 @@ export const agentSessions = defineTable({
 
   // ========== END GUIDED SESSION FIELDS ==========
 
+  // Multi-agent participation (team tools tag-in)
+  participatingAgentIds: v.optional(v.array(v.id("objects"))),
+
+  // Self-improvement tracking
+  metricsRecorded: v.optional(v.boolean()),
+
   // Stats
   messageCount: v.number(),
   tokensUsed: v.number(),
@@ -114,6 +120,8 @@ export const agentSessionMessages = defineTable({
   ),
   content: v.string(),
   toolCalls: v.optional(v.any()),
+  agentId: v.optional(v.id("objects")),
+  agentName: v.optional(v.string()),
   timestamp: v.number(),
 })
   .index("by_session", ["sessionId"]);

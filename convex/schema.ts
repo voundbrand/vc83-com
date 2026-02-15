@@ -120,6 +120,17 @@ import { agentSessions, agentSessionMessages } from "./schemas/agentSessionSchem
 // 💬 WEBCHAT SCHEMAS (Public webchat widget API - Layer 4 comms)
 import { webchatSessions, webchatRateLimits } from "./schemas/webchatSchemas";
 
+// 📱 TELEGRAM SCHEMAS (Telegram chat_id → org mapping)
+import { telegramMappings } from "./schemas/telegramSchemas";
+
+// 🧬 SOUL EVOLUTION SCHEMAS (Agent self-improvement + proposals)
+import {
+  soulProposals,
+  agentConversationMetrics,
+  soulVersionHistory,
+  proposalFeedback,
+} from "./schemas/soulEvolutionSchemas";
+
 // 📊 GROWTH TRACKING SCHEMAS (Launch metrics and KPI tracking)
 import {
   dailyGrowthMetrics,
@@ -332,6 +343,15 @@ export default defineSchema({
   // 💬 WEBCHAT: Public webchat widget API (Layer 4 comms)
   webchatSessions,           // Anonymous visitor sessions (24h expiry)
   webchatRateLimits,         // IP-based rate limiting for public endpoints
+
+  // 📱 TELEGRAM: Chat_id → organization routing
+  telegramMappings,          // Maps Telegram DM/group chat IDs to organizations
+
+  // 🧬 SOUL EVOLUTION: Agent self-improvement + proposals
+  soulProposals,             // Agent-proposed soul/personality updates
+  agentConversationMetrics,  // Conversation outcome signals for reflection
+  soulVersionHistory,        // Audit trail of soul changes
+  proposalFeedback,          // Owner approval/rejection tracking
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,

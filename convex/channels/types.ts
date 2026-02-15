@@ -29,6 +29,7 @@ export type ProviderId =
   | "infobip"
   | "twilio"
   | "whatsapp"
+  | "telegram"
   | "direct";
 
 // Normalized inbound message from any provider
@@ -107,6 +108,10 @@ export interface ProviderCredentials {
   resendApiKey?: string;
   resendSenderEmail?: string;
   resendReplyToEmail?: string;
+  // Telegram (per-org custom bot)
+  telegramBotToken?: string;
+  telegramBotUsername?: string;
+  telegramWebhookSecret?: string;
   // Generic
   apiKey?: string;
   apiSecret?: string;
