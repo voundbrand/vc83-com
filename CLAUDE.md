@@ -1,5 +1,7 @@
 # Claude Code Configuration - SPARC Development Environment
 
+
+
 ## Core Principles
 
 **Claude Flow coordinates, Claude Code executes.** MCP tools handle planning and memory; Claude Code does all file operations, code generation, and bash commands.
@@ -96,6 +98,30 @@ npx claude-flow sparc batch <modes> "<task>"  # Parallel modes
 ```bash
 claude mcp add claude-flow npx claude-flow@alpha mcp start
 ```
+
+## DANGEROUS COMMANDS — ALWAYS ASK FIRST
+
+**NEVER run these commands without explicit user approval:**
+
+### Git destructive commands (can destroy uncommitted work):
+- `git stash` — moves all uncommitted changes to stash, effectively wiping working tree
+- `git checkout .` / `git restore .` — discards all local changes
+- `git reset --hard` — destroys commits and changes
+- `git clean -f` — deletes untracked files permanently
+- `git push --force` — overwrites remote history
+
+### Convex deployment commands (can push schema/code to live backend):
+- `npx convex dev` — starts live sync that auto-deploys on file changes
+- `npx convex dev --once` — single deploy push to Convex backend (changes types, can break other files)
+- `npx convex deploy` — production deployment
+
+### Safe alternatives to use instead:
+- **TypeScript check:** `npx tsc --noEmit` (local only, no side effects)
+- **Lint check:** `npm run lint` (local only)
+- **Build check:** `npm run build` (local only)
+- **Check git status:** `git status` / `git diff` (read-only)
+
+**Rule:** If you need to verify code compiles, use `npx tsc --noEmit`. Never use `npx convex dev` for type checking — it deploys code.
 
 ## Code Style
 
