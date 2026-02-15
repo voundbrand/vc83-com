@@ -1,0 +1,32 @@
+Total messages: 30 (Errors: 0, Warnings: 9)
+
+[INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js:14537
+[LOG] 🔗 [Convex] Initializing with URL: https://aromatic-akita-723.convex.cloud @ http://localhost:3000/_next/static/chunks/_7064600c._.js:1717
+[LOG] 🔗 [Convex] URL is valid: true @ http://localhost:3000/_next/static/chunks/_7064600c._.js:1718
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] 🔗 [Convex] Provider mounted, client state: {hasUrl: true, url: https://aromatic-akita-723.convex.cloud, client: true} @ http://localhost:3000/_next/static/chunks/_7064600c._.js:1726
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ http://localhost:3000/_next/static/chunks/src_23533300._.js:1969
+[WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://localhost:3000/builder:0
+[LOG] 🔗 [Convex] Initializing with URL: https://aromatic-akita-723.convex.cloud @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] 🔗 [Convex] URL is valid: true @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] 🔗 [Convex] Provider mounted, client state: {hasUrl: true, url: https://aromatic-akita-723.convex.cloud, client: true} @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] [Fast Refresh] rebuilding @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Missing window title: "ui.windows.finder.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] [DEBUG] App availability: {isSignedIn: false, currentOrg: null, availableApps: Object} @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Missing window title: "ui.windows.brain.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Missing window title: "ui.windows.finder.title" @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[WARNING] [Translation] Loaded 0 window keys: [] @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] [Fast Refresh] done in 381ms @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] 🔗 [Convex] Connection check after 2s - if queries are still undefined, there's a connection issue @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
+[LOG] 🔗 [Convex] Connection check after 2s - if queries are still undefined, there's a connection issue @ https://eu-assets.i.posthog.com/static/posthog-recorder.js?v=1.285.1:0
