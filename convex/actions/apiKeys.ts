@@ -22,6 +22,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import bcrypt from "bcryptjs";
 import { Id } from "../_generated/dataModel";
+import type { FunctionReference } from "convex/server";
 import type { VerifySessionResult } from "../types/ontology";
 
 /**
@@ -56,14 +57,16 @@ export const generateApiKey = action({
   warning: string;
   }> => {
     // 1. Verify session
-    // @ts-expect-error TS2589: Convex generated types recurse; cast to any to firewall
-    const verifySessionRef: any = (internal as any).apiKeysInternal.verifySession;
+    // Use require + any to avoid deep type instantiation in generated API map
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const generatedApi: any = require("../_generated/api");
+    const verifySessionRef: any = generatedApi.internal.apiKeysInternal.verifySession;
     const session = await (ctx as any).runQuery(
       verifySessionRef,
       {
-        sessionId: args.sessionId as string,
-        organizationId: args.organizationId as string,
-      } as any
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+      }
     ) as VerifySessionResult;
 
     if (!session.valid || !session.userId) {
@@ -71,9 +74,13 @@ export const generateApiKey = action({
     }
 
     // 2. Check license limits
-    const licenseCheck: { allowed: boolean; error?: string } = await ctx.runQuery(internal.apiKeysInternal.checkApiKeyLimit, {
-      organizationId: args.organizationId,
-    });
+    const licenseCheckRef: any = generatedApi.internal.apiKeysInternal.checkApiKeyLimit;
+    const licenseCheck: { allowed: boolean; error?: string } = await (ctx as any).runQuery(
+      licenseCheckRef,
+      {
+        organizationId: args.organizationId,
+      }
+    );
 
     if (!licenseCheck.allowed) {
       throw new Error(licenseCheck.error || "API key limit reached");
@@ -94,7 +101,8 @@ export const generateApiKey = action({
     const keyHash = await bcrypt.hash(fullKey, 12);
 
     // 5. Store in database (via internal mutation)
-    const apiKeyId: Id<"apiKeys"> = await ctx.runMutation(internal.apiKeysInternal.storeApiKey, {
+    const storeApiKeyRef: any = generatedApi.internal.apiKeysInternal.storeApiKey;
+    const apiKeyId: Id<"apiKeys"> = await (ctx as any).runMutation(storeApiKeyRef, {
       keyHash,
       keyPrefix,
       name: args.name,
@@ -143,6 +151,10 @@ export const verifyApiKey = internalAction({
     allowedIPs?: string[];
     apiKeyId: Id<"apiKeys">;
   } | null> => {
+    // Avoid deep type instantiation by using require
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const generatedApi: any = require("../_generated/api");
+
     // 1. Validate key format
     if (!args.apiKey.startsWith("sk_live_") && !args.apiKey.startsWith("sk_test_")) {
       return null;
@@ -162,9 +174,10 @@ export const verifyApiKey = internalAction({
       expiresAt?: number;
       allowedDomains?: string[];
       allowedIPs?: string[];
-    }> = await ctx.runQuery(internal.apiKeysInternal.findApiKeysByPrefix, {
-      keyPrefix,
-    });
+    }> = await (ctx as any).runQuery(
+      generatedApi.internal.apiKeysInternal.findApiKeysByPrefix,
+      { keyPrefix }
+    );
 
     if (!apiKeyRecords || apiKeyRecords.length === 0) {
       return null;
@@ -188,7 +201,7 @@ export const verifyApiKey = internalAction({
 
       if (isValid) {
         // 4. Update last used timestamp (async, don't block response)
-        ctx.scheduler.runAfter(0, internal.api.auth.updateApiKeyUsage, {
+        ctx.scheduler.runAfter(0, generatedApi.internal.api.auth.updateApiKeyUsage, {
           apiKeyId: record._id,
         });
 
