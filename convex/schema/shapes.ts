@@ -20,7 +20,7 @@ export const TransactionShape = z.object({
       })
     )
     .optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const TicketShape = z.object({

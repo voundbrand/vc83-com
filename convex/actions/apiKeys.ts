@@ -53,13 +53,18 @@ export const generateApiKey = action({
     name: string;
     scopes: string[];
     createdAt: number;
-    warning: string;
+  warning: string;
   }> => {
     // 1. Verify session
-    const session = await ctx.runQuery(internal.apiKeysInternal.verifySession, {
-      sessionId: args.sessionId,
-      organizationId: args.organizationId,
-    }) as unknown as VerifySessionResult;
+    // @ts-expect-error TS2589: Convex generated types recurse; cast to any to firewall
+    const verifySessionRef: any = (internal as any).apiKeysInternal.verifySession;
+    const session = await (ctx as any).runQuery(
+      verifySessionRef,
+      {
+        sessionId: args.sessionId as string,
+        organizationId: args.organizationId as string,
+      } as any
+    ) as VerifySessionResult;
 
     if (!session.valid || !session.userId) {
       throw new Error(session.error || "Invalid session");

@@ -338,6 +338,7 @@ export async function createTransactionsForPurchase(
       }
 
       console.log(`   Product: ${product.name} (${product.subtype}) - Qty: ${item.quantity}`);
+      const productName = product.name || "Unknown Product";
 
       // 5.2. Fetch FULL event details if product is a ticket
       let eventId: Id<"objects"> | undefined;
@@ -390,25 +391,25 @@ export async function createTransactionsForPurchase(
             linkType: "sponsored_by",
           });
 
-          if (sponsorLinks && sponsorLinks.length > 0) {
-            const sponsors = await Promise.all(
-              sponsorLinks.map(async (link: { toObjectId: Id<"objects">; properties?: Record<string, unknown> }) => {
-                const sponsor = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
-                  organizationId: link.toObjectId,
-                }) as unknown as CrmOrganizationObject | null;
-                if (sponsor && sponsor.type === "crm_organization") {
-                  return {
-                    name: sponsor.name,
-                    level: link.properties?.sponsorLevel as string | undefined,
-                    logoUrl: sponsor.customProperties?.logoUrl as string | undefined,
-                  };
-                }
-                return null;
-              })
-            );
-            eventSponsors = sponsors.filter((s: { name: string; level?: string; logoUrl?: string } | null) => s !== null) as Array<{ name: string; level?: string; logoUrl?: string }>;
-            console.log(`   Sponsors: ${eventSponsors!.length} found`);
-          }
+      if (sponsorLinks && sponsorLinks.length > 0) {
+        const sponsors = await Promise.all(
+          sponsorLinks.map(async (link: { toObjectId: Id<"objects">; properties?: Record<string, unknown> }) => {
+            const sponsor = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
+              organizationId: link.toObjectId,
+            }) as unknown as CrmOrganizationObject | null;
+            if (sponsor && sponsor.type === "crm_organization") {
+              return {
+                name: sponsor.name || "Unnamed Sponsor",
+                level: link.properties?.sponsorLevel as string | undefined,
+                logoUrl: sponsor.customProperties?.logoUrl as string | undefined,
+              };
+            }
+            return null;
+          })
+        );
+        eventSponsors = sponsors.filter((s) => s && s.name) as Array<{ name: string; level?: string; logoUrl?: string }>;
+        console.log(`   Sponsors: ${eventSponsors!.length} found`);
+      }
 
           // Store for top-level (first event wins)
           if (!topLevelEvent.eventId) {
@@ -469,7 +470,7 @@ export async function createTransactionsForPurchase(
       return {
         // Product
         productId: product._id,
-        productName: product.name,
+        productName,
         productDescription: product.description,
         productSubtype: product.subtype,
         quantity: item.quantity,
