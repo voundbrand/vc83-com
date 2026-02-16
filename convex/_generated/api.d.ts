@@ -318,6 +318,7 @@ import type * as migrateCleanupTemplates from "../migrateCleanupTemplates.js";
 import type * as migratePdfTemplates from "../migratePdfTemplates.js";
 import type * as migrateTemplateSubtypes from "../migrateTemplateSubtypes.js";
 import type * as migrations_addOrganizationIdToSessions from "../migrations/addOrganizationIdToSessions.js";
+import type * as migrations_backfillTransactions from "../migrations/backfillTransactions.js";
 import type * as migrations_betaAccessMigration from "../migrations/betaAccessMigration.js";
 import type * as migrations_cleanupDuplicateOAuthConnections from "../migrations/cleanupDuplicateOAuthConnections.js";
 import type * as migrations_cleanupExpiredOAuthStates from "../migrations/cleanupExpiredOAuthStates.js";
@@ -975,6 +976,7 @@ declare const fullApi: ApiFromModules<{
   migratePdfTemplates: typeof migratePdfTemplates;
   migrateTemplateSubtypes: typeof migrateTemplateSubtypes;
   "migrations/addOrganizationIdToSessions": typeof migrations_addOrganizationIdToSessions;
+  "migrations/backfillTransactions": typeof migrations_backfillTransactions;
   "migrations/betaAccessMigration": typeof migrations_betaAccessMigration;
   "migrations/cleanupDuplicateOAuthConnections": typeof migrations_cleanupDuplicateOAuthConnections;
   "migrations/cleanupExpiredOAuthStates": typeof migrations_cleanupExpiredOAuthStates;

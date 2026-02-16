@@ -6,7 +6,8 @@
 
 import { v } from "convex/values";
 import { action, ActionCtx, mutation, MutationCtx } from "./_generated/server";
-import { api } from "./_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 import { parseTransaction } from "./lib/ontologyHelpers";
 
 /**
@@ -73,7 +74,7 @@ export const processStripeRefund = action({
     console.log(`Starting refund for transaction: ${args.transactionId}`);
 
     // Get transaction details
-    const transactionDoc = await ctx.runQuery(api.transactionOntology.getTransaction, {
+    const transactionDoc = await (ctx as any).runQuery(generatedApi.api.transactionOntology.getTransaction, {
       sessionId: args.sessionId,
       transactionId: args.transactionId,
     });
@@ -136,7 +137,7 @@ export const processStripeRefund = action({
       console.log(`Stripe refund created successfully: ${refund.id}`);
 
       // Update transaction with refund information
-      await ctx.runMutation(api.stripeRefunds.updateTransactionRefundInfo, {
+      await (ctx as any).runMutation(generatedApi.api.stripeRefunds.updateTransactionRefundInfo, {
         sessionId: args.sessionId,
         transactionId: args.transactionId,
         refundId: refund.id,
@@ -189,7 +190,7 @@ export const canRefundTransaction = action({
     reason?: string;
     remainingAmount?: number;
   }> => {
-    const transactionDoc = await ctx.runQuery(api.transactionOntology.getTransaction, {
+    const transactionDoc = await (ctx as any).runQuery(generatedApi.api.transactionOntology.getTransaction, {
       sessionId: args.sessionId,
       transactionId: args.transactionId,
     });

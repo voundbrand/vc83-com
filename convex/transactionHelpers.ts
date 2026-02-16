@@ -19,7 +19,8 @@
  * 5. PDF/email generation reads from transaction ONLY (no link chasing)
  */
 
-import { internal } from "./_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { proxyMapUrl, proxyStorageUrl } from "./lib/emailUrlHelpers";
@@ -120,8 +121,8 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 1. LOAD CHECKOUT SESSION for additional context
   // ========================================================================
-  const session = await ctx.runQuery(
-    internal.checkoutSessionOntology.getCheckoutSessionInternal,
+  const session = await (ctx as any).runQuery(
+    generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
     { checkoutSessionId: params.checkoutSessionId }
   ) as unknown as CheckoutSessionObject | null;
 
@@ -135,28 +136,28 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 2. LOAD SELLER ORGANIZATION INFO (for invoices/receipts)
   // ========================================================================
-  const organization = await ctx.runQuery(
-    internal.checkoutSessions.getOrganizationInternal,
+  const organization = await (ctx as any).runQuery(
+    generatedApi.internal.checkoutSessions.getOrganizationInternal,
     { organizationId: params.organizationId }
   ) as { name?: string; businessName?: string } | null;
 
   // Load organization contact settings (using internal query to avoid deep type instantiation)
-  const contactSettings = await ctx.runQuery(
-    internal.organizationOntology.getOrganizationSettingsInternal,
+  const contactSettings = await (ctx as any).runQuery(
+    generatedApi.internal.organizationOntology.getOrganizationSettingsInternal,
     { organizationId: params.organizationId, subtype: "contact" }
   ) as unknown as OrganizationSettingsObject | null;
   const contactProps = contactSettings?.customProperties || {};
 
   // Load organization invoicing settings (for VAT number)
-  const invoicingSettings = await ctx.runQuery(
-    internal.organizationOntology.getOrganizationSettingsInternal,
+  const invoicingSettings = await (ctx as any).runQuery(
+    generatedApi.internal.organizationOntology.getOrganizationSettingsInternal,
     { organizationId: params.organizationId, subtype: "invoicing" }
   ) as unknown as OrganizationSettingsObject | null;
   const invoicingProps = invoicingSettings?.customProperties || {};
 
   // Load primary address
-  const primaryAddress = await ctx.runQuery(
-    internal.organizationOntology.getPrimaryAddressInternal,
+  const primaryAddress = await (ctx as any).runQuery(
+    generatedApi.internal.organizationOntology.getPrimaryAddressInternal,
     { organizationId: params.organizationId }
   ) as unknown as OrganizationSettingsObject | null;
   const addressProps = primaryAddress?.customProperties || {};
@@ -192,7 +193,7 @@ export async function createTransactionsForPurchase(
   // Try domain branding first
   if (domainConfigId) {
     try {
-      const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+      const domainConfig = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.getDomainConfigInternal, {
         configId: domainConfigId,
       }) as unknown as DomainConfigObject | null;
       if (domainConfig?.customProperties?.branding) {
@@ -214,7 +215,7 @@ export async function createTransactionsForPurchase(
 
   // Fall back to organization branding
   if (!branding.logoUrl) {
-    const brandingSettings = await ctx.runQuery(internal.organizationOntology.getOrganizationSettingsInternal, {
+    const brandingSettings = await (ctx as any).runQuery(generatedApi.internal.organizationOntology.getOrganizationSettingsInternal, {
       organizationId: params.organizationId,
       subtype: "branding",
     }) as unknown as OrganizationSettingsObject | null;
@@ -230,7 +231,7 @@ export async function createTransactionsForPurchase(
   // This ensures proxied URLs are generated even when checkout doesn't have a domainConfigId
   if (!siteUrl) {
     try {
-      const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+      const systemDomainConfigs = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.listDomainConfigsForOrg, {
         organizationId: params.organizationId,
       }) as unknown as DomainConfigObject[] | null;
       const activeDomainConfig = systemDomainConfigs?.find((c) => c.status === "active") || null;
@@ -273,7 +274,7 @@ export async function createTransactionsForPurchase(
 
   if (params.billingInfo?.crmOrganizationId) {
     // Load CRM organization for B2B billing
-    const crmOrg = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
+    const crmOrg = await (ctx as any).runQuery(generatedApi.internal.crmOntology.getCrmOrganizationInternal, {
       organizationId: params.billingInfo.crmOrganizationId,
     }) as unknown as CrmOrganizationObject | null;
 
@@ -328,7 +329,7 @@ export async function createTransactionsForPurchase(
   const lineItems = await Promise.all(
     params.purchasedItems.map(async (item) => {
       // 5.1. Fetch product details
-      const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+      const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
         productId: item.productId,
       }) as unknown as ProductObject | null;
 
@@ -354,7 +355,7 @@ export async function createTransactionsForPurchase(
 
       if (product.subtype === "ticket" && product.customProperties?.eventId) {
         const eventIdFromProduct = product.customProperties.eventId as Id<"objects">;
-        const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+        const event = await (ctx as any).runQuery(generatedApi.internal.eventOntology.getEventInternal, {
           eventId: eventIdFromProduct,
         }) as unknown as EventObject | null;
 
@@ -386,7 +387,7 @@ export async function createTransactionsForPurchase(
           console.log(`   Event: ${eventName} at ${eventFormattedAddress || eventLocation}`);
 
           // 5.3. Fetch event sponsors
-          const sponsorLinks = await ctx.runQuery(internal.objectLinksInternal.getLinksFromObject, {
+          const sponsorLinks = await (ctx as any).runQuery(generatedApi.internal.objectLinksInternal.getLinksFromObject, {
             fromObjectId: event._id,
             linkType: "sponsored_by",
           });
@@ -394,7 +395,7 @@ export async function createTransactionsForPurchase(
       if (sponsorLinks && sponsorLinks.length > 0) {
         const sponsors = await Promise.all(
           sponsorLinks.map(async (link: { toObjectId: Id<"objects">; properties?: Record<string, unknown> }) => {
-            const sponsor = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
+            const sponsor = await (ctx as any).runQuery(generatedApi.internal.crmOntology.getCrmOrganizationInternal, {
               organizationId: link.toObjectId,
             }) as unknown as CrmOrganizationObject | null;
             if (sponsor && sponsor.type === "crm_organization") {
@@ -435,7 +436,7 @@ export async function createTransactionsForPurchase(
       let ticketNumber: string | undefined;
 
       if (item.ticketId) {
-        const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+        const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
           ticketId: item.ticketId,
         }) as unknown as TicketObject | null;
         if (ticket) {
@@ -556,8 +557,8 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 10. CREATE TRANSACTION WITH COMPLETE SNAPSHOT
   // ========================================================================
-  const transactionId = await ctx.runMutation(
-    internal.transactionOntology.createTransactionInternal,
+  const transactionId = await (ctx as any).runMutation(
+    generatedApi.internal.transactionOntology.createTransactionInternal,
     {
       organizationId: params.organizationId,
       subtype,
@@ -602,8 +603,8 @@ export async function createTransactionsForPurchase(
   );
 
   // Double-write to strict transaction table (Phase 3 decoupling)
-  const strictTransactionId = await ctx.runMutation(
-    internal.transactionOntologyStrict.createTransactionStrict,
+  const strictTransactionId = await (ctx as any).runMutation(
+    generatedApi.internal.transactionOntologyStrict.createTransactionStrict,
     {
       organizationId: params.organizationId,
       legacyTransactionId: transactionId,
@@ -640,7 +641,7 @@ export async function createTransactionsForPurchase(
   // 11. UPDATE TRANSACTION WITH ADDITIONAL CONTEXT (via customProperties)
   // ========================================================================
   // The createTransactionInternal has a fixed schema, so we add extra data via patch
-  await ctx.runMutation(internal.transactionOntology.updateTransactionCustomProperties, {
+  await (ctx as any).runMutation(generatedApi.internal.transactionOntology.updateTransactionCustomProperties, {
     transactionId,
     customProperties: {
       // Seller (complete snapshot)
@@ -676,7 +677,7 @@ export async function createTransactionsForPurchase(
     validLineItems
       .filter((item) => item.ticketId)
       .map((item) =>
-        ctx.runMutation(internal.transactionOntologyStrict.createTicketStrict, {
+        (ctx as any).runMutation(generatedApi.internal.transactionOntologyStrict.createTicketStrict, {
           organizationId: params.organizationId,
           legacyTicketId: item.ticketId as Id<"objects">,
           transactionId,
@@ -735,7 +736,7 @@ export async function linkTransactionsToTickets(
 
   for (const link of links) {
     // Get the ticket to update its customProperties
-    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
       ticketId: link.ticketId,
     }) as unknown as TicketObject | null;
 
@@ -745,7 +746,7 @@ export async function linkTransactionsToTickets(
     }
 
     // Update ticket with transaction ID
-    await ctx.runMutation(internal.ticketOntology.updateTicketInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.ticketOntology.updateTicketInternal, {
       ticketId: link.ticketId,
       customProperties: {
         ...ticket.customProperties,
