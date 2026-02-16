@@ -172,8 +172,14 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
-        // Focus existing window
-        return prev.map((w) => (w.id === id ? { ...w, isOpen: true, zIndex: currentZIndex } : w))
+        // Focus existing window, update titleKey/icon if provided (heals stale session data)
+        return prev.map((w) => (w.id === id ? {
+          ...w,
+          isOpen: true,
+          zIndex: currentZIndex,
+          ...(titleKey && { titleKey }),
+          ...(icon && { icon }),
+        } : w))
       }
 
       // Calculate position with cascade effect

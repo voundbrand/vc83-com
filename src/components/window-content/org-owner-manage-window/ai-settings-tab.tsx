@@ -4,14 +4,23 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useState, useEffect } from "react";
-import { Save, Loader2, Zap, DollarSign, Brain, Database } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Save, Loader2, Brain, AlertTriangle, Lock, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { StoreWindow } from "../store-window";
+import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
 
 export function AISettingsTab() {
   const { user } = useAuth();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.ai");
+  const { openWindow } = useWindowManager();
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
+
+  // Check if user is super admin (only super admin can use BYOK)
+  // TODO: Add role field to User type or check via a query
+  const isSuperAdmin = false; // For now, disabled until we add proper super admin detection
 
   // Get existing AI settings
   const settings = useQuery(
@@ -19,58 +28,315 @@ export function AISettingsTab() {
     organizationId ? { organizationId } : "skip"
   );
 
-  const rateLimit = useQuery(
-    api.ai.settings.checkRateLimit,
+  // Get subscription status
+  const subscriptionStatus = useQuery(
+    api.ai.billing.getSubscriptionStatus,
     organizationId ? { organizationId } : "skip"
   );
+
+  // Get platform-enabled models
+  const platformModels = useQuery(api.ai.platformModels.getEnabledModels);
 
   const upsertSettings = useMutation(api.ai.settings.upsertAISettings);
 
   // Form state
   const [enabled, setEnabled] = useState(false);
-  const [billingMode, setBillingMode] = useState<"platform" | "byok">("platform");
-  const [provider, setProvider] = useState("anthropic");
-  const [model, setModel] = useState("anthropic/claude-3-5-sonnet");
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(4000);
+  const [tier, setTier] = useState<"standard" | "privacy-enhanced" | "private-llm">("standard");
+
+  // Multi-select model configuration
+  const [enabledModels, setEnabledModels] = useState<Array<{
+    modelId: string;
+    isDefault: boolean;
+    enabledAt: number;
+  }>>([]);
+  const [defaultModelId, setDefaultModelId] = useState<string>("");
+
+  // Super admin only: BYOK option
+  const [useBYOK, setUseBYOK] = useState(false);
   const [openrouterApiKey, setOpenrouterApiKey] = useState("");
-
-  // Embedding settings
-  const [embeddingProvider, setEmbeddingProvider] = useState<"openai" | "voyage" | "cohere" | "none">("none");
-  const [embeddingModel, setEmbeddingModel] = useState("text-embedding-3-small");
-  const [embeddingDimensions, setEmbeddingDimensions] = useState(1536);
-  const [embeddingApiKey, setEmbeddingApiKey] = useState("");
-
-  // Budget settings
-  const [monthlyBudgetUsd, setMonthlyBudgetUsd] = useState<number | undefined>(100);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Enterprise contact modal state
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [enterpriseTier, setEnterpriseTier] = useState<"starter" | "professional" | "enterprise">("starter");
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterProvider, setFilterProvider] = useState<string>("all");
+  const [filterCapability, setFilterCapability] = useState<"all" | "tool_calling" | "multimodal" | "vision">("all");
+  const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
+  const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
+
+  // Model type definition (moved before useEffects)
+  type ModelOption = {
+    id: string;
+    name: string;
+    provider?: string;
+    location: string;
+    zdr: boolean;
+    noTraining: boolean;
+    toolCalling?: boolean;
+    multimodal?: boolean;
+    vision?: boolean;
+    description: string;
+    recommended?: boolean;
+  };
+
+  // Get all available models from platform-enabled models (moved before useEffects)
+  const getAllModelsForTier = useCallback((tierValue: typeof tier): ModelOption[] => {
+    if (!platformModels) return [];
+
+    const models: ModelOption[] = platformModels.map((model) => ({
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+      location: model.provider === "mistral" ? "🇪🇺" :
+                model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
+                model.provider === "cohere" ? "🇨🇦" : "🌍",
+      zdr: model.provider === "mistral" || model.provider === "meta-llama",
+      noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
+      toolCalling: model.capabilities.toolCalling,
+      multimodal: model.capabilities.multimodal,
+      vision: model.capabilities.vision,
+      description: `${(model.contextLength / 1000).toFixed(0)}K context. ${model.capabilities.toolCalling ? "Tool calling. " : ""}${model.capabilities.vision ? "Vision. " : ""}`,
+      recommended: model.isSystemDefault ?? false,
+    }));
+
+    if (tierValue === "privacy-enhanced") {
+      return models.filter(m => m.zdr && m.noTraining);
+    }
+
+    return models;
+  }, [platformModels]);
+
+  // Helper function for model management (moved before useEffects)
+  const isModelEnabled = useCallback((modelId: string) => enabledModels.some(m => m.modelId === modelId), [enabledModels]);
 
   // Initialize form from settings
   useEffect(() => {
     if (settings) {
       setEnabled(settings.enabled);
-      setProvider(settings.llm.provider || "anthropic");
-      setModel(settings.llm.model || "claude-3-5-sonnet");
-      setTemperature(settings.llm.temperature);
-      setMaxTokens(settings.llm.maxTokens);
+      if (settings.tier) {
+        setTier(settings.tier);
+      }
 
-      const hasCustomKey = !!(settings.llm.openrouterApiKey);
-      setBillingMode(hasCustomKey ? "byok" : "platform");
-      setOpenrouterApiKey(settings.llm.openrouterApiKey || "");
+      // Load enabled models
+      if (settings.llm.enabledModels && settings.llm.enabledModels.length > 0) {
+        setEnabledModels(settings.llm.enabledModels);
+        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find(m => m.isDefault)?.modelId || "");
+      } else {
+        // If no models saved, auto-select system defaults only
+        const models = getAllModelsForTier(settings.tier || "standard");
+        const systemDefaultModels = models.filter(m => m.recommended);
+        const enabledModels = systemDefaultModels.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
+        setEnabledModels(enabledModels);
+        if (enabledModels.length > 0) {
+          setDefaultModelId(enabledModels[0].modelId);
+        }
+      }
 
-      setEmbeddingProvider(settings.embedding.provider);
-      setEmbeddingModel(settings.embedding.model);
-      setEmbeddingDimensions(settings.embedding.dimensions);
-      setEmbeddingApiKey(settings.embedding.apiKey || "");
-
-      setMonthlyBudgetUsd(settings.monthlyBudgetUsd);
+      if (settings.billingMode === "byok" && settings.llm.openrouterApiKey) {
+        setUseBYOK(true);
+        setOpenrouterApiKey(settings.llm.openrouterApiKey);
+      }
+    } else if (platformModels && enabledModels.length === 0) {
+      // NEW: No settings exist yet, auto-select system defaults
+      // This happens when a new organization first opens AI Settings
+      const systemDefaults = platformModels.filter(m => m.isSystemDefault);
+      if (systemDefaults.length > 0) {
+        const newModels = systemDefaults.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
+        setEnabledModels(newModels);
+        setDefaultModelId(newModels[0].modelId);
+        setEnabled(true); // Auto-enable AI features
+      }
     }
-  }, [settings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on initial load, not when user modifies local state
+  }, [settings, platformModels]);
+
+  // Auto-select system default models when tier changes
+  // This effect handles filtering out incompatible models when switching privacy tiers
+  useEffect(() => {
+    if (!platformModels) return; // Wait for models to load
+
+    const allModels = getAllModelsForTier(tier);
+    const allModelIds = allModels.map(m => m.id);
+
+    // Use functional update to check current state without adding enabledModels to deps
+    setEnabledModels(currentModels => {
+      // Only act if we have existing models that are now incompatible with the new tier
+      const hasIncompatibleModels = currentModels.length > 0 &&
+        currentModels.some(m => !allModelIds.includes(m.modelId));
+
+      if (hasIncompatibleModels) {
+        // Get system defaults (models marked as recommended by super admin)
+        const systemDefaultModels = allModels.filter(m => m.recommended);
+
+        // Auto-select system defaults
+        const newModels = systemDefaultModels.map((m, index) => ({
+          modelId: m.id,
+          isDefault: index === 0, // First system default is the default
+          enabledAt: Date.now()
+        }));
+
+        // Set first model as the default
+        if (newModels.length > 0) {
+          newModels[0].isDefault = true;
+          setDefaultModelId(newModels[0].modelId);
+        }
+
+        return newModels;
+      }
+
+      // No change needed
+      return currentModels;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when tier changes, not on platformModels updates
+  }, [tier]);
+
+  // Get all available models based on tier
+  const allAvailableModels = getAllModelsForTier(tier);
+
+  // Get unique providers for filter
+  const providers = useMemo(() => {
+    const uniqueProviders = new Set(allAvailableModels.map((m) => m.provider || "unknown"));
+    return Array.from(uniqueProviders).sort();
+  }, [allAvailableModels]);
+
+  // Filtered models
+  const availableModels = useMemo(() => {
+    return allAvailableModels.filter((model) => {
+      // Provider filter
+      if (filterProvider !== "all" && model.provider !== filterProvider) {
+        return false;
+      }
+
+      // Capability filter
+      if (filterCapability === "tool_calling" && !model.toolCalling) return false;
+      if (filterCapability === "multimodal" && !model.multimodal) return false;
+      if (filterCapability === "vision" && !model.vision) return false;
+
+      // Recommended filter
+      if (showOnlyRecommended && !model.recommended) return false;
+
+      // Enabled filter
+      if (showOnlyEnabled && !isModelEnabled(model.id)) return false;
+
+      // Search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          model.name.toLowerCase().includes(query) ||
+          model.id.toLowerCase().includes(query) ||
+          (model.provider && model.provider.toLowerCase().includes(query))
+        );
+      }
+
+      return true;
+    });
+  }, [allAvailableModels, filterProvider, filterCapability, showOnlyRecommended, showOnlyEnabled, searchQuery, isModelEnabled]);
+
+  // Count enabled models and privacy features
+  const enabledModelCount = enabledModels.length;
+  const privacyStats = useMemo(() => {
+    const locations = new Set<string>();
+    let zdrCount = 0;
+    let noTrainingCount = 0;
+
+    for (const model of enabledModels) {
+      const modelId = model.modelId;
+      // Determine provider from model ID
+      const provider = modelId.split("/")[0];
+
+      // Map to locations
+      if (provider === "mistral") locations.add("eu");
+      else if (["anthropic", "openai", "google"].includes(provider)) locations.add("us");
+      else if (provider === "cohere") locations.add("ca");
+      else if (provider === "meta-llama") locations.add("global");
+      else locations.add("global");
+
+      // Count privacy features
+      if (["mistral", "anthropic", "meta-llama"].includes(provider)) {
+        zdrCount++;
+        noTrainingCount++;
+      }
+    }
+
+    return {
+      hasEU: locations.has("eu"),
+      hasUS: locations.has("us"),
+      hasCA: locations.has("ca"),
+      hasGlobal: locations.has("global"),
+      zdrCount,
+      noTrainingCount,
+    };
+  }, [enabledModels]);
+
+  // Helper functions for model management
+  const toggleModel = (modelId: string) => {
+    if (isModelEnabled(modelId)) {
+      // Remove model
+      const updatedModels = enabledModels.filter(m => m.modelId !== modelId);
+      setEnabledModels(updatedModels);
+
+      // If we removed the default, pick a new one
+      if (defaultModelId === modelId && updatedModels.length > 0) {
+        const newDefault = updatedModels[0].modelId;
+        setDefaultModelId(newDefault);
+        updatedModels[0].isDefault = true;
+      } else if (updatedModels.length === 0) {
+        setDefaultModelId("");
+      }
+    } else {
+      // Add model
+      const newModel = {
+        modelId,
+        isDefault: enabledModels.length === 0, // First model becomes default
+        enabledAt: Date.now()
+      };
+      const updatedModels = [...enabledModels, newModel];
+      setEnabledModels(updatedModels);
+
+      if (enabledModels.length === 0) {
+        setDefaultModelId(modelId);
+      }
+    }
+  };
+
+  const setAsDefaultModel = (modelId: string) => {
+    if (!isModelEnabled(modelId)) return;
+
+    const updatedModels = enabledModels.map(m => ({
+      ...m,
+      isDefault: m.modelId === modelId
+    }));
+    setEnabledModels(updatedModels);
+    setDefaultModelId(modelId);
+  };
 
   const handleSave = async () => {
     if (!organizationId) return;
+
+    // Validate that at least one model is enabled
+    if (enabledModels.length === 0) {
+      alert("Please enable at least one model before saving.");
+      return;
+    }
+
+    // Validate that a default model is selected
+    if (!defaultModelId) {
+      alert("Please select a default model.");
+      return;
+    }
 
     setIsSaving(true);
     setSaveSuccess(false);
@@ -79,74 +345,37 @@ export function AISettingsTab() {
       await upsertSettings({
         organizationId,
         enabled,
-        billingMode,
+        billingMode: useBYOK && isSuperAdmin ? "byok" : "platform",
+        tier,
         llm: {
-          provider,
-          model,
-          temperature,
-          maxTokens,
-          openrouterApiKey: (billingMode === "byok" && openrouterApiKey) ? openrouterApiKey : undefined,
+          enabledModels,
+          defaultModelId,
+          temperature: 0.7,
+          maxTokens: 4000,
+          openrouterApiKey: (useBYOK && isSuperAdmin && openrouterApiKey) ? openrouterApiKey : undefined,
         },
         embedding: {
-          provider: embeddingProvider,
-          model: embeddingModel,
-          dimensions: embeddingDimensions,
-          apiKey: embeddingApiKey || undefined,
+          provider: "none",
+          model: "",
+          dimensions: 0,
         },
-        monthlyBudgetUsd,
+        monthlyBudgetUsd: undefined,
       });
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save AI settings:", error);
-      alert("Failed to save AI settings. Please try again.");
+      alert(`Failed to save AI settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Model options
-  const modelOptions = {
-    anthropic: [
-      { value: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet (Best)", cost: "$3/$15 per M tokens" },
-      { value: "anthropic/claude-3-sonnet", label: "Claude 3 Sonnet", cost: "$3/$15 per M tokens" },
-      { value: "anthropic/claude-3-haiku", label: "Claude 3 Haiku (Fast)", cost: "$0.25/$1.25 per M tokens" },
-    ],
-    openai: [
-      { value: "openai/gpt-4o", label: "GPT-4o (Latest)", cost: "$2.50/$10 per M tokens" },
-      { value: "openai/gpt-4-turbo", label: "GPT-4 Turbo", cost: "$10/$30 per M tokens" },
-      { value: "openai/gpt-3.5-turbo", label: "GPT-3.5 Turbo (Fast)", cost: "$0.50/$1.50 per M tokens" },
-    ],
-    google: [
-      { value: "google/gemini-pro", label: "Gemini Pro", cost: "$0.125/$0.50 per M tokens" },
-      { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5", cost: "$1.25/$5 per M tokens" },
-    ],
-  };
-
-  const embeddingOptions = {
-    openai: [
-      { value: "text-embedding-3-small", label: "text-embedding-3-small (1536d)", dimensions: 1536 },
-      { value: "text-embedding-3-large", label: "text-embedding-3-large (3072d)", dimensions: 3072 },
-    ],
-    voyage: [
-      { value: "voyage-2", label: "Voyage 2 (1024d)", dimensions: 1024 },
-      { value: "voyage-large-2", label: "Voyage Large 2 (1536d)", dimensions: 1536 },
-    ],
-    cohere: [
-      { value: "embed-english-v3.0", label: "Embed English v3 (1024d)", dimensions: 1024 },
-      { value: "embed-multilingual-v3.0", label: "Embed Multilingual v3 (1024d)", dimensions: 1024 },
-    ],
-  };
-
-  const budgetProgress = settings
-    ? Math.min((settings.currentMonthSpend / (settings.monthlyBudgetUsd || 100)) * 100, 100)
-    : 0;
-
   if (translationsLoading) {
     return (
       <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-        {t("ui.manage.ai.loading")}
+        Loading...
       </div>
     );
   }
@@ -159,8 +388,109 @@ export function AISettingsTab() {
     );
   }
 
+  // Open Store window for subscriptions
+  const handleOpenStore = () => {
+    openWindow(
+      "store",
+      "Platform Store",
+      <StoreWindow />,
+      { x: 200, y: 100 },
+      { width: 900, height: 700 },
+      'ui.store.title'
+    );
+  };
+
+  // Format price for display (from cents)
+  const formatPrice = (cents: number) => {
+    const euros = cents / 100;
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+    }).format(euros);
+  };
+
+  // Format large price (whole euros, for Private LLM tiers)
+  const formatLargePrice = (euros: number) => {
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(euros);
+  };
+
+  // Format tokens for display
+  const formatTokens = (tokens: number) => {
+    if (tokens >= 1000000) {
+      return `${(tokens / 1000000).toFixed(1)}M`;
+    } else if (tokens >= 1000) {
+      return `${(tokens / 1000).toFixed(0)}K`;
+    }
+    return tokens.toString();
+  };
+
   return (
     <div className="space-y-6">
+      {/* Subscription Status Banner */}
+      {subscriptionStatus && (
+        <>
+          {subscriptionStatus.hasSubscription && subscriptionStatus.status === "active" ? (
+            <div
+              className="p-4 border-2 flex items-start gap-3"
+              style={{
+                backgroundColor: 'var(--success)',
+                borderColor: 'var(--win95-border)',
+                color: 'white'
+              }}
+            >
+              <CheckCircle2 size={20} className="flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-bold text-sm mb-1">
+                  {subscriptionStatus.tier === "standard" && t("ui.manage.ai.plan_active.standard")}
+                  {subscriptionStatus.tier === "privacy-enhanced" && t("ui.manage.ai.plan_active.privacy_enhanced")}
+                  {subscriptionStatus.tier === "private-llm" && t("ui.manage.ai.plan_active.private_llm")}
+                </h3>
+                <p className="text-xs">
+                  {formatPrice(subscriptionStatus.priceInCents)}/{t("ui.manage.ai.price.per_month")} •{" "}
+                  {formatTokens(subscriptionStatus.includedTokensUsed)}/{formatTokens(subscriptionStatus.includedTokensTotal)} {t("ui.manage.ai.tokens_used")}
+                </p>
+                <button
+                  onClick={handleOpenStore}
+                  className="mt-2 px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-white/20 text-white hover:bg-white/30 flex items-center gap-1"
+                >
+                  <ShoppingCart size={12} />
+                  {t("ui.manage.ai.browse_store")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="p-4 border-2 flex items-start gap-3"
+              style={{
+                backgroundColor: 'var(--warning)',
+                borderColor: 'var(--win95-border)',
+                color: 'var(--win95-text)'
+              }}
+            >
+              <XCircle size={20} className="flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-bold text-sm mb-1">{t("ui.manage.ai.subscribe_to_activate")}</h3>
+                <p className="text-xs mb-2">
+                  {t("ui.manage.ai.choose_plan_description")}
+                </p>
+                <button
+                  onClick={handleOpenStore}
+                  className="px-4 py-2 text-xs font-semibold rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
+                >
+                  <ShoppingCart size={14} />
+                  {t("ui.manage.ai.open_store")}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Header */}
       <div
         className="p-4 border-2 flex items-start gap-3"
@@ -172,9 +502,9 @@ export function AISettingsTab() {
       >
         <Brain size={20} className="flex-shrink-0 mt-0.5" />
         <div className="flex-1">
-          <h3 className="font-bold text-sm mb-1">{t("ui.manage.ai.title")}</h3>
+          <h3 className="font-bold text-sm mb-1">{t("ui.manage.ai.configuration_title")}</h3>
           <p className="text-xs">
-            {t("ui.manage.ai.subtitle")}
+            {t("ui.manage.ai.configuration_description")}
           </p>
         </div>
       </div>
@@ -196,10 +526,10 @@ export function AISettingsTab() {
           />
           <div>
             <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-              {t("ui.manage.ai.enable_toggle")}
+              {t("ui.manage.ai.enable_features")}
             </span>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              {t("ui.manage.ai.enable_description")}
+              {t("ui.manage.ai.enable_features_description")}
             </p>
           </div>
         </label>
@@ -207,7 +537,7 @@ export function AISettingsTab() {
 
       {enabled && (
         <>
-          {/* LLM Configuration */}
+          {/* Privacy Tier Selection */}
           <div
             className="p-4 border-2"
             style={{
@@ -215,341 +545,298 @@ export function AISettingsTab() {
               borderColor: 'var(--win95-border)',
             }}
           >
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-              <Zap size={16} />
-              {t("ui.manage.ai.llm_title")}
+            <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--win95-text)' }}>
+              {t("ui.manage.ai.data_privacy_level")}
             </h3>
 
             <div className="space-y-4">
-              {/* Provider Selection */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.provider")}
-                </label>
-                <select
-                  value={provider}
-                  onChange={(e) => {
-                    setProvider(e.target.value);
-                    // Reset model when provider changes
-                    const newProviderModels = modelOptions[e.target.value as keyof typeof modelOptions];
-                    if (newProviderModels && newProviderModels.length > 0) {
-                      setModel(newProviderModels[0].value);
-                    }
-                  }}
-                  className="w-full p-2 text-xs border-2"
+              {/* Platform Tiers Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Standard Tier */}
+                <label
+                  className="flex items-start gap-3 cursor-pointer p-3 border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
+                    borderColor: tier === "standard" ? 'var(--primary)' : 'var(--win95-border)',
+                    backgroundColor: tier === "standard" ? 'var(--win95-bg-light)' : 'transparent'
                   }}
                 >
-                  <option value="anthropic">{t("ui.manage.ai.provider.anthropic")}</option>
-                  <option value="openai">{t("ui.manage.ai.provider.openai")}</option>
-                  <option value="google">{t("ui.manage.ai.provider.google")}</option>
-                </select>
-              </div>
-
-              {/* Model Selection */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.model")}
-                </label>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full p-2 text-xs border-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
-                  }}
-                >
-                  {modelOptions[provider as keyof typeof modelOptions]?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label} - {option.cost}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Temperature */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.temperature")}: {temperature}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={temperature}
-                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.ai.temperature_description")}
-                </p>
-              </div>
-
-              {/* Max Tokens */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.max_tokens")}
-                </label>
-                <input
-                  type="number"
-                  value={maxTokens}
-                  onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-                  min="100"
-                  max="16000"
-                  step="100"
-                  className="w-full p-2 text-xs border-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
-                  }}
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  {t("ui.manage.ai.max_tokens_description")}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Billing Mode Selection */}
-          <div
-            className="p-4 border-2"
-            style={{
-              backgroundColor: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)',
-            }}
-          >
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-              <DollarSign size={16} />
-              {t("ui.manage.ai.billing_mode")}
-            </h3>
-
-            <div className="space-y-3">
-              {/* Platform API Key Option */}
-              <label
-                className="flex items-start gap-3 cursor-pointer p-3 border-2"
-                style={{
-                  borderColor: billingMode === "platform" ? 'var(--primary)' : 'var(--win95-border)',
-                  backgroundColor: billingMode === "platform" ? 'var(--info)' : 'transparent'
-                }}
-              >
                 <input
                   type="radio"
-                  name="billingMode"
-                  value="platform"
-                  checked={billingMode === "platform"}
-                  onChange={() => {
-                    setBillingMode("platform");
-                    setOpenrouterApiKey("");
-                  }}
+                  name="tier"
+                  value="standard"
+                  checked={tier === "standard"}
+                  onChange={() => setTier("standard")}
                   className="mt-1"
                 />
                 <div className="flex-1">
-                  <span className="font-bold text-sm block mb-1" style={{ color: 'var(--win95-text)' }}>
-                    {t("ui.manage.ai.billing_platform")}
-                  </span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                      {t("ui.manage.ai.tier.standard.name")}
+                    </span>
+                    <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                      {formatPrice(4900)}/{t("ui.manage.ai.price.per_month")} {t("ui.manage.ai.price.incl_vat")}
+                    </span>
+                  </div>
+                  <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.tier.standard.description")}
+                  </p>
                   <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>✓ {t("ui.manage.ai.billing_platform_benefit1")}</li>
-                    <li>✓ {t("ui.manage.ai.billing_platform_benefit2")}</li>
-                    <li>✓ {t("ui.manage.ai.billing_platform_benefit3")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.all_models")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.global_routing")}</li>
                   </ul>
                 </div>
               </label>
 
-              {/* Bring Your Own Key Option */}
-              <label
-                className="flex items-start gap-3 cursor-pointer p-3 border-2"
-                style={{
-                  borderColor: billingMode === "byok" ? 'var(--primary)' : 'var(--win95-border)',
-                  backgroundColor: billingMode === "byok" ? 'var(--info)' : 'transparent'
-                }}
-              >
+                {/* Privacy-Enhanced Tier */}
+                <label
+                  className="flex items-start gap-3 cursor-pointer p-3 border-2"
+                  style={{
+                    borderColor: tier === "privacy-enhanced" ? 'var(--primary)' : 'var(--win95-border)',
+                    backgroundColor: tier === "privacy-enhanced" ? 'var(--win95-bg-light)' : 'transparent'
+                  }}
+                >
                 <input
                   type="radio"
-                  name="billingMode"
-                  value="byok"
-                  checked={billingMode === "byok"}
-                  onChange={() => setBillingMode("byok")}
+                  name="tier"
+                  value="privacy-enhanced"
+                  checked={tier === "privacy-enhanced"}
+                  onChange={() => setTier("privacy-enhanced")}
                   className="mt-1"
                 />
                 <div className="flex-1">
-                  <span className="font-bold text-sm block mb-1" style={{ color: 'var(--win95-text)' }}>
-                    {t("ui.manage.ai.billing_byok")}
-                  </span>
-                  <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>• {t("ui.manage.ai.billing_byok_benefit1")}</li>
-                    <li>• {t("ui.manage.ai.billing_byok_benefit2")}</li>
-                    <li>• {t("ui.manage.ai.billing_byok_benefit3")}</li>
-                  </ul>
-                </div>
-              </label>
-
-              {/* BYOK API Key Input */}
-              {billingMode === "byok" && (
-                <div
-                  className="p-3 border-2"
-                  style={{
-                    backgroundColor: 'var(--warning)',
-                    borderColor: 'var(--win95-border)'
-                  }}
-                >
-                  <div className="mb-3">
-                    <p className="text-xs mb-2" style={{ color: 'var(--win95-text)' }}>
-                      ⚠️ {t("ui.manage.ai.billing_byok_note")}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                      {t("ui.manage.ai.billing_byok_signup")}{" "}
-                      <a
-                        href="https://openrouter.ai"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-                      >
-                        {t("ui.manage.ai.billing_byok_signup_link")}
-                      </a>
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.ai.api_key_required")}
-                    </label>
-                    <input
-                      type="password"
-                      value={openrouterApiKey}
-                      onChange={(e) => setOpenrouterApiKey(e.target.value)}
-                      placeholder="sk-or-v1-..."
-                      required={billingMode === "byok"}
-                      className="w-full p-2 text-xs border-2 font-mono"
+                  <div className="flex items-center gap-2 mb-1">
+                    <Lock size={14} />
+                    <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                      {t("ui.manage.ai.tier.privacy_enhanced.name")}
+                    </span>
+                    <span
+                      className="px-2 py-0.5 text-xs font-bold"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-bg-light)',
-                        color: 'var(--win95-text)'
-                      }}
-                    />
-                    <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                      {t("ui.manage.ai.api_key_get_yours")} <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>openrouter.ai/keys</a>
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Embedding Configuration */}
-          <div
-            className="p-4 border-2"
-            style={{
-              backgroundColor: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)',
-            }}
-          >
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-              <Database size={16} />
-              {t("ui.manage.ai.embedding_title")}
-            </h3>
-
-            <div className="space-y-4">
-              {/* Embedding Provider */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.embedding_provider")}
-                </label>
-                <select
-                  value={embeddingProvider}
-                  onChange={(e) => {
-                    const newProvider = e.target.value as "openai" | "voyage" | "cohere" | "none";
-                    setEmbeddingProvider(newProvider);
-
-                    // Reset model and dimensions when provider changes
-                    if (newProvider !== "none") {
-                      const options = embeddingOptions[newProvider];
-                      if (options && options.length > 0) {
-                        setEmbeddingModel(options[0].value);
-                        setEmbeddingDimensions(options[0].dimensions);
-                      }
-                    }
-                  }}
-                  className="w-full p-2 text-xs border-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
-                  }}
-                >
-                  <option value="none">{t("ui.manage.ai.embedding_none")}</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="voyage">Voyage AI</option>
-                  <option value="cohere">Cohere</option>
-                </select>
-              </div>
-
-              {embeddingProvider !== "none" && (
-                <>
-                  {/* Embedding Model */}
-                  <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.ai.embedding_model")}
-                    </label>
-                    <select
-                      value={embeddingModel}
-                      onChange={(e) => {
-                        setEmbeddingModel(e.target.value);
-                        const option = embeddingOptions[embeddingProvider]?.find(
-                          (opt) => opt.value === e.target.value
-                        );
-                        if (option) {
-                          setEmbeddingDimensions(option.dimensions);
-                        }
-                      }}
-                      className="w-full p-2 text-xs border-2"
-                      style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-bg-light)',
-                        color: 'var(--win95-text)'
+                        backgroundColor: 'var(--success)',
+                        color: 'white',
                       }}
                     >
-                      {embeddingOptions[embeddingProvider]?.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      {t("ui.manage.ai.tier.recommended")}
+                    </span>
+                  </div>
+                  <span className="text-xs block mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                    {formatPrice(4900)}/{t("ui.manage.ai.price.per_month")} {t("ui.manage.ai.price.incl_vat")}
+                  </span>
+                  <div className="flex gap-1.5 mb-2">
+                    <PrivacyBadge type="eu" size="sm" />
+                    <PrivacyBadge type="zdr" size="sm" />
+                    <PrivacyBadge type="no-training" size="sm" />
+                  </div>
+                  <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.tier.privacy_enhanced.description")}
+                  </p>
+                  <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
+                    <li>✓ {t("ui.manage.ai.tier.feature.gdpr_optimized")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.no_training")}</li>
+                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
+                  </ul>
+                </div>
+              </label>
+              </div>
+
+              {/* Private LLM Tiers Section Header */}
+              <div>
+                <h4 className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                  {t("ui.manage.ai.private_llm.hosting_title")}
+                </h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
+                  {t("ui.manage.ai.private_llm.hosting_description")}
+                </p>
+
+                {/* Private LLM Tiers Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Private LLM - Starter */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.ai.private_llm.name")}
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.private_llm.tier.starter")}
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    {formatLargePrice(2999)}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.price.per_month")}
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.self_hosted")}</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.requests_50k")}</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.scale_to_zero")}</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.data_sovereignty")}</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("starter");
+                        setShowEnterpriseModal(true);
+                      }}
+                      className="retro-button w-full py-2 text-xs font-pixel"
+                    >
+                      {t("ui.manage.ai.contact_sales")}
+                    </button>
                   </div>
 
-                  {/* Embedding API Key */}
-                  <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.ai.embedding_api_key")}
-                    </label>
-                    <input
-                      type="password"
-                      value={embeddingApiKey}
-                      onChange={(e) => setEmbeddingApiKey(e.target.value)}
-                      placeholder="Your API key"
-                      className="w-full p-2 text-xs border-2 font-mono"
-                      style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-bg-light)',
-                        color: 'var(--win95-text)'
+                  {/* Private LLM - Professional */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.ai.private_llm.name")}
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.private_llm.tier.professional")}
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    {formatLargePrice(7199)}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.price.per_month")}
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Dedicated GPU infrastructure</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>~200K requests/month</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>99.5% SLA</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.priority_support")}</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("professional");
+                        setShowEnterpriseModal(true);
                       }}
-                    />
-                    <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                      {t("ui.manage.ai.embedding_api_key_description")}
+                      className="retro-button w-full py-2 text-xs font-pixel"
+                    >
+                      {t("ui.manage.ai.contact_sales")}
+                    </button>
+                  </div>
+
+                  {/* Private LLM - Enterprise */}
+                  <div
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                    }}
+                  >
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    {t("ui.manage.ai.private_llm.name")}
+                  </h3>
+                  <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.private_llm.tier.enterprise")}
+                  </p>
+                  <p className="text-xl font-bold mb-1" style={{ color: 'var(--primary)' }}>
+                    {formatLargePrice(14999)}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    {t("ui.manage.ai.price.per_month")}
+                  </p>
+                </div>
+
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Custom infrastructure</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.unlimited_requests")}</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>Dedicated support team</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
+                    <span>{t("ui.manage.ai.private_llm.feature.custom_sla")}</span>
+                  </li>
+                </ul>
+
+                    <button
+                      onClick={() => {
+                        setEnterpriseTier("enterprise");
+                        setShowEnterpriseModal(true);
+                      }}
+                      className="retro-button w-full py-2 text-xs font-pixel"
+                    >
+                      {t("ui.manage.ai.contact_sales")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy tier explanation */}
+            {tier === "privacy-enhanced" && (
+              <div
+                className="p-3 mt-3 border-2 text-xs"
+                style={{
+                  backgroundColor: 'var(--info)',
+                  borderColor: 'var(--win95-border)',
+                  color: 'var(--win95-text)'
+                }}
+              >
+                <div className="flex gap-2">
+                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold mb-1">{t("ui.manage.ai.privacy_mode_active")}</p>
+                    <p>
+                      {t("ui.manage.ai.privacy_mode_description")}
                     </p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Budget & Usage */}
+          {/* Model Selection */}
           <div
             className="p-4 border-2"
             style={{
@@ -557,110 +844,315 @@ export function AISettingsTab() {
               borderColor: 'var(--win95-border)',
             }}
           >
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-              <DollarSign size={16} />
-              {t("ui.manage.ai.budget_title")}
-            </h3>
-
-            {/* Info Banner based on Billing Mode */}
-            <div
-              className="p-3 mb-4 border-2 text-xs"
-              style={{
-                backgroundColor: billingMode === "platform" ? 'var(--info)' : 'var(--warning)',
-                borderColor: 'var(--win95-border)',
-                color: 'var(--win95-text)'
-              }}
-            >
-              💡 {billingMode === "platform" ? t("ui.manage.ai.budget_platform_note") : t("ui.manage.ai.budget_byok_note")}
+            <div className="mb-4">
+              <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.ai.enabled_models")}
+              </h3>
+              <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                {t("ui.manage.ai.enabled_models_description")}
+              </p>
             </div>
 
-            <div className="space-y-4">
-              {/* Monthly Budget */}
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
-                  {t("ui.manage.ai.monthly_budget")}
-                  {billingMode === "byok" && <span style={{ color: 'var(--neutral-gray)' }}> ({t("ui.manage.ai.budget_byok_note").split('.')[0]})</span>}
-                </label>
-                <input
-                  type="number"
-                  value={monthlyBudgetUsd || ""}
-                  onChange={(e) => setMonthlyBudgetUsd(e.target.value ? parseFloat(e.target.value) : undefined)}
-                  min="0"
-                  step="10"
-                  placeholder={billingMode === "byok" ? "Optional - for tracking only" : "No limit"}
-                  className="w-full p-2 text-xs border-2"
-                  style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
-                  }}
-                />
+            {/* Filters */}
+            <div className="mb-4 p-3 border-2" style={{ borderColor: 'var(--win95-border)', backgroundColor: 'var(--win95-bg)' }}>
+              <div className="mb-2 text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+                Showing {availableModels.length} of {allAvailableModels.length} models
               </div>
-
-              {/* Current Spend */}
-              {settings && (
+              <div className="grid grid-cols-5 gap-3">
+                {/* Search */}
                 <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.ai.current_month_spend")}
-                    </span>
-                    <span style={{ color: 'var(--win95-text)' }}>
-                      ${settings.currentMonthSpend.toFixed(2)} / ${settings.monthlyBudgetUsd || "∞"}
-                    </span>
-                  </div>
-                  <div
-                    className="w-full h-4 border-2 relative overflow-hidden"
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Model name..."
+                    className="w-full px-2 py-1 text-xs"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg)',
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
+                    }}
+                  />
+                </div>
+
+                {/* Provider Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Provider
+                  </label>
+                  <select
+                    value={filterProvider}
+                    onChange={(e) => setFilterProvider(e.target.value)}
+                    className="w-full px-2 py-1 text-xs"
+                    style={{
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
                     }}
                   >
-                    <div
-                      className="h-full transition-all"
-                      style={{
-                        width: `${budgetProgress}%`,
-                        backgroundColor: budgetProgress > 90 ? 'var(--error)' : 'var(--success)'
-                      }}
-                    />
-                  </div>
+                    <option value="all">All Providers</option>
+                    {providers.map((provider) => (
+                      <option key={provider} value={provider}>
+                        {provider.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
 
-              {/* Rate Limit */}
-              {rateLimit && (
+                {/* Capability Filter */}
                 <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
-                      {t("ui.manage.ai.rate_limit_title")}
-                    </span>
-                    <span style={{ color: 'var(--win95-text)' }}>
-                      {rateLimit.remaining} / {rateLimit.limit} {t("ui.manage.ai.rate_limit_remaining")}
-                    </span>
-                  </div>
-                  <div
-                    className="w-full h-4 border-2 relative overflow-hidden"
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Capability
+                  </label>
+                  <select
+                    value={filterCapability}
+                    onChange={(e) => setFilterCapability(e.target.value as "all" | "tool_calling" | "multimodal" | "vision")}
+                    className="w-full px-2 py-1 text-xs"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg)',
+                      backgroundColor: 'var(--win95-input-bg)',
+                      color: 'var(--win95-input-text)',
+                      border: '2px inset',
+                      borderColor: 'var(--win95-input-border-dark)',
                     }}
                   >
-                    <div
-                      className="h-full transition-all"
-                      style={{
-                        width: `${(rateLimit.remaining / rateLimit.limit) * 100}%`,
-                        backgroundColor: rateLimit.remaining < 10 ? 'var(--warning)' : 'var(--primary)'
-                      }}
-                    />
-                  </div>
+                    <option value="all">All Capabilities</option>
+                    <option value="tool_calling">Tool Calling</option>
+                    <option value="multimodal">Multimodal</option>
+                    <option value="vision">Vision</option>
+                  </select>
                 </div>
-              )}
+
+                {/* Recommended Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Recommended
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showOnlyRecommended}
+                      onChange={(e) => setShowOnlyRecommended(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                  </label>
+                </div>
+
+                {/* Enabled Filter */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    Enabled
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showOnlyEnabled}
+                      onChange={(e) => setShowOnlyEnabled(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {availableModels.map((model) => {
+                const enabled = isModelEnabled(model.id);
+                const isDefault = defaultModelId === model.id;
+
+                return (
+                  <div
+                    key={model.id}
+                    className="p-3 border-2"
+                    style={{
+                      borderColor: isDefault ? 'var(--primary)' : 'var(--win95-border)',
+                      backgroundColor: enabled ? 'var(--win95-bg-light)' : 'transparent'
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Enable/Disable Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={() => toggleModel(model.id)}
+                        className="mt-1"
+                      />
+
+                      {/* Model Details */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-xs" style={{ color: 'var(--win95-text)' }}>
+                            {model.name}
+                          </span>
+
+                          {/* Inline Privacy Indicators */}
+                          <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                            {model.location}
+                            {model.zdr && " 🛡️"}
+                            {model.noTraining && " 🚫"}
+                          </span>
+
+                          {model.recommended && (
+                            <span
+                              className="px-2 py-0.5 text-xs font-bold"
+                              style={{
+                                backgroundColor: 'var(--success)',
+                                color: 'white',
+                              }}
+                            >
+                              RECOMMENDED
+                            </span>
+                          )}
+                          {isDefault && (
+                            <span
+                              className="px-2 py-0.5 text-xs font-bold"
+                              style={{
+                                backgroundColor: 'var(--primary)',
+                                color: 'white',
+                              }}
+                            >
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
+                          {model.description}
+                        </p>
+
+                        {/* Set as Default button */}
+                        {enabled && !isDefault && (
+                          <button
+                            onClick={() => setAsDefaultModel(model.id)}
+                            className="retro-button py-1.5 px-3 text-xs font-pixel"
+                          >
+                            Set as Default
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Summary */}
+            <div className="mt-4 p-3 border-2 text-xs" style={{
+              backgroundColor: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--neutral-gray)'
+            }}>
+              <p style={{ color: 'var(--win95-text)' }}>
+                <span className="font-bold">{enabledModels.length} models enabled</span>
+                {defaultModelId && (
+                  <span> • Default: {availableModels.find(m => m.id === defaultModelId)?.name}</span>
+                )}
+              </p>
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 p-3 border-2 text-xs" style={{
+              backgroundColor: 'var(--win95-bg)',
+              borderColor: 'var(--win95-border)',
+              color: 'var(--neutral-gray)'
+            }}>
+              <p className="font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                {t("ui.manage.ai.privacy_indicators")}
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <strong>{t("ui.manage.ai.location")}:</strong> {
+                    [
+                      privacyStats.hasEU && "🇪🇺 EU",
+                      privacyStats.hasUS && "🇺🇸 US",
+                      privacyStats.hasCA && "🇨🇦 Canada",
+                      privacyStats.hasGlobal && "🌍 Global"
+                    ].filter(Boolean).join(" • ") || t("ui.manage.ai.location_none")
+                  }
+                </li>
+                {privacyStats.zdrCount > 0 && (
+                  <li>
+                    <strong>🛡️ {t("ui.manage.ai.zero_data_retention")}:</strong> {t("ui.manage.ai.zero_data_retention_desc", { count: privacyStats.zdrCount })}
+                  </li>
+                )}
+                {privacyStats.noTrainingCount > 0 && (
+                  <li>
+                    <strong>🚫 {t("ui.manage.ai.no_training")}:</strong> {t("ui.manage.ai.no_training_desc", { count: privacyStats.noTrainingCount })}
+                  </li>
+                )}
+              </ul>
+              <p className="mt-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+                <strong>{t("ui.manage.ai.smart_defaults")}:</strong> {t("ui.manage.ai.smart_defaults_desc", { count: enabledModelCount })}
+              </p>
             </div>
           </div>
+
+          {/* Super Admin Only: BYOK Option */}
+          {isSuperAdmin && (
+            <div
+              className="p-4 border-2"
+              style={{
+                backgroundColor: 'var(--warning)',
+                borderColor: 'var(--win95-border)',
+              }}
+            >
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+                <AlertTriangle size={16} />
+                Super Admin Only: Bring Your Own Key
+              </h3>
+
+              <label className="flex items-center gap-3 cursor-pointer mb-3">
+                <input
+                  type="checkbox"
+                  checked={useBYOK}
+                  onChange={(e) => setUseBYOK(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                    Use My Own OpenRouter API Key
+                  </span>
+                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                    Skip invoicing to ourselves when using our own system
+                  </p>
+                </div>
+              </label>
+
+              {useBYOK && (
+                <div>
+                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    OpenRouter API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={openrouterApiKey}
+                    onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    className="w-full p-2 text-xs border-2 font-mono"
+                    style={{
+                      borderColor: 'var(--win95-border)',
+                      backgroundColor: 'var(--win95-bg-light)',
+                      color: 'var(--win95-text)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                    Get yours at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>openrouter.ai/keys</a>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {/* Save Button */}
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center gap-4 justify-end">
         {saveSuccess && (
           <div
             className="px-3 py-2 text-xs flex items-center gap-2"
@@ -669,24 +1161,25 @@ export function AISettingsTab() {
               color: 'white'
             }}
           >
-            ✓ {t("ui.manage.ai.save_success")}
+            ✓ Settings saved successfully
           </div>
         )}
         <button
           onClick={handleSave}
           disabled={isSaving || !organizationId}
-          className="beveled-button px-4 py-2 text-xs font-bold flex items-center gap-2"
-          style={{
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            opacity: isSaving ? 0.6 : 1,
-            cursor: isSaving ? 'wait' : 'pointer'
-          }}
+          className="retro-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           {isSaving ? t("ui.manage.ai.saving") : t("ui.manage.ai.save_settings")}
         </button>
       </div>
+
+      {/* Enterprise Contact Modal */}
+      <EnterpriseContactModal
+        isOpen={showEnterpriseModal}
+        onClose={() => setShowEnterpriseModal(false)}
+        title={`Private LLM - ${enterpriseTier.charAt(0).toUpperCase() + enterpriseTier.slice(1)}`}
+      />
     </div>
   );
 }

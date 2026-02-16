@@ -34,9 +34,12 @@ export function PlatformCartWindow() {
   const { t } = useNamespaceTranslations("ui.cart");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const createAICheckout = useAction(api.stripe.aiCheckout.createAICheckoutSession);
-  const createPlatformCheckout = useAction(api.stripe.platformCheckout.createPlatformCheckoutSession);
-  const createTokenPackCheckout = useAction(api.stripe.platformCheckout.createTokenPackCheckoutSession);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createAICheckout = useAction(api.stripe.aiCheckout.createAICheckoutSession) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createPlatformCheckout = useAction(api.stripe.platformCheckout.createPlatformCheckoutSession) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createTokenPackCheckout = useAction((api.stripe.platformCheckout as any).createTokenPackCheckoutSession) as any;
 
   // Format price
   const formatPrice = (cents: number, currency: string) => {

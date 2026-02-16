@@ -92,6 +92,217 @@ export const notifyCreditExhausted = internalAction({
   },
 });
 
+// --- Internal Action: notify when child org approaches credit cap ---
+
+export const notifyChildCreditCapApproaching = internalAction({
+  args: {
+    parentOrgId: v.id("organizations"),
+    childOrgId: v.id("organizations"),
+    usage: v.number(),
+    cap: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const reason = `child_cap_${args.childOrgId}`;
+
+    const last = await ctx.runQuery(internal.credits.notifications.getLastNotification, {
+      organizationId: args.parentOrgId,
+      reason,
+    });
+
+    if (last) {
+      const notifiedAt = (last.customProperties as Record<string, unknown>)?.notifiedAt as number;
+      if (notifiedAt && Date.now() - notifiedAt < ONE_HOUR_MS) return;
+    }
+
+    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+      organizationId: args.parentOrgId,
+    });
+
+    if (!settings || !settings.enabled) return;
+
+    const pct = Math.round((args.usage / args.cap) * 100);
+    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+      organizationId: args.parentOrgId,
+      title: "Sub-Org Credit Cap Approaching",
+      message: `A sub-org is at ${pct}% of its daily credit sharing limit (${args.usage}/${args.cap} credits).`,
+      priority: 0,
+    });
+
+    await ctx.runMutation(internal.credits.notifications.recordNotification, {
+      organizationId: args.parentOrgId,
+      reason,
+    });
+  },
+});
+
+// --- Internal Action: notify when shared pool approaches cap ---
+
+export const notifySharedPoolApproaching = internalAction({
+  args: {
+    parentOrgId: v.id("organizations"),
+    totalShared: v.number(),
+    cap: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const reason = "shared_pool_approaching";
+
+    const last = await ctx.runQuery(internal.credits.notifications.getLastNotification, {
+      organizationId: args.parentOrgId,
+      reason,
+    });
+
+    if (last) {
+      const notifiedAt = (last.customProperties as Record<string, unknown>)?.notifiedAt as number;
+      if (notifiedAt && Date.now() - notifiedAt < ONE_HOUR_MS) return;
+    }
+
+    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+      organizationId: args.parentOrgId,
+    });
+
+    if (!settings || !settings.enabled) return;
+
+    const pct = Math.round((args.totalShared / args.cap) * 100);
+    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+      organizationId: args.parentOrgId,
+      title: "Shared Credit Pool Warning",
+      message: `Shared credit pool is at ${pct}% across all sub-orgs (${args.totalShared}/${args.cap} credits/day).`,
+      priority: 0,
+    });
+
+    await ctx.runMutation(internal.credits.notifications.recordNotification, {
+      organizationId: args.parentOrgId,
+      reason,
+    });
+  },
+});
+
+// --- Internal Action: notify when all LLM models fail ---
+
+export const notifyAllModelsFailed = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const reason = "all_models_failed";
+    const cooldown = 30 * 60 * 1000; // 30 minutes
+
+    const last = await ctx.runQuery(internal.credits.notifications.getLastNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+
+    if (last) {
+      const notifiedAt = (last.customProperties as Record<string, unknown>)?.notifiedAt as number;
+      if (notifiedAt && Date.now() - notifiedAt < cooldown) return;
+    }
+
+    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+      organizationId: args.organizationId,
+    });
+
+    if (!settings || !settings.enabled) return;
+
+    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+      organizationId: args.organizationId,
+      title: "Agent AI Models Unavailable",
+      message: `All AI models failed for your agent. Customers received a fallback message. ${args.error ? `Error: ${args.error.slice(0, 120)}` : ""}`,
+      priority: 1,
+    });
+
+    await ctx.runMutation(internal.credits.notifications.recordNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+  },
+});
+
+// --- Internal Action: notify when a tool is disabled after repeated failures ---
+
+export const notifyToolDisabled = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    toolName: v.string(),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const reason = `tool_disabled_${args.toolName}`;
+    const cooldown = TWENTY_FOUR_HOURS_MS; // 24 hours
+
+    const last = await ctx.runQuery(internal.credits.notifications.getLastNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+
+    if (last) {
+      const notifiedAt = (last.customProperties as Record<string, unknown>)?.notifiedAt as number;
+      if (notifiedAt && Date.now() - notifiedAt < cooldown) return;
+    }
+
+    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+      organizationId: args.organizationId,
+    });
+
+    if (!settings || !settings.enabled) return;
+
+    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+      organizationId: args.organizationId,
+      title: "Agent Tool Disabled",
+      message: `Tool "${args.toolName}" was disabled after 3 failures in a session. ${args.error ? `Last error: ${args.error.slice(0, 100)}` : ""}`,
+      priority: 0,
+    });
+
+    await ctx.runMutation(internal.credits.notifications.recordNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+  },
+});
+
+// --- Internal Action: notify when a dead letter is abandoned ---
+
+export const notifyDeadLetterAbandoned = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+    recipient: v.string(),
+    attempts: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const reason = "dead_letter_abandoned";
+    const cooldown = ONE_HOUR_MS;
+
+    const last = await ctx.runQuery(internal.credits.notifications.getLastNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+
+    if (last) {
+      const notifiedAt = (last.customProperties as Record<string, unknown>)?.notifiedAt as number;
+      if (notifiedAt && Date.now() - notifiedAt < cooldown) return;
+    }
+
+    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+      organizationId: args.organizationId,
+    });
+
+    if (!settings || !settings.enabled) return;
+
+    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+      organizationId: args.organizationId,
+      title: "Message Delivery Failed",
+      message: `A ${args.channel} message to ${args.recipient.slice(0, 10)}... was abandoned after ${args.attempts} delivery attempts. Check your channel configuration.`,
+      priority: 0,
+    });
+
+    await ctx.runMutation(internal.credits.notifications.recordNotification, {
+      organizationId: args.organizationId,
+      reason,
+    });
+  },
+});
+
 // --- Internal Action: check percentage thresholds ---
 
 export const checkThresholds = internalAction({

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import {
   Play, Pause, Settings, Trash2, CheckCircle, XCircle,
-  Brain, Wrench, MessageSquare, Shield, BarChart3,
+  Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -18,6 +18,7 @@ import { AgentSoulEditor } from "./agent-soul-editor";
 import { AgentToolsConfig } from "./agent-tools-config";
 import { AgentSessionsViewer } from "./agent-sessions-viewer";
 import { AgentApprovalQueue } from "./agent-approval-queue";
+import { AgentEscalationQueue } from "./agent-escalation-queue";
 import { AgentAnalytics } from "./agent-analytics";
 
 interface AgentDetailPanelProps {
@@ -34,6 +35,7 @@ const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
   { id: "tools", label: "Tools", icon: <Wrench size={12} /> },
   { id: "sessions", label: "Sessions", icon: <MessageSquare size={12} /> },
   { id: "approvals", label: "Approvals", icon: <Shield size={12} /> },
+  { id: "escalations", label: "Escalations", icon: <AlertTriangle size={12} /> },
   { id: "analytics", label: "Analytics", icon: <BarChart3 size={12} /> },
 ];
 
@@ -188,6 +190,9 @@ export function AgentDetailPanel({
         )}
         {activeTab === "approvals" && (
           <AgentApprovalQueue agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
+        )}
+        {activeTab === "escalations" && (
+          <AgentEscalationQueue sessionId={sessionId} organizationId={organizationId} />
         )}
         {activeTab === "analytics" && (
           <AgentAnalytics agentId={agentId} sessionId={sessionId} organizationId={organizationId} />

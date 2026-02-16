@@ -12,6 +12,7 @@ import { GitHubSettings } from "./github-settings";
 import { VercelSettings } from "./vercel-settings";
 import { ApiKeysPanel } from "./api-keys-panel";
 import { ActiveCampaignSettings } from "./activecampaign-settings";
+import { TelegramSettings } from "./telegram-settings";
 import { GoogleSettings } from "./google-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
@@ -130,6 +131,17 @@ const BUILT_IN_INTEGRATIONS = [
     type: "builtin" as const,
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "telegram",
+    name: "Telegram",
+    description: "Bot messaging & team group chat",
+    icon: "fab fa-telegram-plane",
+    iconColor: "#0088cc",
+    status: "available" as const,
+    type: "builtin" as const,
+    // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
+    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "api-keys",
@@ -663,7 +675,7 @@ interface IntegrationsWindowProps {
 }
 
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [selectedIntegration, setSelectedIntegration] = useState<SelectedIntegration | null>(
     initialPanel === "api-keys" ? { type: "special", id: "api-keys" } :
@@ -705,6 +717,12 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   const microsoftConnection = useQuery(
     api.oauth.microsoft.getUserMicrosoftConnection,
     isSignedIn ? {} : "skip"
+  );
+
+  // Query Telegram integration status
+  const telegramStatus = useQuery(
+    api.integrations.telegram.getTelegramIntegrationStatus,
+    isSignedIn && sessionId ? { sessionId } : "skip"
   );
 
   // Loading state only when we have an org and are waiting for data
@@ -885,6 +903,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "activecampaign") {
       return <ActiveCampaignSettings onBack={handleBack} />;
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "telegram") {
+      return <TelegramSettings onBack={handleBack} />;
     }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "api-keys") {
       return <ApiKeysPanel onBack={handleBack} />;
@@ -1077,6 +1098,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                         isLocked
                           ? "locked"
                           : integration.id === "microsoft" && microsoftConnection?.status === "active"
+                          ? "connected"
+                          : integration.id === "telegram" && telegramStatus?.platformBot?.connected
                           ? "connected"
                           : integration.status
                       }

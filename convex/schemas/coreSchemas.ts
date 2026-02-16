@@ -77,8 +77,9 @@ export const organizations = defineTable({
   // Use getLicenseInternal() from convex/licensing/helpers.ts to check plan/limits/features
   plan: v.optional(v.union(
     v.literal("free"),
-    v.literal("starter"),
-    v.literal("professional"),
+    v.literal("pro"),
+    v.literal("starter"),       // Legacy - mapped to "pro" for new subscriptions
+    v.literal("professional"),  // Legacy - mapped to "pro" for new subscriptions
     v.literal("agency"),
     v.literal("enterprise")
   )),

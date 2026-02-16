@@ -19,34 +19,43 @@ import { BuilderPageTabs } from "./builder-page-tabs";
 import { BuilderChatPanel } from "./builder-chat-panel";
 import { BuilderPreviewPanel } from "./builder-preview-panel";
 
-export function BuilderLayout() {
+interface BuilderLayoutProps {
+  /** Hide the header bar (useful when embedded in a window) */
+  hideHeader?: boolean;
+}
+
+export function BuilderLayout({ hideHeader }: BuilderLayoutProps = {}) {
   const [isMobilePreviewOpen, setIsMobilePreviewOpen] = useState(false);
 
   return (
     <div className="h-full flex flex-col bg-zinc-900 overflow-hidden">
       {/* Header - fixed at top */}
-      <div className="flex-shrink-0">
-        <BuilderHeader
-          projectName="Untitled"
-          onProjectNameChange={(name) => {
-            // TODO: Update project name in backend
-            console.log("Project name changed:", name);
-          }}
-          onPublish={() => {
-            // TODO: Implement publish
-            console.log("Publish clicked");
-          }}
-          onShare={() => {
-            // TODO: Implement share
-            console.log("Share clicked");
-          }}
-        />
-      </div>
+      {!hideHeader && (
+        <div className="flex-shrink-0">
+          <BuilderHeader
+            projectName="Untitled"
+            onProjectNameChange={(name) => {
+              // TODO: Update project name in backend
+              console.log("Project name changed:", name);
+            }}
+            onPublish={() => {
+              // TODO: Implement publish
+              console.log("Publish clicked");
+            }}
+            onShare={() => {
+              // TODO: Implement share
+              console.log("Share clicked");
+            }}
+          />
+        </div>
+      )}
 
       {/* Page Tabs - shows all pages in the project */}
-      <div className="flex-shrink-0 hidden md:block">
-        <BuilderPageTabs />
-      </div>
+      {!hideHeader && (
+        <div className="flex-shrink-0 hidden md:block">
+          <BuilderPageTabs />
+        </div>
+      )}
 
       {/* Mobile Header - shows toggle between chat and preview */}
       <div className="flex-shrink-0 md:hidden flex items-center justify-between px-4 py-2 border-b border-zinc-700 bg-zinc-800">

@@ -125,10 +125,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     }}
                   >
                     <div className="py-1 flex">
-                      {/* Divide items into 2 columns dynamically (8 items each for 16 total) */}
+                      {/* Divide items into 3 columns dynamically */}
                       {(() => {
-                        const itemsPerColumn = Math.ceil(item.submenu!.length / 2);
-                        return [0, 1].map((colIndex) => (
+                        const itemsPerColumn = Math.ceil(item.submenu!.length / 3);
+                        return [0, 1, 2].map((colIndex) => (
                         <div key={colIndex} className="flex">
                           <div>
                             {item.submenu!.slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn).map((subitem, subindex) => (
@@ -157,7 +157,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                             ))}
                           </div>
                           {/* Column separator - only between columns, not after last */}
-                          {colIndex < 1 && (
+                          {colIndex < 2 && (
                             <div
                               className="w-[1px] mx-1 my-2"
                               style={{ background: 'var(--win95-border)' }}

@@ -23,6 +23,7 @@ import { sequencesToolDefinition } from "./sequencesTool";
 import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
 import { INTERVIEW_TOOLS } from "./interviewTools";
+import { tagInSpecialistTool, listTeamAgentsTool } from "./teamTools";
 import { api } from "../../_generated/api";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -62,6 +63,7 @@ export interface AITool {
   permissions?: string[];
   tutorialSteps?: string[]; // For placeholder tools
   windowName?: string; // Which window to open for this feature
+  readOnly?: boolean; // True for tools that only read data (used by draft_only autonomy)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   execute: (ctx: ToolExecutionContext, args: any) => Promise<unknown>;
 }
@@ -74,6 +76,7 @@ const requestFeatureTool: AITool = {
   name: "request_feature",
   description: "Send a feature request to the dev team. ONLY call this AFTER the user has explicitly confirmed they want to send a feature request (e.g., user says 'yes' or 'sure' or 'please do').",
   status: "ready",
+  readOnly: true,
   parameters: {
     type: "object",
     properties: {
@@ -126,6 +129,7 @@ const checkOAuthConnectionTool: AITool = {
   name: "check_oauth_connection",
   description: "Check if user has connected their Microsoft/Google OAuth account. CRITICAL: Always call this tool FIRST before suggesting OAuth-related actions like syncing contacts or sending emails. Returns connection status, available scopes, and connected email.",
   status: "ready",
+  readOnly: true,
   parameters: {
     type: "object" as const,
     properties: {
@@ -462,6 +466,7 @@ const searchContactsTool: AITool = {
   name: "search_contacts",
   description: "Search for contacts by name, email, or company",
   status: "ready",
+  readOnly: true,
   windowName: "CRM",
   parameters: {
     type: "object",
@@ -857,6 +862,7 @@ Example ticketTypes array:
 
 const listEventsTool: AITool = {
   name: "list_events",
+  readOnly: true,
   description: `Get a list of all events (upcoming or past).
 
 IMPORTANT: Use this tool BEFORE creating a new event to check if a similar event already exists.
@@ -1404,6 +1410,7 @@ const listFormsTool: AITool = {
   name: "list_forms",
   description: "Get a list of all forms",
   status: "ready",
+  readOnly: true,
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -1475,6 +1482,7 @@ const getFormResponsesTool: AITool = {
   name: "get_form_responses",
   description: "Retrieve submissions for a specific form",
   status: "ready",
+  readOnly: true,
   windowName: "Forms",
   parameters: {
     type: "object",
@@ -1747,6 +1755,7 @@ const listProductsTool: AITool = {
   name: "list_products",
   description: "Get a list of all products",
   status: "ready",
+  readOnly: true,
   windowName: "Products",
   parameters: {
     type: "object",
@@ -2312,6 +2321,7 @@ const listTicketsTool: AITool = {
   name: "list_tickets",
   description: "Get a list of all support tickets",
   status: "ready",
+  readOnly: true,
   windowName: "Tickets",
   parameters: {
     type: "object",
@@ -2474,6 +2484,7 @@ const enableWorkflowTool: AITool = {
  */
 const listWorkflowsTool: AITool = {
   name: "list_workflows",
+  readOnly: true,
   description: `List all workflows in the organization with their triggers and behaviors.
 
 Use this tool to:
@@ -2717,6 +2728,7 @@ const searchMediaTool: AITool = {
   name: "search_media",
   description: "Search for files in your media library",
   status: "ready",
+  readOnly: true,
   windowName: "Media",
   parameters: {
     type: "object",
@@ -3457,9 +3469,114 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Page Builder - Image Search
   search_unsplash_images: searchUnsplashImagesTool,
 
+  // Escalation — agent-initiated human handoff
+  escalate_to_human: {
+    name: "escalate_to_human",
+    description: "Escalate the current conversation to a human team member. Use when: the customer explicitly asks to speak with a person, you encounter a topic outside your expertise, the conversation involves a complaint or legal matter, or you've been unable to resolve the issue after multiple attempts. This notifies the team and puts the conversation on hold.",
+    status: "ready" as ToolStatus,
+    readOnly: true,
+    parameters: {
+      type: "object" as const,
+      properties: {
+        reason: {
+          type: "string",
+          description: "Why escalation is needed (e.g., 'Customer requested human contact', 'Complex billing dispute')",
+        },
+        urgency: {
+          type: "string",
+          enum: ["low", "normal", "high"],
+          description: "Urgency level: 'low' for general questions, 'normal' for explicit requests, 'high' for complaints/urgent issues",
+        },
+        context_summary: {
+          type: "string",
+          description: "Brief summary of the conversation so far for the human team member",
+        },
+      },
+      required: ["reason", "urgency", "context_summary"],
+    },
+    execute: async (ctx, args) => {
+      if (!ctx.agentSessionId || !ctx.agentId) {
+        return { error: "Escalation only available in agent sessions" };
+      }
+
+      // Lazy-load internal API to avoid TS2589
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { internal: internalApi } = require("../../_generated/api") as { internal: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      // Create escalation record on session
+      await ctx.runMutation(internalApi.ai.escalation.createEscalation, {
+        sessionId: ctx.agentSessionId,
+        agentId: ctx.agentId,
+        organizationId: ctx.organizationId,
+        reason: args.reason,
+        urgency: args.urgency || "normal",
+        triggerType: "agent_initiated",
+      });
+
+      // Load agent name for notifications
+      const agent = await ctx.runQuery(internalApi.agentOntology.getAgentInternal, {
+        agentId: ctx.agentId,
+      });
+      const agentName = (agent?.customProperties as any)?.displayName // eslint-disable-line @typescript-eslint/no-explicit-any
+        || agent?.name
+        || "Agent";
+
+      // Fire notification pipeline (fire-and-forget)
+      ctx.scheduler.runAfter(0, internalApi.ai.escalation.notifyEscalationTelegram, {
+        sessionId: ctx.agentSessionId,
+        organizationId: ctx.organizationId,
+        agentName,
+        reason: args.reason,
+        urgency: args.urgency || "normal",
+        contactIdentifier: ctx.contactId || "Unknown",
+        channel: ctx.channel || "unknown",
+        lastMessage: args.context_summary,
+      });
+
+      ctx.scheduler.runAfter(0, internalApi.ai.escalation.notifyEscalationPushover, {
+        organizationId: ctx.organizationId,
+        agentName,
+        reason: args.reason,
+        urgency: args.urgency || "normal",
+        contactIdentifier: ctx.contactId || "Unknown",
+        channel: ctx.channel || "unknown",
+      });
+
+      ctx.scheduler.runAfter(0, internalApi.ai.escalation.notifyEscalationEmail, {
+        organizationId: ctx.organizationId,
+        agentName,
+        reason: args.reason,
+        urgency: args.urgency || "normal",
+        contactIdentifier: ctx.contactId || "Unknown",
+        channel: ctx.channel || "unknown",
+        lastMessage: args.context_summary,
+      });
+
+      return {
+        success: true,
+        message: "Escalation created. The team has been notified via Telegram, Pushover, and email. Please inform the customer that a team member will be with them shortly.",
+      };
+    },
+  },
+
+  // Team Coordination Tools (Agent-to-Agent Handoffs)
+  tag_in_specialist: tagInSpecialistTool,
+  list_team_agents: listTeamAgentsTool,
+
   // Interview Tools (Guided Session Mode)
   ...INTERVIEW_TOOLS,
 };
+
+/**
+ * Get all tool definitions with readOnly metadata.
+ * Used by the layered tool scoping resolver.
+ */
+export function getAllToolDefinitions(): Array<{ name: string; readOnly?: boolean }> {
+  return Object.values(TOOL_REGISTRY).map(tool => ({
+    name: tool.name,
+    readOnly: tool.readOnly,
+  }));
+}
 
 /**
  * Get tools grouped by status

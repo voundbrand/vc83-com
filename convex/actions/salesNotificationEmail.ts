@@ -29,7 +29,11 @@ export const sendSalesNotification = internalAction({
       v.literal("free_signup"),
       v.literal("beta_approved"),
       v.literal("starter_upgrade"),
-      v.literal("platform_tier_upgrade"), // Generic tier upgrade (starter, professional, agency, enterprise)
+      v.literal("platform_tier_upgrade"),
+      v.literal("credit_purchase"),
+      v.literal("platform_tier_downgrade"),
+      v.literal("subscription_canceled"),
+      v.literal("pending_change_reverted"),
       v.literal("build_sprint_app"),
       v.literal("milestone_reached")
     ),
@@ -47,7 +51,7 @@ export const sendSalesNotification = internalAction({
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const salesEmail = process.env.SALES_EMAIL || "remington@l4yercak3.com";
+    const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
 
     const emailContent = generateSalesNotificationEmail(args);
 
@@ -539,6 +543,211 @@ function generateSalesNotificationEmail(args: {
 </html>
       `.trim();
       break;
+
+    case "credit_purchase": {
+      const creditAmount = metadata?.amountEur || 0;
+      const creditCount = metadata?.credits || 0;
+      subject = `💰 Credits Purchased: ${organization.name} — ${creditCount.toLocaleString()} credits (€${creditAmount})`;
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2A2A2A; background-color: #F3F4F6; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #FFFFFF; border: 3px solid #f59e0b; box-shadow: 8px 8px 0px rgba(0,0,0,0.2); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); padding: 30px; text-align: center; border-bottom: 3px solid #f59e0b; }
+    .header h1 { font-family: 'Courier New', monospace; font-size: 20px; color: #FFFFFF; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.3); }
+    .content { padding: 40px 30px; }
+    .info-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; }
+    .metric { font-size: 28px; font-weight: bold; color: #f59e0b; margin-bottom: 15px; }
+    .footer { background-color: #F9FAFB; padding: 20px 30px; text-align: center; border-top: 3px solid #f59e0b; font-size: 14px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>💰 Credit Purchase</h1></div>
+    <div class="content">
+      <h2 style="color: #f59e0b;">Credits Purchased!</h2>
+      <div class="info-box">
+        <p class="metric">+€${creditAmount} Revenue</p>
+        <p><strong>Credits:</strong> ${creditCount.toLocaleString()}</p>
+        <p><strong>Customer:</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>Organization:</strong> ${organization.name}</p>
+        <p><strong>Plan:</strong> ${organization.planTier}</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+      </div>
+      <h2>📊 Next Steps</h2>
+      <ul>
+        <li>One-time revenue: <strong>€${creditAmount}</strong></li>
+        <li>Monitor credit usage patterns</li>
+        <li>Consider upgrade opportunity if credits usage is high</li>
+      </ul>
+    </div>
+    <div class="footer"><p>L4YERCAK3 Sales Notification</p></div>
+  </div>
+</body>
+</html>
+      `.trim();
+      break;
+    }
+
+    case "platform_tier_downgrade": {
+      const fromTier = metadata?.fromTier || "agency";
+      const toTier = metadata?.toTier || "pro";
+      const fromName = fromTier.charAt(0).toUpperCase() + fromTier.slice(1);
+      const toName = toTier.charAt(0).toUpperCase() + toTier.slice(1);
+      const effectiveDate = metadata?.effectiveDate ? new Date(metadata.effectiveDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "next billing date";
+      subject = `⚠️ Downgrade Alert: ${organization.name} ${fromName} → ${toName}`;
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2A2A2A; background-color: #F3F4F6; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #FFFFFF; border: 3px solid #eab308; box-shadow: 8px 8px 0px rgba(0,0,0,0.2); }
+    .header { background: linear-gradient(135deg, #eab308 0%, #facc15 100%); padding: 30px; text-align: center; border-bottom: 3px solid #eab308; }
+    .header h1 { font-family: 'Courier New', monospace; font-size: 20px; color: #FFFFFF; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.3); }
+    .content { padding: 40px 30px; }
+    .info-box { background: #fefce8; border-left: 4px solid #eab308; padding: 20px; margin: 20px 0; }
+    .metric { font-size: 28px; font-weight: bold; color: #eab308; margin-bottom: 15px; }
+    .footer { background-color: #F9FAFB; padding: 20px 30px; text-align: center; border-top: 3px solid #eab308; font-size: 14px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>⚠️ Downgrade Alert</h1></div>
+    <div class="content">
+      <h2 style="color: #eab308;">Plan Downgrade Scheduled</h2>
+      <div class="info-box">
+        <p class="metric">${fromName} → ${toName}</p>
+        <p><strong>Customer:</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>Organization:</strong> ${organization.name}</p>
+        <p><strong>Effective Date:</strong> ${effectiveDate}</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+      </div>
+      <h2>🎯 Retention Actions</h2>
+      <ul>
+        <li><strong>Reach out within 24 hours</strong></li>
+        <li>Ask about their experience and reasons for downgrading</li>
+        <li>Offer personalized onboarding for underused features</li>
+        <li>Consider a retention offer if appropriate</li>
+      </ul>
+    </div>
+    <div class="footer"><p>L4YERCAK3 Sales Notification</p></div>
+  </div>
+</body>
+</html>
+      `.trim();
+      break;
+    }
+
+    case "subscription_canceled": {
+      const cancelTier = metadata?.tier || organization.planTier || "pro";
+      const cancelTierName = cancelTier.charAt(0).toUpperCase() + cancelTier.slice(1);
+      const cancelDate = metadata?.effectiveDate ? new Date(metadata.effectiveDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "next billing date";
+      subject = `🚨 Cancellation Alert: ${organization.name} canceling ${cancelTierName}`;
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2A2A2A; background-color: #F3F4F6; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #FFFFFF; border: 3px solid #dc2626; box-shadow: 8px 8px 0px rgba(0,0,0,0.2); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 30px; text-align: center; border-bottom: 3px solid #dc2626; }
+    .header h1 { font-family: 'Courier New', monospace; font-size: 20px; color: #FFFFFF; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.3); }
+    .content { padding: 40px 30px; }
+    .info-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0; }
+    .metric { font-size: 28px; font-weight: bold; color: #dc2626; margin-bottom: 15px; }
+    .footer { background-color: #F9FAFB; padding: 20px 30px; text-align: center; border-top: 3px solid #dc2626; font-size: 14px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>🚨 Cancellation Alert</h1></div>
+    <div class="content">
+      <h2 style="color: #dc2626;">Subscription Canceled</h2>
+      <div class="info-box">
+        <p class="metric">Churn Risk: ${cancelTierName}</p>
+        <p><strong>Customer:</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>Organization:</strong> ${organization.name}</p>
+        <p><strong>Plan:</strong> ${cancelTierName}</p>
+        <p><strong>Cancellation Date:</strong> ${cancelDate}</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+      </div>
+      <h2>🎯 Win-Back Actions</h2>
+      <ul>
+        <li><strong>Reach out immediately</strong> — they can still revert</li>
+        <li>Understand the reason for cancellation</li>
+        <li>Offer a personalized retention deal if applicable</li>
+        <li>Document feedback for product improvements</li>
+      </ul>
+    </div>
+    <div class="footer"><p>L4YERCAK3 Sales Notification</p></div>
+  </div>
+</body>
+</html>
+      `.trim();
+      break;
+    }
+
+    case "pending_change_reverted": {
+      const keptTier = metadata?.tier || organization.planTier || "pro";
+      const keptTierName = keptTier.charAt(0).toUpperCase() + keptTier.slice(1);
+      subject = `✅ Win-back: ${organization.name} kept ${keptTierName}`;
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #2A2A2A; background-color: #F3F4F6; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #FFFFFF; border: 3px solid #10b981; box-shadow: 8px 8px 0px rgba(0,0,0,0.2); }
+    .header { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center; border-bottom: 3px solid #10b981; }
+    .header h1 { font-family: 'Courier New', monospace; font-size: 20px; color: #FFFFFF; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.3); }
+    .content { padding: 40px 30px; }
+    .info-box { background: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; }
+    .metric { font-size: 28px; font-weight: bold; color: #10b981; margin-bottom: 15px; }
+    .footer { background-color: #F9FAFB; padding: 20px 30px; text-align: center; border-top: 3px solid #10b981; font-size: 14px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>✅ Retention Win</h1></div>
+    <div class="content">
+      <h2 style="color: #10b981;">Customer Retained!</h2>
+      <div class="info-box">
+        <p class="metric">Kept ${keptTierName} 🎉</p>
+        <p><strong>Customer:</strong> ${user.firstName} ${user.lastName}</p>
+        <p><strong>Email:</strong> ${user.email}</p>
+        <p><strong>Organization:</strong> ${organization.name}</p>
+        <p><strong>Plan:</strong> ${keptTierName}</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+      </div>
+      <h2>📊 Next Steps</h2>
+      <ul>
+        <li>Customer reverted their pending change — they're staying!</li>
+        <li>Follow up to ensure satisfaction</li>
+        <li>Monitor usage to prevent future churn risk</li>
+      </ul>
+      <p><strong>Great news — celebrate this retention win! 🎉</strong></p>
+    </div>
+    <div class="footer"><p>L4YERCAK3 Sales Notification</p></div>
+  </div>
+</body>
+</html>
+      `.trim();
+      break;
+    }
 
     case "milestone_reached":
       const milestone = metadata?.milestoneName || "Unknown Milestone";

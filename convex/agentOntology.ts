@@ -25,6 +25,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
+import { SUBTYPE_DEFAULT_PROFILES } from "./ai/toolScoping";
 
 // ============================================================================
 // AGENT QUERIES
@@ -116,6 +117,7 @@ export const getActiveAgentForOrg = internalQuery({
       )
       .collect();
 
+    // Filter to active agents, excluding templates (which should never receive messages)
     const activeAgents = agents.filter((a) => a.status === "active");
 
     if (args.channel) {
@@ -132,6 +134,22 @@ export const getActiveAgentForOrg = internalQuery({
     return activeAgents[0] ?? null;
   },
 });
+
+// ============================================================================
+// PROTECTION HELPERS
+// ============================================================================
+
+/**
+ * Throws if the agent is a protected system agent.
+ * Protected agents (e.g. Quinn template) cannot be modified via user mutations.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function enforceNotProtected(agent: { customProperties?: Record<string, any> }) {
+  const props = agent.customProperties as Record<string, unknown> | undefined;
+  if (props?.protected) {
+    throw new Error("Cannot modify protected system agent");
+  }
+}
 
 // ============================================================================
 // AGENT MUTATIONS
@@ -161,6 +179,7 @@ export const createAgent = mutation({
     }))),
     knowledgeBaseTags: v.optional(v.array(v.string())),
     // Tool Access
+    toolProfile: v.optional(v.string()),
     enabledTools: v.optional(v.array(v.string())),
     disabledTools: v.optional(v.array(v.string())),
     // Autonomy & Guardrails
@@ -183,6 +202,8 @@ export const createAgent = mutation({
       channel: v.string(),
       enabled: v.boolean(),
     }))),
+    // Escalation Policy (per-agent HITL configuration)
+    escalationPolicy: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
@@ -208,6 +229,7 @@ export const createAgent = mutation({
         systemPrompt: args.systemPrompt,
         faqEntries: args.faqEntries || [],
         knowledgeBaseTags: args.knowledgeBaseTags || [],
+        toolProfile: args.toolProfile || SUBTYPE_DEFAULT_PROFILES[args.subtype] || "general",
         enabledTools: args.enabledTools || [],
         disabledTools: args.disabledTools || [],
         autonomyLevel: args.autonomyLevel,
@@ -220,6 +242,8 @@ export const createAgent = mutation({
         temperature: args.temperature ?? 0.7,
         maxTokens: args.maxTokens || 4096,
         channelBindings: args.channelBindings || [],
+        // Escalation policy (per-agent HITL configuration)
+        ...(args.escalationPolicy ? { escalationPolicy: args.escalationPolicy } : {}),
         // Stats (populated at runtime)
         totalMessages: 0,
         totalCostUsd: 0,
@@ -268,6 +292,7 @@ export const updateAgent = mutation({
         a: v.string(),
       }))),
       knowledgeBaseTags: v.optional(v.array(v.string())),
+      toolProfile: v.optional(v.string()),
       enabledTools: v.optional(v.array(v.string())),
       disabledTools: v.optional(v.array(v.string())),
       autonomyLevel: v.optional(v.union(
@@ -287,6 +312,8 @@ export const updateAgent = mutation({
         channel: v.string(),
         enabled: v.boolean(),
       }))),
+      // Escalation Policy (per-agent HITL configuration)
+      escalationPolicy: v.optional(v.any()),
     }),
   },
   handler: async (ctx, args) => {
@@ -301,6 +328,8 @@ export const updateAgent = mutation({
     if (!agent || agent.type !== "org_agent") {
       throw new Error("Agent not found");
     }
+
+    enforceNotProtected(agent);
 
     await ctx.db.patch(args.agentId, {
       name: args.updates.name || agent.name,
@@ -347,6 +376,8 @@ export const activateAgent = mutation({
       throw new Error("Agent not found");
     }
 
+    enforceNotProtected(agent);
+
     await ctx.db.patch(args.agentId, {
       status: "active",
       updatedAt: Date.now(),
@@ -384,6 +415,8 @@ export const pauseAgent = mutation({
     if (!agent || agent.type !== "org_agent") {
       throw new Error("Agent not found");
     }
+
+    enforceNotProtected(agent);
 
     await ctx.db.patch(args.agentId, {
       status: "paused",
@@ -423,6 +456,8 @@ export const deleteAgent = mutation({
       throw new Error("Agent not found");
     }
 
+    enforceNotProtected(agent);
+
     // Log deletion before deleting
     await ctx.db.insert("objectActions", {
       organizationId: agent.organizationId,
@@ -452,5 +487,73 @@ export const deleteAgent = mutation({
     }
 
     await ctx.db.delete(args.agentId);
+  },
+});
+
+/**
+ * INTERNAL: Get all active agents for an organization (for team tool roster)
+ */
+export const getAllActiveAgentsForOrg = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const agents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+      )
+      .collect();
+
+    return agents.filter((a) => a.status === "active");
+  },
+});
+
+// ============================================================================
+// WORKER POOL QUERIES
+// ============================================================================
+
+/**
+ * INTERNAL: Get the template agent for an organization (status="template", protected=true).
+ * Used by the worker pool to clone new workers.
+ */
+export const getTemplateAgent = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const agents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+      )
+      .collect();
+
+    return agents.find((a) => {
+      const props = a.customProperties as Record<string, unknown> | undefined;
+      return props?.protected === true && a.status === "template";
+    }) ?? null;
+  },
+});
+
+/**
+ * INTERNAL: Get all active workers for an organization (agents cloned from a template).
+ */
+export const getActiveWorkers = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const agents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+      )
+      .collect();
+
+    return agents.filter((a) => {
+      const props = a.customProperties as Record<string, unknown> | undefined;
+      return a.status === "active" && props?.templateAgentId !== undefined;
+    });
   },
 });

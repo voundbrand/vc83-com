@@ -160,14 +160,30 @@ export function TerminalWindow() {
   }
 
   const isLayerMode = scope === "layer" && hasSubOrgs;
+  const isLive = feedResult !== undefined;
 
   return (
     <div className="flex flex-col h-full bg-black text-xs font-mono select-text">
+      <style>{`@keyframes pulse-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800 text-neutral-400">
         <div className="flex items-center gap-2">
           <span className="text-green-500">$</span>
           <span>terminal — {currentOrg.name || "org"}</span>
+          {/* Live indicator */}
+          <span className="flex items-center gap-1 ml-1">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: isLive ? "#22c55e" : "#6b7280",
+                boxShadow: isLive ? "0 0 4px #22c55e" : "none",
+                animation: isLive ? "pulse-live 2s ease-in-out infinite" : "none",
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: isLive ? "#22c55e" : "#6b7280" }}>
+              {isLive ? "live" : "..."}
+            </span>
+          </span>
           {/* Scope toggle — only visible when sub-orgs exist */}
           {hasSubOrgs && (
             <div className="flex items-center gap-0.5 ml-2">

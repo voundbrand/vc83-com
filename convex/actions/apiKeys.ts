@@ -55,8 +55,9 @@ export const generateApiKey = action({
     warning: string;
   }> => {
     // 1. Verify session
-    // @ts-expect-error - TS2589: Deep type instantiation in Convex generated types
-    const session = await ctx.runQuery(internal.apiKeysInternal.verifySession, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // @ts-ignore
+    const session = await ctx.runQuery((internal.apiKeysInternal as any).verifySession, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
     });

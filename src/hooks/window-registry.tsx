@@ -155,6 +155,10 @@ const CheckoutFailedWindow = lazy(() =>
   import("@/components/window-content/checkout-failed-window").then(m => ({ default: m.CheckoutFailedWindow }))
 );
 
+const PurchaseResultWindow = lazy(() =>
+  import("@/components/window-content/purchase-result-window").then(m => ({ default: m.PurchaseResultWindow }))
+);
+
 const QuickStartICPSelector = lazy(() =>
   import("@/components/quick-start").then(m => ({ default: m.QuickStartICPSelector }))
 );
@@ -175,12 +179,28 @@ const BuilderBrowserWindow = lazy(() =>
   import("@/components/window-content/builder-browser-window").then(m => ({ default: m.BuilderBrowserWindow }))
 );
 
+const AgentsWindow = lazy(() =>
+  import("@/components/window-content/agents-window").then(m => ({ default: m.AgentsWindow }))
+);
+
+const LayersBrowserWindow = lazy(() =>
+  import("@/components/window-content/layers-browser-window").then(m => ({ default: m.LayersBrowserWindow }))
+);
+
 const BrainWindow = lazy(() =>
   import("@/components/window-content/brain-window").then(m => ({ default: m.BrainWindow }))
 );
 
 const FinderWindow = lazy(() =>
   import("@/components/window-content/finder-window").then(m => ({ default: m.FinderWindow }))
+);
+
+const TerminalWindow = lazy(() =>
+  import("@/components/window-content/terminal-window").then(m => ({ default: m.TerminalWindow }))
+);
+
+const FeedbackWindow = lazy(() =>
+  import("@/components/window-content/feedback-window").then(m => ({ default: m.FeedbackWindow }))
 );
 
 
@@ -237,7 +257,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Settings",
       titleKey: "ui.windows.settings.title",
-      icon: "⚙️",
+      icon: "🔧",
       position: { x: 200, y: 150 },
       size: { width: 900, height: 600 }
     }
@@ -259,7 +279,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Store",
       titleKey: "ui.windows.store.title",
-      icon: "🛍️",
+      icon: "🏪",
       position: { x: 150, y: 100 },
       size: { width: 1200, height: 700 }
     }
@@ -270,7 +290,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Compliance",
       titleKey: "ui.windows.compliance.title",
-      icon: "📋",
+      icon: "⚖️",
       position: { x: 150, y: 100 },
       size: { width: 900, height: 600 }
     }
@@ -281,7 +301,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Translations",
       titleKey: "ui.windows.translations.title",
-      icon: "🌐",
+      icon: "🌍",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }
@@ -336,7 +356,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Media Library",
       titleKey: "ui.windows.media_library.title",
-      icon: "📁",
+      icon: "🖼️",
       position: { x: 150, y: 100 },
       size: { width: 1200, height: 700 }
     }
@@ -402,7 +422,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Checkout",
       titleKey: "ui.windows.checkout.title",
-      icon: "💰",
+      icon: "🛍️",
       position: { x: 200, y: 150 },
       size: { width: 800, height: 600 }
     }
@@ -435,7 +455,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Invoicing",
       titleKey: "ui.windows.invoicing.title",
-      icon: "📄",
+      icon: "🧾",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }
@@ -446,7 +466,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Workflows",
       titleKey: "ui.windows.workflows.title",
-      icon: "⚙️",
+      icon: "⚡",
       position: { x: 150, y: 100 },
       size: { width: 1000, height: 700 }
     }
@@ -457,7 +477,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Templates",
       titleKey: "ui.windows.templates.title",
-      icon: "📋",
+      icon: "📑",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }
@@ -525,7 +545,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Checkout Manager",
       titleKey: "ui.app.checkout",
-      icon: "🛒",
+      icon: "🛍️",
       position: { x: 200, y: 50 },
       size: { width: 900, height: 650 }
     }
@@ -562,13 +582,23 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     }
   },
 
+  "purchase-result": {
+    createComponent: (props) => <PurchaseResultWindow {...(props as unknown as import("@/components/window-content/purchase-result-window").PurchaseResultWindowProps)} />,
+    defaultConfig: {
+      title: "Purchase Result",
+      icon: "🏷️",
+      position: { x: 400, y: 100 },
+      size: { width: 600, height: 650 }
+    }
+  },
+
   "tutorial-welcome": {
     createComponent: (props) => {
       // Note: onAction and onClose callbacks cannot be serialized in sessionStorage
       // They will be lost on page refresh. Tutorial should be re-triggered on refresh.
       const typedProps = props as { onAction?: () => void; onClose?: () => void } | undefined;
       const onAction = typedProps?.onAction;
-      const onClose = typedProps?.onClose || (() => {});
+      const onClose = typedProps?.onClose || (() => { });
       return <TutorialWindow tutorialId="welcome" onClose={onClose} onAction={onAction} />;
     },
     defaultConfig: {
@@ -613,7 +643,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Booking",
       titleKey: "ui.windows.booking.title",
-      icon: "📅",
+      icon: "📆",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }
@@ -624,7 +654,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "AI System",
       titleKey: "ui.windows.ai_system.title",
-      icon: "🧠",
+      icon: "🧬",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
     }
@@ -634,8 +664,28 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     createComponent: (props) => <BuilderBrowserWindow initialSetupMode={props?.initialSetupMode as boolean | undefined} />,
     defaultConfig: {
       title: "AI Builder",
-      icon: "🌐",
+      icon: "🏗️",
       position: { x: 80, y: 40 },
+      size: { width: 1100, height: 750 }
+    }
+  },
+
+  "agents-browser": {
+    createComponent: () => <AgentsWindow />,
+    defaultConfig: {
+      title: "AI Agents",
+      icon: "🕵️",
+      position: { x: 100, y: 50 },
+      size: { width: 1100, height: 750 }
+    }
+  },
+
+  "layers-browser": {
+    createComponent: () => <LayersBrowserWindow />,
+    defaultConfig: {
+      title: "Layers",
+      icon: "🔀",
+      position: { x: 120, y: 60 },
       size: { width: 1100, height: 750 }
     }
   },
@@ -656,9 +706,29 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     defaultConfig: {
       title: "Finder",
       titleKey: "ui.windows.finder.title",
-      icon: "📁",
+      icon: "🔍",
       position: { x: 100, y: 60 },
       size: { width: 1200, height: 800 }
+    }
+  },
+
+  "terminal": {
+    createComponent: () => <TerminalWindow />,
+    defaultConfig: {
+      title: "Terminal",
+      icon: "💻",
+      position: { x: 120, y: 80 },
+      size: { width: 900, height: 550 }
+    }
+  },
+
+  "feedback": {
+    createComponent: () => <FeedbackWindow />,
+    defaultConfig: {
+      title: "Feedback",
+      icon: "💬",
+      position: { x: 250, y: 100 },
+      size: { width: 500, height: 550 }
     }
   }
 };

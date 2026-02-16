@@ -16,6 +16,7 @@
 import { query, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { getProvider } from "./registry";
+import { withRetry, CHANNEL_RETRY_POLICIES } from "../ai/retryPolicy";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { internal: internalApi } = require("../_generated/api") as {
@@ -199,7 +200,7 @@ export const sendMessage = internalAction({
       }
     ) as Record<string, unknown> | null;
 
-    // Platform SMS fallback: if no binding exists for SMS, use platform Infobip
+    // Platform fallbacks when no per-org binding exists
     let providerId: ProviderId;
     if (!binding) {
       if (
@@ -209,6 +210,12 @@ export const sendMessage = internalAction({
         process.env.INFOBIP_SMS_SENDER_ID
       ) {
         providerId = "infobip";
+      } else if (
+        args.channel === "telegram" &&
+        process.env.TELEGRAM_BOT_TOKEN
+      ) {
+        // Platform bot fallback — telegramProvider.sendMessage reads TELEGRAM_BOT_TOKEN from env
+        providerId = "telegram";
       } else {
         return {
           success: false,
@@ -291,7 +298,7 @@ export const sendMessage = internalAction({
       }
     }
 
-    // 4. Send through provider
+    // 4. Send through provider with retry
     const message: OutboundMessage = {
       channel: args.channel as ChannelType,
       recipientIdentifier: args.recipientIdentifier,
@@ -303,7 +310,54 @@ export const sendMessage = internalAction({
       },
     };
 
-    const result = await provider.sendMessage(credentials, message);
+    const retryPolicy = CHANNEL_RETRY_POLICIES[args.channel] || CHANNEL_RETRY_POLICIES.telegram;
+    let result: SendResult;
+
+    try {
+      const retryResult = await withRetry(
+        async () => {
+          const sendResult = await provider.sendMessage(credentials, message);
+          if (!sendResult.success) {
+            throw new Error(sendResult.error || "Send returned failure");
+          }
+          return sendResult;
+        },
+        retryPolicy
+      );
+      result = retryResult.result;
+
+      if (retryResult.attempts > 1) {
+        console.warn(
+          `[Router] ${args.channel} send succeeded on attempt ${retryResult.attempts}`
+        );
+      }
+    } catch (e) {
+      // All retries exhausted — check if it's a markdown formatting issue
+      if (isMarkdownParseError(e)) {
+        try {
+          const plainResult = await provider.sendMessage(credentials, {
+            ...message,
+            content: stripMarkdown(message.content),
+            contentHtml: undefined,
+          });
+          if (plainResult.success) {
+            result = plainResult;
+          } else {
+            result = { success: false, error: plainResult.error || "Plain text fallback also failed" };
+          }
+        } catch {
+          result = {
+            success: false,
+            error: `All retries + plain text fallback failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
+        }
+      } else {
+        result = {
+          success: false,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    }
 
     // 5. Deduct credits for platform SMS (per-org enterprise pays Infobip directly)
     if (isPlatformSms && result.success) {
@@ -331,6 +385,43 @@ export const sendMessage = internalAction({
  * Get all configured channel bindings for an org.
  * Used by the agent config UI to show which channels have providers.
  */
+// ============================================================================
+// ERROR HELPERS
+// ============================================================================
+
+/**
+ * Detect if an error is a markdown/formatting parse error from a provider.
+ * Some providers reject messages with unsupported markdown syntax.
+ */
+function isMarkdownParseError(error: unknown): boolean {
+  const message = String((error as Error)?.message || error || "").toLowerCase();
+  return (
+    message.includes("parse") ||
+    message.includes("markdown") ||
+    message.includes("formatting") ||
+    message.includes("bad request: can't parse")
+  );
+}
+
+/**
+ * Strip markdown formatting to plain text as a delivery fallback.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")  // bold
+    .replace(/\*(.*?)\*/g, "$1")       // italic
+    .replace(/__(.*?)__/g, "$1")       // bold alt
+    .replace(/_(.*?)_/g, "$1")         // italic alt
+    .replace(/~~(.*?)~~/g, "$1")       // strikethrough
+    .replace(/`{3}[\s\S]*?`{3}/g, "")  // code blocks
+    .replace(/`(.*?)`/g, "$1")         // inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
+    .replace(/^#{1,6}\s+/gm, "")       // headings
+    .replace(/^[-*+]\s+/gm, "- ")      // list items
+    .replace(/^\d+\.\s+/gm, "")        // numbered lists
+    .trim();
+}
+
 export const getConfiguredChannels = query({
   args: {
     organizationId: v.id("organizations"),

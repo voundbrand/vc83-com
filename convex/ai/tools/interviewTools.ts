@@ -173,6 +173,7 @@ export const requestClarificationTool: AITool = {
 
 export const getInterviewProgressTool: AITool = {
   name: "get_interview_progress",
+  readOnly: true,
   description: "Get the current progress of the interview, including completed phases, current position, and estimated time remaining.",
   parameters: {
     type: "object",
@@ -214,6 +215,7 @@ export const getInterviewProgressTool: AITool = {
 
 export const getExtractedDataTool: AITool = {
   name: "get_extracted_data",
+  readOnly: true,
   description: "Get all data extracted so far in the current interview. Use to review what information has been collected and identify gaps.",
   parameters: {
     type: "object",

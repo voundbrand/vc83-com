@@ -29,10 +29,11 @@ export function useNamespaceTranslations(namespace: string) {
   const { locale } = useTranslation();
 
   // Load translations for this namespace
-  const translationsMap = useQuery(
-    api.ontologyTranslations.getTranslationsByNamespace,
-    { locale, namespace }
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Deep type instantiation in Convex generated types
+  const getTranslations = (api as any).ontologyTranslations.getTranslationsByNamespace;
+  const translationsMap = useQuery(getTranslations, { locale, namespace });
 
   // Translation function
   const t = (key: string, params?: Record<string, string | number>): string => {

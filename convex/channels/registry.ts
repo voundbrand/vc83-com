@@ -11,6 +11,7 @@ import { chatwootProvider } from "./providers/chatwoot";
 import { manychatProvider } from "./providers/manychatAdapter";
 import { whatsappProvider } from "./providers/whatsappProvider";
 import { infobipProvider } from "./providers/infobipProvider";
+import { telegramProvider } from "./providers/telegramProvider";
 
 const PROVIDER_REGISTRY: Record<string, ChannelProvider> = {};
 
@@ -23,6 +24,7 @@ registerProvider(chatwootProvider);
 registerProvider(manychatProvider);
 registerProvider(whatsappProvider);
 registerProvider(infobipProvider);
+registerProvider(telegramProvider);
 
 export function getProvider(id: ProviderId): ChannelProvider | null {
   return PROVIDER_REGISTRY[id] ?? null;

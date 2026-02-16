@@ -57,6 +57,11 @@ export default function BuilderWorkspacePage({
     isSlug ? { slug: projectId } : "skip"
   );
 
+  // Detect embedded mode (loaded inside an iframe, e.g. desktop window)
+  const [isEmbedded] = useState(() =>
+    typeof window !== "undefined" && window.self !== window.top
+  );
+
   // Check for pending conversation ID from sessionStorage
   const [initialConversationId, setInitialConversationId] = useState<Id<"aiConversations"> | undefined>(undefined);
   const [resolvedFromSlug, setResolvedFromSlug] = useState(false);
@@ -163,7 +168,7 @@ export default function BuilderWorkspacePage({
       initialConversationId={effectiveInitialConversationId}
       onConversationCreated={handleConversationCreated}
     >
-      <BuilderLayout />
+      <BuilderLayout hideHeader={isEmbedded} />
     </BuilderProvider>
   );
 }

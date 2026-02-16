@@ -47,6 +47,7 @@ export const sendTrialStartedEmail = internalAction({
 
     await resend.emails.send({
       from: fromEmail,
+      replyTo: "support@l4yercak3.com",
       to: email,
       subject: `Your 14-day Agency trial is active — welcome, ${firstName}!`,
       html: `
@@ -116,6 +117,7 @@ export const sendTrialReminderEmail = internalAction({
 
     await resend.emails.send({
       from: fromEmail,
+      replyTo: "support@l4yercak3.com",
       to: email,
       subject: `Your Agency trial ends in 2 days — ${org?.name || "action required"}`,
       html: `
@@ -173,6 +175,7 @@ export const sendTrialConvertedEmail = internalAction({
 
     await resend.emails.send({
       from: fromEmail,
+      replyTo: "support@l4yercak3.com",
       to: email,
       subject: `Welcome to Agency — you're all set, ${firstName}!`,
       html: `

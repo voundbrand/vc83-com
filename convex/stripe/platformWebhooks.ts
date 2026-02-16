@@ -5,15 +5,14 @@
  * This is separate from AI subscription webhooks (tokens) and Stripe Connect webhooks (payment processing).
  *
  * IMPORTANT: This handles platform-level tier changes:
- * - Free → Starter → Professional → Agency → Enterprise
+ * - Free → Pro (€29/mo) → Agency (€299/mo) → Enterprise (custom)
  * - Updates organization.plan based on Stripe subscription metadata
+ * - Legacy tiers (starter, professional, community) are mapped to current tiers
  *
  * Events handled:
  * - customer.subscription.created - New platform subscription
  * - customer.subscription.updated - Tier change (upgrade/downgrade)
  * - customer.subscription.deleted - Subscription cancellation (revert to Free)
- *
- * @see .kiro/templates_and_free_users/IMPLEMENTATION-PLAN.md Phase 0.4
  */
 
 import { internalAction, internalMutation, internalQuery, ActionCtx } from "../_generated/server";
@@ -39,6 +38,7 @@ interface StripeCheckoutSession {
     tax_ids?: Array<{ type: string; value: string }>;
   };
   subscription?: string;
+  payment_intent?: string;
   amount_total?: number;
   currency?: string;
 }
@@ -62,16 +62,6 @@ interface StripeSubscription {
   };
 }
 
-interface OrganizationMember {
-  isActive: boolean;
-  user?: {
-    _id: Id<"users">;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  } | null;
-}
-
 /**
  * TIER METADATA MAPPING
  *
@@ -80,10 +70,14 @@ interface OrganizationMember {
  *
  * @see .kiro/platform_pricing_v2/STRIPE-CONFIGURATION.md
  */
-const TIER_MAP: Record<string, "free" | "starter" | "professional" | "agency" | "enterprise"> = {
+const TIER_MAP: Record<string, "free" | "pro" | "agency" | "enterprise"> = {
   free: "free",
-  starter: "starter",
-  professional: "professional",
+  pro: "pro",
+  // Legacy tier mappings - existing subscriptions are mapped to current tiers
+  starter: "pro",
+  professional: "pro",
+  community: "free",
+  // Current tiers
   agency: "agency",
   enterprise: "enterprise",
 };
@@ -150,7 +144,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   const tier = metadata?.tier || "free";
   const billingPeriod = metadata?.billingPeriod || "monthly";
   const isB2B = metadata?.isB2B === "true";
-  const checkoutType = metadata?.type; // "platform-tier" or "token-pack"
+  const checkoutType = metadata?.type; // "platform-tier" or "credit-purchase"
 
   if (!organizationId) {
     console.error("[Platform Webhooks] No organizationId in checkout session metadata");
@@ -195,7 +189,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
       taxIds: customerTaxIds.map((t) => ({
         type: t.type,
         value: t.value,
-      })),
+      })) as any,
       stripeCustomerId: customer,
     });
 
@@ -238,6 +232,41 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
     } catch (error) {
       console.error(`[Platform Webhooks] Failed to send notifications:`, error);
       // Don't throw - billing sync already succeeded
+    }
+  }
+
+  // Handle credit purchases
+  if (checkoutType === "credit-purchase") {
+    const credits = parseInt(metadata?.credits || "0", 10);
+    const amountEur = metadata?.amountEur || "0";
+    const paymentIntentId = session.payment_intent || "";
+
+    if (credits > 0) {
+      try {
+        await ctx.runMutation(internal.credits.index.addPurchasedCredits, {
+          organizationId,
+          credits,
+          packId: `credit-purchase-${amountEur}eur`,
+          stripePaymentIntentId: paymentIntentId,
+        });
+
+        console.log(`[Platform Webhooks] ✓ Added ${credits} purchased credits for org ${organizationId}`);
+
+        // Send credit purchase confirmation email to customer
+        await sendSubscriptionLifecycleEmail(ctx, organizationId, "credit_purchase", {
+          credits,
+          amountEur: parseInt(amountEur, 10),
+        });
+
+        // Send sales team notification
+        await sendSalesTeamNotification(ctx, organizationId, "credit_purchase", {
+          credits,
+          amountEur: parseInt(amountEur, 10),
+        });
+      } catch (creditError) {
+        console.error(`[Platform Webhooks] Failed to add purchased credits:`, creditError);
+        throw creditError; // Re-throw - credits must be added
+      }
     }
   }
 }
@@ -285,6 +314,8 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
 
   console.log(`[Platform Webhooks] Creating subscription for org ${organizationId}: ${tier} tier`);
 
+  const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
+
   await updateOrganizationTier(ctx, organizationId, tier, {
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
@@ -296,40 +327,11 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
     currency: items.data[0]?.price?.currency || "eur",
   });
 
-  // ZAPIER INTEGRATION: Trigger webhook for Community subscription
-  // This enables "Community → Skool" automation via Zapier
-  if (tier === "community") {
-    try {
-      // Get organization and user details for webhook payload
-      const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, {
-        organizationId,
-      });
-
-      if (org) {
-        // Get primary user from organization
-        const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, {
-          organizationId,
-        });
-
-        const primaryMember = members.find((m: OrganizationMember) => m.isActive);
-        if (primaryMember && primaryMember.user) {
-          // Trigger Zapier webhook
-          await ctx.runAction(internal.zapier.triggers.triggerCommunitySubscriptionCreated, {
-            organizationId,
-            userId: primaryMember.user._id,
-            email: primaryMember.user.email,
-            firstName: primaryMember.user.firstName || "",
-            lastName: primaryMember.user.lastName || "",
-            stripeSubscriptionId: id,
-          });
-
-          console.log(`[Platform Webhooks] ✓ Triggered Zapier webhook for Community subscription`);
-        }
-      }
-    } catch (error) {
-      // Don't fail subscription creation if webhook trigger fails
-      console.error(`[Platform Webhooks] Failed to trigger Zapier webhook:`, error);
-    }
+  // Send upgrade email for new paid subscriptions
+  if (normalizedTier !== "free") {
+    await sendSubscriptionLifecycleEmail(ctx, organizationId, "plan_upgrade", {
+      tier: normalizedTier,
+    });
   }
 }
 
@@ -377,6 +379,11 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
 
   console.log(`[Platform Webhooks] Updating subscription for org ${organizationId}: ${tier} tier, status: ${status}`);
 
+  // Get current plan before updating to detect upgrade/downgrade
+  const currentOrg = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+  const previousTier = currentOrg?.plan || "free";
+  const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
+
   await updateOrganizationTier(ctx, organizationId, tier, {
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
@@ -388,6 +395,40 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
     amount: items.data[0]?.price?.unit_amount || 0,
     currency: items.data[0]?.price?.currency || "eur",
   });
+
+  // Send lifecycle emails based on what changed
+  const TIER_ORDER: Record<string, number> = { free: 0, pro: 1, agency: 2, enterprise: 3 };
+  const prevOrder = TIER_ORDER[previousTier] ?? 0;
+  const newOrder = TIER_ORDER[normalizedTier] ?? 0;
+
+  if (cancel_at_period_end) {
+    // Subscription scheduled for cancellation
+    await sendSubscriptionLifecycleEmail(ctx, organizationId, "subscription_canceled", {
+      tier: normalizedTier,
+      effectiveDate: current_period_end * 1000,
+    });
+    await sendSalesTeamNotification(ctx, organizationId, "subscription_canceled", {
+      tier: normalizedTier,
+      effectiveDate: current_period_end * 1000,
+    });
+  } else if (newOrder > prevOrder) {
+    // Upgrade
+    await sendSubscriptionLifecycleEmail(ctx, organizationId, "plan_upgrade", {
+      tier: normalizedTier,
+    });
+  } else if (newOrder < prevOrder && normalizedTier !== "free") {
+    // Downgrade (but not to free - that's handled by subscription.deleted)
+    await sendSubscriptionLifecycleEmail(ctx, organizationId, "plan_downgrade", {
+      fromTier: previousTier,
+      toTier: normalizedTier,
+      effectiveDate: current_period_end * 1000,
+    });
+    await sendSalesTeamNotification(ctx, organizationId, "platform_tier_downgrade", {
+      fromTier: previousTier,
+      toTier: normalizedTier,
+      effectiveDate: current_period_end * 1000,
+    });
+  }
 }
 
 /**
@@ -422,10 +463,109 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
 
   console.log(`[Platform Webhooks] Subscription deleted for org ${organizationId}, reverting to Free tier`);
 
+  // Get current tier before reverting for the email
+  const currentOrg = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+  const previousTier = currentOrg?.plan || "pro";
+
   await updateOrganizationTier(ctx, organizationId, "free", {
     stripeSubscriptionId: null,
     status: "canceled",
   });
+
+  // Send cancellation emails
+  await sendSubscriptionLifecycleEmail(ctx, organizationId, "subscription_canceled", {
+    tier: previousTier,
+  });
+  await sendSalesTeamNotification(ctx, organizationId, "subscription_canceled", {
+    tier: previousTier,
+  });
+}
+
+/**
+ * Helper: Send subscription lifecycle email to org owner
+ *
+ * Looks up the org name and primary member email, then fires
+ * the subscription email action. Failures are logged but never re-thrown
+ * so they don't block the main webhook flow.
+ */
+async function sendSubscriptionLifecycleEmail(
+  ctx: ActionCtx,
+  organizationId: Id<"organizations">,
+  event: "plan_upgrade" | "plan_downgrade" | "credit_purchase" | "subscription_canceled" | "trial_started",
+  extra: {
+    tier?: string;
+    fromTier?: string;
+    toTier?: string;
+    credits?: number;
+    amountEur?: number;
+    billingPeriod?: string;
+    effectiveDate?: number;
+    trialEndsAt?: number;
+  } = {}
+) {
+  try {
+    const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+    const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
+
+    const primaryMember = members.find((m: { isActive: boolean }) => m.isActive);
+    const email = primaryMember?.user?.email;
+    if (!email) {
+      console.log(`[Platform Webhooks] No active member email found for org ${organizationId}, skipping ${event} email`);
+      return;
+    }
+
+    await ctx.runAction(internal.actions.subscriptionEmails.sendSubscriptionEmail, {
+      to: email,
+      event,
+      organizationName: org?.name || "Your Organization",
+      ...extra,
+    });
+
+    console.log(`[Platform Webhooks] ✓ Sent ${event} email to ${email}`);
+  } catch (error) {
+    console.error(`[Platform Webhooks] Failed to send ${event} email:`, error);
+    // Don't re-throw - email failures should never block webhook processing
+  }
+}
+
+/**
+ * Helper: Send sales team notification email
+ *
+ * Looks up org + members, calls salesNotificationEmail.sendSalesNotification.
+ * Failures are logged but never re-thrown so they don't block webhook flow.
+ */
+async function sendSalesTeamNotification(
+  ctx: ActionCtx,
+  organizationId: Id<"organizations">,
+  eventType: "credit_purchase" | "platform_tier_downgrade" | "subscription_canceled" | "pending_change_reverted",
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+    const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
+
+    const primaryMember = members.find((m: { isActive: boolean }) => m.isActive);
+    const userEmail = primaryMember?.user?.email || "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = primaryMember?.user as any;
+    const firstName = user?.firstName || user?.name?.split(" ")[0] || "";
+    const lastName = user?.lastName || user?.name?.split(" ").slice(1).join(" ") || "";
+
+    await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+      eventType,
+      user: { email: userEmail, firstName, lastName },
+      organization: {
+        name: org?.name || "Unknown Organization",
+        planTier: org?.plan || "free",
+      },
+      metadata,
+    });
+
+    console.log(`[Platform Webhooks] ✓ Sent sales notification: ${eventType}`);
+  } catch (error) {
+    console.error(`[Platform Webhooks] Failed to send sales notification ${eventType}:`, error);
+    // Never re-throw
+  }
 }
 
 /**
@@ -485,8 +625,7 @@ export const updateOrganizationPlan = internalMutation({
     organizationId: v.id("organizations"),
     plan: v.union(
       v.literal("free"),
-      v.literal("starter"),
-      v.literal("professional"),
+      v.literal("pro"),
       v.literal("agency"),
       v.literal("enterprise")
     ),
@@ -495,7 +634,7 @@ export const updateOrganizationPlan = internalMutation({
   },
   handler: async (ctx, args) => {
     const updateData: {
-      plan: "free" | "starter" | "professional" | "agency" | "enterprise";
+      plan: "free" | "pro" | "agency" | "enterprise";
       updatedAt: number;
       stripeSubscriptionId?: string;
       stripeCustomerId?: string;
@@ -539,8 +678,7 @@ export const upsertOrganizationLicense = internalMutation({
     organizationId: v.id("organizations"),
     planTier: v.union(
       v.literal("free"),
-      v.literal("starter"),
-      v.literal("professional"),
+      v.literal("pro"),
       v.literal("agency"),
       v.literal("enterprise")
     ),

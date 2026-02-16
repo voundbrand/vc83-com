@@ -10,7 +10,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { getExistingTranslationKeys, insertTranslationIfNew, upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -367,6 +367,18 @@ export const seed = internalMutation({
         }
       },
 
+      {
+        key: "ui.app.projects",
+        values: {
+          en: "Projects",
+          de: "Projekte",
+          pl: "Projekty",
+          es: "Proyectos",
+          fr: "Projets",
+          ja: "プロジェクト",
+        }
+      },
+
       // === SYSTEM APPS ===
       {
         key: "ui.app.l4yercak3_exe",
@@ -489,15 +501,15 @@ export const seed = internalMutation({
       allKeys
     );
 
-    let count = 0;
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -507,14 +519,89 @@ export const seed = internalMutation({
             "start-menu"
           );
 
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} start menu & app name translations`);
-    return { success: true, count, totalKeys: translations.length };
+    console.log(`✅ Seeded ${inserted} new, updated ${updated} existing start menu & app name translations`);
+    return { success: true, inserted, updated, totalKeys: translations.length };
+  }
+});
+
+/**
+ * FIX: Upsert all start menu & app name translations
+ * Use this to repair ghost records (existing but with empty/wrong values)
+ *
+ * Run: npx convex run translations/seedStartMenu:fix
+ */
+export const fix = internalMutation({
+  handler: async (ctx) => {
+    console.log("🔧 Upserting Start Menu & App Names translations...");
+
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .filter(q => q.eq(q.field("slug"), "system"))
+      .first();
+
+    if (!systemOrg) {
+      throw new Error("System organization not found.");
+    }
+
+    const systemUser = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), "system@l4yercak3.com"))
+      .first();
+
+    if (!systemUser) {
+      throw new Error("System user not found.");
+    }
+
+    const supportedLocales = [
+      { code: "en" }, { code: "de" }, { code: "pl" },
+      { code: "es" }, { code: "fr" }, { code: "ja" },
+    ];
+
+    // Only upsert keys that are known to have issues
+    const translations = [
+      {
+        key: "ui.app.projects",
+        values: {
+          en: "Projects",
+          de: "Projekte",
+          pl: "Projekty",
+          es: "Proyectos",
+          fr: "Projets",
+          ja: "プロジェクト",
+        }
+      },
+    ];
+
+    let inserted = 0;
+    let updated = 0;
+
+    for (const trans of translations) {
+      for (const locale of supportedLocales) {
+        const value = trans.values[locale.code as keyof typeof trans.values];
+        if (value) {
+          const result = await upsertTranslation(
+            ctx.db,
+            systemOrg._id,
+            systemUser._id,
+            trans.key,
+            value,
+            locale.code,
+            "ui",
+            "start-menu"
+          );
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
+        }
+      }
+    }
+
+    console.log(`🔧 Fixed: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated };
   }
 });

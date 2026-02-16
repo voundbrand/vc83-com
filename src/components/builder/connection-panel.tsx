@@ -56,6 +56,7 @@ const ItemTypeIcon = ({ type }: { type: DetectedItem["type"] }) => {
     workflow: <Zap className="h-4 w-4 text-amber-400" />,
     checkout: <CreditCard className="h-4 w-4 text-indigo-400" />,
     conversation: <MessageSquare className="h-4 w-4 text-teal-400" />,
+    agent: <User className="h-4 w-4 text-rose-400" />,
   };
   return icons[type] || <Package className="h-4 w-4" />;
 };
@@ -156,9 +157,8 @@ function RecordSelector({ matches, selectedId, onSelect, itemType }: RecordSelec
                     onSelect(match.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-800 transition-colors ${
-                    selectedId === match.id ? "bg-zinc-800" : ""
-                  }`}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-800 transition-colors ${selectedId === match.id ? "bg-zinc-800" : ""
+                    }`}
                 >
                   <div>
                     <div className="text-sm text-zinc-100">{match.name}</div>
@@ -496,9 +496,8 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
         </div>
         <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
           <div
-            className={`h-full transition-all ${
-              allItemsConfigured ? "bg-emerald-500" : "bg-blue-500"
-            }`}
+            className={`h-full transition-all ${allItemsConfigured ? "bg-emerald-500" : "bg-blue-500"
+              }`}
             style={{ width: `${totalItems > 0 ? (completedItems / totalItems) * 100 : 0}%` }}
           />
         </div>
@@ -544,11 +543,10 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
         <button
           onClick={handleExecuteAll}
           disabled={!allItemsConfigured || isExecuting}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-            allItemsConfigured && !isExecuting
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${allItemsConfigured && !isExecuting
               ? "bg-emerald-600 text-white hover:bg-emerald-500"
               : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-          }`}
+            }`}
         >
           {isExecuting ? (
             <>

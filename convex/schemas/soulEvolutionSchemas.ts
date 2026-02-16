@@ -119,6 +119,10 @@ export const soulVersionHistory = defineTable({
   changeType: v.string(),
   proposalId: v.optional(v.id("soulProposals")),
   changedAt: v.number(),
+  // Rollback tracking
+  fromVersion: v.optional(v.number()),
+  toVersion: v.optional(v.number()),
+  changedBy: v.optional(v.string()),
 })
   .index("by_agent_version", ["agentId", "version"]);
 

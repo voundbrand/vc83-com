@@ -74,7 +74,7 @@ export function FinderSidebar({
   const projectFileTree = useQuery(
     api.projectFileSystem.getFileTree,
     selectedProjectId && mode === "project"
-      ? { sessionId, projectId: selectedProjectId as Id<"objects"> }
+      ? { sessionId, projectId: selectedProjectId as Id<"objects">, organizationId: organizationId as Id<"organizations"> }
       : "skip"
   );
 

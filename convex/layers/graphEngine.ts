@@ -520,8 +520,11 @@ const LOGIC_NODE_TYPES = new Set([
   "http_request", "code_block",
 ]);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GraphContext = { runAction: (...args: any[]) => any };
+
 async function executeNode(
-  ctx: { runAction: Function },
+  ctx: GraphContext,
   node: WorkflowNode,
   inputData: Record<string, unknown>,
   context: ExecutionContext,

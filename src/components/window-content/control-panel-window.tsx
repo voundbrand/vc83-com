@@ -7,6 +7,7 @@ import { TranslationsWindow } from "./translations-window";
 import { OrganizationsWindow } from "./super-admin-organizations-window";
 import { IntegrationsWindow } from "./integrations-window";
 import { AiSystemWindow } from "./ai-system-window";
+import { TerminalWindow } from "./terminal-window";
 import { usePermissions } from "@/contexts/permission-context";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -90,6 +91,18 @@ export function ControlPanelWindow() {
     );
   };
 
+  const openTerminalWindow = () => {
+    openWindow(
+      "terminal",
+      "Terminal",
+      <TerminalWindow />,
+      { x: 120, y: 80 },
+      { width: 900, height: 550 },
+      undefined,
+      "💻"
+    );
+  };
+
   const openTutorialsWindow = () => {
     openWindow(
       "tutorials-docs",
@@ -162,6 +175,17 @@ export function ControlPanelWindow() {
       label: "Integrations & API",
       onClick: openIntegrationsWindow,
       description: "Connect third-party services and manage API keys",
+    });
+  }
+
+  // Terminal - activity log viewer, available to signed-in org members
+  if (isSignedIn && currentOrg) {
+    controlPanelItems.push({
+      id: "terminal",
+      icon: "💻",
+      label: "Terminal",
+      onClick: openTerminalWindow,
+      description: "Real-time activity log viewer for agent sessions and events",
     });
   }
 

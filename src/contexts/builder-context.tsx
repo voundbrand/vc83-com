@@ -45,7 +45,7 @@ export interface DetectedItem {
   /** Unique ID for this detected item */
   id: string;
   /** Type of item detected */
-  type: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation";
+  type: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation" | "agent";
   /** The placeholder data from the prototype page */
   placeholderData: {
     name?: string;
@@ -102,7 +102,7 @@ export interface LinkedRecord {
   /** Database record ID */
   recordId: string;
   /** Type of record */
-  recordType: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation";
+  recordType: "product" | "event" | "contact" | "form" | "invoice" | "ticket" | "booking" | "workflow" | "checkout" | "conversation" | "agent";
   /** Section ID this record is linked to */
   sectionId: string;
   /** Item ID within the section */
@@ -576,10 +576,10 @@ export function BuilderProvider({
     api.builderAppOntology.getExistingRecordsForConnection,
     connectionSearchItems && sessionId && organizationId
       ? {
-          sessionId,
-          organizationId,
-          detectedItems: connectionSearchItems,
-        }
+        sessionId,
+        organizationId,
+        detectedItems: connectionSearchItems,
+      }
       : "skip"
   );
 
@@ -1800,11 +1800,11 @@ export function BuilderProvider({
                   s.sectionId !== section.sectionId
                     ? s
                     : {
-                        ...s,
-                        detectedItems: s.detectedItems.map((i) =>
-                          i.id !== item.id ? i : { ...i, createdRecordId: createdId }
-                        ),
-                      }
+                      ...s,
+                      detectedItems: s.detectedItems.map((i) =>
+                        i.id !== item.id ? i : { ...i, createdRecordId: createdId }
+                      ),
+                    }
                 )
               );
             }

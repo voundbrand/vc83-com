@@ -12,11 +12,113 @@ import { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 
 // ============================================================================
+// SOUL EVOLUTION POLICY
+// ============================================================================
+
+export const DEFAULT_SOUL_EVOLUTION_POLICY = {
+  maxProposalsPerDay: 3,
+  maxProposalsPerWeek: 10,
+  cooldownAfterRejection: 24 * 60 * 60 * 1000, // 24h in ms
+  cooldownBetweenProposals: 4 * 60 * 60 * 1000, // 4h in ms
+  requireMinConversations: 20,
+  requireMinSessions: 5,
+  maxPendingProposals: 5,
+  autoReflectionSchedule: "weekly" as const,
+  protectedFields: ["neverDo", "blockedTopics", "escalationTriggers"],
+};
+
+export type SoulEvolutionPolicy = typeof DEFAULT_SOUL_EVOLUTION_POLICY;
+
+// ============================================================================
+// RATE LIMITING & VALIDATION
+// ============================================================================
+
+/**
+ * Check whether a new proposal can be created for this agent.
+ * Enforces daily/pending limits and post-rejection cooldown.
+ */
+export const canCreateProposalQuery = internalQuery({
+  args: {
+    agentId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) return { allowed: false, reason: "Agent not found" };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent.customProperties || {}) as Record<string, any>;
+    if (config.protected) return { allowed: false, reason: "Protected agent" };
+
+    const policy: SoulEvolutionPolicy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
+
+    // Check pending count
+    const pending = await ctx.db
+      .query("soulProposals")
+      .withIndex("by_agent_status", (q) =>
+        q.eq("agentId", args.agentId).eq("status", "pending")
+      )
+      .collect();
+
+    if (pending.length >= policy.maxPendingProposals) {
+      return { allowed: false, reason: "Too many pending proposals" };
+    }
+
+    // Check daily count
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentProposals = await ctx.db
+      .query("soulProposals")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("agentId"), args.agentId),
+          q.gte(q.field("createdAt"), dayAgo)
+        )
+      )
+      .collect();
+
+    if (recentProposals.length >= policy.maxProposalsPerDay) {
+      return { allowed: false, reason: "Daily limit reached" };
+    }
+
+    // Check rejection cooldown
+    const rejectedProposals = await ctx.db
+      .query("soulProposals")
+      .withIndex("by_agent_status", (q) =>
+        q.eq("agentId", args.agentId).eq("status", "rejected")
+      )
+      .order("desc")
+      .first();
+
+    if (rejectedProposals) {
+      const rejectedAt = rejectedProposals.reviewedAt ?? rejectedProposals.createdAt;
+      if (Date.now() - rejectedAt < policy.cooldownAfterRejection) {
+        return { allowed: false, reason: "Cooling down after rejection" };
+      }
+    }
+
+    return { allowed: true };
+  },
+});
+
+/**
+ * Validate that a proposal doesn't target a protected field.
+ */
+function validateProposalTarget(
+  targetField: string,
+  policy: SoulEvolutionPolicy,
+): { valid: boolean; reason?: string } {
+  if (policy.protectedFields.includes(targetField)) {
+    return { valid: false, reason: `"${targetField}" is protected` };
+  }
+  return { valid: true };
+}
+
+// ============================================================================
 // MUTATIONS
 // ============================================================================
 
 /**
- * Create a new soul proposal (called by the tool)
+ * Create a new soul proposal (called by the tool).
+ * Now enforces rate limits and protected field validation.
  */
 export const createProposal = internalMutation({
   args: {
@@ -41,6 +143,75 @@ export const createProposal = internalMutation({
     evidenceMessages: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    // Skip rate limits for owner-directed proposals
+    if (args.triggerType !== "owner_directed") {
+      const agent = await ctx.db.get(args.agentId);
+      if (!agent) return null;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config = (agent.customProperties || {}) as Record<string, any>;
+      if (config.protected) {
+        console.log(`[SoulEvolution] Proposal blocked: protected agent`);
+        return null;
+      }
+
+      const policy: SoulEvolutionPolicy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
+
+      // Protected field check
+      const validation = validateProposalTarget(args.targetField, policy);
+      if (!validation.valid) {
+        console.log(`[SoulEvolution] Proposal invalid: ${validation.reason}`);
+        return null;
+      }
+
+      // Pending count check
+      const pending = await ctx.db
+        .query("soulProposals")
+        .withIndex("by_agent_status", (q) =>
+          q.eq("agentId", args.agentId).eq("status", "pending")
+        )
+        .collect();
+
+      if (pending.length >= policy.maxPendingProposals) {
+        console.log(`[SoulEvolution] Proposal blocked: too many pending`);
+        return null;
+      }
+
+      // Daily limit check
+      const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const recentProposals = await ctx.db
+        .query("soulProposals")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("agentId"), args.agentId),
+            q.gte(q.field("createdAt"), dayAgo)
+          )
+        )
+        .collect();
+
+      if (recentProposals.length >= policy.maxProposalsPerDay) {
+        console.log(`[SoulEvolution] Proposal blocked: daily limit reached`);
+        return null;
+      }
+
+      // Rejection cooldown check
+      const lastRejection = await ctx.db
+        .query("soulProposals")
+        .withIndex("by_agent_status", (q) =>
+          q.eq("agentId", args.agentId).eq("status", "rejected")
+        )
+        .order("desc")
+        .first();
+
+      if (lastRejection) {
+        const rejectedAt = lastRejection.reviewedAt ?? lastRejection.createdAt;
+        if (Date.now() - rejectedAt < policy.cooldownAfterRejection) {
+          console.log(`[SoulEvolution] Proposal blocked: cooling down after rejection`);
+          return null;
+        }
+      }
+    }
+
     return await ctx.db.insert("soulProposals", {
       ...args,
       status: "pending",
@@ -671,5 +842,374 @@ export const rejectSoulProposalAuth = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// ============================================================================
+// ROLLBACK
+// ============================================================================
+
+/**
+ * Rollback soul to a previous version.
+ * Creates a new version entry to maintain audit trail.
+ */
+export const rollbackSoul = internalMutation({
+  args: {
+    agentId: v.id("objects"),
+    targetVersion: v.number(),
+    requestedBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) throw new Error("Agent not found");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent.customProperties || {}) as Record<string, any>;
+    if (config.protected) {
+      throw new Error("Cannot modify protected system agent");
+    }
+
+    // Find target version in history
+    const targetHistory = await ctx.db
+      .query("soulVersionHistory")
+      .withIndex("by_agent_version", (q) =>
+        q.eq("agentId", args.agentId).eq("version", args.targetVersion)
+      )
+      .first();
+
+    if (!targetHistory) {
+      throw new Error(`Version ${args.targetVersion} not found`);
+    }
+
+    const targetSoul = JSON.parse(targetHistory.newSoul);
+    const currentSoul = config.soul || {};
+    const currentVersion = currentSoul.version ?? 1;
+    const newVersion = currentVersion + 1;
+
+    // Apply rollback — restore target soul with new version number
+    const rolledBackSoul = {
+      ...targetSoul,
+      version: newVersion,
+      lastUpdatedAt: Date.now(),
+      lastUpdatedBy: args.requestedBy,
+    };
+
+    await ctx.db.patch(args.agentId, {
+      customProperties: {
+        ...config,
+        soul: rolledBackSoul,
+      },
+    });
+
+    // Record in version history
+    await ctx.db.insert("soulVersionHistory", {
+      agentId: args.agentId,
+      organizationId: agent.organizationId,
+      version: newVersion,
+      previousSoul: JSON.stringify(currentSoul),
+      newSoul: JSON.stringify(rolledBackSoul),
+      changeType: "rollback",
+      fromVersion: currentVersion,
+      toVersion: args.targetVersion,
+      changedBy: args.requestedBy,
+      changedAt: Date.now(),
+    });
+
+    return { success: true, newVersion };
+  },
+});
+
+// ============================================================================
+// VERSION HISTORY QUERIES
+// ============================================================================
+
+/**
+ * Get soul version history for an agent (internal — used by Telegram handler).
+ */
+export const getSoulVersionHistory = internalQuery({
+  args: {
+    agentId: v.id("objects"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("soulVersionHistory")
+      .withIndex("by_agent_version", (q) => q.eq("agentId", args.agentId))
+      .order("desc")
+      .take(args.limit || 5);
+  },
+});
+
+/**
+ * Get soul version history for the web UI (authenticated).
+ */
+export const getSoulVersionHistoryAuth = query({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    return await ctx.db
+      .query("soulVersionHistory")
+      .withIndex("by_agent_version", (q) => q.eq("agentId", args.agentId))
+      .order("desc")
+      .take(args.limit || 10);
+  },
+});
+
+/**
+ * Rollback soul from the web UI (authenticated).
+ */
+export const rollbackSoulAuth = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    targetVersion: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) throw new Error("Agent not found");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent.customProperties || {}) as Record<string, any>;
+    if (config.protected) {
+      throw new Error("Cannot modify protected system agent");
+    }
+
+    const targetHistory = await ctx.db
+      .query("soulVersionHistory")
+      .withIndex("by_agent_version", (q) =>
+        q.eq("agentId", args.agentId).eq("version", args.targetVersion)
+      )
+      .first();
+
+    if (!targetHistory) {
+      throw new Error(`Version ${args.targetVersion} not found`);
+    }
+
+    const targetSoul = JSON.parse(targetHistory.newSoul);
+    const currentSoul = config.soul || {};
+    const currentVersion = currentSoul.version ?? 1;
+    const newVersion = currentVersion + 1;
+
+    const rolledBackSoul = {
+      ...targetSoul,
+      version: newVersion,
+      lastUpdatedAt: Date.now(),
+      lastUpdatedBy: "owner_web",
+    };
+
+    await ctx.db.patch(args.agentId, {
+      customProperties: {
+        ...config,
+        soul: rolledBackSoul,
+      },
+    });
+
+    await ctx.db.insert("soulVersionHistory", {
+      agentId: args.agentId,
+      organizationId: agent.organizationId,
+      version: newVersion,
+      previousSoul: JSON.stringify(currentSoul),
+      newSoul: JSON.stringify(rolledBackSoul),
+      changeType: "rollback",
+      fromVersion: currentVersion,
+      toVersion: args.targetVersion,
+      changedBy: "owner_web",
+      changedAt: Date.now(),
+    });
+
+    return { success: true, newVersion };
+  },
+});
+
+// ============================================================================
+// SCHEDULED REFLECTION (Weekly Cron)
+// ============================================================================
+
+/**
+ * Weekly auto-reflection cron handler.
+ * Iterates active agents, checks rate limits, and schedules staggered reflections.
+ */
+export const scheduledReflection = internalAction({
+  handler: async (ctx) => {
+    const orgs = await ctx.runQuery(
+      internal.ai.selfImprovement.getOrgsWithActiveAgents
+    );
+
+    let scheduled = 0;
+    for (const org of (orgs || [])) {
+      // Check if agent is eligible
+      const agent = await ctx.runQuery(
+        internal.agentOntology.getAgentInternal,
+        { agentId: org.agentId }
+      );
+      if (!agent) continue;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config = (agent.customProperties || {}) as Record<string, any>;
+      if (config.protected) continue;
+
+      const policy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
+      if (policy.autoReflectionSchedule === "off") continue;
+
+      // Check rate limits
+      const check = await ctx.runQuery(
+        internal.ai.soulEvolution.canCreateProposalQuery,
+        { agentId: org.agentId }
+      );
+      if (!check.allowed) continue;
+
+      // Stagger reflections over 60 minutes to avoid spike
+      const delay = Math.floor(Math.random() * 60 * 60 * 1000);
+      await ctx.scheduler.runAfter(
+        delay,
+        internal.ai.soulEvolution.runSelfReflection,
+        {
+          agentId: org.agentId,
+          organizationId: org.organizationId,
+        }
+      );
+      scheduled++;
+    }
+
+    console.log(`[SoulEvolution] Scheduled ${scheduled} weekly reflections`);
+  },
+});
+
+// ============================================================================
+// TELEGRAM SOUL HISTORY & ROLLBACK CALLBACKS
+// ============================================================================
+
+/**
+ * Handle Telegram callback for soul version history and rollback.
+ * Extends the existing callback handler for soul_history and soul_rollback_ prefixes.
+ */
+export const handleSoulHistoryCallback = internalAction({
+  args: {
+    callbackData: v.string(),
+    telegramChatId: v.string(),
+    callbackQueryId: v.string(),
+    agentId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return { error: "No Telegram bot token" };
+
+    if (args.callbackData === "soul_history") {
+      // Show version history with rollback buttons
+      const history = await ctx.runQuery(
+        internal.ai.soulEvolution.getSoulVersionHistory,
+        { agentId: args.agentId, limit: 5 }
+      );
+
+      if (!history?.length) {
+        await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callback_query_id: args.callbackQueryId,
+            text: "No version history yet.",
+          }),
+        });
+        return { success: true };
+      }
+
+      const lines = history.map((h) => {
+        const date = new Date(h.changedAt).toLocaleDateString();
+        const type = h.changeType === "rollback" ? "ROLLBACK" : h.changeType.replace(/_/g, " ").toUpperCase();
+        const by = h.changedBy ? ` by ${h.changedBy}` : "";
+        return `v${h.version} — ${type}${by} (${date})`;
+      });
+
+      const text = `*Soul Version History*\n\n${lines.join("\n")}`;
+
+      // Build rollback buttons (skip current version)
+      const buttons = history
+        .slice(1) // skip the latest (current) version
+        .map((h) => [{
+          text: `Rollback to v${h.version}`,
+          callback_data: `soul_rollback_${args.agentId}:${h.version}`,
+        }]);
+
+      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callback_query_id: args.callbackQueryId,
+          text: "Loading history...",
+        }),
+      });
+
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: args.telegramChatId,
+          text,
+          parse_mode: "Markdown",
+          reply_markup: buttons.length > 0 ? { inline_keyboard: buttons } : undefined,
+        }),
+      });
+
+      return { success: true };
+    }
+
+    if (args.callbackData.startsWith("soul_rollback_")) {
+      // Parse: soul_rollback_{agentId}:{version}
+      const payload = args.callbackData.replace("soul_rollback_", "");
+      const colonIdx = payload.lastIndexOf(":");
+      const targetVersion = parseInt(payload.slice(colonIdx + 1), 10);
+
+      if (isNaN(targetVersion)) {
+        await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callback_query_id: args.callbackQueryId,
+            text: "Invalid version number.",
+          }),
+        });
+        return { error: "Invalid version" };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await ctx.runMutation(
+        internal.ai.soulEvolution.rollbackSoul,
+        {
+          agentId: args.agentId,
+          targetVersion,
+          requestedBy: "owner_telegram",
+        }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ) as any;
+
+      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callback_query_id: args.callbackQueryId,
+          text: `Rolled back to v${targetVersion}!`,
+        }),
+      });
+
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: args.telegramChatId,
+          text: `Soul rolled back to version ${targetVersion}. New version: v${result?.newVersion || "?"}`,
+        }),
+      });
+
+      return { success: true };
+    }
+
+    return { error: "Unknown callback" };
   },
 });

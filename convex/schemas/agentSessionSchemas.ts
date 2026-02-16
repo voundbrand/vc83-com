@@ -38,6 +38,7 @@ export const agentSessions = defineTable({
   status: v.union(
     v.literal("active"),
     v.literal("closed"),
+    v.literal("expired"),
     v.literal("handed_off")
   ),
 
@@ -80,7 +81,27 @@ export const agentSessions = defineTable({
 
   // ========== END GUIDED SESSION FIELDS ==========
 
-  // Multi-agent participation (team tools tag-in)
+  // ========== TEAM SESSION (Agent-to-Agent Handoffs) ==========
+
+  // Tracks multi-agent handoffs within a single conversation.
+  // Activated when an agent calls tag_in_specialist.
+  teamSession: v.optional(v.object({
+    isTeamSession: v.boolean(),
+    participatingAgentIds: v.array(v.id("objects")),
+    activeAgentId: v.id("objects"),
+    handoffHistory: v.array(v.object({
+      fromAgentId: v.id("objects"),
+      toAgentId: v.id("objects"),
+      reason: v.string(),
+      contextSummary: v.string(),
+      timestamp: v.number(),
+    })),
+    sharedContext: v.optional(v.string()),
+    conversationGoal: v.optional(v.string()),
+    handoffNotes: v.optional(v.any()),
+  })),
+
+  // Legacy: kept for backward compat, superseded by teamSession.participatingAgentIds
   participatingAgentIds: v.optional(v.array(v.id("objects"))),
 
   // Self-improvement tracking
@@ -94,6 +115,71 @@ export const agentSessions = defineTable({
   // Timing
   startedAt: v.number(),
   lastMessageAt: v.number(),
+
+  // ========== SESSION LIFECYCLE (TTL & Close) ==========
+
+  // When and why the session was closed
+  closedAt: v.optional(v.number()),
+  closeReason: v.optional(v.union(
+    v.literal("idle_timeout"),
+    v.literal("expired"),
+    v.literal("manual"),
+    v.literal("handed_off")
+  )),
+
+  // LLM-generated summary on close (for future context injection)
+  summary: v.optional(v.object({
+    text: v.string(),
+    generatedAt: v.number(),
+    messageCount: v.number(),
+    topics: v.optional(v.array(v.string())),
+  })),
+
+  // Previous session context (for resumed sessions)
+  previousSessionId: v.optional(v.id("agentSessions")),
+  previousSessionSummary: v.optional(v.string()),
+
+  // Per-session credit budget tracking
+  sessionBudgetUsed: v.optional(v.number()),
+
+  // ========== ERROR STATE (Error Harness) ==========
+
+  // Tracks tools disabled due to repeated failures in this session
+  errorState: v.optional(v.object({
+    disabledTools: v.array(v.string()),
+    failedToolCounts: v.record(v.string(), v.number()),
+    lastErrorAt: v.optional(v.number()),
+    // When true, agent operates with reduced capabilities (read-only tools only)
+    degraded: v.optional(v.boolean()),
+    degradedAt: v.optional(v.number()),
+    degradedReason: v.optional(v.string()),
+  })),
+
+  // ========== ESCALATION STATE (Human-in-the-Loop) ==========
+
+  // Tracks when a session is escalated to a human team member.
+  // One active escalation per session at a time.
+  escalationState: v.optional(v.object({
+    status: v.union(
+      v.literal("pending"),      // Waiting for human response
+      v.literal("taken_over"),   // Human has taken control
+      v.literal("resolved"),     // Human resolved, agent can resume
+      v.literal("dismissed"),    // False positive, agent continues
+      v.literal("timed_out")     // No human responded, agent auto-resumed
+    ),
+    reason: v.string(),
+    urgency: v.union(v.literal("low"), v.literal("normal"), v.literal("high")),
+    triggerType: v.string(),     // "explicit_request" | "blocked_topic" | "tool_failure" | "uncertainty" | "agent_initiated"
+    escalatedAt: v.number(),
+    respondedAt: v.optional(v.number()),
+    respondedBy: v.optional(v.id("users")),
+    humanMessages: v.optional(v.array(v.string())),
+    resolutionSummary: v.optional(v.string()),
+    telegramMessageId: v.optional(v.number()),
+    telegramChatId: v.optional(v.string()),
+  })),
+
+  // ========== END SESSION LIFECYCLE ==========
 })
   .index("by_org_channel_contact", [
     "organizationId",

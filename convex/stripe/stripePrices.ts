@@ -21,42 +21,24 @@ const getStripe = () => {
 
 /**
  * Price ID mapping from environment variables
+ *
+ * Active tiers: Pro (€29/mo) and Agency (€299/mo)
+ * Credits use dynamic pricing (no fixed Price IDs)
  */
 const PRICE_IDS = {
   // Platform Plans (Monthly)
   platformMonthly: {
-    free: process.env.STRIPE_FREE_MO_PRICE_ID,
-    community: process.env.STRIPE_COMMUNITY_MO_PRICE_ID,
-    starter: process.env.STRIPE_STARTER_MO_PRICE_ID,
-    professional: process.env.STRIPE_PROFESSIONAL_MO_PRICE_ID,
+    pro: process.env.STRIPE_PRO_MO_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_MO_PRICE_ID,
-    enterprise: process.env.STRIPE_ENTERPRISE_MO_PRICE_ID,
   },
   // Platform Plans (Annual)
   platformAnnual: {
-    community: process.env.STRIPE_COMMUNITY_YR_PRICE_ID,
-    starter: process.env.STRIPE_STARTER_YR_PRICE_ID,
-    professional: process.env.STRIPE_PROFESSIONAL_YR_PRICE_ID,
+    pro: process.env.STRIPE_PRO_YR_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_YR_PRICE_ID,
-    enterprise: process.env.STRIPE_ENTERPRISE_YR_PRICE_ID,
   },
-  // AI Subscriptions
-  ai: {
-    standard: process.env.STRIPE_AI_STANDARD_PRICE_ID,
-    privacy: process.env.STRIPE_AI_PRIVACY_PRICE_ID,
-  },
-  // Private LLM
-  privateLlm: {
-    starter: process.env.STRIPE_PRIVATE_LLM_STARTER_PRICE_ID,
-    pro: process.env.STRIPE_PRIVATE_LLM_PRO_PRICE_ID,
-    enterprise: process.env.STRIPE_PRIVATE_LLM_ENT_PRICE_ID,
-  },
-  // Token Packs
-  tokens: {
-    starter: process.env.STRIPE_TOKENS_STARTER_PRICE_ID,
-    standard: process.env.STRIPE_TOKENS_STANDARD_PRICE_ID,
-    professional: process.env.STRIPE_TOKENS_PRO_PRICE_ID,
-    enterprise: process.env.STRIPE_TOKENS_ENT_PRICE_ID,
+  // Sub-Organization
+  subOrg: {
+    monthly: process.env.STRIPE_SUB_ORG_MO_PRICE_ID,
   },
 };
 
@@ -105,100 +87,40 @@ async function fetchPrice(stripe: Stripe, priceId: string | undefined): Promise<
  * GET ALL PRICES
  *
  * Fetches all configured prices from Stripe.
- * Returns a structured object with prices for all product categories.
+ * Active tiers: Pro (€29/mo) and Agency (€299/mo)
  */
 export const getAllPrices = action({
   args: {},
   handler: async () => {
     const stripe = getStripe();
 
-    // Fetch all prices in parallel
     const [
-      // Platform Monthly
-      freeMonthly,
-      communityMonthly,
-      starterMonthly,
-      professionalMonthly,
+      proMonthly,
       agencyMonthly,
-      enterpriseMonthly,
-      // Platform Annual
-      communityAnnual,
-      starterAnnual,
-      professionalAnnual,
+      proAnnual,
       agencyAnnual,
-      enterpriseAnnual,
-      // AI
-      aiStandard,
-      aiPrivacy,
-      // Private LLM
-      privateLlmStarter,
-      privateLlmPro,
-      privateLlmEnterprise,
-      // Token Packs
-      tokensStarter,
-      tokensStandard,
-      tokensProfessional,
-      tokensEnterprise,
+      subOrgMonthly,
     ] = await Promise.all([
-      // Platform Monthly
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.free),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.community),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.starter),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.professional),
+      fetchPrice(stripe, PRICE_IDS.platformMonthly.pro),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.agency),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.enterprise),
-      // Platform Annual
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.community),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.starter),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.professional),
+      fetchPrice(stripe, PRICE_IDS.platformAnnual.pro),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.agency),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.enterprise),
-      // AI
-      fetchPrice(stripe, PRICE_IDS.ai.standard),
-      fetchPrice(stripe, PRICE_IDS.ai.privacy),
-      // Private LLM
-      fetchPrice(stripe, PRICE_IDS.privateLlm.starter),
-      fetchPrice(stripe, PRICE_IDS.privateLlm.pro),
-      fetchPrice(stripe, PRICE_IDS.privateLlm.enterprise),
-      // Token Packs
-      fetchPrice(stripe, PRICE_IDS.tokens.starter),
-      fetchPrice(stripe, PRICE_IDS.tokens.standard),
-      fetchPrice(stripe, PRICE_IDS.tokens.professional),
-      fetchPrice(stripe, PRICE_IDS.tokens.enterprise),
+      fetchPrice(stripe, PRICE_IDS.subOrg.monthly),
     ]);
 
     return {
       platform: {
         monthly: {
-          free: freeMonthly,
-          community: communityMonthly,
-          starter: starterMonthly,
-          professional: professionalMonthly,
+          pro: proMonthly,
           agency: agencyMonthly,
-          enterprise: enterpriseMonthly,
         },
         annual: {
-          community: communityAnnual,
-          starter: starterAnnual,
-          professional: professionalAnnual,
+          pro: proAnnual,
           agency: agencyAnnual,
-          enterprise: enterpriseAnnual,
         },
       },
-      ai: {
-        standard: aiStandard,
-        privacy: aiPrivacy,
-      },
-      privateLlm: {
-        starter: privateLlmStarter,
-        pro: privateLlmPro,
-        enterprise: privateLlmEnterprise,
-      },
-      tokens: {
-        starter: tokensStarter,
-        standard: tokensStandard,
-        professional: tokensProfessional,
-        enterprise: tokensEnterprise,
+      subOrg: {
+        monthly: subOrgMonthly,
       },
     };
   },
@@ -208,7 +130,6 @@ export const getAllPrices = action({
  * GET PLATFORM PRICES ONLY
  *
  * Fetches only platform tier prices for the store display.
- * More efficient than fetching all prices.
  */
 export const getPlatformPrices = action({
   args: {},
@@ -216,103 +137,25 @@ export const getPlatformPrices = action({
     const stripe = getStripe();
 
     const [
-      // Monthly
-      freeMonthly,
-      communityMonthly,
-      starterMonthly,
-      professionalMonthly,
+      proMonthly,
       agencyMonthly,
-      enterpriseMonthly,
-      // Annual
-      communityAnnual,
-      starterAnnual,
-      professionalAnnual,
+      proAnnual,
       agencyAnnual,
-      enterpriseAnnual,
     ] = await Promise.all([
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.free),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.community),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.starter),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.professional),
+      fetchPrice(stripe, PRICE_IDS.platformMonthly.pro),
       fetchPrice(stripe, PRICE_IDS.platformMonthly.agency),
-      fetchPrice(stripe, PRICE_IDS.platformMonthly.enterprise),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.community),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.starter),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.professional),
+      fetchPrice(stripe, PRICE_IDS.platformAnnual.pro),
       fetchPrice(stripe, PRICE_IDS.platformAnnual.agency),
-      fetchPrice(stripe, PRICE_IDS.platformAnnual.enterprise),
     ]);
 
     return {
       monthly: {
-        free: freeMonthly,
-        community: communityMonthly,
-        starter: starterMonthly,
-        professional: professionalMonthly,
+        pro: proMonthly,
         agency: agencyMonthly,
-        enterprise: enterpriseMonthly,
       },
       annual: {
-        community: communityAnnual,
-        starter: starterAnnual,
-        professional: professionalAnnual,
+        pro: proAnnual,
         agency: agencyAnnual,
-        enterprise: enterpriseAnnual,
-      },
-    };
-  },
-});
-
-/**
- * GET AI AND ADDON PRICES
- *
- * Fetches AI subscriptions, token packs, and private LLM prices.
- */
-export const getAIAndAddonPrices = action({
-  args: {},
-  handler: async () => {
-    const stripe = getStripe();
-
-    const [
-      // AI
-      aiStandard,
-      aiPrivacy,
-      // Private LLM
-      privateLlmStarter,
-      privateLlmPro,
-      privateLlmEnterprise,
-      // Token Packs
-      tokensStarter,
-      tokensStandard,
-      tokensProfessional,
-      tokensEnterprise,
-    ] = await Promise.all([
-      fetchPrice(stripe, PRICE_IDS.ai.standard),
-      fetchPrice(stripe, PRICE_IDS.ai.privacy),
-      fetchPrice(stripe, PRICE_IDS.privateLlm.starter),
-      fetchPrice(stripe, PRICE_IDS.privateLlm.pro),
-      fetchPrice(stripe, PRICE_IDS.privateLlm.enterprise),
-      fetchPrice(stripe, PRICE_IDS.tokens.starter),
-      fetchPrice(stripe, PRICE_IDS.tokens.standard),
-      fetchPrice(stripe, PRICE_IDS.tokens.professional),
-      fetchPrice(stripe, PRICE_IDS.tokens.enterprise),
-    ]);
-
-    return {
-      ai: {
-        standard: aiStandard,
-        privacy: aiPrivacy,
-      },
-      privateLlm: {
-        starter: privateLlmStarter,
-        pro: privateLlmPro,
-        enterprise: privateLlmEnterprise,
-      },
-      tokens: {
-        starter: tokensStarter,
-        standard: tokensStandard,
-        professional: tokensProfessional,
-        enterprise: tokensEnterprise,
       },
     };
   },

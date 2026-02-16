@@ -20,6 +20,21 @@ import type { Id } from "../_generated/dataModel";
 import { getAgentMessageCost, getToolCreditCost } from "../credits/index";
 import { getKnowledgeContent } from "./systemKnowledge/index";
 import { buildInterviewPromptContext } from "./interviewRunner";
+import { withRetry, LLM_RETRY_POLICY, MODEL_FALLBACK_CHAIN } from "./retryPolicy";
+import { getUserErrorMessage, classifyError } from "./errorMessages";
+import { resolveActiveTools, getPlatformBlockedTools, SUBTYPE_DEFAULT_PROFILES } from "./toolScoping";
+import { getAllToolDefinitions } from "./tools/registry";
+import {
+  checkPreLLMEscalation,
+  checkPostLLMEscalation,
+  checkToolFailureEscalation,
+  DEFAULT_HOLD_MESSAGE,
+  UNCERTAINTY_PHRASES,
+  resolvePolicy,
+  type EscalationCounters,
+  type EscalationPolicy,
+} from "./escalation";
+import { brokerTools, extractRecentToolNames, type BrokerMetrics } from "./toolBroker";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +63,7 @@ interface AgentConfig {
   systemPrompt?: string;
   faqEntries?: Array<{ q: string; a: string }>;
   knowledgeBaseTags?: string[];
+  toolProfile?: string;
   enabledTools?: string[];
   disabledTools?: string[];
   autonomyLevel: "supervised" | "autonomous" | "draft_only";
@@ -60,6 +76,8 @@ interface AgentConfig {
   temperature?: number;
   maxTokens?: number;
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
+  escalationPolicy?: EscalationPolicy;
+  useToolBroker?: boolean;
 }
 
 // ============================================================================
@@ -85,14 +103,44 @@ export const processInboundMessage = action({
     toolResults?: Array<{ tool: string; status: string; result?: unknown; error?: string }>;
     sessionId?: string;
   }> => {
-    // 1. Load agent config
-    const agent = await ctx.runQuery(getInternal().agentOntology.getActiveAgentForOrg, {
+    // 1. Load agent config (with worker pool fallback for system bot)
+    let agent = await ctx.runQuery(getInternal().agentOntology.getActiveAgentForOrg, {
       organizationId: args.organizationId,
       channel: args.channel,
     });
 
     if (!agent) {
+      // No active agent — check if this org has a template agent (worker pool model).
+      // If so, spawn/reuse a worker from the pool.
+      const template = await ctx.runQuery(getInternal().agentOntology.getTemplateAgent, {
+        organizationId: args.organizationId,
+      });
+
+      if (template) {
+        const workerId = await ctx.runMutation(getInternal().ai.workerPool.getOnboardingWorker, {
+          platformOrgId: args.organizationId,
+        });
+        agent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+          agentId: workerId,
+        });
+      }
+    }
+
+    if (!agent) {
       return { status: "error", message: "No active agent found for this organization" };
+    }
+
+    // Update worker's last active timestamp if this is a worker
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agentProps = (agent.customProperties || {}) as Record<string, any>;
+    if (agentProps.templateAgentId) {
+      try {
+        await ctx.runMutation(getInternal().ai.workerPool.touchWorker, {
+          workerId: agent._id,
+        });
+      } catch {
+        // Non-fatal — worker touch is best-effort
+      }
     }
 
     const config = (agent.customProperties || {}) as unknown as AgentConfig;
@@ -119,6 +167,81 @@ export const processInboundMessage = action({
 
     if (!session) {
       return { status: "error", message: "Failed to create session" };
+    }
+
+    // 3.25. Team session — if a specialist was tagged in, swap to the effective agent
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teamSession = (session as any).teamSession as {
+      isTeamSession?: boolean;
+      activeAgentId?: Id<"objects">;
+      sharedContext?: string;
+      handoffHistory?: Array<{
+        fromAgentId: Id<"objects">;
+        toAgentId: Id<"objects">;
+        reason: string;
+        contextSummary?: string;
+        timestamp: number;
+      }>;
+    } | undefined;
+
+    if (teamSession?.isTeamSession && teamSession.activeAgentId && teamSession.activeAgentId !== agent._id) {
+      const effectiveAgent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+        agentId: teamSession.activeAgentId,
+      });
+      if (effectiveAgent) {
+        agent = effectiveAgent;
+        // Reload config from new agent's customProperties
+        Object.assign(config, (effectiveAgent.customProperties || {}) as unknown as AgentConfig);
+      }
+    }
+
+    // 3.5. Check if session has an active escalation (human-in-the-loop)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionEsc = (session as any).escalationState;
+    if (sessionEsc?.status === "taken_over") {
+      // Human has control — save message but skip LLM
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "user",
+        content: args.message,
+      });
+      return {
+        status: "escalated_to_human",
+        message: "This conversation is being handled by a team member.",
+        sessionId: session._id,
+      };
+    }
+    if (sessionEsc?.status === "pending") {
+      // Still waiting for human — save message, remind customer
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "user",
+        content: args.message,
+      });
+      const waitMessage = "My team has been notified and will be with you shortly. Please hang tight!";
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "assistant",
+        content: waitMessage,
+      });
+      // Route wait message outbound
+      const waitMeta = (args.metadata as Record<string, unknown>) || {};
+      if (!waitMeta.skipOutbound && args.channel !== "api_test") {
+        try {
+          await ctx.runAction(getInternal().channels.router.sendMessage, {
+            organizationId: args.organizationId,
+            channel: args.channel,
+            recipientIdentifier: args.externalContactIdentifier,
+            content: waitMessage,
+            providerConversationId: waitMeta.providerConversationId as string | undefined,
+          });
+        } catch { /* best effort */ }
+      }
+      return {
+        status: "escalation_pending",
+        message: waitMessage,
+        sessionId: session._id,
+      };
     }
 
     // 4. Auto-resolve CRM contact
@@ -153,8 +276,143 @@ export const processInboundMessage = action({
       );
     }
 
-    // 5. Build system prompt
-    const systemPrompt = buildAgentSystemPrompt(config, knowledgeBaseDocs, interviewContext);
+    // 4.7. Pre-LLM escalation check (pattern matching + sentiment on inbound message)
+    // Gather recent user messages for sentiment sliding window
+    const recentForSentiment = await ctx.runQuery(getInternal().ai.agentSessions.getSessionMessages, {
+      sessionId: session._id,
+      limit: 5,
+    }) as Array<{ role: string; content: string }>;
+    const recentUserMsgs = recentForSentiment
+      .filter((m) => m.role === "user")
+      .map((m) => m.content);
+
+    const preEscalation = checkPreLLMEscalation(args.message, config, recentUserMsgs);
+    if (preEscalation) {
+      // Create escalation on the session
+      await ctx.runMutation(getInternal().ai.escalation.createEscalation, {
+        sessionId: session._id,
+        agentId: agent._id,
+        organizationId: args.organizationId,
+        reason: preEscalation.reason,
+        urgency: preEscalation.urgency,
+        triggerType: preEscalation.triggerType,
+      });
+
+      // Load agent name for notifications
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const escAgentName = (agent.customProperties as any)?.displayName || agent.name || "Agent";
+
+      // Fire all notification channels (fire-and-forget)
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, {
+        sessionId: session._id,
+        organizationId: args.organizationId,
+        agentName: escAgentName,
+        reason: preEscalation.reason,
+        urgency: preEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+        lastMessage: args.message.slice(0, 200),
+      });
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, {
+        organizationId: args.organizationId,
+        agentName: escAgentName,
+        reason: preEscalation.reason,
+        urgency: preEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+      });
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, {
+        organizationId: args.organizationId,
+        agentName: escAgentName,
+        reason: preEscalation.reason,
+        urgency: preEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+        lastMessage: args.message.slice(0, 200),
+      });
+
+      // Schedule delayed email retry for HIGH urgency escalations
+      if (preEscalation.urgency === "high") {
+        ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, {
+          sessionId: session._id,
+          organizationId: args.organizationId,
+          agentName: escAgentName,
+          reason: preEscalation.reason,
+          contactIdentifier: args.externalContactIdentifier,
+          channel: args.channel,
+          lastMessage: args.message.slice(0, 200),
+        });
+      }
+
+      // Save user message + hold message (skip LLM call entirely)
+      const resolvedPol = resolvePolicy(config.escalationPolicy);
+      const holdMessage = resolvedPol.holdMessage;
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "user",
+        content: args.message,
+      });
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "assistant",
+        content: holdMessage,
+      });
+
+      // Route hold message outbound
+      const escMeta = (args.metadata as Record<string, unknown>) || {};
+      if (!escMeta.skipOutbound && args.channel !== "api_test") {
+        try {
+          await ctx.runAction(getInternal().channels.router.sendMessage, {
+            organizationId: args.organizationId,
+            channel: args.channel,
+            recipientIdentifier: args.externalContactIdentifier,
+            content: holdMessage,
+            providerConversationId: escMeta.providerConversationId as string | undefined,
+          });
+        } catch { /* best effort — message saved in session */ }
+      }
+
+      return { status: "escalated", response: holdMessage, sessionId: session._id };
+    }
+
+    // 5. Build system prompt (with previous session context if resuming)
+    const previousSessionSummary = (session as Record<string, unknown>).previousSessionSummary as string | undefined;
+
+    // Check for degraded mode (tools disabled from prior failures)
+    const preflightErrorState = await ctx.runQuery(
+      getInternal().ai.agentSessions.getSessionErrorState,
+      { sessionId: session._id }
+    ) as { degraded?: boolean; disabledTools?: string[]; degradedReason?: string } | null;
+
+    // Build team handoff context if this is a specialist session
+    let handoffCtx: { sharedContext?: string; lastHandoff?: { fromAgent: string; reason: string; contextSummary?: string } } | undefined;
+    if (teamSession?.isTeamSession && teamSession.handoffHistory?.length) {
+      const lastHandoff = teamSession.handoffHistory[teamSession.handoffHistory.length - 1];
+      // Resolve the "from" agent name
+      let fromName = "a team member";
+      try {
+        const fromAgent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+          agentId: lastHandoff.fromAgentId,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fromName = (fromAgent?.customProperties as any)?.displayName || fromAgent?.name || fromName;
+      } catch { /* best effort */ }
+
+      handoffCtx = {
+        sharedContext: teamSession.sharedContext,
+        lastHandoff: {
+          fromAgent: fromName,
+          reason: lastHandoff.reason,
+          contextSummary: lastHandoff.contextSummary,
+        },
+      };
+    }
+
+    const systemPrompt = buildAgentSystemPrompt(
+      config, knowledgeBaseDocs, interviewContext, previousSessionSummary,
+      preflightErrorState?.degraded ? preflightErrorState.disabledTools : undefined,
+      handoffCtx,
+    );
 
     // 6. Load conversation history
     const history = await ctx.runQuery(getInternal().ai.agentSessions.getSessionMessages, {
@@ -172,8 +430,48 @@ export const processInboundMessage = action({
 
     messages.push({ role: "user", content: args.message });
 
-    // 7. Filter tools for this agent
-    const toolSchemas = filterToolsForAgent(config);
+    // 7. Layered tool scoping (platform → org → agent → session)
+    const connectedIntegrations = await ctx.runQuery(
+      getInternal().ai.toolScoping.getConnectedIntegrations,
+      { organizationId: args.organizationId }
+    ) as string[];
+
+    // Resolve agent's effective tool profile
+    const agentProfile = config.toolProfile
+      ?? SUBTYPE_DEFAULT_PROFILES[agent.subtype ?? "general"]
+      ?? "general";
+
+    // Session-level disabled tools (from degraded mode / error state)
+    const sessionDisabledTools = preflightErrorState?.disabledTools ?? [];
+
+    const allToolDefs = getAllToolDefinitions();
+    const activeToolDefs = resolveActiveTools({
+      allTools: allToolDefs,
+      platformBlocked: getPlatformBlockedTools(),
+      orgEnabled: [],   // Org-level allow list (future: from org settings)
+      orgDisabled: [],   // Org-level deny list (future: from org settings)
+      connectedIntegrations,
+      agentProfile,
+      agentEnabled: config.enabledTools ?? [],
+      agentDisabled: config.disabledTools ?? [],
+      autonomyLevel: config.autonomyLevel,
+      sessionDisabled: sessionDisabledTools,
+      channel: args.channel,
+    });
+
+    // Convert resolved tool names to OpenAI function schemas
+    const activeToolNames = new Set(activeToolDefs.map(t => t.name));
+    let toolSchemas = getToolSchemas().filter(s => activeToolNames.has(s.function.name));
+
+    // 7.25. Tool broker — narrow tools by intent + recent usage (feature-flagged)
+    let brokerMetrics: BrokerMetrics | undefined;
+    if (config.useToolBroker) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const recentToolNames = extractRecentToolNames(history as Array<{ role: string; toolCalls?: any }>);
+      const brokerResult = brokerTools(args.message, toolSchemas, recentToolNames);
+      toolSchemas = brokerResult.tools;
+      brokerMetrics = brokerResult.metrics;
+    }
 
     // 7.5. Pre-flight credit check
     const model = config.modelId || "anthropic/claude-sonnet-4-20250514";
@@ -200,7 +498,7 @@ export const processInboundMessage = action({
       };
     }
 
-    // 8. Call LLM
+    // 8. Call LLM with retry + model failover
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return { status: "error", message: "OpenRouter API key not configured" };
@@ -208,13 +506,83 @@ export const processInboundMessage = action({
 
     const client = new OpenRouterClient(apiKey);
 
-    const response = await client.chatCompletion({
-      model,
-      messages,
-      tools: toolSchemas.length > 0 ? toolSchemas : undefined,
-      temperature: config.temperature ?? 0.7,
-      max_tokens: config.maxTokens || 4096,
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let response: any = null;
+    let usedModel = model;
+
+    // Try primary model with retry
+    const modelsToTry = [model, ...(MODEL_FALLBACK_CHAIN[model] || [])];
+
+    for (const tryModel of modelsToTry) {
+      try {
+        const retryResult = await withRetry(
+          () =>
+            client.chatCompletion({
+              model: tryModel,
+              messages,
+              tools: toolSchemas.length > 0 ? toolSchemas : undefined,
+              temperature: config.temperature ?? 0.7,
+              max_tokens: config.maxTokens || 4096,
+            }),
+          LLM_RETRY_POLICY
+        );
+        response = retryResult.result;
+        usedModel = tryModel;
+
+        if (retryResult.attempts > 1) {
+          console.warn(
+            `[AgentExecution] LLM call succeeded on attempt ${retryResult.attempts} with model ${tryModel}`
+          );
+        }
+        break;
+      } catch (e) {
+        console.error(
+          `[AgentExecution] Model ${tryModel} failed all retries:`,
+          e instanceof Error ? e.message : String(e)
+        );
+        // Continue to next fallback model
+      }
+    }
+
+    // All models failed — send user error message and notify owner
+    if (!response) {
+      const errorMessage = getUserErrorMessage("ALL_MODELS_FAILED");
+
+      // Save error message as assistant response
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "user",
+        content: args.message,
+      });
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "assistant",
+        content: errorMessage,
+      });
+
+      // Send error to user via channel
+      const meta = (args.metadata as Record<string, unknown>) || {};
+      if (!meta.skipOutbound && args.channel !== "api_test") {
+        try {
+          await ctx.runAction(getInternal().channels.router.sendMessage, {
+            organizationId: args.organizationId,
+            channel: args.channel,
+            recipientIdentifier: args.externalContactIdentifier,
+            content: errorMessage,
+          });
+        } catch {
+          // Best effort — if channel also fails, message is at least saved in session
+        }
+      }
+
+      // Notify owner — this is a model failure, not a credit issue
+      ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyAllModelsFailed, {
+        organizationId: args.organizationId,
+        error: "All retry attempts and fallback models exhausted",
+      });
+
+      return { status: "error", message: "All AI models are currently unavailable", sessionId: session._id };
+    }
 
     const choice = response.choices?.[0];
     if (!choice) {
@@ -224,17 +592,40 @@ export const processInboundMessage = action({
     const assistantContent = choice.message?.content || "";
     const toolCalls = choice.message?.tool_calls || [];
 
-    // 9. Handle tool calls with autonomy checks
-    const toolResults = [];
+    // 9. Handle tool calls with autonomy checks + failure tracking
+    const toolResults: Array<{ tool: string; status: "success" | "error" | "disabled" | "pending_approval"; result?: unknown; error?: string }> = [];
+
+    // Load persisted error state from session (survives across action invocations)
+    const existingErrorState = await ctx.runQuery(
+      getInternal().ai.agentSessions.getSessionErrorState,
+      { sessionId: session._id }
+    ) as { disabledTools?: string[]; failedToolCounts?: Record<string, number> } | null;
+
+    const failedToolCounts: Record<string, number> = { ...(existingErrorState?.failedToolCounts || {}) };
+    const disabledTools = new Set<string>(existingErrorState?.disabledTools || []);
+    let errorStateDirty = false;
+
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function?.name;
       if (!toolName) continue;
+
+      // Skip tools disabled from prior invocations or this one
+      if (disabledTools.has(toolName) || (failedToolCounts[toolName] || 0) >= 3) {
+        toolResults.push({
+          tool: toolName,
+          status: "disabled",
+          error: `Tool disabled after repeated failures`,
+        });
+        continue;
+      }
 
       let parsedArgs;
       try {
         parsedArgs = JSON.parse(toolCall.function.arguments || "{}");
       } catch {
         toolResults.push({ tool: toolName, status: "error", error: "Invalid arguments" });
+        failedToolCounts[toolName] = (failedToolCounts[toolName] || 0) + 1;
+        errorStateDirty = true;
         continue;
       }
 
@@ -263,9 +654,184 @@ export const processInboundMessage = action({
           const result = await TOOL_REGISTRY[toolName]?.execute(toolCtx, parsedArgs);
           toolResults.push({ tool: toolName, status: "success", result });
         } catch (e) {
-          toolResults.push({ tool: toolName, status: "error", error: String(e) });
+          failedToolCounts[toolName] = (failedToolCounts[toolName] || 0) + 1;
+          const errorStr = e instanceof Error ? e.message : String(e);
+          toolResults.push({ tool: toolName, status: "error", error: errorStr });
+          errorStateDirty = true;
+
+          // If tool has now failed 3 times, disable it and notify owner
+          if (failedToolCounts[toolName] >= 3) {
+            disabledTools.add(toolName);
+            console.error(`[AgentExecution] Tool "${toolName}" disabled after 3 failures in session ${session._id}`);
+
+            ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyToolDisabled, {
+              organizationId: args.organizationId,
+              toolName,
+              error: errorStr,
+            });
+          }
         }
       }
+    }
+
+    // Persist error state to session if anything changed
+    if (errorStateDirty) {
+      // Enter degraded mode when 3+ distinct tools are disabled
+      const isDegraded = disabledTools.size >= 3;
+      await ctx.runMutation(getInternal().ai.agentSessions.updateSessionErrorState, {
+        sessionId: session._id,
+        disabledTools: Array.from(disabledTools),
+        failedToolCounts,
+        degraded: isDegraded,
+        degradedReason: isDegraded
+          ? `${disabledTools.size} tools disabled due to repeated failures`
+          : undefined,
+      });
+
+      // Tool failure escalation — check if threshold met (per-agent configurable)
+      if (!sessionEsc) {
+        const toolEsc = checkToolFailureEscalation(disabledTools.size, config.escalationPolicy);
+        if (toolEsc) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const tfAgentName = (agent.customProperties as any)?.displayName || agent.name || "Agent";
+
+          await ctx.runMutation(getInternal().ai.escalation.createEscalation, {
+            sessionId: session._id,
+            agentId: agent._id,
+            organizationId: args.organizationId,
+            reason: toolEsc.reason,
+            urgency: toolEsc.urgency,
+            triggerType: toolEsc.triggerType,
+          });
+
+          // Fire notifications
+          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, {
+            sessionId: session._id,
+            organizationId: args.organizationId,
+            agentName: tfAgentName,
+            reason: toolEsc.reason,
+            urgency: toolEsc.urgency,
+            contactIdentifier: args.externalContactIdentifier,
+            channel: args.channel,
+            lastMessage: args.message.slice(0, 200),
+          });
+          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, {
+            organizationId: args.organizationId,
+            agentName: tfAgentName,
+            reason: toolEsc.reason,
+            urgency: toolEsc.urgency,
+            contactIdentifier: args.externalContactIdentifier,
+            channel: args.channel,
+          });
+          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, {
+            organizationId: args.organizationId,
+            agentName: tfAgentName,
+            reason: toolEsc.reason,
+            urgency: toolEsc.urgency,
+            contactIdentifier: args.externalContactIdentifier,
+            channel: args.channel,
+            lastMessage: args.message.slice(0, 200),
+          });
+
+          // Schedule HIGH urgency email retry
+          if (toolEsc.urgency === "high") {
+            ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, {
+              sessionId: session._id,
+              organizationId: args.organizationId,
+              agentName: tfAgentName,
+              reason: toolEsc.reason,
+              contactIdentifier: args.externalContactIdentifier,
+              channel: args.channel,
+              lastMessage: args.message.slice(0, 200),
+            });
+          }
+        }
+      }
+    }
+
+    // 9.5. Post-LLM escalation checks (uncertainty phrases, response loops)
+    // Load last 2 assistant responses + uncertainty counter for this session
+    const sessionHistory = await ctx.runQuery(getInternal().ai.agentSessions.getSessionMessages, {
+      sessionId: session._id,
+      limit: 10,
+    }) as Array<{ role: string; content: string }>;
+
+    const recentAssistantMessages = sessionHistory
+      .filter((m) => m.role === "assistant")
+      .map((m) => m.content)
+      .slice(-2);
+
+    // Count existing uncertainty responses from this session
+    let existingUncertaintyCount = 0;
+    for (const msg of sessionHistory.filter((m) => m.role === "assistant")) {
+      const lower = msg.content.toLowerCase();
+      if (UNCERTAINTY_PHRASES.some((p) => lower.includes(p))) {
+        existingUncertaintyCount++;
+      }
+    }
+
+    const escalationCounters: EscalationCounters = {
+      uncertaintyCount: existingUncertaintyCount,
+      recentResponses: recentAssistantMessages,
+    };
+
+    const postEscalation = checkPostLLMEscalation(assistantContent, escalationCounters, config.escalationPolicy);
+    if (postEscalation.shouldEscalate && !sessionEsc) {
+      // Only escalate if not already escalated
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const postAgentName = (agent.customProperties as any)?.displayName || agent.name || "Agent";
+
+      await ctx.runMutation(getInternal().ai.escalation.createEscalation, {
+        sessionId: session._id,
+        agentId: agent._id,
+        organizationId: args.organizationId,
+        reason: postEscalation.reason,
+        urgency: postEscalation.urgency,
+        triggerType: postEscalation.triggerType,
+      });
+
+      // Fire notifications (fire-and-forget)
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, {
+        sessionId: session._id,
+        organizationId: args.organizationId,
+        agentName: postAgentName,
+        reason: postEscalation.reason,
+        urgency: postEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+        lastMessage: args.message.slice(0, 200),
+      });
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, {
+        organizationId: args.organizationId,
+        agentName: postAgentName,
+        reason: postEscalation.reason,
+        urgency: postEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+      });
+      ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, {
+        organizationId: args.organizationId,
+        agentName: postAgentName,
+        reason: postEscalation.reason,
+        urgency: postEscalation.urgency,
+        contactIdentifier: args.externalContactIdentifier,
+        channel: args.channel,
+        lastMessage: args.message.slice(0, 200),
+      });
+
+      // Schedule HIGH urgency email retry
+      if (postEscalation.urgency === "high") {
+        ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, {
+          sessionId: session._id,
+          organizationId: args.organizationId,
+          agentName: postAgentName,
+          reason: postEscalation.reason,
+          contactIdentifier: args.externalContactIdentifier,
+          channel: args.channel,
+          lastMessage: args.message.slice(0, 200),
+        });
+      }
+      // Note: still send the LLM response (already generated) but now team is notified
     }
 
     // 10. Save messages
@@ -355,6 +921,18 @@ export const processInboundMessage = action({
         toolsUsed: toolResults.map((t) => t.tool),
         tokensUsed,
         costUsd,
+        ...(brokerMetrics ? {
+          broker: {
+            brokered: brokerMetrics.brokered,
+            toolsBefore: brokerMetrics.toolsBeforeBroker,
+            toolsAfter: brokerMetrics.toolsOffered,
+            intents: brokerMetrics.intentsDetected,
+            toolSelected: toolResults[0]?.tool,
+            toolInBrokeredSet: toolResults[0]?.tool
+              ? toolSchemas.some(s => s.function.name === toolResults[0]?.tool)
+              : undefined,
+          },
+        } : {}),
       },
     });
 
@@ -373,9 +951,25 @@ export const processInboundMessage = action({
           providerConversationId: meta.providerConversationId as string | undefined,
         });
       } catch (e) {
-        // Don't fail the pipeline if outbound delivery fails.
+        // Outbound delivery failed — add to dead letter queue for retry.
         // The response is still saved in the session.
-        console.error("[AgentExecution] Outbound delivery failed:", e);
+        const errorStr = e instanceof Error ? e.message : String(e);
+        console.error("[AgentExecution] Outbound delivery failed, adding to DLQ:", errorStr);
+
+        try {
+          await ctx.runMutation(getInternal().ai.deadLetterQueue.addToDeadLetterQueue, {
+            organizationId: args.organizationId,
+            channel: args.channel,
+            recipientIdentifier: args.externalContactIdentifier,
+            content: assistantContent,
+            error: errorStr,
+            sessionId: session._id,
+            providerConversationId: meta.providerConversationId as string | undefined,
+          });
+        } catch (dlqError) {
+          // Last resort — if even DLQ fails, just log
+          console.error("[AgentExecution] Failed to add to dead letter queue:", dlqError);
+        }
       }
     }
 
@@ -397,6 +991,9 @@ function buildAgentSystemPrompt(
   knowledgeBaseDocs?: Array<{ filename: string; description?: string; content: string; tags?: string[] }>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   interviewContext?: any,
+  previousSessionSummary?: string,
+  disabledTools?: string[],
+  handoffContext?: { sharedContext?: string; lastHandoff?: { fromAgent: string; reason: string; contextSummary?: string } },
 ): string {
   const parts: string[] = [];
 
@@ -476,40 +1073,46 @@ function buildAgentSystemPrompt(
     parts.push(buildInterviewPromptContext(interviewContext));
   }
 
+  // Previous session context (for resumed sessions after TTL expiry)
+  if (previousSessionSummary) {
+    parts.push("\n--- PREVIOUS CONVERSATION ---");
+    parts.push(`You previously spoke with this customer. Summary: "${previousSessionSummary}"`);
+    parts.push("Greet them naturally and reference the previous context if relevant.");
+    parts.push("--- END PREVIOUS CONVERSATION ---");
+  }
+
+  // Team handoff context (specialist was tagged in by PM/lead)
+  if (handoffContext) {
+    parts.push("\n--- TEAM HANDOFF ---");
+    if (handoffContext.lastHandoff) {
+      parts.push(`You were tagged in by ${handoffContext.lastHandoff.fromAgent}.`);
+      parts.push(`Reason: ${handoffContext.lastHandoff.reason}`);
+      if (handoffContext.lastHandoff.contextSummary) {
+        parts.push(`Context: ${handoffContext.lastHandoff.contextSummary}`);
+      }
+    }
+    if (handoffContext.sharedContext) {
+      parts.push(`Shared notes: ${handoffContext.sharedContext}`);
+    }
+    parts.push("Continue the conversation naturally. The customer may not know a handoff occurred.");
+    parts.push("--- END TEAM HANDOFF ---");
+  }
+
+  // Degraded mode (multiple tools disabled due to failures)
+  if (disabledTools && disabledTools.length > 0) {
+    parts.push("\n--- DEGRADED MODE ---");
+    parts.push(`Some of your capabilities are temporarily unavailable: ${disabledTools.join(", ")}.`);
+    parts.push("Focus on answering questions, providing information, and offering to connect the customer with our team for actions you cannot perform.");
+    parts.push("Do NOT attempt to use the disabled tools.");
+    parts.push("--- END DEGRADED MODE ---");
+  }
+
   return parts.join("\n");
 }
 
-function filterToolsForAgent(config: AgentConfig): Array<{
-  type: "function";
-  function: { name: string; description: string; parameters: Record<string, unknown> };
-}> {
-  // Get all ready tool schemas
-  let schemas = getToolSchemas();
-
-  // If enabledTools specified, only include those + query_org_data
-  if (config.enabledTools && config.enabledTools.length > 0) {
-    const allowed = new Set([...config.enabledTools, "query_org_data"]);
-    schemas = schemas.filter((s) => allowed.has(s.function.name));
-  }
-
-  // Always exclude disabled tools
-  if (config.disabledTools && config.disabledTools.length > 0) {
-    const blocked = new Set(config.disabledTools);
-    schemas = schemas.filter((s) => !blocked.has(s.function.name));
-  }
-
-  // In draft_only mode, only allow read-only tools
-  if (config.autonomyLevel === "draft_only") {
-    const readOnlyTools = new Set([
-      "query_org_data", "search_contacts", "list_events", "list_products",
-      "list_forms", "list_tickets", "list_workflows", "search_media",
-      "search_unsplash_images", "get_form_responses",
-    ]);
-    schemas = schemas.filter((s) => readOnlyTools.has(s.function.name));
-  }
-
-  return schemas;
-}
+// filterToolsForAgent — REMOVED
+// Replaced by resolveActiveTools() in convex/ai/toolScoping.ts
+// which implements 4-layer scoping: platform → org → agent → session
 
 function checkNeedsApproval(config: AgentConfig, toolName: string): boolean {
   // Supervised mode: everything needs approval

@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff,
   Users,
+  Link2,
 } from "lucide-react";
 
 interface TelegramSettingsProps {
@@ -38,6 +39,9 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
   const [showToken, setShowToken] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [telegramLink, setTelegramLink] = useState<string | null>(null);
+  const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null);
 
   // Queries & mutations
   const status = useQuery(
@@ -48,6 +52,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
   const deployBot = useAction(api.integrations.telegram.deployCustomBot);
   const disconnectBot = useMutation(api.integrations.telegram.disconnectCustomBot);
   const toggleMirror = useMutation(api.integrations.telegram.toggleTeamGroupMirror);
+  const generateLinkToken = useMutation(api.integrations.telegram.generateTelegramLinkToken);
 
   const isLoading = status === undefined;
 
@@ -118,6 +123,31 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
       );
     }
   };
+
+  const handleGenerateLink = async () => {
+    if (!sessionId) return;
+
+    setIsGeneratingLink(true);
+    try {
+      const result = await generateLinkToken({ sessionId });
+      if (result.success) {
+        setTelegramLink(result.telegramLink);
+        setLinkExpiresAt(Date.now() + (result.expiresInMinutes ?? 15) * 60 * 1000);
+        notification.success("Link Generated", "Click or share the link to connect Telegram");
+      } else {
+        notification.error("Error", result.error || "Could not generate link");
+      }
+    } catch (error) {
+      notification.error(
+        "Error",
+        error instanceof Error ? error.message : "Could not generate link"
+      );
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const isLinkExpired = linkExpiresAt ? Date.now() > linkExpiresAt : false;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -257,18 +287,70 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className="p-3 border rounded text-xs"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--neutral-gray)",
-                    }}
-                  >
-                    <p>
-                      Start a conversation with the platform bot on Telegram to connect your
-                      organization. The onboarding interview will set everything up automatically.
-                    </p>
+                  <div className="space-y-3">
+                    <div
+                      className="p-3 border rounded text-xs"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--win95-bg)",
+                        color: "var(--neutral-gray)",
+                      }}
+                    >
+                      <p>
+                        Connect your Telegram to this organization. Generate a one-time link below,
+                        then open it in Telegram to link your account.
+                      </p>
+                    </div>
+
+                    {telegramLink && !isLinkExpired ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                          Your Connect Link
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={telegramLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 p-2 border rounded font-mono text-xs break-all underline"
+                            style={{
+                              borderColor: "var(--win95-border)",
+                              background: "var(--win95-bg)",
+                              color: "var(--win95-highlight)",
+                            }}
+                          >
+                            {telegramLink}
+                          </a>
+                          <button
+                            onClick={() => copyToClipboard(telegramLink)}
+                            title="Copy link"
+                          >
+                            <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                          </button>
+                        </div>
+                        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          This link expires in 15 minutes and can only be used once.
+                        </p>
+                      </div>
+                    ) : (
+                      <RetroButton
+                        onClick={handleGenerateLink}
+                        disabled={isGeneratingLink}
+                        className="w-full"
+                      >
+                        {isGeneratingLink ? (
+                          <>
+                            <Loader2 size={14} className="mr-1 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Link2 size={14} className="mr-1" />
+                            {isLinkExpired ? "Generate New Link" : "Connect Telegram"}
+                          </>
+                        )}
+                      </RetroButton>
+                    )}
                   </div>
                 )}
               </div>

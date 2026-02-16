@@ -117,7 +117,7 @@ export const sendFeatureRequest = internalAction({
       const { data, error } = await resend.emails.send({
         from: fromEmail,
         replyTo: userEmail, // Allow dev team to reply directly to user
-        to: "remington@l4yercak3.com",
+        to: process.env.SALES_EMAIL || "sales@l4yercak3.com",
         subject: subject + emailSubjectSuffix,
         html: emailBodyPrefix + html,
         text: linearResult

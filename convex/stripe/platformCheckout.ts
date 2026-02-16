@@ -2,7 +2,7 @@
  * STRIPE PLATFORM TIER CHECKOUT
  *
  * Handles Stripe Checkout session creation for platform tier subscriptions.
- * (Free, Community, Starter, Professional, Agency, Enterprise)
+ * Active tiers: Free → Pro (€29/mo) → Agency (€299/mo) → Enterprise (custom)
  *
  * This is separate from AI subscription billing (aiCheckout.ts).
  * Platform tiers control feature limits, not AI token usage.
@@ -27,27 +27,20 @@ const getStripe = () => {
 /**
  * Platform tier price IDs (set in environment variables)
  *
- * These should be configured in Stripe Dashboard with metadata:
- * - tier: "starter" | "professional" | "agency" | "enterprise"
- * - type: "platform"
+ * Active tiers: Pro (€29/mo) and Agency (€299/mo)
+ * Enterprise is custom pricing (contact sales)
+ * Free has no Stripe price
  *
  * Monthly and Annual prices are stored separately
  */
 const TIER_PRICE_IDS = {
   monthly: {
-    free: process.env.STRIPE_FREE_MO_PRICE_ID,
-    community: process.env.STRIPE_COMMUNITY_MO_PRICE_ID,
-    starter: process.env.STRIPE_STARTER_MO_PRICE_ID,
-    professional: process.env.STRIPE_PROFESSIONAL_MO_PRICE_ID,
+    pro: process.env.STRIPE_PRO_MO_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_MO_PRICE_ID,
-    enterprise: process.env.STRIPE_ENTERPRISE_MO_PRICE_ID,
   } as Record<string, string | undefined>,
   annual: {
-    community: process.env.STRIPE_COMMUNITY_YR_PRICE_ID,
-    starter: process.env.STRIPE_STARTER_YR_PRICE_ID,
-    professional: process.env.STRIPE_PROFESSIONAL_YR_PRICE_ID,
+    pro: process.env.STRIPE_PRO_YR_PRICE_ID,
     agency: process.env.STRIPE_AGENCY_YR_PRICE_ID,
-    enterprise: process.env.STRIPE_ENTERPRISE_YR_PRICE_ID,
   } as Record<string, string | undefined>,
 };
 
@@ -63,11 +56,8 @@ export const createPlatformCheckoutSession = action({
     organizationName: v.string(),
     email: v.string(),
     tier: v.union(
-      v.literal("community"),
-      v.literal("starter"),
-      v.literal("professional"),
+      v.literal("pro"),
       v.literal("agency"),
-      v.literal("enterprise")
     ),
     billingPeriod: v.union(v.literal("monthly"), v.literal("annual")),
     successUrl: v.string(),
@@ -220,175 +210,6 @@ export const createPlatformCheckoutSession = action({
 });
 
 /**
- * Token pack price IDs from environment variables
- */
-const TOKEN_PACK_PRICE_IDS: Record<string, string | undefined> = {
-  starter: process.env.STRIPE_TOKENS_STARTER_PRICE_ID,
-  standard: process.env.STRIPE_TOKENS_STANDARD_PRICE_ID,
-  professional: process.env.STRIPE_TOKENS_PRO_PRICE_ID,
-  enterprise: process.env.STRIPE_TOKENS_ENT_PRICE_ID,
-};
-
-/**
- * CREATE TOKEN PACK CHECKOUT SESSION
- *
- * Creates a Stripe Checkout session for purchasing a one-time token pack.
- * Uses pre-defined Stripe price IDs from environment variables.
- */
-export const createTokenPackCheckoutSession = action({
-  args: {
-    organizationId: v.id("organizations"),
-    organizationName: v.string(),
-    email: v.string(),
-    tier: v.union(
-      v.literal("starter"),
-      v.literal("standard"),
-      v.literal("professional"),
-      v.literal("enterprise")
-    ),
-    packName: v.string(),
-    tokens: v.number(),
-    successUrl: v.string(),
-    cancelUrl: v.string(),
-    isB2B: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const stripe = getStripe();
-
-    // Get price ID from environment variables
-    const priceId = TOKEN_PACK_PRICE_IDS[args.tier];
-    if (!priceId) {
-      throw new Error(`Price ID not configured for token pack tier: ${args.tier}. Please set STRIPE_TOKENS_${args.tier.toUpperCase()}_PRICE_ID environment variable.`);
-    }
-
-    // Get organization and existing billing details
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
-
-    // Query for stored billing details
-    const billingDetails = await ctx.runQuery(internal.stripe.platformCheckout.getOrganizationBillingDetails, {
-      organizationId: args.organizationId,
-    });
-
-    // Prepare customer data with stored billing address if available
-    const customerData: Stripe.CustomerCreateParams = {
-      name: billingDetails?.billingName || args.organizationName,
-      email: billingDetails?.billingEmail || args.email,
-      metadata: {
-        organizationId: args.organizationId,
-        userEmail: args.email,
-        platform: "l4yercak3",
-      },
-      // Pre-fill billing address if we have it stored
-      ...(billingDetails?.billingAddress && {
-        address: {
-          line1: billingDetails.billingAddress.line1,
-          line2: billingDetails.billingAddress.line2 || undefined,
-          city: billingDetails.billingAddress.city,
-          state: billingDetails.billingAddress.state || undefined,
-          postal_code: billingDetails.billingAddress.postalCode,
-          country: billingDetails.billingAddress.country,
-        },
-      }),
-    };
-
-    let customerId: string;
-    if (org?.stripeCustomerId) {
-      try {
-        const customer = await stripe.customers.retrieve(org.stripeCustomerId);
-        if (!customer.deleted) {
-          customerId = org.stripeCustomerId;
-
-          // Update customer with stored billing address if available
-          if (billingDetails?.billingAddress) {
-            await stripe.customers.update(customerId, {
-              name: billingDetails.billingName || args.organizationName,
-              email: billingDetails.billingEmail || args.email,
-              address: {
-                line1: billingDetails.billingAddress.line1,
-                line2: billingDetails.billingAddress.line2 || undefined,
-                city: billingDetails.billingAddress.city,
-                state: billingDetails.billingAddress.state || undefined,
-                postal_code: billingDetails.billingAddress.postalCode,
-                country: billingDetails.billingAddress.country,
-              },
-            });
-            console.log(`[Token Pack Checkout] Pre-filled billing address for customer ${customerId}`);
-          }
-        } else {
-          throw new Error("Customer deleted");
-        }
-      } catch {
-        const customer = await stripe.customers.create(customerData);
-        customerId = customer.id;
-        await ctx.runMutation(internal.organizations.updateStripeCustomer, {
-          organizationId: args.organizationId,
-          stripeCustomerId: customer.id,
-        });
-      }
-    } else {
-      const customer = await stripe.customers.create(customerData);
-      customerId = customer.id;
-      await ctx.runMutation(internal.organizations.updateStripeCustomer, {
-        organizationId: args.organizationId,
-        stripeCustomerId: customer.id,
-      });
-    }
-
-    // Create checkout session for one-time payment using pre-defined price
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      customer: customerId,
-      mode: "payment",
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: args.successUrl,
-      cancel_url: args.cancelUrl,
-      billing_address_collection: "required",
-      // Save billing address to customer for automatic tax calculation
-      customer_update: {
-        address: "auto",
-        name: "auto",
-      },
-      // Allow customers to reuse existing payment methods
-      payment_method_collection: "if_required",
-      automatic_tax: {
-        enabled: true,
-      },
-      tax_id_collection: {
-        enabled: true,
-      },
-      metadata: {
-        organizationId: args.organizationId,
-        type: "token-pack",
-        tier: args.tier,
-        tokens: args.tokens.toString(),
-        platform: "l4yercak3",
-        isB2B: args.isB2B ? "true" : "false",
-      },
-      payment_intent_data: {
-        metadata: {
-          organizationId: args.organizationId,
-          type: "token-pack",
-          tier: args.tier,
-          tokens: args.tokens.toString(),
-          platform: "l4yercak3",
-        },
-      },
-    };
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
-
-    return {
-      checkoutUrl: session.url!,
-      sessionId: session.id,
-    };
-  },
-});
-
-/**
  * INTERNAL QUERY: Get organization billing details
  *
  * Retrieves stored billing address and tax information from organization_billing object.
@@ -441,11 +262,12 @@ export const getOrganizationBillingDetails = internalQuery({
  */
 const TIER_ORDER: Record<string, number> = {
   free: 0,
-  community: 1,
-  starter: 2,
-  professional: 3,
-  agency: 4,
-  enterprise: 5,
+  pro: 1,
+  starter: 1,        // Legacy - same level as pro
+  community: 1,      // Legacy - same level as pro
+  professional: 1,   // Legacy - same level as pro
+  agency: 2,
+  enterprise: 3,
 };
 
 /**
@@ -463,9 +285,7 @@ export const managePlatformSubscription = action({
     organizationId: v.id("organizations"),
     newTier: v.union(
       v.literal("free"),
-      v.literal("community"),
-      v.literal("starter"),
-      v.literal("professional"),
+      v.literal("pro"),
       v.literal("agency"),
       v.literal("enterprise")
     ),
@@ -540,6 +360,15 @@ export const managePlatformSubscription = action({
 
     // CANCEL TO FREE
     if (args.newTier === "free") {
+      // If subscription has a schedule, release it first before canceling
+      if (subscription.schedule) {
+        try {
+          await stripe.subscriptionSchedules.release(subscription.schedule as string);
+        } catch (releaseError) {
+          console.warn("[Platform Subscription] Failed to release schedule before cancel:", releaseError);
+        }
+      }
+
       // Set subscription to cancel at period end
       await stripe.subscriptions.update(org.stripeSubscriptionId, {
         cancel_at_period_end: true,
@@ -567,6 +396,15 @@ export const managePlatformSubscription = action({
 
     // UPGRADE (immediate with proration credit)
     if (newTierOrder > currentTierOrder) {
+      // If subscription has a schedule (e.g. pending downgrade), release it first
+      if (subscription.schedule) {
+        try {
+          await stripe.subscriptionSchedules.release(subscription.schedule as string);
+        } catch (releaseError) {
+          console.warn("[Platform Subscription] Failed to release schedule before upgrade:", releaseError);
+        }
+      }
+
       await stripe.subscriptions.update(org.stripeSubscriptionId, {
         items: [
           {
@@ -729,23 +567,60 @@ export const cancelPendingDowngrade = action({
 
     const subscription = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
 
-    // If subscription is set to cancel at period end, reactivate it
+    // If there's a schedule, release it first (this also clears cancel_at_period_end
+    // if it was set through the schedule)
+    if (subscription.schedule) {
+      await stripe.subscriptionSchedules.release(subscription.schedule as string);
+
+      // Re-fetch subscription after releasing schedule to check cancel state
+      const refreshed = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
+      if (refreshed.cancel_at_period_end) {
+        await stripe.subscriptions.update(org.stripeSubscriptionId, {
+          cancel_at_period_end: false,
+        });
+      }
+
+      // Send sales team notification (non-blocking)
+      try {
+        const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+        await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+          eventType: "pending_change_reverted" as const,
+          user: { email: org.email || "", firstName: org.name || "", lastName: "" },
+          organization: { name: org.name || "Unknown", planTier: license?.planTier || "pro" },
+          metadata: { tier: license?.planTier || "pro" },
+        });
+      } catch (e) {
+        console.warn("[Platform Checkout] Failed to send revert notification:", e);
+      }
+
+      return {
+        success: true,
+        message: "Pending plan change has been canceled",
+      };
+    }
+
+    // If subscription is set to cancel at period end (no schedule), reactivate it
     if (subscription.cancel_at_period_end) {
       await stripe.subscriptions.update(org.stripeSubscriptionId, {
         cancel_at_period_end: false,
       });
+
+      // Send sales team notification (non-blocking)
+      try {
+        const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+        await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+          eventType: "pending_change_reverted" as const,
+          user: { email: org.email || "", firstName: org.name || "", lastName: "" },
+          organization: { name: org.name || "Unknown", planTier: license?.planTier || "pro" },
+          metadata: { tier: license?.planTier || "pro" },
+        });
+      } catch (e) {
+        console.warn("[Platform Checkout] Failed to send revert notification:", e);
+      }
+
       return {
         success: true,
         message: "Your subscription has been reactivated",
-      };
-    }
-
-    // If there's a schedule, release it to keep current plan
-    if (subscription.schedule) {
-      await stripe.subscriptionSchedules.release(subscription.schedule as string);
-      return {
-        success: true,
-        message: "Pending plan change has been canceled",
       };
     }
 

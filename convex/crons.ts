@@ -155,6 +155,104 @@ crons.interval(
 );
 
 /**
+ * Expire Stale Agent Sessions (Session TTL)
+ *
+ * Runs every 15 minutes to close sessions that have exceeded their idle TTL
+ * or maximum duration. Prevents stale context from persisting indefinitely.
+ *
+ * What it does:
+ * 1. Gets all active agent sessions (batch of 200)
+ * 2. Resolves session policy (TTL, maxDuration) from agent config
+ * 3. Closes sessions that are idle or expired
+ * 4. Logs count of closed sessions
+ */
+crons.interval(
+  "Expire stale agent sessions",
+  { minutes: 15 },
+  internal.ai.agentSessions.expireStaleSessions
+);
+
+/**
+ * Retry Dead Letter Queue Messages
+ *
+ * Runs every 5 minutes to retry outbound messages that failed delivery.
+ * Messages are abandoned after 10 failed attempts.
+ *
+ * What it does:
+ * 1. Finds dead letter entries with nextRetryAt <= now
+ * 2. Retries sending through the channel router
+ * 3. Deletes on success, increments attempts on failure
+ * 4. Abandons messages after 10 attempts
+ */
+crons.interval(
+  "Retry dead letter queue messages",
+  { minutes: 5 },
+  internal.ai.deadLetterQueue.retryDeadLetters
+);
+
+/**
+ * Cleanup Old Credit Sharing Ledger Entries
+ *
+ * Runs daily at 3:30 AM UTC to remove ledger entries older than 90 days.
+ * Prevents database bloat from historical credit sharing records.
+ *
+ * What it does:
+ * 1. Finds credit_sharing_ledger objects updated >90 days ago
+ * 2. Deletes them in batches of 500
+ * 3. Logs cleanup count
+ */
+crons.daily(
+  "Cleanup old credit sharing ledger",
+  {
+    hourUTC: 3,
+    minuteUTC: 30,
+  },
+  internal.credits.sharing.cleanupOldLedgerEntries
+);
+
+/**
+ * Weekly Soul Reflection
+ *
+ * Runs weekly on Monday at 9 AM UTC.
+ * Triggers self-reflection for all eligible active agents.
+ *
+ * What it does:
+ * 1. Iterates all active agents
+ * 2. Skips protected agents and those with reflection disabled
+ * 3. Checks rate limits before scheduling
+ * 4. Staggers reflections over 60 minutes to avoid spikes
+ * 5. Each reflection reviews recent conversations and proposes soul updates
+ */
+crons.weekly(
+  "Weekly soul reflection",
+  {
+    dayOfWeek: "monday",
+    hourUTC: 9,
+    minuteUTC: 0,
+  },
+  internal.ai.soulEvolution.scheduledReflection
+);
+
+/**
+ * Archive Idle Quinn Workers
+ *
+ * Runs every 15 minutes to archive Quinn onboarding workers
+ * that have been idle for more than 60 minutes.
+ * Always keeps at least 1 worker active.
+ *
+ * What it does:
+ * 1. Finds all active workers (agents cloned from Quinn template)
+ * 2. Skips the most-recently-active worker
+ * 3. Archives workers idle for over 60 minutes
+ * 4. Logs count of archived workers
+ */
+crons.interval(
+  "Archive idle Quinn workers",
+  { minutes: 15 },
+  internal.ai.workerPool.archiveIdleWorkers
+);
+
+/**
  * Mark Abandoned AI Training Sessions
  *
  * Runs every 15 minutes to mark old AI conversations without feedback.
@@ -170,6 +268,23 @@ crons.interval(
   { minutes: 15 },
   internal.ai.trainingData.markAbandonedSessions,
   { olderThanMinutes: 15 }
+);
+
+/**
+ * Auto-Resume Timed Out Escalations
+ *
+ * Runs every 5 minutes to auto-resume conversations where a human
+ * was notified but didn't respond within 30 minutes.
+ *
+ * What it does:
+ * 1. Finds sessions with pending escalations older than 30 minutes
+ * 2. Sets escalation status to "timed_out" so agent can resume
+ * 3. Prevents customers from being stuck in limbo indefinitely
+ */
+crons.interval(
+  "Auto-resume timed out escalations",
+  { minutes: 5 },
+  internal.ai.escalation.autoResumeTimedOutEscalations
 );
 
 export default crons;

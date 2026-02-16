@@ -212,6 +212,7 @@ export const searchUnsplashImagesTool: AITool = {
   name: "search_unsplash_images",
   description: unsplashToolDefinition.function.description,
   status: "ready",
+  readOnly: true,
   parameters: unsplashToolDefinition.function.parameters,
   execute: async (ctx, args) => {
     return executeUnsplashSearch(ctx, args);

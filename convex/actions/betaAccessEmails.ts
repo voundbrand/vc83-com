@@ -38,7 +38,7 @@ export const notifySalesOfBetaRequest = internalAction({
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const salesEmail = process.env.SALES_EMAIL || "remington@l4yercak3.com";
+    const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
 
     const fullName = `${args.firstName || ""} ${args.lastName || ""}`.trim() || "Unknown";
 
@@ -297,7 +297,7 @@ export const sendBetaRequestConfirmation = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com",
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
         subject,
         html,
@@ -447,7 +447,7 @@ export const sendBetaApprovalEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com",
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
         subject,
         html,
@@ -591,7 +591,7 @@ export const sendBetaRejectionEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com",
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
         subject,
         html,

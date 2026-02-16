@@ -49,7 +49,7 @@ export const sendInvitationEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail, // Use the value directly, don't wrap it again
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.to,
         subject,
         html,
@@ -184,8 +184,8 @@ export const sendAISubscriptionConfirmation = internalAction({
           <div class="footer">
             <p>l4yercak3 AI Platform</p>
             <p>${args.language === "de"
-              ? "Bei Fragen kontaktieren Sie uns unter team@mail.l4yercak3.com"
-              : "For questions, contact us at team@mail.l4yercak3.com"}</p>
+              ? "Bei Fragen kontaktieren Sie uns unter support@l4yercak3.com"
+              : "For questions, contact us at support@l4yercak3.com"}</p>
           </div>
         </div>
       </body>
@@ -195,6 +195,7 @@ export const sendAISubscriptionConfirmation = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
+        replyTo: "support@l4yercak3.com",
         to: args.to,
         subject: subjects[args.language] || subjects.en,
         html,
@@ -235,7 +236,7 @@ export const sendSalesNotification = internalAction({
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const salesEmail = process.env.SALES_EMAIL || "team@mail.l4yercak3.com";
+    const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
 
     const formatPrice = (cents: number, currency: string) => {
       const symbol = currency === "eur" ? "€" : "$";
@@ -341,7 +342,7 @@ export const sendPasswordResetEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail, // Use the value directly, don't wrap it again
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com", // Allow users to reply (better deliverability)
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.to,
         subject: "Reset your l4yercak3 password",
         html,
@@ -382,7 +383,7 @@ export const sendContactFormEmail = action({
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const salesEmail = process.env.SALES_EMAIL || "remington@l4yercak3.com";
+    const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
 
     // Sales notification is always in English
     const subject = `New Enterprise Sales Inquiry from ${args.name} (${args.company})`;
@@ -415,6 +416,7 @@ export const sendContactFormEmail = action({
       const customerLocale = args.locale || 'en';
       const confirmationData = await resend.emails.send({
         from: fromEmail,
+        replyTo: "sales@l4yercak3.com",
         to: args.email,
         subject: getConfirmationSubject(customerLocale),
         html: getContactFormConfirmationEmail(args, customerLocale),
@@ -428,6 +430,81 @@ export const sendContactFormEmail = action({
     } catch (error) {
       console.error("Error sending contact form email:", error);
       throw error;
+    }
+  },
+});
+
+/**
+ * Send escalation notification email to org owner.
+ * Fired when an agent escalates a conversation to a human.
+ */
+export const sendEscalationEmail = internalAction({
+  args: {
+    to: v.string(),
+    agentName: v.string(),
+    reason: v.string(),
+    urgency: v.string(),
+    contactIdentifier: v.string(),
+    channel: v.string(),
+    lastMessage: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const resend = createResendClient();
+    const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
+
+    const urgencyBadge = args.urgency === "high" ? "HIGH" : args.urgency === "normal" ? "NORMAL" : "LOW";
+    const urgencyColor = args.urgency === "high" ? "#dc2626" : args.urgency === "normal" ? "#d97706" : "#2563eb";
+
+    const subject = `Escalation [${urgencyBadge}] — ${args.agentName} needs help`;
+
+    const truncatedMessage = args.lastMessage.length > 200
+      ? args.lastMessage.slice(0, 200) + "..."
+      : args.lastMessage;
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: ${urgencyColor}; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0; font-size: 18px;">Escalation — ${args.agentName}</h2>
+        </div>
+        <div style="border: 1px solid #e5e7eb; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 8px 0; color: #6b7280; width: 120px;">Urgency</td><td style="padding: 8px 0;"><span style="background: ${urgencyColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${urgencyBadge}</span></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Customer</td><td style="padding: 8px 0;">${args.contactIdentifier}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Channel</td><td style="padding: 8px 0;">${args.channel}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Reason</td><td style="padding: 8px 0;"><strong>${args.reason}</strong></td></tr>
+          </table>
+          <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid ${urgencyColor};">
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">Last customer message:</p>
+            <p style="margin: 0; font-style: italic;">"${truncatedMessage}"</p>
+          </div>
+          <p style="margin-top: 20px; font-size: 13px; color: #6b7280;">Log in to your dashboard to take over this conversation or dismiss the escalation.</p>
+        </div>
+      </div>
+    `;
+
+    const text = `Escalation [${urgencyBadge}] — ${args.agentName}\n\nCustomer: ${args.contactIdentifier} (${args.channel})\nReason: ${args.reason}\nLast message: "${truncatedMessage}"\n\nLog in to your dashboard to take over.`;
+
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: args.to,
+        subject,
+        html,
+        text,
+        headers: {
+          "X-Entity-Ref-ID": `escalation-${Date.now()}`,
+        },
+      });
+
+      if (error) {
+        console.error("[Escalation] Failed to send email:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, emailId: data?.id };
+    } catch (error) {
+      console.error("[Escalation] Error sending email:", error);
+      return { success: false, error: String(error) };
     }
   },
 });
@@ -1164,7 +1241,7 @@ function getContactFormConfirmationEmail(
       details: "Here's what I have on file:",
       response: "I'll review your request and get back to you within 24 hours. If you need to reach me sooner, feel free to:",
       meanwhile: "In the meantime, feel free to explore more about l4yercak3 at",
-      email: "Email me directly",
+      email: "Email us directly",
       phone: "Call me",
       calendar: "Book a time on my calendar",
       signature: "Looking forward to working with you!",
@@ -1176,7 +1253,7 @@ function getContactFormConfirmationEmail(
       details: "Folgende Informationen habe ich aufgenommen:",
       response: "Ich werde Ihre Anfrage prüfen und mich innerhalb von 24 Stunden bei Ihnen melden. Wenn Sie mich früher erreichen möchten, können Sie gerne:",
       meanwhile: "In der Zwischenzeit können Sie gerne mehr über l4yercak3 erfahren unter",
-      email: "Schreiben Sie mir direkt",
+      email: "Schreiben Sie uns direkt",
       phone: "Rufen Sie mich an",
       calendar: "Buchen Sie einen Termin in meinem Kalender",
       signature: "Ich freue mich auf die Zusammenarbeit mit Ihnen!",
@@ -1188,7 +1265,7 @@ function getContactFormConfirmationEmail(
       details: "Oto co mam w dokumentacji:",
       response: "Przejrzę Twoje zapytanie i skontaktuję się z Tobą w ciągu 24 godzin. Jeśli chcesz się skontaktować wcześniej, możesz:",
       meanwhile: "W międzyczasie możesz dowiedzieć się więcej o l4yercak3 na",
-      email: "Napisz do mnie bezpośrednio",
+      email: "Napisz do nas bezpośrednio",
       phone: "Zadzwoń do mnie",
       calendar: "Zarezerwuj czas w moim kalendarzu",
       signature: "Nie mogę się doczekać współpracy z Tobą!",
@@ -1200,7 +1277,7 @@ function getContactFormConfirmationEmail(
       details: "Esto es lo que tengo registrado:",
       response: "Revisaré tu solicitud y me pondré en contacto contigo en 24 horas. Si necesitas contactarme antes, no dudes en:",
       meanwhile: "Mientras tanto, puedes explorar más sobre l4yercak3 en",
-      email: "Envíame un correo directo",
+      email: "Envíanos un correo directo",
       phone: "Llámame",
       calendar: "Reserva una hora en mi calendario",
       signature: "¡Espero trabajar contigo!",
@@ -1212,7 +1289,7 @@ function getContactFormConfirmationEmail(
       details: "Voici ce que j'ai enregistré:",
       response: "Je vais examiner votre demande et vous répondre dans les 24 heures. Si vous avez besoin de me joindre plus tôt, n'hésitez pas à:",
       meanwhile: "En attendant, n'hésitez pas à explorer plus sur l4yercak3 à",
-      email: "M'envoyer un e-mail directement",
+      email: "Nous envoyer un e-mail directement",
       phone: "M'appeler",
       calendar: "Réserver un créneau dans mon agenda",
       signature: "Au plaisir de travailler avec vous!",
@@ -1354,7 +1431,7 @@ function getContactFormConfirmationEmail(
       <div class="message">
         <p>${s.response}</p>
         <div class="contact-links">
-          <a href="mailto:remington@l4yercak3.com" class="contact-link">📧 ${s.email}</a>
+          <a href="mailto:sales@l4yercak3.com" class="contact-link">📧 ${s.email}</a>
           <a href="tel:+4915140427103" class="contact-link">📞 ${s.phone}</a>
           <a href="https://cal.com/voundbrand/open-end-meeting" class="contact-link">📅 ${s.calendar}</a>
         </div>
@@ -1406,7 +1483,7 @@ function getContactFormConfirmationText(
       received: `I've received your inquiry from ${args.company} and I'm excited to learn more about your needs.`,
       details: "Here's what I have on file:",
       response: "I'll review your request and get back to you within 24 hours.",
-      contactInfo: "If you need to reach me sooner:\n- Email: remington@l4yercak3.com\n- Phone: +49 151 404 27 103\n- Calendar: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "If you need to reach me sooner:\n- Email: sales@l4yercak3.com\n- Phone: +49 151 404 27 103\n- Calendar: https://cal.com/voundbrand/open-end-meeting",
       website: "Learn more at: https://l4yercak3.com",
       signature: "Looking forward to working with you!\n\n- Remington Splettstoesser\nFounder, l4yercak3",
     },
@@ -1416,7 +1493,7 @@ function getContactFormConfirmationText(
       received: `Ich habe Ihre Anfrage von ${args.company} erhalten und freue mich darauf, mehr über Ihre Bedürfnisse zu erfahren.`,
       details: "Folgende Informationen habe ich aufgenommen:",
       response: "Ich werde Ihre Anfrage prüfen und mich innerhalb von 24 Stunden bei Ihnen melden.",
-      contactInfo: "Wenn Sie mich früher erreichen möchten:\n- E-Mail: remington@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalender: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "Wenn Sie mich früher erreichen möchten:\n- E-Mail: sales@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalender: https://cal.com/voundbrand/open-end-meeting",
       website: "Mehr erfahren unter: https://l4yercak3.com",
       signature: "Ich freue mich auf die Zusammenarbeit mit Ihnen!\n\n- Remington Splettstoesser\nGründer, l4yercak3",
     },
@@ -1426,7 +1503,7 @@ function getContactFormConfirmationText(
       received: `Otrzymałem Twoje zapytanie z ${args.company} i chętnie dowiem się więcej o Twoich potrzebach.`,
       details: "Oto co mam w dokumentacji:",
       response: "Przejrzę Twoje zapytanie i skontaktuję się z Tobą w ciągu 24 godzin.",
-      contactInfo: "Jeśli chcesz się skontaktować wcześniej:\n- Email: remington@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalendarz: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "Jeśli chcesz się skontaktować wcześniej:\n- Email: sales@l4yercak3.com\n- Telefon: +49 151 404 27 103\n- Kalendarz: https://cal.com/voundbrand/open-end-meeting",
       website: "Dowiedz się więcej na: https://l4yercak3.com",
       signature: "Nie mogę się doczekać współpracy z Tobą!\n\n- Remington Splettstoesser\nZałożyciel, l4yercak3",
     },
@@ -1436,7 +1513,7 @@ function getContactFormConfirmationText(
       received: `He recibido tu consulta de ${args.company} y estoy emocionado de aprender más sobre tus necesidades.`,
       details: "Esto es lo que tengo registrado:",
       response: "Revisaré tu solicitud y me pondré en contacto contigo en 24 horas.",
-      contactInfo: "Si necesitas contactarme antes:\n- Email: remington@l4yercak3.com\n- Teléfono: +49 151 404 27 103\n- Calendario: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "Si necesitas contactarme antes:\n- Email: sales@l4yercak3.com\n- Teléfono: +49 151 404 27 103\n- Calendario: https://cal.com/voundbrand/open-end-meeting",
       website: "Más información en: https://l4yercak3.com",
       signature: "¡Espero trabajar contigo!\n\n- Remington Splettstoesser\nFundador, l4yercak3",
     },
@@ -1446,7 +1523,7 @@ function getContactFormConfirmationText(
       received: `J'ai reçu votre demande de ${args.company} et je suis ravi d'en savoir plus sur vos besoins.`,
       details: "Voici ce que j'ai enregistré:",
       response: "Je vais examiner votre demande et vous répondre dans les 24 heures.",
-      contactInfo: "Si vous avez besoin de me joindre plus tôt:\n- Email: remington@l4yercak3.com\n- Téléphone: +49 151 404 27 103\n- Agenda: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "Si vous avez besoin de me joindre plus tôt:\n- Email: sales@l4yercak3.com\n- Téléphone: +49 151 404 27 103\n- Agenda: https://cal.com/voundbrand/open-end-meeting",
       website: "En savoir plus sur: https://l4yercak3.com",
       signature: "Au plaisir de travailler avec vous!\n\n- Remington Splettstoesser\nFondateur, l4yercak3",
     },
@@ -1456,7 +1533,7 @@ function getContactFormConfirmationText(
       received: `${args.company}からのお問い合わせを受け取りました。お客様のニーズについて詳しく知ることを楽しみにしています。`,
       details: "以下の情報を記録しております：",
       response: "24時間以内にご返信させていただきます。",
-      contactInfo: "お急ぎの場合は、以下の方法でご連絡ください：\n- メール: remington@l4yercak3.com\n- 電話: +49 151 404 27 103\n- カレンダー: https://cal.com/voundbrand/open-end-meeting",
+      contactInfo: "お急ぎの場合は、以下の方法でご連絡ください：\n- メール: sales@l4yercak3.com\n- 電話: +49 151 404 27 103\n- カレンダー: https://cal.com/voundbrand/open-end-meeting",
       website: "詳しくは: https://l4yercak3.com",
       signature: "お取引を楽しみにしております！\n\n- Remington Splettstoesser\n創設者, l4yercak3",
     },

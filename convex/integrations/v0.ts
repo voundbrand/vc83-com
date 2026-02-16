@@ -78,12 +78,15 @@ interface V0Error {
 // INTERNAL HELPERS
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type V0Context = { db: { query: (...args: any[]) => any; get: (...args: any[]) => any } };
+
 /**
  * Get v0 API key for an organization
  * First checks organization settings, then falls back to platform key
  */
 async function getV0ApiKey(
-  ctx: { db: { query: Function; get: Function } },
+  ctx: V0Context,
   organizationId: Id<"organizations">
 ): Promise<string | null> {
   // Check organization-specific v0 settings
@@ -91,7 +94,7 @@ async function getV0ApiKey(
     .query("objects")
     .withIndex("by_org_type", (q: any) =>
       q.eq("organizationId", organizationId)
-       .eq("type", "integration_settings")
+        .eq("type", "integration_settings")
     )
     .filter((q: any) => q.eq(q.field("subtype"), "v0"))
     .first();
@@ -294,7 +297,7 @@ export const getV0Settings = query({
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "integration_settings")
+          .eq("type", "integration_settings")
       )
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();
@@ -328,7 +331,7 @@ export const saveV0Settings = mutation({
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "integration_settings")
+          .eq("type", "integration_settings")
       )
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();
@@ -589,7 +592,7 @@ export const getChatHistory = query({
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "v0_chat")
+          .eq("type", "v0_chat")
       )
       .order("desc")
       .take(limit);
@@ -638,7 +641,7 @@ export const getApiKeyInternal = internalQuery({
       .query("objects")
       .withIndex("by_org_type", q =>
         q.eq("organizationId", args.organizationId)
-         .eq("type", "integration_settings")
+          .eq("type", "integration_settings")
       )
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();

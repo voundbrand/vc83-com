@@ -129,7 +129,8 @@ async function sendMagicLinkEmail(params: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "noreply@mail.l4yercak3.com",
+        from: process.env.RESEND_FROM_EMAIL || "l4yercak3 <noreply@mail.l4yercak3.com>",
+        replyTo: "support@l4yercak3.com",
         to: params.to,
         subject: `Ihr Login-Link für ${params.organizationName}`,
         html: emailHtml,

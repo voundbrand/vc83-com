@@ -101,7 +101,7 @@ export function WaitingForApprovalScreen({
                   We appreciate your interest in l4yercak3! Stay connected with our community for updates on when we open up more beta access.
                 </p>
                 <p className="text-sm text-gray-600">
-                  Have questions? Contact us at <a href="mailto:remington@l4yercak3.com" className="text-blue-600 underline">remington@l4yercak3.com</a>
+                  Have questions? Contact us at <a href="mailto:support@l4yercak3.com" className="text-blue-600 underline">support@l4yercak3.com</a>
                 </p>
               </div>
 

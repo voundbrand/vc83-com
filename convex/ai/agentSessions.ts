@@ -11,9 +11,26 @@
  * 4. Stats updated after each exchange
  */
 
-import { query, mutation, internalQuery, internalMutation } from "../_generated/server";
+import { query, mutation, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import {
+  getSessionPolicyFromConfig,
+  resolveSessionTTL,
+  DEFAULT_SESSION_POLICY,
+} from "./sessionPolicy";
+
+// Lazy-load internal to avoid circular dependency with _generated/api
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _internalRef: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getInternalRef(): any {
+  if (!_internalRef) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _internalRef = require("../_generated/api").internal;
+  }
+  return _internalRef;
+}
 
 // ============================================================================
 // SESSION RESOLUTION (Internal — called by execution pipeline)
@@ -42,6 +59,63 @@ export const resolveSession = internalMutation({
       .first();
 
     if (existing && existing.status === "active") {
+      // Check if session has expired (TTL or max duration)
+      const agentConfig = await ctx.db.get(existing.agentId);
+      const configProps = (agentConfig?.customProperties || {}) as Record<string, unknown>;
+      const policy = getSessionPolicyFromConfig(configProps);
+      const { ttl, maxDuration } = resolveSessionTTL(policy, existing.channel);
+      const now = Date.now();
+
+      const isIdle = (now - existing.lastMessageAt) > ttl;
+      const isExpired = (now - existing.startedAt) > maxDuration;
+
+      if (isIdle || isExpired) {
+        // Close the stale session
+        const closeReason = isExpired ? "expired" as const : "idle_timeout" as const;
+        await ctx.db.patch(existing._id, {
+          status: closeReason === "expired" ? "expired" : "closed",
+          closedAt: now,
+          closeReason,
+        });
+
+        // Schedule async summary generation if policy requires it
+        if (policy.onClose === "summarize_and_archive" && existing.messageCount > 2) {
+          await ctx.scheduler.runAfter(0, getInternalRef().ai.agentSessions.generateSessionSummary, {
+            sessionId: existing._id,
+          });
+        }
+
+        // Create new session, optionally carrying forward context
+        const newSessionData: Record<string, unknown> = {
+          agentId: args.agentId,
+          organizationId: args.organizationId,
+          channel: args.channel,
+          externalContactIdentifier: args.externalContactIdentifier,
+          status: "active",
+          messageCount: 0,
+          tokensUsed: 0,
+          costUsd: 0,
+          startedAt: now,
+          lastMessageAt: now,
+        };
+
+        // If policy says "resume", carry forward summary context
+        if (policy.onReopen === "resume") {
+          newSessionData.previousSessionId = existing._id;
+          const summary = (existing as Record<string, unknown>).summary as
+            | { text: string }
+            | undefined;
+          if (summary?.text) {
+            newSessionData.previousSessionSummary = summary.text;
+          }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const newSessionId = await ctx.db.insert("agentSessions", newSessionData as any);
+        return await ctx.db.get(newSessionId);
+      }
+
+      // Session is still valid — reuse
       return existing;
     }
 
@@ -227,6 +301,53 @@ export const checkAgentRateLimit = internalQuery({
 });
 
 // ============================================================================
+// ERROR STATE TRACKING
+// ============================================================================
+
+/**
+ * Update session error state (disabled tools, failure counts).
+ * Called by the execution pipeline when a tool fails 3+ times.
+ */
+export const updateSessionErrorState = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    disabledTools: v.array(v.string()),
+    failedToolCounts: v.any(),
+    degraded: v.optional(v.boolean()),
+    degradedReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+
+    await ctx.db.patch(args.sessionId, {
+      errorState: {
+        disabledTools: args.disabledTools,
+        failedToolCounts: args.failedToolCounts as Record<string, number>,
+        lastErrorAt: Date.now(),
+        degraded: args.degraded,
+        degradedAt: args.degraded ? Date.now() : undefined,
+        degradedReason: args.degradedReason,
+      },
+    });
+  },
+});
+
+/**
+ * Get session error state (for resuming tool disable state).
+ */
+export const getSessionErrorState = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    return (session as Record<string, unknown>).errorState ?? null;
+  },
+});
+
+// ============================================================================
 // AUDIT LOGGING (Internal)
 // ============================================================================
 
@@ -257,7 +378,7 @@ export const logAgentAction = internalMutation({
 // ============================================================================
 
 /**
- * Close a session
+ * Close a session (simple — backward compatible)
  */
 export const closeSession = internalMutation({
   args: {
@@ -266,7 +387,94 @@ export const closeSession = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.sessionId, {
       status: "closed",
+      closedAt: Date.now(),
+      closeReason: "manual",
     });
+  },
+});
+
+/**
+ * Close a session with a specific reason and optional summary.
+ * Used by TTL expiry, manual close, and handoff flows.
+ */
+export const closeSessionWithReason = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    reason: v.union(
+      v.literal("idle_timeout"),
+      v.literal("expired"),
+      v.literal("manual"),
+      v.literal("handed_off")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.status !== "active") return;
+
+    const status = args.reason === "expired" ? "expired" as const : "closed" as const;
+
+    await ctx.db.patch(args.sessionId, {
+      status,
+      closedAt: Date.now(),
+      closeReason: args.reason,
+    });
+  },
+});
+
+// ============================================================================
+// SESSION TTL CLEANUP (Cron handler)
+// ============================================================================
+
+/**
+ * Expire stale sessions in batches.
+ * Called every 15 minutes by the cron scheduler.
+ */
+export const expireStaleSessions = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Get a batch of active sessions
+    const activeSessions = await ctx.db
+      .query("agentSessions")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .take(200);
+
+    let closedCount = 0;
+
+    for (const session of activeSessions) {
+      // Get agent config to resolve session policy
+      const agentConfig = await ctx.db.get(session.agentId);
+      const configProps = (agentConfig?.customProperties || {}) as Record<string, unknown>;
+      const policy = getSessionPolicyFromConfig(configProps);
+      const { ttl, maxDuration } = resolveSessionTTL(policy, session.channel);
+
+      const isIdle = (now - session.lastMessageAt) > ttl;
+      const isExpired = (now - session.startedAt) > maxDuration;
+
+      if (isIdle || isExpired) {
+        const closeReason = isExpired ? "expired" as const : "idle_timeout" as const;
+        const status = closeReason === "expired" ? "expired" as const : "closed" as const;
+
+        await ctx.db.patch(session._id, {
+          status,
+          closedAt: now,
+          closeReason,
+        });
+
+        // Schedule async summary generation if policy requires it
+        if (policy.onClose === "summarize_and_archive" && session.messageCount > 2) {
+          await ctx.scheduler.runAfter(0, getInternalRef().ai.agentSessions.generateSessionSummary, {
+            sessionId: session._id,
+          });
+        }
+
+        closedCount++;
+      }
+    }
+
+    if (closedCount > 0) {
+      console.log(`[SessionCleanup] Closed ${closedCount} stale sessions`);
+    }
   },
 });
 
@@ -322,6 +530,195 @@ export const getRecentSessionsForAgent = internalQuery({
       .order("desc")
       .take(args.limit ?? 20);
     return sessions;
+  },
+});
+
+// ============================================================================
+// SESSION SUMMARY GENERATION (Async — scheduled on close)
+// ============================================================================
+
+/**
+ * Save an LLM-generated summary back to a closed session.
+ * Called by generateSessionSummary after the LLM produces a summary.
+ */
+export const updateSessionSummary = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    summary: v.object({
+      text: v.string(),
+      generatedAt: v.number(),
+      messageCount: v.number(),
+      topics: v.optional(v.array(v.string())),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+
+    await ctx.db.patch(args.sessionId, {
+      summary: args.summary,
+    });
+  },
+});
+
+/**
+ * Generate an LLM summary of a closed session's conversation.
+ * Scheduled asynchronously when a session closes with onClose="summarize_and_archive".
+ * Uses a cheap model to keep costs low.
+ */
+export const generateSessionSummary = internalAction({
+  args: { sessionId: v.id("agentSessions") },
+  handler: async (ctx, { sessionId }) => {
+    const messages = await ctx.runQuery(
+      getInternalRef().ai.agentSessions.getSessionMessages,
+      { sessionId, limit: 20 }
+    );
+
+    if (messages.length < 3) return; // Not enough to summarize
+
+    const transcript = messages
+      .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      console.error("[SessionSummary] OPENROUTER_API_KEY not configured, skipping summary");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "Summarize this conversation in 2-3 sentences. Focus on: what the customer wanted, what was done, any unresolved issues. Be concise.",
+            },
+            { role: "user", content: transcript },
+          ],
+          max_tokens: 200,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[SessionSummary] OpenRouter returned ${response.status}`);
+        return;
+      }
+
+      const data = await response.json();
+      const summaryText = data.choices?.[0]?.message?.content;
+
+      if (summaryText) {
+        await ctx.runMutation(
+          getInternalRef().ai.agentSessions.updateSessionSummary,
+          {
+            sessionId,
+            summary: {
+              text: summaryText,
+              generatedAt: Date.now(),
+              messageCount: messages.length,
+            },
+          }
+        );
+      }
+    } catch (e) {
+      console.error("[SessionSummary] Failed to generate summary:", e);
+    }
+  },
+});
+
+// ============================================================================
+// PUBLIC QUERIES (Authenticated — called from frontend UI)
+// ============================================================================
+
+/**
+ * Aggregate session stats per agent for an organization.
+ * Used by AgentsWindow and AgentAnalytics to show per-agent metrics.
+ */
+export const getAgentStats = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    // Fetch all sessions for this org (across all statuses)
+    const allSessions = await ctx.db
+      .query("agentSessions")
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .collect();
+
+    // Group by agentId and aggregate
+    const statsMap = new Map<
+      string,
+      {
+        agentId: string;
+        totalSessions: number;
+        activeSessions: number;
+        totalMessages: number;
+        totalCostUsd: number;
+        totalTokens: number;
+        lastMessageAt: number;
+      }
+    >();
+
+    for (const session of allSessions) {
+      const key = session.agentId;
+      const existing = statsMap.get(key);
+
+      if (existing) {
+        existing.totalSessions += 1;
+        existing.activeSessions += session.status === "active" ? 1 : 0;
+        existing.totalMessages += session.messageCount;
+        existing.totalCostUsd += session.costUsd;
+        existing.totalTokens += session.tokensUsed;
+        existing.lastMessageAt = Math.max(existing.lastMessageAt, session.lastMessageAt || 0);
+      } else {
+        statsMap.set(key, {
+          agentId: key,
+          totalSessions: 1,
+          activeSessions: session.status === "active" ? 1 : 0,
+          totalMessages: session.messageCount,
+          totalCostUsd: session.costUsd,
+          totalTokens: session.tokensUsed,
+          lastMessageAt: session.lastMessageAt || 0,
+        });
+      }
+    }
+
+    return Array.from(statsMap.values());
+  },
+});
+
+/**
+ * Get messages for a session (authenticated version for the UI).
+ * Used by AgentSessionsViewer to display conversation history.
+ */
+export const getSessionMessagesAuth = query({
+  args: {
+    sessionId: v.string(),
+    agentSessionId: v.id("agentSessions"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const messages = await ctx.db
+      .query("agentSessionMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.agentSessionId))
+      .collect();
+
+    const sorted = messages.sort((a, b) => a.timestamp - b.timestamp);
+    const limit = args.limit || 50;
+    return sorted.slice(-limit);
   },
 });
 

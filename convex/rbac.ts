@@ -78,6 +78,7 @@ export const PERMISSION_CATEGORIES = {
   OPERATIONS: 'operations',
   REPORTING: 'reporting',
   APP_MANAGEMENT: 'app_management',
+  MEDIA_LIBRARY: 'media_library',
   VERTICAL_SPECIFIC: 'vertical_specific',
   TRANSLATION: 'translation',
   PLATFORM_ADMIN: 'platform_admin',
@@ -280,6 +281,36 @@ export const BASE_PERMISSIONS = [
     action: 'manage',
     category: PERMISSION_CATEGORIES.APP_MANAGEMENT,
     description: 'OAuth-Verbindungen, API-Schlüssel und Webhooks verwalten'
+  },
+
+  // Media Library / File System
+  {
+    name: 'media_library.view',
+    resource: 'media_library',
+    action: 'read',
+    category: PERMISSION_CATEGORIES.MEDIA_LIBRARY,
+    description: 'Medienbibliothek und Dateisystem anzeigen'
+  },
+  {
+    name: 'media_library.upload',
+    resource: 'media_library',
+    action: 'write',
+    category: PERMISSION_CATEGORIES.MEDIA_LIBRARY,
+    description: 'Dateien in die Medienbibliothek hochladen'
+  },
+  {
+    name: 'media_library.edit',
+    resource: 'media_library',
+    action: 'update',
+    category: PERMISSION_CATEGORIES.MEDIA_LIBRARY,
+    description: 'Medien-Metadaten bearbeiten, umbenennen, verschieben'
+  },
+  {
+    name: 'media_library.delete',
+    resource: 'media_library',
+    action: 'delete',
+    category: PERMISSION_CATEGORIES.MEDIA_LIBRARY,
+    description: 'Dateien aus der Medienbibliothek löschen'
   },
 
   // Platform Administration (Super Admin only)
@@ -503,6 +534,11 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'install_apps',
     'manage_apps',
     'view_audit_logs',
+    // Media Library - full control
+    'media_library.view',
+    'media_library.upload',
+    'media_library.edit',
+    'media_library.delete',
     'view_*', // All view permissions
   ],
 
@@ -524,6 +560,11 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_forms',
     'manage_workflows',
     'test_workflows',
+    // Media Library - full control
+    'media_library.view',
+    'media_library.upload',
+    'media_library.edit',
+    'media_library.delete',
     // Publishing & Templates - org owners have full control
     'create_published_pages',
     'edit_published_pages',
@@ -551,6 +592,11 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'manage_forms',
     'manage_workflows',
     'test_workflows',
+    // Media Library - full control
+    'media_library.view',
+    'media_library.upload',
+    'media_library.edit',
+    'media_library.delete',
     // Publishing & Templates - business managers can create and edit
     'create_published_pages',
     'edit_published_pages',
@@ -575,6 +621,9 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'view_forms',
     'view_form_responses',
     'view_workflows',
+    // Media Library - view and upload
+    'media_library.view',
+    'media_library.upload',
   ],
 
   'viewer': [
@@ -589,6 +638,8 @@ export const ROLE_PERMISSION_MAPPINGS: Record<string, string[]> = {
     'view_forms',
     'view_form_responses',
     'view_workflows',
+    // Media Library - view only
+    'media_library.view',
   ],
 
   'translator': [

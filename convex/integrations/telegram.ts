@@ -9,6 +9,7 @@
  * - deployCustomBot (action) — Deploy a per-org branded bot via @BotFather token
  * - disconnectCustomBot (mutation) — Remove custom bot settings and bindings
  * - toggleTeamGroupMirror (mutation) — Enable/disable team group message mirroring
+ * - generateTelegramLinkToken (mutation) — Generate a one-time deep link for connecting Telegram (Path B)
  */
 
 import { action, mutation, query } from "../_generated/server";
@@ -203,6 +204,74 @@ export const disconnectCustomBot = mutation({
     }
 
     return { success: true };
+  },
+});
+
+/**
+ * Generate a one-time deep link token for connecting Telegram from the dashboard.
+ * Session-based wrapper around the telegramLinking.generateLinkToken logic.
+ * Returns a t.me link the user clicks to connect their Telegram to this org.
+ */
+export const generateTelegramLinkToken = mutation({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      return { success: false as const, error: "Invalid session" };
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.defaultOrgId) {
+      return { success: false as const, error: "No organization found" };
+    }
+
+    const orgId = user.defaultOrgId as Id<"organizations">;
+
+    // Verify user is a member of this org
+    const membership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", user._id).eq("organizationId", orgId)
+      )
+      .first();
+    if (!membership || !membership.isActive) {
+      return { success: false as const, error: "Not a member of this organization" };
+    }
+
+    // Generate a secure random token
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    // Store in objects table (type: telegram_link_token)
+    await ctx.db.insert("objects", {
+      organizationId: orgId,
+      type: "telegram_link_token",
+      name: `Link token for ${user.email}`,
+      status: "active",
+      customProperties: {
+        token,
+        organizationId: orgId,
+        userId: user._id,
+        expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
+        used: false,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || "l4yercak3_bot";
+
+    return {
+      success: true as const,
+      token,
+      telegramLink: `https://t.me/${botUsername}?start=link_${token}`,
+      expiresInMinutes: 15,
+    };
   },
 });
 

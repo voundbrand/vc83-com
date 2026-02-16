@@ -39,7 +39,7 @@ export function AgentToolsConfig({ agentId, sessionId, organizationId }: AgentTo
   const updateAgent = useMutation(api.agentOntology.updateAgent);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools = useQuery(api.ai.tools.registry.getToolList, { sessionId }) as any[] | undefined;
+  const tools = useQuery((api.ai.tools as any).registry.getToolList, { sessionId }) as any[] | undefined;
 
   const props = (agent?.customProperties || {}) as AgentCustomProps;
   const [disabledTools, setDisabledTools] = useState<string[]>(props.disabledTools || []);

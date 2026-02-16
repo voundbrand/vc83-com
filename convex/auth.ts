@@ -467,6 +467,11 @@ export const switchOrganization = mutation({
       updatedAt: Date.now(),
     });
 
+    // Update session's organizationId so backend access checks use the new org
+    await ctx.db.patch(session._id, {
+      organizationId: args.organizationId,
+    });
+
     // Log audit event
     await ctx.runMutation(internal.rbac.logAudit, {
       userId: user._id,

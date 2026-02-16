@@ -9,7 +9,7 @@
  * This file handles the workflows that connect CRM to the rest of the platform.
  */
 
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { internal } from "./_generated/api";
@@ -728,12 +728,45 @@ export const createContactFromCheckout = internalMutation({
  *
  * Create a lightweight user account and link it to an existing CRM contact.
  * This allows customers to save their info for future checkouts.
+ *
+ * This is an action (not a mutation) because password hashing with bcrypt
+ * requires the Node.js runtime. It validates + hashes, then delegates
+ * DB writes to an internal mutation.
  */
-export const createUserLightAccount = mutation({
+export const createUserLightAccount = action({
   args: {
     sessionId: v.string(),
     contactId: v.id("objects"),
     password: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ userId: Id<"users">; success: boolean }> => {
+    // 1. Hash the password using bcrypt (requires Node.js runtime)
+    const passwordHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+      password: args.password,
+    });
+
+    // 2. Delegate all DB operations to the internal mutation
+    const result: { userId: Id<"users">; success: boolean } = await ctx.runMutation(internal.crmIntegrations.internalCreateUserLightAccount, {
+      sessionId: args.sessionId,
+      contactId: args.contactId,
+      passwordHash,
+    });
+
+    return result;
+  },
+});
+
+/**
+ * INTERNAL: Create user-light account with pre-hashed password
+ *
+ * Called by the createUserLightAccount action after bcrypt hashing.
+ * All database operations happen here within a single transaction.
+ */
+export const internalCreateUserLightAccount = internalMutation({
+  args: {
+    sessionId: v.string(),
+    contactId: v.id("objects"),
+    passwordHash: v.string(),
   },
   handler: async (ctx, args) => {
     // 1. Get session
@@ -770,9 +803,7 @@ export const createUserLightAccount = mutation({
       throw new Error("Contact already has a linked account");
     }
 
-    // 5. Create user account (using existing auth system)
-    // Note: This would call your existing user creation mutation
-    // For now, we'll create a basic user record
+    // 5. Create user account
     const userId = await ctx.db.insert("users", {
       email,
       firstName: contact.customProperties?.firstName || "",
@@ -781,15 +812,14 @@ export const createUserLightAccount = mutation({
       updatedAt: Date.now(),
     });
 
-    // Create password hash (would use your existing password hashing)
+    // 6. Store bcrypt-hashed password
     await ctx.db.insert("userPasswords", {
       userId,
-      passwordHash: args.password, // TODO: Actually hash this!
+      passwordHash: args.passwordHash,
       createdAt: Date.now(),
     });
 
-    // 6. Assign user-light role
-    // Note: This assumes you have a user-light role created
+    // 7. Assign user-light role
     const userLightRole = await ctx.db
       .query("roles")
       .filter((q) => q.eq(q.field("name"), "user-light"))
@@ -807,7 +837,7 @@ export const createUserLightAccount = mutation({
       });
     }
 
-    // 7. Link user to CRM contact
+    // 8. Link user to CRM contact
     await ctx.db.patch(contact._id, {
       customProperties: {
         ...contact.customProperties,
@@ -818,7 +848,7 @@ export const createUserLightAccount = mutation({
       updatedAt: Date.now(),
     });
 
-    // 8. Track action
+    // 9. Track action
     await ctx.db.insert("objectActions", {
       organizationId: contact.organizationId,
       objectId: contact._id,

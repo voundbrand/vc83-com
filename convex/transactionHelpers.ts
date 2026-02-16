@@ -113,8 +113,9 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // Note: Using explicit type cast to avoid deep type instantiation issues with Convex's generated types
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  // @ts-ignore - Deep type instantiation in Convex generated types
   const session = await (ctx as any).runQuery(
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Deep type instantiation in Convex generated types
     (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
     { checkoutSessionId: params.checkoutSessionId }
   ) as Doc<"objects"> | null;

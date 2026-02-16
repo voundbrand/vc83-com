@@ -22,6 +22,13 @@ import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { getLicenseInternal } from "../licensing/helpers";
 import { getNextTierName, type TierName } from "../licensing/tierConfigs";
+import {
+  getCreditSharingConfig,
+  getChildCreditUsageToday,
+  getTotalSharedUsageToday,
+  recordCreditSharingTransaction,
+  resolveChildCap,
+} from "./sharing";
 
 // ============================================================================
 // QUERIES
@@ -274,7 +281,80 @@ export async function deductCreditsInternal(
     const parentId = org?.parentOrganizationId;
 
     if (parentId) {
-      // Sub-org has insufficient credits — deduct from parent pool instead
+      // Get parent's sharing config
+      const parentOrg = await ctx.db.get(parentId);
+      const sharingConfig = getCreditSharingConfig(
+        parentOrg as { customProperties?: Record<string, unknown> } | null
+      );
+
+      if (!sharingConfig.enabled) {
+        throw new ConvexError({
+          code: "CREDIT_SHARING_DISABLED",
+          message: "Credit sharing is disabled for this organization.",
+        });
+      }
+
+      // Resolve per-child cap (check overrides)
+      const childCap = resolveChildCap(sharingConfig, organizationId);
+      const effectiveBlockAt = childCap * sharingConfig.blockAt;
+
+      // Check per-child daily cap
+      const childUsageToday = await getChildCreditUsageToday(ctx, parentId, organizationId);
+
+      if (childUsageToday + amount > effectiveBlockAt) {
+        throw new ConvexError({
+          code: "CHILD_CREDIT_CAP_REACHED",
+          message: `Child org has reached daily credit sharing limit (${childCap})`,
+          childOrgId: organizationId,
+          usage: childUsageToday,
+          cap: childCap,
+        });
+      }
+
+      // Notify if approaching per-child cap
+      const effectiveNotifyAt = childCap * sharingConfig.notifyAt;
+      if (childUsageToday + amount > effectiveNotifyAt) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (ctx as any).scheduler.runAfter(0, internal.credits.notifications.notifyChildCreditCapApproaching, {
+            parentOrgId: parentId,
+            childOrgId: organizationId,
+            usage: childUsageToday + amount,
+            cap: childCap,
+          });
+        } catch (e) {
+          console.warn("[Credits] Failed to schedule child cap notification:", e);
+        }
+      }
+
+      // Check total shared pool cap
+      const totalSharedToday = await getTotalSharedUsageToday(ctx, parentId);
+      const totalEffectiveBlock = sharingConfig.maxTotalShared * sharingConfig.blockAt;
+
+      if (totalSharedToday + amount > totalEffectiveBlock) {
+        throw new ConvexError({
+          code: "SHARED_POOL_EXHAUSTED",
+          message: "Total shared credit pool exhausted for today",
+          totalShared: totalSharedToday,
+          cap: sharingConfig.maxTotalShared,
+        });
+      }
+
+      // Notify if approaching total shared cap
+      if (totalSharedToday + amount > sharingConfig.maxTotalShared * sharingConfig.notifyAt) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (ctx as any).scheduler.runAfter(0, internal.credits.notifications.notifySharedPoolApproaching, {
+            parentOrgId: parentId,
+            totalShared: totalSharedToday + amount,
+            cap: sharingConfig.maxTotalShared,
+          });
+        } catch (e) {
+          console.warn("[Credits] Failed to schedule shared pool notification:", e);
+        }
+      }
+
+      // Sub-org has insufficient credits — deduct from parent pool
       console.log(`[Credits] Sub-org ${organizationId} has ${totalAvailable} credits, need ${amount}. Falling back to parent ${parentId}`);
 
       const parentResult = await deductCreditsInternal(ctx, {
@@ -286,6 +366,9 @@ export async function deductCreditsInternal(
         relatedEntityId: args.relatedEntityId,
         childOrganizationId: organizationId,
       });
+
+      // Record sharing ledger entry
+      await recordCreditSharingTransaction(ctx, parentId, organizationId, amount, action);
 
       // Record a tracking transaction on the child org (zero-cost, audit only)
       await ctx.db.insert("creditTransactions", {

@@ -78,12 +78,16 @@ export const getTerminalFeed = query({
     if (scopedOrgs.length === 0) return { entries: [], stats: { totalEvents: 0, activeSessions: 0, errorCount: 0 } };
 
     const entries: TerminalLogEntry[] = [];
-    const perOrgLimit = Math.max(10, Math.floor(limit / scopedOrgs.length));
     const layerEventCounts = new Map<number, number>();
+    const isLayerMode = scope === "layer" && scopedOrgs.length > 1;
+
+    // Use a generous per-source fetch limit per org, then trim globally at the end.
+    // This prevents active orgs from being starved by even distribution.
+    const fetchLimit = Math.min(50, limit);
+    // Cap how many sessions we fetch messages for to avoid N+1 blowup
+    const maxSessionsForMessages = Math.min(20, Math.ceil(limit / scopedOrgs.length));
 
     for (const scopedOrg of scopedOrgs) {
-      const isLayerMode = scope === "layer" && scopedOrgs.length > 1;
-
       // 1. Agent sessions → session_start events
       const sessions = await ctx.db
         .query("agentSessions")
@@ -91,7 +95,7 @@ export const getTerminalFeed = query({
           q.eq("organizationId", scopedOrg.orgId)
         )
         .order("desc")
-        .take(perOrgLimit);
+        .take(fetchLimit);
 
       const recentSessions = sessions.filter((s) => s.startedAt >= cutoffTime);
 
@@ -113,13 +117,16 @@ export const getTerminalFeed = query({
           },
         };
         entries.push(entry);
+      }
 
-        // 2. Messages for this session
+      // 2. Messages — only for the N most recent sessions to cap query count
+      const sessionsForMessages = recentSessions.slice(0, maxSessionsForMessages);
+      for (const session of sessionsForMessages) {
         const messages = await ctx.db
           .query("agentSessionMessages")
           .withIndex("by_session", (q) => q.eq("sessionId", session._id))
           .order("desc")
-          .take(perOrgLimit);
+          .take(20);
 
         for (const msg of messages) {
           if (msg.timestamp < cutoffTime) continue;
@@ -170,7 +177,7 @@ export const getTerminalFeed = query({
           q.eq("organizationId", scopedOrg.orgId)
         )
         .order("desc")
-        .take(perOrgLimit);
+        .take(fetchLimit);
 
       for (const action of actions) {
         if (action.performedAt < cutoffTime) continue;
@@ -226,20 +233,21 @@ export const getTerminalFeed = query({
             .eq("type", "webhook_event")
         )
         .order("desc")
-        .take(perOrgLimit);
+        .take(fetchLimit);
 
       for (const webhook of webhooks) {
         const props = webhook.customProperties as Record<string, unknown> | undefined;
-        const processedAt = (props?.processedAt as number) || webhook.createdAt || 0;
+        // Use processedAt if set, then createdAt field, then Convex _creationTime as reliable fallback
+        const processedAt = (props?.processedAt as number) || webhook.createdAt || webhook._creationTime || 0;
         if (processedAt < cutoffTime) continue;
 
-        const status = (props?.eventStatus as string) || "unknown";
+        const whStatus = (props?.eventStatus as string) || "unknown";
         entries.push({
           id: webhook._id,
           timestamp: processedAt,
           type: "webhook",
-          severity: status === "error" ? "error" : status === "skipped" ? "warning" : "info",
-          message: `[Webhook] ${props?.provider || "unknown"} → ${status}${props?.errorMessage ? `: ${props.errorMessage}` : ""}`,
+          severity: whStatus === "error" ? "error" : whStatus === "skipped" ? "warning" : "info",
+          message: `[Webhook] ${props?.provider || "unknown"} → ${whStatus}${props?.errorMessage ? `: ${props.errorMessage}` : ""}`,
           metadata: {
             errorMessage: props?.errorMessage as string | undefined,
             ...(isLayerMode && {

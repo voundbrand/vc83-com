@@ -20,6 +20,8 @@ import { CheckoutWindow } from "@/components/window-content/checkout-window"
 import { PlatformCartWindow } from "@/components/window-content/platform-cart-window"
 import { CheckoutSuccessWindow } from "@/components/window-content/checkout-success-window"
 import { CheckoutFailedWindow } from "@/components/window-content/checkout-failed-window"
+import { PurchaseResultWindow } from "@/components/window-content/purchase-result-window"
+import type { PurchaseResultWindowProps } from "@/components/window-content/purchase-result-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
 import { AllAppsWindow } from "@/components/window-content/all-apps-window"
 import { ShoppingCartButton } from "@/components/shopping-cart-button"
@@ -40,7 +42,10 @@ import { BenefitsWindow } from "@/components/window-content/benefits-window"
 import { BookingWindow } from "@/components/window-content/booking-window"
 import { BrainWindow } from "@/components/window-content/brain-window"
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
+import { AgentsWindow } from "@/components/window-content/agents-window"
+import { LayersBrowserWindow } from "@/components/window-content/layers-browser-window"
 import { FinderWindow } from "@/components/window-content/finder-window"
+import { TerminalWindow } from "@/components/window-content/terminal-window"
 import { WaitingForApprovalScreen } from "@/components/waiting-for-approval-screen"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
@@ -54,7 +59,7 @@ import { Id } from "../../convex/_generated/dataModel"
 
 export default function HomePage() {
   // Load translations for start menu and app names
-  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app"])
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows"])
   // Note: locale management is now handled via TranslationContext if needed
   const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
@@ -179,6 +184,13 @@ export default function HomePage() {
     openWindow("checkout-failed", "Checkout Failed", <CheckoutFailedWindow reason={reason} />, { x: centerX, y: centerY }, { width: 600, height: 600 })
   }
 
+  const openPurchaseResultWindow = (props: PurchaseResultWindowProps) => {
+    const centerX = typeof window !== 'undefined' ? (window.innerWidth - 600) / 2 : 400;
+    const centerY = typeof window !== 'undefined' ? (window.innerHeight - 650) / 2 : 100;
+    const title = props.status === "success" ? "Purchase Complete" : props.status === "canceled" ? "Purchase Canceled" : "Purchase Failed";
+    openWindow("purchase-result", title, <PurchaseResultWindow {...props} />, { x: centerX, y: centerY }, { width: 600, height: 650 })
+  }
+
   const openFormsWindow = () => {
     openWindow("forms", "Forms", <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 }, 'ui.app.forms')
   }
@@ -224,7 +236,7 @@ export default function HomePage() {
   }
 
   const openBookingWindow = () => {
-    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📅')
+    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📆')
   }
 
   const openBrainWindow = () => {
@@ -232,7 +244,23 @@ export default function HomePage() {
   }
 
   const openFinderWindow = () => {
-    openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title', '📁')
+    openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title', '🔍')
+  }
+
+  const openTerminalWindow = () => {
+    openWindow("terminal", "Terminal", <TerminalWindow />, { x: 120, y: 80 }, { width: 900, height: 550 }, undefined, '💻')
+  }
+
+  const openBuilderBrowserWindow = () => {
+    openWindow("builder-browser", "AI Builder", <BuilderBrowserWindow />, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, '🏗️')
+  }
+
+  const openAgentsBrowserWindow = () => {
+    openWindow("agents-browser", "AI Agents", <AgentsWindow />, { x: 100, y: 50 }, { width: 1100, height: 750 }, undefined, '🕵️')
+  }
+
+  const openLayersBrowserWindow = () => {
+    openWindow("layers-browser", "Layers", <LayersBrowserWindow />, { x: 120, y: 60 }, { width: 1100, height: 750 }, undefined, '🔀')
   }
 
   const openOrganizationSwitcherWindow = () => {
@@ -353,7 +381,7 @@ export default function HomePage() {
           { x: 80, y: 40 },
           { width: 1100, height: 750 },
           undefined,
-          "🌐"
+          "🏗️"
         );
       }
       setHasOpenedInitialWindow(true);
@@ -505,22 +533,39 @@ export default function HomePage() {
       localStorage.setItem("l4yercak3_last_oauth_provider", oauthProvider);
     }
 
-    if (checkoutParam === 'success') {
-      // Open the checkout success window with confetti
-      openCheckoutSuccessWindow();
-      // Prevent initial window effect from opening another window
-      setHasOpenedInitialWindow(true);
+    // New purchase result URL scheme: ?purchase=success&type=plan&tier=pro&period=monthly
+    // or ?purchase=success&type=credits&amount=10000&credits=1100
+    const purchaseParam = params.get('purchase');
+    const purchaseType = params.get('type');
 
-      // Clean up the URL (remove query params)
+    if (purchaseParam === 'success' && purchaseType) {
+      const props: PurchaseResultWindowProps = {
+        status: "success",
+        type: purchaseType as PurchaseResultWindowProps["type"],
+        tier: params.get('tier') || undefined,
+        period: params.get('period') || undefined,
+        amount: params.get('amount') ? parseInt(params.get('amount')!, 10) : undefined,
+        credits: params.get('credits') ? parseInt(params.get('credits')!, 10) : undefined,
+      };
+      openPurchaseResultWindow(props);
+      setHasOpenedInitialWindow(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (purchaseParam === 'canceled') {
+      openPurchaseResultWindow({
+        status: "canceled",
+        type: (purchaseType as PurchaseResultWindowProps["type"]) || "plan",
+      });
+      setHasOpenedInitialWindow(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (checkoutParam === 'success') {
+      // Legacy: backward compatibility for old ?checkout= params
+      openCheckoutSuccessWindow();
+      setHasOpenedInitialWindow(true);
       window.history.replaceState({}, '', window.location.pathname);
     } else if (checkoutParam === 'cancel' || checkoutParam === 'failed') {
-      // Open the checkout failed window with reason
-      // Possible reasons: cancel, payment_failed, expired, error
+      // Legacy: backward compatibility for old ?checkout= params
       openCheckoutFailedWindow(reasonParam || checkoutParam);
-      // Prevent initial window effect from opening another window
       setHasOpenedInitialWindow(true);
-
-      // Clean up the URL (remove query params)
       window.history.replaceState({}, '', window.location.pathname);
     } else if (oauthProvider) {
       // Clean up OAuth provider from URL after storing
@@ -591,53 +636,33 @@ export default function HomePage() {
     }
   });
 
-  // Build Programs submenu - show ALL apps with auth-gating on click
+  // Build Programs submenu - sorted alphabetically (English), unique icons per app
   const programsSubmenu = [
-    // All Apps - always show
-    { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
-    // AI Assistant
+    { label: "AI Agents", icon: "🕵️", onClick: requireAuth(openAgentsBrowserWindow) },
     { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) },
-    // Brain - Knowledge capture and AI learning hub
-    { label: t('ui.windows.brain.title') || "Brain", icon: "🧠", onClick: requireAuth(openBrainWindow) },
-    // { label: "L4YER.docs", icon: "📝", onClick: requireAuth(openLayerDocsWindow) }, // Hidden for now
-    // Finder - Project file system
-    { label: t('ui.windows.finder.title') || "Finder", icon: "📁", onClick: requireAuth(openFinderWindow) },
-    // Media Library
-    { label: t('ui.app.media_library'), icon: "🗂️", onClick: requireAuth(openMediaLibraryWindow) },
-    // Payments
-    { label: t('ui.app.payments'), icon: "💰", onClick: requireAuth(openPaymentsWindow) },
-    // Products
-    { label: t('ui.app.products'), icon: "🎟️", onClick: requireAuth(openProductsWindow) },
-    // Tickets
-    { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) },
-    // Certificates
-    { label: t('ui.app.certificates'), icon: "📜", onClick: requireAuth(openCertificatesWindow) },
-    // Events
-    { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) },
-    // Checkout app - Manage checkout pages for products and events
-    { label: t('ui.app.checkout'), icon: "🛒", onClick: requireAuth(openCheckoutAppWindow) },
-    // Forms
-    { label: t('ui.app.forms'), icon: "📋", onClick: requireAuth(openFormsWindow) },
-    // Web Publishing app
-    { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) },
-    // CRM app - customer relationship management
-    { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) },
-    // Invoicing app - B2B/B2C invoice management
-    { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) },
-    // Projects app - project management
-    { label: "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) },
-    // Workflows app - Multi-object behavior orchestration
-    { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) },
-    // Compliance app - Data export and permanent deletion
-    { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
-    // Templates app - Browse and preview all templates
-    { label: t('ui.app.templates'), icon: "📄", onClick: requireAuth(openTemplatesWindow) },
-    // Benefits app - Member benefits and commission referrals
+    { label: "AI Builder", icon: "🏗️", onClick: requireAuth(openBuilderBrowserWindow) },
+    { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
     { label: t('ui.app.benefits') || "Benefits", icon: "🎁", onClick: requireAuth(openBenefitsWindow) },
-    // Booking app - Resource scheduling and appointments
-    { label: t('ui.app.booking') || "Booking", icon: "📅", onClick: requireAuth(openBookingWindow) },
-    //{ label: "l4yercak3 Podcast", icon: "🎙️", onClick: requireAuth(openEpisodesWindow) },
-    //{ label: "Subscribe", icon: "🔊", onClick: requireAuth(openSubscribeWindow) },
+    { label: t('ui.app.booking') || "Booking", icon: "📆", onClick: requireAuth(openBookingWindow) },
+    { label: t('ui.windows.brain.title') || "Brain", icon: "🧠", onClick: requireAuth(openBrainWindow) },
+    { label: t('ui.app.certificates'), icon: "🎓", onClick: requireAuth(openCertificatesWindow) },
+    { label: t('ui.app.checkout'), icon: "🛍️", onClick: requireAuth(openCheckoutAppWindow) },
+    { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
+    { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) },
+    { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) },
+    { label: t('ui.windows.finder.title') || "Finder", icon: "🔍", onClick: requireAuth(openFinderWindow) },
+    { label: t('ui.app.forms'), icon: "📝", onClick: requireAuth(openFormsWindow) },
+    { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) },
+    { label: "Layers", icon: "🔀", onClick: requireAuth(openLayersBrowserWindow) },
+    { label: t('ui.app.media_library'), icon: "🖼️", onClick: requireAuth(openMediaLibraryWindow) },
+    { label: t('ui.app.payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) },
+    { label: t('ui.app.products'), icon: "📦", onClick: requireAuth(openProductsWindow) },
+    { label: t('ui.app.projects') || "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) },
+    { label: t('ui.app.templates'), icon: "📑", onClick: requireAuth(openTemplatesWindow) },
+    { label: "Terminal", icon: "💻", onClick: requireAuth(openTerminalWindow) },
+    { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) },
+    { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) },
+    { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) },
   ]
 
   const startMenuItems = [
@@ -658,8 +683,8 @@ export default function HomePage() {
     // Store menu item - platform services and subscriptions (allow browsing without login)
     { label: t('ui.start_menu.store'), icon: "🏪", onClick: openStoreWindow },
 
-    { label: "Quick Start", icon: "🚀", onClick: requireAuth(() => openWindow("quick-start", "Quick Start", undefined, { x: 200, y: 100 }, { width: 900, height: 700 }, undefined, "🚀")) },
     { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
+    { label: "Terminal", icon: "💻", onClick: requireAuth(openTerminalWindow) },
 
     {
       label: isSignedIn ? t('ui.start_menu.log_out') : t('ui.start_menu.log_in'),

@@ -8,7 +8,8 @@
  */
 
 import { useState } from "react";
-import { Bot, Plus, Sparkles } from "lucide-react";
+import { Bot, Plus, Sparkles, Maximize2, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -89,6 +90,20 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
         style={{ borderColor: "var(--win95-border)" }}
       >
         <div className="flex items-center gap-2">
+          {fullScreen && (
+            <Link
+              href="/"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-1"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Back to Desktop"
+            >
+              <ArrowLeft size={14} />
+            </Link>
+          )}
           <Bot size={16} />
           <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
             AI Agents
@@ -110,6 +125,20 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               isUnlimited={isUnlimited}
               variant="compact"
             />
+          )}
+          {!fullScreen && (
+            <Link
+              href="/agents"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+              style={{
+                borderColor: "var(--win95-border)",
+                background: "var(--win95-button-face)",
+                color: "var(--win95-text)",
+              }}
+              title="Open Full Screen"
+            >
+              <Maximize2 size={14} />
+            </Link>
           )}
         </div>
       </div>

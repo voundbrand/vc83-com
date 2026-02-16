@@ -3407,4 +3407,172 @@ http.route({
   }),
 });
 
+// ============================================================================
+// TELEGRAM WEBHOOK
+// ============================================================================
+
+/**
+ * Telegram Bot API webhook endpoint.
+ *
+ * Flow:
+ * 1. Parse the Telegram Update (extract chat_id, sender, /start param, text)
+ * 2. Resolve chat → organization via telegramResolver.resolveChatToOrg
+ * 3. If routeToSystemBot or /start deep link, resolveChatToOrg already handles
+ *    mapping creation / activation — we just need to route the message.
+ * 4. Feed message into agentExecution.processInboundMessage
+ * 5. Send agent reply back to Telegram via Bot API
+ */
+http.route({
+  path: "/telegram-webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.text();
+      const update = JSON.parse(body);
+
+      // Handle callback_query (inline button taps — soul approve/reject/rollback)
+      if (update.callback_query) {
+        const cbq = update.callback_query;
+        const callbackData = cbq.data || "";
+        const cbChatId = String(cbq.message?.chat?.id || "");
+        const callbackQueryId = cbq.id;
+
+        if (callbackData.startsWith("soul_approve:") || callbackData.startsWith("soul_reject:")) {
+          await ctx.runAction(api.ai.soulEvolution.handleTelegramCallback, {
+            callbackData,
+            telegramChatId: cbChatId,
+            callbackQueryId,
+          });
+        } else if (callbackData.startsWith("esc_")) {
+          // Escalation callbacks (esc_takeover / esc_dismiss)
+          await ctx.runAction(api.ai.escalation.handleEscalationCallback, {
+            callbackData,
+            telegramChatId: cbChatId,
+            callbackQueryId,
+          });
+        } else if (callbackData === "soul_history" || callbackData.startsWith("soul_rollback_")) {
+          // Resolve org from chat mapping, then find active agent
+          const chatMapping = await ctx.runQuery(
+            internal.onboarding.telegramResolver.getMappingByChatId,
+            { telegramChatId: cbChatId }
+          );
+          if (chatMapping?.organizationId) {
+            const agent = await ctx.runQuery(
+              internal.agentOntology.getActiveAgentForOrg,
+              { organizationId: chatMapping.organizationId }
+            );
+            if (agent?._id) {
+              await ctx.runAction(internal.ai.soulEvolution.handleSoulHistoryCallback, {
+                callbackData,
+                telegramChatId: cbChatId,
+                callbackQueryId,
+                agentId: agent._id,
+              });
+            }
+          }
+        }
+
+        return new Response("OK", { status: 200 });
+      }
+
+      // Extract message from the Telegram update
+      const msg = update.message;
+      if (!msg) {
+        // Edited message, channel post, etc. — acknowledge silently.
+        return new Response("OK", { status: 200 });
+      }
+
+      const chat = msg.chat;
+      const from = msg.from;
+      if (!chat?.id) {
+        return new Response("OK", { status: 200 });
+      }
+
+      const chatId = String(chat.id);
+      const text = msg.text || "";
+      const senderName = [from?.first_name, from?.last_name]
+        .filter(Boolean)
+        .join(" ");
+
+      // Extract /start parameter if present
+      let startParam: string | undefined;
+      if (text.startsWith("/start ")) {
+        startParam = text.slice(7).trim();
+      } else if (text === "/start") {
+        startParam = undefined; // Plain /start with no param
+      }
+
+      // 1. Resolve chat → org (handles deep links, onboarding, existing mappings)
+      const resolution = await ctx.runAction(api.onboarding.telegramResolver.resolveChatToOrg, {
+        telegramChatId: chatId,
+        senderName: senderName || undefined,
+        startParam,
+      });
+
+      if (!resolution?.organizationId) {
+        console.error("[Telegram Webhook] Could not resolve org for chat", chatId);
+        return new Response("OK", { status: 200 });
+      }
+
+      // For /start commands with deep link params, resolveChatToOrg handles
+      // sending the confirmation. If it's just "/start" with no text to process,
+      // send a welcome and return.
+      if (text === "/start" || text.startsWith("/start ")) {
+        // If this is a new user routed to System Bot, send a greeting
+        if (resolution.routeToSystemBot && resolution.isNew) {
+          await ctx.runAction(api.ai.agentExecution.processInboundMessage, {
+            organizationId: resolution.organizationId,
+            channel: "telegram",
+            externalContactIdentifier: chatId,
+            message: startParam
+              ? `User clicked a /start link with param: ${startParam}`
+              : "User just started the bot for the first time.",
+            metadata: {
+              providerId: "telegram",
+              providerMessageId: String(msg.message_id || ""),
+              senderName: senderName || undefined,
+              isStartCommand: true,
+            },
+          });
+
+          // The agent pipeline sends its own reply; we respond 200 immediately.
+          return new Response("OK", { status: 200 });
+        }
+
+        // For returning users hitting /start, just ack — they'll send a real message next
+        if (!startParam) {
+          return new Response("OK", { status: 200 });
+        }
+      }
+
+      // Skip non-text messages for now (voice, photo, etc. handled in future)
+      const hasMedia = msg.voice || msg.photo || msg.document || msg.audio;
+      if (!text && !hasMedia) {
+        return new Response("OK", { status: 200 });
+      }
+
+      // 2. Feed into agent pipeline
+      // Step 13 of the pipeline auto-sends the reply via channels.router → telegramProvider
+      await ctx.runAction(api.ai.agentExecution.processInboundMessage, {
+        organizationId: resolution.organizationId,
+        channel: "telegram",
+        externalContactIdentifier: chatId,
+        message: text || "[media message]",
+        metadata: {
+          providerId: "telegram",
+          providerMessageId: String(msg.message_id || ""),
+          senderName: senderName || undefined,
+          raw: update,
+        },
+      });
+
+      return new Response("OK", { status: 200 });
+    } catch (error) {
+      console.error("[Telegram Webhook] Error:", error);
+      // Always return 200 to Telegram to prevent retries
+      return new Response("OK", { status: 200 });
+    }
+  }),
+});
+
 export default http;

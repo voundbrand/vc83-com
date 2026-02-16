@@ -501,9 +501,249 @@ export const FREE_TIER: TierConfig = {
   },
 };
 
+export const PRO_TIER: TierConfig = {
+  name: "Pro",
+  description: "€29/month - Freelancers and small businesses",
+  priceInCents: 2900,
+  currency: "EUR",
+  supportLevel: "email_48h",
+
+  limits: {
+    // Core Platform
+    maxUsers: 3,
+    maxApiKeys: 1,
+    maxSubOrganizations: 0,
+    maxCustomDomains: 0,
+
+    // System Templates (unlimited for paid tiers)
+    maxSystemTemplates: -1,
+
+    // CRM
+    maxContacts: 2000,
+    maxOrganizations: 50,
+    maxPipelines: 3,
+    maxEmailsPerMonth: 500,
+
+    // Projects
+    maxProjects: 20,
+    maxMilestonesPerProject: 20,
+    maxTasksPerProject: 50,
+
+    // Events
+    maxEvents: 20,
+    maxAttendeesPerEvent: 100,
+    maxSponsorsPerEvent: 5,
+
+    // Products
+    maxProducts: 50,
+    maxAddonsPerProduct: 5,
+
+    // Checkout
+    maxCheckoutInstances: 5,
+
+    // Invoicing
+    maxInvoicesPerMonth: 100,
+
+    // Forms
+    maxForms: 20,
+    maxResponsesPerForm: 500,
+
+    // Web Publishing
+    maxPages: 5,
+
+    // Builder Apps
+    maxBuilderApps: 5,
+
+    // Workflows
+    maxWorkflows: 10,
+    maxBehaviorsPerWorkflow: 20,
+
+    // Sequences
+    maxSequences: 10,
+    maxStepsPerSequence: 10,
+    maxMessageTemplates: 20,
+
+    // Templates
+    maxCustomTemplates: 10,
+
+    // Media Library
+    totalStorageGB: 5,
+    maxFileUploadMB: 50,
+    perUserStorageGB: 1,
+
+    // Certificates
+    maxCertificates: 200,
+
+    // API & OAuth
+    maxWebsitesPerKey: 1,
+    maxCustomOAuthApps: 2,
+    maxThirdPartyIntegrations: 5,
+    rateLimitPerMinute: 60,
+    rateLimitPerDay: 5000,
+    maxWebhooks: 5,
+
+    // Audit
+    auditLogRetentionDays: 30,
+
+    // Benefits Platform
+    maxBenefits: 10,
+    maxCommissions: 5,
+    maxBenefitClaimsPerMonth: 50,
+    maxCommissionPayoutsPerMonth: 10,
+
+    // Bookings
+    maxLocations: 3,
+    maxBookableResources: 20,
+    maxBookingsPerMonth: 200,
+    maxRecurringSeriesLength: 12, // 12 weeks
+    maxResourcesPerBooking: 3,
+
+    // Credits
+    monthlyCredits: 200,
+    dailyCreditsOnLogin: 5,
+  },
+
+  features: {
+    // Core
+    badgeRequired: false,
+    subOrgsEnabled: false,
+    customDomainsEnabled: false,
+    whiteLabelEnabled: false,
+    whiteLabelLevel: "none",
+
+    // CRM
+    crmEnabled: true,
+    contactImportExportEnabled: true,
+    contactSyncEnabled: false,
+    bulkEmailEnabled: true,
+
+    // Projects
+    projectsEnabled: true,
+    budgetTrackingEnabled: true,
+    advancedReportsEnabled: false,
+
+    // Events
+    eventsEnabled: true,
+    mediaGalleryEnabled: true,
+    eventAnalyticsEnabled: false,
+
+    // Products
+    productsEnabled: true,
+    inventoryTrackingEnabled: true,
+    b2bInvoicingEnabled: true,
+    templateSetOverridesEnabled: false,
+
+    // Checkout
+    checkoutEnabled: true,
+    stripeConnectEnabled: true,
+    invoicePaymentEnabled: true,
+    manualPaymentEnabled: true,
+    customBrandingEnabled: false,
+    multiLanguageEnabled: true,
+    stripeTaxEnabled: true,
+
+    // Invoicing
+    invoicingEnabled: true,
+    consolidatedInvoicingEnabled: true,
+    multiCurrencyEnabled: true,
+    automatedGenerationEnabled: true,
+    emailDeliveryEnabled: true,
+    customTemplatesEnabled: false,
+
+    // Forms
+    formsEnabled: true,
+    multiStepFormsEnabled: true,
+    conditionalLogicEnabled: true,
+    fileUploadsEnabled: true,
+    formAnalyticsEnabled: false,
+
+    // Web Publishing
+    webPublishingEnabled: true,
+    seoToolsEnabled: false,
+    contentRulesEnabled: false,
+    pageAnalyticsEnabled: false,
+    vercelDeploymentEnabled: true,
+
+    // Workflows
+    workflowsEnabled: true,
+    workflowTemplatesEnabled: true,
+    advancedConditionsEnabled: true,
+    testModeEnabled: true,
+
+    // Templates
+    templatesEnabled: true,
+    templateSetsEnabled: true,
+    templateVersioningEnabled: false,
+    advancedEditorEnabled: true,
+    templateSharingEnabled: false,
+
+    // Certificates
+    certificatesEnabled: true,
+
+    // Media
+    folderOrganizationEnabled: true,
+    cloudIntegrationEnabled: false,
+
+    // Certificates (sub-features)
+    customCertificateTemplatesEnabled: true,
+    automatedCertificateDeliveryEnabled: true,
+    qrCodeEnabled: true,
+
+    // Translations
+    customTranslationsEnabled: true,
+    autoTranslationEnabled: false,
+
+    // Organization
+    rbacEnabled: true,
+    customRolesEnabled: false,
+    ssoEnabled: false,
+
+    // API & OAuth
+    apiKeysEnabled: true,
+    oauthEnabled: true,
+    apiWebhooksEnabled: true,
+    deploymentIntegrationsEnabled: true,
+
+    // AI
+    aiEnabled: true,
+
+    // Compliance
+    gdprToolsEnabled: true,
+    cookieConsentEnabled: true,
+    privacyPolicyGeneratorEnabled: true,
+    termsGeneratorEnabled: true,
+    dataExportEnabled: true,
+    dataDeleteRequestsEnabled: true,
+
+    // Audit
+    detailedLogsEnabled: true,
+    auditLogExportEnabled: false,
+
+    // Benefits Platform
+    benefitsEnabled: true,
+    commissionsEnabled: true,
+    cryptoPayoutsEnabled: false,
+    benefitsAnalyticsEnabled: false,
+
+    // Bookings
+    bookingsEnabled: true,
+    recurringBookingsEnabled: true,
+    multiResourceBookingsEnabled: true,
+    depositPaymentsEnabled: true,
+    bookingRemindersEnabled: true,
+    bufferTimeEnabled: true,
+    multiLocationEnabled: false,
+
+    // Sequences
+    sequencesEnabled: true,
+  },
+};
+
+// Legacy tier - kept for backward compatibility with existing subscriptions
+// New subscriptions should use PRO_TIER instead
 export const STARTER_TIER: TierConfig = {
   name: "Starter",
-  description: "€199/month - Solo operators, single project",
+  description: "€199/month - Solo operators, single project (Legacy)",
   priceInCents: 19900,
   currency: "EUR",
   supportLevel: "email_48h",
@@ -979,8 +1219,8 @@ export const PROFESSIONAL_TIER: TierConfig = {
 
 export const AGENCY_TIER: TierConfig = {
   name: "Agency",
-  description: "€599/month + €79/sub-org - Multi-client operators",
-  priceInCents: 59900,
+  description: "€299/month + €79/sub-org - Multi-client operators",
+  priceInCents: 29900,
   currency: "EUR",
   supportLevel: "priority_12h",
 
@@ -1459,12 +1699,13 @@ export const ENTERPRISE_TIER: TierConfig = {
  * Main export for accessing tier configurations by name.
  */
 export const TIER_CONFIGS: Record<
-  "free" | "starter" | "professional" | "agency" | "enterprise",
+  "free" | "pro" | "starter" | "professional" | "agency" | "enterprise",
   TierConfig
 > = {
   free: FREE_TIER,
-  starter: STARTER_TIER,
-  professional: PROFESSIONAL_TIER,
+  pro: PRO_TIER,
+  starter: STARTER_TIER,           // Legacy - maps to Pro for new subscriptions
+  professional: PROFESSIONAL_TIER, // Legacy - maps to Pro for new subscriptions
   agency: AGENCY_TIER,
   enterprise: ENTERPRISE_TIER,
 };
@@ -1473,7 +1714,7 @@ export const TIER_CONFIGS: Record<
  * HELPER: Get tier config by name
  */
 export function getTierConfig(
-  tierName: "free" | "starter" | "professional" | "agency" | "enterprise"
+  tierName: "free" | "pro" | "starter" | "professional" | "agency" | "enterprise"
 ): TierConfig {
   return TIER_CONFIGS[tierName];
 }
@@ -1498,12 +1739,15 @@ export function formatLimit(limit: number): string {
 /**
  * Tier name type alias
  */
-export type TierName = "free" | "starter" | "professional" | "agency" | "enterprise";
+export type TierName = "free" | "pro" | "starter" | "professional" | "agency" | "enterprise";
 
 /**
  * HELPER: Get the next tier name for upgrade prompts
+ *
+ * Current active tiers: Free → Pro → Agency → Enterprise
+ * Legacy tiers (starter, professional) are kept for backward compatibility
  */
-const TIER_ORDER: TierName[] = ["free", "starter", "professional", "agency", "enterprise"];
+const TIER_ORDER: TierName[] = ["free", "pro", "starter", "professional", "agency", "enterprise"];
 
 export function getNextTierName(currentTier: TierName): TierName | null {
   const idx = TIER_ORDER.indexOf(currentTier);

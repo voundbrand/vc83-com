@@ -44,7 +44,7 @@ export const sendWelcomeEmail = internalAction({
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        replyTo: process.env.REPLY_TO_EMAIL || "team@mail.l4yercak3.com",
+        replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
         subject,
         html,

@@ -325,6 +325,19 @@ async function generateConsolidatedPdfWithApiTemplate(
       { organizationId: invoice.organizationId }
     );
 
+    // 3b. Get organization contact info (email, phone)
+    const orgContact = await ctx.runQuery(
+      api.organizationOntology.getOrganizationContact,
+      { organizationId: invoice.organizationId }
+    );
+
+    // 3c. Get organization billing address
+    const billingAddresses = await ctx.runQuery(
+      api.organizationOntology.getOrganizationAddresses,
+      { organizationId: invoice.organizationId, subtype: "billing" }
+    );
+    const billingAddress = Array.isArray(billingAddresses) ? billingAddresses[0] : billingAddresses;
+
     // 4. Format dates for API Template.io
     const formatDate = (timestamp: number) => {
       return new Date(timestamp).toLocaleDateString("en-US", {
@@ -334,14 +347,22 @@ async function generateConsolidatedPdfWithApiTemplate(
       });
     };
 
-    // 5. Transform data for API Template.io format
+    // 5. Build organization address string from billing address
+    const addressParts = [
+      billingAddress?.customProperties?.addressLine1,
+      billingAddress?.customProperties?.addressLine2,
+      [billingAddress?.customProperties?.city, billingAddress?.customProperties?.state, billingAddress?.customProperties?.postalCode].filter(Boolean).join(", "),
+      billingAddress?.customProperties?.country,
+    ].filter(Boolean);
+
+    // 6. Transform data for API Template.io format
     const invoiceData = {
-      // Seller organization
-      organization_name: organization?.businessName || organization?.name || "Your Company",
-      organization_address: "Your Business Address", // TODO: Get from org settings
-      organization_phone: "Your Phone", // TODO: Get from org settings
-      organization_email: "billing@yourcompany.com", // TODO: Get from org settings
-      logo_url: undefined, // TODO: Get from org settings
+      // Seller organization (fetched from org settings)
+      organization_name: organization?.businessName || organization?.name || "Unknown Organization",
+      organization_address: addressParts.join(", ") || undefined,
+      organization_phone: orgContact?.customProperties?.contactPhone || undefined,
+      organization_email: orgContact?.customProperties?.billingEmail || orgContact?.customProperties?.contactEmail || undefined,
+      logo_url: organization?.customProperties?.logoUrl || undefined,
       highlight_color: "#6B46C1",
 
       // Invoice metadata
@@ -371,7 +392,7 @@ async function generateConsolidatedPdfWithApiTemplate(
 
       // Totals (convert to dollars)
       subtotal: templateData.subtotal / 100,
-      tax_rate: 0, // TODO: Calculate from templateData
+      tax_rate: templateData.subtotal > 0 ? (templateData.taxAmount / templateData.subtotal) * 100 : 0,
       tax: templateData.taxAmount / 100,
       total: templateData.total / 100,
 

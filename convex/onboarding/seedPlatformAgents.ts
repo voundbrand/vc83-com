@@ -323,6 +323,8 @@ const QUINN_CUSTOM_PROPERTIES = {
   ],
   totalMessages: 0,
   totalCostUsd: 0,
+  // System bot protection: template is the frozen canonical reference
+  protected: true,
 };
 
 // ============================================================================
@@ -368,8 +370,8 @@ export const seedAll = internalMutation({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const liveProps = existingQuinn.customProperties as Record<string, any>;
       await ctx.db.patch(quinnId, {
-        description: "l4yercak3 System Bot — handles onboarding for new Telegram users",
-        status: "active",
+        description: "l4yercak3 System Bot — template for onboarding workers",
+        status: "template",
         customProperties: {
           ...QUINN_CUSTOM_PROPERTIES,
           // Keep runtime counters from live data
@@ -379,15 +381,15 @@ export const seedAll = internalMutation({
         updatedAt: now,
       });
 
-      console.log(`[seedPlatformAgents] Quinn upserted (updated): ${quinnId}`);
+      console.log(`[seedPlatformAgents] Quinn upserted as template (updated): ${quinnId}`);
     } else {
       quinnId = await ctx.db.insert("objects", {
         organizationId: platformOrgId,
         type: "org_agent",
         subtype: "system",
         name: "Quinn",
-        description: "l4yercak3 System Bot — handles onboarding for new Telegram users",
-        status: "active",
+        description: "l4yercak3 System Bot — template for onboarding workers",
+        status: "template",
         customProperties: QUINN_CUSTOM_PROPERTIES,
         createdAt: now,
         updatedAt: now,
@@ -397,11 +399,55 @@ export const seedAll = internalMutation({
         organizationId: platformOrgId,
         objectId: quinnId,
         actionType: "seeded",
-        actionData: { agent: "Quinn", subtype: "system", role: "platform_system_bot" },
+        actionData: { agent: "Quinn", subtype: "system", role: "platform_system_bot_template" },
         performedAt: now,
       });
 
-      console.log(`[seedPlatformAgents] Quinn upserted (created): ${quinnId}`);
+      console.log(`[seedPlatformAgents] Quinn upserted as template (created): ${quinnId}`);
+    }
+
+    // ------------------------------------------------------------------
+    // 1b. SPAWN INITIAL WORKER (if none exist)
+    // ------------------------------------------------------------------
+
+    const existingWorkers = existingAgents.filter((a) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const props = a.customProperties as Record<string, any>;
+      return a.status === "active" && props?.templateAgentId !== undefined;
+    });
+
+    let initialWorkerId: Id<"objects"> | null = null;
+
+    if (existingWorkers.length === 0) {
+      initialWorkerId = await ctx.db.insert("objects", {
+        organizationId: platformOrgId,
+        type: "org_agent",
+        subtype: "system",
+        name: "Quinn Worker 1",
+        description: "Quinn onboarding worker #1 (seeded)",
+        status: "active",
+        customProperties: {
+          ...QUINN_CUSTOM_PROPERTIES,
+          displayName: "Quinn Worker 1",
+          status: "active",
+          templateAgentId: quinnId,
+          lastActiveSessionAt: now,
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await ctx.db.insert("objectActions", {
+        organizationId: platformOrgId,
+        objectId: initialWorkerId,
+        actionType: "seeded",
+        actionData: { agent: "Quinn Worker 1", role: "onboarding_worker", templateId: quinnId },
+        performedAt: now,
+      });
+
+      console.log(`[seedPlatformAgents] Initial Quinn worker spawned: ${initialWorkerId}`);
+    } else {
+      console.log(`[seedPlatformAgents] ${existingWorkers.length} worker(s) already exist — skipped`);
     }
 
     // ------------------------------------------------------------------
@@ -544,6 +590,8 @@ export const seedAll = internalMutation({
       templateId,
       quinnCreated: !existingQuinn,
       templateCreated: !existingOnboardingTemplate,
+      initialWorkerId,
+      workerCreated: existingWorkers.length === 0,
     };
   },
 });

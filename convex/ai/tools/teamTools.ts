@@ -5,8 +5,10 @@
  * Specialists respond under their own name in the same conversation.
  *
  * Tools:
- * - tag_in_specialist: Delegate to a specialist agent by subtype
+ * - tag_in_specialist: Delegate to a specialist agent (validated via teamHarness)
  * - list_team_agents: List all active agents on the team
+ *
+ * See: docs/agentic_system/TEAM_COORDINATION.md
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
@@ -25,6 +27,7 @@ function getInternal(): any {
 
 /**
  * Tag in a specialist agent from the PM's team.
+ * Validates handoff via teamHarness (limits, cooldown, same-org).
  * The specialist will respond under its own name in the same conversation.
  */
 export const tagInSpecialistTool: AITool = {
@@ -32,7 +35,8 @@ export const tagInSpecialistTool: AITool = {
   description:
     "Tag in a specialist agent from your team to respond to this conversation. " +
     "The specialist will respond under their own name. " +
-    "Use when the user's request matches another agent's expertise.",
+    "Use when the user's request matches another agent's expertise. " +
+    "Handoff limits and cooldowns are enforced automatically.",
   status: "ready",
   parameters: {
     type: "object",
@@ -40,7 +44,7 @@ export const tagInSpecialistTool: AITool = {
       specialistType: {
         type: "string",
         description:
-          "The subtype of the specialist to tag in (e.g. 'sales_assistant', 'customer_support', 'booking_agent')",
+          "The subtype of the specialist to tag in (e.g. 'sales_assistant', 'customer_support', 'booking_agent'). Use list_team_agents first to see who's available.",
       },
       reason: {
         type: "string",
@@ -48,53 +52,55 @@ export const tagInSpecialistTool: AITool = {
       },
       contextNote: {
         type: "string",
-        description: "Key context the specialist needs to know",
+        description: "Key context the specialist needs to know (conversation summary)",
       },
     },
     required: ["specialistType", "reason"],
   },
   execute: async (ctx: ToolExecutionContext, args: Record<string, unknown>) => {
-    if (!ctx.agentSessionId) {
+    if (!ctx.agentSessionId || !ctx.agentId) {
       return { error: "No agent session context — tag_in_specialist requires an agent session" };
     }
 
-    // 1. Find specialist by subtype
-    const specialist = await ctx.runQuery(
-      getInternal().agentOntology.getActiveAgentForOrg,
-      {
-        organizationId: ctx.organizationId,
-        subtype: args.specialistType as string,
-      }
+    // 1. Find specialist by subtype — search all active agents
+    const allAgents = await ctx.runQuery(
+      getInternal().agentOntology.getAllActiveAgentsForOrg,
+      { organizationId: ctx.organizationId }
     );
 
-    if (!specialist) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const targetAgent = (allAgents as any[])?.find(
+      (a) => a.subtype === (args.specialistType as string) && a._id !== ctx.agentId
+    );
+
+    if (!targetAgent) {
       return { error: `No active ${args.specialistType} agent found for this organization` };
     }
 
-    // 2. Schedule specialist response (async — runs after PM's message is sent)
-    await ctx.scheduler.runAfter(
-      0,
-      getInternal().ai.agentExecution.generateAgentResponse,
+    // 2. Execute validated handoff via teamHarness
+    const contextSummary = (args.contextNote as string) || (args.reason as string);
+    const handoffResult = await ctx.runMutation(
+      getInternal().ai.teamHarness.executeTeamHandoff,
       {
-        agentId: specialist._id,
-        organizationId: ctx.organizationId,
         sessionId: ctx.agentSessionId,
-        channel: ctx.channel || "api_test",
-        externalContactIdentifier: ctx.contactId || "",
-        context: (args.contextNote as string) || (args.reason as string),
+        fromAgentId: ctx.agentId,
+        toAgentId: targetAgent._id,
+        organizationId: ctx.organizationId,
+        reason: args.reason as string,
+        contextSummary,
       }
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const specialistName = (specialist.customProperties as any)?.displayName || specialist.name;
+    const result = handoffResult as any;
+    if (result?.error) {
+      return { error: result.error };
+    }
 
-    // Mirror the handoff to the team group (Step 8)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pmConfig = (ctx as any).agentId
-      ? undefined // PM name resolved below
-      : undefined;
-    void pmConfig; // unused, resolve from context
-    await ctx.scheduler.runAfter(0,
+    const specialistName = result?.targetAgentName || (args.specialistType as string);
+
+    // 3. Mirror the handoff to the team group (fire-and-forget)
+    ctx.scheduler.runAfter(0,
       getInternal().channels.telegramGroupMirror.mirrorTagIn,
       {
         organizationId: ctx.organizationId,
@@ -108,7 +114,8 @@ export const tagInSpecialistTool: AITool = {
       success: true,
       tagged: specialistName,
       subtype: args.specialistType,
-      message: `${specialistName} will respond shortly.`,
+      handoffNumber: result?.handoffNumber,
+      message: `${specialistName} has been tagged in and will respond next. They have the conversation context.`,
     };
   },
 };
@@ -120,6 +127,7 @@ export const listTeamAgentsTool: AITool = {
   name: "list_team_agents",
   description: "List all active specialist agents on your team. Use to see who is available before tagging someone in.",
   status: "ready",
+  readOnly: true,
   parameters: {
     type: "object",
     properties: {},
@@ -136,6 +144,7 @@ export const listTeamAgentsTool: AITool = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const props = a.customProperties as Record<string, any> | undefined;
       return {
+        id: a._id,
         name: props?.displayName || a.name,
         subtype: a.subtype,
         tagline: props?.soul?.tagline,

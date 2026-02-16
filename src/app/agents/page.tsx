@@ -10,9 +10,5 @@
 import { AgentsWindow } from "@/components/window-content/agents-window";
 
 export default function AgentsPage() {
-  return (
-    <div className="min-h-screen bg-zinc-900">
-      <AgentsWindow fullScreen />
-    </div>
-  );
+  return <AgentsWindow fullScreen />;
 }

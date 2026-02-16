@@ -84,6 +84,8 @@ function BuilderLandingPageInner() {
   const searchParams = useSearchParams();
   const { isSignedIn, isLoading, user } = useAuth();
   const [prompt, setPrompt] = useState("");
+  const isEmbedded = searchParams.get("embedded") === "true" ||
+    (typeof window !== "undefined" && window.self !== window.top);
 
   // Handle conversation URL parameter - redirect to workspace if signed in
   const conversationId = searchParams.get("conversation");
@@ -474,8 +476,8 @@ function BuilderLandingPageInner() {
 
   return (
     <div className="min-h-screen text-zinc-100" style={{ backgroundColor: '#0a0a0a' }}>
-      {/* Navigation - Different layout for logged in vs logged out */}
-      <nav className="h-14 flex items-center justify-between px-4 border-b border-zinc-800/50">
+      {/* Navigation - hidden when embedded in a window */}
+      {!isEmbedded && <nav className="h-14 flex items-center justify-between px-4 border-b border-zinc-800/50">
         {/* Left: Logo (with hover menu when logged in) */}
         {isSignedIn ? (
           <div
@@ -596,7 +598,7 @@ function BuilderLandingPageInner() {
             </>
           )}
         </div>
-      </nav>
+      </nav>}
 
       {/* Hero Section */}
       <main className="max-w-3xl mx-auto px-4 pt-24 pb-16">

@@ -86,10 +86,13 @@ export function AgentListPanel({
           const agentStats = getStatsForAgent(agent._id);
 
           return (
-            <button
+            <div
               key={agent._id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(agent._id)}
-              className="w-full text-left px-3 py-2.5 border-b transition-colors"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(agent._id); }}
+              className="w-full text-left px-3 py-2.5 border-b transition-colors cursor-pointer"
               style={{
                 borderColor: "var(--win95-border)",
                 background: isSelected ? "var(--win95-highlight, #000080)" : "transparent",
@@ -156,7 +159,7 @@ export function AgentListPanel({
                   {props.autonomyLevel || "supervised"}
                 </span>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
