@@ -22,6 +22,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import bcrypt from "bcryptjs";
 import { Id } from "../_generated/dataModel";
+import type { VerifySessionResult } from "../types/ontology";
 
 /**
  * GENERATE API KEY ACTION
@@ -55,12 +56,10 @@ export const generateApiKey = action({
     warning: string;
   }> => {
     // 1. Verify session
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // @ts-ignore
-    const session = await ctx.runQuery((internal.apiKeysInternal as any).verifySession, {
+    const session = await ctx.runQuery(internal.apiKeysInternal.verifySession, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
-    });
+    }) as unknown as VerifySessionResult;
 
     if (!session.valid || !session.userId) {
       throw new Error(session.error || "Invalid session");

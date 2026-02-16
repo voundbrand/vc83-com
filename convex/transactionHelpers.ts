@@ -21,8 +21,17 @@
 
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
-import type { Id, Doc } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { proxyMapUrl, proxyStorageUrl } from "./lib/emailUrlHelpers";
+import type {
+  CheckoutSessionObject,
+  CrmOrganizationObject,
+  DomainConfigObject,
+  EventObject,
+  OrganizationSettingsObject,
+  ProductObject,
+  TicketObject,
+} from "./types/ontology";
 
 /**
  * CREATE TRANSACTIONS FOR PURCHASE
@@ -111,14 +120,10 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 1. LOAD CHECKOUT SESSION for additional context
   // ========================================================================
-  // Note: Using explicit type cast to avoid deep type instantiation issues with Convex's generated types
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const session = await (ctx as any).runQuery(
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Deep type instantiation in Convex generated types
-    (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
+  const session = await ctx.runQuery(
+    internal.checkoutSessionOntology.getCheckoutSessionInternal,
     { checkoutSessionId: params.checkoutSessionId }
-  ) as Doc<"objects"> | null;
+  ) as unknown as CheckoutSessionObject | null;
 
   const sessionProps = session?.customProperties || {};
   const language = (sessionProps.defaultLanguage as string) || "en";
@@ -130,32 +135,31 @@ export async function createTransactionsForPurchase(
   // ========================================================================
   // 2. LOAD SELLER ORGANIZATION INFO (for invoices/receipts)
   // ========================================================================
-  const organization = await (ctx as any).runQuery(
-    (internal as any).checkoutSessions.getOrganizationInternal,
+  const organization = await ctx.runQuery(
+    internal.checkoutSessions.getOrganizationInternal,
     { organizationId: params.organizationId }
-  );
+  ) as { name?: string; businessName?: string } | null;
 
   // Load organization contact settings (using internal query to avoid deep type instantiation)
   const contactSettings = await ctx.runQuery(
     internal.organizationOntology.getOrganizationSettingsInternal,
     { organizationId: params.organizationId, subtype: "contact" }
-  ) as Doc<"objects"> | null;
+  ) as unknown as OrganizationSettingsObject | null;
   const contactProps = contactSettings?.customProperties || {};
 
   // Load organization invoicing settings (for VAT number)
   const invoicingSettings = await ctx.runQuery(
     internal.organizationOntology.getOrganizationSettingsInternal,
     { organizationId: params.organizationId, subtype: "invoicing" }
-  ) as Doc<"objects"> | null;
+  ) as unknown as OrganizationSettingsObject | null;
   const invoicingProps = invoicingSettings?.customProperties || {};
 
   // Load primary address
   const primaryAddress = await ctx.runQuery(
     internal.organizationOntology.getPrimaryAddressInternal,
     { organizationId: params.organizationId }
-  ) as Doc<"objects"> | null;
+  ) as unknown as OrganizationSettingsObject | null;
   const addressProps = primaryAddress?.customProperties || {};
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const seller = {
     organizationId: params.organizationId,
@@ -190,7 +194,7 @@ export async function createTransactionsForPurchase(
     try {
       const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
         configId: domainConfigId,
-      });
+      }) as unknown as DomainConfigObject | null;
       if (domainConfig?.customProperties?.branding) {
         const domainBranding = domainConfig.customProperties.branding as Record<string, unknown>;
         branding.logoUrl = domainBranding.logoUrl as string | undefined;
@@ -213,7 +217,7 @@ export async function createTransactionsForPurchase(
     const brandingSettings = await ctx.runQuery(internal.organizationOntology.getOrganizationSettingsInternal, {
       organizationId: params.organizationId,
       subtype: "branding",
-    }) as Doc<"objects"> | null;
+    }) as unknown as OrganizationSettingsObject | null;
     const brandingProps = brandingSettings?.customProperties || {};
 
     branding.logoUrl = (brandingProps.logo as string) || (brandingProps.logoUrl as string) || undefined;
@@ -228,8 +232,8 @@ export async function createTransactionsForPurchase(
     try {
       const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
         organizationId: params.organizationId,
-      });
-      const activeDomainConfig = systemDomainConfigs?.find((c: Doc<"objects">) => c.status === "active");
+      }) as unknown as DomainConfigObject[] | null;
+      const activeDomainConfig = systemDomainConfigs?.find((c) => c.status === "active") || null;
       if (activeDomainConfig?.customProperties?.webPublishing) {
         const webPub = activeDomainConfig.customProperties.webPublishing as Record<string, unknown>;
         siteUrl = webPub.siteUrl as string | undefined;
@@ -271,7 +275,7 @@ export async function createTransactionsForPurchase(
     // Load CRM organization for B2B billing
     const crmOrg = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
       organizationId: params.billingInfo.crmOrganizationId,
-    }) as Doc<"objects"> | null;
+    }) as unknown as CrmOrganizationObject | null;
 
     if (crmOrg) {
       const crmProps = crmOrg.customProperties || {};
@@ -326,7 +330,7 @@ export async function createTransactionsForPurchase(
       // 5.1. Fetch product details
       const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
         productId: item.productId,
-      });
+      }) as unknown as ProductObject | null;
 
       if (!product) {
         console.error(`❌ [createTransactionsForPurchase] Product ${item.productId} not found, skipping`);
@@ -351,7 +355,7 @@ export async function createTransactionsForPurchase(
         const eventIdFromProduct = product.customProperties.eventId as Id<"objects">;
         const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
           eventId: eventIdFromProduct,
-        });
+        }) as unknown as EventObject | null;
 
         if (event && event.type === "event") {
           const eventProps = event.customProperties || {};
@@ -391,7 +395,7 @@ export async function createTransactionsForPurchase(
               sponsorLinks.map(async (link: { toObjectId: Id<"objects">; properties?: Record<string, unknown> }) => {
                 const sponsor = await ctx.runQuery(internal.crmOntology.getCrmOrganizationInternal, {
                   organizationId: link.toObjectId,
-                });
+                }) as unknown as CrmOrganizationObject | null;
                 if (sponsor && sponsor.type === "crm_organization") {
                   return {
                     name: sponsor.name,
@@ -432,7 +436,7 @@ export async function createTransactionsForPurchase(
       if (item.ticketId) {
         const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
           ticketId: item.ticketId,
-        });
+        }) as unknown as TicketObject | null;
         if (ticket) {
           const ticketProps = ticket.customProperties || {};
           attendeeName = ticketProps.attendeeName as string | undefined;
@@ -596,6 +600,41 @@ export async function createTransactionsForPurchase(
     }
   );
 
+  // Double-write to strict transaction table (Phase 3 decoupling)
+  const strictTransactionId = await ctx.runMutation(
+    internal.transactionOntologyStrict.createTransactionStrict,
+    {
+      organizationId: params.organizationId,
+      legacyTransactionId: transactionId,
+      checkoutSessionId: params.checkoutSessionId,
+      lineItems: validLineItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPriceInCents: item.unitPriceInCents,
+        totalPriceInCents: item.totalPriceInCents,
+        taxAmountInCents: item.taxAmountInCents,
+        taxRatePercent: item.taxRatePercent,
+        ticketId: item.ticketId,
+        eventId: item.eventId,
+        eventName: item.eventName,
+      })),
+      subtotalInCents,
+      taxAmountInCents,
+      totalInCents,
+      currency: params.taxInfo?.currency || "EUR",
+      paymentMethod: params.paymentInfo.method,
+      paymentStatus: params.paymentInfo.status,
+      payerType,
+      payerId,
+      customerName: params.customerInfo.name,
+      customerEmail: params.customerInfo.email,
+      customerPhone: params.customerInfo.phone,
+      language,
+      domainConfigId,
+    }
+  );
+
   // ========================================================================
   // 11. UPDATE TRANSACTION WITH ADDITIONAL CONTEXT (via customProperties)
   // ========================================================================
@@ -630,6 +669,26 @@ export async function createTransactionsForPurchase(
       formResponses,
     },
   });
+
+  // Double-write ticket links into strict table (Phase 3)
+  await Promise.all(
+    validLineItems
+      .filter((item) => item.ticketId)
+      .map((item) =>
+        ctx.runMutation(internal.transactionOntologyStrict.createTicketStrict, {
+          organizationId: params.organizationId,
+          legacyTicketId: item.ticketId as Id<"objects">,
+          transactionId,
+          strictTransactionId,
+          productId: item.productId,
+          attendeeName: item.attendeeName,
+          attendeeEmail: item.attendeeEmail,
+          ticketNumber: item.ticketNumber,
+          eventId: item.eventId,
+          eventName: item.eventName,
+        })
+      )
+  );
 
   console.log(`✅ [createTransactionsForPurchase] Created transaction ${transactionId} with complete snapshot`);
   console.log(`   - Seller: ${seller.name}`);
@@ -677,7 +736,7 @@ export async function linkTransactionsToTickets(
     // Get the ticket to update its customProperties
     const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
       ticketId: link.ticketId,
-    });
+    }) as unknown as TicketObject | null;
 
     if (!ticket) {
       console.error(`❌ [linkTransactionsToTickets] Ticket ${link.ticketId} not found, skipping link`);

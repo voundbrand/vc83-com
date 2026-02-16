@@ -7,6 +7,7 @@
 import { v } from "convex/values";
 import { action, ActionCtx, mutation, MutationCtx } from "./_generated/server";
 import { api } from "./_generated/api";
+import { parseTransaction } from "./lib/ontologyHelpers";
 
 /**
  * Internal mutation to update transaction with refund information
@@ -72,19 +73,21 @@ export const processStripeRefund = action({
     console.log(`Starting refund for transaction: ${args.transactionId}`);
 
     // Get transaction details
-    const transaction: any = await ctx.runQuery(api.transactionOntology.getTransaction, {
+    const transactionDoc = await ctx.runQuery(api.transactionOntology.getTransaction, {
       sessionId: args.sessionId,
       transactionId: args.transactionId,
     });
+
+    const transaction = parseTransaction(transactionDoc);
 
     if (!transaction) {
       throw new Error(`Transaction not found: ${args.transactionId}`);
     }
 
     // Extract payment data from customProperties
-    const stripePaymentIntentId = transaction.customProperties?.stripePaymentIntentId as string | undefined;
-    const totalAmount: number = (transaction.customProperties?.totalPriceInCents as number) || 0;
-    const paymentStatus = transaction.customProperties?.paymentStatus as string;
+    const stripePaymentIntentId = transaction.stripePaymentIntentId;
+    const totalAmount: number = transaction.totalPriceInCents || 0;
+    const paymentStatus = transaction.paymentStatus || "paid";
 
     // Validate payment can be refunded
     if (!stripePaymentIntentId) {
@@ -186,10 +189,12 @@ export const canRefundTransaction = action({
     reason?: string;
     remainingAmount?: number;
   }> => {
-    const transaction: any = await ctx.runQuery(api.transactionOntology.getTransaction, {
+    const transactionDoc = await ctx.runQuery(api.transactionOntology.getTransaction, {
       sessionId: args.sessionId,
       transactionId: args.transactionId,
     });
+
+    const transaction = parseTransaction(transactionDoc);
 
     if (!transaction) {
       return {
@@ -198,10 +203,10 @@ export const canRefundTransaction = action({
       };
     }
 
-    const stripePaymentIntentId = transaction.customProperties?.stripePaymentIntentId as string | undefined;
-    const paymentStatus = transaction.customProperties?.paymentStatus as string;
-    const refundAmount = transaction.customProperties?.refundAmount as number | undefined;
-    const totalAmount: number = (transaction.customProperties?.totalPriceInCents as number) || 0;
+    const stripePaymentIntentId = transaction.stripePaymentIntentId;
+    const paymentStatus = transaction.paymentStatus || "paid";
+    const refundAmount = transaction.refundAmount;
+    const totalAmount: number = transaction.totalPriceInCents || 0;
 
     // Check if already fully refunded
     if (refundAmount && refundAmount >= totalAmount) {

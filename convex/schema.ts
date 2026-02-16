@@ -172,6 +172,7 @@ import {
   designPatterns,
   prototypeMetadata
 } from "./schemas/designPatternSchemas";
+import { transactionsStrict, ticketsStrict } from "./schemas/transactionStrictSchemas";
 
 /**
  * MAIN SCHEMA EXPORT
@@ -352,6 +353,10 @@ export default defineSchema({
   agentConversationMetrics,  // Conversation outcome signals for reflection
   soulVersionHistory,        // Audit trail of soul changes
   proposalFeedback,          // Owner approval/rejection tracking
+
+  // 🛡️ STRICT DECOUPLING (Phase 3)
+  transactionsStrict,        // Dedicated transaction table (double-write during migration)
+  ticketsStrict,             // Dedicated ticket table linked to strict transactions
 
   // ❌ OLD TRANSLATIONS - Replaced by ontology
   // systemTranslations,
