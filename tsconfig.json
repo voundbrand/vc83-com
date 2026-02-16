@@ -43,6 +43,7 @@
     "services",
     "docs",
     "mcp-kb",
-    "packages"
+    "packages",
+    "scripts"
   ]
 }
