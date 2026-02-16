@@ -18,7 +18,8 @@
  */
 
 import { mutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 export const seed = mutation({
   args: {},
@@ -35,15 +36,15 @@ export const seed = mutation({
     try {
       // Part 1: Payment Methods
       console.log("📦 Part 1/2: Payment Methods...");
-      results.paymentMethods = await ctx.runMutation(
-        internal.translations.seedCheckoutTemplate_05a_PaymentMethods.seed
+      results.paymentMethods = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckoutTemplate_05a_PaymentMethods.seed
       );
       console.log(`   ✅ ${results.paymentMethods.count} translations inserted (${results.paymentMethods.totalKeys} keys)\n`);
 
       // Part 2: Payment Form
       console.log("📦 Part 2/2: Payment Form...");
-      results.paymentForm = await ctx.runMutation(
-        internal.translations.seedCheckoutTemplate_05b_PaymentForm.seed
+      results.paymentForm = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckoutTemplate_05b_PaymentForm.seed
       );
       console.log(`   ✅ ${results.paymentForm.count} translations inserted (${results.paymentForm.totalKeys} keys)\n`);
 

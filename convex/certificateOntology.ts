@@ -2,7 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { checkResourceLimit } from "./licensing/helpers";
 
 /**
@@ -395,8 +395,8 @@ export const createCertificate = mutation({
       organizationId: args.organizationId,
     });
 
-    return await ctx.runMutation(
-      internal.certificateOntology.createCertificateInternal,
+    return await (ctx as any).runMutation(
+      generatedApi.internal.certificateOntology.createCertificateInternal,
       {
         organizationId: args.organizationId,
         transactionId: args.transactionId,

@@ -6,7 +6,7 @@ Make the `knowledge + recipes + skills` model the operational source of truth fo
 
 ## Current state in this codebase
 
-- Strategy is documented in `docs/layers/AI_COMPOSITION_PLATFORM.md`.
+- Strategy is documented in `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`.
 - Skills content exists in `convex/ai/systemKnowledge/skills/`.
 - Composition docs exist in `convex/ai/systemKnowledge/composition/`.
 - Runtime loading paths differ by context and are not fully unified (`convex/ai/chat.ts`, `convex/ai/agentExecution.ts`).
@@ -48,4 +48,3 @@ Make the `knowledge + recipes + skills` model the operational source of truth fo
 - Shared loader used by chat and agent runtime.
 - Intent-to-skill mapping test suite green.
 - Knowledge loading metrics visible in logs/analytics.
-

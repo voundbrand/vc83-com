@@ -11,11 +11,12 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import { parseJsonBody, BodyTooLargeError } from "./httpHelpers";
 import { getCorsHeaders } from "./corsHeaders";
 import { PUSHOVER_SOUNDS } from "../../integrations/pushover";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * SEND PUSHOVER NOTIFICATION
@@ -127,8 +128,8 @@ export const sendPushover = httpAction(async (ctx, request) => {
     }
 
     // 6. Send via internal action
-    const result = await ctx.runAction(
-      internal.integrations.pushover.sendPushoverNotification,
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.integrations.pushover.sendPushoverNotification,
       {
         organizationId: authContext.organizationId,
         message: message as string,

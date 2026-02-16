@@ -24,9 +24,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal, api } from "../../_generated/api";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // PUBLIC ENDPOINTS (No Auth Required)
@@ -54,7 +55,7 @@ export const getWebinarPublic = httpAction(async (ctx, request) => {
       );
     }
 
-    const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+    const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
       webinarId: webinarId as any,
     });
 
@@ -126,7 +127,7 @@ export const registerForWebinar = httpAction(async (ctx, request) => {
     }
 
     // Register
-    const result = await ctx.runMutation(api.webinarRegistrants.registerForWebinar, {
+    const result = await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.registerForWebinar, {
       webinarId: webinarId as any,
       firstName,
       lastName,
@@ -145,7 +146,7 @@ export const registerForWebinar = httpAction(async (ctx, request) => {
     });
 
     // Get webinar details for response
-    const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+    const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
       webinarId: webinarId as any,
     });
 
@@ -231,7 +232,7 @@ export const getPlaybackInfo = httpAction(async (ctx, request) => {
     }
 
     // Verify registration
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode: code,
       webinarId: webinarId as any,
     });
@@ -244,7 +245,7 @@ export const getPlaybackInfo = httpAction(async (ctx, request) => {
     }
 
     // Get webinar
-    const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+    const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
       webinarId: webinarId as any,
     });
 
@@ -256,7 +257,7 @@ export const getPlaybackInfo = httpAction(async (ctx, request) => {
     }
 
     // Get full webinar details for playback
-    const fullWebinar = await ctx.runQuery(internal.api.v1.webinarsInternal.getWebinarForPlayback, {
+    const fullWebinar = await (ctx as any).runQuery(generatedApi.internal.api.v1.webinarsInternal.getWebinarForPlayback, {
       webinarId: webinarId as any,
     });
 
@@ -376,7 +377,7 @@ export const trackJoin = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 3]; // /webinars/{id}/track/join
 
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode,
       webinarId: webinarId as any,
     });
@@ -388,7 +389,7 @@ export const trackJoin = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(api.webinarRegistrants.trackJoin, {
+    await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackJoin, {
       registrantId: registrant.id,
       timestamp: timestamp || Date.now(),
     });
@@ -428,7 +429,7 @@ export const trackProgress = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 3];
 
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode,
       webinarId: webinarId as any,
     });
@@ -440,7 +441,7 @@ export const trackProgress = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(api.webinarRegistrants.trackProgress, {
+    await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackProgress, {
       registrantId: registrant.id,
       currentTimeSeconds: currentTimeSeconds || 0,
       totalWatchTimeSeconds: totalWatchTimeSeconds || 0,
@@ -481,7 +482,7 @@ export const trackLeave = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 3];
 
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode,
       webinarId: webinarId as any,
     });
@@ -493,7 +494,7 @@ export const trackLeave = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(api.webinarRegistrants.trackLeave, {
+    await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackLeave, {
       registrantId: registrant.id,
       totalWatchTimeSeconds: totalWatchTimeSeconds || 0,
       maxPositionSeconds: maxPositionSeconds || 0,
@@ -535,7 +536,7 @@ export const trackOfferViewed = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 3];
 
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode,
       webinarId: webinarId as any,
     });
@@ -547,7 +548,7 @@ export const trackOfferViewed = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(api.webinarRegistrants.trackOfferViewed, {
+    await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackOfferViewed, {
       registrantId: registrant.id,
       viewedAtSeconds: viewedAtSeconds || 0,
       timestamp: timestamp || Date.now(),
@@ -588,7 +589,7 @@ export const trackOfferClicked = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 3];
 
-    const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+    const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
       registrationCode,
       webinarId: webinarId as any,
     });
@@ -600,7 +601,7 @@ export const trackOfferClicked = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(api.webinarRegistrants.trackOfferClicked, {
+    await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackOfferClicked, {
       registrantId: registrant.id,
       clickedAtSeconds: clickedAtSeconds || 0,
       timestamp: timestamp || Date.now(),
@@ -655,7 +656,7 @@ export const listWebinars = httpAction(async (ctx, request) => {
     const subtype = url.searchParams.get("subtype") || undefined;
     const limit = parseInt(url.searchParams.get("limit") || "50");
 
-    const result = await ctx.runQuery(api.webinarOntology.getWebinars, {
+    const result = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinars, {
       organizationId: organizationId as any,
       status,
       subtype,
@@ -732,7 +733,7 @@ export const createWebinar = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(api.webinarOntology.createWebinar, {
+    const result = await (ctx as any).runMutation(generatedApi.api.webinarOntology.createWebinar, {
       organizationId: organizationId as any,
       name,
       description,
@@ -805,7 +806,7 @@ export const getWebinar = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 1];
 
-    const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+    const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
     });
@@ -869,7 +870,7 @@ export const updateWebinar = httpAction(async (ctx, request) => {
 
     const body = await request.json();
 
-    await ctx.runMutation(api.webinarOntology.updateWebinar, {
+    await (ctx as any).runMutation(generatedApi.api.webinarOntology.updateWebinar, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
       ...body,
@@ -934,7 +935,7 @@ export const deleteWebinar = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 1];
 
-    await ctx.runMutation(api.webinarOntology.deleteWebinar, {
+    await (ctx as any).runMutation(generatedApi.api.webinarOntology.deleteWebinar, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
       performedBy: authResult.context.userId as any,
@@ -979,7 +980,7 @@ export const publishWebinar = httpAction(async (ctx, request) => {
     const pathParts = url.pathname.split("/");
     const webinarId = pathParts[pathParts.length - 2]; // /webinars/{id}/publish
 
-    await ctx.runMutation(api.webinarOntology.publishWebinar, {
+    await (ctx as any).runMutation(generatedApi.api.webinarOntology.publishWebinar, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
       performedBy: authResult.context.userId as any,
@@ -1047,7 +1048,7 @@ export const listRegistrants = httpAction(async (ctx, request) => {
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const result = await ctx.runQuery(api.webinarRegistrants.getRegistrants, {
+    const result = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrants, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
       status,
@@ -1111,7 +1112,7 @@ export const getDirectUploadUrl = httpAction(async (ctx, request) => {
     }
 
     // Verify webinar belongs to organization
-    const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+    const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
       webinarId: webinarId as any,
       organizationId: organizationId as any,
     });
@@ -1124,7 +1125,7 @@ export const getDirectUploadUrl = httpAction(async (ctx, request) => {
     }
 
     // Get upload URL from Mux
-    const result = await ctx.runAction(api.actions.mux.getDirectUploadUrl, {
+    const result = await (ctx as any).runAction(generatedApi.api.actions.mux.getDirectUploadUrl, {
       webinarId: webinarId as any,
       corsOrigin,
     });
@@ -1175,7 +1176,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 2];
 
-      const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+      const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
         webinarId: webinarId as any,
       });
 
@@ -1205,7 +1206,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode: code,
         webinarId: webinarId as any,
       });
@@ -1217,7 +1218,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+      const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
         webinarId: webinarId as any,
       });
 
@@ -1228,7 +1229,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const fullWebinar = await ctx.runQuery(internal.api.v1.webinarsInternal.getWebinarForPlayback, {
+      const fullWebinar = await (ctx as any).runQuery(generatedApi.internal.api.v1.webinarsInternal.getWebinarForPlayback, {
         webinarId: webinarId as any,
       });
 
@@ -1343,7 +1344,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
       const limit = parseInt(url.searchParams.get("limit") || "50");
       const offset = parseInt(url.searchParams.get("offset") || "0");
 
-      const result = await ctx.runQuery(api.webinarRegistrants.getRegistrants, {
+      const result = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrants, {
         webinarId: webinarId as any,
         organizationId: organizationId as any,
         status,
@@ -1383,7 +1384,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
       const subtype = url.searchParams.get("subtype") || undefined;
       const limit = parseInt(url.searchParams.get("limit") || "50");
 
-      const result = await ctx.runQuery(api.webinarOntology.getWebinars, {
+      const result = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinars, {
         organizationId: organizationId as any,
         status,
         subtype,
@@ -1421,7 +1422,7 @@ export const webinarGetRouter = httpAction(async (ctx, request) => {
       const organizationId = getEffectiveOrganizationId(authResult.context);
       const webinarId = pathParts[3];
 
-      const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+      const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
         webinarId: webinarId as any,
         organizationId: organizationId as any,
       });
@@ -1482,7 +1483,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(api.webinarRegistrants.registerForWebinar, {
+      const result = await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.registerForWebinar, {
         webinarId: webinarId as any,
         firstName,
         lastName,
@@ -1500,7 +1501,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         customFields,
       });
 
-      const webinar = await ctx.runQuery(api.webinarOntology.getWebinarPublic, {
+      const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinarPublic, {
         webinarId: webinarId as any,
       });
 
@@ -1543,7 +1544,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 3];
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode,
         webinarId: webinarId as any,
       });
@@ -1555,7 +1556,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      await ctx.runMutation(api.webinarRegistrants.trackJoin, {
+      await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackJoin, {
         registrantId: registrant.id,
         timestamp: timestamp || Date.now(),
       });
@@ -1581,7 +1582,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 3];
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode,
         webinarId: webinarId as any,
       });
@@ -1593,7 +1594,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      await ctx.runMutation(api.webinarRegistrants.trackProgress, {
+      await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackProgress, {
         registrantId: registrant.id,
         currentTimeSeconds: currentTimeSeconds || 0,
         totalWatchTimeSeconds: totalWatchTimeSeconds || 0,
@@ -1620,7 +1621,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 3];
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode,
         webinarId: webinarId as any,
       });
@@ -1632,7 +1633,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      await ctx.runMutation(api.webinarRegistrants.trackLeave, {
+      await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackLeave, {
         registrantId: registrant.id,
         totalWatchTimeSeconds: totalWatchTimeSeconds || 0,
         maxPositionSeconds: maxPositionSeconds || 0,
@@ -1660,7 +1661,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 3];
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode,
         webinarId: webinarId as any,
       });
@@ -1672,7 +1673,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      await ctx.runMutation(api.webinarRegistrants.trackOfferViewed, {
+      await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackOfferViewed, {
         registrantId: registrant.id,
         viewedAtSeconds: viewedAtSeconds || 0,
         timestamp: timestamp || Date.now(),
@@ -1699,7 +1700,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 3];
 
-      const registrant = await ctx.runQuery(api.webinarRegistrants.getRegistrantByCode, {
+      const registrant = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrantByCode, {
         registrationCode,
         webinarId: webinarId as any,
       });
@@ -1711,7 +1712,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      await ctx.runMutation(api.webinarRegistrants.trackOfferClicked, {
+      await (ctx as any).runMutation(generatedApi.api.webinarRegistrants.trackOfferClicked, {
         registrantId: registrant.id,
         clickedAtSeconds: clickedAtSeconds || 0,
         timestamp: timestamp || Date.now(),
@@ -1745,7 +1746,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
       const pathParts = pathname.split("/");
       const webinarId = pathParts[pathParts.length - 2];
 
-      await ctx.runMutation(api.webinarOntology.publishWebinar, {
+      await (ctx as any).runMutation(generatedApi.api.webinarOntology.publishWebinar, {
         webinarId: webinarId as any,
         organizationId: organizationId as any,
         performedBy: authResult.context.userId as any,
@@ -1789,7 +1790,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+      const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
         webinarId: webinarId as any,
         organizationId: organizationId as any,
       });
@@ -1801,7 +1802,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runAction(api.actions.mux.getDirectUploadUrl, {
+      const result = await (ctx as any).runAction(generatedApi.api.actions.mux.getDirectUploadUrl, {
         webinarId: webinarId as any,
         corsOrigin,
       });
@@ -1863,7 +1864,7 @@ export const webinarPostRouter = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(api.webinarOntology.createWebinar, {
+      const result = await (ctx as any).runMutation(generatedApi.api.webinarOntology.createWebinar, {
         organizationId: organizationId as any,
         name,
         description,

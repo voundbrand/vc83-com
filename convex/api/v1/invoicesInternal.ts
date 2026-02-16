@@ -8,7 +8,7 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST INVOICES (INTERNAL)
@@ -431,7 +431,7 @@ export const sealInvoiceInternal = internalMutation({
     // Generate final invoice number (ATOMIC - prevents duplicates)
     // Use atomic increment instead of counting invoices to prevent race conditions
     // Note: internalMutation can call other internalMutations directly via ctx.runMutation
-    const invoiceNumberData: { invoiceNumber: string } = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+    const invoiceNumberData: { invoiceNumber: string } = await (ctx as any).runMutation(generatedApi.internal.organizationOntology.getAndIncrementInvoiceNumber, {
       organizationId: invoice.organizationId,
     });
     const finalInvoiceNumber = invoiceNumberData.invoiceNumber;

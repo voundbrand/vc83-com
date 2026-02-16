@@ -10,13 +10,13 @@
 
 **New to this feature?** Read these in order:
 
-1. **[HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md)** ⭐ **START HERE**
+1. **[HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md)** ⭐ **START HERE**
    - 30-second quick start
    - Complete testing checklist
    - What to look for
    - Next steps
 
-2. **[QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md)**
+2. **[QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md)**
    - 60-second test guide
    - Common test scenarios
    - Quick troubleshooting
@@ -35,21 +35,21 @@
 ### For Testing
 | Document | Purpose | Time Required | When to Use |
 |----------|---------|---------------|-------------|
-| [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) | Complete handoff guide | 2 min read | **First time** - Start here! |
-| [QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md) | 60-second quick test | 5 min test | Quick validation |
-| [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) | Comprehensive testing | 20-30 min | Full test suite |
+| [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) | Complete handoff guide | 2 min read | **First time** - Start here! |
+| [QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md) | 60-second quick test | 5 min test | Quick validation |
+| [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) | Comprehensive testing | 20-30 min | Full test suite |
 | [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md) | Commands & API specs | 2 min lookup | Need specific command |
 
 ### For Integration
 | Document | Purpose | Time Required | When to Use |
 |----------|---------|---------------|-------------|
 | [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md) | Next.js integration | 30 min | Building external frontend |
-| [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md) | Feature overview | 10 min read | Understanding system |
+| [CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md) | Feature overview | 10 min read | Understanding system |
 
 ### For Developers
 | Document | Purpose | Time Required | When to Use |
 |----------|---------|---------------|-------------|
-| [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md) | Technical deep dive | 15 min read | Code review/maintenance |
+| [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md) | Technical deep dive | 15 min read | Code review/maintenance |
 | [FRONTEND_CMS_INTEGRATION_PROGRESS.md](./FRONTEND_CMS_INTEGRATION_PROGRESS.md) | Implementation tracker | 5 min read | Check progress/status |
 
 ---
@@ -58,25 +58,25 @@
 
 ### I'm the Product Owner
 **Your Path**:
-1. [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) - Understand what's done
-2. [QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md) - Test it yourself
-3. [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md) - See all features
+1. [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) - Understand what's done
+2. [QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md) - Test it yourself
+3. [CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md) - See all features
 
 ### I'm Testing This
 **Your Path**:
-1. [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) - Testing checklist
-2. [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) - Complete test guide
+1. [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) - Testing checklist
+2. [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) - Complete test guide
 3. [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md) - Quick commands
 
 ### I'm Integrating Frontend
 **Your Path**:
 1. [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md) - Integration guide
 2. [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md) - API reference
-3. [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) - Testing examples
+3. [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) - Testing examples
 
 ### I'm Maintaining Code
 **Your Path**:
-1. [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md) - Technical details
+1. [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md) - Technical details
 2. [FRONTEND_CMS_INTEGRATION_PROGRESS.md](./FRONTEND_CMS_INTEGRATION_PROGRESS.md) - Implementation steps
 3. [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md) - File references
 
@@ -85,7 +85,7 @@
 ## 🎨 Documentation Features
 
 ### Handoff Document ⭐
-**[HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md)**
+**[HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md)**
 
 **What's Inside**:
 - 30-second quick start
@@ -100,7 +100,7 @@
 ---
 
 ### Quick Start Guide
-**[QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md)**
+**[QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md)**
 
 **What's Inside**:
 - 60-second test procedure
@@ -114,7 +114,7 @@
 ---
 
 ### API Testing Guide
-**[API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md)**
+**[API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md)**
 
 **What's Inside**:
 - 7 comprehensive testing phases
@@ -161,7 +161,7 @@
 ---
 
 ### Feature Overview
-**[CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md)**
+**[CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md)**
 
 **What's Inside**:
 - Complete feature summary
@@ -176,7 +176,7 @@
 ---
 
 ### Implementation Summary
-**[CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md)**
+**[CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md)**
 
 **What's Inside**:
 - Executive summary
@@ -207,7 +207,7 @@
 ## 📋 Quick Links by Task
 
 ### "I want to test this now"
-→ [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md)
+→ [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md)
 
 ### "I need the API endpoint URL"
 → [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#api-endpoint-reference)
@@ -216,13 +216,13 @@
 → [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#content-rules-configuration)
 
 ### "I'm getting a 404 error"
-→ [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#debugging)
+→ [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#debugging)
 
 ### "How do I integrate with Next.js?"
 → [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md#frontend-implementation)
 
 ### "What files were changed?"
-→ [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md#files-modifiedcreated)
+→ [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md#files-modifiedcreated)
 
 ### "I need quick commands"
 → [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#start-testing-in-30-seconds)
@@ -236,28 +236,28 @@
 
 ### API Endpoint
 - Reference: [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#api-endpoint-reference)
-- Testing: [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#phase-4-test-http-api-endpoint)
+- Testing: [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#phase-4-test-http-api-endpoint)
 - Integration: [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md#api-endpoint)
 
 ### Content Filtering
 - Configuration: [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#content-rules-configuration)
-- Testing: [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#phase-5-test-content-filtering)
-- Examples: [QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md#common-test-scenarios)
+- Testing: [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#phase-5-test-content-filtering)
+- Examples: [QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md#common-test-scenarios)
 
 ### CMS UI
-- Overview: [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md#4-cms-user-interface)
-- Testing: [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md#phase-2-cms-ui-3-min)
-- Features: [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md#3-cms-user-interface)
+- Overview: [CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md#4-cms-user-interface)
+- Testing: [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md#phase-2-cms-ui-3-min)
+- Features: [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md#3-cms-user-interface)
 
 ### Error Handling
-- Testing: [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#phase-6-test-error-handling)
-- Troubleshooting: [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md#troubleshooting)
+- Testing: [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#phase-6-test-error-handling)
+- Troubleshooting: [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md#troubleshooting)
 - Quick fixes: [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md#error-codes)
 
 ### Performance
-- Testing: [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#performance-testing)
+- Testing: [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#performance-testing)
 - Tips: [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md#performance-tips)
-- Expectations: [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md#performance-expectations)
+- Expectations: [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md#performance-expectations)
 
 ---
 
@@ -293,23 +293,23 @@
 ## 🎯 Recommended Reading Path
 
 ### Path 1: Quick Start (15 minutes)
-1. [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) - 2 min
-2. [QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md) - 5 min
+1. [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) - 2 min
+2. [QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md) - 5 min
 3. [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md) - 2 min
 4. **Start testing!** - 6 min
 
 ### Path 2: Complete Understanding (45 minutes)
-1. [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) - 2 min
-2. [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md) - 10 min
-3. [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) - 20 min
+1. [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) - 2 min
+2. [CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md) - 10 min
+3. [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) - 20 min
 4. [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md) - 10 min
 5. **Complete test suite** - 3 min
 
 ### Path 3: Developer Deep Dive (60 minutes)
-1. [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md) - 15 min
+1. [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md) - 15 min
 2. [FRONTEND_CMS_INTEGRATION_PROGRESS.md](./FRONTEND_CMS_INTEGRATION_PROGRESS.md) - 5 min
 3. Review source files - 30 min
-4. [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) - 10 min
+4. [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) - 10 min
 
 ---
 
@@ -324,7 +324,7 @@
 ✅ Full test suite
 
 ### What You Need to Do
-1. **Test it**: Follow [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md)
+1. **Test it**: Follow [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md)
 2. **Integrate it**: Follow [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)
 3. **Deploy it**: Standard deployment process
 4. **Use it**: Configure content via CMS UI
@@ -337,19 +337,19 @@
 → Check [CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md)
 
 ### Testing Issues
-→ See [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md#debugging)
+→ See [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md#debugging)
 
 ### Integration Issues
 → See [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md#debugging)
 
 ### Code Questions
-→ See [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md)
+→ See [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md)
 
 ---
 
 ## 🚀 Ready to Start?
 
-**Your next step**: Read [HANDOFF_READY_FOR_TESTING.md](./HANDOFF_READY_FOR_TESTING.md) and start testing!
+**Your next step**: Read [HANDOFF_READY_FOR_TESTING.md](./reference_docs/HANDOFF_READY_FOR_TESTING.md) and start testing!
 
 ```bash
 # Quick start command
@@ -363,4 +363,4 @@ Then open your app and navigate to: **Web Publishing → Published Pages → Cli
 **Documentation Version**: 1.0.0
 **Last Updated**: 2025-11-19
 **Status**: ✅ Complete
-**Next Action**: [Start Testing](./HANDOFF_READY_FOR_TESTING.md)
+**Next Action**: [Start Testing](./reference_docs/HANDOFF_READY_FOR_TESTING.md)

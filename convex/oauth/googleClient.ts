@@ -7,7 +7,7 @@
 
 import { action, internalAction, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { Id } from "../_generated/dataModel";
 
 const GOOGLE_CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
@@ -41,7 +41,7 @@ export const googleRequest = internalAction({
   },
   handler: async (ctx, args): Promise<GoogleApiResponse> => {
     // Get connection
-    const connection = await ctx.runQuery(internal.oauth.google.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.google.getConnection, {
       connectionId: args.connectionId,
     });
 
@@ -56,18 +56,18 @@ export const googleRequest = internalAction({
     // Check if token is expired (with 60s buffer to avoid edge cases)
     if (connection.tokenExpiresAt < Date.now() + 60000) {
       // Re-fetch to check if another action already refreshed the token
-      const freshCheck = await ctx.runQuery(internal.oauth.google.getConnection, {
+      const freshCheck = await (ctx as any).runQuery(generatedApi.internal.oauth.google.getConnection, {
         connectionId: args.connectionId,
       }) as OAuthConnection | null;
 
       if (freshCheck && freshCheck.tokenExpiresAt < Date.now() + 60000) {
         // Token is still expired, refresh it
-        await ctx.runAction(internal.oauth.google.refreshGoogleToken, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.google.refreshGoogleToken, {
           connectionId: args.connectionId,
         });
 
         // Re-fetch connection with fresh token
-        const refreshedConnection = await ctx.runQuery(internal.oauth.google.getConnection, {
+        const refreshedConnection = await (ctx as any).runQuery(generatedApi.internal.oauth.google.getConnection, {
           connectionId: args.connectionId,
         }) as OAuthConnection | null;
 
@@ -101,7 +101,7 @@ async function makeRequest(
   body?: GoogleApiRequestBody
 ): Promise<GoogleApiResponse> {
   // Decrypt access token
-  const accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+  const accessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
     encrypted: connection.accessToken,
   });
 
@@ -127,7 +127,7 @@ async function makeRequest(
 
     // Handle 403 Access Denied - likely revoked consent or insufficient permissions
     if (response.status === 403) {
-      await ctx.runMutation(internal.oauth.google.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.google.updateConnectionStatus, {
         connectionId: connection._id,
         status: "error",
         error: "Access denied. Please reconnect your Google account to restore access.",
@@ -141,7 +141,7 @@ async function makeRequest(
 
     // Handle 401 Unauthorized - token issue
     if (response.status === 401) {
-      await ctx.runMutation(internal.oauth.google.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.google.updateConnectionStatus, {
         connectionId: connection._id,
         status: "expired",
         error: "Authentication expired. Please reconnect your account.",
@@ -171,7 +171,7 @@ export const getCalendarList = action({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<GoogleApiResponse> => {
-    return await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
       connectionId: args.connectionId,
       endpoint: "/users/me/calendarList",
     }) as GoogleApiResponse;
@@ -202,7 +202,7 @@ export const getCalendarEvents = action({
     const queryString = params.toString();
     const endpoint = `/calendars/${calendarId}/events${queryString ? `?${queryString}` : ""}`;
 
-    return await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
       connectionId: args.connectionId,
       endpoint,
     }) as GoogleApiResponse;
@@ -222,7 +222,7 @@ export const createCalendarEvent = action({
   handler: async (ctx, args): Promise<GoogleApiResponse> => {
     const calendarId = encodeURIComponent(args.calendarId || "primary");
 
-    return await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
       connectionId: args.connectionId,
       endpoint: `/calendars/${calendarId}/events`,
       method: "POST",
@@ -245,7 +245,7 @@ export const updateCalendarEvent = action({
   handler: async (ctx, args): Promise<GoogleApiResponse> => {
     const calendarId = encodeURIComponent(args.calendarId || "primary");
 
-    return await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
       connectionId: args.connectionId,
       endpoint: `/calendars/${calendarId}/events/${args.eventId}`,
       method: "PUT",
@@ -266,7 +266,7 @@ export const deleteCalendarEvent = action({
   handler: async (ctx, args): Promise<GoogleApiResponse> => {
     const calendarId = encodeURIComponent(args.calendarId || "primary");
 
-    return await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
       connectionId: args.connectionId,
       endpoint: `/calendars/${calendarId}/events/${args.eventId}`,
       method: "DELETE",
@@ -288,7 +288,7 @@ export const testGoogleConnection = action({
     calendars?: unknown[];
   }> => {
     try {
-      const result = await ctx.runAction(internal.oauth.googleClient.googleRequest, {
+      const result = await (ctx as any).runAction(generatedApi.internal.oauth.googleClient.googleRequest, {
         connectionId: args.connectionId,
         endpoint: "/users/me/calendarList",
       }) as Record<string, unknown> | null;

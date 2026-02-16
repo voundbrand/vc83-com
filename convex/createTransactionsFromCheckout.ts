@@ -22,9 +22,10 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { createTransactionsForPurchase, linkTransactionsToTickets } from "./transactionHelpers";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 /**
  * CREATE TRANSACTIONS FROM COMPLETED CHECKOUT
@@ -38,7 +39,7 @@ import { createTransactionsForPurchase, linkTransactionsToTickets } from "./tran
  * @example
  * ```typescript
  * // In payment provider action after completing checkout:
- * await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+ * await (ctx as any).runAction(generatedApi.internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
  *   checkoutSessionId: args.checkoutSessionId
  * });
  * ```
@@ -58,7 +59,7 @@ export const createTransactionsFromCheckout = internalAction({
     // Note: Using type cast to avoid deep type instantiation issues with Convex's generated types
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const session = await (ctx as any).runQuery(
-      (internal as any).checkoutSessionOntology.getCheckoutSessionInternal,
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       { checkoutSessionId: args.checkoutSessionId }
     );
 
@@ -137,7 +138,7 @@ export const createTransactionsFromCheckout = internalAction({
       purchasedItemIds.map(async (id) => {
         try {
           return await (ctx as any).runQuery(
-            (internal as any).purchaseOntology.getPurchaseItemInternal,
+            generatedApi.internal.purchaseOntology.getPurchaseItemInternal,
             { purchaseItemId: id as Id<"objects"> }
           );
         } catch (err) {
@@ -189,7 +190,7 @@ export const createTransactionsFromCheckout = internalAction({
     // Fetch organization's tax settings to determine default tax behavior (inclusive vs exclusive)
     // NOTE: Product-level taxBehavior will override this in transactionHelpers.ts
     const taxSettings = await (ctx as any).runQuery(
-      (api as any).organizationTaxSettings.getPublicTaxSettings,
+      generatedApi.api.organizationTaxSettings.getPublicTaxSettings,
       { organizationId: session.organizationId }
     );
 
@@ -254,7 +255,7 @@ export const createTransactionsFromCheckout = internalAction({
 
       // Get all tickets for invoice linking
       const allTickets = await (ctx as any).runQuery(
-        (internal as any).ticketOntology.getTicketsByCheckoutInternal,
+        generatedApi.internal.ticketOntology.getTicketsByCheckoutInternal,
         { checkoutSessionId: args.checkoutSessionId }
       ) as Array<{ _id: Id<"objects"> }>;
       const ticketIds = allTickets.map((ticket) => ticket._id);
@@ -285,7 +286,7 @@ export const createTransactionsFromCheckout = internalAction({
       // isPayLater = true when payment method is "invoice" (pay later via bank transfer)
       // This ensures invoice status is "sent" (awaiting payment) instead of "paid"
       const invoiceResult = await (ctx as any).runMutation(
-        (internal as any).invoicingOntology.createSimpleInvoiceFromCheckout,
+        generatedApi.internal.invoicingOntology.createSimpleInvoiceFromCheckout,
         {
           checkoutSessionId: args.checkoutSessionId,
           transactionIds, // NOW these exist!
@@ -303,7 +304,7 @@ export const createTransactionsFromCheckout = internalAction({
 
       // Store invoice ID in session for confirmation page
       await (ctx as any).runMutation(
-        (internal as any).checkoutSessionOntology.patchCheckoutSessionInternal,
+        generatedApi.internal.checkoutSessionOntology.patchCheckoutSessionInternal,
         {
           checkoutSessionId: args.checkoutSessionId,
           customProperties: {

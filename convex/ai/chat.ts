@@ -7,7 +7,8 @@
 import { action } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 import { OpenRouterClient } from "./openrouter";
 import { getToolSchemas, executeTool } from "./tools/registry";
 import {
@@ -155,17 +156,21 @@ export const sendMessage = action({
       // Generate a title from the first message based on context
       const sessionTitle = generateSessionTitle(args.message, args.context);
 
-      conversationId = await ctx.runMutation(api.ai.conversations.createConversation, {
+      conversationId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.createConversation, {
         organizationId: args.organizationId,
         userId: args.userId,
         title: sessionTitle,
-      });
+      }) as Id<"aiConversations">;
 
       console.log(`[AI Chat] Created new conversation with title: "${sessionTitle}"`);
     }
 
+    if (!conversationId) {
+      throw new Error("Failed to initialize conversation");
+    }
+
     // 2. Add user message
-    await ctx.runMutation(api.ai.conversations.addMessage, {
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
       conversationId,
       role: "user",
       content: args.message,
@@ -173,7 +178,7 @@ export const sendMessage = action({
     });
 
     // 3. Get conversation history
-    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
     }) as { messages: ConversationMessage[]; slug?: string };
 
@@ -183,7 +188,7 @@ export const sendMessage = action({
     }
 
     // 4. Get AI settings for model selection
-    const settings = await ctx.runQuery(api.ai.settings.getAISettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
       organizationId: args.organizationId,
     });
 
@@ -192,7 +197,7 @@ export const sendMessage = action({
     }
 
     // Check rate limit
-    const rateLimit = await ctx.runQuery(api.ai.settings.checkRateLimit, {
+    const rateLimit = await (ctx as any).runQuery(generatedApi.api.ai.settings.checkRateLimit, {
       organizationId: args.organizationId,
     });
 
@@ -531,8 +536,8 @@ ${knowledgeBlock}`;
     // For page builder context, inject RAG design patterns if available
     if (isPageBuilderContext && args.message) {
       try {
-        const ragContext = await ctx.runAction(
-          internal.designEngine.buildRAGContext,
+        const ragContext = await (ctx as any).runAction(
+          generatedApi.internal.designEngine.buildRAGContext,
           {
             userMessage: args.message,
             limit: 5,
@@ -678,7 +683,7 @@ ${knowledgeBlock}`;
 
           if (shouldPropose) {
             // Create a proposal instead of executing
-            const executionId = await ctx.runMutation(api.ai.conversations.proposeToolExecution, {
+            const executionId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.proposeToolExecution, {
               conversationId,
               organizationId: args.organizationId,
               userId: args.userId,
@@ -721,7 +726,7 @@ ${knowledgeBlock}`;
               : "success";
 
             // Log execution (use parsedArgs, not re-parse!)
-            await ctx.runMutation(api.ai.conversations.logToolExecution, {
+            await (ctx as any).runMutation(generatedApi.api.ai.conversations.logToolExecution, {
               conversationId,
               organizationId: args.organizationId,
               userId: args.userId,
@@ -760,7 +765,7 @@ ${knowledgeBlock}`;
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
           // Log failed execution (use parsedArgs, not re-parse!)
-          await ctx.runMutation(api.ai.conversations.logToolExecution, {
+          await (ctx as any).runMutation(generatedApi.api.ai.conversations.logToolExecution, {
             conversationId,
             organizationId: args.organizationId,
             userId: args.userId,
@@ -812,14 +817,14 @@ ${knowledgeBlock}`;
           // This helps prioritize which tools to build next based on actual user needs
           try {
             // Get the original user message from conversation
-            const conversationData = await ctx.runQuery(api.ai.conversations.getConversation, {
+            const conversationData = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
               conversationId,
             }) as { messages: ConversationMessage[] };
             const userMessages = conversationData.messages.filter((m) => m.role === "user");
             const lastUserMessage = userMessages[userMessages.length - 1]?.content || args.message;
 
             // Send feature request email (don't await - fire and forget)
-            ctx.runAction(internal.ai.featureRequestEmail.sendFeatureRequest, {
+            (ctx as any).runAction(generatedApi.internal.ai.featureRequestEmail.sendFeatureRequest, {
               userId: args.userId,
               organizationId: args.organizationId,
               toolName: toolCall.function.name,
@@ -904,7 +909,7 @@ ${knowledgeBlock}`;
         }
       }
 
-      await ctx.runMutation(api.ai.conversations.addMessage, {
+      await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
         conversationId,
         role: "assistant",
         content: messageContent,
@@ -921,7 +926,7 @@ ${knowledgeBlock}`;
       response.usage || { prompt_tokens: 0, completion_tokens: 0 },
       model
     );
-    await ctx.runMutation(api.ai.settings.updateMonthlySpend, {
+    await (ctx as any).runMutation(generatedApi.api.ai.settings.updateMonthlySpend, {
       organizationId: args.organizationId,
       costUsd: cost,
     });
@@ -943,7 +948,7 @@ ${knowledgeBlock}`;
         }
       }
 
-      await ctx.runMutation(internal.ai.trainingData.collectTrainingExample, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.trainingData.collectTrainingExample, {
         conversationId: conversationId!,
         organizationId: args.organizationId,
         exampleType,

@@ -11,7 +11,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 /**
  * SAVE GENERATED PAGE
@@ -145,7 +145,7 @@ export const saveGeneratedPage = mutation({
           }
         }
 
-        await ctx.scheduler.runAfter(0, internal.ai.trainingData.updateExampleOutcome, {
+        await (ctx.scheduler as any).runAfter(0, generatedApi.internal.ai.trainingData.updateExampleOutcome, {
           conversationId: args.conversationId,
           outcome,
           userEdits: outcome !== "accepted" ? args.pageSchema : undefined,

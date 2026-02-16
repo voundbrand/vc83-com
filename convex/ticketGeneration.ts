@@ -98,7 +98,7 @@
 
 import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Id, Doc } from "./_generated/dataModel";
 
 /**
@@ -172,7 +172,7 @@ export const generateTicketPDFData = action({
     eventDate?: number;
   }> => {
     // 1. Get ticket data
-    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
     }) as Doc<"objects"> | null;
 
@@ -182,7 +182,7 @@ export const generateTicketPDFData = action({
 
     // 2. Get product/event data
     const productId = ticket.customProperties?.productId as Id<"objects">;
-    const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+    const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
       productId,
     }) as Doc<"objects"> | null;
 
@@ -191,8 +191,8 @@ export const generateTicketPDFData = action({
     }
 
     // 3. Get checkout session for purchase details
-    const session = await ctx.runQuery(
-      internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       {
         checkoutSessionId: args.checkoutSessionId,
       }
@@ -239,7 +239,7 @@ export const generateTicketPDFData = action({
     });
 
     // 5. Generate QR code
-    const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
+    const qrResult = await (ctx as any).runAction(generatedApi.api.ticketGeneration.generateTicketQR, {
       ticketId: args.ticketId,
       holderEmail: ticket.customProperties?.holderEmail as string,
       holderName: ticket.customProperties?.holderName as string,
@@ -303,8 +303,8 @@ export const generateReceiptPDFData = action({
     paymentIntentId: string;
   }> => {
     // 1. Get checkout session
-    const session = await ctx.runQuery(
-      internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       {
         checkoutSessionId: args.checkoutSessionId,
       }
@@ -318,7 +318,7 @@ export const generateReceiptPDFData = action({
     const purchaseItemIds = (session.customProperties?.purchasedItemIds as Id<"objects">[]) || [];
     const purchaseItems = await Promise.all(
       purchaseItemIds.map((id: Id<"objects">) =>
-        ctx.runQuery(internal.purchaseOntology.getPurchaseItemInternal, {
+        (ctx as any).runQuery(generatedApi.internal.purchaseOntology.getPurchaseItemInternal, {
           purchaseItemId: id,
         })
       )
@@ -336,7 +336,7 @@ export const generateReceiptPDFData = action({
       purchaseItems.map(async (item) => {
         if (!item) return null;
         const productId = item.customProperties?.productId as Id<"objects">;
-        const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+        const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
           productId,
         }) as Doc<"objects"> | null;
         return {
@@ -391,8 +391,8 @@ export const sendOrderConfirmationEmail = internalAction({
   handler: async (ctx, args) => {
     try {
       // 1. Get checkout session and all tickets
-      const session = await ctx.runQuery(
-        internal.checkoutSessionOntology.getCheckoutSessionInternal,
+      const session = await (ctx as any).runQuery(
+        generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
         {
           checkoutSessionId: args.checkoutSessionId,
         }
@@ -407,12 +407,12 @@ export const sendOrderConfirmationEmail = internalAction({
       let checkoutInstance: Doc<"objects"> | null = null;
 
       if (checkoutInstanceId) {
-        checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+        checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
           instanceId: checkoutInstanceId,
         });
       }
 
-      const allTickets = await ctx.runQuery(internal.ticketOntology.getTicketsByCheckoutInternal, {
+      const allTickets = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketsByCheckoutInternal, {
         checkoutSessionId: args.checkoutSessionId,
       }) as Doc<"objects">[];
 
@@ -421,7 +421,7 @@ export const sendOrderConfirmationEmail = internalAction({
       let firstProduct: Doc<"objects"> | null = null;
 
       for (const ticket of allTickets) {
-        const pdf = await ctx.runAction(api.pdfGeneration.generateTicketPDF, {
+        const pdf = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateTicketPDF, {
           ticketId: ticket._id,
           checkoutSessionId: args.checkoutSessionId,
         });
@@ -432,7 +432,7 @@ export const sendOrderConfirmationEmail = internalAction({
           // Get first product for email details
           if (!firstProduct) {
             const productId = ticket.customProperties?.productId as Id<"objects">;
-            firstProduct = await ctx.runQuery(internal.productOntology.getProductInternal, {
+            firstProduct = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
               productId,
             }) as Doc<"objects"> | null;
           }
@@ -449,7 +449,7 @@ export const sendOrderConfirmationEmail = internalAction({
           ? allTickets[0].customProperties?.crmOrganizationId as Id<"objects"> | undefined
           : undefined;
 
-        const invoicePDF = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+        const invoicePDF = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateInvoicePDF, {
           checkoutSessionId: args.checkoutSessionId,
           crmOrganizationId, // Pass CRM org ID for B2B invoices
         });
@@ -476,7 +476,7 @@ export const sendOrderConfirmationEmail = internalAction({
         const transactionId = firstTicket.customProperties?.transactionId as Id<"objects"> | undefined;
 
         if (transactionId) {
-          const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+          const transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
             transactionId,
           });
 
@@ -553,7 +553,7 @@ export const sendOrderConfirmationEmail = internalAction({
         console.log(`   Ticket ${ticket._id} has transactionId: ${transactionId || 'NONE'}`);
 
         if (transactionId) {
-          const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+          const transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
             transactionId,
           });
 
@@ -677,7 +677,7 @@ export const sendOrderConfirmationEmail = internalAction({
       });
 
       // Resolve email template using new Template Set resolver
-      const emailTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+      const emailTemplateId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: session.organizationId,
         templateType: "email",
         context: emailTemplateContext,
@@ -693,7 +693,7 @@ export const sendOrderConfirmationEmail = internalAction({
       }
 
       // Get template details (templateCode, etc.)
-      const emailTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
+      const emailTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
         templateId: emailTemplateId,
         fallbackCategory: "luxury",
       });
@@ -703,7 +703,7 @@ export const sendOrderConfirmationEmail = internalAction({
 
       // 5.5. GET ORGANIZATION BRANDING for email styling
       // Resolution: Organization branding settings → Domain config override → Defaults
-      const orgBrandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+      const orgBrandingSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
         organizationId: session.organizationId,
         subtype: "branding",
       });
@@ -717,7 +717,7 @@ export const sendOrderConfirmationEmail = internalAction({
       const domainConfigIdForBranding = session.customProperties?.domainConfigId as Id<"objects"> | undefined;
       if (domainConfigIdForBranding) {
         try {
-          const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+          const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
             configId: domainConfigIdForBranding,
           });
           if (domainConfig?.customProperties?.branding) {
@@ -731,7 +731,7 @@ export const sendOrderConfirmationEmail = internalAction({
       }
 
       // Get organization name for footer
-      const organization = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+      const organization = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrganizationInternal, {
         organizationId: session.organizationId,
       });
       const organizationName = organization?.businessName || organization?.name || "Event Team";
@@ -782,7 +782,7 @@ export const sendOrderConfirmationEmail = internalAction({
         console.log("📧 [sendOrderConfirmationEmail] No domain config in session, looking for org default...");
 
         // Try to find organization's default domain config
-        const orgDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+        const orgDomainConfigs = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.listDomainConfigsForOrg, {
           organizationId: session.organizationId,
         });
 
@@ -795,10 +795,10 @@ export const sendOrderConfirmationEmail = internalAction({
           // Try system fallback domain config
           console.log("📧 [sendOrderConfirmationEmail] No org domain config, trying system fallback...");
 
-          const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization, {});
+          const systemOrg = await (ctx as any).runQuery(generatedApi.internal.helpers.backendTranslationQueries.getSystemOrganization, {});
 
           if (systemOrg) {
-            const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+            const systemDomainConfigs = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.listDomainConfigsForOrg, {
               organizationId: systemOrg._id,
             });
 
@@ -828,7 +828,7 @@ export const sendOrderConfirmationEmail = internalAction({
         messageId?: string;
         error?: string;
         attempts: number;
-      } = await ctx.runAction(internal.emailDelivery.sendEmail, {
+      } = await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
         domainConfigId,
         to: args.recipientEmail,
         subject: emailSubject,
@@ -847,7 +847,7 @@ export const sendOrderConfirmationEmail = internalAction({
       const crmContactId = session.customProperties?.crmContactId as Id<"objects"> | undefined;
       const crmOrganizationId = session.customProperties?.crmOrganizationId as Id<"objects"> | undefined;
 
-      await ctx.runMutation(internal.communicationTracking.logEmailCommunication, {
+      await (ctx as any).runMutation(generatedApi.internal.communicationTracking.logEmailCommunication, {
         organizationId: session.organizationId,
         recipientEmail: args.recipientEmail,
         subject: emailSubject,
@@ -891,7 +891,7 @@ export const sendReceiptEmail = internalAction({
   },
   handler: async (ctx, args) => {
     // 1. Generate receipt data
-    const receiptData = await ctx.runAction(api.ticketGeneration.generateReceiptPDFData, {
+    const receiptData = await (ctx as any).runAction(generatedApi.api.ticketGeneration.generateReceiptPDFData, {
       checkoutSessionId: args.checkoutSessionId,
     });
 

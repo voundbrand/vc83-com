@@ -22,9 +22,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST RESOURCE BOOKINGS
@@ -85,7 +86,7 @@ export const listResourceBookings = httpAction(async (ctx, request) => {
     const endDate = endDateStr ? parseInt(endDateStr) : undefined;
 
     // 4. Query bookings
-    const result = await ctx.runQuery(internal.bookingOntology.listBookingsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.bookingOntology.listBookingsInternal, {
       organizationId: authContext.organizationId,
       status,
       subtype,
@@ -237,7 +238,7 @@ export const createResourceBooking = httpAction(async (ctx, request) => {
     }
 
     // 5. Create booking
-    const result = await ctx.runMutation(internal.bookingOntology.createBookingInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.bookingOntology.createBookingInternal, {
       organizationId: authContext.organizationId,
       userId: authContext.userId,
       subtype: body.subtype,
@@ -337,7 +338,7 @@ export const getResourceBooking = httpAction(async (ctx, request) => {
     }
 
     // 4. Get booking
-    const booking = await ctx.runQuery(internal.bookingOntology.getBookingInternal, {
+    const booking = await (ctx as any).runQuery(generatedApi.internal.bookingOntology.getBookingInternal, {
       bookingId,
       organizationId: authContext.organizationId,
     });
@@ -445,7 +446,7 @@ export const confirmResourceBooking = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(internal.bookingOntology.updateBookingStatusInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.bookingOntology.updateBookingStatusInternal, {
       bookingId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -516,7 +517,7 @@ export const checkInResourceBooking = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(internal.bookingOntology.updateBookingStatusInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.bookingOntology.updateBookingStatusInternal, {
       bookingId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -587,7 +588,7 @@ export const completeResourceBooking = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(internal.bookingOntology.updateBookingStatusInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.bookingOntology.updateBookingStatusInternal, {
       bookingId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -715,7 +716,7 @@ export const customerCheckout = httpAction(async (ctx, request) => {
     }
 
     // 5. Run the internal checkout mutation
-    const result = await ctx.runMutation(internal.api.v1.resourceBookingsInternal.customerCheckoutInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.api.v1.resourceBookingsInternal.customerCheckoutInternal, {
       organizationId: authContext.organizationId,
       resourceId: body.resourceId as Id<"objects">,
       startDateTime: body.startDateTime,
@@ -804,7 +805,7 @@ export const cancelResourceBooking = httpAction(async (ctx, request) => {
       // Body is optional
     }
 
-    const result = await ctx.runMutation(internal.bookingOntology.updateBookingStatusInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.bookingOntology.updateBookingStatusInternal, {
       bookingId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,

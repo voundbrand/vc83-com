@@ -689,7 +689,7 @@ Click "Payments" icon
 ## 📚 Related Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Full multi-tenant architecture
-- [WEB_PUBLISHING_APP_PLAN.md](./WEB_PUBLISHING_APP_PLAN.md) - Web publishing app details
+- [WEB_PUBLISHING_APP_PLAN.md](./reference_docs/WEB_PUBLISHING_APP_PLAN.md) - Web publishing app details
 - [CHECKOUT_SYSTEM_ARCHITECTURE.md](./.kiro/checkout_system/CHECKOUT_SYSTEM_ARCHITECTURE.md) - Payments app details
 
 ---

@@ -12,7 +12,7 @@
 
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Id } from "./_generated/dataModel";
 import {
   generateRegistrationOptions,
@@ -91,7 +91,7 @@ export const generateRegistrationChallenge = action({
   },
   handler: async (ctx, args): Promise<PublicKeyCredentialCreationOptionsJSON> => {
     // Verify session
-    const session = await ctx.runQuery(internal.passkeys.getSession, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.passkeys.getSession, {
       sessionId: args.sessionId,
     });
 
@@ -100,11 +100,11 @@ export const generateRegistrationChallenge = action({
     }
 
     // Get user's existing passkeys to prevent duplicate registrations
-    const existingPasskeys = await ctx.runQuery(internal.passkeys.getUserPasskeys, {
+    const existingPasskeys = await (ctx as any).runQuery(generatedApi.internal.passkeys.getUserPasskeys, {
       userId: session.userId,
     });
 
-    const user = await ctx.runQuery(internal.passkeys.getUser, {
+    const user = await (ctx as any).runQuery(generatedApi.internal.passkeys.getUser, {
       userId: session.userId,
     });
 
@@ -142,7 +142,7 @@ export const generateRegistrationChallenge = action({
     });
 
     // Store challenge for verification
-    await ctx.runMutation(internal.passkeys.storeRegistrationChallenge, {
+    await (ctx as any).runMutation(generatedApi.internal.passkeys.storeRegistrationChallenge, {
       userId: session.userId,
       challenge: options.challenge,
       deviceName: args.deviceName,
@@ -164,7 +164,7 @@ export const verifyRegistration = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; passkeyId: Id<"passkeys"> }> => {
     // Verify session
-    const session = await ctx.runQuery(internal.passkeys.getSession, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.passkeys.getSession, {
       sessionId: args.sessionId,
     });
 
@@ -173,7 +173,7 @@ export const verifyRegistration = action({
     }
 
     // Get stored challenge
-    const challengeData = await ctx.runQuery(internal.passkeys.getRegistrationChallenge, {
+    const challengeData = await (ctx as any).runQuery(generatedApi.internal.passkeys.getRegistrationChallenge, {
       userId: session.userId,
     });
 
@@ -220,7 +220,7 @@ export const verifyRegistration = action({
       : uint8ArrayToBase64url(credentialPublicKey);
 
     // Store the passkey
-    const passkeyId = await ctx.runMutation(internal.passkeys.createPasskey, {
+    const passkeyId = await (ctx as any).runMutation(generatedApi.internal.passkeys.createPasskey, {
       userId: session.userId,
       credentialId: credentialIdStr,
       publicKey: publicKeyStr,
@@ -233,12 +233,12 @@ export const verifyRegistration = action({
     });
 
     // Clean up challenge
-    await ctx.runMutation(internal.passkeys.deleteRegistrationChallenge, {
+    await (ctx as any).runMutation(generatedApi.internal.passkeys.deleteRegistrationChallenge, {
       userId: session.userId,
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: session.userId,
       organizationId: undefined,
       action: "passkey_registered",
@@ -272,7 +272,7 @@ export const generateAuthenticationChallenge = action({
   },
   handler: async (ctx, args): Promise<PublicKeyCredentialRequestOptionsJSON | { error: string; code: string }> => {
     // Get user by email
-    const user = await ctx.runQuery(internal.passkeys.getUserByEmail, {
+    const user = await (ctx as any).runQuery(generatedApi.internal.passkeys.getUserByEmail, {
       email: args.email,
     });
 
@@ -284,7 +284,7 @@ export const generateAuthenticationChallenge = action({
     }
 
     // Get user's active passkeys
-    const passkeys = await ctx.runQuery(internal.passkeys.getUserPasskeys, {
+    const passkeys = await (ctx as any).runQuery(generatedApi.internal.passkeys.getUserPasskeys, {
       userId: user._id,
     });
 
@@ -310,7 +310,7 @@ export const generateAuthenticationChallenge = action({
     });
 
     // Store challenge for verification
-    await ctx.runMutation(internal.passkeys.storeAuthenticationChallenge, {
+    await (ctx as any).runMutation(generatedApi.internal.passkeys.storeAuthenticationChallenge, {
       userId: user._id,
       challenge: options.challenge,
     });
@@ -338,7 +338,7 @@ export const verifyAuthentication = action({
     user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
   }> => {
     // Get user
-    const user = await ctx.runQuery(internal.passkeys.getUserByEmail, {
+    const user = await (ctx as any).runQuery(generatedApi.internal.passkeys.getUserByEmail, {
       email: args.email,
     });
 
@@ -347,7 +347,7 @@ export const verifyAuthentication = action({
     }
 
     // Get stored challenge
-    const challengeData = await ctx.runQuery(internal.passkeys.getAuthenticationChallenge, {
+    const challengeData = await (ctx as any).runQuery(generatedApi.internal.passkeys.getAuthenticationChallenge, {
       userId: user._id,
     });
 
@@ -358,7 +358,7 @@ export const verifyAuthentication = action({
     const response = args.response as AuthenticationResponseJSON;
 
     // Find the passkey being used
-    const passkey = await ctx.runQuery(internal.passkeys.getPasskeyByCredentialId, {
+    const passkey = await (ctx as any).runQuery(generatedApi.internal.passkeys.getPasskeyByCredentialId, {
       credentialId: response.id,
     });
 
@@ -396,13 +396,13 @@ export const verifyAuthentication = action({
     }
 
     // Update passkey counter and last used
-    await ctx.runMutation(internal.passkeys.updatePasskeyUsage, {
+    await (ctx as any).runMutation(generatedApi.internal.passkeys.updatePasskeyUsage, {
       passkeyId: passkey._id,
       newCounter: verification.authenticationInfo.newCounter,
     });
 
     // Clean up challenge
-    await ctx.runMutation(internal.passkeys.deleteAuthenticationChallenge, {
+    await (ctx as any).runMutation(generatedApi.internal.passkeys.deleteAuthenticationChallenge, {
       userId: user._id,
     });
 
@@ -412,14 +412,14 @@ export const verifyAuthentication = action({
       throw new Error("User has no default organization. Please set one first.");
     }
 
-    const sessionId = await ctx.runMutation(internal.passkeys.createSession, {
+    const sessionId = await (ctx as any).runMutation(generatedApi.internal.passkeys.createSession, {
       userId: user._id,
       email: user.email,
       organizationId, // Org-scoped session for security
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: undefined,
       action: "passkey_login",

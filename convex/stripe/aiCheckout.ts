@@ -6,9 +6,10 @@
  */
 
 import { action, internalAction } from "../_generated/server";
-import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import Stripe from "stripe";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // Initialize Stripe with API key from environment
 const getStripe = () => {
@@ -38,8 +39,8 @@ export const getOrCreateStripeCustomerInternal = internalAction({
     const stripe = getStripe();
 
     // Check if organization already has a Stripe customer ID
-    const org: { stripeCustomerId?: string } | null = await ctx.runQuery(
-      api.organizations.get,
+    const org: { stripeCustomerId?: string } | null = await (ctx as any).runQuery(
+      generatedApi.api.organizations.get,
       { id: args.organizationId }
     );
 
@@ -66,8 +67,8 @@ export const getOrCreateStripeCustomerInternal = internalAction({
     });
 
     // Store customer ID in organization
-    await ctx.runMutation(
-      internal.organizations.updateStripeCustomer,
+    await (ctx as any).runMutation(
+      generatedApi.internal.organizations.updateStripeCustomer,
       {
         organizationId: args.organizationId,
         stripeCustomerId: customer.id,
@@ -113,10 +114,10 @@ export const createAICheckoutSession = action({
     const stripe = getStripe();
 
     // Get organization
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     // Query for stored billing details if none provided in args
-    const storedBilling = await ctx.runQuery(internal.stripe.platformCheckout.getOrganizationBillingDetails, {
+    const storedBilling = await (ctx as any).runQuery(generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails, {
       organizationId: args.organizationId,
     });
 
@@ -192,7 +193,7 @@ export const createAICheckoutSession = action({
         // Create new customer if verification fails
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
-        await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
           organizationId: args.organizationId,
           stripeCustomerId: customer.id,
         });
@@ -201,7 +202,7 @@ export const createAICheckoutSession = action({
       // Create new customer
       const customer = await stripe.customers.create(customerData);
       customerId = customer.id;
-      await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
         organizationId: args.organizationId,
         stripeCustomerId: customer.id,
       });
@@ -288,8 +289,8 @@ export const createCustomerPortalSession = action({
     const stripe = getStripe();
 
     // Get organization's Stripe customer ID
-    const org = await ctx.runQuery(
-      api.organizations.get,
+    const org = await (ctx as any).runQuery(
+      generatedApi.api.organizations.get,
       { id: args.organizationId }
     );
 

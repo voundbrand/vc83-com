@@ -11,8 +11,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -218,7 +219,7 @@ export const executeManageSequences = action({
       organizationId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -361,7 +362,7 @@ async function listSequences(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sequences = await (ctx as any).runQuery(
-    api.sequences.sequenceOntology.listSequences,
+    generatedApi.api.sequences.sequenceOntology.listSequences,
     {
       sessionId,
       organizationId,
@@ -420,7 +421,7 @@ async function getSequence(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sequence = await (ctx as any).runQuery(
-    api.sequences.sequenceOntology.getSequence,
+    generatedApi.api.sequences.sequenceOntology.getSequence,
     {
       sessionId,
       sequenceId: args.sequenceId as Id<"objects">,
@@ -527,7 +528,7 @@ async function createSequence(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workItemId = await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -556,7 +557,7 @@ async function createSequence(
   // EXECUTE MODE
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sequenceId = await (ctx as any).runMutation(
-    api.sequences.sequenceOntology.createSequence,
+    generatedApi.api.sequences.sequenceOntology.createSequence,
     {
       sessionId,
       organizationId,
@@ -572,7 +573,7 @@ async function createSequence(
   if (args.workItemId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -610,10 +611,10 @@ async function updateSequenceStatus(
   operation: "activate" | "pause" | "resume" | "archive"
 ) {
   const mutationMap = {
-    activate: api.sequences.sequenceOntology.activateSequence,
-    pause: api.sequences.sequenceOntology.pauseSequence,
-    resume: api.sequences.sequenceOntology.resumeSequence,
-    archive: api.sequences.sequenceOntology.archiveSequence,
+    activate: generatedApi.api.sequences.sequenceOntology.activateSequence,
+    pause: generatedApi.api.sequences.sequenceOntology.pauseSequence,
+    resume: generatedApi.api.sequences.sequenceOntology.resumeSequence,
+    archive: generatedApi.api.sequences.sequenceOntology.archiveSequence,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -664,7 +665,7 @@ async function getSequenceStats(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const stats = await (ctx as any).runQuery(
-    api.sequences.sequenceOntology.getSequenceStats,
+    generatedApi.api.sequences.sequenceOntology.getSequenceStats,
     {
       sessionId,
       sequenceId: args.sequenceId as Id<"objects">,
@@ -700,7 +701,7 @@ async function listEnrollments(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const enrollments = await (ctx as any).runQuery(
-    api.sequences.enrollmentOntology.listEnrollments,
+    generatedApi.api.sequences.enrollmentOntology.listEnrollments,
     {
       sessionId,
       organizationId,
@@ -757,7 +758,7 @@ async function getEnrollment(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const enrollment = await (ctx as any).runQuery(
-    api.sequences.enrollmentOntology.getEnrollment,
+    generatedApi.api.sequences.enrollmentOntology.getEnrollment,
     {
       sessionId,
       enrollmentId: args.enrollmentId as Id<"objects">,
@@ -778,7 +779,7 @@ async function getEnrollment(
   // Get scheduled messages
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const messages = await (ctx as any).runQuery(
-    api.sequences.enrollmentOntology.getEnrollmentMessages,
+    generatedApi.api.sequences.enrollmentOntology.getEnrollmentMessages,
     {
       sessionId,
       enrollmentId: args.enrollmentId as Id<"objects">,
@@ -838,7 +839,7 @@ async function enrollContact(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (ctx as any).runMutation(
-    api.sequences.enrollmentOntology.enrollContactManually,
+    generatedApi.api.sequences.enrollmentOntology.enrollContactManually,
     {
       sessionId,
       sequenceId: args.sequenceId as Id<"objects">,
@@ -869,8 +870,8 @@ async function updateEnrollmentStatus(
   operation: "pause" | "resume"
 ) {
   const mutationMap = {
-    pause: api.sequences.enrollmentOntology.pauseEnrollment,
-    resume: api.sequences.enrollmentOntology.resumeEnrollment,
+    pause: generatedApi.api.sequences.enrollmentOntology.pauseEnrollment,
+    resume: generatedApi.api.sequences.enrollmentOntology.resumeEnrollment,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -920,7 +921,7 @@ async function cancelEnrollment(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (ctx as any).runMutation(
-    api.sequences.enrollmentOntology.cancelEnrollment,
+    generatedApi.api.sequences.enrollmentOntology.cancelEnrollment,
     {
       sessionId,
       enrollmentId: args.enrollmentId as Id<"objects">,
@@ -956,7 +957,7 @@ async function listTemplates(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const templates = await (ctx as any).runQuery(
-    api.sequences.templateOntology.listTemplates,
+    generatedApi.api.sequences.templateOntology.listTemplates,
     {
       sessionId,
       organizationId,

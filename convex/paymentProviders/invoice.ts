@@ -13,7 +13,6 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { Id, Doc } from "../_generated/dataModel";
 import type {
   IPaymentProvider,
@@ -28,6 +27,8 @@ import type {
   InvoiceSendResult,
   WebhookHandlingResult,
 } from "./types";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 export interface InvoicePaymentConfig {
   type: "invoice";
@@ -77,8 +78,8 @@ export const initiateInvoicePayment = action({
       console.log("📋 [initiateInvoicePayment] Starting invoice payment validation...");
 
       // 1. Get checkout session
-      const session = await ctx.runQuery(
-        internal.checkoutSessionOntology.getCheckoutSessionInternal,
+      const session = await (ctx as any).runQuery(
+        generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
         { checkoutSessionId: args.checkoutSessionId }
       ) as Doc<"objects"> | null;
 

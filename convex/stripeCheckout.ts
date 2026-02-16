@@ -8,7 +8,8 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
-import { api } from "./_generated/api";
+
+const generatedApi: any = require("./_generated/api");
 
 /**
  * CREATE STRIPE CHECKOUT SESSION WITH TAX
@@ -65,7 +66,7 @@ export const createStripeCheckoutSession = action({
     });
 
     // Load organization tax settings
-    const taxSettings = await ctx.runQuery(api.organizationTaxSettings.getTaxSettings, {
+    const taxSettings = await (ctx as any).runQuery(generatedApi.api.organizationTaxSettings.getTaxSettings, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
     });

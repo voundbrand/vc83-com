@@ -12,8 +12,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -273,7 +274,7 @@ export const executeManageBenefits = action({
       organizationId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -409,8 +410,8 @@ async function listBenefits(
   sessionId: string,
   args: any
 ) {
-  const benefits = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.listBenefitsInternal,
+  const benefits = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.listBenefitsInternal,
     {
       organizationId,
       subtype: args.filterSubtype,
@@ -452,8 +453,8 @@ async function getBenefit(
   sessionId: string,
   args: any
 ) {
-  const benefit = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.getBenefitInternal,
+  const benefit = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.getBenefitInternal,
     {
       organizationId,
       benefitId: args.benefitId,
@@ -545,8 +546,8 @@ async function createBenefit(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -573,8 +574,8 @@ async function createBenefit(
   }
 
   // EXECUTE MODE: Actually create the benefit
-  const benefitId = await ctx.runMutation(
-    internal.api.v1.benefitsInternal.createBenefitInternal,
+  const benefitId = await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.createBenefitInternal,
     {
       organizationId,
       subtype: args.subtype,
@@ -595,8 +596,8 @@ async function createBenefit(
 
   // Update work item to completed
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -639,8 +640,8 @@ async function updateBenefit(
   const mode = args.mode || "preview";
 
   // Get current benefit for comparison
-  const currentBenefit = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.getBenefitInternal,
+  const currentBenefit = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.getBenefitInternal,
     {
       organizationId,
       benefitId: args.benefitId,
@@ -704,8 +705,8 @@ async function updateBenefit(
       }
     };
 
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -732,8 +733,8 @@ async function updateBenefit(
   }
 
   // EXECUTE MODE
-  await ctx.runMutation(
-    internal.api.v1.benefitsInternal.updateBenefitInternal,
+  await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.updateBenefitInternal,
     {
       organizationId,
       benefitId: args.benefitId as Id<"objects">,
@@ -743,8 +744,8 @@ async function updateBenefit(
 
   // Update work item
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -780,8 +781,8 @@ async function listCommissions(
   sessionId: string,
   args: any
 ) {
-  const commissions = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.listCommissionsInternal,
+  const commissions = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.listCommissionsInternal,
     {
       organizationId,
       subtype: args.filterSubtype,
@@ -820,8 +821,8 @@ async function getCommission(
   sessionId: string,
   args: any
 ) {
-  const commission = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.getCommissionInternal,
+  const commission = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.getCommissionInternal,
     {
       organizationId,
       commissionId: args.commissionId,
@@ -902,8 +903,8 @@ async function createCommission(
       }
     };
 
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -930,8 +931,8 @@ async function createCommission(
   }
 
   // EXECUTE MODE
-  const commissionId = await ctx.runMutation(
-    internal.api.v1.benefitsInternal.createCommissionInternal,
+  const commissionId = await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.createCommissionInternal,
     {
       organizationId,
       subtype: args.commissionSubtype,
@@ -951,8 +952,8 @@ async function createCommission(
   );
 
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -994,8 +995,8 @@ async function updateCommission(
 ) {
   const mode = args.mode || "preview";
 
-  const currentCommission = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.getCommissionInternal,
+  const currentCommission = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.getCommissionInternal,
     {
       organizationId,
       commissionId: args.commissionId,
@@ -1052,8 +1053,8 @@ async function updateCommission(
       }
     };
 
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -1080,8 +1081,8 @@ async function updateCommission(
   }
 
   // EXECUTE MODE - Call the update mutation
-  await ctx.runMutation(
-    internal.api.v1.benefitsInternal.updateCommissionInternal,
+  await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.updateCommissionInternal,
     {
       organizationId,
       commissionId: args.commissionId as Id<"objects">,
@@ -1099,8 +1100,8 @@ async function updateCommission(
 
   // Update work item
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -1136,8 +1137,8 @@ async function listClaims(
   sessionId: string,
   args: any
 ) {
-  const claims = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.listClaimsInternal,
+  const claims = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.listClaimsInternal,
     {
       organizationId,
       benefitId: args.benefitId,
@@ -1179,8 +1180,8 @@ async function createClaim(
   const mode = args.mode || "preview";
 
   // Get benefit info
-  const benefit = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.getBenefitInternal,
+  const benefit = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.getBenefitInternal,
     {
       organizationId,
       benefitId: args.benefitId,
@@ -1218,8 +1219,8 @@ async function createClaim(
       }
     };
 
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -1246,8 +1247,8 @@ async function createClaim(
   }
 
   // EXECUTE MODE
-  const claimId = await ctx.runMutation(
-    internal.api.v1.benefitsInternal.createClaimInternal,
+  const claimId = await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.createClaimInternal,
     {
       organizationId,
       benefitId: args.benefitId as Id<"objects">,
@@ -1257,8 +1258,8 @@ async function createClaim(
   );
 
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -1318,8 +1319,8 @@ async function updateClaim(
   // PREVIEW MODE - Show what will be updated
   if (mode === "preview") {
     // Get the current claim to show what will change
-    const claims = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.listClaimsInternal,
+    const claims = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.listClaimsInternal,
       {
         organizationId,
         limit: 100,
@@ -1355,8 +1356,8 @@ async function updateClaim(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -1383,8 +1384,8 @@ async function updateClaim(
   }
 
   // EXECUTE MODE - Call the update mutation
-  await ctx.runMutation(
-    internal.api.v1.benefitsInternal.updateClaimInternal,
+  await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.benefitsInternal.updateClaimInternal,
     {
       organizationId,
       claimId: args.claimId as Id<"benefitClaims">,
@@ -1396,8 +1397,8 @@ async function updateClaim(
 
   // Update work item if provided
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -1432,8 +1433,8 @@ async function listPayouts(
   sessionId: string,
   args: any
 ) {
-  const payouts = await ctx.runQuery(
-    internal.api.v1.benefitsInternal.listPayoutsInternal,
+  const payouts = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.benefitsInternal.listPayoutsInternal,
     {
       organizationId,
       commissionId: args.commissionId,
@@ -1472,8 +1473,8 @@ async function getMyClaims(
   sessionId: string,
   args: any
 ) {
-  const claims = await ctx.runQuery(
-    api.benefitsOntology.getMyClaims,
+  const claims = await (ctx as any).runQuery(
+    generatedApi.api.benefitsOntology.getMyClaims,
     {
       organizationId,
       sessionId,
@@ -1509,8 +1510,8 @@ async function getMyEarnings(
   sessionId: string,
   args: any
 ) {
-  const earnings = await ctx.runQuery(
-    api.commissionsOntology.getMyEarnedCommissions,
+  const earnings = await (ctx as any).runQuery(
+    generatedApi.api.commissionsOntology.getMyEarnedCommissions,
     {
       organizationId,
       sessionId,

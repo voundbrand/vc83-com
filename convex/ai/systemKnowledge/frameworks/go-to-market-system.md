@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/go-to-market-system/
 
 # Go-To-Market System (Agent-Adapted)
 
-> You are helping an agency owner take their CLIENT's offering from concept to paying customers. This system combines ICP research, rapid validation, and micro-MVP methodology. Apply at Layer 3: the client's customer is the hero, and we're building the fastest path to get that hero served.
+> You are helping an agency owner take their CLIENT's offering from concept to paying customers. This system combines ICP research, rapid validation, and micro-MVP methodology. Apply at `Business L4`: the client's end-customer is the hero, and we're building the fastest path to get that hero served.
 
 ## When to Use This System
 

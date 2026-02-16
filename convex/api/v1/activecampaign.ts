@@ -14,8 +14,9 @@
 
 import { action, query } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * Sync a contact to ActiveCampaign
@@ -55,7 +56,7 @@ export const syncContact = action({
     // TODO: Add API key validation here
     // For now, we check if the organization has ActiveCampaign connected
 
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     });
 
@@ -69,7 +70,7 @@ export const syncContact = action({
 
     try {
       // Create/update contact
-      const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+      const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
         connectionId: connection._id,
         email: args.email,
         firstName: args.firstName,
@@ -82,7 +83,7 @@ export const syncContact = action({
 
       // Add to list if specified
       if (args.listId) {
-        await ctx.runAction(internal.oauth.activecampaign.subscribeToList, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.subscribeToList, {
           connectionId: connection._id,
           contactId,
           listId: args.listId,
@@ -91,7 +92,7 @@ export const syncContact = action({
 
       // Add tag if specified
       if (args.tagId) {
-        await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
           connectionId: connection._id,
           contactId,
           tagId: args.tagId,
@@ -131,7 +132,7 @@ export const triggerAutomation = action({
     error?: string;
     message?: string;
   }> => {
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     });
 
@@ -145,7 +146,7 @@ export const triggerAutomation = action({
 
     try {
       // Create/update contact
-      const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+      const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
         connectionId: connection._id,
         email: args.email,
         firstName: args.firstName,
@@ -153,7 +154,7 @@ export const triggerAutomation = action({
       });
 
       // Add automation trigger tag
-      await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+      await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
         connectionId: connection._id,
         contactId: contact.id,
         tagId: args.automationTagId,
@@ -187,7 +188,7 @@ export const getLists = action({
     lists?: Array<{ id: string; name: string }>;
     error?: string;
   }> => {
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     });
 
@@ -199,7 +200,7 @@ export const getLists = action({
     }
 
     try {
-      const lists = await ctx.runAction(internal.oauth.activecampaign.fetchLists, {
+      const lists = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.fetchLists, {
         connectionId: connection._id,
       });
 
@@ -231,7 +232,7 @@ export const getTags = action({
     tags?: Array<{ id: string; name: string }>;
     error?: string;
   }> => {
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     });
 
@@ -243,7 +244,7 @@ export const getTags = action({
     }
 
     try {
-      const tags = await ctx.runAction(internal.oauth.activecampaign.fetchTags, {
+      const tags = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.fetchTags, {
         connectionId: connection._id,
       });
 

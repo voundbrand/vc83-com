@@ -1,5 +1,5 @@
 import { internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Beta Access Migration Scripts
@@ -95,10 +95,10 @@ export const runFullMigration = internalMutation({
     message: string;
   }> => {
     console.log("Step 1/2: Backfilling existing users...");
-    const backfillResult = await ctx.runMutation(internal.migrations.betaAccessMigration.backfillExistingUsers, {});
+    const backfillResult = await (ctx as any).runMutation(generatedApi.internal.migrations.betaAccessMigration.backfillExistingUsers, {});
 
     console.log("Step 2/2: Initializing beta gating setting...");
-    const settingResult = await ctx.runMutation(internal.migrations.betaAccessMigration.initializeBetaSetting, {});
+    const settingResult = await (ctx as any).runMutation(generatedApi.internal.migrations.betaAccessMigration.initializeBetaSetting, {});
 
     return {
       backfill: backfillResult,

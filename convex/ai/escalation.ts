@@ -16,9 +16,10 @@
 
 import { action, query, mutation, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import type { Id } from "../_generated/dataModel";
+
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // CONSTANTS & DEFAULTS
@@ -549,8 +550,8 @@ export const notifyEscalationTelegram = internalAction({
     if (!botToken) return { error: "No Telegram bot token configured" };
 
     // Look up org's Telegram mapping
-    const mapping = await ctx.runQuery(
-      internal.ai.escalation.getOrgTelegramMapping,
+    const mapping = await (ctx as any).runQuery(
+      generatedApi.internal.ai.escalation.getOrgTelegramMapping,
       { organizationId: args.organizationId }
     );
 
@@ -593,7 +594,7 @@ export const notifyEscalationTelegram = internalAction({
 
     // Store Telegram message ID for later button updates
     if (data.ok && data.result?.message_id) {
-      await ctx.runMutation(internal.ai.escalation.updateEscalationTelegram, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.escalation.updateEscalationTelegram, {
         sessionId: args.sessionId,
         telegramMessageId: data.result.message_id,
         telegramChatId: mapping.telegramChatId,
@@ -642,8 +643,8 @@ export const notifyEscalationPushover = internalAction({
     channel: v.string(),
   },
   handler: async (ctx, args) => {
-    const settings = await ctx.runQuery(
-      internal.integrations.pushover.getOrgPushoverSettings,
+    const settings = await (ctx as any).runQuery(
+      generatedApi.internal.integrations.pushover.getOrgPushoverSettings,
       { organizationId: args.organizationId }
     );
 
@@ -653,7 +654,7 @@ export const notifyEscalationPushover = internalAction({
     const priorityMap: Record<string, number> = { low: 0, normal: 1, high: 2 };
     const priority = priorityMap[args.urgency] ?? 0;
 
-    await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+    await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendPushoverNotification, {
       organizationId: args.organizationId,
       title: `🆘 Escalation — ${args.agentName}`,
       message: `${args.reason}\nCustomer: ${args.contactIdentifier} (${args.channel})`,
@@ -680,14 +681,14 @@ export const notifyEscalationEmail = internalAction({
   },
   handler: async (ctx, args) => {
     // Look up org owner's email
-    const ownerEmail = await ctx.runQuery(
-      internal.ai.escalation.getOrgOwnerEmail,
+    const ownerEmail = await (ctx as any).runQuery(
+      generatedApi.internal.ai.escalation.getOrgOwnerEmail,
       { organizationId: args.organizationId }
     );
 
     if (!ownerEmail) return { error: "No owner email found" };
 
-    await ctx.runAction(internal.emailService.sendEscalationEmail, {
+    await (ctx as any).runAction(generatedApi.internal.emailService.sendEscalationEmail, {
       to: ownerEmail,
       agentName: args.agentName,
       reason: args.reason,
@@ -724,7 +725,7 @@ export const handleEscalationCallback = action({
 
     if (actionType === "esc_takeover") {
       // Update session to handed_off + escalation to taken_over
-      await ctx.runMutation(internal.ai.escalation.handleTakeoverInternal, { sessionId });
+      await (ctx as any).runMutation(generatedApi.internal.ai.escalation.handleTakeoverInternal, { sessionId });
 
       if (botToken) {
         await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
@@ -745,7 +746,7 @@ export const handleEscalationCallback = action({
         });
       }
     } else if (actionType === "esc_dismiss") {
-      await ctx.runMutation(internal.ai.escalation.handleDismissInternal, { sessionId });
+      await (ctx as any).runMutation(generatedApi.internal.ai.escalation.handleDismissInternal, { sessionId });
 
       if (botToken) {
         await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
@@ -1009,22 +1010,22 @@ export const retryHighUrgencyEmail = internalAction({
   },
   handler: async (ctx, args) => {
     // Check if escalation is still pending
-    const escState = await ctx.runQuery(
-      internal.ai.escalation.getSessionEscalationState,
+    const escState = await (ctx as any).runQuery(
+      generatedApi.internal.ai.escalation.getSessionEscalationState,
       { sessionId: args.sessionId }
     );
 
     if (escState?.status !== "pending") return { skipped: "Escalation no longer pending" };
 
     // Re-send email with urgency reminder
-    const ownerEmail = await ctx.runQuery(
-      internal.ai.escalation.getOrgOwnerEmail,
+    const ownerEmail = await (ctx as any).runQuery(
+      generatedApi.internal.ai.escalation.getOrgOwnerEmail,
       { organizationId: args.organizationId }
     );
 
     if (!ownerEmail) return { error: "No owner email found" };
 
-    await ctx.runAction(internal.emailService.sendEscalationEmail, {
+    await (ctx as any).runAction(generatedApi.internal.emailService.sendEscalationEmail, {
       to: ownerEmail,
       agentName: args.agentName,
       reason: `REMINDER: ${args.reason}`,

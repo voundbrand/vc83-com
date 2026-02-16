@@ -8,7 +8,8 @@
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "../_generated/server";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
-import { internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Get all discovered AI models with their platform availability status
@@ -256,7 +257,7 @@ export const manualRefreshModels = action({
     fetchedAt: number;
   }> => {
     // Authenticate user (need to use internal query for action context)
-    const userCheck = await ctx.runQuery(internal.ai.platformModelManagement.checkSuperAdmin, {
+    const userCheck = await (ctx as any).runQuery(generatedApi.internal.ai.platformModelManagement.checkSuperAdmin, {
       sessionId: args.sessionId,
     });
 
@@ -265,7 +266,7 @@ export const manualRefreshModels = action({
     }
 
     // Trigger the model discovery
-    const result = await ctx.runAction(internal.ai.modelDiscovery.fetchAvailableModels);
+    const result = await (ctx as any).runAction(generatedApi.internal.ai.modelDiscovery.fetchAvailableModels);
 
     return {
       success: true,

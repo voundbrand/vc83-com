@@ -15,7 +15,7 @@
 
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // HTTP BADGE VERIFICATION
@@ -51,7 +51,7 @@ export const verifyDomainBadgeInternal = internalAction({
   }> => {
     try {
       // 1. Get domain configuration
-      const domain: any = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+      const domain: any = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.getDomainConfigInternal, {
         configId: args.configId,
       });
 
@@ -127,7 +127,7 @@ export const verifyDomainBadgeInternal = internalAction({
       }
 
       // 9. Update domain configuration
-      await ctx.runMutation(internal.domainConfigOntology.updateBadgeStatusInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.domainConfigOntology.updateBadgeStatusInternal, {
         configId: args.configId,
         domainVerified: true,
         badgeVerified: badgePresent,
@@ -154,7 +154,7 @@ export const verifyDomainBadgeInternal = internalAction({
 
     } catch (error: any) {
       // Get domain configuration for failure handling
-      const domain: any = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+      const domain: any = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.getDomainConfigInternal, {
         configId: args.configId,
       });
 
@@ -172,7 +172,7 @@ export const verifyDomainBadgeInternal = internalAction({
       const shouldSuspend = props.badgeRequired && failedChecks >= 3; // Grace period: 3 failures
 
       if (shouldSuspend) {
-        await ctx.runMutation(internal.domainConfigOntology.updateBadgeStatusInternal, {
+        await (ctx as any).runMutation(generatedApi.internal.domainConfigOntology.updateBadgeStatusInternal, {
           configId: args.configId,
           domainVerified: false,
           badgeVerified: false,
@@ -185,7 +185,7 @@ export const verifyDomainBadgeInternal = internalAction({
         console.log(`[Badge Verification] ${domainName}: SUSPENDED after ${failedChecks} failures`);
       } else {
         // Update failed check count but don't suspend yet
-        await ctx.runMutation(internal.domainConfigOntology.updateBadgeStatusInternal, {
+        await (ctx as any).runMutation(generatedApi.internal.domainConfigOntology.updateBadgeStatusInternal, {
           configId: args.configId,
           lastBadgeCheck: Date.now(),
           failedBadgeChecks: failedChecks,
@@ -232,8 +232,8 @@ export const verifyAllBadgesInternal = internalAction({
     console.log("[Badge Verification Cron] Starting daily badge check...");
 
     // Get all domains needing verification
-    const domains: any[] = await ctx.runQuery(
-      internal.domainConfigOntology.getDomainsNeedingVerification,
+    const domains: any[] = await (ctx as any).runQuery(
+      generatedApi.internal.domainConfigOntology.getDomainsNeedingVerification,
       {}
     );
 
@@ -256,8 +256,8 @@ export const verifyAllBadgesInternal = internalAction({
     // Process each domain (with small delay to avoid rate limiting)
     for (const domain of domains) {
       try {
-        const result: any = await ctx.runAction(
-          internal.licensing.badgeVerification.verifyDomainBadgeInternal,
+        const result: any = await (ctx as any).runAction(
+          generatedApi.internal.licensing.badgeVerification.verifyDomainBadgeInternal,
           { configId: domain._id } // Changed from domainId to configId
         );
 
@@ -335,8 +335,8 @@ export const retryDomainVerification = internalAction({
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       console.log(`[Badge Verification] Retry attempt ${attempt}/${maxRetries}...`);
 
-      const result: any = await ctx.runAction(
-        internal.licensing.badgeVerification.verifyDomainBadgeInternal,
+      const result: any = await (ctx as any).runAction(
+        generatedApi.internal.licensing.badgeVerification.verifyDomainBadgeInternal,
         { configId: args.domainId } // Accept domainId for backwards compat but pass as configId
       );
 

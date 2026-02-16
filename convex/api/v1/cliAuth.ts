@@ -16,7 +16,7 @@
 import { v } from "convex/values";
 import { action, query, mutation, internalMutation, internalQuery, internalAction } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
-import { api, internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { getLicenseInternal } from "../../licensing/helpers";
 
 // Token prefix length for indexed lookup
@@ -175,8 +175,8 @@ export const verifyCliSessionToken = internalAction({
     const tokenPrefix = getTokenPrefix(args.sessionToken);
 
     // First try: Look up by tokenPrefix (new bcrypt-hashed sessions)
-    const hashedSessions = await ctx.runQuery(
-      internal.api.v1.cliAuth.findCliSessionsByPrefix,
+    const hashedSessions = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.cliAuth.findCliSessionsByPrefix,
       { tokenPrefix }
     );
 
@@ -200,7 +200,7 @@ export const verifyCliSessionToken = internalAction({
 
         if (isValid) {
           // Update last used timestamp (async, don't block response)
-          ctx.scheduler.runAfter(0, internal.api.v1.cliAuth.updateCliSessionLastUsed, {
+          (ctx.scheduler as any).runAfter(0, generatedApi.internal.api.v1.cliAuth.updateCliSessionLastUsed, {
             sessionId: session._id,
           });
 
@@ -216,14 +216,14 @@ export const verifyCliSessionToken = internalAction({
     }
 
     // Fallback: Try plaintext lookup (backward compatibility for old sessions)
-    const legacySession = await ctx.runQuery(
-      internal.api.v1.cliAuth.findCliSessionByPlainToken,
+    const legacySession = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.cliAuth.findCliSessionByPlainToken,
       { cliToken: args.sessionToken }
     );
 
     if (legacySession && legacySession.expiresAt >= Date.now()) {
       // Update last used timestamp
-      ctx.scheduler.runAfter(0, internal.api.v1.cliAuth.updateCliSessionLastUsed, {
+      (ctx.scheduler as any).runAfter(0, generatedApi.internal.api.v1.cliAuth.updateCliSessionLastUsed, {
         sessionId: legacySession._id,
       });
 
@@ -365,7 +365,7 @@ export const initiateCliLogin = action({
     const cliToken = generateCliSessionToken();
 
     // Store state in database (expires in 10 minutes)
-    await ctx.runMutation(internal.api.v1.cliAuth.storeCliLoginState, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.storeCliLoginState, {
       state,
       cliToken,
       callbackUrl: args.callbackUrl,
@@ -376,7 +376,7 @@ export const initiateCliLogin = action({
 
     // If provider specified, return direct OAuth URL
     if (args.provider) {
-      const authUrl: string = await ctx.runAction(internal.api.v1.cliAuth.getProviderAuthUrl, {
+      const authUrl: string = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.getProviderAuthUrl, {
         provider: args.provider,
         state,
         callbackUrl: args.callbackUrl,
@@ -423,7 +423,7 @@ export const completeCliLogin = action({
       callbackUrl: string;
       expiresAt: number;
       provider: string | null;
-    } | null = await ctx.runQuery(internal.api.v1.cliAuth.getCliLoginStateInternal, {
+    } | null = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getCliLoginStateInternal, {
       state: args.state,
     });
 
@@ -440,19 +440,19 @@ export const completeCliLogin = action({
     let userName: { firstName: string; lastName: string };
 
     if (args.provider === "github") {
-      const userInfo = await ctx.runAction(internal.api.v1.cliAuth.exchangeGitHubCode, {
+      const userInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.exchangeGitHubCode, {
         code: args.code,
       });
       userEmail = userInfo.email;
       userName = userInfo.name;
     } else if (args.provider === "microsoft") {
-      const userInfo = await ctx.runAction(internal.api.v1.cliAuth.exchangeMicrosoftCode, {
+      const userInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.exchangeMicrosoftCode, {
         code: args.code,
       });
       userEmail = userInfo.email;
       userName = userInfo.name;
     } else if (args.provider === "google") {
-      const userInfo = await ctx.runAction(internal.api.v1.cliAuth.exchangeGoogleCode, {
+      const userInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.exchangeGoogleCode, {
         code: args.code,
       });
       userEmail = userInfo.email;
@@ -462,7 +462,7 @@ export const completeCliLogin = action({
     }
 
     // Find or create user by email (same logic as platform signup)
-    const user = await ctx.runMutation(internal.api.v1.cliAuth.findOrCreateUser, {
+    const user = await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.findOrCreateUser, {
       email: userEmail,
       firstName: userName.firstName,
       lastName: userName.lastName,
@@ -478,7 +478,7 @@ export const completeCliLogin = action({
       organizationId = user.defaultOrgId;
     } else {
       // Create default organization for user (same as platform signup)
-      organizationId = await ctx.runMutation(internal.api.v1.cliAuth.createDefaultOrganization, {
+      organizationId = await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.createDefaultOrganization, {
         userId: user.userId,
         organizationName: `${userName.firstName}${userName.lastName ? ` ${userName.lastName}` : ''}'s Organization`,
       });
@@ -487,7 +487,7 @@ export const completeCliLogin = action({
     // Create CLI session (30 days expiration)
     // Note: createCliSession is now an Action (uses bcrypt for hashing)
     const cliToken = stateRecord.cliToken;
-    const sessionId: Id<"cliSessions"> = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
+    const sessionId: Id<"cliSessions"> = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.createCliSession, {
       userId: user.userId,
       email: userEmail,
       organizationId,
@@ -497,7 +497,7 @@ export const completeCliLogin = action({
     });
 
     // Clean up state record
-    await ctx.runMutation(internal.api.v1.cliAuth.deleteCliLoginStateInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.deleteCliLoginStateInternal, {
       state: args.state,
     });
 
@@ -715,7 +715,7 @@ export const validateCliSession = action({
     expiresAt: number;
   } | null> => {
     // Use the internal verification action to validate the token
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.token,
     });
 
@@ -725,7 +725,7 @@ export const validateCliSession = action({
     }
 
     // Get full user and organization info using internal query
-    const fullInfo = await ctx.runQuery(internal.api.v1.cliAuth.getCliSessionFullInfo, {
+    const fullInfo = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getCliSessionFullInfo, {
       sessionId: sessionInfo.sessionId,
       userId: sessionInfo.userId,
       organizationId: sessionInfo.organizationId,
@@ -844,7 +844,7 @@ export const validateCliSessionInternal = internalAction({
     expiresAt: number;
   } | null> => {
     // Use the internal verification action to validate the token
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.sessionToken,
     });
 
@@ -853,7 +853,7 @@ export const validateCliSessionInternal = internalAction({
     }
 
     // Get full user and organization info
-    const fullInfo = await ctx.runQuery(internal.api.v1.cliAuth.getCliSessionFullInfo, {
+    const fullInfo = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getCliSessionFullInfo, {
       sessionId: sessionInfo.sessionId,
       userId: sessionInfo.userId,
       organizationId: sessionInfo.organizationId,
@@ -890,7 +890,7 @@ export const refreshCliSession = action({
     expiresAt: number;
   }> => {
     // Verify current token using the internal action
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.token,
     });
 
@@ -908,7 +908,7 @@ export const refreshCliSession = action({
     const newTokenHash = await bcrypt.default.hash(newToken, 12);
 
     // Update session with new hashed token
-    await ctx.runMutation(internal.api.v1.cliAuth.updateCliSessionToken, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.updateCliSessionToken, {
       sessionId: sessionInfo.sessionId,
       tokenHash: newTokenHash,
       tokenPrefix: newTokenPrefix,
@@ -958,7 +958,7 @@ export const revokeCliSession = action({
     console.log(`[revokeCliSession] Revoking session with token prefix: ${tokenPrefix}...`);
 
     // Verify token using the internal action to get session ID
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.token,
     });
 
@@ -969,7 +969,7 @@ export const revokeCliSession = action({
     }
 
     console.log(`[revokeCliSession] Deleting session for user: ${sessionInfo.userId}`);
-    await ctx.runMutation(internal.api.v1.cliAuth.deleteCliSession, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.deleteCliSession, {
       sessionId: sessionInfo.sessionId,
     });
 
@@ -1154,7 +1154,7 @@ export const createCliSession = internalAction({
     const tokenHash = await bcrypt.default.hash(args.cliToken, 12);
 
     // Store in database (via internal mutation)
-    const sessionId = await ctx.runMutation(internal.api.v1.cliAuth.storeCliSession, {
+    const sessionId = await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.storeCliSession, {
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
@@ -1285,7 +1285,7 @@ export const createCliSessionFromSignup = action({
     sessionId: Id<"cliSessions">;
   }> => {
     // Note: createCliSession is now an Action (uses bcrypt for hashing)
-    const sessionId = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
+    const sessionId = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.createCliSession, {
       userId: args.userId,
       email: args.email,
       organizationId: args.organizationId,
@@ -1410,7 +1410,7 @@ export const getCliUserOrganizations = action({
     }>;
   } | null> => {
     // Verify token using bcrypt
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.token,
     });
 
@@ -1420,7 +1420,7 @@ export const getCliUserOrganizations = action({
     }
 
     // Get organizations using internal query
-    const orgsInfo = await ctx.runQuery(internal.api.v1.cliAuth.getUserOrganizationsInternal, {
+    const orgsInfo = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getUserOrganizationsInternal, {
       userId: sessionInfo.userId,
     });
 
@@ -1488,7 +1488,7 @@ export const createCliOrganization = action({
     slug: string;
   }> => {
     // Validate session using bcrypt verification
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.verifyCliSessionToken, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.verifyCliSessionToken, {
       sessionToken: args.token,
     });
 
@@ -1497,13 +1497,13 @@ export const createCliOrganization = action({
     }
 
     // Create the organization using internal mutation
-    const organizationId = await ctx.runMutation(internal.api.v1.cliAuth.createCliOrganizationInternal, {
+    const organizationId = await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.createCliOrganizationInternal, {
       userId: sessionInfo.userId,
       organizationName: args.name,
     });
 
     // Get the created organization to return slug
-    const org = await ctx.runQuery(internal.api.v1.cliAuth.getOrganizationById, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getOrganizationById, {
       organizationId,
     });
 
@@ -1644,7 +1644,7 @@ export const generateCliApiKey = action({
     createdAt: number;
   }> => {
     // Validate session using bcrypt verification
-    const sessionInfo = await ctx.runAction(internal.api.v1.cliAuth.validateCliSessionInternal, {
+    const sessionInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.validateCliSessionInternal, {
       sessionToken: args.token,
     });
 
@@ -1659,7 +1659,7 @@ export const generateCliApiKey = action({
     }
 
     // Check license limits
-    const licenseCheck = await ctx.runQuery(internal.apiKeysInternal.checkApiKeyLimit, {
+    const licenseCheck = await (ctx as any).runQuery(generatedApi.internal.apiKeysInternal.checkApiKeyLimit, {
       organizationId: args.organizationId,
     });
 
@@ -1668,7 +1668,7 @@ export const generateCliApiKey = action({
     }
 
     // Use internal action to generate and hash the key (requires Node.js runtime)
-    const result = await ctx.runAction(internal.api.v1.cliAuth.generateCliApiKeyInternal, {
+    const result = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.generateCliApiKeyInternal, {
       organizationId: args.organizationId,
       userId: sessionInfo.userId,
       name: args.name,
@@ -1710,7 +1710,7 @@ export const generateCliApiKeyInternal = internalAction({
     const keyHash = await bcrypt.default.hash(fullKey, 12);
 
     // Store in database
-    const apiKeyId = await ctx.runMutation(internal.apiKeysInternal.storeApiKey, {
+    const apiKeyId = await (ctx as any).runMutation(generatedApi.internal.apiKeysInternal.storeApiKey, {
       keyHash,
       keyPrefix,
       name: args.name,
@@ -1851,7 +1851,7 @@ export const syncExternalUser = action({
     email: string;
   }> => {
     // Verify API key using internal action
-    const authContext = await ctx.runAction(internal.actions.apiKeys.verifyApiKey, {
+    const authContext = await (ctx as any).runAction(generatedApi.internal.actions.apiKeys.verifyApiKey, {
       apiKey: args.apiKey,
     });
 
@@ -1862,7 +1862,7 @@ export const syncExternalUser = action({
     const organizationId = authContext.organizationId;
 
     // Check if user exists by email
-    const existingUser = await ctx.runQuery(internal.api.v1.cliAuth.getUserByEmailInternal, {
+    const existingUser = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.getUserByEmailInternal, {
       email: args.email,
     });
 
@@ -1873,21 +1873,21 @@ export const syncExternalUser = action({
       userId = existingUser._id;
 
       // Ensure user is member of this organization
-      const membership = await ctx.runQuery(internal.api.v1.cliAuth.checkOrgMembership, {
+      const membership = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliAuth.checkOrgMembership, {
         userId,
         organizationId,
       });
 
       if (!membership) {
         // Add user to organization as viewer (lowest privilege for external sync)
-        await ctx.runMutation(internal.api.v1.cliAuth.addUserToOrgAsViewer, {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.addUserToOrgAsViewer, {
           userId,
           organizationId,
         });
       }
     } else {
       // Create new user
-      userId = await ctx.runMutation(internal.api.v1.cliAuth.createSyncedUser, {
+      userId = await (ctx as any).runMutation(generatedApi.internal.api.v1.cliAuth.createSyncedUser, {
         email: args.email,
         name: args.name,
         organizationId,

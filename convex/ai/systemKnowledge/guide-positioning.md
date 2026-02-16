@@ -8,7 +8,7 @@ priority: 3
 
 # Guide Positioning Framework
 
-Use this when helping an agency owner position their CLIENT as the trusted guide. Remember: the client is the guide at Layer 3. The client's customer is the hero.
+Use this when helping an agency owner position their CLIENT as the trusted guide. In the canonical model, the client operates at `Business L3`, and the hero is their end-customer at `Business L4`.
 
 ## The Two Things a Guide Must Express
 
@@ -117,7 +117,7 @@ Structure as a knowledge base document:
 
 ## How the Agent Uses This
 
-When the customer-facing agent is deployed at Layer 3:
+When the customer-facing agent is deployed for `Business L4` conversations:
 - It speaks IN the brand voice defined here
 - It leads with empathy, then backs with authority
 - It uses the one-liner when introducing the business

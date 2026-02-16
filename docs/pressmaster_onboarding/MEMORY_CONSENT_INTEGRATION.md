@@ -682,6 +682,6 @@ AI generates holiday-themed content
 
 **Related Documents:**
 - [Universal Memory Consent System](../ghl_integration_plus_memory/09_UNIVERSAL_MEMORY_CONSENT.md) — Platform-wide consent architecture
-- [Memory Engine Design](../ghl_integration_plus_memory/02_MEMORY_ENGINE_DESIGN.md) — 5-layer memory system
+- [Memory Engine Design](../agentic_system/MEMORY_ENGINE_DESIGN.md) — 5-layer memory system
 - [Phase 1: Interview Engine](./PHASE_1_INTERVIEW_ENGINE.md) — Interview template and guided sessions
 - [Phase 3: Content Pipeline](./PHASE_3_CONTENT_PIPELINE.md) — Content DNA and twin learning

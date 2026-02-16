@@ -13,8 +13,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -194,7 +195,7 @@ export const executeConfigureBookingWorkflow = action({
       organizationId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -287,7 +288,7 @@ async function suggestWorkflowForProduct(
   // Get product details - use internalListProducts and filter
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = await (ctx as any).runQuery(
-    internal.ai.tools.internalToolMutations.internalListProducts,
+    generatedApi.internal.ai.tools.internalToolMutations.internalListProducts,
     {
       organizationId,
       limit: 100,
@@ -607,7 +608,7 @@ async function createBookingWorkflow(
   if (mode === "preview") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workItemId = await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -639,7 +640,7 @@ async function createBookingWorkflow(
   // Execute mode - create the workflow
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflowId = await (ctx as any).runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateWorkflow,
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkflow,
     {
       organizationId,
       userId,
@@ -659,7 +660,7 @@ async function createBookingWorkflow(
   if (args.workItemId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -703,7 +704,7 @@ async function addBehaviorToWorkflow(
   // Get existing workflow by listing and filtering
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflows = await (ctx as any).runQuery(
-    internal.ai.tools.internalToolMutations.internalListWorkflows,
+    generatedApi.internal.ai.tools.internalToolMutations.internalListWorkflows,
     {
       organizationId,
     }
@@ -757,7 +758,7 @@ async function addBehaviorToWorkflow(
   // Execute - add the behavior using internalAddBehaviorToWorkflow
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (ctx as any).runMutation(
-    internal.ai.tools.internalToolMutations.internalAddBehaviorToWorkflow,
+    generatedApi.internal.ai.tools.internalToolMutations.internalAddBehaviorToWorkflow,
     {
       organizationId,
       userId,
@@ -790,7 +791,7 @@ async function listBookingWorkflows(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflows = await (ctx as any).runQuery(
-    internal.ai.tools.internalToolMutations.internalListWorkflows,
+    generatedApi.internal.ai.tools.internalToolMutations.internalListWorkflows,
     {
       organizationId,
     }
@@ -844,7 +845,7 @@ async function getWorkflowBehaviors(
   // Get workflow by listing and filtering
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflows = await (ctx as any).runQuery(
-    internal.ai.tools.internalToolMutations.internalListWorkflows,
+    generatedApi.internal.ai.tools.internalToolMutations.internalListWorkflows,
     {
       organizationId,
     }
@@ -902,7 +903,7 @@ async function validateWorkflow(
   // Get workflow by listing and filtering
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflows = await (ctx as any).runQuery(
-    internal.ai.tools.internalToolMutations.internalListWorkflows,
+    generatedApi.internal.ai.tools.internalToolMutations.internalListWorkflows,
     {
       organizationId,
     }

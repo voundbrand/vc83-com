@@ -11,7 +11,7 @@ import { v } from "convex/values";
 import { action, internalMutation, internalAction } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { ConvexError } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 
@@ -89,7 +89,7 @@ export const signupFreeAccount = action({
     }
 
     // 4. Hash password using bcrypt (requires action)
-    const passwordHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+    const passwordHash: string = await (ctx as any).runAction(generatedApi.internal.cryptoActions.hashPassword, {
       password: args.password,
     });
 
@@ -104,7 +104,7 @@ export const signupFreeAccount = action({
     const keyPrefix = `sk_live_${keySecret.substring(0, 8)}`;
 
     // 6. Hash the API key for storage (reuse bcrypt action)
-    const apiKeyHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+    const apiKeyHash: string = await (ctx as any).runAction(generatedApi.internal.cryptoActions.hashPassword, {
       password: apiKey,
     });
 
@@ -115,7 +115,7 @@ export const signupFreeAccount = action({
       user: { id: Id<"users">; email: string; firstName: string; lastName: string };
       organization: { id: Id<"organizations">; name: string; slug: string };
       apiKeyPrefix: string;
-    } = await ctx.runMutation(internal.onboarding.createFreeAccountInternal, {
+    } = await (ctx as any).runMutation(generatedApi.internal.onboarding.createFreeAccountInternal, {
       email,
       passwordHash,
       firstName: args.firstName.trim(),
@@ -127,7 +127,7 @@ export const signupFreeAccount = action({
 
     // 8. Create Stripe customer for the new organization (enables upgrade path)
     try {
-      await ctx.runAction(internal.onboarding.createStripeCustomerForFreeUser, {
+      await (ctx as any).runAction(generatedApi.internal.onboarding.createStripeCustomerForFreeUser, {
         organizationId: result.organization.id,
         organizationName: result.organization.name,
         email,
@@ -138,13 +138,13 @@ export const signupFreeAccount = action({
     }
 
     // 9. Check if beta gating is enabled
-    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+    const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
 
     if (betaGatingEnabled) {
       // Send beta access request notifications (async)
       await Promise.all([
         // Notify sales team about beta request
-        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
           email,
           firstName: args.firstName,
           lastName: args.lastName,
@@ -153,7 +153,7 @@ export const signupFreeAccount = action({
           referralSource: "Platform signup",
         }),
         // Send confirmation to requester
-        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
           email,
           firstName: args.firstName,
         }),
@@ -161,7 +161,7 @@ export const signupFreeAccount = action({
     } else {
       // Beta gating disabled - send normal welcome email
       // 10. Send welcome email (async, don't wait)
-      await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+      await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.welcomeEmail.sendWelcomeEmail, {
         email,
         firstName: args.firstName,
         organizationName: result.organization.name,
@@ -169,7 +169,7 @@ export const signupFreeAccount = action({
       });
 
       // 11. Send sales notification (async, don't wait)
-      await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+      await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
         eventType: "free_signup",
         user: {
           email,
@@ -224,7 +224,7 @@ export const createStripeCustomerForFreeUser = internalAction({
     });
 
     // Store customer ID in organization
-    await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+    await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
       organizationId: args.organizationId,
       stripeCustomerId: customer.id,
     });
@@ -274,7 +274,7 @@ export const createFreeAccountInternal = internalMutation({
     }
 
     // 2. Check if beta gating is enabled
-    const betaGatingEnabled: boolean = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+    const betaGatingEnabled: boolean = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
 
     // 3. Create user
     const userId: Id<"users"> = await ctx.db.insert("users", {
@@ -427,7 +427,7 @@ export const createFreeAccountInternal = internalMutation({
     });
 
     // 13. Record signup event for growth tracking
-    await ctx.scheduler.runAfter(0, internal.growthTracking.recordSignupEvent, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.growthTracking.recordSignupEvent, {
       userId,
       organizationId,
       email: args.email,

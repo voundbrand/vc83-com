@@ -9,9 +9,10 @@
  */
 
 import { action, internalQuery } from "../_generated/server";
-import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import Stripe from "stripe";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // Initialize Stripe with API key from environment
 const getStripe = () => {
@@ -69,10 +70,10 @@ export const createPlatformCheckoutSession = action({
     const stripe = getStripe();
 
     // Get organization and existing billing details
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     // Query for stored billing details
-    const billingDetails = await ctx.runQuery(internal.stripe.platformCheckout.getOrganizationBillingDetails, {
+    const billingDetails = await (ctx as any).runQuery(generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails, {
       organizationId: args.organizationId,
     });
 
@@ -130,7 +131,7 @@ export const createPlatformCheckoutSession = action({
         // Create new customer if verification fails
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
-        await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
           organizationId: args.organizationId,
           stripeCustomerId: customer.id,
         });
@@ -139,7 +140,7 @@ export const createPlatformCheckoutSession = action({
       // Create new customer with billing address if available
       const customer = await stripe.customers.create(customerData);
       customerId = customer.id;
-      await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
         organizationId: args.organizationId,
         stripeCustomerId: customer.id,
       });
@@ -301,7 +302,7 @@ export const managePlatformSubscription = action({
     const stripe = getStripe();
 
     // Get organization with subscription info
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     if (!org) {
       return {
@@ -312,7 +313,7 @@ export const managePlatformSubscription = action({
     }
 
     // Get current plan tier from license (single source of truth)
-    const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+    const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
     const currentTier = license.planTier || "free";
     const currentTierOrder = TIER_ORDER[currentTier] ?? 0;
     const newTierOrder = TIER_ORDER[args.newTier] ?? 0;
@@ -556,7 +557,7 @@ export const cancelPendingDowngrade = action({
   handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
     const stripe = getStripe();
 
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     if (!org?.stripeSubscriptionId) {
       return {
@@ -582,8 +583,8 @@ export const cancelPendingDowngrade = action({
 
       // Send sales team notification (non-blocking)
       try {
-        const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
-        await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+        const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+        await (ctx as any).runAction(generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
           eventType: "pending_change_reverted" as const,
           user: { email: org.email || "", firstName: org.name || "", lastName: "" },
           organization: { name: org.name || "Unknown", planTier: license?.planTier || "pro" },
@@ -607,8 +608,8 @@ export const cancelPendingDowngrade = action({
 
       // Send sales team notification (non-blocking)
       try {
-        const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
-        await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+        const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+        await (ctx as any).runAction(generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
           eventType: "pending_change_reverted" as const,
           user: { email: org.email || "", firstName: org.name || "", lastName: "" },
           organization: { name: org.name || "Unknown", planTier: license?.planTier || "pro" },
@@ -653,10 +654,10 @@ export const getSubscriptionStatus = action({
   }> => {
     const stripe = getStripe();
 
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     // Get current plan tier from license (single source of truth)
-    const license = await ctx.runQuery(api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+    const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
 
     if (!org?.stripeSubscriptionId) {
       return {

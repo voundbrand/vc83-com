@@ -15,10 +15,11 @@
  */
 
 import { internalAction, internalMutation, ActionCtx } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../../_generated/dataModel";
 import Stripe from "stripe";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * PROCESS STRIPE INVOICE WEBHOOK
@@ -47,8 +48,8 @@ export const processStripeInvoiceWebhook = internalAction({
       const stripeInvoiceId = invoice.id;
 
       // Find our invoice by Stripe ID
-      const ourInvoice = await ctx.runQuery(
-        internal.api.v1.invoicesInternal.findInvoiceByStripeId,
+      const ourInvoice = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.invoicesInternal.findInvoiceByStripeId,
         { stripeInvoiceId }
       );
 
@@ -94,7 +95,7 @@ export const processStripeInvoiceWebhook = internalAction({
       }
 
       // Log successful processing
-      await ctx.runMutation(internal.api.v1.stripeInvoiceWebhooks.logWebhookEvent, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.stripeInvoiceWebhooks.logWebhookEvent, {
         eventId: args.eventId,
         eventType: args.eventType,
         invoiceId: ourInvoice._id,
@@ -121,7 +122,7 @@ export const processStripeInvoiceWebhook = internalAction({
       );
 
       // Log the failure
-      await ctx.runMutation(internal.api.v1.stripeInvoiceWebhooks.logWebhookEvent, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.stripeInvoiceWebhooks.logWebhookEvent, {
         eventId: args.eventId,
         eventType: args.eventType,
         invoiceId: null,
@@ -144,7 +145,7 @@ async function handleInvoiceCreated(ctx: ActionCtx, invoiceId: Id<"objects">, st
   console.log(`📝 Invoice created in Stripe: ${stripeInvoice.id}`);
 
   // Update our invoice with Stripe URLs
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     stripeStatus: "draft",
     stripeHostedUrl: stripeInvoice.hosted_invoice_url ?? undefined,
@@ -157,7 +158,7 @@ async function handleInvoiceFinalized(ctx: ActionCtx, invoiceId: Id<"objects">, 
   console.log(`✅ Invoice finalized in Stripe: ${stripeInvoice.id}`);
 
   // Update status to sealed and add URLs
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     status: "sealed",
     stripeStatus: "open",
@@ -172,7 +173,7 @@ async function handleInvoicePaid(ctx: ActionCtx, invoiceId: Id<"objects">, strip
   );
 
   // Update status to paid
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     status: "paid",
     stripeStatus: "paid",
@@ -189,7 +190,7 @@ async function handleInvoicePaymentFailed(ctx: ActionCtx, invoiceId: Id<"objects
   console.log(`❌ Invoice payment failed: ${stripeInvoice.id}`);
 
   // Update status to indicate payment failure
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     stripeStatus: "open",
     paymentFailureReason: stripeInvoice.last_finalization_error?.message || "Payment failed",
@@ -202,7 +203,7 @@ async function handleInvoiceActionRequired(ctx: ActionCtx, invoiceId: Id<"object
   console.log(`⚠️ Invoice requires action: ${stripeInvoice.id}`);
 
   // Update status to indicate action required
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     stripeStatus: "open",
     actionRequired: true,
@@ -215,7 +216,7 @@ async function handleInvoiceVoided(ctx: ActionCtx, invoiceId: Id<"objects">, str
   console.log(`🚫 Invoice voided: ${stripeInvoice.id}`);
 
   // Update status to voided
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     status: "void",
     stripeStatus: "void",
@@ -227,7 +228,7 @@ async function handleInvoiceUncollectible(ctx: ActionCtx, invoiceId: Id<"objects
   console.log(`💸 Invoice marked uncollectible: ${stripeInvoice.id}`);
 
   // Update status
-  await ctx.runMutation(internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
+  await (ctx as any).runMutation(generatedApi.internal.api.v1.invoicesInternal.updateInvoiceStripeStatus, {
     invoiceId,
     stripeStatus: "uncollectible",
   });

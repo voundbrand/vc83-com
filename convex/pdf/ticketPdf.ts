@@ -1,7 +1,8 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
 import type { Id, Doc } from "../_generated/dataModel";
+
+const generatedApi: any = require("../_generated/api");
 
 export type PDFAttachment = {
     filename: string;
@@ -34,7 +35,7 @@ export const generateTicketPDF = action({
             }
 
             // 1. Get ticket data
-            const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+            const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
                 ticketId: args.ticketId,
             }) as Doc<"objects"> | null;
 
@@ -44,7 +45,7 @@ export const generateTicketPDF = action({
 
             // 2. Get product/event data
             const productId = ticket.customProperties?.productId as Id<"objects">;
-            const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+            const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
                 productId,
             }) as Doc<"objects"> | null;
 
@@ -59,7 +60,7 @@ export const generateTicketPDF = action({
             let txProps: Record<string, unknown> = {};
 
             if (transactionId) {
-                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+                transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
                     transactionId,
                 });
                 if (transaction && transaction.type === "transaction") {
@@ -69,8 +70,8 @@ export const generateTicketPDF = action({
             }
 
             // 3. Get checkout session for order details (fallback and template resolution)
-            const session = await ctx.runQuery(
-                internal.checkoutSessionOntology.getCheckoutSessionInternal,
+            const session = await (ctx as any).runQuery(
+                generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
                 {
                     checkoutSessionId: args.checkoutSessionId,
                 }
@@ -109,7 +110,7 @@ export const generateTicketPDF = action({
             };
 
             if (!organizationBranding.primaryColor) {
-                const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                const brandingSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
                     organizationId,
                     subtype: "branding",
                 });
@@ -134,7 +135,7 @@ export const generateTicketPDF = action({
                 (session.customProperties?.domainConfigId as Id<"objects"> | undefined);
 
             if (domainConfigId) {
-                const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+                const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
                     configId: domainConfigId,
                 });
 
@@ -154,13 +155,13 @@ export const generateTicketPDF = action({
             let sellerContact: Doc<"objects"> | null = null;
 
             if (!txSeller?.email) {
-                sellerOrg = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationProfile,
+                sellerOrg = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationProfile,
                     { organizationId }
                 ) as Doc<"objects"> | null;
 
-                sellerContact = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationContact,
+                sellerContact = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationContact,
                     { organizationId }
                 ) as Doc<"objects"> | null;
             }
@@ -169,7 +170,7 @@ export const generateTicketPDF = action({
             let ticketLanguage = (txProps.language as string) || "en";
 
             if (!txProps.language) {
-                const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                const localeSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
                     organizationId,
                     subtype: "locale",
                 });
@@ -446,7 +447,7 @@ export const generateTicketPDF = action({
             });
 
             // Resolve ticket template using new Template Set resolver
-            const ticketTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+            const ticketTemplateId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
                 organizationId: organizationId,
                 templateType: "ticket",
                 context: templateContext,
@@ -462,7 +463,7 @@ export const generateTicketPDF = action({
             }
 
             // Get template details (templateCode, etc.)
-            const template = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            const template = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
                 templateId: ticketTemplateId,
             });
 
@@ -529,7 +530,7 @@ export const generateTicketPDFFromTicket = action({
             }
 
             // 1. Get ticket data
-            const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+            const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
                 ticketId: args.ticketId,
             }) as Doc<"objects"> | null;
 
@@ -546,7 +547,7 @@ export const generateTicketPDFFromTicket = action({
                 throw new Error("Ticket has no associated product");
             }
 
-            const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+            const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
                 productId,
             }) as Doc<"objects"> | null;
 
@@ -560,7 +561,7 @@ export const generateTicketPDFFromTicket = action({
             let txProps: Record<string, unknown> = {};
 
             if (transactionId) {
-                transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+                transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
                     transactionId,
                 });
                 if (transaction && transaction.type === "transaction") {
@@ -593,7 +594,7 @@ export const generateTicketPDFFromTicket = action({
             };
 
             if (domainConfigId) {
-                const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+                const domainConfig = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.getDomainConfigInternal, {
                     configId: domainConfigId,
                 });
 
@@ -613,13 +614,13 @@ export const generateTicketPDFFromTicket = action({
             let sellerContact: Doc<"objects"> | null = null;
 
             if (!txSeller?.email) {
-                sellerOrg = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationProfile,
+                sellerOrg = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationProfile,
                     { organizationId }
                 ) as Doc<"objects"> | null;
 
-                sellerContact = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationContact,
+                sellerContact = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationContact,
                     { organizationId }
                 ) as Doc<"objects"> | null;
             }
@@ -628,7 +629,7 @@ export const generateTicketPDFFromTicket = action({
             let ticketLanguage = (txProps.language as string) || "en";
 
             if (!txProps.language) {
-                const localeSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                const localeSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
                     organizationId,
                     subtype: "locale",
                 });
@@ -649,7 +650,7 @@ export const generateTicketPDFFromTicket = action({
             };
 
             if (!organizationBranding.primaryColor) {
-                const brandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                const brandingSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
                     organizationId,
                     subtype: "branding",
                 });
@@ -917,7 +918,7 @@ export const generateTicketPDFFromTicket = action({
 
             if (!templateCode) {
                 // Try organization default template
-                const templateSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+                const templateSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
                     organizationId,
                     subtype: "templates",
                 });
@@ -954,7 +955,7 @@ export const generateTicketPDFFromTicket = action({
 
             // 10. Store PDF URL and template code on ticket
             const pdfUrl = result.download_url!;
-            await ctx.runMutation(internal.ticketOntology.updateTicketPDF, {
+            await (ctx as any).runMutation(generatedApi.internal.ticketOntology.updateTicketPDF, {
                 ticketId: args.ticketId,
                 pdfUrl,
                 templateCode, // Store which template was used
@@ -985,10 +986,10 @@ export const regenerateTicketPDF = action({
     handler: async (ctx, args): Promise<PDFAttachment | null> => {
         // Use the internal generateTicketPDFFromTicket to generate fresh PDF
         // Note: We need to call the action from this file, but we can't call exported actions directly in the same file easily via `api`.
-        // However, since we are in the same file, we can just call the handler if we extract it, or use `ctx.runAction` with `api.pdf.ticketPdf.generateTicketPDFFromTicket`
-        // But `api` structure depends on file structure. `convex/pdf/ticketPdf.ts` -> `api.pdf.ticketPdf`
+        // However, since we are in the same file, we can just call the handler if we extract it, or use `ctx.runAction` with `generatedApi.api.pdf.ticketPdf.generateTicketPDFFromTicket`
+        // But `api` structure depends on file structure. `convex/pdf/ticketPdf.ts` -> `generatedApi.api.pdf.ticketPdf`
 
-        const pdfUrl = await ctx.runAction(api.pdf.ticketPdf.generateTicketPDFFromTicket, {
+        const pdfUrl = await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.generateTicketPDFFromTicket, {
             ticketId: args.ticketId,
             templateCode: args.templateCode,
         });
@@ -1029,7 +1030,7 @@ export const getTicketIdsFromCheckout = action({
     handler: async (ctx, args): Promise<Id<"objects">[]> => {
         try {
             // 1. Get checkout session
-            const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+            const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
                 checkoutSessionId: args.checkoutSessionId,
             }) as Doc<"objects"> | null;
 
@@ -1049,7 +1050,7 @@ export const getTicketIdsFromCheckout = action({
             const ticketIds: Id<"objects">[] = [];
 
             for (const purchaseItemId of purchaseItemIds) {
-                const purchaseItem = await ctx.runQuery(internal.purchaseOntology.getPurchaseItemInternal, {
+                const purchaseItem = await (ctx as any).runQuery(generatedApi.internal.purchaseOntology.getPurchaseItemInternal, {
                     purchaseItemId,
                 }) as Doc<"objects"> | null;
 
@@ -1085,7 +1086,7 @@ export const generateEventAttendeeListPDF = action({
             const { jsPDF } = await import("jspdf");
 
             // 1. Get event data
-            const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+            const event = await (ctx as any).runQuery(generatedApi.internal.eventOntology.getEventInternal, {
                 eventId: args.eventId,
             }) as Doc<"objects"> | null;
 
@@ -1094,7 +1095,7 @@ export const generateEventAttendeeListPDF = action({
             }
 
             // 2. Get attendees
-            const attendees = await ctx.runQuery(api.eventOntology.getEventAttendees, {
+            const attendees = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEventAttendees, {
                 eventId: args.eventId,
             });
 
@@ -1259,7 +1260,7 @@ export const generateEventAttendeeListCSV = action({
     handler: async (ctx, args): Promise<PDFAttachment | null> => {
         try {
             // 1. Get event data
-            const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+            const event = await (ctx as any).runQuery(generatedApi.internal.eventOntology.getEventInternal, {
                 eventId: args.eventId,
             }) as Doc<"objects"> | null;
 
@@ -1268,7 +1269,7 @@ export const generateEventAttendeeListCSV = action({
             }
 
             // 2. Get attendees
-            const attendees = await ctx.runQuery(api.eventOntology.getEventAttendees, {
+            const attendees = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEventAttendees, {
                 eventId: args.eventId,
             });
 

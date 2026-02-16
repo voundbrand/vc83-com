@@ -13,7 +13,7 @@
  */
 
 import { internalAction, ActionCtx } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
@@ -114,7 +114,7 @@ export const processAIWebhook = internalAction({
           if (checkoutType === "platform-tier" || checkoutType === "token-pack") {
             // Route to platform webhook handler for platform checkouts
             console.log(`[AI Webhooks] Routing ${checkoutType} checkout to platform handler`);
-            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+            await (ctx as any).runAction(generatedApi.internal.stripe.platformWebhooks.processPlatformWebhook, {
               eventType: args.eventType,
               eventId: args.eventId,
               eventData: args.eventData,
@@ -130,7 +130,7 @@ export const processAIWebhook = internalAction({
           // Route based on subscription type in metadata
           if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
             console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.created to platform handler`);
-            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+            await (ctx as any).runAction(generatedApi.internal.stripe.platformWebhooks.processPlatformWebhook, {
               eventType: args.eventType,
               eventId: args.eventId,
               eventData: args.eventData,
@@ -145,7 +145,7 @@ export const processAIWebhook = internalAction({
           // Route based on subscription type in metadata
           if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
             console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.updated to platform handler`);
-            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+            await (ctx as any).runAction(generatedApi.internal.stripe.platformWebhooks.processPlatformWebhook, {
               eventType: args.eventType,
               eventId: args.eventId,
               eventData: args.eventData,
@@ -160,7 +160,7 @@ export const processAIWebhook = internalAction({
           // Route based on subscription type in metadata
           if (data.metadata?.type === "platform-tier" || data.metadata?.type === "token-pack") {
             console.log(`[AI Webhooks] Routing ${data.metadata.type} subscription.deleted to platform handler`);
-            await ctx.runAction(internal.stripe.platformWebhooks.processPlatformWebhook, {
+            await (ctx as any).runAction(generatedApi.internal.stripe.platformWebhooks.processPlatformWebhook, {
               eventType: args.eventType,
               eventId: args.eventId,
               eventData: args.eventData,
@@ -219,7 +219,7 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
   console.log(`[AI Webhooks] Creating subscription for org ${organizationId}: ${tier} tier, ${includedTokensTotal} tokens`);
 
   // Create subscription record in database
-  await ctx.runMutation(internal.ai.billing.upsertSubscriptionFromStripeInternal, {
+  await (ctx as any).runMutation(generatedApi.internal.ai.billing.upsertSubscriptionFromStripeInternal, {
     organizationId: organizationId,
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
@@ -264,7 +264,7 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
   console.log(`[AI Webhooks] Updating subscription for org ${organizationId}: ${tier} tier, ${includedTokensTotal} tokens`);
 
   // Update subscription record
-  await ctx.runMutation(internal.ai.billing.upsertSubscriptionFromStripeInternal, {
+  await (ctx as any).runMutation(generatedApi.internal.ai.billing.upsertSubscriptionFromStripeInternal, {
     organizationId: organizationId,
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
@@ -299,7 +299,7 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
   console.log(`[AI Webhooks] Subscription deleted for org ${organizationId}`);
 
   // Mark subscription as canceled
-  await ctx.runMutation(internal.ai.billing.updateSubscriptionStatusInternal, {
+  await (ctx as any).runMutation(generatedApi.internal.ai.billing.updateSubscriptionStatusInternal, {
     organizationId: organizationId,
     status: "canceled" as const,
   });
@@ -390,7 +390,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
 
   // Sync billing details to organization_legal object
   try {
-    await ctx.runMutation(internal.ai.billing.syncBillingDetailsInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.ai.billing.syncBillingDetailsInternal, {
       organizationId,
       isB2B,
       billingEmail: customerEmail,
@@ -418,16 +418,16 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   // Send confirmation emails
   try {
     // Get organization details for user language preference
-    const org = await ctx.runQuery(
+    const org = await (ctx as any).runQuery(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      internal.ai.billing.getOrganizationInternal as any,
+      generatedApi.internal.ai.billing.getOrganizationInternal as any,
       { organizationId }
     ) as { name?: string; language?: string } | null;
 
     // Send customer confirmation email (in their language)
     const toEmail = customerEmail || "";
     const orgName = org?.name || customerName || customerEmail || "Customer";
-    await ctx.runAction(internal.emailService.sendAISubscriptionConfirmation, {
+    await (ctx as any).runAction(generatedApi.internal.emailService.sendAISubscriptionConfirmation, {
       to: toEmail,
       organizationName: orgName,
       tier,
@@ -440,7 +440,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
     });
 
     // Send sales team notification
-    await ctx.runAction(internal.emailService.sendSalesNotification, {
+    await (ctx as any).runAction(generatedApi.internal.emailService.sendSalesNotification, {
       customerEmail: toEmail,
       customerName: customerName || toEmail,
       organizationName: orgName,

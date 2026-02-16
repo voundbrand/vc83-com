@@ -16,7 +16,7 @@ Each client should have a folder in the media library with these documents:
 
 ```
 [Client Name]/
-  01-hero-profile.md        ← Who is the customer (Layer 3 hero)
+  01-hero-profile.md        ← Who is the customer (`Business L4` hero)
   02-guide-profile.md       ← Brand voice, empathy, authority
   03-plan-and-cta.md        ← Process plan, promises, CTAs
   04-products-services.md   ← What the client offers (details, pricing)
@@ -110,7 +110,7 @@ Social proof the agent can reference:
 
 ## How the Agent Uses the Knowledge Base
 
-In **customer mode** (Layer 3), the agent:
+In **customer mode** (`Business L4` interaction context), the agent:
 1. Reads ALL documents in the client's KB folder
 2. Speaks in the voice defined in the Guide Profile
 3. Answers questions using Products/Services, FAQ, and Business Info

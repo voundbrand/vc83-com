@@ -7,7 +7,7 @@
 
 import { action, query, internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { Id } from "../../_generated/dataModel";
 
 // ============================================================================
@@ -339,7 +339,7 @@ export const addExternalDomain = action({
   }> => {
     // Verify session
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = await ctx.runQuery(internal.auth.getSessionById as any, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById as any, {
       sessionId: args.sessionId,
     }) as { userId: Id<"users">; organizationId: Id<"organizations"> } | null;
 
@@ -384,8 +384,8 @@ export const addExternalDomain = action({
 
     // Create domain config in Convex
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await ctx.runMutation(
-      internal.api.v1.externalDomains.createDomainConfigInternal as any,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.externalDomains.createDomainConfigInternal as any,
       {
         organizationId: args.organizationId,
         userId: session.userId,
@@ -425,8 +425,8 @@ export const checkDomainVerification = action({
   handler: async (ctx, args) => {
     // Get domain config
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config = await ctx.runQuery(
-      internal.api.v1.domainLookupInternal.getById as any,
+    const config = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.domainLookupInternal.getById as any,
       { domainConfigId: args.domainConfigId }
     ) as { customProperties?: { domainName?: string }; organizationId: Id<"organizations"> } | null;
 
@@ -473,8 +473,8 @@ export const checkDomainVerification = action({
     const verified = vercelData.verified && !misconfigured;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await ctx.runMutation(
-      internal.api.v1.externalDomains.updateDomainVerificationInternal as any,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.externalDomains.updateDomainVerificationInternal as any,
       {
         domainConfigId: args.domainConfigId,
         verified,
@@ -504,8 +504,8 @@ export const removeExternalDomain = action({
   handler: async (ctx, args) => {
     // Get domain config
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config = await ctx.runQuery(
-      internal.api.v1.domainLookupInternal.getById as any,
+    const config = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.domainLookupInternal.getById as any,
       { domainConfigId: args.domainConfigId }
     ) as { customProperties?: { domainName?: string }; organizationId: Id<"organizations"> } | null;
 
@@ -515,7 +515,7 @@ export const removeExternalDomain = action({
 
     // Verify session has access to this org
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = await ctx.runQuery(internal.auth.getSessionById as any, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById as any, {
       sessionId: args.sessionId,
     }) as { organizationId: Id<"organizations"> } | null;
 
@@ -542,8 +542,8 @@ export const removeExternalDomain = action({
 
     // Delete domain config from Convex
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await ctx.runMutation(
-      internal.api.v1.externalDomains.deleteDomainConfigInternal as any,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.externalDomains.deleteDomainConfigInternal as any,
       { domainConfigId: args.domainConfigId }
     );
 

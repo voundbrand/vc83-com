@@ -7,8 +7,9 @@
 import { action } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -123,7 +124,7 @@ export const executeManageForms = action({
       userId = args.userId;
     } else if (args.sessionId) {
       // Get from session (e.g., from web frontend)
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -219,7 +220,7 @@ async function listForms(
   formType?: string,
   status?: string
 ) {
-  const forms = await ctx.runQuery(internal.formsOntology.internalGetForms, {
+  const forms = await (ctx as any).runQuery(generatedApi.internal.formsOntology.internalGetForms, {
     organizationId,
     subtype: formType && formType !== "all" ? formType : undefined,
     status: status && status !== "all" ? status : undefined,
@@ -278,12 +279,12 @@ async function getFormStatistics(
   includeRatings?: boolean
 ): Promise<{ success: boolean; action: string; data: FormStatistics; message: string }> {
   // Get the form
-  const form = await ctx.runQuery(internal.formsOntology.internalGetForm, {
+  const form = await (ctx as any).runQuery(generatedApi.internal.formsOntology.internalGetForm, {
     formId: formId as Id<"objects">,
   });
 
   // Get all responses
-  const responses = await ctx.runQuery(internal.formsOntology.internalGetFormResponses, {
+  const responses = await (ctx as any).runQuery(generatedApi.internal.formsOntology.internalGetFormResponses, {
     formId: formId as Id<"objects">,
   });
 
@@ -376,11 +377,11 @@ async function getFormResponsesData(
   sessionId: string,
   formId: string
 ) {
-  const form = await ctx.runQuery(internal.formsOntology.internalGetForm, {
+  const form = await (ctx as any).runQuery(generatedApi.internal.formsOntology.internalGetForm, {
     formId: formId as Id<"objects">,
   });
 
-  const responses = await ctx.runQuery(internal.formsOntology.internalGetFormResponses, {
+  const responses = await (ctx as any).runQuery(generatedApi.internal.formsOntology.internalGetFormResponses, {
     formId: formId as Id<"objects">,
   });
 
@@ -424,13 +425,13 @@ async function duplicateForm(
   // Use internal mutation if no valid sessionId (AI tools)
   let result;
   if (sessionId === "ai-internal-session") {
-    result = await ctx.runMutation(internal.formsOntology.internalDuplicateForm, {
+    result = await (ctx as any).runMutation(generatedApi.internal.formsOntology.internalDuplicateForm, {
       userId,
       organizationId,
       formId: formId as Id<"objects">,
     });
   } else {
-    result = await ctx.runMutation(api.formsOntology.duplicateForm, {
+    result = await (ctx as any).runMutation(generatedApi.api.formsOntology.duplicateForm, {
       sessionId,
       formId: formId as Id<"objects">,
     });
@@ -465,7 +466,7 @@ async function updateForm(
 ) {
   // Use internal mutation if no valid sessionId (AI tools)
   if (sessionId === "ai-internal-session") {
-    await ctx.runMutation(internal.formsOntology.internalUpdateForm, {
+    await (ctx as any).runMutation(generatedApi.internal.formsOntology.internalUpdateForm, {
       userId,
       organizationId,
       formId: formId as Id<"objects">,
@@ -474,7 +475,7 @@ async function updateForm(
   } else {
     // For web UI with session - we'd need to add a regular updateForm mutation
     // For now, just use the internal one since we have userId
-    await ctx.runMutation(internal.formsOntology.internalUpdateForm, {
+    await (ctx as any).runMutation(generatedApi.internal.formsOntology.internalUpdateForm, {
       userId,
       organizationId,
       formId: formId as Id<"objects">,

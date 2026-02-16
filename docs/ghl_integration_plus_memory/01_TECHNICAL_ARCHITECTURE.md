@@ -971,5 +971,4 @@ describe("GHL Integration E2E", () => {
 
 ---
 
-**Next:** [02_MEMORY_ENGINE_DESIGN.md](./02_MEMORY_ENGINE_DESIGN.md) — Detailed memory layer specifications
-
+**Next:** [MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md) — Detailed memory layer specifications

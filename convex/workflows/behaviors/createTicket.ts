@@ -19,7 +19,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 export const executeCreateTicket = action({
@@ -135,7 +135,7 @@ export const executeCreateTicket = action({
         };
       }
 
-      ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+      ticketId = await (ctx as any).runMutation(generatedApi.internal.ticketOntology.createTicketInternal, {
         organizationId: args.organizationId,
         productId: realProductId as Id<"objects">,
         eventId: context.eventId as Id<"objects">,

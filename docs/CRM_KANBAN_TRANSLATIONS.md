@@ -95,4 +95,4 @@ for (const trans of translations) {
 ## See Also
 - [Translation System Architecture](./TRANSLATION_SYSTEM.md)
 - [Theme System Guide](./THEME_SYSTEM.md)
-- [CRM Kanban Implementation Plan](./CRM_KANBAN_IMPLEMENTATION_PLAN.md)
+- [CRM Kanban Implementation Plan](./reference_docs/CRM_KANBAN_IMPLEMENTATION_PLAN.md)

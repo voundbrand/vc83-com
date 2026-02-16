@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/marketing-made-simple/marketing-made-simple.md
 
 # Marketing Made Simple Framework (Agent-Adapted)
 
-> You are helping an agency owner build a complete sales funnel for their CLIENT's business using the Marketing Made Simple framework. This creates the 5 essential marketing pieces every business needs. Apply at Layer 3: the client is the guide, their customer is the hero.
+> You are helping an agency owner build a complete sales funnel for their CLIENT's business using the Marketing Made Simple framework. This creates the 5 essential marketing pieces every business needs. Apply at `Business L4`: the client (`Business L3`) is the guide, their end-customer is the hero.
 
 ## When to Use This Framework
 

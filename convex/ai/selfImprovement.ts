@@ -8,8 +8,9 @@
  */
 
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { internal } from "../_generated/api";
 import { v } from "convex/values";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // PHASE 1: OBSERVE — Track conversation outcomes
@@ -28,8 +29,8 @@ export const recordConversationMetrics = internalAction({
   },
   handler: async (ctx, args) => {
     // 1. Load session messages
-    const messages = await ctx.runQuery(
-      internal.ai.agentSessions.getSessionMessages,
+    const messages = await (ctx as any).runQuery(
+      generatedApi.internal.ai.agentSessions.getSessionMessages,
       { sessionId: args.sessionId }
     );
 
@@ -125,8 +126,8 @@ export const recordConversationMetrics = internalAction({
     }
 
     // 9. Store metrics
-    await ctx.runMutation(
-      internal.ai.selfImprovement.storeConversationMetrics,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.selfImprovement.storeConversationMetrics,
       {
         organizationId: args.organizationId,
         agentId: args.agentId,
@@ -147,8 +148,8 @@ export const recordConversationMetrics = internalAction({
     );
 
     // Mark session as metrics recorded
-    await ctx.runMutation(
-      internal.ai.selfImprovement.markSessionMetricsRecorded,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.selfImprovement.markSessionMetricsRecorded,
       { sessionId: args.sessionId }
     );
   },
@@ -202,8 +203,8 @@ export const dailyReflection = internalAction({
   },
   handler: async (ctx, args) => {
     // 1. Load agent + soul
-    const agent = await ctx.runQuery(
-      internal.agentOntology.getAgentInternal,
+    const agent = await (ctx as any).runQuery(
+      generatedApi.internal.agentOntology.getAgentInternal,
       { agentId: args.agentId }
     );
     if (!agent) return;
@@ -212,8 +213,8 @@ export const dailyReflection = internalAction({
 
     // 2. Load metrics from the last 7 days
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const metrics = await ctx.runQuery(
-      internal.ai.selfImprovement.getMetricsSince,
+    const metrics = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getMetricsSince,
       { agentId: args.agentId, since: weekAgo }
     );
 
@@ -222,8 +223,8 @@ export const dailyReflection = internalAction({
     }
 
     // 3. Load proposal feedback history
-    const feedback = await ctx.runQuery(
-      internal.ai.selfImprovement.getRecentFeedback,
+    const feedback = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getRecentFeedback,
       { agentId: args.agentId, limit: 10 }
     );
 
@@ -325,8 +326,8 @@ Output ONLY valid JSON.`;
       if (parsed.selfScore) {
         const latestMetric = metrics[metrics.length - 1];
         if (latestMetric) {
-          await ctx.runMutation(
-            internal.ai.selfImprovement.updateMetricSelfScore,
+          await (ctx as any).runMutation(
+            generatedApi.internal.ai.selfImprovement.updateMetricSelfScore,
             {
               metricId: latestMetric._id,
               selfScore: parsed.selfScore,
@@ -343,8 +344,8 @@ Output ONLY valid JSON.`;
       );
 
       for (const p of proposals) {
-        await ctx.runMutation(
-          internal.ai.soulEvolution.createProposal,
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.soulEvolution.createProposal,
           {
             organizationId: args.organizationId,
             agentId: args.agentId,
@@ -380,13 +381,13 @@ Output ONLY valid JSON.`;
 export const runAllDailyReflections = internalAction({
   args: {},
   handler: async (ctx) => {
-    const orgs = await ctx.runQuery(
-      internal.ai.selfImprovement.getOrgsWithActiveAgents
+    const orgs = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getOrgsWithActiveAgents
     );
 
     for (const org of (orgs || [])) {
       await ctx.scheduler.runAfter(0,
-        internal.ai.selfImprovement.dailyReflection,
+        generatedApi.internal.ai.selfImprovement.dailyReflection,
         {
           agentId: org.agentId,
           organizationId: org.organizationId,
@@ -404,14 +405,14 @@ export const detectIdleSessions = internalAction({
   handler: async (ctx) => {
     const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
 
-    const idleSessions = await ctx.runQuery(
-      internal.ai.selfImprovement.getNewlyIdleSessions,
+    const idleSessions = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getNewlyIdleSessions,
       { idleSince: thirtyMinAgo }
     );
 
     for (const session of (idleSessions || [])) {
       await ctx.scheduler.runAfter(0,
-        internal.ai.selfImprovement.recordConversationMetrics,
+        generatedApi.internal.ai.selfImprovement.recordConversationMetrics,
         {
           sessionId: session._id,
           organizationId: session.organizationId,

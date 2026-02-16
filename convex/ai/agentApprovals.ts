@@ -17,12 +17,13 @@
 
 import { query, mutation, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { TOOL_REGISTRY } from "./tools/registry";
 import type { ToolExecutionContext } from "./tools/registry";
 import type { Id } from "../_generated/dataModel";
 import { getToolCreditCost } from "../credits/index";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // CREATE APPROVAL (Internal — called by execution pipeline)
@@ -172,7 +173,7 @@ export const approveAction = mutation({
     });
 
     // Schedule execution
-    await ctx.scheduler.runAfter(0, internal.ai.agentApprovals.executeApprovedAction, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.ai.agentApprovals.executeApprovedAction, {
       approvalId: args.approvalId,
     });
 
@@ -248,7 +249,7 @@ export const executeApprovedAction = internalAction({
     approvalId: v.id("objects"),
   },
   handler: async (ctx, args) => {
-    const approval = await ctx.runQuery(internal.ai.agentApprovals.getApprovalInternal, {
+    const approval = await (ctx as any).runQuery(generatedApi.internal.ai.agentApprovals.getApprovalInternal, {
       approvalId: args.approvalId,
     });
 
@@ -270,13 +271,13 @@ export const executeApprovedAction = internalAction({
     try {
       // Pre-flight credit check
       const toolCreditCost = getToolCreditCost(toolName);
-      const creditCheck = await ctx.runQuery(
-        internal.credits.index.checkCreditsInternalQuery,
+      const creditCheck = await (ctx as any).runQuery(
+        generatedApi.internal.credits.index.checkCreditsInternalQuery,
         { organizationId: approval.organizationId, requiredAmount: toolCreditCost }
       ) as { hasCredits: boolean; totalCredits: number };
 
       if (!creditCheck.hasCredits) {
-        await ctx.runMutation(internal.ai.agentApprovals.markExecuted, {
+        await (ctx as any).runMutation(generatedApi.internal.ai.agentApprovals.markExecuted, {
           approvalId: args.approvalId,
           success: false,
           result: `CREDITS_EXHAUSTED: Not enough credits (have ${creditCheck.totalCredits}, need ${toolCreditCost})`,
@@ -297,7 +298,7 @@ export const executeApprovedAction = internalAction({
 
       // Deduct credits for successful execution
       try {
-        await ctx.runMutation(internal.credits.index.deductCreditsInternalMutation, {
+        await (ctx as any).runMutation(generatedApi.internal.credits.index.deductCreditsInternalMutation, {
           organizationId: approval.organizationId,
           amount: toolCreditCost,
           action: `tool_${toolName}`,
@@ -309,14 +310,14 @@ export const executeApprovedAction = internalAction({
       }
 
       // Update approval status
-      await ctx.runMutation(internal.ai.agentApprovals.markExecuted, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.agentApprovals.markExecuted, {
         approvalId: args.approvalId,
         success: true,
         result: JSON.stringify(result).slice(0, 5000),
       });
 
       // Add result message to agent session
-      await ctx.runMutation(internal.ai.agentSessions.addSessionMessage, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.agentSessions.addSessionMessage, {
         sessionId: agentSessionId,
         role: "system",
         content: `[Approved action executed] ${toolName}: Success`,
@@ -325,7 +326,7 @@ export const executeApprovedAction = internalAction({
 
       return { status: "success", result };
     } catch (e) {
-      await ctx.runMutation(internal.ai.agentApprovals.markExecuted, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.agentApprovals.markExecuted, {
         approvalId: args.approvalId,
         success: false,
         result: String(e),

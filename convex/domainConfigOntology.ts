@@ -19,8 +19,9 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
-import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+
+const generatedApi: any = require("./_generated/api");
 
 // Type for domain config custom properties
 interface DomainConfigProps {
@@ -449,7 +450,7 @@ export const verifyDomainOwnership = mutation({
     }
 
     // 5. Schedule HTTP verification (async action)
-    await ctx.scheduler.runAfter(0, internal.licensing.badgeVerification.verifyDomainBadgeInternal, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.licensing.badgeVerification.verifyDomainBadgeInternal, {
       configId: args.configId,
     });
 

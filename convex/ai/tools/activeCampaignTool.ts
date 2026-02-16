@@ -6,7 +6,8 @@
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
-import { internal } from "../../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 export const activeCampaignToolDefinition: AITool = {
   name: "activecampaign",
@@ -85,7 +86,7 @@ async function executeActiveCampaignTool(
   }
 ): Promise<unknown> {
   // First, check if ActiveCampaign is connected
-  const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+  const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
     organizationId: ctx.organizationId,
   });
 
@@ -150,7 +151,7 @@ async function executeActiveCampaignTool(
           }
         }
 
-        const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+        const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
           connectionId: connection._id,
           email: args.email,
           firstName: args.firstName,
@@ -178,7 +179,7 @@ async function executeActiveCampaignTool(
         }
 
         // First ensure contact exists
-        const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+        const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
           connectionId: connection._id,
           email: args.email,
           firstName: args.firstName,
@@ -186,7 +187,7 @@ async function executeActiveCampaignTool(
         });
 
         // Add to list
-        await ctx.runAction(internal.oauth.activecampaign.subscribeToList, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.subscribeToList, {
           connectionId: connection._id,
           contactId: contact.id,
           listId: args.listId,
@@ -211,7 +212,7 @@ async function executeActiveCampaignTool(
         }
 
         // First ensure contact exists
-        const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+        const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
           connectionId: connection._id,
           email: args.email,
           firstName: args.firstName,
@@ -219,7 +220,7 @@ async function executeActiveCampaignTool(
         });
 
         // Add tag
-        await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
           connectionId: connection._id,
           contactId: contact.id,
           tagId: args.tagId,
@@ -236,7 +237,7 @@ async function executeActiveCampaignTool(
       }
 
       case "get_lists": {
-        const lists = await ctx.runAction(internal.oauth.activecampaign.fetchLists, {
+        const lists = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.fetchLists, {
           connectionId: connection._id,
         });
 
@@ -253,7 +254,7 @@ async function executeActiveCampaignTool(
       }
 
       case "get_tags": {
-        const tags = await ctx.runAction(internal.oauth.activecampaign.fetchTags, {
+        const tags = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.fetchTags, {
           connectionId: connection._id,
         });
 
@@ -274,7 +275,7 @@ async function executeActiveCampaignTool(
           return { success: false, error: "Email is required" };
         }
 
-        const contacts = await ctx.runAction(internal.oauth.activecampaign.fetchContacts, {
+        const contacts = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.fetchContacts, {
           connectionId: connection._id,
           limit: 1,
         });

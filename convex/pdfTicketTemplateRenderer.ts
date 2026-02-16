@@ -8,7 +8,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { Id, Doc } from "./_generated/dataModel";
 
 /**
@@ -24,7 +24,7 @@ export const resolvePdfTicketTemplateCode = action({
   },
   handler: async (ctx, args): Promise<string> => {
     // 1. Get ticket
-    const ticket = await ctx.runQuery(api.ticketOntology.getTicket, {
+    const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
@@ -34,7 +34,7 @@ export const resolvePdfTicketTemplateCode = action({
 
     // First check if there's a direct template ID reference (database template)
     if (ticketProps?.pdfTemplateId) {
-      const template = await ctx.runQuery(api.templateOntology.getPdfTemplateById, {
+      const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getPdfTemplateById, {
         templateId: ticketProps.pdfTemplateId as Id<"objects">,
       });
       if (template?.customProperties?.code) {
@@ -52,7 +52,7 @@ export const resolvePdfTicketTemplateCode = action({
     // 2. Check product-level template
     const productId = ticketProps?.productId;
     if (productId) {
-      const product = await ctx.runQuery(api.productOntology.getProduct, {
+      const product = await (ctx as any).runQuery(generatedApi.api.productOntology.getProduct, {
         sessionId: args.sessionId,
         productId: productId as Id<"objects">,
       });
@@ -61,7 +61,7 @@ export const resolvePdfTicketTemplateCode = action({
 
       // First check database template reference
       if (productProps?.pdfTemplateId) {
-        const template = await ctx.runQuery(api.templateOntology.getPdfTemplateById, {
+        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getPdfTemplateById, {
           templateId: productProps.pdfTemplateId as Id<"objects">,
         });
         if (template?.customProperties?.code) {
@@ -80,7 +80,7 @@ export const resolvePdfTicketTemplateCode = action({
     // 3. Check event-level template
     const eventId = ticketProps?.eventId;
     if (eventId) {
-      const event = await ctx.runQuery(api.eventOntology.getEvent, {
+      const event = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEvent, {
         sessionId: args.sessionId,
         eventId: eventId as Id<"objects">,
       });
@@ -89,7 +89,7 @@ export const resolvePdfTicketTemplateCode = action({
 
       // First check database template reference
       if (eventProps?.pdfTemplateId) {
-        const template = await ctx.runQuery(api.templateOntology.getPdfTemplateById, {
+        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getPdfTemplateById, {
           templateId: eventProps.pdfTemplateId as Id<"objects">,
         });
         if (template?.customProperties?.code) {
@@ -169,7 +169,7 @@ export const getPdfTicketTemplateData = action({
     };
   }> => {
     // 1. Load ticket
-    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
     }) as Doc<"objects"> | null;
 
@@ -185,7 +185,7 @@ export const getPdfTicketTemplateData = action({
       throw new Error("Ticket has no associated product");
     }
 
-    const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+    const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
       productId,
     }) as Doc<"objects"> | null;
 
@@ -198,7 +198,7 @@ export const getPdfTicketTemplateData = action({
       throw new Error("Ticket has no associated event");
     }
 
-    const event = await ctx.runQuery(internal.eventOntology.getEventInternal, {
+    const event = await (ctx as any).runQuery(generatedApi.internal.eventOntology.getEventInternal, {
       eventId,
     }) as Doc<"objects"> | null;
 
@@ -207,8 +207,8 @@ export const getPdfTicketTemplateData = action({
     }
 
     // 3. Load checkout session for order details
-    const session = await ctx.runQuery(
-      internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       { checkoutSessionId: args.checkoutSessionId }
     ) as Doc<"objects"> | null;
 
@@ -218,13 +218,13 @@ export const getPdfTicketTemplateData = action({
 
     // 4. Load organization info
     const organizationId = session.organizationId;
-    const sellerOrg = await ctx.runQuery(
-      api.organizationOntology.getOrganizationProfile,
+    const sellerOrg = await (ctx as any).runQuery(
+      generatedApi.api.organizationOntology.getOrganizationProfile,
       { organizationId }
     ) as Doc<"objects"> | null;
 
-    const sellerContact = await ctx.runQuery(
-      api.organizationOntology.getOrganizationContact,
+    const sellerContact = await (ctx as any).runQuery(
+      generatedApi.api.organizationOntology.getOrganizationContact,
       { organizationId }
     ) as Doc<"objects"> | null;
 
@@ -236,7 +236,7 @@ export const getPdfTicketTemplateData = action({
     let taxRate = 0;
 
     if (transactionId) {
-      const transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+      const transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
         transactionId,
       });
 
@@ -263,7 +263,7 @@ export const getPdfTicketTemplateData = action({
     const currency = (session.customProperties?.currency as string) || "EUR";
 
     // 6. Generate QR code
-    const qrResult = await ctx.runAction(api.ticketGeneration.generateTicketQR, {
+    const qrResult = await (ctx as any).runAction(generatedApi.api.ticketGeneration.generateTicketQR, {
       ticketId: args.ticketId,
       holderEmail: ticketProps.holderEmail as string,
       holderName: ticketProps.holderName as string,
@@ -273,8 +273,8 @@ export const getPdfTicketTemplateData = action({
 
     // 7. Resolve template code
     const sessionId = `pdf_render_${Date.now()}`;
-    const templateCode: string = await ctx.runAction(
-      api.pdfTicketTemplateRenderer.resolvePdfTicketTemplateCode,
+    const templateCode: string = await (ctx as any).runAction(
+      generatedApi.api.pdfTicketTemplateRenderer.resolvePdfTicketTemplateCode,
       {
         sessionId,
         ticketId: args.ticketId,
@@ -349,8 +349,8 @@ export const generatePdfTicketWithTemplateIo = action({
   }> => {
     try {
       // 1. Get template data (includes resolution chain)
-      const templateData = await ctx.runAction(
-        api.pdfTicketTemplateRenderer.getPdfTicketTemplateData,
+      const templateData = await (ctx as any).runAction(
+        generatedApi.api.pdfTicketTemplateRenderer.getPdfTicketTemplateData,
         {
           ticketId: args.ticketId,
           checkoutSessionId: args.checkoutSessionId,

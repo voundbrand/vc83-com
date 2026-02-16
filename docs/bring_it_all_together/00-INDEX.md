@@ -76,6 +76,6 @@ Platform meters credits, agency pays 29-299 EUR/mo to us
 - [Key Insights](../000_NORTH_STAR_ICP/synthesis/KEY-INSIGHTS.md)
 - [Product Recommendations](../000_NORTH_STAR_ICP/synthesis/PRODUCT-RECOMMENDATIONS.md)
 - [New Pricing Plan](../pricing-and-trials/NEW_PRICING_PLAN.md)
-- [OpenClaw Strategy](../openclaw_idea/INDEX.md)
+- [OpenClaw Pattern Integration](../agentic_system/OPENCLAW_IDEA_INTEGRATION.md)
 - [V0 Pipeline Master Plan](../v0_to_l4yercak3_backend/MASTER_PLAN.md)
 - [System Knowledge Registry](../../convex/ai/systemKnowledge/index.ts)

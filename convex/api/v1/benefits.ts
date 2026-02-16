@@ -25,8 +25,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // BENEFITS ENDPOINTS
@@ -93,8 +94,8 @@ export const createBenefit = httpAction(async (ctx, request) => {
     }
 
     // 4. Create benefit
-    const benefitId = await ctx.runMutation(
-      internal.api.v1.benefitsInternal.createBenefitInternal,
+    const benefitId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.createBenefitInternal,
       {
         organizationId,
         subtype,
@@ -185,8 +186,8 @@ export const listBenefits = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query benefits
-    const result = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.listBenefitsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.listBenefitsInternal,
       {
         organizationId,
         subtype,
@@ -262,8 +263,8 @@ export const getBenefit = httpAction(async (ctx, request) => {
     }
 
     // 4. Query benefit
-    const benefit = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.getBenefitInternal,
+    const benefit = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.getBenefitInternal,
       {
         organizationId,
         benefitId,
@@ -362,8 +363,8 @@ export const updateBenefit = httpAction(async (ctx, request) => {
     } = body;
 
     // 5. Update benefit
-    await ctx.runMutation(
-      internal.api.v1.benefitsInternal.updateBenefitInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.updateBenefitInternal,
       {
         organizationId,
         benefitId,
@@ -458,8 +459,8 @@ export const deleteBenefit = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete benefit
-    await ctx.runMutation(
-      internal.api.v1.benefitsInternal.deleteBenefitInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.deleteBenefitInternal,
       {
         organizationId,
         benefitId,
@@ -550,8 +551,8 @@ export const createClaim = httpAction(async (ctx, request) => {
     }
 
     // 5. Create claim
-    const claimId = await ctx.runMutation(
-      internal.api.v1.benefitsInternal.createClaimInternal,
+    const claimId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.createClaimInternal,
       {
         organizationId,
         benefitId,
@@ -635,8 +636,8 @@ export const listClaims = httpAction(async (ctx, request) => {
     }
 
     // 4. Query claims
-    const claims = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.listClaimsInternal,
+    const claims = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.listClaimsInternal,
       {
         organizationId,
         benefitId,
@@ -730,8 +731,8 @@ export const createCommission = httpAction(async (ctx, request) => {
     }
 
     // 4. Create commission
-    const commissionId = await ctx.runMutation(
-      internal.api.v1.benefitsInternal.createCommissionInternal,
+    const commissionId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.createCommissionInternal,
       {
         organizationId,
         subtype,
@@ -817,8 +818,8 @@ export const listCommissions = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query commissions
-    const result = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.listCommissionsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.listCommissionsInternal,
       {
         organizationId,
         subtype,
@@ -893,8 +894,8 @@ export const getCommission = httpAction(async (ctx, request) => {
     }
 
     // 4. Query commission
-    const commission = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.getCommissionInternal,
+    const commission = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.getCommissionInternal,
       {
         organizationId,
         commissionId,
@@ -985,8 +986,8 @@ export const createPayout = httpAction(async (ctx, request) => {
     }
 
     // 5. Create payout
-    const payoutId = await ctx.runMutation(
-      internal.api.v1.benefitsInternal.createPayoutInternal,
+    const payoutId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.benefitsInternal.createPayoutInternal,
       {
         organizationId,
         commissionId,
@@ -1074,8 +1075,8 @@ export const listPayouts = httpAction(async (ctx, request) => {
     }
 
     // 4. Query payouts
-    const payouts = await ctx.runQuery(
-      internal.api.v1.benefitsInternal.listPayoutsInternal,
+    const payouts = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.benefitsInternal.listPayoutsInternal,
       {
         organizationId,
         commissionId,

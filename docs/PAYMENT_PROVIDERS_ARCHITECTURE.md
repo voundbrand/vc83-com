@@ -364,7 +364,7 @@ test("creates checkout session with tax", async () => {
 
 ## Migration Guide
 
-If you're upgrading from the old structure, see [PAYMENT_PROVIDERS_MIGRATION.md](./PAYMENT_PROVIDERS_MIGRATION.md).
+If you're upgrading from the old structure, see [PAYMENT_PROVIDERS_MIGRATION.md](./reference_docs/PAYMENT_PROVIDERS_MIGRATION.md).
 
 ## References
 

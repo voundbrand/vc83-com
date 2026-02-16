@@ -7,8 +7,9 @@
 
 import { action, internalAction, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
+
+const generatedApi: any = require("../_generated/api");
 
 const GRAPH_API_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -41,7 +42,7 @@ export const graphRequest = internalAction({
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
     // Get connection
-    const connection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.getConnection, {
       connectionId: args.connectionId,
     });
 
@@ -56,18 +57,18 @@ export const graphRequest = internalAction({
     // Check if token is expired (with 60s buffer to avoid edge cases)
     if (connection.tokenExpiresAt < Date.now() + 60000) {
       // Re-fetch to check if another action already refreshed the token
-      const freshCheck = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+      const freshCheck = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.getConnection, {
         connectionId: args.connectionId,
       }) as OAuthConnection | null;
 
       if (freshCheck && freshCheck.tokenExpiresAt < Date.now() + 60000) {
         // Token is still expired, refresh it
-        await ctx.runAction(internal.oauth.microsoft.refreshMicrosoftToken, {
+        await (ctx as any).runAction(generatedApi.internal.oauth.microsoft.refreshMicrosoftToken, {
           connectionId: args.connectionId,
         });
 
         // Re-fetch connection with fresh token
-        const refreshedConnection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+        const refreshedConnection = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.getConnection, {
           connectionId: args.connectionId,
         }) as OAuthConnection | null;
 
@@ -101,7 +102,7 @@ async function makeRequest(
   body?: GraphApiRequestBody
 ): Promise<GraphApiResponse> {
   // Decrypt access token
-  const accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+  const accessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
     encrypted: connection.accessToken,
   });
 
@@ -128,7 +129,7 @@ async function makeRequest(
     // Handle 403 Access Denied - likely revoked consent or expired refresh token
     if (response.status === 403) {
       // Mark connection as requiring re-authorization
-      await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.updateConnectionStatus, {
         connectionId: connection._id,
         status: "error",
         error: "Access denied. Please reconnect your Microsoft account to restore access.",
@@ -142,7 +143,7 @@ async function makeRequest(
 
     // Handle 401 Unauthorized - token issue
     if (response.status === 401) {
-      await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.updateConnectionStatus, {
         connectionId: connection._id,
         status: "expired",
         error: "Authentication expired. Please reconnect your account.",
@@ -172,9 +173,8 @@ export const getUserProfile = action({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/me",
     }) as GraphApiResponse;
@@ -190,12 +190,11 @@ export const getEmails = action({
     top: v.optional(v.number()), // Number of emails to fetch
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
     const endpoint = args.top
       ? `/me/messages?$top=${args.top}&$orderby=receivedDateTime desc`
       : `/me/messages?$orderby=receivedDateTime desc`;
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
     }) as GraphApiResponse;
@@ -214,7 +213,6 @@ export const getCalendarEvents = action({
     top: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
     let endpoint = "/me/calendarView";
 
     const params: string[] = [];
@@ -231,7 +229,7 @@ export const getCalendarEvents = action({
       endpoint += `?${params.join("&")}`;
     }
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
     }) as GraphApiResponse;
@@ -248,9 +246,8 @@ export const createCalendarEvent = action({
     eventData: v.any(),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/me/events",
       method: "POST",
@@ -270,9 +267,8 @@ export const updateCalendarEvent = action({
     eventData: v.any(),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: `/me/events/${args.eventId}`,
       method: "PATCH",
@@ -290,9 +286,8 @@ export const deleteCalendarEvent = action({
     eventId: v.string(),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: `/me/events/${args.eventId}`,
       method: "DELETE",
@@ -308,9 +303,8 @@ export const getCalendarList = action({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/me/calendars",
     }) as GraphApiResponse;
@@ -326,12 +320,11 @@ export const getOneDriveFiles = action({
     folderId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
     const endpoint = args.folderId
       ? `/me/drive/items/${args.folderId}/children`
       : "/me/drive/root/children";
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint,
     }) as GraphApiResponse;
@@ -346,9 +339,8 @@ export const getSharePointSites = action({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<GraphApiResponse> => {
-    const { internal } = await import("../_generated/api");
 
-    return await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    return await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId: args.connectionId,
       endpoint: "/sites?search=*",
     }) as GraphApiResponse;
@@ -373,8 +365,7 @@ export const testConnection = action({
     };
   }> => {
     try {
-      const { api } = await import("../_generated/api");
-      const profile = await ctx.runAction(api.oauth.graphClient.getUserProfile, {
+      const profile = await (ctx as any).runAction(generatedApi.api.oauth.graphClient.getUserProfile, {
         connectionId: args.connectionId,
       }) as Record<string, unknown> | null;
 

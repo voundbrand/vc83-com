@@ -11,12 +11,13 @@
  */
 
 import { httpRouter } from "convex/server";
-import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { getProviderByCode } from "./paymentProviders";
 import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
 import type { Id } from "./_generated/dataModel";
 import type Stripe from "stripe";
+
+const generatedApi: any = require("./_generated/api");
 
 // Helper to get error message from unknown error
 function getErrorMessage(error: unknown): string {
@@ -86,7 +87,7 @@ http.route({
       console.log(`✓ Webhook received: ${event.type} (${event.id})`);
 
       // 5. Schedule async processing (returns quickly to Stripe)
-      await ctx.runAction(internal.stripeWebhooks.processWebhook, {
+      await (ctx as any).runAction(generatedApi.internal.stripeWebhooks.processWebhook, {
         eventType: event.type,
         eventId: event.id,
         eventData: JSON.stringify(event.data.object),
@@ -175,8 +176,8 @@ http.route({
         // Check if this might be a retry of an already-processed event
         // (Stripe CLI sometimes modifies body slightly on retry, causing sig verification to fail)
         if (eventId) {
-          const alreadyProcessed = await ctx.runQuery(
-            internal.stripeWebhooks.checkEventProcessed,
+          const alreadyProcessed = await (ctx as any).runQuery(
+            generatedApi.internal.stripeWebhooks.checkEventProcessed,
             { eventId }
           );
           
@@ -218,7 +219,7 @@ http.route({
       console.log(`[Connect Webhook] ✅ Signature verified: ${event.type} (${event.id})`);
 
       // Process Connect-specific events
-      await ctx.runAction(internal.stripeWebhooks.processWebhook, {
+      await (ctx as any).runAction(generatedApi.internal.stripeWebhooks.processWebhook, {
         eventType: event.type,
         eventId: event.id,
         eventData: JSON.stringify(event.data.object),
@@ -303,7 +304,7 @@ http.route({
       console.log(`[Invoice Webhooks] 📦 Processing: ${event.type} (${event.id})`);
 
       // Schedule async processing
-      await ctx.runAction(internal.api.v1.stripeInvoiceWebhooks.processStripeInvoiceWebhook, {
+      await (ctx as any).runAction(generatedApi.internal.api.v1.stripeInvoiceWebhooks.processStripeInvoiceWebhook, {
         eventType: event.type,
         eventId: event.id,
         invoiceData: event.data.object as Stripe.Invoice,
@@ -400,7 +401,7 @@ http.route({
       console.log(`[AI Webhooks] 📧 Customer email: ${eventObject.customer_email || 'N/A'}`);
 
       // Schedule async processing
-      await ctx.runAction(internal.stripe.aiWebhooks.processAIWebhook, {
+      await (ctx as any).runAction(generatedApi.internal.stripe.aiWebhooks.processAIWebhook, {
         eventType: event.type,
         eventId: event.id,
         eventData: JSON.stringify(event.data.object),
@@ -473,7 +474,7 @@ http.route({
       // TODO: Route to provider-specific webhook processor
       // For now, Stripe-only
       if (providerCode === "stripe-connect") {
-        await ctx.runAction(internal.stripeWebhooks.processWebhook, {
+        await (ctx as any).runAction(generatedApi.internal.stripeWebhooks.processWebhook, {
           eventType: event.type,
           eventId: event.id,
           eventData: JSON.stringify(event.data.object),
@@ -1381,7 +1382,7 @@ http.route({
       }
 
       const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+      const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
         apiKey,
       });
 
@@ -1395,7 +1396,7 @@ http.route({
       const { organizationId } = authContext;
 
       // 2. Update API key usage tracking
-      // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
+      // TODO: Implement async usage tracking - await (ctx.scheduler as any).runAfter(0, generatedApi.internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
       // 3. Extract CRM organization ID from URL
       const url = new URL(request.url);
@@ -1418,8 +1419,8 @@ http.route({
       const offset = parseInt(url.searchParams.get("offset") || "0");
 
       // 5. Query invoices for client
-      const result = await ctx.runQuery(
-        internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
+      const result = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
         {
           organizationId,
           crmOrganizationId: crmOrganizationId as Id<"objects">,
@@ -1858,7 +1859,7 @@ http.route({
     }
 
     // Fetch content using the publishing ontology query
-    const content = await ctx.runQuery(api.publishingOntology.getPublishedContentForFrontend, {
+    const content = await (ctx as any).runQuery(generatedApi.api.publishingOntology.getPublishedContentForFrontend, {
       orgSlug,
       pageSlug,
     });
@@ -1930,7 +1931,7 @@ http.route({
       }
 
       // Call Convex mutation to create subscription
-      const result = await ctx.runMutation(api.zapier.webhooks.subscribeWebhook, {
+      const result = await (ctx as any).runMutation(generatedApi.api.zapier.webhooks.subscribeWebhook, {
         event,
         target_url,
       });
@@ -1974,7 +1975,7 @@ http.route({
       }
 
       // Call Convex mutation to delete subscription
-      await ctx.runMutation(api.zapier.webhooks.unsubscribeWebhook, {
+      await (ctx as any).runMutation(generatedApi.api.zapier.webhooks.unsubscribeWebhook, {
         subscriptionId: subscriptionId as Id<"webhookSubscriptions">,
       });
 
@@ -2109,7 +2110,7 @@ http.route({
       }
 
       // Call signup action
-      const result = await ctx.runAction(api.onboarding.signupFreeAccount, {
+      const result = await (ctx as any).runAction(generatedApi.api.onboarding.signupFreeAccount, {
         email,
         password,
         firstName,
@@ -2207,7 +2208,7 @@ http.route({
       }
 
       // Verify signature using internal action (to avoid crypto bundler issues)
-      const isValid = await ctx.runAction(internal.muxWebhookVerify.verifyMuxWebhookSignature, {
+      const isValid = await (ctx as any).runAction(generatedApi.internal.muxWebhookVerify.verifyMuxWebhookSignature, {
         body,
         signature,
         secret: webhookSecret,
@@ -2223,7 +2224,7 @@ http.route({
       console.log(`[Mux Webhook] ✅ Verified event: ${event.type} (${event.id})`);
 
       // Process webhook
-      await ctx.runAction(internal.actions.mux.processMuxWebhook, {
+      await (ctx as any).runAction(generatedApi.internal.actions.mux.processMuxWebhook, {
         eventType: event.type,
         eventId: event.id,
         eventData: event.data,
@@ -3287,7 +3288,7 @@ http.route({
         "unknown";
 
       // Check rate limit
-      const rateLimitResult = await ctx.runQuery(internal.api.v1.webchatApi.checkRateLimit, {
+      const rateLimitResult = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.checkRateLimit, {
         ipAddress,
         organizationId: organizationId as Id<"organizations">,
       });
@@ -3303,13 +3304,13 @@ http.route({
       }
 
       // Record rate limit entry
-      await ctx.runMutation(internal.api.v1.webchatApi.recordRateLimitEntry, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
         ipAddress,
         organizationId: organizationId as Id<"organizations">,
       });
 
       // Handle the message
-      const result = await ctx.runAction(internal.api.v1.webchatApi.handleWebchatMessage, {
+      const result = await (ctx as any).runAction(generatedApi.internal.api.v1.webchatApi.handleWebchatMessage, {
         organizationId: organizationId as Id<"organizations">,
         agentId: agentId as Id<"objects">,
         sessionToken,
@@ -3385,7 +3386,7 @@ http.route({
       }
 
       // Get webchat config
-      const config = await ctx.runQuery(internal.api.v1.webchatApi.getWebchatConfig, {
+      const config = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatConfig, {
         agentId: agentId as Id<"objects">,
       });
 
@@ -3438,31 +3439,31 @@ http.route({
         const callbackQueryId = cbq.id;
 
         if (callbackData.startsWith("soul_approve:") || callbackData.startsWith("soul_reject:")) {
-          await ctx.runAction(api.ai.soulEvolution.handleTelegramCallback, {
+          await (ctx as any).runAction(generatedApi.api.ai.soulEvolution.handleTelegramCallback, {
             callbackData,
             telegramChatId: cbChatId,
             callbackQueryId,
           });
         } else if (callbackData.startsWith("esc_")) {
           // Escalation callbacks (esc_takeover / esc_dismiss)
-          await ctx.runAction(api.ai.escalation.handleEscalationCallback, {
+          await (ctx as any).runAction(generatedApi.api.ai.escalation.handleEscalationCallback, {
             callbackData,
             telegramChatId: cbChatId,
             callbackQueryId,
           });
         } else if (callbackData === "soul_history" || callbackData.startsWith("soul_rollback_")) {
           // Resolve org from chat mapping, then find active agent
-          const chatMapping = await ctx.runQuery(
-            internal.onboarding.telegramResolver.getMappingByChatId,
+          const chatMapping = await (ctx as any).runQuery(
+            generatedApi.internal.onboarding.telegramResolver.getMappingByChatId,
             { telegramChatId: cbChatId }
           );
           if (chatMapping?.organizationId) {
-            const agent = await ctx.runQuery(
-              internal.agentOntology.getActiveAgentForOrg,
+            const agent = await (ctx as any).runQuery(
+              generatedApi.internal.agentOntology.getActiveAgentForOrg,
               { organizationId: chatMapping.organizationId }
             );
             if (agent?._id) {
-              await ctx.runAction(internal.ai.soulEvolution.handleSoulHistoryCallback, {
+              await (ctx as any).runAction(generatedApi.internal.ai.soulEvolution.handleSoulHistoryCallback, {
                 callbackData,
                 telegramChatId: cbChatId,
                 callbackQueryId,
@@ -3503,7 +3504,7 @@ http.route({
       }
 
       // 1. Resolve chat → org (handles deep links, onboarding, existing mappings)
-      const resolution = await ctx.runAction(api.onboarding.telegramResolver.resolveChatToOrg, {
+      const resolution = await (ctx as any).runAction(generatedApi.api.onboarding.telegramResolver.resolveChatToOrg, {
         telegramChatId: chatId,
         senderName: senderName || undefined,
         startParam,
@@ -3520,7 +3521,7 @@ http.route({
       if (text === "/start" || text.startsWith("/start ")) {
         // If this is a new user routed to System Bot, send a greeting
         if (resolution.routeToSystemBot && resolution.isNew) {
-          await ctx.runAction(api.ai.agentExecution.processInboundMessage, {
+          await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
             organizationId: resolution.organizationId,
             channel: "telegram",
             externalContactIdentifier: chatId,
@@ -3553,7 +3554,7 @@ http.route({
 
       // 2. Feed into agent pipeline
       // Step 13 of the pipeline auto-sends the reply via channels.router → telegramProvider
-      await ctx.runAction(api.ai.agentExecution.processInboundMessage, {
+      await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
         organizationId: resolution.organizationId,
         channel: "telegram",
         externalContactIdentifier: chatId,

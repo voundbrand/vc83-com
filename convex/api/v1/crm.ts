@@ -18,8 +18,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CREATE CONTACT FROM EVENT
@@ -105,8 +106,8 @@ export const createContactFromEvent = httpAction(async (ctx, request) => {
     }
 
     // 3. Create/find event and create contact
-    const result = await ctx.runMutation(
-      internal.api.v1.crmInternal.createContactFromEventInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.createContactFromEventInternal,
       {
         organizationId: authContext.organizationId, // Use main org ID for event creation
         eventId: eventId || undefined,
@@ -260,8 +261,8 @@ export const createContact = httpAction(async (ctx, request) => {
     }
 
     // 3. Create contact
-    const result = await ctx.runMutation(
-      internal.api.v1.crmInternal.createContactInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.createContactInternal,
       {
         organizationId: authContext.organizationId, // Use main org ID
         subtype,
@@ -389,8 +390,8 @@ export const listContacts = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 3. Query contacts
-    const result = await ctx.runQuery(
-      internal.api.v1.crmInternal.listContactsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.crmInternal.listContactsInternal,
       {
         organizationId: authContext.organizationId, // Use main org ID
         subtype,
@@ -483,8 +484,8 @@ export const getContact = httpAction(async (ctx, request) => {
     }
 
     // 3. Query contact
-    const contact = await ctx.runQuery(
-      internal.api.v1.crmInternal.getContactInternal,
+    const contact = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.crmInternal.getContactInternal,
       {
         organizationId: authContext.organizationId, // Use main org ID
         contactId,
@@ -578,7 +579,7 @@ export const bulkImportContacts = httpAction(async (ctx, request) => {
 
     // 3. Check feature access (Starter+ only)
     try {
-      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+      await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.checkFeatureAccessInternal, {
         organizationId: authContext.organizationId,
         featureFlag: "contactImportExportEnabled",
       });
@@ -621,8 +622,8 @@ export const bulkImportContacts = httpAction(async (ctx, request) => {
     }
 
     // 5. Run bulk import
-    const result = await ctx.runMutation(
-      internal.api.v1.crmInternal.bulkImportContactsInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.bulkImportContactsInternal,
       {
         organizationId: authContext.organizationId,
         contacts,
@@ -723,7 +724,7 @@ export const exportContacts = httpAction(async (ctx, request) => {
 
     // 3. Check feature access (Starter+ only)
     try {
-      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+      await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.checkFeatureAccessInternal, {
         organizationId: authContext.organizationId,
         featureFlag: "contactImportExportEnabled",
       });
@@ -753,8 +754,8 @@ export const exportContacts = httpAction(async (ctx, request) => {
       : undefined;
 
     // 5. Run export query
-    const result = await ctx.runQuery(
-      internal.api.v1.crmInternal.exportContactsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.crmInternal.exportContactsInternal,
       {
         organizationId: authContext.organizationId,
         subtype,
@@ -882,8 +883,8 @@ export const updateContact = httpAction(async (ctx, request) => {
     } = body;
 
     // 5. Run update mutation
-    await ctx.runMutation(
-      internal.api.v1.crmInternal.updateContactInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.updateContactInternal,
       {
         organizationId: authContext.organizationId,
         contactId,
@@ -974,8 +975,8 @@ export const deleteContact = httpAction(async (ctx, request) => {
     }
 
     // 4. Run delete mutation
-    await ctx.runMutation(
-      internal.api.v1.crmInternal.deleteContactInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.deleteContactInternal,
       {
         organizationId: authContext.organizationId,
         contactId,
@@ -1059,8 +1060,8 @@ export const listCrmOrganizations = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query organizations
-    const result = await ctx.runQuery(
-      internal.api.v1.crmInternal.listCrmOrganizationsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.crmInternal.listCrmOrganizationsInternal,
       {
         organizationId: authContext.organizationId,
         subtype,
@@ -1168,8 +1169,8 @@ export const createCrmOrganization = httpAction(async (ctx, request) => {
     }
 
     // 4. Create organization
-    const result = await ctx.runMutation(
-      internal.api.v1.crmInternal.createCrmOrganizationInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.createCrmOrganizationInternal,
       {
         organizationId: authContext.organizationId,
         subtype,
@@ -1255,8 +1256,8 @@ export const getCrmOrganization = httpAction(async (ctx, request) => {
     }
 
     // 4. Query organization
-    const org = await ctx.runQuery(
-      internal.api.v1.crmInternal.getCrmOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.crmInternal.getCrmOrganizationInternal,
       {
         organizationId: authContext.organizationId,
         crmOrganizationId,
@@ -1373,8 +1374,8 @@ export const updateCrmOrganization = httpAction(async (ctx, request) => {
     } = body;
 
     // 5. Run update mutation
-    await ctx.runMutation(
-      internal.api.v1.crmInternal.updateCrmOrganizationInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.crmInternal.updateCrmOrganizationInternal,
       {
         organizationId: authContext.organizationId,
         crmOrganizationId,

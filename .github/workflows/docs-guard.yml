@@ -1,0 +1,43 @@
+name: docs-guard
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-guard.yml"
+      - "scripts/ci/check-docs-guard.sh"
+      - "docs/.root-md-allowlist.txt"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-guard.yml"
+      - "scripts/ci/check-docs-guard.sh"
+      - "docs/.root-md-allowlist.txt"
+
+jobs:
+  docs-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run docs structure guard
+        shell: bash
+        run: |
+          bash scripts/ci/check-docs-guard.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"

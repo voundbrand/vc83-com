@@ -13,7 +13,7 @@
  */
 
 import { internalMutation, mutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
 
 export const seed = internalMutation({
@@ -1284,5 +1284,5 @@ export const seed = internalMutation({
 
 // Public export for CLI access
 export default mutation(async (ctx): Promise<{ success: boolean; count: number }> => {
-  return await ctx.runMutation(internal.translations.seedManage_02_Organization.seed, {});
+  return await (ctx as any).runMutation(generatedApi.internal.translations.seedManage_02_Organization.seed, {});
 });

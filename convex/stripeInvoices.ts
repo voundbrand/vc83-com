@@ -23,7 +23,7 @@
 
 import { internalAction, internalMutation, internalQuery, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { Doc } from "./_generated/dataModel";
 import Stripe from "stripe";
 import { OrganizationProviderConfig } from "./paymentProviders/types";
@@ -166,7 +166,7 @@ export const syncInvoiceToStripe = internalAction({
     message: string;
   }> => {
     // 1. Get invoice from database
-    const invoice = await ctx.runQuery(internal.stripeInvoices.getInvoiceInternal, {
+    const invoice = await (ctx as any).runQuery(generatedApi.internal.stripeInvoices.getInvoiceInternal, {
       invoiceId: args.invoiceId,
     });
 
@@ -178,8 +178,8 @@ export const syncInvoiceToStripe = internalAction({
     }
 
     // 2. Check if Stripe invoicing is enabled for this organization
-    const stripeCheck = await ctx.runQuery(
-      internal.stripeInvoices.checkStripeInvoicingAvailable,
+    const stripeCheck = await (ctx as any).runQuery(
+      generatedApi.internal.stripeInvoices.checkStripeInvoicingAvailable,
       { organizationId: invoice.organizationId }
     );
 
@@ -191,7 +191,7 @@ export const syncInvoiceToStripe = internalAction({
     }
 
     // 3. Get organization's Stripe account
-    const org = await ctx.runQuery(internal.organizations.getOrganization, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrganization, {
       organizationId: invoice.organizationId,
     });
 
@@ -287,7 +287,7 @@ export const syncInvoiceToStripe = internalAction({
       }
 
       // 9. Update our database with Stripe details
-      await ctx.runMutation(internal.stripeInvoices.updateInvoiceStripeDataInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.stripeInvoices.updateInvoiceStripeDataInternal, {
         invoiceId: args.invoiceId,
         stripeInvoiceId: stripeInvoice.id,
         stripeCustomerId: customerId,
@@ -310,7 +310,7 @@ export const syncInvoiceToStripe = internalAction({
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
       // Log error to invoice
-      await ctx.runMutation(internal.stripeInvoices.updateInvoiceStripeDataInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.stripeInvoices.updateInvoiceStripeDataInternal, {
         invoiceId: args.invoiceId,
         stripeSyncStatus: "sync_failed",
         stripeSyncError: errorMessage,

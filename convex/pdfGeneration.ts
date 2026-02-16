@@ -8,8 +8,9 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+
+const generatedApi: any = require("./_generated/api");
 
 type PDFAttachment = {
   filename: string;
@@ -28,7 +29,7 @@ export const generateTicketPDF = action({
     templateCode: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.ticketPdf.generateTicketPDF, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.generateTicketPDF, args);
   },
 });
 
@@ -41,7 +42,7 @@ export const generateTicketPDFFromTicket = action({
     templateCode: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<string | null> => {
-    return await ctx.runAction(api.pdf.ticketPdf.generateTicketPDFFromTicket, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.generateTicketPDFFromTicket, args);
   },
 });
 
@@ -55,7 +56,7 @@ export const regenerateTicketPDF = action({
     templateCode: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.ticketPdf.regenerateTicketPDF, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.regenerateTicketPDF, args);
   },
 });
 
@@ -67,7 +68,7 @@ export const generateReceiptPDF = action({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.invoicePdf.generateReceiptPDF, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.invoicePdf.generateReceiptPDF, args);
   },
 });
 
@@ -82,7 +83,7 @@ export const generateInvoicePDF = action({
     templateCode: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.invoicePdf.generateInvoicePDF, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.invoicePdf.generateInvoicePDF, args);
   },
 });
 
@@ -94,7 +95,7 @@ export const getTicketIdsFromCheckout = action({
     checkoutSessionId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<Id<"objects">[]> => {
-    return await ctx.runAction(api.pdf.ticketPdf.getTicketIdsFromCheckout, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.getTicketIdsFromCheckout, args);
   },
 });
 
@@ -106,7 +107,7 @@ export const generateEventAttendeeListPDF = action({
     eventId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.ticketPdf.generateEventAttendeeListPDF, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.generateEventAttendeeListPDF, args);
   },
 });
 
@@ -118,6 +119,6 @@ export const generateEventAttendeeListCSV = action({
     eventId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<PDFAttachment | null> => {
-    return await ctx.runAction(api.pdf.ticketPdf.generateEventAttendeeListCSV, args);
+    return await (ctx as any).runAction(generatedApi.api.pdf.ticketPdf.generateEventAttendeeListCSV, args);
   },
 });

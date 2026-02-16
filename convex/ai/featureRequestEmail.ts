@@ -10,7 +10,8 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
-import { internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -45,8 +46,8 @@ export const sendFeatureRequest = internalAction({
   handler: async (ctx, args): Promise<{ success: boolean; emailId?: string; linearIssue?: { issueId: string; issueNumber: string; issueUrl: string } }> => {
     // Get user and org details from database
     // In AI chat context, there's always a logged-in user with session
-    const user: any = await ctx.runQuery(internal.ai.tools.internalToolMutations.getUserById, { userId: args.userId });
-    const org: any = await ctx.runQuery(internal.ai.tools.internalToolMutations.getOrganizationById, { organizationId: args.organizationId });
+    const user: any = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.getUserById, { userId: args.userId });
+    const org: any = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.getOrganizationById, { organizationId: args.organizationId });
 
     const userEmail = user?.email || "unknown@example.com";
     const userName = user?.displayName || user?.name || "Unknown User";
@@ -79,7 +80,7 @@ export const sendFeatureRequest = internalAction({
 
     if (process.env.LINEAR_API_KEY && process.env.LINEAR_TEAM_ID) {
       try {
-        linearResult = await ctx.runAction(internal.ai.linearActions.createFeatureRequestIssue, {
+        linearResult = await (ctx as any).runAction(generatedApi.internal.ai.linearActions.createFeatureRequestIssue, {
           userName,
           userEmail,
           organizationName,

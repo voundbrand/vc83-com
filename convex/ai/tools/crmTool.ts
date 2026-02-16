@@ -27,8 +27,9 @@
 import { action } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -240,7 +241,7 @@ export const executeManageCRM = action({
       platformOrgId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -333,8 +334,8 @@ async function searchOrganizations(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
-  const orgs = await ctx.runQuery(
-    internal.ai.tools.internalToolMutations.internalSearchCrmOrganizations,
+  const orgs = await (ctx as any).runQuery(
+    generatedApi.internal.ai.tools.internalToolMutations.internalSearchCrmOrganizations,
     {
       organizationId: platformOrgId,
       searchQuery: args.searchQuery || args.organizationName,
@@ -414,8 +415,8 @@ async function createOrganization(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId: platformOrgId,
         userId,
@@ -442,8 +443,8 @@ async function createOrganization(
   }
 
   // EXECUTE MODE: Actually create the organization
-  const crmOrgId = await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateCrmOrganization,
+  const crmOrgId = await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateCrmOrganization,
     {
       organizationId: platformOrgId,
       userId,
@@ -461,8 +462,8 @@ async function createOrganization(
 
   // Update work item to completed
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -504,8 +505,8 @@ async function searchContacts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
-  const contacts = await ctx.runQuery(
-    internal.ai.tools.internalToolMutations.internalSearchContacts,
+  const contacts = await (ctx as any).runQuery(
+    generatedApi.internal.ai.tools.internalToolMutations.internalSearchContacts,
     {
       organizationId: platformOrgId,
       searchQuery: args.searchQuery || args.email || `${args.firstName || ""} ${args.lastName || ""}`.trim(),
@@ -556,8 +557,8 @@ async function createContact(
   args: any
 ) {
   // Create CRM contact in objects table (NOT users table!)
-  const contactId = await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateContact,
+  const contactId = await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact,
     {
       organizationId: platformOrgId,
       userId, // Platform user who created this CRM contact
@@ -616,8 +617,8 @@ async function linkContactToOrg(
   // We'll verify it exists and is the correct type (crm_contact) there
 
   // Link two CRM objects: contact → organization
-  await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalLinkContactToOrg,
+  await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalLinkContactToOrg,
     {
       organizationId: platformOrgId,
       userId,
@@ -648,8 +649,8 @@ async function getOrganizationContacts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
-  const contacts = await ctx.runQuery(
-    internal.ai.tools.internalToolMutations.internalGetOrganizationContacts,
+  const contacts = await (ctx as any).runQuery(
+    generatedApi.internal.ai.tools.internalToolMutations.internalGetOrganizationContacts,
     {
       organizationId: platformOrgId,
       crmOrganizationId: args.organizationId_crm as Id<"objects">,

@@ -1,9 +1,10 @@
 import { mutation, query, internalMutation, internalQuery, action } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { getAuthenticatedUser, requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { requirePermission } from "./rbacHelpers";
+
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Beta Access Gateway System
@@ -108,7 +109,7 @@ export const checkBetaAccessStatus = query({
   args: { sessionId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     // Check if beta gating is enabled
-    const gatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+    const gatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
 
     // If gating is disabled, everyone has access
     if (!gatingEnabled) {
@@ -271,12 +272,12 @@ export const approveBetaAccess = mutation({
     try {
       await Promise.all([
         // 1. Beta approval notification (includes welcome content)
-        ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaApprovalEmail, {
+        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaApprovalEmail, {
           email: user.email,
           firstName: user.firstName,
         }),
         // 2. Sales notification
-        ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
           eventType: "beta_approved",
           user: {
             email: user.email,
@@ -326,7 +327,7 @@ export const rejectBetaAccess = mutation({
 
     // Send rejection email (fire and forget - don't block on email sending)
     try {
-      await ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRejectionEmail, {
+      await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRejectionEmail, {
         email: user.email,
         firstName: user.firstName,
         reason: args.reason,

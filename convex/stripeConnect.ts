@@ -18,7 +18,7 @@ import {
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { v } from "convex/values";
 import Stripe from "stripe";
 import {
@@ -175,9 +175,9 @@ export const startOnboarding = mutation({
     }
 
     // Schedule action to create account and get onboarding URL
-    await ctx.scheduler.runAfter(
+    await (ctx.scheduler as any).runAfter(
       0,
-      internal.stripeConnect.createStripeAccountLink,
+      generatedApi.internal.stripeConnect.createStripeAccountLink,
       {
         organizationId,
         returnUrl,
@@ -295,9 +295,9 @@ export const refreshAccountStatus = mutation({
     }
 
     // Call action to refresh from Stripe
-    await ctx.scheduler.runAfter(
+    await (ctx.scheduler as any).runAfter(
       0,
-      internal.stripeConnect.refreshAccountStatusFromStripe,
+      generatedApi.internal.stripeConnect.refreshAccountStatusFromStripe,
       {
         organizationId,
         accountId: config.accountId,
@@ -334,12 +334,12 @@ export const refreshAccountStatusSync = action({
     };
   }> => {
     // Verify session
-    const session = await ctx.runQuery(internal.stripeConnect.getSessionInternal, { sessionId });
+    const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.getSessionInternal, { sessionId });
     if (!session) throw new Error("Invalid session");
 
     // Get provider config from objects table
-    const config = await ctx.runQuery(
-      internal.stripeConnect.getProviderConfigForRefresh,
+    const config = await (ctx as any).runQuery(
+      generatedApi.internal.stripeConnect.getProviderConfigForRefresh,
       { organizationId }
     );
     if (!config) {
@@ -347,8 +347,8 @@ export const refreshAccountStatusSync = action({
     }
 
     // Call refresh action directly and return results
-    const result = await ctx.runAction(
-      internal.stripeConnect.refreshAccountStatusFromStripe,
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.stripeConnect.refreshAccountStatusFromStripe,
       {
         organizationId,
         accountId: config.accountId,
@@ -452,8 +452,8 @@ export const getStripeOnboardingUrl = action({
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     // Validate session
-    const session = await ctx.runQuery(
-      internal.stripeConnect.validateSession,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.stripeConnect.validateSession,
       {
         sessionId: args.sessionId,
       }
@@ -462,8 +462,8 @@ export const getStripeOnboardingUrl = action({
     if (!session) throw new Error("Invalid session");
 
     // Get or create the Stripe account link
-    const result: { url: string } = await ctx.runAction(
-      internal.stripeConnect.createStripeAccountLink,
+    const result: { url: string } = await (ctx as any).runAction(
+      generatedApi.internal.stripeConnect.createStripeAccountLink,
       {
         organizationId: args.organizationId,
         returnUrl: args.returnUrl,
@@ -517,9 +517,9 @@ export const handleOAuthCallback = mutation({
     }
 
     // Schedule action to complete OAuth and get account ID
-    await ctx.scheduler.runAfter(
+    await (ctx.scheduler as any).runAfter(
       0,
-      internal.stripeConnect.completeOAuthConnection,
+      generatedApi.internal.stripeConnect.completeOAuthConnection,
       {
         organizationId,
         code,
@@ -566,8 +566,8 @@ export const completeOAuthConnection = internalAction({
 
       console.log(`[OAuth Complete] Saving to database...`);
       // Save to database
-      await ctx.runMutation(
-        internal.stripeConnect.updateStripeConnectAccountInternal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.stripeConnect.updateStripeConnectAccountInternal,
         {
           organizationId: args.organizationId,
           stripeAccountId: result.accountId,
@@ -609,8 +609,8 @@ export const createStripeAccountLink = internalAction({
   },
   handler: async (ctx, args) => {
     // Get organization
-    const org = await ctx.runQuery(
-      internal.stripeConnect.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripeConnect.getOrganizationInternal,
       {
         organizationId: args.organizationId,
       }
@@ -624,8 +624,8 @@ export const createStripeAccountLink = internalAction({
     const provider = getProviderByCode("stripe-connect");
 
     // Check if account already exists (query objects table)
-    const existingConfig = await ctx.runQuery(
-      internal.stripeConnect.getProviderConfigForRefresh,
+    const existingConfig = await (ctx as any).runQuery(
+      generatedApi.internal.stripeConnect.getProviderConfigForRefresh,
       { organizationId: args.organizationId }
     );
 
@@ -679,8 +679,8 @@ export const refreshAccountStatusFromStripe = internalAction({
     };
   }> => {
     // Get organization to preserve isTestMode
-    const org = await ctx.runQuery(
-      internal.stripeConnect.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripeConnect.getOrganizationInternal,
       { organizationId }
     );
 
@@ -706,7 +706,7 @@ export const refreshAccountStatusFromStripe = internalAction({
            error.message.includes('does not have access to account'))) {
         console.log(`[Stripe Connect] Account ${accountId} access revoked, clearing connection...`);
 
-        await ctx.runMutation(internal.stripeConnect.clearStripeConnection, {
+        await (ctx as any).runMutation(generatedApi.internal.stripeConnect.clearStripeConnection, {
           organizationId,
         });
 
@@ -718,8 +718,8 @@ export const refreshAccountStatusFromStripe = internalAction({
     }
 
     // Update database
-    await ctx.runMutation(
-      internal.stripeConnect.updateStripeConnectAccountInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.stripeConnect.updateStripeConnectAccountInternal,
       {
         organizationId,
         stripeAccountId: status.accountId,
@@ -764,8 +764,8 @@ export const refreshAccountStatusFromStripe = internalAction({
 
       // If Stripe Tax is active, update our tax settings to reflect that
       if (taxSettings.status === "active") {
-        taxSyncResult = await ctx.runMutation(
-          internal.organizationTaxSettings.syncFromStripeInternal,
+        taxSyncResult = await (ctx as any).runMutation(
+          generatedApi.internal.organizationTaxSettings.syncFromStripeInternal,
           {
             organizationId,
             stripeTaxActive: true,
@@ -844,8 +844,8 @@ export const refreshAccountStatusFromStripe = internalAction({
 
       // Sync invoice settings if invoicing is enabled
       if (isInvoicingEnabled) {
-        const syncResult = await ctx.runMutation(
-          internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
+        const syncResult = await (ctx as any).runMutation(
+          generatedApi.internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
           {
             organizationId,
             stripeInvoiceSettings: {
@@ -904,8 +904,8 @@ export const requestInvoicingCapability = internalAction({
     requirementsNeeded: string[];
   }> => {
     // Get organization and its Stripe account
-    const org = await ctx.runQuery(
-      internal.organizations.getOrganization,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.organizations.getOrganization,
       {
         organizationId: args.organizationId,
       }
@@ -965,8 +965,8 @@ export const requestInvoicingCapability = internalAction({
       console.log("📄 Has created invoices:", hasCreatedInvoices);
 
       // Sync invoice settings to our database
-      await ctx.runMutation(
-        internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizationInvoiceSettings.syncInvoiceSettingsFromStripe,
         {
           organizationId: args.organizationId,
           stripeInvoiceSettings: {
@@ -1014,9 +1014,9 @@ export const triggerInvoicingCapabilityRequest = mutation({
     }
 
     // Trigger the action
-    await ctx.scheduler.runAfter(
+    await (ctx.scheduler as any).runAfter(
       0,
-      internal.stripeConnect.requestInvoicingCapability,
+      generatedApi.internal.stripeConnect.requestInvoicingCapability,
       {
         organizationId: args.organizationId,
       }

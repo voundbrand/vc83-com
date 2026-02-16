@@ -19,7 +19,7 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // TYPES
@@ -358,7 +358,7 @@ export const registerForWebinar = mutation({
     });
 
     // Increment registrant count
-    await ctx.runMutation(internal.webinarOntology.incrementRegistrantCount, {
+    await (ctx as any).runMutation(generatedApi.internal.webinarOntology.incrementRegistrantCount, {
       webinarId: args.webinarId,
     });
 
@@ -406,7 +406,7 @@ export const trackJoin = mutation({
       });
 
       // Increment attendee count
-      await ctx.runMutation(internal.webinarOntology.incrementAttendeeCount, {
+      await (ctx as any).runMutation(generatedApi.internal.webinarOntology.incrementAttendeeCount, {
         webinarId: props.webinarId as Id<"objects">,
       });
     }

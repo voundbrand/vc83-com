@@ -10,8 +10,9 @@
 import { query, mutation, action, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
-import { api, internal } from "../_generated/api";
 import { Doc } from "../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // Helper to safely get customProperties as Record
 const getProps = (obj: Doc<"objects">) => obj.customProperties as Record<string, unknown> | undefined;
@@ -410,7 +411,7 @@ export const executeApprovedTool = action({
 
     try {
       // 1. Get the execution record
-      const execution = await ctx.runQuery(api.ai.conversations.getToolExecution, {
+      const execution = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getToolExecution, {
         executionId: args.executionId,
       });
 
@@ -425,7 +426,7 @@ export const executeApprovedTool = action({
       console.log("[Tool Approval] Executing tool:", execution.toolName);
 
       // 2. Mark as executing
-      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.drafts.updateExecutionStatus, {
         executionId: args.executionId,
         status: "executing",
       });
@@ -452,7 +453,7 @@ export const executeApprovedTool = action({
         : true;
 
       // 5. Update execution with result
-      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.drafts.updateExecutionStatus, {
         executionId: args.executionId,
         status: success ? "success" : "failed",
         result,
@@ -477,7 +478,7 @@ export const executeApprovedTool = action({
         const workItems = extractWorkItemsFromResult(execution.toolName, result, execution.parameters);
         for (const item of workItems) {
           try {
-            await ctx.runMutation(api.ai.workItems.createAIWorkItem, {
+            await (ctx as any).runMutation(generatedApi.api.ai.workItems.createAIWorkItem, {
               conversationId: execution.conversationId,
               organizationId: execution.organizationId,
               userId: execution.userId,
@@ -508,7 +509,7 @@ export const executeApprovedTool = action({
 
 Now that I have this information, let me continue with the task. What should I do next?`;
 
-          await ctx.runAction(api.ai.chat.sendMessage, {
+          await (ctx as any).runAction(generatedApi.api.ai.chat.sendMessage, {
             conversationId: execution.conversationId,
             message: continuationPrompt,
             organizationId: execution.organizationId,
@@ -536,7 +537,7 @@ Now that I have this information, let me continue with the task. What should I d
       console.error("[Tool Approval] Tool execution failed:", error);
 
       // Mark as failed
-      await ctx.runMutation(internal.ai.drafts.updateExecutionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.drafts.updateExecutionStatus, {
         executionId: args.executionId,
         status: "failed",
         error: errorMessage,

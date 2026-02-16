@@ -467,9 +467,9 @@ export default async function HomePage() {
 
 ## 📚 Related Documentation
 
-- [FRONTEND_BACKEND_INTEGRATION_SUMMARY.md](./FRONTEND_BACKEND_INTEGRATION_SUMMARY.md) - Checkout API integration
+- [FRONTEND_BACKEND_INTEGRATION_SUMMARY.md](./reference_docs/FRONTEND_BACKEND_INTEGRATION_SUMMARY.md) - Checkout API integration
 - [API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md) - Checkout payload examples
-- [INTEGRATION_COMPLETE_SUMMARY.md](./INTEGRATION_COMPLETE_SUMMARY.md) - Complete integration guide
+- [INTEGRATION_COMPLETE_SUMMARY.md](./reference_docs/INTEGRATION_COMPLETE_SUMMARY.md) - Complete integration guide
 
 ---
 

@@ -590,9 +590,9 @@ After successful seeding:
 
 ## 📚 Related Documentation
 
-- [RBAC Complete Guide](./RBAC_COMPLETE_GUIDE.md) - Role-based access control
+- [RBAC Complete Guide](./reference_docs/RBAC_COMPLETE_GUIDE.md) - Role-based access control
 - [Translation System](./TRANSLATION_SYSTEM.md) - i18n architecture
-- [Ontology Forms](./ONTOLOGY_FORMS_SUMMARY.md) - Dynamic form system
+- [Ontology Forms](./reference_docs/ONTOLOGY_FORMS_SUMMARY.md) - Dynamic form system
 - [App Registration](./HOW_TO_REGISTER_APPS.md) - Adding new apps
 - [Shared Template System](./SHARED_TEMPLATE_SYSTEM.md) - Templates and themes
 

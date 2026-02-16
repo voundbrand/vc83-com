@@ -13,8 +13,9 @@
  */
 
 import { action, internalMutation, query, internalQuery, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
 import { v } from "convex/values";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 /**
  * OpenRouter Model Information
@@ -85,7 +86,7 @@ export const fetchAvailableModels = internalAction({
 
       // Cache the results in our database
       const fetchedAt = Date.now();
-      await ctx.runMutation(internal.ai.modelDiscovery.cacheModels, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.modelDiscovery.cacheModels, {
         models,
         fetchedAt,
       });
@@ -318,7 +319,7 @@ export const getAvailableModels = internalQuery({
     isStale: boolean;
     lastFetched: number | null;
   }> => {
-    const cached = await ctx.runQuery(internal.ai.modelDiscovery.getCachedModels, {});
+    const cached = await (ctx as any).runQuery(generatedApi.internal.ai.modelDiscovery.getCachedModels, {});
 
     if (!cached) {
       // No cache exists - return empty array and trigger fetch on frontend
@@ -353,8 +354,8 @@ export const getModelsByProvider = query({
     other: OpenRouterModel[];
     isStale: boolean;
   }> => {
-    const { models, isStale } = await ctx.runQuery(
-      internal.ai.modelDiscovery.getAvailableModels,
+    const { models, isStale } = await (ctx as any).runQuery(
+      generatedApi.internal.ai.modelDiscovery.getAvailableModels,
       {}
     );
 
@@ -443,6 +444,6 @@ export const refreshModels = action({
   args: {},
   handler: async (ctx): Promise<{models: OpenRouterModel[]; fetchedAt: number}> => {
     console.log("🔄 Manually refreshing models from OpenRouter...");
-    return await ctx.runAction(internal.ai.modelDiscovery.fetchAvailableModels, {});
+    return await (ctx as any).runAction(generatedApi.internal.ai.modelDiscovery.fetchAvailableModels, {});
   },
 });

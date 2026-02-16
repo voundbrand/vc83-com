@@ -8,7 +8,7 @@
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { getRequiredScopes } from "./microsoftScopes";
 
 // Microsoft OAuth endpoints
@@ -48,7 +48,7 @@ export const initiateMicrosoftOAuth = mutation({
 
     // For organizational connections, verify user has manage_integrations permission
     if (args.connectionType === "organizational") {
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -136,7 +136,7 @@ export const handleMicrosoftCallback = action({
       userId: Id<"users">;
       organizationId: Id<"organizations">;
       connectionType: "personal" | "organizational";
-    } | null = await ctx.runQuery(internal.oauth.microsoft.verifyState, {
+    } | null = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.verifyState, {
       state: args.state,
     });
 
@@ -183,11 +183,11 @@ export const handleMicrosoftCallback = action({
     const profile = await profileResponse.json();
 
     // Encrypt tokens before storage
-    const encryptedAccessToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
-    const encryptedRefreshToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedRefreshToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.refresh_token,
     });
 
@@ -195,7 +195,7 @@ export const handleMicrosoftCallback = action({
     const tokenExpiresAt = Date.now() + (tokenData.expires_in * 1000);
 
     // Store connection in database
-    const connectionId: Id<"oauthConnections"> = await ctx.runMutation(internal.oauth.microsoft.storeConnection, {
+    const connectionId: Id<"oauthConnections"> = await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.storeConnection, {
       userId: stateRecord.connectionType === "personal" ? stateRecord.userId : undefined,
       organizationId: stateRecord.organizationId,
       provider: "microsoft",
@@ -209,13 +209,13 @@ export const handleMicrosoftCallback = action({
     });
 
     // Delete used state token
-    await ctx.runMutation(internal.oauth.microsoft.deleteState, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.deleteState, {
       state: args.state,
     });
 
     // Log audit event (only if organization exists)
     if (stateRecord.organizationId) {
-      await ctx.runMutation(internal.rbac.logAudit, {
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
         userId: stateRecord.userId,
         organizationId: stateRecord.organizationId,
         action: "connect_oauth",
@@ -271,7 +271,7 @@ export const disconnectMicrosoft = mutation({
       }
     } else {
       // Organizational connections: user must have manage_integrations permission
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -290,7 +290,7 @@ export const disconnectMicrosoft = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: connection.organizationId,
       action: "disconnect_oauth",
@@ -422,7 +422,7 @@ export const refreshMicrosoftToken = internalAction({
     message: string;
   }> => {
     // Get connection
-    const connection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.getConnection, {
       connectionId: args.connectionId,
     });
 
@@ -431,7 +431,7 @@ export const refreshMicrosoftToken = internalAction({
     }
 
     // Decrypt refresh token
-    const refreshToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const refreshToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted: connection.refreshToken,
     });
 
@@ -472,7 +472,7 @@ export const refreshMicrosoftToken = internalAction({
       }
 
       // Update connection status to error
-      await ctx.runMutation(internal.oauth.microsoft.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.updateConnectionStatus, {
         connectionId: args.connectionId,
         status: "error",
         error: userMessage,
@@ -484,18 +484,18 @@ export const refreshMicrosoftToken = internalAction({
     const tokenData = await tokenResponse.json();
 
     // Encrypt new tokens
-    const encryptedAccessToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
-    const encryptedRefreshToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedRefreshToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.refresh_token,
     });
 
     const tokenExpiresAt = Date.now() + (tokenData.expires_in * 1000);
 
     // Update connection with new tokens
-    await ctx.runMutation(internal.oauth.microsoft.updateTokens, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.updateTokens, {
       connectionId: args.connectionId,
       accessToken: encryptedAccessToken,
       refreshToken: encryptedRefreshToken,

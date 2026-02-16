@@ -6,6 +6,8 @@
 
 import { mutation, action } from "../_generated/server";
 import { v } from "convex/values";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // CONTACT SYNC ACTIONS
@@ -21,7 +23,7 @@ export const approveContactSync = action({
   },
   handler: async (ctx, args) => {
     // Get and validate the sync
-    const sync = await ctx.runQuery(api.ai.workItems.getContactSync, {
+    const sync = await (ctx as any).runQuery(generatedApi.api.ai.workItems.getContactSync, {
       syncId: args.syncId,
     });
 
@@ -34,7 +36,7 @@ export const approveContactSync = action({
     }
 
     // Mark as executing
-    await ctx.runMutation(api.ai.workItemActions.updateContactSyncStatus, {
+    await (ctx as any).runMutation(generatedApi.api.ai.workItemActions.updateContactSyncStatus, {
       syncId: args.syncId,
       status: "executing",
     });
@@ -44,7 +46,7 @@ export const approveContactSync = action({
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate work
 
     // Mark as completed
-    await ctx.runMutation(api.ai.workItemActions.updateContactSyncStatus, {
+    await (ctx as any).runMutation(generatedApi.api.ai.workItemActions.updateContactSyncStatus, {
       syncId: args.syncId,
       status: "completed",
     });
@@ -116,7 +118,7 @@ export const approveEmailCampaign = action({
   },
   handler: async (ctx, args) => {
     // Get and validate the campaign
-    const campaign = await ctx.runQuery(api.ai.workItems.getEmailCampaign, {
+    const campaign = await (ctx as any).runQuery(generatedApi.api.ai.workItems.getEmailCampaign, {
       campaignId: args.campaignId,
     });
 
@@ -129,7 +131,7 @@ export const approveEmailCampaign = action({
     }
 
     // Mark as sending
-    await ctx.runMutation(api.ai.workItemActions.updateEmailCampaignStatus, {
+    await (ctx as any).runMutation(generatedApi.api.ai.workItemActions.updateEmailCampaignStatus, {
       campaignId: args.campaignId,
       status: "sending",
     });
@@ -139,7 +141,7 @@ export const approveEmailCampaign = action({
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate work
 
     // Mark as completed
-    await ctx.runMutation(api.ai.workItemActions.updateEmailCampaignStatus, {
+    await (ctx as any).runMutation(generatedApi.api.ai.workItemActions.updateEmailCampaignStatus, {
       campaignId: args.campaignId,
       status: "completed",
     });

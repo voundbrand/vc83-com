@@ -24,12 +24,13 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
 import type {
   WorkflowNode,
   ExecutionContext,
   NodeExecutionResult,
 } from "./types";
+
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // BEHAVIOR MAPPING
@@ -170,8 +171,8 @@ export const executeLcNativeNode = action({
     );
 
     // Delegate to existing behaviorExecutor
-    const behaviorResult = await ctx.runAction(
-      api.workflows.behaviorExecutor.executeBehavior,
+    const behaviorResult = await (ctx as any).runAction(
+      generatedApi.api.workflows.behaviorExecutor.executeBehavior,
       {
         sessionId: args.sessionId,
         organizationId: args.organizationId,

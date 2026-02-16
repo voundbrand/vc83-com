@@ -13,7 +13,7 @@
  */
 
 import { query, mutation, internalMutation, action, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { v } from "convex/values";
 import { requireAuthenticatedUser, requirePermission, checkPermission } from "./rbacHelpers";
 import { Id, Doc } from "./_generated/dataModel";
@@ -259,7 +259,7 @@ export const createInvitation = action({
     }
 
     // Generate secure token using crypto action
-    const token: string = await ctx.runAction(internal.cryptoActions.generateSecureToken, {
+    const token: string = await (ctx as any).runAction(generatedApi.internal.cryptoActions.generateSecureToken, {
       bytes: 32,
     });
 
@@ -268,7 +268,7 @@ export const createInvitation = action({
       invitationId: Id<"objects">;
       token: string;
       expiresAt: number;
-    } = await ctx.runMutation(internal.invitationOntology.internalCreateInvitation, {
+    } = await (ctx as any).runMutation(generatedApi.internal.invitationOntology.internalCreateInvitation, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       email: args.email.toLowerCase(),
@@ -307,7 +307,7 @@ export const acceptInvitation = action({
 
     // Get invitation via internal query
     const invitation: Doc<"objects"> | null =
-      await ctx.runQuery(internal.invitationOntology.internalGetInvitationByToken, {
+      await (ctx as any).runQuery(generatedApi.internal.invitationOntology.internalGetInvitationByToken, {
         token: args.token,
       });
 
@@ -332,7 +332,7 @@ export const acceptInvitation = action({
       if (args.password.length < 8) {
         throw new Error("Passwort muss mindestens 8 Zeichen lang sein");
       }
-      passwordHash = await ctx.runAction(internal.cryptoActions.hashPassword, {
+      passwordHash = await (ctx as any).runAction(generatedApi.internal.cryptoActions.hashPassword, {
         password: args.password,
       });
     }
@@ -343,7 +343,7 @@ export const acceptInvitation = action({
       userId: Id<"users">;
       isNewUser: boolean;
       organizationId: Id<"organizations">;
-    } = await ctx.runMutation(internal.invitationOntology.internalAcceptInvitation, {
+    } = await (ctx as any).runMutation(generatedApi.internal.invitationOntology.internalAcceptInvitation, {
       invitationId: invitation._id,
       passwordHash,
       firstName: args.firstName,

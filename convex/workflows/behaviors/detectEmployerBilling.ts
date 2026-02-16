@@ -14,7 +14,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { Id } from "../../_generated/dataModel";
 
 export const executeDetectEmployerBilling = action({
@@ -45,7 +45,7 @@ export const executeDetectEmployerBilling = action({
       };
     }
 
-    const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const product = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
       objectId: context.products[0].productId as Id<"objects">,
     });
 
@@ -88,7 +88,7 @@ export const executeDetectEmployerBilling = action({
       // Try to find CRM organization
       let crmOrganizationId: Id<"objects"> | undefined;
       try {
-        const crmOrgs = await ctx.runQuery(api.ontologyHelpers.getObjects, {
+        const crmOrgs = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObjects, {
           organizationId: args.organizationId,
           type: "crm_organization",
         });

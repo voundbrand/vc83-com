@@ -9,8 +9,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CORS Helper - Add CORS headers to API responses
@@ -114,7 +115,7 @@ export const createBooking = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7); // Remove "Bearer "
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -187,8 +188,8 @@ export const createBooking = httpAction(async (ctx, request) => {
     }
 
     // 5. Create complete booking
-    const result = await ctx.runMutation(
-      internal.api.v1.bookingsInternal.createCompleteBookingInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.bookingsInternal.createCompleteBookingInternal,
       {
         organizationId,
         eventId: body.eventId as Id<"objects">,

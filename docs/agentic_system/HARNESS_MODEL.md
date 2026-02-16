@@ -4,6 +4,16 @@
 
 ---
 
+## Layer Taxonomy (Canonical)
+
+Use the canonical layer contract:
+- [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md)
+
+This document mainly describes `PolicyLayer` behavior (Platform -> Org -> Agent -> Session).  
+Do not mix this with `BusinessLayer` hierarchy (Platform -> Agency -> Sub-org -> End-customer).
+
+---
+
 ## Why Harnesses?
 
 An agent without a harness is a liability. It can use any tool, spend any amount, talk to anyone, and never ask for help. Harnesses enforce:
@@ -36,7 +46,7 @@ Agent Harness
 │   ├── soulMarkdown (SOUL.md equivalent)
 │   └── version (for rollback)
 │
-├── Tool Scope (resolved from 4 layers)
+├── Tool Scope (resolved from 4 `PolicyLayer` levels)
 │   ├── activeTools[] — final tool set for this execution
 │   ├── disabledForSession[] — tools disabled by runtime errors
 │   └── integrationRequirements — tools requiring connected services
@@ -98,7 +108,7 @@ function assembleHarness(orgId, channel, contactId): AgentHarness {
   const systemPrompt = buildPrompt(agent.soul, agent.brand, docs);
   const history = await getHistory(session, 20);
 
-  // Step 7: Tool scoping (4 layers)
+  // Step 7: Tool scoping (4 PolicyLayer levels)
   const tools = resolveToolScope({
     platform: getPlatformToolPolicy(),
     org: getOrgToolPolicy(orgId),

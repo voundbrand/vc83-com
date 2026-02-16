@@ -14,7 +14,8 @@
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 // ActiveCampaign API base path
 const AC_API_VERSION = "/api/3";
@@ -129,12 +130,12 @@ export const storeActiveCampaignConnection = action({
     message: string;
   }> => {
     // Encrypt the API key before storage
-    const encryptedApiKey: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedApiKey: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: args.apiKey,
     });
 
     // Store via internal mutation
-    const result = await ctx.runMutation(internal.oauth.activecampaign.storeConnectionInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaign.storeConnectionInternal, {
       sessionId: args.sessionId,
       apiUrl: args.apiUrl,
       encryptedApiKey,
@@ -195,7 +196,7 @@ export const storeConnectionInternal = internalMutation({
         updatedAt: Date.now(),
       });
 
-      await ctx.runMutation(internal.rbac.logAudit, {
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
         userId: user._id,
         organizationId: user.defaultOrgId,
         action: "update_oauth",
@@ -238,7 +239,7 @@ export const storeConnectionInternal = internalMutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: user.defaultOrgId,
       action: "connect_oauth",
@@ -292,7 +293,7 @@ export const disconnectActiveCampaign = mutation({
         throw new Error("Permission denied: not your connection");
       }
     } else {
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -309,7 +310,7 @@ export const disconnectActiveCampaign = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: connection.organizationId,
       action: "disconnect_oauth",
@@ -391,7 +392,7 @@ export const getDecryptedCredentials = internalAction({
     apiUrl: string;
     apiKey: string;
   }> => {
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionInternal, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionInternal, {
       connectionId: args.connectionId,
     });
 
@@ -399,7 +400,7 @@ export const getDecryptedCredentials = internalAction({
       throw new Error("Connection not found");
     }
 
-    const apiKey: string = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const apiKey: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted: connection.accessToken,
     });
 
@@ -451,7 +452,7 @@ export const fetchContacts = internalAction({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<ActiveCampaignContact[]> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -483,7 +484,7 @@ export const fetchLists = internalAction({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<ActiveCampaignList[]> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -511,7 +512,7 @@ export const fetchTags = internalAction({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<ActiveCampaignTag[]> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -547,7 +548,7 @@ export const upsertContact = internalAction({
     }))),
   },
   handler: async (ctx, args): Promise<ActiveCampaignContact> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -589,7 +590,7 @@ export const addTagToContact = internalAction({
     tagId: v.string(),
   },
   handler: async (ctx, args): Promise<{ contact: string; tag: string }> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -628,7 +629,7 @@ export const subscribeToList = internalAction({
     status: v.optional(v.union(v.literal(1), v.literal(2))),
   },
   handler: async (ctx, args): Promise<{ list: string; contact: string; status: number }> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -669,7 +670,7 @@ export const createWebhook = internalAction({
     sources: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args): Promise<ActiveCampaignWebhook> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -707,7 +708,7 @@ export const listWebhooks = internalAction({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<ActiveCampaignWebhook[]> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 
@@ -736,7 +737,7 @@ export const deleteWebhook = internalAction({
     webhookId: v.string(),
   },
   handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const { apiUrl, apiKey } = await ctx.runAction(internal.oauth.activecampaign.getDecryptedCredentials, {
+    const { apiUrl, apiKey } = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.getDecryptedCredentials, {
       connectionId: args.connectionId,
     });
 

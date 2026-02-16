@@ -22,9 +22,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST PUBLISHED PAGES
@@ -75,8 +76,8 @@ export const listPublishedPages = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query pages
-    const result = await ctx.runQuery(
-      internal.api.v1.publishingInternal.listPublishedPagesInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.listPublishedPagesInternal,
       {
         organizationId: authContext.organizationId,
         status,
@@ -149,8 +150,8 @@ export const getPublishedPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Get page
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -268,8 +269,8 @@ export const createPublishedPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Create page
-    const pageId = await ctx.runMutation(
-      internal.api.v1.publishingInternal.createPublishedPageInternal,
+    const pageId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.publishingInternal.createPublishedPageInternal,
       {
         organizationId: authContext.organizationId,
         userId: authContext.userId,
@@ -289,8 +290,8 @@ export const createPublishedPage = httpAction(async (ctx, request) => {
     );
 
     // 5. Get the created page for public URL
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId }
     );
 
@@ -381,8 +382,8 @@ export const updatePublishedPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify page belongs to organization
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -410,8 +411,8 @@ export const updatePublishedPage = httpAction(async (ctx, request) => {
     } = body;
 
     // 6. Update page
-    await ctx.runMutation(
-      internal.api.v1.publishingInternal.updatePublishedPageInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.publishingInternal.updatePublishedPageInternal,
       {
         pageId: pageId as Id<"objects">,
         userId: authContext.userId,
@@ -497,8 +498,8 @@ export const deletePublishedPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify page belongs to organization
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -510,8 +511,8 @@ export const deletePublishedPage = httpAction(async (ctx, request) => {
     }
 
     // 5. Delete page
-    await ctx.runMutation(
-      internal.api.v1.publishingInternal.deletePublishedPageInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.publishingInternal.deletePublishedPageInternal,
       {
         pageId: pageId as Id<"objects">,
         userId: authContext.userId,
@@ -588,8 +589,8 @@ export const publishPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify page belongs to organization
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -601,8 +602,8 @@ export const publishPage = httpAction(async (ctx, request) => {
     }
 
     // 5. Set status to published
-    const result = await ctx.runMutation(
-      internal.api.v1.publishingInternal.setPublishingStatusInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.publishingInternal.setPublishingStatusInternal,
       {
         pageId: pageId as Id<"objects">,
         userId: authContext.userId,
@@ -683,8 +684,8 @@ export const unpublishPage = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify page belongs to organization
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -696,8 +697,8 @@ export const unpublishPage = httpAction(async (ctx, request) => {
     }
 
     // 5. Set status to unpublished
-    const result = await ctx.runMutation(
-      internal.api.v1.publishingInternal.setPublishingStatusInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.publishingInternal.setPublishingStatusInternal,
       {
         pageId: pageId as Id<"objects">,
         userId: authContext.userId,
@@ -781,8 +782,8 @@ export const getPageAnalytics = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify page belongs to organization
-    const page = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPublishedPageInternal,
+    const page = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -794,8 +795,8 @@ export const getPageAnalytics = httpAction(async (ctx, request) => {
     }
 
     // 5. Get analytics
-    const analytics = await ctx.runQuery(
-      internal.api.v1.publishingInternal.getPageAnalyticsInternal,
+    const analytics = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.publishingInternal.getPageAnalyticsInternal,
       { pageId: pageId as Id<"objects"> }
     );
 
@@ -857,8 +858,8 @@ export const handlePublishingPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const page = await ctx.runQuery(
-        internal.api.v1.publishingInternal.getPublishedPageInternal,
+      const page = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
         { pageId: pageId as Id<"objects"> }
       );
 
@@ -869,8 +870,8 @@ export const handlePublishingPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.publishingInternal.setPublishingStatusInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.publishingInternal.setPublishingStatusInternal,
         {
           pageId: pageId as Id<"objects">,
           userId: authContext.userId,
@@ -930,8 +931,8 @@ export const handlePublishingPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const page = await ctx.runQuery(
-        internal.api.v1.publishingInternal.getPublishedPageInternal,
+      const page = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
         { pageId: pageId as Id<"objects"> }
       );
 
@@ -942,8 +943,8 @@ export const handlePublishingPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.publishingInternal.setPublishingStatusInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.publishingInternal.setPublishingStatusInternal,
         {
           pageId: pageId as Id<"objects">,
           userId: authContext.userId,
@@ -1023,8 +1024,8 @@ export const handlePublishingGet = httpAction(async (ctx, request) => {
       }
 
       // 4. Verify page belongs to organization
-      const page = await ctx.runQuery(
-        internal.api.v1.publishingInternal.getPublishedPageInternal,
+      const page = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
         { pageId: pageId as Id<"objects"> }
       );
 
@@ -1036,8 +1037,8 @@ export const handlePublishingGet = httpAction(async (ctx, request) => {
       }
 
       // 5. Get analytics
-      const analytics = await ctx.runQuery(
-        internal.api.v1.publishingInternal.getPageAnalyticsInternal,
+      const analytics = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.publishingInternal.getPageAnalyticsInternal,
         { pageId: pageId as Id<"objects"> }
       );
 
@@ -1094,8 +1095,8 @@ export const handlePublishingGet = httpAction(async (ctx, request) => {
       }
 
       // 4. Get page
-      const page = await ctx.runQuery(
-        internal.api.v1.publishingInternal.getPublishedPageInternal,
+      const page = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.publishingInternal.getPublishedPageInternal,
         { pageId: pageId as Id<"objects"> }
       );
 

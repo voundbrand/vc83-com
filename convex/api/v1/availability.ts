@@ -20,9 +20,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * GET RESOURCE AVAILABILITY
@@ -74,7 +75,7 @@ export const getResourceAvailability = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify resource exists and belongs to organization
-    const resource = await ctx.runQuery(internal.productOntology.getProductInternal, {
+    const resource = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
       productId: resourceId,
     });
 
@@ -86,7 +87,7 @@ export const getResourceAvailability = httpAction(async (ctx, request) => {
     }
 
     // 5. Get availability data
-    const result = await ctx.runQuery(internal.availabilityOntology.getResourceAvailabilityInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.availabilityOntology.getResourceAvailabilityInternal, {
       resourceId,
       organizationId: authContext.organizationId,
     });
@@ -200,7 +201,7 @@ export const setWeeklySchedule = httpAction(async (ctx, request) => {
     }
 
     // 7. Set schedule
-    const result = await ctx.runMutation(internal.availabilityOntology.setWeeklyScheduleInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.availabilityOntology.setWeeklyScheduleInternal, {
       resourceId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -308,7 +309,7 @@ export const createException = httpAction(async (ctx, request) => {
     }
 
     // 6. Create exception
-    const result = await ctx.runMutation(internal.availabilityOntology.createExceptionInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.availabilityOntology.createExceptionInternal, {
       resourceId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -423,7 +424,7 @@ export const createBlock = httpAction(async (ctx, request) => {
     }
 
     // 6. Create block
-    const result = await ctx.runMutation(internal.availabilityOntology.createBlockInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.availabilityOntology.createBlockInternal, {
       resourceId,
       organizationId: authContext.organizationId,
       userId: authContext.userId,
@@ -506,7 +507,7 @@ export const deleteAvailability = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete the availability item
-    await ctx.runMutation(internal.availabilityOntology.deleteAvailabilityInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.availabilityOntology.deleteAvailabilityInternal, {
       availabilityId: availId,
       organizationId: authContext.organizationId,
     });
@@ -625,7 +626,7 @@ export const getAvailableSlots = httpAction(async (ctx, request) => {
     const duration = durationStr ? parseInt(durationStr) : undefined;
 
     // 5. Get available slots
-    const slots = await ctx.runQuery(internal.availabilityOntology.getAvailableSlotsInternal, {
+    const slots = await (ctx as any).runQuery(generatedApi.internal.availabilityOntology.getAvailableSlotsInternal, {
       resourceId,
       organizationId: authContext.organizationId,
       startDate,

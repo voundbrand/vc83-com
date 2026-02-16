@@ -15,8 +15,9 @@
 
 import { internalAction } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * EXECUTE WORKFLOW INTERNAL
@@ -36,7 +37,7 @@ export const executeWorkflowInternal = internalAction({
       console.log(`🔥 Executing workflow for trigger: ${args.trigger}`);
 
       // Find matching workflow
-      const workflows = (await ctx.runQuery(api.ontologyHelpers.getObjects, {
+      const workflows = (await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObjects, {
         organizationId: args.organizationId,
         type: "workflow",
       })) as Array<{
@@ -113,7 +114,7 @@ export const executeWorkflowInternal = internalAction({
       // Execute behaviors using the behavior executor
       console.log(`🔧 Executing ${customProps.behaviors.length} behaviors...`);
 
-      const result = (await ctx.runAction(api.workflows.behaviorExecutor.executeBehaviors, {
+      const result = (await (ctx as any).runAction(generatedApi.api.workflows.behaviorExecutor.executeBehaviors, {
         sessionId,
         organizationId: args.organizationId,
         behaviors: customProps.behaviors

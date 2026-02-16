@@ -912,6 +912,6 @@ Want to see how it works for your agency? DM me.
 **This is the system that escapes RLHF averaging. Not through better prompting. Through better architecture.**
 
 **Related Documents:**
-- [02_MEMORY_ENGINE_DESIGN.md](./02_MEMORY_ENGINE_DESIGN.md) — 5-layer memory architecture
+- [MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md) — 5-layer memory architecture
 - [09_UNIVERSAL_MEMORY_CONSENT.md](./09_UNIVERSAL_MEMORY_CONSENT.md) — Memory consent system
 - [MEMORY_CONSENT_INTEGRATION.md](../pressmaster_onboarding/MEMORY_CONSENT_INTEGRATION.md) — Pressmaster integration

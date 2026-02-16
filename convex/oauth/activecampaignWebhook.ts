@@ -7,8 +7,9 @@
 
 import { action, query, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
 import type { Id, Doc } from "../_generated/dataModel";
+
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Find organization by ActiveCampaign account name
@@ -87,14 +88,14 @@ export const processWebhookEvent = action({
     console.log(`[AC Webhook] Processing ${args.eventType} for org ${args.organizationId}`);
 
     // Log the event for audit trail
-    await ctx.runMutation(internal.oauth.activecampaignWebhook.logWebhookEvent, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaignWebhook.logWebhookEvent, {
       organizationId: args.organizationId,
       eventType: args.eventType,
       eventData: args.eventData,
     });
 
     // Find workflows triggered by activecampaign events
-    const workflows = await ctx.runQuery(api.workflows.workflowOntology.getWorkflowsByTriggerPublic, {
+    const workflows = await (ctx as any).runQuery(generatedApi.api.workflows.workflowOntology.getWorkflowsByTriggerPublic, {
       organizationId: args.organizationId,
       triggerOn: "activecampaign_event",
     }) as Doc<"objects">[];
@@ -133,7 +134,7 @@ export const processWebhookEvent = action({
 
       try {
         // Execute the workflow using the workflowOntology action
-        await ctx.runAction(api.workflows.workflowOntology.executeWorkflow, {
+        await (ctx as any).runAction(generatedApi.api.workflows.workflowOntology.executeWorkflow, {
           sessionId: "system", // System-triggered workflow
           workflowId: workflow._id,
           manualTrigger: true,
@@ -167,7 +168,7 @@ export const syncContactToPlatform = action({
 
     try {
       // Check if contact already exists
-      const existingContacts = await ctx.runQuery(api.ontologyHelpers.getObjects, {
+      const existingContacts = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObjects, {
         organizationId: args.organizationId,
         type: "crm_contact",
       }) as Array<{ _id: Id<"objects">; customProperties?: { email?: string } }>;
@@ -178,7 +179,7 @@ export const syncContactToPlatform = action({
 
       if (existingContact) {
         // Update existing contact
-        await ctx.runMutation(internal.oauth.activecampaignWebhook.updateContact, {
+        await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaignWebhook.updateContact, {
           contactId: existingContact._id,
           firstName: args.firstName,
           lastName: args.lastName,
@@ -190,7 +191,7 @@ export const syncContactToPlatform = action({
       }
 
       // Create new contact
-      const contactId = await ctx.runMutation(internal.oauth.activecampaignWebhook.createContact, {
+      const contactId = await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaignWebhook.createContact, {
         organizationId: args.organizationId,
         email: args.email,
         firstName: args.firstName,

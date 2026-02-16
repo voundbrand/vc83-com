@@ -25,7 +25,7 @@
  */
 
 import { query, mutation, internalQuery, internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "../rbacHelpers";
 import { checkFeatureAccess } from "../licensing/helpers";
@@ -162,7 +162,7 @@ export const createWorkflow = mutation({
 
     // Auto-capture into project file system if projectId is set
     if (args.projectId) {
-      await ctx.runMutation(internal.projectFileSystemInternal.captureLayerWorkflow, {
+      await (ctx as any).runMutation(generatedApi.internal.projectFileSystemInternal.captureLayerWorkflow, {
         projectId: args.projectId,
         layerWorkflowId: workflowId,
       });
@@ -227,7 +227,7 @@ export const saveWorkflow = mutation({
     // Auto-capture into project file system if projectId is set
     const projectId = existingData.projectId;
     if (projectId) {
-      await ctx.runMutation(internal.projectFileSystemInternal.captureLayerWorkflow, {
+      await (ctx as any).runMutation(generatedApi.internal.projectFileSystemInternal.captureLayerWorkflow, {
         projectId: projectId as Id<"objects">,
         layerWorkflowId: args.workflowId,
       });
@@ -274,7 +274,7 @@ export const setWorkflowProject = mutation({
 
     // Remove capture from old project if changing
     if (oldProjectId && oldProjectId !== args.projectId) {
-      await ctx.runMutation(internal.projectFileSystemInternal.removeLayerCapture, {
+      await (ctx as any).runMutation(generatedApi.internal.projectFileSystemInternal.removeLayerCapture, {
         projectId: oldProjectId as Id<"objects">,
         layerWorkflowId: args.workflowId,
       });
@@ -282,7 +282,7 @@ export const setWorkflowProject = mutation({
 
     // Capture into new project
     if (args.projectId) {
-      await ctx.runMutation(internal.projectFileSystemInternal.captureLayerWorkflow, {
+      await (ctx as any).runMutation(generatedApi.internal.projectFileSystemInternal.captureLayerWorkflow, {
         projectId: args.projectId,
         layerWorkflowId: args.workflowId,
       });

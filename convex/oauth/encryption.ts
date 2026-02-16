@@ -10,6 +10,8 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 
+const generatedApi: any = require("../_generated/api");
+
 /**
  * Encrypt a token using AES-256-GCM
  * This is an action because it runs in Node.js runtime with access to crypto
@@ -124,15 +126,13 @@ export const testEncryption = action({
     decrypted: string;
     matches: boolean;
   }> => {
-    const { internal } = await import("../_generated/api");
-
     // Encrypt
-    const encrypted: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encrypted: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: args.testString,
     });
 
     // Decrypt
-    const decrypted: string = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const decrypted: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted,
     });
 

@@ -9,8 +9,8 @@
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * Valid link types with descriptions for the LLM
@@ -84,7 +84,7 @@ VALID LINK TYPES: ${VALID_LINK_TYPES.join(", ")}`,
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const linkId = await (ctx as any).runMutation(
-        (internal as any).ai.tools.internalToolMutations.internalCreateObjectLink,
+        generatedApi.internal.ai.tools.internalToolMutations.internalCreateObjectLink,
         {
           organizationId: ctx.organizationId,
           userId: ctx.userId,

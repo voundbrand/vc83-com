@@ -28,7 +28,7 @@ In practice:
 ## 2. Current Baseline (Reality Check)
 
 What is already strong:
-- Composition architecture exists (`knowledge + recipes + skills`) in `docs/layers/AI_COMPOSITION_PLATFORM.md`.
+- Composition architecture exists (`knowledge + recipes + skills`) in `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`.
 - Centralized tool registry and execution pipeline exist in `convex/ai/tools/registry.ts` and `convex/ai/agentExecution.ts`.
 - Layered tool scoping exists in `convex/ai/toolScoping.ts`.
 - Model discovery and platform enablement exist in `convex/ai/modelDiscovery.ts` and `convex/ai/platformModels.ts`.
@@ -124,7 +124,7 @@ Current gaps to close first:
 **Primary targets:**
 - `convex/ai/agentExecution.ts`
 - `convex/organizationMedia.ts` (and related media retrieval actions)
-- `docs/layers/AI_COMPOSITION_PLATFORM.md`
+- `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`
 
 **Deliverables:**
 - Implement actual KB doc retrieval where TODO exists.

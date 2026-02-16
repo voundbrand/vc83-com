@@ -29,7 +29,7 @@ import { mutation, query, internalQuery, internalMutation } from "./_generated/s
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -41,8 +41,8 @@ async function getOrganizationCurrency(
   organizationId: Id<"organizations">
 ): Promise<string> {
   try {
-    const localeSettings = await ctx.runQuery(
-      internal.checkoutSessions.getOrgLocaleSettings,
+    const localeSettings = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessions.getOrgLocaleSettings,
       { organizationId }
     );
 
@@ -719,7 +719,7 @@ export const completeCheckoutSession = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation
-    return await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+    return await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
       purchasedItemIds: args.purchasedItemIds,

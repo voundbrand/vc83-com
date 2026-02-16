@@ -58,3 +58,11 @@ next-env.d.ts
 /docs/geschlossene-gesellschaft/
 # l4yercak3 systems submodule (managed separately)
 docs/l4yercak3_systems
+
+# reference repos under docs (local-only, not part of product source)
+docs/l4yercak3-cli/
+docs/openclaw_idea/openclaw/
+
+# openclaw idea notes are archived/integrated; keep only folder README
+docs/openclaw_idea/*.md
+!docs/openclaw_idea/README.md

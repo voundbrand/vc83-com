@@ -12,7 +12,7 @@
 import { mutation, query, internalMutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -347,7 +347,7 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
     const userId = systemUser._id;
 
     // 1. Get checkout session (single source of truth!)
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     }) as {
       type: string;
@@ -463,7 +463,7 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
         } : undefined;
         
         // Create new organization using EXISTING function
-        crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+        crmOrganizationId = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.createCRMOrganization, {
           organizationId,
           companyName: employerName.trim(), // Ensure proper spacing for company name too
           billingAddress,
@@ -521,7 +521,7 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
 
       // If B2B organization exists and not already linked, link it
       if (crmOrganizationId && !existingContact.customProperties?.linkedOrganizationId) {
-        await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+        await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
           contactId: existingContact._id,
           organizationId: crmOrganizationId,
           role: "attendee",
@@ -585,7 +585,7 @@ export const autoCreateContactFromCheckoutInternal = internalMutation({
 
     // Link contact to organization if B2B checkout
     if (crmOrganizationId) {
-      await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+      await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
         contactId,
         organizationId: crmOrganizationId,
         role: "attendee",
@@ -625,7 +625,7 @@ export const autoCreateContactFromCheckout = mutation({
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation with userId
-    return await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+    return await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
   },
@@ -741,12 +741,12 @@ export const createUserLightAccount = action({
   },
   handler: async (ctx, args): Promise<{ userId: Id<"users">; success: boolean }> => {
     // 1. Hash the password using bcrypt (requires Node.js runtime)
-    const passwordHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+    const passwordHash: string = await (ctx as any).runAction(generatedApi.internal.cryptoActions.hashPassword, {
       password: args.password,
     });
 
     // 2. Delegate all DB operations to the internal mutation
-    const result: { userId: Id<"users">; success: boolean } = await ctx.runMutation(internal.crmIntegrations.internalCreateUserLightAccount, {
+    const result: { userId: Id<"users">; success: boolean } = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.internalCreateUserLightAccount, {
       sessionId: args.sessionId,
       contactId: args.contactId,
       passwordHash,

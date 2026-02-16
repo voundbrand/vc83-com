@@ -10,6 +10,8 @@
 
 import { ActionCtx } from "../_generated/server";
 
+const generatedApi: any = require("../_generated/api");
+
 /**
  * Fetch multiple translations at once for backend actions
  *
@@ -31,8 +33,7 @@ export async function getBackendTranslations(
   keys: string[]
 ): Promise<Record<string, string>> {
   // Get system organization (translations are stored under system org)
-  const { internal } = await import("../_generated/api");
-  const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization);
+  const systemOrg = await (ctx as any).runQuery(generatedApi.internal.helpers.backendTranslationQueries.getSystemOrganization);
 
   if (!systemOrg) {
     console.error("❌ System organization not found for translations");
@@ -44,8 +45,8 @@ export async function getBackendTranslations(
   const normalizedLocale = normalizeLocale(locale);
 
   // Fetch translations for requested locale
-  const translations = await ctx.runQuery(
-    internal.helpers.backendTranslationQueries.getTranslationsByLocale,
+  const translations = await (ctx as any).runQuery(
+    generatedApi.internal.helpers.backendTranslationQueries.getTranslationsByLocale,
     {
       organizationId: systemOrg._id,
       locale: normalizedLocale,
@@ -70,8 +71,8 @@ export async function getBackendTranslations(
     } else if (normalizedLocale !== "en") {
       // Load English fallbacks if not already loaded
       if (!fallbackMap) {
-        const fallbackTranslations = await ctx.runQuery(
-          internal.helpers.backendTranslationQueries.getTranslationsByLocale,
+        const fallbackTranslations = await (ctx as any).runQuery(
+          generatedApi.internal.helpers.backendTranslationQueries.getTranslationsByLocale,
           {
             organizationId: systemOrg._id,
             locale: "en",
@@ -119,8 +120,7 @@ export async function getBackendTranslationsByNamespace(
   namespace: string
 ): Promise<Record<string, string>> {
   // Get system organization
-  const { internal } = await import("../_generated/api");
-  const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization);
+  const systemOrg = await (ctx as any).runQuery(generatedApi.internal.helpers.backendTranslationQueries.getSystemOrganization);
 
   if (!systemOrg) {
     console.error("❌ System organization not found for translations");
@@ -131,8 +131,8 @@ export async function getBackendTranslationsByNamespace(
   const normalizedLocale = normalizeLocale(locale);
 
   // Fetch all translations for this locale
-  const allTranslations = await ctx.runQuery(
-    internal.helpers.backendTranslationQueries.getTranslationsByLocale,
+  const allTranslations = await (ctx as any).runQuery(
+    generatedApi.internal.helpers.backendTranslationQueries.getTranslationsByLocale,
     {
       organizationId: systemOrg._id,
       locale: normalizedLocale,

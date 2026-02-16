@@ -17,7 +17,7 @@
 
 import { action, internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 /**
@@ -75,7 +75,7 @@ export const executeUpdateStatistics = action({
     }
 
     // Get current event
-    const event = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const event = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
       objectId: context.eventId as Id<"objects">,
     });
 
@@ -121,7 +121,7 @@ export const executeUpdateStatistics = action({
       console.log(`🧪 [DRY RUN] Would update event statistics:`, newEventStats);
     } else {
       // Update event statistics (PRODUCTION)
-      await ctx.runMutation(internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
         objectId: context.eventId as Id<"objects">,
         newStats: newEventStats,
         statsKey: "registrationStats",
@@ -145,7 +145,7 @@ export const executeUpdateStatistics = action({
         continue;
       }
 
-      const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
+      const product = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
         objectId: productItem.productId as Id<"objects">,
       });
 
@@ -184,7 +184,7 @@ export const executeUpdateStatistics = action({
           console.log(`🧪 [DRY RUN] Would update ${product.name} statistics:`, newProductStats);
         } else {
           // Update product statistics (PRODUCTION)
-          await ctx.runMutation(internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
+          await (ctx as any).runMutation(generatedApi.internal.workflows.behaviors.updateStatistics.updateObjectStatsInternal, {
             objectId: productItem.productId as Id<"objects">,
             newStats: newProductStats,
             statsKey: "salesStats",

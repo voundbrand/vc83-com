@@ -11,6 +11,7 @@ import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Get or create system user for migrations
@@ -213,7 +214,7 @@ export const migrateAllOrganizations = internalMutation({
 
     for (const org of orgs) {
       try {
-        const result = await ctx.runMutation(internal.migrations.migratePaymentProviders.migratePaymentProviders, {
+        const result = await (ctx as any).runMutation(generatedApi.internal.migrations.migratePaymentProviders.migratePaymentProviders, {
           organizationId: org._id,
         });
         results[org.slug || org._id] = result;
@@ -232,6 +233,3 @@ export const migrateAllOrganizations = internalMutation({
     };
   },
 });
-
-// Export internal API
-import { internal } from "../_generated/api";

@@ -18,7 +18,7 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser, requirePermission, checkPermission } from "../rbacHelpers";
 import { Id } from "../_generated/dataModel";
 import { validateWorkflowConfig, validateObjectReferences } from "./workflowValidation";
-import { api, internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { checkFeatureAccess, getLicenseInternal } from "../licensing/helpers";
 import { ConvexError } from "convex/values";
 
@@ -765,8 +765,8 @@ export const executeWorkflow = action({
     console.log("🚀 Executing workflow manually:", args.workflowId);
 
     // Get authenticated user (using internal query)
-    const authResult = await ctx.runQuery(
-      internal.rbacHelpers.requireAuthenticatedUserQuery,
+    const authResult = await (ctx as any).runQuery(
+      generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery,
       {
         sessionId: args.sessionId,
       }
@@ -775,7 +775,7 @@ export const executeWorkflow = action({
     const userId = authResult.userId;
 
     // Get workflow (using public query)
-    const workflow = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const workflow = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
       objectId: args.workflowId,
     }) as { type: string; organizationId: Id<"organizations">; customProperties: WorkflowCustomProperties; name: string } | null;
 
@@ -784,7 +784,7 @@ export const executeWorkflow = action({
     }
 
     // Check permission (using internal mutation)
-    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+    await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
       userId: userId,
       permission: "manage_workflows",
       organizationId: workflow.organizationId,
@@ -815,7 +815,7 @@ export const executeWorkflow = action({
 
     try {
       // Execute behaviors using the behavior executor (no dynamic imports!)
-      const result = await ctx.runAction(api.workflows.behaviorExecutor.executeBehaviors, {
+      const result = await (ctx as any).runAction(generatedApi.api.workflows.behaviorExecutor.executeBehaviors, {
         sessionId: args.sessionId,
         organizationId: workflow.organizationId,
         behaviors: customProps.behaviors.map((b) => ({
@@ -830,7 +830,7 @@ export const executeWorkflow = action({
       });
 
       // Log successful execution (using internal mutation)
-      await ctx.runMutation(internal.rbacHelpers.logObjectActionMutation, {
+      await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.logObjectActionMutation, {
         organizationId: workflow.organizationId,
         objectId: args.workflowId,
         actionType: "workflow_executed",
@@ -867,7 +867,7 @@ export const executeWorkflow = action({
       console.error("Workflow execution failed:", error);
 
       // Log failed execution (using internal mutation)
-      await ctx.runMutation(internal.rbacHelpers.logObjectActionMutation, {
+      await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.logObjectActionMutation, {
         organizationId: workflow.organizationId,
         objectId: args.workflowId,
         actionType: "workflow_execution_failed",

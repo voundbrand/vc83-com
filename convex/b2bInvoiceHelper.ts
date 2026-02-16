@@ -14,8 +14,9 @@
 
 import { query, action } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // TYPES
@@ -452,7 +453,7 @@ export const generateB2BInvoicePdf = action({
       }
 
       // 2. Get B2B billing data
-      const b2bData = await ctx.runQuery(api.b2bInvoiceHelper.getB2BInvoiceData, {
+      const b2bData = await (ctx as any).runQuery(generatedApi.api.b2bInvoiceHelper.getB2BInvoiceData, {
         sessionId: args.sessionId,
         crmOrganizationId: args.crmOrganizationId,
       });
@@ -465,7 +466,7 @@ export const generateB2BInvoicePdf = action({
       }
 
       // 3. Get CRM org for organization name
-      const crmOrg = await ctx.runQuery(api.crmOntology.getCrmOrganization, {
+      const crmOrg = await (ctx as any).runQuery(generatedApi.api.crmOntology.getCrmOrganization, {
         sessionId: args.sessionId,
         crmOrganizationId: args.crmOrganizationId,
       });
@@ -478,8 +479,8 @@ export const generateB2BInvoicePdf = action({
       }
 
       // 4. Get seller organization info
-      const organization = await ctx.runQuery(
-        internal.checkoutSessions.getOrganizationInternal,
+      const organization = await (ctx as any).runQuery(
+        generatedApi.internal.checkoutSessions.getOrganizationInternal,
         { organizationId: args.organizationId }
       );
 

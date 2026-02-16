@@ -16,8 +16,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 export const executeGenerateInvoice = action({
   args: {
@@ -82,7 +83,7 @@ export const executeGenerateInvoice = action({
       console.log(`🧪 [DRY RUN] Would create invoice: ${dryRunInvoiceNumber}`);
     } else {
       // Create draft invoice from transaction (PRODUCTION)
-      invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
+      invoiceResult = await (ctx as any).runMutation(generatedApi.api.invoicingOntology.createDraftInvoiceFromTransactions, {
         sessionId: args.sessionId,
         organizationId: args.organizationId,
         crmOrganizationId: context.crmOrganizationId as Id<"objects">,

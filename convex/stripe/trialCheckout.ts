@@ -13,7 +13,8 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
-import { internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Create a checkout session for the 14-day Agency trial.
@@ -32,8 +33,8 @@ export const createAgencyTrialCheckout = action({
     }
 
     // 1. Check current license — don't allow trial if already on paid tier
-    const license = await ctx.runQuery(
-      internal.licensing.helpers.getLicenseInternalQuery,
+    const license = await (ctx as any).runQuery(
+      generatedApi.internal.licensing.helpers.getLicenseInternalQuery,
       { organizationId: args.organizationId }
     );
 
@@ -44,8 +45,8 @@ export const createAgencyTrialCheckout = action({
     }
 
     // 2. Check if org already had a trial (prevent trial abuse)
-    const hadTrial: boolean = await ctx.runQuery(
-      internal.stripe.trialHelpers.checkPreviousTrial,
+    const hadTrial: boolean = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
       { organizationId: args.organizationId }
     );
 
@@ -56,8 +57,8 @@ export const createAgencyTrialCheckout = action({
     }
 
     // 3. Get org details for Stripe
-    const org = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal,
       { organizationId: args.organizationId }
     );
 
@@ -74,8 +75,8 @@ export const createAgencyTrialCheckout = action({
 
     if (!stripeCustomerId) {
       // Get primary user email for Stripe customer
-      const members: Array<{ isActive: boolean; user?: { email?: string } | null }> = await ctx.runQuery(
-        internal.stripe.platformWebhooks.getOrganizationMembers,
+      const members: Array<{ isActive: boolean; user?: { email?: string } | null }> = await (ctx as any).runQuery(
+        generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers,
         { organizationId: args.organizationId }
       );
 
@@ -94,8 +95,8 @@ export const createAgencyTrialCheckout = action({
       stripeCustomerId = customer.id;
 
       // Save Stripe customer ID to org
-      await ctx.runMutation(
-        internal.stripe.platformWebhooks.updateOrganizationPlan,
+      await (ctx as any).runMutation(
+        generatedApi.internal.stripe.platformWebhooks.updateOrganizationPlan,
         {
           organizationId: args.organizationId,
           plan: "free",

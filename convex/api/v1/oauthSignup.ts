@@ -12,7 +12,7 @@
 import { v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * Exchange OAuth Code for User Info (Internal)
@@ -271,7 +271,7 @@ export const findOrCreateUserFromOAuth = internalMutation({
     }
 
     // Check if beta access gating is enabled
-    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+    const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
 
     // Create new user (reuse onboarding logic)
     const userId = await ctx.db.insert("users", {
@@ -422,7 +422,7 @@ export const findOrCreateUserFromOAuth = internalMutation({
 
     // Schedule async tasks (same as web onboarding)
     // Record signup event for growth tracking
-    await ctx.scheduler.runAfter(0, internal.growthTracking.recordSignupEvent, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.growthTracking.recordSignupEvent, {
       userId,
       organizationId,
       email,
@@ -430,7 +430,7 @@ export const findOrCreateUserFromOAuth = internalMutation({
     });
 
     // Assign all apps to the new organization (teaser model)
-    await ctx.scheduler.runAfter(0, internal.onboarding.assignAllAppsToOrg, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.onboarding.assignAllAppsToOrg, {
       organizationId,
       userId,
     });
@@ -472,7 +472,7 @@ export const completeOAuthSignup = action({
     provider: "microsoft" | "google" | "github";
   }> => {
     // Get state record (contains callback URL and other metadata)
-    const stateRecord = await ctx.runQuery(internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
+    const stateRecord = await (ctx as any).runQuery(generatedApi.internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
       state: args.state,
     }) as {
       sessionType: "platform" | "cli";
@@ -495,14 +495,14 @@ export const completeOAuthSignup = action({
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/oauth/callback`;
 
     // Exchange OAuth code for user info
-    const userInfo = await ctx.runAction(internal.api.v1.oauthSignup.exchangeOAuthCode, {
+    const userInfo = await (ctx as any).runAction(generatedApi.internal.api.v1.oauthSignup.exchangeOAuthCode, {
       provider: args.provider,
       code: args.code,
       redirectUri,
     });
 
     // Find or create user
-    const userResult = await ctx.runMutation(internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
+    const userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
       email: userInfo.email,
       firstName: userInfo.name.firstName,
       lastName: userInfo.name.lastName,
@@ -515,13 +515,13 @@ export const completeOAuthSignup = action({
       const orgName = stateRecord.organizationName || `${userInfo.name.firstName}${userInfo.name.lastName ? ` ${userInfo.name.lastName}` : ''}'s Organization`;
 
       // Check if beta gating is enabled
-      const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
+      const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
 
       if (betaGatingEnabled) {
         // Send beta access request notifications (async)
         await Promise.all([
           // Notify sales team about beta request
-          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+          (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
             email: userInfo.email,
             firstName: userInfo.name.firstName,
             lastName: userInfo.name.lastName,
@@ -530,7 +530,7 @@ export const completeOAuthSignup = action({
             referralSource: "OAuth signup",
           }),
           // Send confirmation to requester
-          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+          (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
             email: userInfo.email,
             firstName: userInfo.name.firstName,
           }),
@@ -538,7 +538,7 @@ export const completeOAuthSignup = action({
       } else {
         // Beta gating disabled - send normal welcome email
         // Send welcome email (async)
-        await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
+        await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.welcomeEmail.sendWelcomeEmail, {
           email: userInfo.email,
           firstName: userInfo.name.firstName,
           organizationName: orgName,
@@ -546,7 +546,7 @@ export const completeOAuthSignup = action({
         });
 
         // Send sales notification (async)
-        await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+        await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
           eventType: "free_signup",
           user: {
             email: userInfo.email,
@@ -562,7 +562,7 @@ export const completeOAuthSignup = action({
 
       // Create Stripe customer (async) - enables upgrade path
       try {
-        await ctx.runAction(internal.onboarding.createStripeCustomerForFreeUser, {
+        await (ctx as any).runAction(generatedApi.internal.onboarding.createStripeCustomerForFreeUser, {
           organizationId: userResult.organizationId,
           organizationName: orgName,
           email: userInfo.email,
@@ -579,7 +579,7 @@ export const completeOAuthSignup = action({
       const cliToken = stateRecord.cliToken || `cli_session_${crypto.randomUUID().replace(/-/g, '')}`;
       console.log(`[completeOAuthSignup] CLI session - stateRecord.cliToken: ${stateRecord.cliToken?.substring(0, 20) || 'undefined'}, using cliToken: ${cliToken.substring(0, 20)}...`);
       // createCliSession is now an Action (uses bcrypt for hashing)
-      const sessionId = await ctx.runAction(internal.api.v1.cliAuth.createCliSession, {
+      const sessionId = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.createCliSession, {
         userId: userResult.userId,
         email: userInfo.email,
         organizationId: userResult.organizationId,
@@ -589,7 +589,7 @@ export const completeOAuthSignup = action({
       });
 
       // Clean up state
-      await ctx.runMutation(internal.api.v1.oauthSignup.deleteOAuthSignupState, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.deleteOAuthSignupState, {
         state: args.state,
       });
 
@@ -605,7 +605,7 @@ export const completeOAuthSignup = action({
       };
     } else {
       // Create platform session
-      const sessionId = await ctx.runMutation(internal.api.v1.oauthSignup.createPlatformSession, {
+      const sessionId = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.createPlatformSession, {
         userId: userResult.userId,
         email: userInfo.email,
         organizationId: userResult.organizationId,
@@ -616,12 +616,12 @@ export const completeOAuthSignup = action({
       if (userInfo.accessToken && userInfo.providerAccountId) {
         try {
           // Encrypt tokens before storage
-          const encryptedAccessToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+          const encryptedAccessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
             plaintext: userInfo.accessToken,
           });
           
           const encryptedRefreshToken = userInfo.refreshToken
-            ? await ctx.runAction(internal.oauth.encryption.encryptToken, {
+            ? await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
                 plaintext: userInfo.refreshToken,
               })
             : encryptedAccessToken; // Use access token if no refresh token
@@ -631,7 +631,7 @@ export const completeOAuthSignup = action({
 
           // Store connection using provider-specific mutation
           if (args.provider === "google") {
-            await ctx.runMutation(internal.oauth.google.storeConnection, {
+            await (ctx as any).runMutation(generatedApi.internal.oauth.google.storeConnection, {
               userId: userResult.userId,
               organizationId: userResult.organizationId,
               provider: "google",
@@ -645,7 +645,7 @@ export const completeOAuthSignup = action({
               metadata: {}, // Store empty metadata for now
             });
           } else if (args.provider === "microsoft") {
-            await ctx.runMutation(internal.oauth.microsoft.storeConnection, {
+            await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.storeConnection, {
               userId: userResult.userId,
               organizationId: userResult.organizationId,
               provider: "microsoft",
@@ -658,7 +658,7 @@ export const completeOAuthSignup = action({
               scopes,
             });
           } else if (args.provider === "github") {
-            await ctx.runMutation(internal.oauth.github.storeConnection, {
+            await (ctx as any).runMutation(generatedApi.internal.oauth.github.storeConnection, {
               userId: userResult.userId,
               organizationId: userResult.organizationId,
               provider: "github",
@@ -680,7 +680,7 @@ export const completeOAuthSignup = action({
       }
 
       // Clean up state
-      await ctx.runMutation(internal.api.v1.oauthSignup.deleteOAuthSignupState, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.deleteOAuthSignupState, {
         state: args.state,
       });
 
@@ -738,7 +738,7 @@ export const storeOAuthSignupState = action({
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.api.v1.oauthSignup.storeOAuthSignupStateInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.storeOAuthSignupStateInternal, {
       state: args.state,
       sessionType: args.sessionType,
       callbackUrl: args.callbackUrl,
@@ -803,7 +803,7 @@ export const getOAuthSignupState = action({
     cliState?: string;
     expiresAt: number;
   } | null> => {
-    return await ctx.runQuery(internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
+    return await (ctx as any).runQuery(generatedApi.internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
       state: args.state,
     });
   },

@@ -10,7 +10,7 @@
 
 import { action, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Id, Doc } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { generatePdfFromTemplate } from "./lib/generatePdf";
@@ -88,8 +88,8 @@ export const generateTransactionInvoice = action({
   },
   handler: async (ctx, args) => {
     // 1. Get checkout session
-    const session = await ctx.runQuery(
-      internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       { checkoutSessionId: args.checkoutSessionId }
     ) as Doc<"objects"> | null;
 
@@ -164,7 +164,7 @@ export const generateTransactionInvoice = action({
 
     // 5. Cache reference in transaction
     const expiryDate = Date.now() + CACHE_EXPIRY_MS;
-    await ctx.runMutation(internal.transactionInvoicing.cacheInvoicePdf, {
+    await (ctx as any).runMutation(generatedApi.internal.transactionInvoicing.cacheInvoicePdf, {
       checkoutSessionId: args.checkoutSessionId,
       pdfStorageId: storageId as string,
       expiryDate,
@@ -325,7 +325,7 @@ async function prepareTemplateDataFromSession(
   const transactionIds = (session.customProperties?.transactionIds as Id<"objects">[]) || [];
   const transactions = await Promise.all(
     transactionIds.map((id: Id<"objects">) =>
-      ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+      (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
         transactionId: id,
       })
     )

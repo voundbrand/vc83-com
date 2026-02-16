@@ -22,9 +22,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, type AuthContext } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST PRODUCTS
@@ -79,8 +80,8 @@ export const listProducts = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query products
-    const result = await ctx.runQuery(
-      internal.api.v1.productsInternal.listProductsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.productsInternal.listProductsInternal,
       {
         organizationId: authContext.organizationId,
         subtype,
@@ -154,8 +155,8 @@ export const getProduct = httpAction(async (ctx, request) => {
     }
 
     // 4. Get product
-    const product = await ctx.runQuery(
-      internal.api.v1.productsInternal.getProductInternal,
+    const product = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.productsInternal.getProductInternal,
       {
         productId,
         organizationId: authContext.organizationId,
@@ -259,8 +260,8 @@ export const createProduct = httpAction(async (ctx, request) => {
     }
 
     // 5. Create product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.createProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.createProductInternal,
       {
         organizationId: authContext.organizationId,
         name,
@@ -379,8 +380,8 @@ export const updateProduct = httpAction(async (ctx, request) => {
     }
 
     // 6. Update product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.updateProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.updateProductInternal,
       {
         organizationId: authContext.organizationId,
         productId,
@@ -464,8 +465,8 @@ export const deleteProduct = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.deleteProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.deleteProductInternal,
       {
         organizationId: authContext.organizationId,
         productId,
@@ -539,8 +540,8 @@ export const publishProduct = httpAction(async (ctx, request) => {
     }
 
     // 4. Publish product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.publishProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.publishProductInternal,
       {
         organizationId: authContext.organizationId,
         productId,
@@ -614,8 +615,8 @@ export const archiveProduct = httpAction(async (ctx, request) => {
     }
 
     // 4. Archive product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.archiveProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.archiveProductInternal,
       {
         organizationId: authContext.organizationId,
         productId,
@@ -706,8 +707,8 @@ export const setProductPrice = httpAction(async (ctx, request) => {
     }
 
     // 5. Update price
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.setProductPriceInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.setProductPriceInternal,
       {
         organizationId: authContext.organizationId,
         productId,
@@ -797,8 +798,8 @@ export const handleProductsGet = httpAction(async (ctx, request) => {
     }
 
     // 3. Get product
-    const product = await ctx.runQuery(
-      internal.api.v1.productsInternal.getProductInternal,
+    const product = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.productsInternal.getProductInternal,
       {
         productId,
         organizationId: auth.authContext.organizationId,
@@ -861,8 +862,8 @@ export const handleProductsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.productsInternal.publishProductInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.productsInternal.publishProductInternal,
         {
           organizationId: auth.authContext.organizationId,
           productId,
@@ -892,8 +893,8 @@ export const handleProductsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.productsInternal.archiveProductInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.productsInternal.archiveProductInternal,
         {
           organizationId: auth.authContext.organizationId,
           productId,
@@ -933,8 +934,8 @@ export const handleProductsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.productsInternal.setProductPriceInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.productsInternal.setProductPriceInternal,
         {
           organizationId: auth.authContext.organizationId,
           productId,
@@ -981,8 +982,8 @@ export const handleProductsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.productsInternal.createProductInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.productsInternal.createProductInternal,
         {
           organizationId: auth.authContext.organizationId,
           name,
@@ -1074,8 +1075,8 @@ export const handleProductsPatch = httpAction(async (ctx, request) => {
     }
 
     // 5. Update product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.updateProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.updateProductInternal,
       {
         organizationId: auth.authContext.organizationId,
         productId,
@@ -1138,8 +1139,8 @@ export const handleProductsDelete = httpAction(async (ctx, request) => {
     }
 
     // 3. Delete product
-    const result = await ctx.runMutation(
-      internal.api.v1.productsInternal.deleteProductInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.productsInternal.deleteProductInternal,
       {
         organizationId: auth.authContext.organizationId,
         productId,

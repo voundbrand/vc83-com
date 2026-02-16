@@ -23,8 +23,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CREATE PROJECT
@@ -83,8 +84,8 @@ export const createProject = httpAction(async (ctx, request) => {
     }
 
     // 4. Create project
-    const projectId = await ctx.runMutation(
-      internal.api.v1.projectsInternal.createProjectInternal,
+    const projectId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.projectsInternal.createProjectInternal,
       {
         organizationId,
         subtype,
@@ -171,8 +172,8 @@ export const listProjects = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query projects
-    const result = await ctx.runQuery(
-      internal.api.v1.projectsInternal.listProjectsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.listProjectsInternal,
       {
         organizationId,
         subtype,
@@ -248,8 +249,8 @@ export const getProject = httpAction(async (ctx, request) => {
     }
 
     // 4. Query project
-    const project = await ctx.runQuery(
-      internal.api.v1.projectsInternal.getProjectInternal,
+    const project = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.getProjectInternal,
       {
         organizationId,
         projectId,
@@ -345,8 +346,8 @@ export const updateProject = httpAction(async (ctx, request) => {
     } = body;
 
     // 5. Update project
-    await ctx.runMutation(
-      internal.api.v1.projectsInternal.updateProjectInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.projectsInternal.updateProjectInternal,
       {
         organizationId,
         projectId,
@@ -438,8 +439,8 @@ export const deleteProject = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete project
-    await ctx.runMutation(
-      internal.api.v1.projectsInternal.deleteProjectInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.projectsInternal.deleteProjectInternal,
       {
         organizationId,
         projectId,
@@ -518,8 +519,8 @@ export const listMilestones = httpAction(async (ctx, request) => {
     }
 
     // 4. Query milestones
-    const milestones = await ctx.runQuery(
-      internal.api.v1.projectsInternal.listMilestonesInternal,
+    const milestones = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.listMilestonesInternal,
       {
         organizationId,
         projectId,
@@ -595,8 +596,8 @@ export const listTasks = httpAction(async (ctx, request) => {
     }
 
     // 4. Query tasks
-    const tasks = await ctx.runQuery(
-      internal.api.v1.projectsInternal.listTasksInternal,
+    const tasks = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.listTasksInternal,
       {
         organizationId,
         projectId,
@@ -672,8 +673,8 @@ export const listTeamMembers = httpAction(async (ctx, request) => {
     }
 
     // 4. Query team members
-    const teamMembers = await ctx.runQuery(
-      internal.api.v1.projectsInternal.listTeamMembersInternal,
+    const teamMembers = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.listTeamMembersInternal,
       {
         organizationId,
         projectId,
@@ -748,8 +749,8 @@ export const listComments = httpAction(async (ctx, request) => {
     }
 
     // 4. Query comments
-    const comments = await ctx.runQuery(
-      internal.api.v1.projectsInternal.listCommentsInternal,
+    const comments = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.listCommentsInternal,
       {
         organizationId,
         projectId,
@@ -825,8 +826,8 @@ export const getActivityLog = httpAction(async (ctx, request) => {
     }
 
     // 4. Query activity log
-    const activities = await ctx.runQuery(
-      internal.api.v1.projectsInternal.getActivityLogInternal,
+    const activities = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.projectsInternal.getActivityLogInternal,
       {
         organizationId,
         projectId,

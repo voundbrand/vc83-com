@@ -9,7 +9,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Doc } from "./_generated/dataModel";
 import {
   type TemplateId,
@@ -63,24 +63,24 @@ export const generatePdfFromTemplate = action({
       }
 
       // 3. Get seller organization info for footer
-      const sellerOrg = await ctx.runQuery(
-        api.organizationOntology.getOrganizationProfile,
+      const sellerOrg = await (ctx as any).runQuery(
+        generatedApi.api.organizationOntology.getOrganizationProfile,
         { organizationId: args.organizationId }
       ) as Doc<"objects"> | null;
 
-      const sellerLegal = await ctx.runQuery(
-        api.organizationOntology.getOrganizationLegal,
+      const sellerLegal = await (ctx as any).runQuery(
+        generatedApi.api.organizationOntology.getOrganizationLegal,
         { organizationId: args.organizationId }
       ) as Doc<"objects"> | null;
 
-      const sellerContact = await ctx.runQuery(
-        api.organizationOntology.getOrganizationContact,
+      const sellerContact = await (ctx as any).runQuery(
+        generatedApi.api.organizationOntology.getOrganizationContact,
         { organizationId: args.organizationId }
       ) as Doc<"objects"> | null;
 
       // Get organization record for business name
-      const organization = await ctx.runQuery(
-        internal.checkoutSessions.getOrganizationInternal,
+      const organization = await (ctx as any).runQuery(
+        generatedApi.internal.checkoutSessions.getOrganizationInternal,
         { organizationId: args.organizationId }
       );
 

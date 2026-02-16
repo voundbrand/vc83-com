@@ -9,7 +9,7 @@
 
 import { httpAction } from "../_generated/server";
 import { authenticateRequest, requireScopes } from "../middleware/auth";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * EXAMPLE ENDPOINT WITH ASYNC USAGE TRACKING
@@ -25,7 +25,7 @@ export const exampleEndpointWithTracking = httpAction(async (ctx, request) => {
   const authResult = await authenticateRequest(ctx, request);
   if (!authResult.success) {
     // Track failed authentication (async)
-    ctx.scheduler.runAfter(0, internal.security.usageTracking.trackFailedAuthAsync, {
+    (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackFailedAuthAsync, {
       apiKeyPrefix: request.headers.get("Authorization")?.substring(7, 19), // First 12 chars
       tokenType: "api_key",
       endpoint: request.url,
@@ -47,7 +47,7 @@ export const exampleEndpointWithTracking = httpAction(async (ctx, request) => {
   const scopeCheck = requireScopes(authContext, ["contacts:read"]);
   if (!scopeCheck.success) {
     // Track successful auth but failed authorization (async)
-    ctx.scheduler.runAfter(0, internal.security.usageTracking.trackUsageAsync, {
+    (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackUsageAsync, {
       organizationId: authContext.organizationId,
       authMethod: authContext.authMethod,
       apiKeyId: authContext.authMethod === "api_key" ? (authContext as any).apiKeyId : undefined,
@@ -71,7 +71,7 @@ export const exampleEndpointWithTracking = httpAction(async (ctx, request) => {
   const result = { success: true, message: "Hello from the API!" };
 
   // 4. Track successful request (async - 0ms added latency)
-  ctx.scheduler.runAfter(0, internal.security.usageTracking.trackUsageAsync, {
+  (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackUsageAsync, {
     organizationId: authContext.organizationId,
     authMethod: authContext.authMethod,
     apiKeyId: authContext.authMethod === "api_key" ? (authContext as any).apiKeyId : undefined,
@@ -106,7 +106,7 @@ function scheduleUsageTracking(
   statusCode: number,
   startTime: number
 ) {
-  ctx.scheduler.runAfter(0, internal.security.usageTracking.trackUsageAsync, {
+  (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackUsageAsync, {
     organizationId: authContext.organizationId,
     authMethod: authContext.authMethod,
     apiKeyId: authContext.authMethod === "api_key" ? authContext.apiKeyId : undefined,

@@ -8,7 +8,7 @@
 import { action, mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 // Vercel OAuth endpoints
 // Note: Marketplace integrations use /integrations/{slug}/new instead of /oauth/authorize
@@ -56,7 +56,7 @@ export const initiateVercelOAuth = mutation({
 
     // For organizational connections, verify user has manage_integrations permission
     if (args.connectionType === "organizational") {
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -139,7 +139,7 @@ export const exchangeVercelCode = action({
     console.log("Exchanging Vercel authorization code...");
 
     // Verify state token
-    const stateRecord = await ctx.runQuery(internal.oauth.vercel.verifyState, {
+    const stateRecord = await (ctx as any).runQuery(generatedApi.internal.oauth.vercel.verifyState, {
       state: args.state,
     });
 
@@ -202,12 +202,12 @@ export const exchangeVercelCode = action({
     });
 
     // Encrypt access token before storage
-    const encryptedAccessToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
     // Store connection in database
-    const connectionId: Id<"oauthConnections"> = await ctx.runMutation(internal.oauth.vercel.storeConnection, {
+    const connectionId: Id<"oauthConnections"> = await (ctx as any).runMutation(generatedApi.internal.oauth.vercel.storeConnection, {
       userId: stateRecord.userId,
       organizationId: stateRecord.organizationId,
       connectionType: stateRecord.connectionType,
@@ -221,7 +221,7 @@ export const exchangeVercelCode = action({
     });
 
     // Delete used state token
-    await ctx.runMutation(internal.oauth.vercel.deleteState, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.vercel.deleteState, {
       state: args.state,
     });
 
@@ -397,7 +397,7 @@ export const disconnectVercel = mutation({
       }
     } else {
       // Organizational connection: need manage_integrations permission
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",

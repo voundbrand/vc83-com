@@ -17,7 +17,7 @@ import { SignJWT, jwtVerify, JWTPayload } from 'jose';
 import { action, internalAction, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { OAUTH_CONFIG, JWT_CONFIG } from './config';
-import { internal } from '../_generated/api';
+const generatedApi: any = require("../_generated/api");
 import { ConvexError } from "convex/values";
 import { verifyCodeChallenge, verifyClientSecret } from "./helpers";
 import { generateRefreshToken, hashRefreshToken } from "./config";
@@ -148,7 +148,7 @@ export const verifyAccessToken = internalAction({
       }
 
       // Check if token is revoked
-      const isRevoked = await ctx.runQuery(internal.oauth.queries.isTokenRevoked, {
+      const isRevoked = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.isTokenRevoked, {
         jti: claims.jti,
       });
 
@@ -254,7 +254,7 @@ export const exchangeAuthorizationCode = action({
     scope: string;
   }> => {
     // 1. Lookup authorization code
-    const authCode: Doc<"oauthAuthorizationCodes"> | null = await ctx.runQuery(internal.oauth.queries.getAuthorizationCodeByCode, {
+    const authCode: Doc<"oauthAuthorizationCodes"> | null = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getAuthorizationCodeByCode, {
       code: args.code,
     });
 
@@ -299,7 +299,7 @@ export const exchangeAuthorizationCode = action({
     }
 
     // 6. Lookup OAuth application
-    const application: Doc<"oauthApplications"> | null = await ctx.runQuery(internal.oauth.queries.getApplicationByClientId, {
+    const application: Doc<"oauthApplications"> | null = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getApplicationByClientId, {
       clientId: args.clientId,
     });
 
@@ -363,13 +363,13 @@ export const exchangeAuthorizationCode = action({
     }
 
     // 10. Mark authorization code as used
-    await ctx.runMutation(internal.oauth.tokens.markAuthorizationCodeUsed, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.markAuthorizationCodeUsed, {
       codeId: authCode._id,
     });
 
     // 11. Generate JWT access token
     const jti = generateTokenId();
-    const accessToken: string = await ctx.runAction(internal.oauth.tokens.generateAccessToken, {
+    const accessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.tokens.generateAccessToken, {
       userId: authCode.userId,
       organizationId: authCode.organizationId,
       clientId: args.clientId,
@@ -383,7 +383,7 @@ export const exchangeAuthorizationCode = action({
     const refreshTokenId = `rt_${crypto.randomUUID()}`;
 
     // 13. Store refresh token
-    await ctx.runMutation(internal.oauth.tokens.insertRefreshToken, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.insertRefreshToken, {
       tokenId: refreshTokenId,
       tokenHash: refreshTokenHash,
       clientId: args.clientId,
@@ -394,7 +394,7 @@ export const exchangeAuthorizationCode = action({
     });
 
     // 14. Update application last used timestamp
-    await ctx.runMutation(internal.oauth.tokens.updateApplicationLastUsed, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.updateApplicationLastUsed, {
       applicationId: application._id,
     });
 
@@ -512,7 +512,7 @@ export const refreshAccessToken = action({
     const tokenHash = await hashRefreshToken(args.refreshToken);
 
     // 2. Find refresh token in database
-    const refreshToken: Doc<"oauthRefreshTokens"> | null = await ctx.runQuery(internal.oauth.queries.getRefreshTokenByHash, {
+    const refreshToken: Doc<"oauthRefreshTokens"> | null = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getRefreshTokenByHash, {
       tokenHash,
     });
 
@@ -548,7 +548,7 @@ export const refreshAccessToken = action({
     }
 
     // 6. Lookup OAuth application
-    const application: Doc<"oauthApplications"> | null = await ctx.runQuery(internal.oauth.queries.getApplicationByClientId, {
+    const application: Doc<"oauthApplications"> | null = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getApplicationByClientId, {
       clientId: args.clientId,
     });
 
@@ -598,7 +598,7 @@ export const refreshAccessToken = action({
 
     // 9. Generate new JWT access token
     const jti = generateTokenId();
-    const accessToken: string = await ctx.runAction(internal.oauth.tokens.generateAccessToken, {
+    const accessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.tokens.generateAccessToken, {
       userId: refreshToken.userId,
       organizationId: refreshToken.organizationId,
       clientId: args.clientId,
@@ -607,12 +607,12 @@ export const refreshAccessToken = action({
     });
 
     // 10. Update refresh token usage stats
-    await ctx.runMutation(internal.oauth.tokens.updateRefreshTokenUsage, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.updateRefreshTokenUsage, {
       tokenId: refreshToken._id,
     });
 
     // 11. Update application last used timestamp
-    await ctx.runMutation(internal.oauth.tokens.updateApplicationLastUsed, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.updateApplicationLastUsed, {
       applicationId: application._id,
     });
 
@@ -658,7 +658,7 @@ export const revokeToken = action({
   },
   handler: async (ctx, args) => {
     // 1. Lookup OAuth application
-    const application = await ctx.runQuery(internal.oauth.queries.getApplicationByClientId, {
+    const application = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getApplicationByClientId, {
       clientId: args.clientId,
     });
 
@@ -692,12 +692,12 @@ export const revokeToken = action({
     // 3. Attempt to revoke as refresh token first (if hint suggests it)
     if (!args.tokenTypeHint || args.tokenTypeHint === "refresh_token") {
       const tokenHash = await hashRefreshToken(args.token);
-      const refreshToken = await ctx.runQuery(internal.oauth.queries.getRefreshTokenByHash, {
+      const refreshToken = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.getRefreshTokenByHash, {
         tokenHash,
       });
 
       if (refreshToken && refreshToken.clientId === args.clientId) {
-        await ctx.runMutation(internal.oauth.tokens.revokeRefreshTokenByHash, {
+        await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.revokeRefreshTokenByHash, {
           tokenHash,
         });
         return { revoked: true, token_type: "refresh_token" };
@@ -707,13 +707,13 @@ export const revokeToken = action({
     // 4. Attempt to revoke as access token (JWT)
     if (!args.tokenTypeHint || args.tokenTypeHint === "access_token") {
       try {
-        const claims = await ctx.runAction(internal.oauth.tokens.verifyAccessToken, {
+        const claims = await (ctx as any).runAction(generatedApi.internal.oauth.tokens.verifyAccessToken, {
           token: args.token,
         });
 
         if (claims.client_id === args.clientId) {
           // Add to revocation list
-          await ctx.runMutation(internal.oauth.tokens.insertRevokedToken, {
+          await (ctx as any).runMutation(generatedApi.internal.oauth.tokens.insertRevokedToken, {
             jti: claims.jti,
             userId: claims.sub,
             organizationId: claims.org,

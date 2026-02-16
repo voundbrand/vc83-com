@@ -11,24 +11,25 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 export const seed = internalMutation({
   handler: async (ctx): Promise<{ success: boolean; filesSeeded: number; estimatedTranslations: number }> => {
     console.log("🌱 Starting Event Landing Page Translation Seeding...");
     console.log("================================================");
 
-    const seedFiles: Array<{ name: string; path: typeof internal.translations.seedEventLanding_01_Navigation.seed }> = [
-      { name: "Navigation", path: internal.translations.seedEventLanding_01_Navigation.seed },
-      { name: "Hero & Venue", path: internal.translations.seedEventLanding_02_HeroAndVenue.seed },
-      { name: "Checkout Section", path: internal.translations.seedEventLanding_03_Checkout.seed },
-      { name: "Agenda & Dates", path: internal.translations.seedEventLanding_04_AgendaAndDates.seed },
+    const seedFiles: Array<{ name: string; path: any }> = [
+      { name: "Navigation", path: generatedApi.internal.translations.seedEventLanding_01_Navigation.seed },
+      { name: "Hero & Venue", path: generatedApi.internal.translations.seedEventLanding_02_HeroAndVenue.seed },
+      { name: "Checkout Section", path: generatedApi.internal.translations.seedEventLanding_03_Checkout.seed },
+      { name: "Agenda & Dates", path: generatedApi.internal.translations.seedEventLanding_04_AgendaAndDates.seed },
     ];
 
     for (const file of seedFiles) {
       try {
         console.log(`\n📂 Seeding ${file.name}...`);
-        await ctx.scheduler.runAfter(0, file.path);
+        await (ctx.scheduler as any).runAfter(0, file.path);
         // Note: We can't directly get the result, but the individual seed files log their progress
         console.log(`✅ ${file.name} seeded successfully`);
       } catch (error) {

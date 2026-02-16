@@ -8,7 +8,7 @@ import { action, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Delete user account (Grace Period - 2 weeks)
@@ -34,7 +34,7 @@ export const deleteAccount = action({
   },
   handler: async (ctx, args) => {
     // Get session using auth query
-    const session = await ctx.runQuery(internal.auth.getSessionById, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
       sessionId: args.sessionId,
     });
 
@@ -46,12 +46,12 @@ export const deleteAccount = action({
 
     // ONLY mark account as inactive during grace period
     // Everything else (orgs, memberships, password) stays intact
-    await ctx.runMutation(internal.accountManagement.markAccountForDeletion, {
+    await (ctx as any).runMutation(generatedApi.internal.accountManagement.markAccountForDeletion, {
       userId,
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: undefined,
       action: "delete_account",
@@ -61,7 +61,7 @@ export const deleteAccount = action({
     });
 
     // Delete the session (logout)
-    await ctx.runMutation(internal.auth.deleteSession, {
+    await (ctx as any).runMutation(generatedApi.internal.auth.deleteSession, {
       sessionId: args.sessionId,
     });
 
@@ -226,7 +226,7 @@ export const restoreAccount = action({
   },
   handler: async (ctx, args) => {
     // Get session
-    const session = await ctx.runQuery(internal.auth.getSessionById, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
       sessionId: args.sessionId,
     });
 
@@ -237,12 +237,12 @@ export const restoreAccount = action({
     const userId = session.userId;
 
     // Clear scheduled deletion date
-    await ctx.runMutation(internal.accountManagement.internalRestoreAccount, {
+    await (ctx as any).runMutation(generatedApi.internal.accountManagement.internalRestoreAccount, {
       userId,
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: undefined,
       action: "restore_account",
@@ -428,12 +428,12 @@ export const permanentlyDeleteExpiredAccounts = internalMutation({
         console.log(`[CRON] Permanently deleting account: ${user.email}`);
 
         // 1. Archive all organizations owned by this user
-        await ctx.runMutation(internal.accountManagement.archiveOwnedOrganizations, {
+        await (ctx as any).runMutation(generatedApi.internal.accountManagement.archiveOwnedOrganizations, {
           userId: user._id,
         });
 
         // 2. Remove user from all organizations
-        await ctx.runMutation(internal.accountManagement.removeFromAllOrganizations, {
+        await (ctx as any).runMutation(generatedApi.internal.accountManagement.removeFromAllOrganizations, {
           userId: user._id,
         });
 
@@ -445,7 +445,7 @@ export const permanentlyDeleteExpiredAccounts = internalMutation({
         });
 
         // 4. Log audit event
-        await ctx.runMutation(internal.rbac.logAudit, {
+        await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
           userId: user._id,
           organizationId: undefined,
           action: "permanent_delete_account",

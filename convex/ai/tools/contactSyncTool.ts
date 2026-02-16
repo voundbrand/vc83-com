@@ -8,8 +8,9 @@
 import { action } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -142,7 +143,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     results?: unknown;
   }> => {
     // Get user session and organization
-    const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
       sessionId: args.sessionId
     });
 
@@ -153,7 +154,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     const organizationId = session.organizationId;
 
     // Get OAuth connection
-    const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: args.sessionId
     });
 
@@ -183,7 +184,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     }
 
     // Get existing CRM contacts for matching
-    const existingContacts = await ctx.runQuery(api.crmOntology.getContacts, {
+    const existingContacts = await (ctx as any).runQuery(generatedApi.api.crmOntology.getContacts, {
       sessionId: args.sessionId,
       organizationId: organizationId as Id<"organizations">
     });
@@ -204,7 +205,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
     // If preview mode, return previews
     if (args.mode === "preview") {
       // Store sync record for later execution
-      const syncId = await ctx.runMutation(api.ai.contactSyncs.createSyncRecord, {
+      const syncId = await (ctx as any).runMutation(generatedApi.api.ai.contactSyncs.createSyncRecord, {
         organizationId: organizationId as Id<"organizations">,
         userId: session.userId,
         provider: args.provider,
@@ -237,7 +238,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
       // ⚡ PROFESSIONAL TIER: Contact Sync
       // Professional+ can sync contacts from external providers
       // Note: checkFeatureAccess requires QueryCtx, so we use runQuery here
-      await ctx.runQuery(api.licensing.helpers.checkFeatureAccessQuery, {
+      await (ctx as any).runQuery(generatedApi.api.licensing.helpers.checkFeatureAccessQuery, {
         organizationId: organizationId as Id<"organizations">,
         featureName: "contactSyncEnabled",
       });
@@ -258,7 +259,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
           }
 
           if (preview.action === "create") {
-            await ctx.runMutation(api.crmOntology.createContact, {
+            await (ctx as any).runMutation(generatedApi.api.crmOntology.createContact, {
               sessionId: args.sessionId,
               organizationId: organizationId as Id<"organizations">,
               subtype: "lead",
@@ -273,7 +274,7 @@ export const executeSyncContacts: ReturnType<typeof action> = action({
             });
             results.created++;
           } else if (preview.action === "update" && preview.existingContactId) {
-            await ctx.runMutation(api.crmOntology.updateContact, {
+            await (ctx as any).runMutation(generatedApi.api.crmOntology.updateContact, {
               sessionId: args.sessionId,
               contactId: preview.existingContactId as Id<"objects">,
               updates: {
@@ -350,7 +351,7 @@ async function fetchExternalContacts(
       endpoint += `?${params.join("&")}`;
     }
 
-    const response = await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+    const response = await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
       connectionId,
       endpoint
     });

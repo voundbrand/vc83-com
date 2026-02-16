@@ -11,7 +11,7 @@
 
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Send email via Microsoft Graph API
@@ -111,7 +111,7 @@ export const sendEmailViaMicrosoft = internalAction({
       console.log(`📧 Sending email via Microsoft Graph to ${Array.isArray(args.to) ? args.to.join(', ') : args.to}`);
 
       // Send via Microsoft Graph
-      const response = await ctx.runAction(internal.oauth.graphClient.graphRequest, {
+      const response = await (ctx as any).runAction(generatedApi.internal.oauth.graphClient.graphRequest, {
         connectionId: args.connectionId,
         endpoint: "/me/sendMail",
         method: "POST",
@@ -172,8 +172,7 @@ export const sendBulkEmailsViaMicrosoft = internalAction({
     failures: Array<{ email: string; error: string }>;
   }> => {
     // CHECK FEATURE ACCESS: Bulk email requires Starter+
-    const { internal: internalApi } = await import("../_generated/api");
-    await ctx.runQuery(internalApi.licensing.helpers.checkFeatureAccessInternal, {
+    await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.checkFeatureAccessInternal, {
       organizationId: args.organizationId,
       featureFlag: "bulkEmailEnabled",
     });
@@ -189,7 +188,7 @@ export const sendBulkEmailsViaMicrosoft = internalAction({
 
     for (const email of args.emails) {
       try {
-        const result = await ctx.runAction(internal.oauth.emailSending.sendEmailViaMicrosoft, {
+        const result = await (ctx as any).runAction(generatedApi.internal.oauth.emailSending.sendEmailViaMicrosoft, {
           connectionId: args.connectionId,
           to: email.to,
           subject: email.subject,

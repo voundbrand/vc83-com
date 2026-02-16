@@ -15,8 +15,9 @@
 import { action } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -313,8 +314,8 @@ async function getActivityEvents(
   filters: EventFilters
 ): Promise<ToolResult> {
   try {
-    const result = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getActivityEventsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getActivityEventsInternal,
       {
         organizationId: orgId,
         applicationId: appId,
@@ -407,8 +408,8 @@ async function getActivityStats(
       }>;
     };
 
-    const stats = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getActivityStatsInternal,
+    const stats = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getActivityStatsInternal,
       {
         organizationId: orgId,
         applicationId: appId,
@@ -474,8 +475,8 @@ async function listApplicationPages(
       };
     };
 
-    const pages = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getApplicationPagesInternal,
+    const pages = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getApplicationPagesInternal,
       {
         organizationId: orgId,
         applicationId: appId,
@@ -526,8 +527,8 @@ async function registerPage(
   params: RegisterPageParams
 ): Promise<ToolResult> {
   try {
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.registerPageInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.registerPageInternal,
       {
         organizationId: orgId,
         applicationId: appId,
@@ -568,8 +569,8 @@ async function updatePageBindings(
   }>
 ): Promise<ToolResult> {
   try {
-    await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.updatePageBindingsInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.updatePageBindingsInternal,
       {
         pageId,
         objectBindings,
@@ -607,8 +608,8 @@ async function getSettings(
       logDebugEvents?: boolean;
     };
 
-    const settings = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getSettingsInternal,
+    const settings = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getSettingsInternal,
       {
         organizationId: orgId,
         applicationId: appId,
@@ -645,8 +646,8 @@ async function updateSettings(
   params: UpdateSettingsParams
 ): Promise<ToolResult> {
   try {
-    await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.updateSettingsInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.updateSettingsInternal,
       {
         organizationId: orgId,
         applicationId: appId,

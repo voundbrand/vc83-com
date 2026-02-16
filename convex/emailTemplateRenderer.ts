@@ -8,8 +8,9 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 // Custom property interfaces for type safety
 interface TicketCustomProperties {
@@ -77,7 +78,7 @@ export const resolveEmailTemplateCode = action({
   },
   handler: async (ctx, args): Promise<string> => {
     // 1. Get ticket
-    const ticket = await ctx.runQuery(api.ticketOntology.getTicket, {
+    const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
@@ -85,7 +86,7 @@ export const resolveEmailTemplateCode = action({
     // Check ticket-level template (for manual testing/overrides)
     const ticketProps = ticket.customProperties as TicketCustomProperties | undefined;
     if (ticketProps?.emailTemplateId) {
-      const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+      const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
         templateId: ticketProps.emailTemplateId as Id<"objects">,
       });
       if (template?.customProperties?.code) {
@@ -97,14 +98,14 @@ export const resolveEmailTemplateCode = action({
     // 2. Check product-level template
     const productId = ticketProps?.productId;
     if (productId) {
-      const product = await ctx.runQuery(api.productOntology.getProduct, {
+      const product = await (ctx as any).runQuery(generatedApi.api.productOntology.getProduct, {
         sessionId: args.sessionId,
         productId: productId as Id<"objects">,
       });
 
       const productProps = product.customProperties as ProductCustomProperties | undefined;
       if (productProps?.emailTemplateId) {
-        const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
           templateId: productProps.emailTemplateId as Id<"objects">,
         });
         if (template?.customProperties?.code) {
@@ -117,14 +118,14 @@ export const resolveEmailTemplateCode = action({
     // 3. Check event-level template
     const eventId = ticketProps?.eventId;
     if (eventId) {
-      const event = await ctx.runQuery(api.eventOntology.getEvent, {
+      const event = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEvent, {
         sessionId: args.sessionId,
         eventId: eventId as Id<"objects">,
       });
 
       const eventProps = event.customProperties as EventCustomProperties | undefined;
       if (eventProps?.emailTemplateId) {
-        const template = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
           templateId: eventProps.emailTemplateId as Id<"objects">,
         });
         if (template?.customProperties?.code) {
@@ -191,7 +192,7 @@ export const getEmailTemplateData = action({
     language: "de" | "en" | "es" | "fr";
   }> => {
     // Load ticket
-    const ticket = await ctx.runQuery(api.ticketOntology.getTicket, {
+    const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
@@ -204,7 +205,7 @@ export const getEmailTemplateData = action({
       throw new Error("Ticket has no associated event");
     }
 
-    const event = await ctx.runQuery(api.eventOntology.getEvent, {
+    const event = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEvent, {
       sessionId: args.sessionId,
       eventId: eventId as Id<"objects">,
     });
@@ -213,7 +214,7 @@ export const getEmailTemplateData = action({
     const organizationId = args.organizationId || ticket.organizationId;
 
     // Load organization branding settings from organization_settings table
-    const orgBrandingSettings = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+    const orgBrandingSettings = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
       organizationId: organizationId,
       subtype: "branding",
     });
@@ -236,7 +237,7 @@ export const getEmailTemplateData = action({
     let branding: DomainBranding;
 
     if (args.domainConfigId) {
-      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+      const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
       domainProps = domainConfig.customProperties as DomainCustomProperties;
@@ -289,7 +290,7 @@ export const getEmailTemplateData = action({
     if (ticketProps.contactId) {
       console.log(`🔍 [Email Template] Loading FRESH CRM contact: ${ticketProps.contactId}`);
       try {
-        const contact = await ctx.runQuery(api.crmOntology.getContact, {
+        const contact = await (ctx as any).runQuery(generatedApi.api.crmOntology.getContact, {
           sessionId: args.sessionId,
           contactId: ticketProps.contactId as Id<"objects">,
         });
@@ -329,7 +330,7 @@ export const getEmailTemplateData = action({
     }
 
     // Resolve template code
-    const templateCode: string = await ctx.runAction(api.emailTemplateRenderer.resolveEmailTemplateCode, {
+    const templateCode: string = await (ctx as any).runAction(generatedApi.api.emailTemplateRenderer.resolveEmailTemplateCode, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });

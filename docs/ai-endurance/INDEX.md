@@ -72,10 +72,8 @@
 - AI settings schema/mutations: `convex/ai/settings.ts`
 - Conversation/message storage: `convex/ai/conversations.ts`, `convex/ai/agentSessions.ts`
 
-OpenClaw references used for architecture translation:
-- `docs/openclaw_idea/openclaw/docs/concepts/model-failover.md`
-- `docs/openclaw_idea/openclaw/docs/concepts/architecture.md`
-- `docs/openclaw_idea/openclaw/README.md`
+OpenClaw references are integrated into canonical docs via:
+- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
 
 ---
 
@@ -110,4 +108,3 @@ Definition of done:
 Before coding, list top 3 regression risks.
 After coding, report what changed, test results, and residual risks.
 ```
-

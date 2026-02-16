@@ -18,7 +18,7 @@
  */
 
 import { mutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 export const seed = mutation({
   args: {},
@@ -35,15 +35,15 @@ export const seed = mutation({
     try {
       // Part 1: Success & Order Summary
       console.log("📦 Part 1/2: Success & Order Summary...");
-      results.success = await ctx.runMutation(
-        internal.translations.seedCheckoutTemplate_06a_ConfirmationSuccess.seed
+      results.success = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckoutTemplate_06a_ConfirmationSuccess.seed
       );
       console.log(`   ✅ ${results.success.count} translations inserted (${results.success.totalKeys} keys)\n`);
 
       // Part 2: Invoice & Downloads
       console.log("📦 Part 2/2: Invoice & Downloads...");
-      results.invoice = await ctx.runMutation(
-        internal.translations.seedCheckoutTemplate_06b_ConfirmationInvoice.seed
+      results.invoice = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckoutTemplate_06b_ConfirmationInvoice.seed
       );
       console.log(`   ✅ ${results.invoice.count} translations inserted (${results.invoice.totalKeys} keys)\n`);
 

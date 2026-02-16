@@ -20,7 +20,7 @@
 import { action, mutation, query, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 // Pushover API endpoint
 const PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json";
@@ -105,7 +105,7 @@ export const savePushoverSettings = mutation({
     }
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -162,7 +162,7 @@ export const savePushoverSettings = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: user.defaultOrgId,
       action: "create",
@@ -230,7 +230,7 @@ export const testPushoverConnection = action({
   },
   handler: async (ctx, args): Promise<PushoverSendResult> => {
     // Get settings
-    const settings = await ctx.runQuery(internal.integrations.pushover.getSettingsInternal, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.pushover.getSettingsInternal, {
       sessionId: args.sessionId,
     });
 
@@ -239,7 +239,7 @@ export const testPushoverConnection = action({
     }
 
     // Send test message
-    return await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendPushoverNotification, {
       organizationId: settings.organizationId,
       title: "VC83 Connection Test",
       message: "Your Pushover integration is working correctly!",
@@ -270,7 +270,7 @@ export const sendPushoverNotification = internalAction({
   },
   handler: async (ctx, args): Promise<PushoverSendResult> => {
     // Get organization's Pushover settings
-    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.pushover.getOrgPushoverSettings, {
       organizationId: args.organizationId,
     });
 
@@ -365,7 +365,7 @@ export const sendEventNotification = internalAction({
   },
   handler: async (ctx, args): Promise<PushoverSendResult> => {
     // Get settings to check if this event type is enabled
-    const settings = await ctx.runQuery(internal.integrations.pushover.getOrgPushoverSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.pushover.getOrgPushoverSettings, {
       organizationId: args.organizationId,
     });
 
@@ -398,7 +398,7 @@ export const sendEventNotification = internalAction({
     }
 
     // Send notification
-    return await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendPushoverNotification, {
       organizationId: args.organizationId,
       title: args.title,
       message: args.message,
@@ -503,7 +503,7 @@ export const sendQueuedPushoverMessage = internalAction({
     sound: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<PushoverSendResult> => {
-    return await ctx.runAction(internal.integrations.pushover.sendPushoverNotification, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendPushoverNotification, {
       organizationId: args.organizationId,
       title: args.title,
       message: args.body,

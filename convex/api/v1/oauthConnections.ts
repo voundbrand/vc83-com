@@ -22,9 +22,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, type AuthContext } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 // Helper: Authenticate and check scope
 async function authenticateWithScope(
@@ -84,8 +85,8 @@ export const listOAuthConnections = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 3. Query OAuth connections
-    const result = await ctx.runQuery(
-      internal.api.v1.oauthConnectionsInternal.listOAuthConnectionsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.listOAuthConnectionsInternal,
       {
         organizationId: auth.authContext.organizationId,
         provider,
@@ -140,8 +141,8 @@ export const getOAuthConnection = httpAction(async (ctx, request) => {
     }
 
     // 3. Get connection
-    const connection = await ctx.runQuery(
-      internal.api.v1.oauthConnectionsInternal.getOAuthConnectionInternal,
+    const connection = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.getOAuthConnectionInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,
@@ -231,8 +232,8 @@ export const updateOAuthConnection = httpAction(async (ctx, request) => {
     }
 
     // 4. Update connection
-    const result = await ctx.runMutation(
-      internal.api.v1.oauthConnectionsInternal.updateOAuthConnectionSyncSettingsInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.updateOAuthConnectionSyncSettingsInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,
@@ -289,8 +290,8 @@ export const disconnectOAuthConnection = httpAction(async (ctx, request) => {
     }
 
     // 3. Disconnect connection
-    const result = await ctx.runMutation(
-      internal.api.v1.oauthConnectionsInternal.disconnectOAuthConnectionInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.disconnectOAuthConnectionInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,
@@ -345,8 +346,8 @@ export const deleteOAuthConnection = httpAction(async (ctx, request) => {
     }
 
     // 3. Delete connection
-    const result = await ctx.runMutation(
-      internal.api.v1.oauthConnectionsInternal.deleteOAuthConnectionInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.deleteOAuthConnectionInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,
@@ -401,8 +402,8 @@ export const handleOAuthConnectionsGet = httpAction(async (ctx, request) => {
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
       const offset = parseInt(url.searchParams.get("offset") || "0");
 
-      const result = await ctx.runQuery(
-        internal.api.v1.oauthConnectionsInternal.listOAuthConnectionsInternal,
+      const result = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.oauthConnectionsInternal.listOAuthConnectionsInternal,
         {
           organizationId: auth.authContext.organizationId,
           provider,
@@ -445,8 +446,8 @@ export const handleOAuthConnectionsGet = httpAction(async (ctx, request) => {
         );
       }
 
-      const connection = await ctx.runQuery(
-        internal.api.v1.oauthConnectionsInternal.getOAuthConnectionInternal,
+      const connection = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.oauthConnectionsInternal.getOAuthConnectionInternal,
         {
           organizationId: auth.authContext.organizationId,
           connectionId,
@@ -509,8 +510,8 @@ export const handleOAuthConnectionsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.oauthConnectionsInternal.disconnectOAuthConnectionInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.oauthConnectionsInternal.disconnectOAuthConnectionInternal,
         {
           organizationId: auth.authContext.organizationId,
           connectionId,
@@ -585,8 +586,8 @@ export const handleOAuthConnectionsPatch = httpAction(async (ctx, request) => {
       }
     }
 
-    const result = await ctx.runMutation(
-      internal.api.v1.oauthConnectionsInternal.updateOAuthConnectionSyncSettingsInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.updateOAuthConnectionSyncSettingsInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,
@@ -635,8 +636,8 @@ export const handleOAuthConnectionsDelete = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(
-      internal.api.v1.oauthConnectionsInternal.deleteOAuthConnectionInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.oauthConnectionsInternal.deleteOAuthConnectionInternal,
       {
         organizationId: auth.authContext.organizationId,
         connectionId,

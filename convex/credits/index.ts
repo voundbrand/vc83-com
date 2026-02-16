@@ -19,7 +19,6 @@ import { v, ConvexError } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import { getLicenseInternal } from "../licensing/helpers";
 import { getNextTierName, type TierName } from "../licensing/tierConfigs";
 import {
@@ -29,6 +28,8 @@ import {
   recordCreditSharingTransaction,
   resolveChildCap,
 } from "./sharing";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // QUERIES
@@ -316,7 +317,7 @@ export async function deductCreditsInternal(
       if (childUsageToday + amount > effectiveNotifyAt) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (ctx as any).scheduler.runAfter(0, internal.credits.notifications.notifyChildCreditCapApproaching, {
+          await (ctx as any).scheduler.runAfter(0, generatedApi.internal.credits.notifications.notifyChildCreditCapApproaching, {
             parentOrgId: parentId,
             childOrgId: organizationId,
             usage: childUsageToday + amount,
@@ -344,7 +345,7 @@ export async function deductCreditsInternal(
       if (totalSharedToday + amount > sharingConfig.maxTotalShared * sharingConfig.notifyAt) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (ctx as any).scheduler.runAfter(0, internal.credits.notifications.notifySharedPoolApproaching, {
+          await (ctx as any).scheduler.runAfter(0, generatedApi.internal.credits.notifications.notifySharedPoolApproaching, {
             parentOrgId: parentId,
             totalShared: totalSharedToday + amount,
             cap: sharingConfig.maxTotalShared,
@@ -475,7 +476,7 @@ export async function deductCreditsInternal(
     const totalRemaining = newDaily + newMonthly + newPurchased;
     const monthlyTotal = balance.monthlyCreditsTotal || 0;
     if (monthlyTotal > 0) {
-      ctx.scheduler.runAfter(0, internal.credits.notifications.checkThresholds, {
+      (ctx.scheduler as any).runAfter(0, generatedApi.internal.credits.notifications.checkThresholds, {
         organizationId,
         currentBalance: totalRemaining,
         monthlyTotal,

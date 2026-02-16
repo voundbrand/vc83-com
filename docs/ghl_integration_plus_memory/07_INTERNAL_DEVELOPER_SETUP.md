@@ -208,14 +208,14 @@ export const buildMemoryContext = internalQuery({
     crmContactId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
-    // Implementation from 02_MEMORY_ENGINE_DESIGN.md
+    // Implementation from docs/agentic_system/MEMORY_ENGINE_DESIGN.md
   },
 });
 
 export const generateSessionSummary = internalAction({
   args: { sessionId: v.id("agentSessions") },
   handler: async (ctx, args) => {
-    // Implementation from 02_MEMORY_ENGINE_DESIGN.md
+    // Implementation from docs/agentic_system/MEMORY_ENGINE_DESIGN.md
   },
 });
 
@@ -226,7 +226,7 @@ export const extractContactFacts = internalAction({
     conversationContent: v.string(),
   },
   handler: async (ctx, args) => {
-    // Implementation from 02_MEMORY_ENGINE_DESIGN.md
+    // Implementation from docs/agentic_system/MEMORY_ENGINE_DESIGN.md
   },
 });
 ```

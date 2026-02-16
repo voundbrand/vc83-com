@@ -44,7 +44,7 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 /**
  * GET TICKETS
@@ -392,7 +392,7 @@ export const createTicket = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation
-    return await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+    return await (ctx as any).runMutation(generatedApi.internal.ticketOntology.createTicketInternal, {
       organizationId: args.organizationId,
       productId: args.productId,
       eventId: args.eventId,

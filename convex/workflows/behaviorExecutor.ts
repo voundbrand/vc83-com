@@ -9,8 +9,9 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Execute a single behavior action
@@ -52,8 +53,8 @@ export const executeBehavior = action({
       // Route to appropriate action based on behavior type
       switch (args.behaviorType) {
         case "consolidated-invoice-generation":
-          return await ctx.runAction(
-            api.workflows.behaviors.consolidatedInvoiceGeneration.executeConsolidatedInvoiceGeneration,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.consolidatedInvoiceGeneration.executeConsolidatedInvoiceGeneration,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -63,8 +64,8 @@ export const executeBehavior = action({
 
         // Event Registration Behaviors (NEW!)
         case "validate-registration":
-          return await ctx.runAction(
-            api.workflows.behaviors.validateRegistration.executeValidateRegistration,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.validateRegistration.executeValidateRegistration,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -74,8 +75,8 @@ export const executeBehavior = action({
           );
 
         case "detect-employer-billing":
-          return await ctx.runAction(
-            api.workflows.behaviors.detectEmployerBilling.executeDetectEmployerBilling,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.detectEmployerBilling.executeDetectEmployerBilling,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -85,8 +86,8 @@ export const executeBehavior = action({
           );
 
         case "create-contact":
-          return await ctx.runAction(
-            api.workflows.behaviors.createContact.executeCreateContact,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.createContact.executeCreateContact,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -96,8 +97,8 @@ export const executeBehavior = action({
           );
 
         case "create-ticket":
-          return await ctx.runAction(
-            api.workflows.behaviors.createTicket.executeCreateTicket,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.createTicket.executeCreateTicket,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -107,8 +108,8 @@ export const executeBehavior = action({
           );
 
         case "create-transaction":
-          return await ctx.runAction(
-            api.workflows.behaviors.createTransaction.executeCreateTransaction,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.createTransaction.executeCreateTransaction,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -118,8 +119,8 @@ export const executeBehavior = action({
           );
 
         case "generate-invoice":
-          return await ctx.runAction(
-            api.workflows.behaviors.generateInvoice.executeGenerateInvoice,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.generateInvoice.executeGenerateInvoice,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -129,8 +130,8 @@ export const executeBehavior = action({
           );
 
         case "send-confirmation-email":
-          return await ctx.runAction(
-            api.workflows.behaviors.sendConfirmationEmail.executeSendConfirmationEmail,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.sendConfirmationEmail.executeSendConfirmationEmail,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -140,8 +141,8 @@ export const executeBehavior = action({
           );
 
         case "check-event-capacity":
-          return await ctx.runAction(
-            api.workflows.behaviors.checkEventCapacity.executeCheckEventCapacity,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.checkEventCapacity.executeCheckEventCapacity,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -151,8 +152,8 @@ export const executeBehavior = action({
           );
 
         case "calculate-pricing":
-          return await ctx.runAction(
-            api.workflows.behaviors.calculatePricing.executeCalculatePricing,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.calculatePricing.executeCalculatePricing,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -162,8 +163,8 @@ export const executeBehavior = action({
           );
 
         case "create-form-response":
-          return await ctx.runAction(
-            api.workflows.behaviors.createFormResponse.executeCreateFormResponse,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.createFormResponse.executeCreateFormResponse,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -173,8 +174,8 @@ export const executeBehavior = action({
           );
 
         case "update-statistics":
-          return await ctx.runAction(
-            api.workflows.behaviors.updateStatistics.executeUpdateStatistics,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.updateStatistics.executeUpdateStatistics,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -184,8 +185,8 @@ export const executeBehavior = action({
           );
 
         case "send-admin-notification":
-          return await ctx.runAction(
-            api.workflows.behaviors.sendAdminNotification.executeSendAdminNotification,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.sendAdminNotification.executeSendAdminNotification,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -195,8 +196,8 @@ export const executeBehavior = action({
           );
 
         case "activecampaign-sync":
-          return await ctx.runAction(
-            api.workflows.behaviors.activeCampaignSync.executeActiveCampaignSync,
+          return await (ctx as any).runAction(
+            generatedApi.api.workflows.behaviors.activeCampaignSync.executeActiveCampaignSync,
             {
               sessionId: args.sessionId,
               organizationId: args.organizationId,
@@ -316,13 +317,13 @@ export const executeBehaviors = action({
     let executionId: Id<"workflowExecutionLogs"> | undefined;
     if (args.workflowId && args.workflowName) {
       try {
-        executionId = await ctx.runMutation(internal.workflowExecutionLogs.createExecutionLog, {
+        executionId = await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.createExecutionLog, {
           sessionId: args.sessionId,
           workflowId: args.workflowId,
           workflowName: args.workflowName,
         });
 
-        await ctx.runMutation(internal.workflowExecutionLogs.addLogEntry, {
+        await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.addLogEntry, {
           executionId,
           level: "info",
           message: `🚀 Starting execution of ${args.behaviors.length} behaviors...`,
@@ -350,14 +351,14 @@ export const executeBehaviors = action({
 
     for (const behavior of sortedBehaviors) {
       if (executionId) {
-        await ctx.runMutation(internal.workflowExecutionLogs.addLogEntry, {
+        await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.addLogEntry, {
           executionId,
           level: "info",
           message: `▶️ Executing behavior: ${behavior.type}`,
         });
       }
 
-      const result = await ctx.runAction(api.workflows.behaviorExecutor.executeBehavior, {
+      const result = await (ctx as any).runAction(generatedApi.api.workflows.behaviorExecutor.executeBehavior, {
         sessionId: args.sessionId,
         organizationId: args.organizationId,
         behaviorType: behavior.type,
@@ -374,7 +375,7 @@ export const executeBehaviors = action({
         allSuccess = false;
 
         if (executionId) {
-          await ctx.runMutation(internal.workflowExecutionLogs.addLogEntry, {
+          await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.addLogEntry, {
             executionId,
             level: "error",
             message: `❌ Behavior ${behavior.type} failed: ${result.error || 'Unknown error'}`,
@@ -387,7 +388,7 @@ export const executeBehaviors = action({
         }
       } else {
         if (executionId) {
-          await ctx.runMutation(internal.workflowExecutionLogs.addLogEntry, {
+          await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.addLogEntry, {
             executionId,
             level: "success",
             message: `✅ Behavior ${behavior.type} completed successfully`,
@@ -409,7 +410,7 @@ export const executeBehaviors = action({
 
     // Mark execution as complete
     if (executionId) {
-      await ctx.runMutation(internal.workflowExecutionLogs.completeExecution, {
+      await (ctx as any).runMutation(generatedApi.internal.workflowExecutionLogs.completeExecution, {
         executionId,
         status: allSuccess ? "success" : "failed",
         result: {

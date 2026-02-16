@@ -14,8 +14,9 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // ACTIONS
@@ -42,7 +43,7 @@ export const generateConsolidatedInvoiceFromRule = action({
     pdfUrl: string | null;
   }> => {
     // 1. Execute rule to find eligible tickets
-    const ruleResult = await ctx.runMutation(api.invoicingOntology.executeInvoiceRule, {
+    const ruleResult = await (ctx as any).runMutation(generatedApi.api.invoicingOntology.executeInvoiceRule, {
       sessionId: args.sessionId,
       ruleId: args.ruleId,
     }) as {
@@ -58,7 +59,7 @@ export const generateConsolidatedInvoiceFromRule = action({
     }
 
     // 2. Create consolidated invoice record
-    const invoiceResult = await ctx.runMutation(api.invoicingOntology.createConsolidatedInvoice, {
+    const invoiceResult = await (ctx as any).runMutation(generatedApi.api.invoicingOntology.createConsolidatedInvoice, {
       sessionId: args.sessionId,
       organizationId: ruleResult.crmOrganizationId as unknown as Id<"organizations">, // Get from eligible tickets
       crmOrganizationId: ruleResult.crmOrganizationId,
@@ -77,8 +78,8 @@ export const generateConsolidatedInvoiceFromRule = action({
     }
 
     // 3. Get full invoice details for PDF generation
-    const invoice = await ctx.runQuery(
-      internal.invoicingOntology.getInvoiceByIdInternal,
+    const invoice = await (ctx as any).runQuery(
+      generatedApi.internal.invoicingOntology.getInvoiceByIdInternal,
       { invoiceId: invoiceResult.invoiceId }
     ) as Doc<"objects"> | null;
 
@@ -88,7 +89,7 @@ export const generateConsolidatedInvoiceFromRule = action({
 
     // 4. Prepare template data and generate PDF using API Template.io
     const pdfUrl = await generateConsolidatedPdfWithApiTemplate(ctx, invoice);
-    await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
+    await (ctx as any).runMutation(generatedApi.internal.invoicingOntology.updateInvoicePdfUrl, {
       invoiceId: invoiceResult.invoiceId,
       pdfUrl: pdfUrl || "",
     });
@@ -97,7 +98,7 @@ export const generateConsolidatedInvoiceFromRule = action({
     if (args.sendEmail) {
       const billTo = invoice.customProperties?.billTo as { billingEmail?: string };
       if (billTo?.billingEmail) {
-        await ctx.runMutation(api.invoicingOntology.markInvoiceAsSent, {
+        await (ctx as any).runMutation(generatedApi.api.invoicingOntology.markInvoiceAsSent, {
           sessionId: args.sessionId,
           invoiceId: invoiceResult.invoiceId,
           sentTo: [billTo.billingEmail],
@@ -149,7 +150,7 @@ export const generateConsolidatedInvoice = action({
 
     // 1. Create consolidated invoice
     console.log("📄 [Step 1/7] Creating invoice record...");
-    const invoiceResult = await ctx.runMutation(api.invoicingOntology.createConsolidatedInvoice, {
+    const invoiceResult = await (ctx as any).runMutation(generatedApi.api.invoicingOntology.createConsolidatedInvoice, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       crmOrganizationId: args.crmOrganizationId,
@@ -170,8 +171,8 @@ export const generateConsolidatedInvoice = action({
 
     // 2. Get invoice details
     console.log("📄 [Step 2/7] Fetching invoice details...");
-    const invoice = await ctx.runQuery(
-      internal.invoicingOntology.getInvoiceByIdInternal,
+    const invoice = await (ctx as any).runQuery(
+      generatedApi.internal.invoicingOntology.getInvoiceByIdInternal,
       { invoiceId: invoiceResult.invoiceId }
     ) as Doc<"objects"> | null;
 
@@ -189,7 +190,7 @@ export const generateConsolidatedInvoice = action({
 
     // 4. Update invoice with PDF URL
     console.log("📄 [Step 4/5] Updating invoice with PDF URL...");
-    await ctx.runMutation(internal.invoicingOntology.updateInvoicePdfUrl, {
+    await (ctx as any).runMutation(generatedApi.internal.invoicingOntology.updateInvoicePdfUrl, {
       invoiceId: invoiceResult.invoiceId,
       pdfUrl: pdfUrl || "",
     });
@@ -200,7 +201,7 @@ export const generateConsolidatedInvoice = action({
     if (args.sendEmail) {
       const billTo = invoice.customProperties?.billTo as { billingEmail?: string };
       if (billTo?.billingEmail) {
-        await ctx.runMutation(api.invoicingOntology.markInvoiceAsSent, {
+        await (ctx as any).runMutation(generatedApi.api.invoicingOntology.markInvoiceAsSent, {
           sessionId: args.sessionId,
           invoiceId: invoiceResult.invoiceId,
           sentTo: [billTo.billingEmail],
@@ -320,20 +321,20 @@ async function generateConsolidatedPdfWithApiTemplate(
     const templateData = await prepareConsolidatedTemplateData(ctx, invoice);
 
     // 3. Get seller organization info
-    const organization = await ctx.runQuery(
-      internal.checkoutSessions.getOrganizationInternal,
+    const organization = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessions.getOrganizationInternal,
       { organizationId: invoice.organizationId }
     );
 
     // 3b. Get organization contact info (email, phone)
-    const orgContact = await ctx.runQuery(
-      api.organizationOntology.getOrganizationContact,
+    const orgContact = await (ctx as any).runQuery(
+      generatedApi.api.organizationOntology.getOrganizationContact,
       { organizationId: invoice.organizationId }
     );
 
     // 3c. Get organization billing address
-    const billingAddresses = await ctx.runQuery(
-      api.organizationOntology.getOrganizationAddresses,
+    const billingAddresses = await (ctx as any).runQuery(
+      generatedApi.api.organizationOntology.getOrganizationAddresses,
       { organizationId: invoice.organizationId, subtype: "billing" }
     );
     const billingAddress = Array.isArray(billingAddresses) ? billingAddresses[0] : billingAddresses;

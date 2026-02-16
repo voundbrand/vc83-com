@@ -1,8 +1,9 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
 import type { Id, Doc } from "../_generated/dataModel";
 import { formatCurrency, getCurrencySymbol } from "../lib/currencyFormatter";
+
+const generatedApi: any = require("../_generated/api");
 
 export type PDFAttachment = {
     filename: string;
@@ -23,7 +24,7 @@ export const generateReceiptPDF = action({
     },
     handler: async (ctx, args): Promise<PDFAttachment | null> => {
         // Use whatever template is configured in the checkout session
-        return await ctx.runAction(api.pdf.invoicePdf.generateInvoicePDF, {
+        return await (ctx as any).runAction(generatedApi.api.pdf.invoicePdf.generateInvoicePDF, {
             checkoutSessionId: args.checkoutSessionId,
             // No templateCode - let generateInvoicePDF use the session's configured template
         });
@@ -58,8 +59,8 @@ export const generateInvoicePDF = action({
             }
 
             // 1. Get checkout session
-            const session = await ctx.runQuery(
-                internal.checkoutSessionOntology.getCheckoutSessionInternal,
+            const session = await (ctx as any).runQuery(
+                generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
                 {
                     checkoutSessionId: args.checkoutSessionId,
                 }
@@ -71,7 +72,7 @@ export const generateInvoicePDF = action({
 
             // 1.5. Get invoice object (if it exists) to use its actual invoice number, due date, and payment terms
             // Query invoice by checkoutSessionId (using indexed query for performance)
-            const invoice = await ctx.runQuery(internal.invoicingOntology.getInvoiceByCheckoutSessionInternal, {
+            const invoice = await (ctx as any).runQuery(generatedApi.internal.invoicingOntology.getInvoiceByCheckoutSessionInternal, {
                 organizationId: session.organizationId,
                 checkoutSessionId: args.checkoutSessionId,
             }) as Doc<"objects"> | null;
@@ -87,8 +88,8 @@ export const generateInvoicePDF = action({
             // 2. Get TRANSACTION (PRIMARY SOURCE OF TRUTH)
             // Transaction captures complete seller, buyer, branding data at checkout time
             const organizationId = session.organizationId;
-            const transaction = await ctx.runQuery(
-                internal.transactionOntology.getTransactionByCheckoutSessionInternal,
+            const transaction = await (ctx as any).runQuery(
+                generatedApi.internal.transactionOntology.getTransactionByCheckoutSessionInternal,
                 {
                     organizationId,
                     checkoutSessionId: args.checkoutSessionId,
@@ -147,30 +148,30 @@ export const generateInvoicePDF = action({
             let organization: { businessName?: string; name?: string } | null = null;
 
             if (!txSeller?.name) {
-                organization = await ctx.runQuery(
-                    internal.checkoutSessions.getOrganizationInternal,
+                organization = await (ctx as any).runQuery(
+                    generatedApi.internal.checkoutSessions.getOrganizationInternal,
                     { organizationId }
                 );
 
-                sellerOrg = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationProfile,
+                sellerOrg = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationProfile,
                     { organizationId }
                 ) as Doc<"objects"> | null;
 
-                sellerLegal = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationLegal,
+                sellerLegal = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationLegal,
                     { organizationId }
                 ) as Doc<"objects"> | null;
 
-                sellerContact = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationContact,
+                sellerContact = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationContact,
                     { organizationId }
                 ) as Doc<"objects"> | null;
             }
 
             // Get locale settings for currency formatting
-            const localeSettings = await ctx.runQuery(
-                internal.checkoutSessions.getOrgLocaleSettings,
+            const localeSettings = await (ctx as any).runQuery(
+                generatedApi.internal.checkoutSessions.getOrgLocaleSettings,
                 { organizationId }
             );
 
@@ -179,8 +180,8 @@ export const generateInvoicePDF = action({
             const dateFormat = (localeSettings?.customProperties?.dateFormat as string) || "DD.MM.YYYY";
 
             // Get tax settings for origin address (still needed for tax display)
-            const taxSettings = await ctx.runQuery(
-                api.organizationTaxSettings.getPublicTaxSettings,
+            const taxSettings = await (ctx as any).runQuery(
+                generatedApi.api.organizationTaxSettings.getPublicTaxSettings,
                 { organizationId }
             );
 
@@ -190,8 +191,8 @@ export const generateInvoicePDF = action({
             let brandLogoUrl = txBranding?.logoUrl;
 
             if (!txBranding?.primaryColor) {
-                const brandingSettingsResult = await ctx.runQuery(
-                    api.organizationOntology.getOrganizationSettings,
+                const brandingSettingsResult = await (ctx as any).runQuery(
+                    generatedApi.api.organizationOntology.getOrganizationSettings,
                     { organizationId, subtype: "branding" }
                 );
                 const brandingSettings = Array.isArray(brandingSettingsResult) ? undefined : brandingSettingsResult;
@@ -220,7 +221,7 @@ export const generateInvoicePDF = action({
                 (session.customProperties?.domainConfigId as Id<"objects"> | undefined);
             if (domainConfigId) {
                 try {
-                    const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+                    const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
                         configId: domainConfigId,
                     });
 
@@ -242,14 +243,14 @@ export const generateInvoicePDF = action({
 
             // Only load CRM data if not already in transaction
             if (!txBuyer?.companyName && args.crmOrganizationId) {
-                buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
+                buyerCrmOrg = await (ctx as any).runQuery(generatedApi.api.crmOntology.getPublicCrmOrganizationBilling, {
                     crmOrganizationId: args.crmOrganizationId,
                 }) as Doc<"objects"> | null;
                 console.log("📄 [generateInvoicePDF] Loading buyer from CRM org:", buyerCrmOrg?.name);
             }
 
             if (!txBuyer && args.crmContactId) {
-                buyerCrmContact = await ctx.runQuery(internal.crmOntology.getContactInternal, {
+                buyerCrmContact = await (ctx as any).runQuery(generatedApi.internal.crmOntology.getContactInternal, {
                     contactId: args.crmContactId,
                 }) as Doc<"objects"> | null;
                 console.log("📄 [generateInvoicePDF] Loading buyer from CRM contact:", buyerCrmContact?.name);
@@ -271,7 +272,7 @@ export const generateInvoicePDF = action({
 
             const purchaseItems = await Promise.all(
                 purchaseItemIds.map((id) =>
-                    ctx.runQuery(internal.purchaseOntology.getPurchaseItemInternal, {
+                    (ctx as any).runQuery(generatedApi.internal.purchaseOntology.getPurchaseItemInternal, {
                         purchaseItemId: id,
                     })
                 )
@@ -321,7 +322,7 @@ export const generateInvoicePDF = action({
 
                         const fulfillmentData = item.customProperties?.fulfillmentData as { ticketId?: Id<"objects"> } | undefined;
                         if (fulfillmentData?.ticketId) {
-                            const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+                            const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
                                 ticketId: fulfillmentData.ticketId,
                             });
 
@@ -352,7 +353,7 @@ export const generateInvoicePDF = action({
             const transactionIds = validItems.map(item => item.transactionId).filter(Boolean) as Id<"objects">[];
             const transactions = await Promise.all(
                 transactionIds.map(id =>
-                    ctx.runQuery(internal.transactionOntology.getTransactionInternal, { transactionId: id })
+                    (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, { transactionId: id })
                 )
             );
 
@@ -766,7 +767,7 @@ export const generateInvoicePDF = action({
                 // 2. Fall back to checkout instance
                 const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
                 if (checkoutInstanceId) {
-                    const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+                    const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
                         instanceId: checkoutInstanceId,
                     });
 
@@ -901,7 +902,7 @@ export const generateInvoicePDF = action({
             } else {
                 // Fallback: Generate invoice number (shouldn't happen in normal flow)
                 console.warn("⚠️ [generateInvoicePDF] No invoice found, generating invoice number as fallback");
-                const invoiceNumberData = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+                const invoiceNumberData = await (ctx as any).runMutation(generatedApi.internal.organizationOntology.getAndIncrementInvoiceNumber, {
                     organizationId: session.organizationId,
                 });
                 invoiceNumber = invoiceNumberData.invoiceNumber;
@@ -1032,7 +1033,7 @@ export const generateInvoicePDF = action({
             });
 
             // Resolve invoice template using new Template Set resolver
-            const invoiceTemplateId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+            const invoiceTemplateId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
                 organizationId: organizationId,
                 templateType: "invoice",
                 context: invoiceTemplateContext,
@@ -1048,7 +1049,7 @@ export const generateInvoicePDF = action({
             }
 
             // Get template details (templateCode, etc.)
-            const invoiceTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            const invoiceTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
                 templateId: invoiceTemplateId,
             });
 

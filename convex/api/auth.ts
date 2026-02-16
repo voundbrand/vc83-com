@@ -14,7 +14,8 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery, internalMutation } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 /**
  * API key format: sk_live_{32_random_bytes} or sk_test_{32_random_bytes}
@@ -267,7 +268,7 @@ export const verifyApiRequestWithDomain = internalQuery({
   },
   handler: async (ctx, args): Promise<any> => {
     // Delegate to the unified domain configuration system
-    return await ctx.runQuery(internal.domainConfigOntology.verifyApiRequestWithDomain, {
+    return await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.verifyApiRequestWithDomain, {
       apiKey: args.apiKey,
       origin: args.origin,
     });

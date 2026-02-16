@@ -11,8 +11,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -202,7 +203,7 @@ export const executeManageWebinars = action({
     if (args.organizationId && args.userId) {
       organizationId = args.organizationId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
       if (!session?.organizationId || !session?.userId) {
@@ -280,7 +281,7 @@ async function listWebinars(
   organizationId: Id<"organizations">,
   args: any
 ) {
-  const result = await ctx.runQuery(api.webinarOntology.getWebinars, {
+  const result = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinars, {
     organizationId,
     status: args.status,
     subtype: args.subtype,
@@ -320,7 +321,7 @@ async function getWebinar(
   organizationId: Id<"organizations">,
   webinarId: string
 ) {
-  const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+  const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
     webinarId: webinarId as Id<"objects">,
     organizationId,
   });
@@ -391,8 +392,8 @@ async function createWebinar(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -424,7 +425,7 @@ async function createWebinar(
   }
 
   // EXECUTE MODE: Actually create the webinar
-  const result = await ctx.runMutation(api.webinarOntology.createWebinar, {
+  const result = await (ctx as any).runMutation(generatedApi.api.webinarOntology.createWebinar, {
     organizationId,
     name: args.name,
     description: args.description,
@@ -442,8 +443,8 @@ async function createWebinar(
 
   // Update work item if provided
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId,
         status: "completed",
@@ -482,7 +483,7 @@ async function updateWebinar(
     ? new Date(args.scheduledAt).getTime()
     : undefined;
 
-  await ctx.runMutation(api.webinarOntology.updateWebinar, {
+  await (ctx as any).runMutation(generatedApi.api.webinarOntology.updateWebinar, {
     webinarId: args.webinarId as Id<"objects">,
     organizationId,
     name: args.name,
@@ -518,7 +519,7 @@ async function publishWebinar(
   const mode = args.mode || "preview";
 
   // Get current webinar status
-  const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+  const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
     webinarId: args.webinarId as Id<"objects">,
     organizationId,
   });
@@ -565,7 +566,7 @@ async function publishWebinar(
     };
   }
 
-  await ctx.runMutation(api.webinarOntology.publishWebinar, {
+  await (ctx as any).runMutation(generatedApi.api.webinarOntology.publishWebinar, {
     webinarId: args.webinarId as Id<"objects">,
     organizationId,
     performedBy: userId,
@@ -589,7 +590,7 @@ async function getUploadUrl(
   webinarId: string
 ) {
   // Verify webinar exists
-  const webinar = await ctx.runQuery(api.webinarOntology.getWebinar, {
+  const webinar = await (ctx as any).runQuery(generatedApi.api.webinarOntology.getWebinar, {
     webinarId: webinarId as Id<"objects">,
     organizationId,
   });
@@ -602,7 +603,7 @@ async function getUploadUrl(
     };
   }
 
-  const result = await ctx.runAction(api.actions.mux.getDirectUploadUrl, {
+  const result = await (ctx as any).runAction(generatedApi.api.actions.mux.getDirectUploadUrl, {
     webinarId: webinarId as Id<"objects">,
   });
 
@@ -632,7 +633,7 @@ async function listRegistrants(
   organizationId: Id<"organizations">,
   args: any
 ) {
-  const result = await ctx.runQuery(api.webinarRegistrants.getRegistrants, {
+  const result = await (ctx as any).runQuery(generatedApi.api.webinarRegistrants.getRegistrants, {
     webinarId: args.webinarId as Id<"objects">,
     organizationId,
     status: args.registrantStatus,
@@ -677,8 +678,8 @@ async function getAnalytics(
   organizationId: Id<"organizations">,
   webinarId: string
 ) {
-  const analytics = await ctx.runQuery(
-    internal.api.v1.webinarsInternal.getWebinarAnalytics,
+  const analytics = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.webinarsInternal.getWebinarAnalytics,
     {
       webinarId: webinarId as Id<"objects">,
       organizationId,

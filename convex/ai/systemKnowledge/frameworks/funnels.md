@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/funnels/README.md
 
 # Funnel Framework Library (Agent-Adapted)
 
-> You are helping an agency owner design funnels for their CLIENT's business. A funnel is a guided path that takes a visitor from stranger to customer through a specific sequence, each step with one clear objective. Apply at Layer 3: the client's customer is the hero being guided.
+> You are helping an agency owner design funnels for their CLIENT's business. A funnel is a guided path that takes a visitor from stranger to customer through a specific sequence, each step with one clear objective. Apply at `Business L4`: the client's end-customer is the hero being guided by the client's `Business L3` brand.
 
 ## When to Use This Framework
 

@@ -24,7 +24,8 @@
 import { action, mutation, query, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ManyChat API endpoints
 const MANYCHAT_API_BASE = "https://api.manychat.com/fb";
@@ -117,7 +118,7 @@ export const saveManyChatSettings = mutation({
     }
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -165,7 +166,7 @@ export const saveManyChatSettings = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: user.defaultOrgId,
       action: "create",
@@ -230,7 +231,7 @@ export const testManyChatConnection = action({
     sessionId: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getSettingsInternal, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getSettingsInternal, {
       sessionId: args.sessionId,
     });
 
@@ -239,7 +240,7 @@ export const testManyChatConnection = action({
     }
 
     // Test by fetching page info
-    return await ctx.runAction(internal.integrations.manychat.getPageInfo, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getPageInfo, {
       organizationId: settings.organizationId,
     });
   },
@@ -294,7 +295,7 @@ export const getPageInfo = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -314,7 +315,7 @@ export const getFlows = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { flows?: ManyChatFlow[] }> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -340,7 +341,7 @@ export const getTags = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { tags?: ManyChatTag[] }> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -371,7 +372,7 @@ export const findSubscriberByEmail = internalAction({
     email: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -406,7 +407,7 @@ export const findSubscriberByPhone = internalAction({
     phone: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -441,7 +442,7 @@ export const getSubscriberInfo = internalAction({
     subscriberId: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -475,7 +476,7 @@ export const setSubscriberCustomField = internalAction({
     fieldValue: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -506,7 +507,7 @@ export const addTagToSubscriber = internalAction({
     tagId: v.number(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -536,7 +537,7 @@ export const removeTagFromSubscriber = internalAction({
     tagId: v.number(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -571,7 +572,7 @@ export const sendFlow = internalAction({
     flowNs: v.string(), // Flow namespace (from getFlows)
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -613,7 +614,7 @@ export const sendMessage = internalAction({
     messageTag: v.optional(v.string()), // For messages outside 24h window
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -665,7 +666,7 @@ export const syncContact = internalAction({
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriberId?: string }> => {
     // Get contact details
-    const contact = await ctx.runQuery(internal.integrations.manychat.getContact, {
+    const contact = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getContact, {
       contactId: args.contactId,
     });
 
@@ -673,7 +674,7 @@ export const syncContact = internalAction({
       return { success: false, error: "Contact not found" };
     }
 
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -685,7 +686,7 @@ export const syncContact = internalAction({
     let subscriber: ManyChatSubscriber | undefined;
 
     if (contact.email) {
-      const emailResult = await ctx.runAction(internal.integrations.manychat.findSubscriberByEmail, {
+      const emailResult = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.findSubscriberByEmail, {
         organizationId: args.organizationId,
         email: contact.email,
       });
@@ -695,7 +696,7 @@ export const syncContact = internalAction({
     }
 
     if (!subscriber && contact.phone) {
-      const phoneResult = await ctx.runAction(internal.integrations.manychat.findSubscriberByPhone, {
+      const phoneResult = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.findSubscriberByPhone, {
         organizationId: args.organizationId,
         phone: contact.phone,
       });
@@ -715,7 +716,7 @@ export const syncContact = internalAction({
 
     // Optionally trigger a flow
     if (args.triggerFlow) {
-      await ctx.runAction(internal.integrations.manychat.sendFlow, {
+      await (ctx as any).runAction(generatedApi.internal.integrations.manychat.sendFlow, {
         organizationId: args.organizationId,
         subscriberId: subscriber.id,
         flowNs: args.triggerFlow,
@@ -723,7 +724,7 @@ export const syncContact = internalAction({
     }
 
     // Store ManyChat subscriber ID on contact
-    await ctx.runMutation(internal.integrations.manychat.updateContactManyChatId, {
+    await (ctx as any).runMutation(generatedApi.internal.integrations.manychat.updateContactManyChatId, {
       contactId: args.contactId,
       manychatSubscriberId: subscriber.id,
     });
@@ -752,7 +753,7 @@ export const onBookingCreated = internalAction({
     contactId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -768,7 +769,7 @@ export const onBookingCreated = internalAction({
     }
 
     // Sync contact and trigger flow
-    return await ctx.runAction(internal.integrations.manychat.syncContact, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.manychat.syncContact, {
       organizationId: args.organizationId,
       contactId: args.contactId,
       triggerFlow: orderConfirmationFlow,
@@ -786,7 +787,7 @@ export const onEventReminder = internalAction({
     contactId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await ctx.runQuery(internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -801,7 +802,7 @@ export const onEventReminder = internalAction({
       return { success: false, error: "No event reminder flow configured" };
     }
 
-    return await ctx.runAction(internal.integrations.manychat.syncContact, {
+    return await (ctx as any).runAction(generatedApi.internal.integrations.manychat.syncContact, {
       organizationId: args.organizationId,
       contactId: args.contactId,
       triggerFlow: eventReminderFlow,
@@ -959,7 +960,7 @@ export const processWebhook = internalAction({
 
     // Send Pushover notification for customer messages
     if (args.event === "message_received" || args.event === "subscriber_reply") {
-      await ctx.runAction(internal.integrations.pushover.sendEventNotification, {
+      await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendEventNotification, {
         organizationId: args.organizationId,
         eventType: "customer_message",
         title: "New Customer Message",
@@ -969,7 +970,7 @@ export const processWebhook = internalAction({
     }
 
     // Log the webhook for debugging/analytics
-    await ctx.runMutation(internal.integrations.manychat.logWebhook, {
+    await (ctx as any).runMutation(generatedApi.internal.integrations.manychat.logWebhook, {
       organizationId: args.organizationId,
       event: args.event,
       subscriberId: args.subscriberId,
@@ -1019,7 +1020,7 @@ export const scheduleWebhookProcessing = mutation({
   },
   handler: async (ctx, args) => {
     // Schedule the internal action to process the webhook
-    await ctx.scheduler.runAfter(0, internal.integrations.manychat.processWebhook, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.integrations.manychat.processWebhook, {
       organizationId: args.organizationId,
       event: args.event,
       subscriberId: args.subscriberId,

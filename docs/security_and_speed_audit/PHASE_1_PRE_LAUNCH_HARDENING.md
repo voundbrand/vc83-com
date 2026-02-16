@@ -44,13 +44,13 @@ This Phase 1 plan covers **what's still open** plus **new threat categories** id
 
 | File (in git history) | Exposed secrets |
 |---|---|
-| `docs/WEBHOOK_URL_FIX.md` | Stripe webhook secret (`whsec_...`) |
+| `docs/reference_docs/WEBHOOK_URL_FIX.md` | Stripe webhook secret (`whsec_...`) |
 | `docs/pricing-and-trials/STRIPE-SETUP-GUIDE.md` | Stripe keys |
 | `docs/pricing-and-trials/STRIPE-CONFIGURATION.md` | Stripe keys |
 | `docs/ghl_integration_plus_memory/07_INTERNAL_DEVELOPER_SETUP.md` | OpenRouter key, other API keys |
 | `docs/byok_infra/BYOK_INFRASTRUCTURE_AUDIT.md` | OpenRouter API key (`sk-or-v1-...`) |
 | `docs/AI_WEBHOOK_SETUP.md` | Webhook secrets |
-| `docs/WEBHOOK_FIX_SUMMARY.md` | Webhook secrets |
+| `docs/reference_docs/WEBHOOK_FIX_SUMMARY.md` | Webhook secrets |
 | `tmp/stripe-webhook-live.txt` | Live Stripe webhook data |
 | `src/components/.../ai-settings-tab*.tsx` | OpenRouter key pattern in source |
 
@@ -432,4 +432,4 @@ These are deferred to Phase 2 (post-launch, pre-scale):
 - [LOW_HANGING_FRUIT.md](./LOW_HANGING_FRUIT.md) — Tiers 1-5 completion log
 - [GDPR_ONLY/](./GDPR_ONLY/) — Full GDPR compliance documentation
 - [three-layers-security.md](./three-layers-security.md) — ClawdHub SVG XSS attack chain analysis
-- [lex-podcast.md](../openclaw_idea/lex-podcast.md) — OpenClaw guardrails research (Section 5)
+- [OpenClaw Pattern Integration](../agentic_system/OPENCLAW_IDEA_INTEGRATION.md) — integrated OpenClaw guardrails research (Section 5)

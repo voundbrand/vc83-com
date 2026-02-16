@@ -23,9 +23,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CREATE INVOICE
@@ -89,8 +90,8 @@ export const createInvoice = httpAction(async (ctx, request) => {
     }
 
     // 4. Create invoice
-    const invoiceId = await ctx.runMutation(
-      internal.api.v1.invoicesInternal.createInvoiceInternal,
+    const invoiceId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.invoicesInternal.createInvoiceInternal,
       {
         organizationId,
         crmOrganizationId,
@@ -183,8 +184,8 @@ export const listInvoices = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query invoices
-    const result = await ctx.runQuery(
-      internal.api.v1.invoicesInternal.listInvoicesInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.invoicesInternal.listInvoicesInternal,
       {
         organizationId,
         status,
@@ -260,8 +261,8 @@ export const getInvoice = httpAction(async (ctx, request) => {
     }
 
     // 4. Query invoice
-    const invoice = await ctx.runQuery(
-      internal.api.v1.invoicesInternal.getInvoiceInternal,
+    const invoice = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.invoicesInternal.getInvoiceInternal,
       {
         organizationId,
         invoiceId,
@@ -354,8 +355,8 @@ export const updateInvoice = httpAction(async (ctx, request) => {
     } = body;
 
     // 5. Update invoice
-    await ctx.runMutation(
-      internal.api.v1.invoicesInternal.updateInvoiceInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.invoicesInternal.updateInvoiceInternal,
       {
         organizationId,
         invoiceId,
@@ -444,8 +445,8 @@ export const deleteInvoice = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete invoice
-    await ctx.runMutation(
-      internal.api.v1.invoicesInternal.deleteInvoiceInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.invoicesInternal.deleteInvoiceInternal,
       {
         organizationId,
         invoiceId,
@@ -525,8 +526,8 @@ export const sealInvoice = httpAction(async (ctx, request) => {
     }
 
     // 4. Seal invoice
-    const result = await ctx.runMutation(
-      internal.api.v1.invoicesInternal.sealInvoiceInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.invoicesInternal.sealInvoiceInternal,
       {
         organizationId,
         invoiceId,
@@ -622,8 +623,8 @@ export const sendInvoice = httpAction(async (ctx, request) => {
     }
 
     // 5. Send invoice
-    await ctx.runMutation(
-      internal.api.v1.invoicesInternal.sendInvoiceInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.invoicesInternal.sendInvoiceInternal,
       {
         organizationId,
         invoiceId,
@@ -703,8 +704,8 @@ export const getInvoicePdf = httpAction(async (ctx, request) => {
     }
 
     // 4. Get PDF URL
-    const result = await ctx.runQuery(
-      internal.api.v1.invoicesInternal.getInvoicePdfInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.invoicesInternal.getInvoicePdfInternal,
       {
         organizationId,
         invoiceId,
@@ -787,8 +788,8 @@ export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
     const sendImmediately = body.sendImmediately === true;
 
     // 5. Check if Stripe invoicing is available for this organization
-    const stripeCheck = await ctx.runQuery(
-      internal.stripeInvoices.checkStripeInvoicingAvailable,
+    const stripeCheck = await (ctx as any).runQuery(
+      generatedApi.internal.stripeInvoices.checkStripeInvoicingAvailable,
       { organizationId }
     );
 
@@ -808,8 +809,8 @@ export const syncInvoiceToStripe = httpAction(async (ctx, request) => {
     }
 
     // 6. Sync invoice to Stripe
-    const result = await ctx.runAction(
-      internal.stripeInvoices.syncInvoiceToStripe,
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.stripeInvoices.syncInvoiceToStripe,
       {
         invoiceId: invoiceId as Id<"objects">,
         sendImmediately,
@@ -892,8 +893,8 @@ export const getInvoicesForClient = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 5. Query invoices for this client
-    const result = await ctx.runQuery(
-      internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.invoicesInternal.getInvoicesForClientInternal,
       {
         organizationId,
         crmOrganizationId: crmOrganizationId as Id<"objects">,

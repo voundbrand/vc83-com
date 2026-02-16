@@ -7,8 +7,9 @@
 
 import { internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CREATE COMPLETE BOOKING (INTERNAL)
@@ -123,8 +124,8 @@ export const createCompleteBookingInternal = internalMutation({
     }
 
     // 5. Create Transaction record
-    const transactionId = await ctx.runMutation(
-      internal.transactionOntology.createTransactionInternal,
+    const transactionId = await (ctx as any).runMutation(
+      generatedApi.internal.transactionOntology.createTransactionInternal,
       {
         organizationId: args.organizationId,
         subtype: "event_booking",
@@ -174,8 +175,8 @@ export const createCompleteBookingInternal = internalMutation({
     }> = [];
 
     for (const attendee of allAttendees) {
-      const ticketId = await ctx.runMutation(
-        internal.ticketOntology.createTicketInternal,
+      const ticketId = await (ctx as any).runMutation(
+        generatedApi.internal.ticketOntology.createTicketInternal,
         {
           organizationId: args.organizationId,
           productId: args.productId,
@@ -212,8 +213,8 @@ export const createCompleteBookingInternal = internalMutation({
       const attendee = allAttendees[i];
       const ticket = tickets[i];
 
-      const { purchaseItemIds: itemIds } = await ctx.runMutation(
-        internal.purchaseOntology.createPurchaseItemInternal,
+      const { purchaseItemIds: itemIds } = await (ctx as any).runMutation(
+        generatedApi.internal.purchaseOntology.createPurchaseItemInternal,
         {
           organizationId: args.organizationId,
           checkoutSessionId: transactionId, // Link to transaction
@@ -238,8 +239,8 @@ export const createCompleteBookingInternal = internalMutation({
       purchaseItemIds.push(...itemIds);
 
       // Link purchase item to ticket
-      await ctx.runMutation(
-        internal.purchaseOntology.updatePurchaseItemFulfillmentInternal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.purchaseOntology.updatePurchaseItemFulfillmentInternal,
         {
           purchaseItemId: itemIds[0],
           fulfillmentData: {
@@ -270,8 +271,8 @@ export const createCompleteBookingInternal = internalMutation({
 
       try {
         // Create CRM contact via API (uses existing CRM integration)
-        const contactResult = await ctx.runMutation(
-          internal.api.v1.crmInternal.createContactFromEventInternal,
+        const contactResult = await (ctx as any).runMutation(
+          generatedApi.internal.api.v1.crmInternal.createContactFromEventInternal,
           {
             organizationId: args.organizationId,
             eventId: args.eventId,

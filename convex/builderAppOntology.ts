@@ -28,7 +28,6 @@
  */
 
 import { mutation, query, action, internalMutation, type MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission, getUserContext } from "./rbacHelpers";
@@ -1096,11 +1095,11 @@ export const connectV0App = action({
     scopes: string[];
     envFileId: string | null;
   }> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { api } = await import("./_generated/api") as any;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+    const generatedApiLocal: any = require("./_generated/api");
 
     // 1. Create the builder app record
-    const appResult = await ctx.runMutation(api.builderAppOntology.createBuilderApp, {
+    const appResult = await (ctx as any).runMutation(generatedApiLocal.api.builderAppOntology.createBuilderApp, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       name: args.name,
@@ -1113,7 +1112,7 @@ export const connectV0App = action({
     });
 
     // 2. Generate a scoped API key for this app
-    const keyResult = await ctx.runAction(api.actions.apiKeys.generateApiKey, {
+    const keyResult = await (ctx as any).runAction(generatedApiLocal.api.actions.apiKeys.generateApiKey, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       name: `v0-app-${appResult.appCode}`,
@@ -1121,7 +1120,7 @@ export const connectV0App = action({
     });
 
     // 3. Store connection config on the builder app
-    await ctx.runMutation(api.builderAppOntology.updateBuilderApp, {
+    await (ctx as any).runMutation(generatedApiLocal.api.builderAppOntology.updateBuilderApp, {
       sessionId: args.sessionId,
       appId: appResult.appId,
       status: "ready",
@@ -1130,8 +1129,8 @@ export const connectV0App = action({
     // 3b. Auto-register as a connected_application so it appears in Applications
     let applicationId: Id<"objects"> | null = null;
     try {
-      const regResult = await ctx.runMutation(
-        internal.applicationOntology.registerApplicationInternal,
+      const regResult = await (ctx as any).runMutation(
+        generatedApiLocal.internal.applicationOntology.registerApplicationInternal,
         {
           organizationId: args.organizationId,
           name: args.name,
@@ -1149,7 +1148,7 @@ export const connectV0App = action({
       applicationId = regResult.applicationId;
 
       // Link the API key to the registered application
-      await ctx.runMutation(api.applicationOntology.linkApiKey, {
+      await (ctx as any).runMutation(generatedApiLocal.api.applicationOntology.linkApiKey, {
         sessionId: args.sessionId,
         applicationId: regResult.applicationId,
         apiKeyId: keyResult.id,
@@ -1172,8 +1171,8 @@ export const connectV0App = action({
 
     let envFileId: string | null = null;
     try {
-      const envDoc = await ctx.runMutation(
-        api.organizationMedia.createLayerCakeDocument,
+      const envDoc = await (ctx as any).runMutation(
+        generatedApiLocal.api.organizationMedia.createLayerCakeDocument,
         {
           sessionId: args.sessionId,
           organizationId: args.organizationId,
@@ -1190,7 +1189,7 @@ export const connectV0App = action({
     }
 
     // Store connectionConfig via a direct internal mutation
-    await ctx.runMutation(internal.builderAppOntology.patchAppConnectionConfig, {
+    await (ctx as any).runMutation(generatedApiLocal.internal.builderAppOntology.patchAppConnectionConfig, {
       appId: appResult.appId,
       connectionConfig: {
         apiKeyId: keyResult.id,
@@ -1414,11 +1413,11 @@ export const createFromV0Chat = action({
   },
   handler: async (ctx, args): Promise<{ appId: Id<"objects">; appCode: string }> => {
     // Import the API reference
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { api } = await import("./_generated/api") as any;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+    const generatedApiLocal: any = require("./_generated/api");
 
     // Use the public mutation to create the app
-    const result = await ctx.runMutation(api.builderAppOntology.createBuilderApp, {
+    const result = await (ctx as any).runMutation(generatedApiLocal.api.builderAppOntology.createBuilderApp, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       name: args.name,

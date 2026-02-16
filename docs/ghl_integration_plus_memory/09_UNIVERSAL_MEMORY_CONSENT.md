@@ -767,6 +767,6 @@ cronJobs.daily(
 ---
 
 **Related Docs**:
-- [02_MEMORY_ENGINE_DESIGN.md](./02_MEMORY_ENGINE_DESIGN.md) — 5-layer memory architecture
+- [MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md) — 5-layer memory architecture
 - [03_GHL_API_INTEGRATION.md](./03_GHL_API_INTEGRATION.md) — GHL webhook implementation
 - [04_IMPLEMENTATION_TIMELINE.md](./04_IMPLEMENTATION_TIMELINE.md) — 14-week timeline

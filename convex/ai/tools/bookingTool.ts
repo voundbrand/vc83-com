@@ -11,8 +11,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -259,7 +260,7 @@ export const executeManageBookings = action({
       organizationId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -412,7 +413,7 @@ async function listBookings(
     limit?: number;
   }
 ) {
-  const listBookingsFn = internal.bookingOntology.listBookingsInternal;
+  const listBookingsFn = generatedApi.internal.bookingOntology.listBookingsInternal;
   const result = await (ctx as any).runQuery(listBookingsFn, {
       organizationId,
       status: args.filterStatus,
@@ -461,7 +462,7 @@ async function getBooking(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const booking = await (ctx as any).runQuery(
-    internal.bookingOntology.getBookingInternal,
+    generatedApi.internal.bookingOntology.getBookingInternal,
     {
       bookingId: args.bookingId as Id<"objects">,
       organizationId,
@@ -567,7 +568,7 @@ async function createBooking(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workItemId = await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -596,7 +597,7 @@ async function createBooking(
   // EXECUTE MODE
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (ctx as any).runMutation(
-    internal.bookingOntology.createBookingInternal,
+    generatedApi.internal.bookingOntology.createBookingInternal,
     {
       organizationId,
       userId,
@@ -619,7 +620,7 @@ async function createBooking(
   if (args.workItemId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -659,7 +660,7 @@ async function updateBookingStatus(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (ctx as any).runMutation(
-    internal.bookingOntology.updateBookingStatusInternal,
+    generatedApi.internal.bookingOntology.updateBookingStatusInternal,
     {
       bookingId: bookingId as Id<"objects">,
       organizationId,
@@ -706,7 +707,7 @@ async function listLocations(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (ctx as any).runQuery(
-    internal.locationOntology.listLocationsInternal,
+    generatedApi.internal.locationOntology.listLocationsInternal,
     {
       organizationId,
       status: args.filterStatus,
@@ -752,7 +753,7 @@ async function getLocation(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const location = await (ctx as any).runQuery(
-    internal.locationOntology.getLocationInternal,
+    generatedApi.internal.locationOntology.getLocationInternal,
     {
       locationId: args.locationId as Id<"objects">,
       organizationId,
@@ -837,7 +838,7 @@ async function createLocation(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workItemId = await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -866,7 +867,7 @@ async function createLocation(
   // EXECUTE MODE
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await (ctx as any).runMutation(
-    internal.locationOntology.createLocationInternal,
+    generatedApi.internal.locationOntology.createLocationInternal,
     {
       organizationId,
       userId,
@@ -882,7 +883,7 @@ async function createLocation(
   if (args.workItemId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (ctx as any).runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -919,7 +920,7 @@ async function archiveLocation(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (ctx as any).runMutation(
-    internal.locationOntology.archiveLocationInternal,
+    generatedApi.internal.locationOntology.archiveLocationInternal,
     {
       locationId: args.locationId as Id<"objects">,
       organizationId,
@@ -951,7 +952,7 @@ async function getAvailableSlots(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slots = await (ctx as any).runQuery(
-    internal.availabilityOntology.getAvailableSlotsInternal,
+    generatedApi.internal.availabilityOntology.getAvailableSlotsInternal,
     {
       resourceId: args.resourceId as Id<"objects">,
       startDate: startTs,
@@ -992,7 +993,7 @@ async function getResourceCalendar(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bookings = await (ctx as any).runQuery(
-    internal.bookingOntology.listBookingsInternal,
+    generatedApi.internal.bookingOntology.listBookingsInternal,
     {
       organizationId,
       resourceId: args.resourceId as Id<"objects">,

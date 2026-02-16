@@ -26,7 +26,7 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 /**
  * CREATE PORTAL INVITATION
@@ -153,7 +153,7 @@ export const createPortalInvitation = mutation({
     });
 
     // Schedule invitation email
-    await ctx.scheduler.runAfter(0, internal.portalInvitations.sendInvitationEmail, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.portalInvitations.sendInvitationEmail, {
       invitationId,
       contactEmail,
       portalUrl: args.portalUrl,
@@ -505,7 +505,7 @@ export const resendPortalInvitation = mutation({
     });
 
     // Resend email
-    await ctx.scheduler.runAfter(0, internal.portalInvitations.sendInvitationEmail, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.portalInvitations.sendInvitationEmail, {
       invitationId: args.invitationId,
       contactEmail: invitation.customProperties?.contactEmail as string,
       portalUrl: invitation.customProperties?.portalUrl as string,

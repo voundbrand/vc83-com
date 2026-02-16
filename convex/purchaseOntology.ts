@@ -31,7 +31,7 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import type { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // PURCHASE_ITEM OPERATIONS
@@ -269,7 +269,7 @@ export const createPurchaseItem = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation
-    return await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+    return await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.createPurchaseItemInternal, {
       organizationId: args.organizationId,
       checkoutSessionId: args.checkoutSessionId,
       productId: args.productId,
@@ -366,7 +366,7 @@ export const updateFulfillmentStatus = mutation({
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
     // Delegate to internal mutation
-    return await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+    return await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.updateFulfillmentStatusInternal, {
       purchaseItemId: args.purchaseItemId,
       fulfillmentStatus: args.fulfillmentStatus,
       fulfillmentData: args.fulfillmentData,

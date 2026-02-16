@@ -17,7 +17,7 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * HELPER: Extract session ID from Authorization header
@@ -57,7 +57,7 @@ export const getCurrentUser = httpAction(async (ctx, request) => {
     const sessionId = extractSessionId(request);
 
     // 2. Get user profile
-    const profile = await ctx.runQuery(internal.frontendUserQueries.getCurrentUserInternal, {
+    const profile = await (ctx as any).runQuery(generatedApi.internal.frontendUserQueries.getCurrentUserInternal, {
       sessionId,
     });
 
@@ -122,7 +122,7 @@ export const getCompleteProfile = httpAction(async (ctx, request) => {
   try {
     const sessionId = extractSessionId(request);
 
-    const profile = await ctx.runQuery(internal.frontendUserQueries.getCompleteProfileInternal, {
+    const profile = await (ctx as any).runQuery(generatedApi.internal.frontendUserQueries.getCompleteProfileInternal, {
       sessionId,
     });
 
@@ -197,7 +197,7 @@ export const getTransactions = httpAction(async (ctx, request) => {
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "20"), 100);
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const result = await ctx.runQuery(internal.frontendUserQueries.getTransactionsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.frontendUserQueries.getTransactionsInternal, {
       sessionId,
       limit,
       offset,
@@ -260,7 +260,7 @@ export const getTickets = httpAction(async (ctx, request) => {
   try {
     const sessionId = extractSessionId(request);
 
-    const result = await ctx.runQuery(internal.frontendUserQueries.getTicketsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.frontendUserQueries.getTicketsInternal, {
       sessionId,
     });
 
@@ -331,7 +331,7 @@ export const getEvents = httpAction(async (ctx, request) => {
     const upcoming = url.searchParams.get("upcoming") !== "false";
     const past = url.searchParams.get("past") !== "false";
 
-    const result = await ctx.runQuery(internal.frontendUserQueries.getEventsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.frontendUserQueries.getEventsInternal, {
       sessionId,
       upcoming,
       past,
@@ -410,7 +410,7 @@ export const updateCurrentUser = httpAction(async (ctx, request) => {
     if (timezone !== undefined) updates.timezone = timezone;
 
     // Update user
-    await ctx.runMutation(internal.frontendUserQueries.updateCurrentUserInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.frontendUserQueries.updateCurrentUserInternal, {
       sessionId,
       updates,
     });

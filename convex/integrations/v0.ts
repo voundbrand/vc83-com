@@ -16,8 +16,9 @@
 import { action, mutation, query, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+
+const generatedApi: any = require("../_generated/api");
 
 // v0 Platform API base URL
 const V0_API_BASE = "https://api.v0.dev/v1";
@@ -391,7 +392,7 @@ export const createChat = action({
     assistantMessage?: string;
   }> => {
     // Verify authentication
-    const authResult = await ctx.runQuery(internal.integrations.v0.verifySession, {
+    const authResult = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.verifySession, {
       sessionId: args.sessionId,
     });
 
@@ -400,7 +401,7 @@ export const createChat = action({
     }
 
     // Get v0 API key
-    const apiKey = await ctx.runQuery(internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -409,7 +410,7 @@ export const createChat = action({
     }
 
     // Get organization name for minimal context
-    const org = await ctx.runQuery(internal.integrations.v0.getOrgNameInternal, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getOrgNameInternal, {
       organizationId: args.organizationId,
     });
 
@@ -443,7 +444,7 @@ export const createChat = action({
 
         // Store the chat reference AND create aiConversation for history
         if (authResult.userId) {
-          await ctx.runMutation(internal.integrations.v0.storeChatReference, {
+          await (ctx as any).runMutation(generatedApi.internal.integrations.v0.storeChatReference, {
             organizationId: args.organizationId,
             userId: authResult.userId,
             v0ChatId: finalResponse.id,
@@ -493,7 +494,7 @@ export const sendMessage = action({
     assistantMessage?: string;
   }> => {
     // Verify authentication
-    const authResult = await ctx.runQuery(internal.integrations.v0.verifySession, {
+    const authResult = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.verifySession, {
       sessionId: args.sessionId,
     });
 
@@ -502,7 +503,7 @@ export const sendMessage = action({
     }
 
     // Get v0 API key
-    const apiKey = await ctx.runQuery(internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -547,7 +548,7 @@ export const getChat = action({
     files?: V0File[];
     messages?: V0Message[];
   }> => {
-    const authResult = await ctx.runQuery(internal.integrations.v0.verifySession, {
+    const authResult = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.verifySession, {
       sessionId: args.sessionId,
     });
 
@@ -555,7 +556,7 @@ export const getChat = action({
       throw new Error("Invalid or expired session");
     }
 
-    const apiKey = await ctx.runQuery(internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -832,7 +833,7 @@ export const builderChat = action({
     slug: string;
   }> => {
     // Get v0 API key
-    const apiKey = await ctx.runQuery(internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -872,7 +873,7 @@ export const builderChat = action({
             .pop()?.content || "Here's the updated design!";
 
           // Store follow-up messages in chat history
-          const chatResult = await ctx.runMutation(internal.integrations.v0.storeChatReference, {
+          const chatResult = await (ctx as any).runMutation(generatedApi.internal.integrations.v0.storeChatReference, {
             organizationId: args.organizationId,
             userId: args.userId,
             v0ChatId: args.v0ChatId,
@@ -914,7 +915,7 @@ export const builderChat = action({
     // ========================================================================
 
     // Get organization name for minimal context
-    const org = await ctx.runQuery(internal.integrations.v0.getOrgNameInternal, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getOrgNameInternal, {
       organizationId: args.organizationId,
     });
 
@@ -973,7 +974,7 @@ export const builderChat = action({
             .pop()?.content || "I've created your design! Check the preview to see it live.";
 
           // Store chat reference AND create aiConversation for history
-          const chatResult = await ctx.runMutation(internal.integrations.v0.storeChatReference, {
+          const chatResult = await (ctx as any).runMutation(generatedApi.internal.integrations.v0.storeChatReference, {
             organizationId: args.organizationId,
             userId: args.userId,
             v0ChatId: withFiles.id,
@@ -1017,7 +1018,7 @@ export const builderChat = action({
           .pop()?.content || "I've created your design! Check the preview to see it live.";
 
         // Store chat reference AND create aiConversation for history
-        const chatResult = await ctx.runMutation(internal.integrations.v0.storeChatReference, {
+        const chatResult = await (ctx as any).runMutation(generatedApi.internal.integrations.v0.storeChatReference, {
           organizationId: args.organizationId,
           userId: args.userId,
           v0ChatId: response.id,

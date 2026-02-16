@@ -5,8 +5,7 @@
 Establish clean control-plane boundaries so channels/providers/integrations can evolve without destabilizing core AI runtime.
 
 Reference patterns:
-- `docs/openclaw_idea/openclaw/docs/concepts/architecture.md`
-- `docs/openclaw_idea/openclaw/README.md`
+- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
 
 ## Current state in this codebase
 
@@ -56,4 +55,3 @@ Reference patterns:
 - Provider boundaries documented and test-enforced.
 - Core runtime remains stable under adapter failure conditions.
 - New providers can be added via contract without core runtime edits.
-

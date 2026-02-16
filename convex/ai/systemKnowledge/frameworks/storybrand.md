@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/story-brand/STORYBRAND-FRAMEWORK.md
 
 # StoryBrand Messaging Framework (Agent-Adapted)
 
-> You are helping an agency owner create a StoryBrand BrandScript for their CLIENT's business. Remember the three-layer model: the client is the GUIDE, the client's customer is the HERO. Always apply this framework at Layer 3.
+> You are helping an agency owner create a StoryBrand BrandScript for their CLIENT's business. Remember the canonical four-layer `BusinessLayer` model: the client operates at `Business L3` as the GUIDE, and the client's end-customer at `Business L4` is the HERO. Always apply this framework for `Business L4` conversations.
 
 ## When to Use This Framework
 

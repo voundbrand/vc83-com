@@ -18,7 +18,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 export const executeCheckEventCapacity = action({
@@ -43,7 +43,7 @@ export const executeCheckEventCapacity = action({
     }
 
     // Get event details
-    const event = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const event = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
       objectId: context.eventId as Id<"objects">,
     });
 

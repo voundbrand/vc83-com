@@ -20,10 +20,11 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getCorsHeaders } from "./corsHeaders";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST FORMS
@@ -66,7 +67,7 @@ export const listForms = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query forms
-    const result = await ctx.runQuery(internal.api.v1.formsInternal.listFormsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.api.v1.formsInternal.listFormsInternal, {
       organizationId: authContext.organizationId,
       subtype,
       status,
@@ -142,7 +143,7 @@ export const createForm = httpAction(async (ctx, request) => {
     }
 
     // 4. Create form
-    const result = await ctx.runMutation(internal.api.v1.formsInternal.createFormInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.api.v1.formsInternal.createFormInternal, {
       organizationId: authContext.organizationId,
       subtype,
       name,
@@ -239,8 +240,8 @@ export const getForm = httpAction(async (ctx, request) => {
     }
 
     // 4. Get form
-    const form = await ctx.runQuery(
-      internal.api.v1.formsInternal.getFormInternal,
+    const form = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.formsInternal.getFormInternal,
       {
         formId,
         organizationId: authContext.organizationId,
@@ -318,7 +319,7 @@ async function getFormResponsesHandler(ctx: Parameters<typeof httpAction>[0] ext
   }
 
   // 4. Get form responses
-  const result = await ctx.runQuery(internal.api.v1.formsInternal.getFormResponsesInternal, {
+  const result = await (ctx as any).runQuery(generatedApi.internal.api.v1.formsInternal.getFormResponsesInternal, {
     organizationId: authContext.organizationId,
     formId,
     status,
@@ -387,7 +388,7 @@ export const getFormResponses = httpAction(async (ctx, request) => {
     }
 
     // 4. Get form responses
-    const result = await ctx.runQuery(internal.api.v1.formsInternal.getFormResponsesInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.api.v1.formsInternal.getFormResponsesInternal, {
       organizationId: authContext.organizationId,
       formId,
       status,
@@ -489,7 +490,7 @@ export const submitFormResponse = httpAction(async (ctx, request) => {
     }
 
     // 5. Create form response
-    const result = await ctx.runMutation(internal.api.v1.formsInternal.createFormResponseInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.api.v1.formsInternal.createFormResponseInternal, {
       organizationId: authContext.organizationId,
       formId,
       responses,
@@ -568,7 +569,7 @@ export const deleteForm = httpAction(async (ctx, request) => {
     }
 
     // 4. Delete form
-    await ctx.runMutation(internal.api.v1.formsInternal.deleteFormInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.formsInternal.deleteFormInternal, {
       organizationId: authContext.organizationId,
       formId,
       performedBy: authContext.userId,
@@ -636,7 +637,7 @@ export const getPublicForm = httpAction(async (ctx, request) => {
     console.log(`🔓 [GET /api/v1/forms/public] Fetching public form: ${formId}`);
 
     // 2. Get form using public query (no auth required)
-    const form = await ctx.runQuery(api.formsOntology.getPublicForm, {
+    const form = await (ctx as any).runQuery(generatedApi.api.formsOntology.getPublicForm, {
       formId,
     });
 
@@ -825,7 +826,7 @@ export const submitPublicForm = httpAction(async (ctx, request) => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
 
     // Query recent submissions from this IP for this form
-    const recentSubmissions = await ctx.runQuery(internal.api.v1.formsInternal.checkRateLimit, {
+    const recentSubmissions = await (ctx as any).runQuery(generatedApi.internal.api.v1.formsInternal.checkRateLimit, {
       formId,
       ipAddress,
       since: oneHourAgo,
@@ -858,7 +859,7 @@ export const submitPublicForm = httpAction(async (ctx, request) => {
     };
 
     // 7. Submit the form
-    const responseId = await ctx.runMutation(internal.formsOntology.createPublicFormResponse, {
+    const responseId = await (ctx as any).runMutation(generatedApi.internal.formsOntology.createPublicFormResponse, {
       formId,
       responses: body.responses,
       metadata,

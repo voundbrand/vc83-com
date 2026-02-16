@@ -12,9 +12,10 @@
 
 import { v } from "convex/values";
 import { action, internalAction, query, internalQuery, internalMutation } from "./_generated/server";
-import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getProviderByCode, getConnectedAccountId } from "./paymentProviders";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 // =========================================
 // MUTATIONS
@@ -224,8 +225,8 @@ export const createStripeCheckoutSession = action({
   },
   handler: async (ctx, args) => {
     // Get organization
-    const org = await ctx.runQuery(
-      internal.checkoutSessions.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessions.getOrganizationInternal,
       {
         organizationId: args.organizationId,
       }
@@ -246,12 +247,12 @@ export const createStripeCheckoutSession = action({
 
     // Get product details
     // TODO: Update to use checkout instances
-    // const products = await ctx.runQuery(api.checkoutOntology.getCheckoutProducts, {
+    // const products = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getCheckoutProducts, {
     //   organizationId: args.organizationId,
     // });
 
     // For now, get product directly (using internal query for actions)
-    const targetProduct = await ctx.runQuery(internal.productOntology.getProductInternal, {
+    const targetProduct = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
       productId: args.productId
     });
 
@@ -260,8 +261,8 @@ export const createStripeCheckoutSession = action({
     }
 
     // Validate product availability
-    const availability = await ctx.runQuery(
-      internal.productOntology.checkProductAvailability,
+    const availability = await (ctx as any).runQuery(
+      generatedApi.internal.productOntology.checkProductAvailability,
       { productId: args.productId }
     );
 
@@ -272,7 +273,7 @@ export const createStripeCheckoutSession = action({
     }
 
     // Get Platform Org's currency from locale settings
-    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+    const localeSettings = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrgLocaleSettings, {
       organizationId: args.organizationId
     });
 
@@ -309,7 +310,7 @@ export const createStripeCheckoutSession = action({
     );
 
     // TODO: Store session in database for tracking
-    // await ctx.runMutation(internal.checkoutSessions.storeCheckoutSession, {
+    // await (ctx as any).runMutation(generatedApi.internal.checkoutSessions.storeCheckoutSession, {
     //   sessionId: session.sessionId,
     //   organizationId: args.organizationId,
     //   productId: args.productId,
@@ -348,7 +349,7 @@ export const verifyCheckoutPayment = action({
 
     if (result.success) {
       // TODO: Store successful payment in database
-      // await ctx.runMutation(internal.checkoutSessions.recordSuccessfulPayment, {
+      // await (ctx as any).runMutation(generatedApi.internal.checkoutSessions.recordSuccessfulPayment, {
       //   paymentId: result.paymentId,
       //   organizationId: args.organizationId,
       //   amount: result.amount,
@@ -380,8 +381,8 @@ export const createCheckoutSession = action({
     const providerCode = args.providerCode || "stripe-connect";
 
     // Get organization
-    const org = await ctx.runQuery(
-      internal.checkoutSessions.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessions.getOrganizationInternal,
       {
         organizationId: args.organizationId,
       }
@@ -402,12 +403,12 @@ export const createCheckoutSession = action({
 
     // Get product details
     // TODO: Update to use checkout instances
-    // const products = await ctx.runQuery(api.checkoutOntology.getCheckoutProducts, {
+    // const products = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getCheckoutProducts, {
     //   organizationId: args.organizationId,
     // });
 
     // For now, get product directly (using internal query for actions)
-    const targetProduct = await ctx.runQuery(internal.productOntology.getProductInternal, {
+    const targetProduct = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
       productId: args.productId
     });
 
@@ -416,8 +417,8 @@ export const createCheckoutSession = action({
     }
 
     // Validate product availability
-    const availability = await ctx.runQuery(
-      internal.productOntology.checkProductAvailability,
+    const availability = await (ctx as any).runQuery(
+      generatedApi.internal.productOntology.checkProductAvailability,
       { productId: args.productId }
     );
 
@@ -428,7 +429,7 @@ export const createCheckoutSession = action({
     }
 
     // Get Platform Org's currency from locale settings
-    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+    const localeSettings = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrgLocaleSettings, {
       organizationId: args.organizationId
     });
 
@@ -484,7 +485,7 @@ export const createPaymentIntentForSession = action({
   },
   handler: async (ctx, args) => {
     // 1. Get checkout session
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
@@ -494,7 +495,7 @@ export const createPaymentIntentForSession = action({
 
     // 2. Get organization and connected Stripe account (need this early for reuse case too)
     const organizationId = session.organizationId;
-    const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrganizationInternal, {
       organizationId,
     });
 
@@ -584,7 +585,7 @@ export const createPaymentIntentForSession = action({
     const productDescriptions: string[] = [];
     for (const sp of selectedProducts) {
       try {
-        const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+        const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
           productId: sp.productId,
         });
         if (product?.name) {
@@ -622,7 +623,7 @@ export const createPaymentIntentForSession = action({
 
     // Store payment intent details in checkout session for reuse (so we can reuse it if user goes back)
     if (result.clientSecret && result.providerSessionId) {
-      await ctx.runMutation(internal.checkoutSessions.storePaymentIntent, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessions.storePaymentIntent, {
         checkoutSessionId: args.checkoutSessionId,
         paymentIntentId: result.providerSessionId,
         clientSecret: result.clientSecret,
@@ -687,7 +688,7 @@ export const completeCheckoutAndFulfill = action({
     console.log("📋 [STEP 0] Fetching checkout session...");
 
     // 1. Get checkout session (single source of truth!)
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
@@ -787,7 +788,7 @@ export const completeCheckoutAndFulfill = action({
 
     // STEP 1: Get organization
     console.log("📋 [STEP 1] Fetching organization...");
-    const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrganizationInternal, {
       organizationId,
     });
 
@@ -843,7 +844,7 @@ export const completeCheckoutAndFulfill = action({
 
       if (!paymentResult.success) {
         // Mark session as failed
-        await ctx.runMutation(api.checkoutSessionOntology.failCheckoutSession, {
+        await (ctx as any).runMutation(generatedApi.api.checkoutSessionOntology.failCheckoutSession, {
           sessionId: args.sessionId,
           checkoutSessionId: args.checkoutSessionId,
           errorMessage: "Payment verification failed",
@@ -868,7 +869,7 @@ export const completeCheckoutAndFulfill = action({
 
     try {
       console.log("   [STEP 4a] Calling autoCreateContactFromCheckoutInternal...");
-      const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+      const contactResult = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
         checkoutSessionId: args.checkoutSessionId,
       });
       crmContactId = contactResult.contactId;
@@ -883,7 +884,7 @@ export const completeCheckoutAndFulfill = action({
         const firstName = nameParts[0] || customerName;
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+        frontendUserId = await (ctx as any).runMutation(generatedApi.internal.auth.createOrGetGuestUser, {
           email: customerEmail,
           firstName,
           lastName,
@@ -905,7 +906,7 @@ export const completeCheckoutAndFulfill = action({
         crmOrganizationId = employerOrgId as Id<"objects">;
 
         // Link the contact to the employer organization
-        await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+        await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
           contactId: crmContactId,
           organizationId: crmOrganizationId,
           role: "employee", // They're an employee, not the company buyer
@@ -946,7 +947,7 @@ export const completeCheckoutAndFulfill = action({
             : undefined;
 
           // Create CRM organization with billing address
-          crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+          crmOrganizationId = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.createCRMOrganization, {
             organizationId,
             companyName,
             vatNumber,
@@ -956,7 +957,7 @@ export const completeCheckoutAndFulfill = action({
           });
 
           // Link contact to organization
-          await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+          await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
             contactId: crmContactId,
             organizationId: crmOrganizationId,
             role: "buyer",
@@ -981,7 +982,7 @@ export const completeCheckoutAndFulfill = action({
         // Only create form response if a custom form was actually used
         // (formId is only set when ticket has a custom form configured)
         if (formResp.formId) {
-          await ctx.runMutation(internal.formsOntology.createCheckoutFormResponse, {
+          await (ctx as any).runMutation(generatedApi.internal.formsOntology.createCheckoutFormResponse, {
             organizationId,
             formId: formResp.formId as Id<"objects">,
             responses: formResp.responses,
@@ -1015,7 +1016,7 @@ export const completeCheckoutAndFulfill = action({
       const selectedProduct = selectedProducts[productIndex];
       console.log(`   [STEP 6.${productIndex + 1}] Processing product ${productIndex + 1}/${selectedProducts.length}:`, selectedProduct.productId);
 
-      const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+      const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
         productId: selectedProduct.productId,
       });
 
@@ -1046,7 +1047,7 @@ export const completeCheckoutAndFulfill = action({
       // Create purchase_items (one per quantity)
       let purchaseItemsResult;
       try {
-        purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+        purchaseItemsResult = await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.createPurchaseItemInternal, {
         organizationId,
         checkoutSessionId: args.checkoutSessionId,
         productId: selectedProduct.productId,
@@ -1135,7 +1136,7 @@ export const completeCheckoutAndFulfill = action({
           console.log(`      [STEP 6.${productIndex + 1}.${i + 1}] Creating ticket (eventId: ${eventId})...`);
 
           try {
-            const ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+            const ticketId = await (ctx as any).runMutation(generatedApi.internal.ticketOntology.createTicketInternal, {
             organizationId,
             productId: selectedProduct.productId,
             eventId,
@@ -1162,7 +1163,7 @@ export const completeCheckoutAndFulfill = action({
             console.log(`      ✅ [STEP 6.${productIndex + 1}.${i + 1}] Ticket created:`, ticketId);
 
             // Update purchase_item with fulfillment info
-            await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+            await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.updateFulfillmentStatusInternal, {
               purchaseItemId: purchaseItemId as Id<"objects">,
               fulfillmentStatus: "fulfilled",
               fulfillmentData: {
@@ -1189,7 +1190,7 @@ export const completeCheckoutAndFulfill = action({
     // STEP 7: Mark session as completed
     console.log("📋 [STEP 7] Marking session as completed...");
     try {
-      await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
         checkoutSessionId: args.checkoutSessionId,
         paymentIntentId: args.paymentIntentId,
         purchasedItemIds: createdPurchaseItems,
@@ -1207,7 +1208,7 @@ export const completeCheckoutAndFulfill = action({
     // STEP 8: CREATE TRANSACTIONS AND LINK TO TICKETS
     console.log("📋 [STEP 8] Creating transactions and linking to tickets...");
     try {
-      await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+      await (ctx as any).runAction(generatedApi.internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
         checkoutSessionId: args.checkoutSessionId,
       });
       console.log("✅ [STEP 8] Transactions created and linked successfully");
@@ -1266,7 +1267,7 @@ export const completeCheckoutAndFulfill = action({
     // STEP 10: SEND ORDER CONFIRMATION EMAIL
     console.log("📋 [STEP 10] Sending order confirmation email...");
     try {
-      await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
+      await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
         checkoutSessionId: args.checkoutSessionId,
         recipientEmail: customerEmail,
         recipientName: customerName,
@@ -1285,7 +1286,7 @@ export const completeCheckoutAndFulfill = action({
 
       if (checkoutInstanceId) {
         // ✅ Use public query - no authentication required
-        const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+        const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
           instanceId: checkoutInstanceId,
         });
 
@@ -1298,7 +1299,7 @@ export const completeCheckoutAndFulfill = action({
         if (salesNotificationRecipientEmail) {
           console.log("📧 [completeCheckoutAndFulfill] Sending sales notification to:", salesNotificationRecipientEmail);
 
-          await ctx.runAction(internal.emailDelivery.sendSalesNotificationEmail, {
+          await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
             checkoutSessionId: args.checkoutSessionId,
             recipientEmail: salesNotificationRecipientEmail,
             templateId: salesNotificationEmailTemplateId, // Optional: use custom template
@@ -1361,7 +1362,7 @@ export const confirmPaymentAndStartFulfillment = action({
     console.log("⚡ [confirmPaymentAndStartFulfillment] Starting fast payment confirmation...");
 
     // 1. Get checkout session
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
@@ -1398,7 +1399,7 @@ export const confirmPaymentAndStartFulfillment = action({
 
     // 4. Verify payment (fast operation)
     if (paymentMethod === 'stripe') {
-      const org = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+      const org = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrganizationInternal, {
         organizationId: session.organizationId,
       });
 
@@ -1422,7 +1423,7 @@ export const confirmPaymentAndStartFulfillment = action({
     }
 
     // 5. Mark payment as confirmed (idempotent operation)
-    const confirmResult = await ctx.runMutation(internal.checkoutSessionOntology.markPaymentConfirmed, {
+    const confirmResult = await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.markPaymentConfirmed, {
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
       paymentMethod,
@@ -1439,7 +1440,7 @@ export const confirmPaymentAndStartFulfillment = action({
 
     // 6. Schedule async fulfillment (fire-and-forget)
     console.log("⚡ [confirmPaymentAndStartFulfillment] Scheduling async fulfillment...");
-    await ctx.scheduler.runAfter(0, internal.checkoutSessions.fulfillCheckoutAsync, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.checkoutSessions.fulfillCheckoutAsync, {
       checkoutSessionId: args.checkoutSessionId,
       paymentIntentId: args.paymentIntentId,
       paymentMethod,
@@ -1475,7 +1476,7 @@ export const fulfillCheckoutAsync = internalAction({
     console.log("🔄 [fulfillCheckoutAsync] Starting async fulfillment...");
 
     // Get session data
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
@@ -1499,7 +1500,7 @@ export const fulfillCheckoutAsync = internalAction({
 
     try {
       // Update status to in_progress
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 0,
         fulfillmentStatus: "in_progress",
@@ -1535,7 +1536,7 @@ export const fulfillCheckoutAsync = internalAction({
 
       // STEP 1: CRM Contact Creation
       console.log("🔄 [fulfillCheckoutAsync] Step 1: Creating CRM contact...");
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 1,
       });
@@ -1545,14 +1546,14 @@ export const fulfillCheckoutAsync = internalAction({
       let frontendUserId: Id<"objects"> | undefined;
 
       try {
-        const contactResult = await ctx.runMutation(internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
+        const contactResult = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.autoCreateContactFromCheckoutInternal, {
           checkoutSessionId: args.checkoutSessionId,
         });
         crmContactId = contactResult.contactId;
 
         // Create dormant frontend user
         const nameParts = customerName.split(' ');
-        frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+        frontendUserId = await (ctx as any).runMutation(generatedApi.internal.auth.createOrGetGuestUser, {
           email: customerEmail,
           firstName: nameParts[0] || customerName,
           lastName: nameParts.slice(1).join(' ') || '',
@@ -1565,7 +1566,7 @@ export const fulfillCheckoutAsync = internalAction({
 
         if (isEmployerBilling && employerOrgId) {
           crmOrganizationId = employerOrgId as Id<"objects">;
-          await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+          await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
             contactId: crmContactId,
             organizationId: crmOrganizationId,
             role: "employee",
@@ -1588,7 +1589,7 @@ export const fulfillCheckoutAsync = internalAction({
               country: session.customProperties.billingCountry as string,
             } : undefined;
 
-            crmOrganizationId = await ctx.runMutation(internal.crmIntegrations.createCRMOrganization, {
+            crmOrganizationId = await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.createCRMOrganization, {
               organizationId,
               companyName,
               vatNumber,
@@ -1597,7 +1598,7 @@ export const fulfillCheckoutAsync = internalAction({
               phone: customerPhone,
             });
 
-            await ctx.runMutation(internal.crmIntegrations.linkContactToOrganization, {
+            await (ctx as any).runMutation(generatedApi.internal.crmIntegrations.linkContactToOrganization, {
               contactId: crmContactId,
               organizationId: crmOrganizationId,
               role: "buyer",
@@ -1610,7 +1611,7 @@ export const fulfillCheckoutAsync = internalAction({
 
       // STEP 2: Purchase Items & Tickets
       console.log("🔄 [fulfillCheckoutAsync] Step 2: Creating purchase items and tickets...");
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 2,
       });
@@ -1619,7 +1620,7 @@ export const fulfillCheckoutAsync = internalAction({
       let globalTicketOffset = 0;
 
       for (const selectedProduct of selectedProducts) {
-        const product = await ctx.runQuery(internal.productOntology.getProductInternal, {
+        const product = await (ctx as any).runQuery(generatedApi.internal.productOntology.getProductInternal, {
           productId: selectedProduct.productId,
         });
 
@@ -1630,7 +1631,7 @@ export const fulfillCheckoutAsync = internalAction({
         const companyName = session.customProperties?.companyName as string | undefined;
         const vatNumber = session.customProperties?.vatNumber as string | undefined;
 
-        const purchaseItemsResult = await ctx.runMutation(internal.purchaseOntology.createPurchaseItemInternal, {
+        const purchaseItemsResult = await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.createPurchaseItemInternal, {
           organizationId,
           checkoutSessionId: args.checkoutSessionId,
           productId: selectedProduct.productId,
@@ -1682,7 +1683,7 @@ export const fulfillCheckoutAsync = internalAction({
           if (fulfillmentType === "ticket") {
             const eventId = product.customProperties?.eventId as Id<"objects"> | undefined;
 
-            const ticketId = await ctx.runMutation(internal.ticketOntology.createTicketInternal, {
+            const ticketId = await (ctx as any).runMutation(generatedApi.internal.ticketOntology.createTicketInternal, {
               organizationId,
               productId: selectedProduct.productId,
               eventId,
@@ -1705,7 +1706,7 @@ export const fulfillCheckoutAsync = internalAction({
               },
             });
 
-            await ctx.runMutation(internal.purchaseOntology.updateFulfillmentStatusInternal, {
+            await (ctx as any).runMutation(generatedApi.internal.purchaseOntology.updateFulfillmentStatusInternal, {
               purchaseItemId: purchaseItemId as Id<"objects">,
               fulfillmentStatus: "fulfilled",
               fulfillmentData: { ticketId, eventId },
@@ -1719,13 +1720,13 @@ export const fulfillCheckoutAsync = internalAction({
 
       // STEP 3: Create Transactions
       console.log("🔄 [fulfillCheckoutAsync] Step 3: Creating transactions...");
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 3,
       });
 
       // Mark session as completed BEFORE transactions (so UI shows progress)
-      await ctx.runMutation(internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.completeCheckoutSessionInternal, {
         checkoutSessionId: args.checkoutSessionId,
         paymentIntentId: args.paymentIntentId,
         purchasedItemIds: createdPurchaseItems,
@@ -1736,7 +1737,7 @@ export const fulfillCheckoutAsync = internalAction({
       });
 
       try {
-        await ctx.runAction(internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
+        await (ctx as any).runAction(generatedApi.internal.createTransactionsFromCheckout.createTransactionsFromCheckout, {
           checkoutSessionId: args.checkoutSessionId,
         });
       } catch (transactionError) {
@@ -1745,7 +1746,7 @@ export const fulfillCheckoutAsync = internalAction({
 
       // STEP 4: Send Emails
       console.log("🔄 [fulfillCheckoutAsync] Step 4: Sending emails...");
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 4,
       });
@@ -1761,7 +1762,7 @@ export const fulfillCheckoutAsync = internalAction({
       }
 
       try {
-        await ctx.runAction(internal.ticketGeneration.sendOrderConfirmationEmail, {
+        await (ctx as any).runAction(generatedApi.internal.ticketGeneration.sendOrderConfirmationEmail, {
           checkoutSessionId: args.checkoutSessionId,
           recipientEmail: customerEmail,
           recipientName: customerName,
@@ -1775,13 +1776,13 @@ export const fulfillCheckoutAsync = internalAction({
       try {
         const checkoutInstanceId = session.customProperties?.checkoutInstanceId as Id<"objects"> | undefined;
         if (checkoutInstanceId) {
-          const checkoutInstance = await ctx.runQuery(api.checkoutOntology.getPublicCheckoutInstanceById, {
+          const checkoutInstance = await (ctx as any).runQuery(generatedApi.api.checkoutOntology.getPublicCheckoutInstanceById, {
             instanceId: checkoutInstanceId,
           });
 
           const salesNotificationRecipientEmail = checkoutInstance?.customProperties?.salesNotificationRecipientEmail as string | undefined;
           if (salesNotificationRecipientEmail) {
-            await ctx.runAction(internal.emailDelivery.sendSalesNotificationEmail, {
+            await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendSalesNotificationEmail, {
               checkoutSessionId: args.checkoutSessionId,
               recipientEmail: salesNotificationRecipientEmail,
               templateId: checkoutInstance?.customProperties?.salesNotificationEmailTemplateId as Id<"objects"> | undefined,
@@ -1794,7 +1795,7 @@ export const fulfillCheckoutAsync = internalAction({
 
       // STEP 5: Complete
       console.log("🔄 [fulfillCheckoutAsync] Step 5: Marking complete...");
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 5,
         fulfillmentStatus: "completed",
@@ -1806,7 +1807,7 @@ export const fulfillCheckoutAsync = internalAction({
       console.error("❌ [fulfillCheckoutAsync] Fulfillment failed:", error);
 
       // Mark as failed
-      await ctx.runMutation(internal.checkoutSessionOntology.updateFulfillmentProgress, {
+      await (ctx as any).runMutation(generatedApi.internal.checkoutSessionOntology.updateFulfillmentProgress, {
         checkoutSessionId: args.checkoutSessionId,
         fulfillmentStep: 0,
         fulfillmentStatus: "failed",

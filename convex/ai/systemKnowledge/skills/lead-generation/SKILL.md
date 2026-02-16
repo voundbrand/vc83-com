@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-This skill builds a complete lead generation funnel deployment for an agency's client. The deployment captures leads through a landing page with an embedded registration form, creates CRM contacts with pipeline tracking, sends confirmation emails, syncs contacts to ActiveCampaign for ongoing marketing, and enrolls each new lead into a Soap Opera email sequence that nurtures them over seven days. The outcome is a fully automated system where qualified leads flow into the CRM with pipeline stage progression, while unqualified leads receive nurture content until they are ready to engage. The three-layer relationship applies: the L4YERCAK3 platform provides the infrastructure, the agency configures and deploys the funnel for their client, and the client's end customers are the leads entering the funnel.
+This skill builds a complete lead generation funnel deployment for an agency's client. The deployment captures leads through a landing page with an embedded registration form, creates CRM contacts with pipeline tracking, sends confirmation emails, syncs contacts to ActiveCampaign for ongoing marketing, and enrolls each new lead into a Soap Opera email sequence that nurtures them over seven days. The outcome is a fully automated system where qualified leads flow into the CRM with pipeline stage progression, while unqualified leads receive nurture content until they are ready to engage. The canonical four-layer `BusinessLayer` model applies: `Business L1` (platform) provides infrastructure, `Business L2` (agency) configures and deploys for the client business at `Business L3`, and leads entering the funnel are `Business L4` end-customers.
 
 ---
 

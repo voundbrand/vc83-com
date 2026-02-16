@@ -14,8 +14,9 @@
 
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // CONSTANTS
@@ -96,7 +97,7 @@ export const processScheduledMessages = internalMutation({
     let skipped = 0;
 
     // Get due messages
-    const dueMessages = await ctx.runQuery(internal.sequences.messageQueueProcessor.getDueMessages, {
+    const dueMessages = await (ctx as any).runQuery(generatedApi.internal.sequences.messageQueueProcessor.getDueMessages, {
       limit: BATCH_SIZE,
     });
 
@@ -128,7 +129,7 @@ export const processScheduledMessages = internalMutation({
 
       try {
         // Send via appropriate channel
-        const result = await ctx.runMutation(internal.sequences.messageSender.sendMessage, {
+        const result = await (ctx as any).runMutation(generatedApi.internal.sequences.messageSender.sendMessage, {
           messageId: message._id,
         });
 
@@ -168,7 +169,7 @@ export const processScheduledMessages = internalMutation({
     }
 
     // Process retries
-    const retryMessages = await ctx.runQuery(internal.sequences.messageQueueProcessor.getRetryableMessages, {});
+    const retryMessages = await (ctx as any).runQuery(generatedApi.internal.sequences.messageQueueProcessor.getRetryableMessages, {});
     let retried = 0;
 
     for (const message of retryMessages) {
@@ -219,7 +220,7 @@ export const processSingleMessage = internalMutation({
     });
 
     try {
-      const result = await ctx.runMutation(internal.sequences.messageSender.sendMessage, {
+      const result = await (ctx as any).runMutation(generatedApi.internal.sequences.messageSender.sendMessage, {
         messageId: args.messageId,
       });
 

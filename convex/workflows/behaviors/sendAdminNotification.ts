@@ -18,8 +18,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 export const executeSendAdminNotification = action({
   args: {
@@ -65,7 +66,7 @@ export const executeSendAdminNotification = action({
     if (context.transactionId) {
       // Use generic getObject to avoid deep type instantiation issues
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transaction: any = await ctx.runQuery(api.ontologyHelpers.getObject, {
+      const transaction: any = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
         objectId: context.transactionId as Id<"objects">,
       });
 
@@ -81,7 +82,7 @@ export const executeSendAdminNotification = action({
 
     // Get event details (for admin emails and fallback data)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const event: any = await ctx.runQuery(api.ontologyHelpers.getObject, {
+    const event: any = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
       objectId: context.eventId as Id<"objects">,
     });
 
@@ -182,7 +183,7 @@ Diese E-Mail wurde automatisch generiert.
       } else {
         // Send email to all admin recipients using the email delivery service (PRODUCTION)
         const emailPromises = adminEmails.map((email) =>
-          ctx.runAction(internal.emailDelivery.sendEmail, {
+          (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
             to: email,
             domainConfigId: "default" as Id<"objects">, // TODO: Get from organization config
             subject: emailSubject,

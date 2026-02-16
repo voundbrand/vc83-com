@@ -7,7 +7,7 @@
 
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * TRIGGER: COMMUNITY SUBSCRIPTION CREATED
@@ -30,8 +30,8 @@ export const triggerCommunitySubscriptionCreated = internalAction({
     console.log("[Zapier Trigger] Community subscription created:", args.email);
 
     // Get all active webhook subscriptions for this event
-    const subscriptions = await ctx.runQuery(
-      internal.zapier.webhooks.getSubscriptionsForEvent,
+    const subscriptions = await (ctx as any).runQuery(
+      generatedApi.internal.zapier.webhooks.getSubscriptionsForEvent,
       {
         event: "community_subscription_created",
         // Don't filter by org - this is a platform-level event
@@ -80,7 +80,7 @@ export const triggerCommunitySubscriptionCreated = internalAction({
           console.log(`[Zapier] Webhook delivered successfully (${response.status})`);
 
           // Update delivery stats
-          await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+          await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
             subscriptionId: subscription._id,
             success: true,
           });
@@ -89,7 +89,7 @@ export const triggerCommunitySubscriptionCreated = internalAction({
           const errorText = await response.text();
           console.error(`[Zapier] Webhook failed (${response.status}): ${errorText}`);
 
-          await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+          await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
             subscriptionId: subscription._id,
             success: false,
           });
@@ -98,7 +98,7 @@ export const triggerCommunitySubscriptionCreated = internalAction({
         failureCount++;
         console.error(`[Zapier] Webhook error:`, error);
 
-        await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+        await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
           subscriptionId: subscription._id,
           success: false,
         });
@@ -135,8 +135,8 @@ export const triggerNewContact = internalAction({
     console.log("[Zapier Trigger] New contact created:", args.email);
 
     // Get subscriptions for this organization
-    const subscriptions = await ctx.runQuery(
-      internal.zapier.webhooks.getSubscriptionsForEvent,
+    const subscriptions = await (ctx as any).runQuery(
+      generatedApi.internal.zapier.webhooks.getSubscriptionsForEvent,
       {
         event: "new_contact",
         organizationId: args.organizationId,
@@ -176,20 +176,20 @@ export const triggerNewContact = internalAction({
 
         if (response.ok) {
           successCount++;
-          await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+          await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
             subscriptionId: subscription._id,
             success: true,
           });
         } else {
           failureCount++;
-          await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+          await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
             subscriptionId: subscription._id,
             success: false,
           });
         }
       } catch {
         failureCount++;
-        await ctx.runMutation(internal.zapier.webhooks.recordDelivery, {
+        await (ctx as any).runMutation(generatedApi.internal.zapier.webhooks.recordDelivery, {
           subscriptionId: subscription._id,
           success: false,
         });

@@ -6,10 +6,11 @@
  */
 
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // SOUL EVOLUTION POLICY
@@ -449,16 +450,16 @@ export const notifyOwnerOfProposal = internalAction({
     telegramChatId: v.string(),
   },
   handler: async (ctx, args) => {
-    const proposal = await ctx.runQuery(
-      internal.ai.soulEvolution.getProposalById,
+    const proposal = await (ctx as any).runQuery(
+      generatedApi.internal.ai.soulEvolution.getProposalById,
       { proposalId: args.proposalId }
     );
 
     if (!proposal) return { error: "Proposal not found" };
 
     // Load agent name
-    const agent = await ctx.runQuery(
-      internal.agentOntology.getAgentInternal,
+    const agent = await (ctx as any).runQuery(
+      generatedApi.internal.agentOntology.getAgentInternal,
       { agentId: proposal.agentId }
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -514,8 +515,8 @@ export const notifyOwnerOfProposal = internalAction({
 
     // Store the Telegram message ID for later reference
     if (data.ok && data.result?.message_id) {
-      await ctx.runMutation(
-        internal.ai.soulEvolution.updateProposalTelegram,
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.soulEvolution.updateProposalTelegram,
         {
           proposalId: args.proposalId,
           telegramMessageId: data.result.message_id,
@@ -548,12 +549,12 @@ export const handleTelegramCallback = action({
 
     if (actionType === "soul_approve") {
       // Approve + apply in sequence
-      await ctx.runMutation(
-        internal.ai.soulEvolution.approveProposal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.soulEvolution.approveProposal,
         { proposalId }
       );
-      const result = await ctx.runMutation(
-        internal.ai.soulEvolution.applyProposal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.ai.soulEvolution.applyProposal,
         { proposalId }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ) as any;
@@ -578,8 +579,8 @@ export const handleTelegramCallback = action({
         });
       }
     } else if (actionType === "soul_reject") {
-      await ctx.runMutation(
-        internal.ai.soulEvolution.rejectProposal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.soulEvolution.rejectProposal,
         { proposalId }
       );
 
@@ -610,8 +611,8 @@ export const runSelfReflection = internalAction({
   },
   handler: async (ctx, args) => {
     // 1. Load agent + soul
-    const agent = await ctx.runQuery(
-      internal.agentOntology.getAgentInternal,
+    const agent = await (ctx as any).runQuery(
+      generatedApi.internal.agentOntology.getAgentInternal,
       { agentId: args.agentId }
     );
     if (!agent) return { error: "Agent not found" };
@@ -619,8 +620,8 @@ export const runSelfReflection = internalAction({
     const soul = (agent.customProperties as any)?.soul;
 
     // 2. Load recent sessions
-    const recentSessions = await ctx.runQuery(
-      internal.ai.agentSessions.getRecentSessionsForAgent,
+    const recentSessions = await (ctx as any).runQuery(
+      generatedApi.internal.ai.agentSessions.getRecentSessionsForAgent,
       { agentId: args.agentId, limit: 20 }
     );
 
@@ -629,8 +630,8 @@ export const runSelfReflection = internalAction({
     // 3. Collect conversation summaries
     const summaries: string[] = [];
     for (const session of recentSessions.slice(0, 10)) {
-      const messages = await ctx.runQuery(
-        internal.ai.agentSessions.getSessionMessages,
+      const messages = await (ctx as any).runQuery(
+        generatedApi.internal.ai.agentSessions.getSessionMessages,
         { sessionId: session._id, limit: 20 }
       );
       if (messages?.length) {
@@ -698,8 +699,8 @@ Rules:
 
       // Create proposals
       for (const p of (parsed.proposals || [])) {
-        await ctx.runMutation(
-          internal.ai.soulEvolution.createProposal,
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.soulEvolution.createProposal,
           {
             organizationId: args.organizationId,
             agentId: args.agentId,
@@ -801,7 +802,7 @@ export const approveSoulProposalAuth = mutation({
     // Schedule apply
     await ctx.scheduler.runAfter(
       0,
-      internal.ai.soulEvolution.applyProposal,
+      generatedApi.internal.ai.soulEvolution.applyProposal,
       { proposalId: args.proposalId }
     );
 
@@ -1038,15 +1039,15 @@ export const rollbackSoulAuth = mutation({
  */
 export const scheduledReflection = internalAction({
   handler: async (ctx) => {
-    const orgs = await ctx.runQuery(
-      internal.ai.selfImprovement.getOrgsWithActiveAgents
+    const orgs = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getOrgsWithActiveAgents
     );
 
     let scheduled = 0;
     for (const org of (orgs || [])) {
       // Check if agent is eligible
-      const agent = await ctx.runQuery(
-        internal.agentOntology.getAgentInternal,
+      const agent = await (ctx as any).runQuery(
+        generatedApi.internal.agentOntology.getAgentInternal,
         { agentId: org.agentId }
       );
       if (!agent) continue;
@@ -1059,8 +1060,8 @@ export const scheduledReflection = internalAction({
       if (policy.autoReflectionSchedule === "off") continue;
 
       // Check rate limits
-      const check = await ctx.runQuery(
-        internal.ai.soulEvolution.canCreateProposalQuery,
+      const check = await (ctx as any).runQuery(
+        generatedApi.internal.ai.soulEvolution.canCreateProposalQuery,
         { agentId: org.agentId }
       );
       if (!check.allowed) continue;
@@ -1069,7 +1070,7 @@ export const scheduledReflection = internalAction({
       const delay = Math.floor(Math.random() * 60 * 60 * 1000);
       await ctx.scheduler.runAfter(
         delay,
-        internal.ai.soulEvolution.runSelfReflection,
+        generatedApi.internal.ai.soulEvolution.runSelfReflection,
         {
           agentId: org.agentId,
           organizationId: org.organizationId,
@@ -1103,8 +1104,8 @@ export const handleSoulHistoryCallback = internalAction({
 
     if (args.callbackData === "soul_history") {
       // Show version history with rollback buttons
-      const history = await ctx.runQuery(
-        internal.ai.soulEvolution.getSoulVersionHistory,
+      const history = await (ctx as any).runQuery(
+        generatedApi.internal.ai.soulEvolution.getSoulVersionHistory,
         { agentId: args.agentId, limit: 5 }
       );
 
@@ -1120,7 +1121,7 @@ export const handleSoulHistoryCallback = internalAction({
         return { success: true };
       }
 
-      const lines = history.map((h) => {
+      const lines = history.map((h: { changedAt: number; changeType: string; changedBy?: string; version: number }) => {
         const date = new Date(h.changedAt).toLocaleDateString();
         const type = h.changeType === "rollback" ? "ROLLBACK" : h.changeType.replace(/_/g, " ").toUpperCase();
         const by = h.changedBy ? ` by ${h.changedBy}` : "";
@@ -1132,7 +1133,7 @@ export const handleSoulHistoryCallback = internalAction({
       // Build rollback buttons (skip current version)
       const buttons = history
         .slice(1) // skip the latest (current) version
-        .map((h) => [{
+        .map((h: { version: number }) => [{
           text: `Rollback to v${h.version}`,
           callback_data: `soul_rollback_${args.agentId}:${h.version}`,
         }]);
@@ -1179,8 +1180,8 @@ export const handleSoulHistoryCallback = internalAction({
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await ctx.runMutation(
-        internal.ai.soulEvolution.rollbackSoul,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.ai.soulEvolution.rollbackSoul,
         {
           agentId: args.agentId,
           targetVersion,

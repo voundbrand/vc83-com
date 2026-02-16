@@ -26,9 +26,10 @@
  */
 
 import { Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import * as jose from "jose";
 import { JWT_CONFIG, OAUTH_CONFIG } from "../oauth/config";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Authentication context returned by middleware
@@ -160,8 +161,7 @@ async function authenticateApiKey(
 ): Promise<AuthResult> {
   try {
     // Call the bcrypt Action for secure verification
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const authContext = await ctx.runAction(internal.actions.apiKeys.verifyApiKey as any, {
+    const authContext = await (ctx as any).runAction(generatedApi.internal.actions.apiKeys.verifyApiKey, {
       apiKey,
     }) as ApiKeyAuthContext | null;
 
@@ -210,8 +210,8 @@ async function authenticateCliSession(
 ): Promise<AuthResult> {
   try {
     // Validate CLI session using the internal action (bcrypt verification)
-    const sessionInfo = await ctx.runAction(
-      internal.api.v1.cliAuth.validateCliSessionInternal,
+    const sessionInfo = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.cliAuth.validateCliSessionInternal,
       { sessionToken }
     );
 
@@ -306,7 +306,7 @@ async function authenticateOAuthToken(
     const subOrganizationIdTyped = subOrganizationId ? (subOrganizationId as Id<"organizations">) : null;
 
     // Check if token is revoked
-    const isRevoked = await ctx.runQuery(internal.oauth.queries.isTokenRevoked, {
+    const isRevoked = await (ctx as any).runQuery(generatedApi.internal.oauth.queries.isTokenRevoked, {
       jti: payload.jti as string,
     });
 

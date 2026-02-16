@@ -16,7 +16,6 @@
 
 import { internalMutation, internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 
 // Lazy-load to avoid deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,7 +113,7 @@ export const markRetryFailed = internalMutation({
       );
 
       // Notify org owner that a message was permanently undeliverable
-      ctx.scheduler.runAfter(0, internal.credits.notifications.notifyDeadLetterAbandoned, {
+      (ctx.scheduler as any).runAfter(0, getInternal().credits.notifications.notifyDeadLetterAbandoned, {
         organizationId: entry.organizationId,
         channel: (props?.channel as string) || "unknown",
         recipient: (props?.recipientIdentifier as string) || "unknown",
@@ -162,7 +161,7 @@ export const retryDeadLetters = internalAction({
     const now = Date.now();
 
     // Get entries due for retry
-    const entries = await ctx.runQuery(getInternal().ai.deadLetterQueue.getRetryableEntries, {
+    const entries = await (ctx as any).runQuery(getInternal().ai.deadLetterQueue.getRetryableEntries, {
       now,
     });
 
@@ -177,7 +176,7 @@ export const retryDeadLetters = internalAction({
 
       try {
         // Retry sending through the channel router
-        const result = await ctx.runAction(getInternal().channels.router.sendMessage, {
+        const result = await (ctx as any).runAction(getInternal().channels.router.sendMessage, {
           organizationId: entry.organizationId,
           channel: props.channel as string,
           recipientIdentifier: props.recipientIdentifier as string,
@@ -187,19 +186,19 @@ export const retryDeadLetters = internalAction({
 
         if (result.success) {
           // Remove from DLQ
-          await ctx.runMutation(getInternal().ai.deadLetterQueue.removeDeadLetter, {
+          await (ctx as any).runMutation(getInternal().ai.deadLetterQueue.removeDeadLetter, {
             entryId: entry._id,
           });
           succeeded++;
         } else {
           // Mark retry as failed
-          await ctx.runMutation(getInternal().ai.deadLetterQueue.markRetryFailed, {
+          await (ctx as any).runMutation(getInternal().ai.deadLetterQueue.markRetryFailed, {
             entryId: entry._id,
             error: result.error || "Send returned failure",
           });
         }
       } catch (e) {
-        await ctx.runMutation(getInternal().ai.deadLetterQueue.markRetryFailed, {
+        await (ctx as any).runMutation(getInternal().ai.deadLetterQueue.markRetryFailed, {
           entryId: entry._id,
           error: e instanceof Error ? e.message : String(e),
         });

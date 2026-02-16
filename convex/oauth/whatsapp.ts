@@ -26,7 +26,8 @@
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 // Meta OAuth endpoints
 const META_AUTH_URL = "https://www.facebook.com/v18.0/dialog/oauth";
@@ -65,7 +66,7 @@ export const initiateWhatsAppOAuth = mutation({
     }
 
     // Verify user has permission to manage integrations
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "oauth",
@@ -135,7 +136,7 @@ export const handleWhatsAppCallback = action({
     phoneNumber?: string;
   }> => {
     // Verify state token (CSRF protection)
-    const stateRecord = await ctx.runQuery(internal.oauth.whatsapp.verifyState, {
+    const stateRecord = await (ctx as any).runQuery(generatedApi.internal.oauth.whatsapp.verifyState, {
       state: args.state,
     });
 
@@ -271,7 +272,7 @@ export const handleWhatsAppCallback = action({
     }
 
     // Encrypt tokens before storage
-    const encryptedAccessToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: accessToken,
     });
 
@@ -280,7 +281,7 @@ export const handleWhatsAppCallback = action({
     const encryptedRefreshToken = encryptedAccessToken;
 
     // Store connection in database
-    const connectionId = await ctx.runMutation(internal.oauth.whatsapp.storeConnection, {
+    const connectionId = await (ctx as any).runMutation(generatedApi.internal.oauth.whatsapp.storeConnection, {
       organizationId: stateRecord.organizationId,
       providerAccountId: wabaId,
       providerEmail: `${wabaName}@whatsapp.business`, // Synthetic email for schema
@@ -300,12 +301,12 @@ export const handleWhatsAppCallback = action({
     });
 
     // Delete used state token
-    await ctx.runMutation(internal.oauth.whatsapp.deleteState, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.whatsapp.deleteState, {
       state: args.state,
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: stateRecord.userId,
       organizationId: stateRecord.organizationId,
       action: "connect_oauth",
@@ -363,7 +364,7 @@ export const disconnectWhatsApp = mutation({
     }
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "oauth",
@@ -381,7 +382,7 @@ export const disconnectWhatsApp = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: connection.organizationId,
       action: "disconnect_oauth",
@@ -474,7 +475,7 @@ export const sendWhatsAppMessage = internalAction({
     error?: string;
   }> => {
     // Get organization's WhatsApp connection
-    const connection = await ctx.runQuery(internal.oauth.whatsapp.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.whatsapp.getConnection, {
       organizationId: args.organizationId,
     });
 
@@ -498,7 +499,7 @@ export const sendWhatsAppMessage = internalAction({
     // Check if token is expired
     if (connection.tokenExpiresAt < Date.now()) {
       // Mark connection as expired
-      await ctx.runMutation(internal.oauth.whatsapp.markConnectionExpired, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.whatsapp.markConnectionExpired, {
         connectionId: connection._id,
       });
 
@@ -509,7 +510,7 @@ export const sendWhatsAppMessage = internalAction({
     }
 
     // Decrypt access token
-    const accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const accessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted: connection.accessToken,
     });
 

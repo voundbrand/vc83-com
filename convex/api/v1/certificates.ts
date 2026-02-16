@@ -23,9 +23,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST CERTIFICATES
@@ -81,8 +82,8 @@ export const listCertificates = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query certificates
-    const result = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.listCertificatesInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.listCertificatesInternal,
       {
         organizationId: authContext.organizationId,
         pointType,
@@ -157,8 +158,8 @@ export const getCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Get certificate
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId: certificateId as Id<"objects"> }
     );
 
@@ -282,8 +283,8 @@ export const createCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Create certificate
-    const certificateId = await ctx.runMutation(
-      internal.api.v1.certificatesInternal.createCertificateInternal,
+    const certificateId = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.createCertificateInternal,
       {
         organizationId: authContext.organizationId,
         userId: authContext.userId,
@@ -306,8 +307,8 @@ export const createCertificate = httpAction(async (ctx, request) => {
     );
 
     // 5. Get the created certificate for certificate number
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId }
     );
 
@@ -391,8 +392,8 @@ export const updateCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify certificate belongs to organization
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId: certificateId as Id<"objects"> }
     );
 
@@ -414,8 +415,8 @@ export const updateCertificate = httpAction(async (ctx, request) => {
     } = body;
 
     // 6. Update certificate
-    await ctx.runMutation(
-      internal.api.v1.certificatesInternal.updateCertificateInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.updateCertificateInternal,
       {
         certificateId: certificateId as Id<"objects">,
         userId: authContext.userId,
@@ -496,8 +497,8 @@ export const deleteCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify certificate belongs to organization
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId: certificateId as Id<"objects"> }
     );
 
@@ -509,8 +510,8 @@ export const deleteCertificate = httpAction(async (ctx, request) => {
     }
 
     // 5. Delete certificate
-    await ctx.runMutation(
-      internal.api.v1.certificatesInternal.deleteCertificateInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.deleteCertificateInternal,
       {
         certificateId: certificateId as Id<"objects">,
         userId: authContext.userId,
@@ -591,8 +592,8 @@ export const revokeCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify certificate belongs to organization
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId: certificateId as Id<"objects"> }
     );
 
@@ -615,8 +616,8 @@ export const revokeCertificate = httpAction(async (ctx, request) => {
     }
 
     // 6. Revoke certificate
-    await ctx.runMutation(
-      internal.api.v1.certificatesInternal.revokeCertificateInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.revokeCertificateInternal,
       {
         certificateId: certificateId as Id<"objects">,
         userId: authContext.userId,
@@ -700,8 +701,8 @@ export const reinstateCertificate = httpAction(async (ctx, request) => {
     }
 
     // 4. Verify certificate belongs to organization
-    const certificate = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificateInternal,
+    const certificate = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
       { certificateId: certificateId as Id<"objects"> }
     );
 
@@ -722,8 +723,8 @@ export const reinstateCertificate = httpAction(async (ctx, request) => {
     }
 
     // 6. Reinstate certificate
-    const result = await ctx.runMutation(
-      internal.api.v1.certificatesInternal.reinstateCertificateInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.reinstateCertificateInternal,
       {
         certificateId: certificateId as Id<"objects">,
         userId: authContext.userId,
@@ -850,8 +851,8 @@ export const batchIssueCertificates = httpAction(async (ctx, request) => {
     }
 
     // 4. Issue certificates
-    const result = await ctx.runMutation(
-      internal.api.v1.certificatesInternal.batchIssueCertificatesInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.certificatesInternal.batchIssueCertificatesInternal,
       {
         organizationId: authContext.organizationId,
         userId: authContext.userId,
@@ -939,8 +940,8 @@ export const verifyCertificate = httpAction(async (ctx, request) => {
     }
 
     // 2. Verify certificate
-    const result = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.verifyCertificateInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.verifyCertificateInternal,
       { certificateNumber }
     );
 
@@ -1012,8 +1013,8 @@ export const getCertificatesByRecipient = httpAction(async (ctx, request) => {
     }
 
     // 4. Get certificates
-    const certificates = await ctx.runQuery(
-      internal.api.v1.certificatesInternal.getCertificatesByRecipientInternal,
+    const certificates = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.certificatesInternal.getCertificatesByRecipientInternal,
       {
         organizationId: authContext.organizationId,
         recipientEmail: email,
@@ -1098,8 +1099,8 @@ export const handleCertificatePost = httpAction(async (ctx, request) => {
       }
 
       // 4. Verify certificate belongs to organization
-      const certificate = await ctx.runQuery(
-        internal.api.v1.certificatesInternal.getCertificateInternal,
+      const certificate = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
         { certificateId: certificateId as Id<"objects"> }
       );
 
@@ -1122,8 +1123,8 @@ export const handleCertificatePost = httpAction(async (ctx, request) => {
       }
 
       // 6. Revoke certificate
-      await ctx.runMutation(
-        internal.api.v1.certificatesInternal.revokeCertificateInternal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.certificatesInternal.revokeCertificateInternal,
         {
           certificateId: certificateId as Id<"objects">,
           userId: authContext.userId,
@@ -1187,8 +1188,8 @@ export const handleCertificatePost = httpAction(async (ctx, request) => {
       }
 
       // 4. Verify certificate belongs to organization
-      const certificate = await ctx.runQuery(
-        internal.api.v1.certificatesInternal.getCertificateInternal,
+      const certificate = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.certificatesInternal.getCertificateInternal,
         { certificateId: certificateId as Id<"objects"> }
       );
 
@@ -1209,8 +1210,8 @@ export const handleCertificatePost = httpAction(async (ctx, request) => {
       }
 
       // 6. Reinstate certificate
-      const result = await ctx.runMutation(
-        internal.api.v1.certificatesInternal.reinstateCertificateInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.certificatesInternal.reinstateCertificateInternal,
         {
           certificateId: certificateId as Id<"objects">,
           userId: authContext.userId,

@@ -1,7 +1,7 @@
 import { action, query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { requireAuthenticatedUser, getUserContext, checkPermission, requirePermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 
@@ -258,19 +258,19 @@ export const inviteUser = action({
   },
   handler: async (ctx, args) => {
     // Authenticate user
-    const { userId: inviterId } = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+    const { userId: inviterId } = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
       sessionId: args.sessionId,
     });
 
     // Check permissions
-    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+    await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
       userId: inviterId,
       permission: "manage_users",
       organizationId: args.organizationId,
     });
 
     // Check if user already exists
-    const existingUser = await ctx.runQuery(internal.organizations.getUserByEmail, {
+    const existingUser = await (ctx as any).runQuery(generatedApi.internal.organizations.getUserByEmail, {
       email: args.email,
     });
 
@@ -279,7 +279,7 @@ export const inviteUser = action({
 
     if (existingUser) {
       // Check if already a member
-      const existingMembership = await ctx.runQuery(internal.organizations.checkMembership, {
+      const existingMembership = await (ctx as any).runQuery(generatedApi.internal.organizations.checkMembership, {
         userId: existingUser._id,
         organizationId: args.organizationId,
       });
@@ -291,7 +291,7 @@ export const inviteUser = action({
       newUserId = existingUser._id;
     } else {
       // Create new user
-      newUserId = await ctx.runMutation(internal.organizations.createInvitedUser, {
+      newUserId = await (ctx as any).runMutation(generatedApi.internal.organizations.createInvitedUser, {
         email: args.email,
         firstName: args.firstName,
         lastName: args.lastName,
@@ -303,7 +303,7 @@ export const inviteUser = action({
 
     // Add user to organization
     try {
-      await ctx.runMutation(internal.organizations.addUserToOrganization, {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.addUserToOrganization, {
         userId: newUserId,
         organizationId: args.organizationId,
         roleId: args.roleId,
@@ -313,7 +313,7 @@ export const inviteUser = action({
       // If this was a new user we created, we need to clean up
       if (isNewUser) {
         // Delete the newly created user since the invitation failed
-        await ctx.runMutation(internal.organizations.deleteInvitedUser, {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.deleteInvitedUser, {
           userId: newUserId,
         });
       }
@@ -323,15 +323,15 @@ export const inviteUser = action({
 
     // Send invitation email (if enabled)
     if (args.sendEmail !== false) {
-      const organization = await ctx.runQuery(internal.organizations.getOrganization, {
+      const organization = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrganization, {
         organizationId: args.organizationId,
       });
 
-      const inviter = await ctx.runQuery(internal.organizations.getUser, {
+      const inviter = await (ctx as any).runQuery(generatedApi.internal.organizations.getUser, {
         userId: inviterId,
       });
 
-      await ctx.runAction(internal.emailService.sendInvitationEmail, {
+      await (ctx as any).runAction(generatedApi.internal.emailService.sendInvitationEmail, {
         to: args.email,
         organizationName: organization.name,
         inviterName: inviter.firstName || inviter.email,
@@ -341,7 +341,7 @@ export const inviteUser = action({
     }
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: inviterId,
       organizationId: args.organizationId,
       action: "invite_user",
@@ -376,23 +376,23 @@ export const resendInvitation = action({
   },
   handler: async (ctx, args) => {
     // Authenticate user
-    const { userId: resenderId } = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+    const { userId: resenderId } = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
       sessionId: args.sessionId,
     });
 
     // Check permissions
-    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+    await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
       userId: resenderId,
       permission: "manage_users",
       organizationId: args.organizationId,
     });
 
     // Get user and membership details
-    const user = await ctx.runQuery(internal.organizations.getUser, {
+    const user = await (ctx as any).runQuery(generatedApi.internal.organizations.getUser, {
       userId: args.userId,
     });
 
-    const membership = await ctx.runQuery(internal.organizations.checkMembership, {
+    const membership = await (ctx as any).runQuery(generatedApi.internal.organizations.checkMembership, {
       userId: args.userId,
       organizationId: args.organizationId,
     });
@@ -407,11 +407,11 @@ export const resendInvitation = action({
     }
 
     // Get organization and resender details
-    const organization = await ctx.runQuery(internal.organizations.getOrganization, {
+    const organization = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrganization, {
       organizationId: args.organizationId,
     });
 
-    const resender = await ctx.runQuery(internal.organizations.getUser, {
+    const resender = await (ctx as any).runQuery(generatedApi.internal.organizations.getUser, {
       userId: resenderId,
     });
 
@@ -419,7 +419,7 @@ export const resendInvitation = action({
     const isNewUser = !user.isPasswordSet;
 
     // Send invitation email
-    await ctx.runAction(internal.emailService.sendInvitationEmail, {
+    await (ctx as any).runAction(generatedApi.internal.emailService.sendInvitationEmail, {
       to: user.email,
       organizationName: organization.name,
       inviterName: resender.firstName || resender.email,
@@ -428,7 +428,7 @@ export const resendInvitation = action({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: resenderId,
       organizationId: args.organizationId,
       action: "resend_invitation",
@@ -670,13 +670,13 @@ export const createOrganization = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
     // 1. Authenticate user
-    const authResult = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+    const authResult = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
       sessionId: args.sessionId,
     });
     const userId: Id<"users"> = authResult.userId;
 
     // 2. Check permission (will throw if user doesn't have permission)
-    await ctx.runMutation(internal.rbacHelpers.requirePermissionMutation, {
+    await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
       userId,
       permission: "create_system_organization",
     });
@@ -694,7 +694,7 @@ export const createOrganization = action({
       .replace(/^-+|-+$/g, ""); // Remove leading/trailing dashes
 
     // 5. Check for duplicate slug
-    const existingOrg = await ctx.runQuery(internal.organizations.getOrgBySlug, {
+    const existingOrg = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrgBySlug, {
       slug,
     });
 
@@ -705,7 +705,7 @@ export const createOrganization = action({
     // 5.5. Validate parent organization if creating sub-org
     if (args.parentOrganizationId) {
       // Verify parent org exists
-      const parentOrg = await ctx.runQuery(internal.organizations.getOrgById, {
+      const parentOrg = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrgById, {
         organizationId: args.parentOrganizationId,
       });
       if (!parentOrg) {
@@ -713,7 +713,7 @@ export const createOrganization = action({
       }
 
       // Check parent's license allows sub-orgs
-      const parentLicense = await ctx.runQuery(internal.licensing.helpers.getLicenseInternalQuery, {
+      const parentLicense = await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.getLicenseInternalQuery, {
         organizationId: args.parentOrganizationId,
       });
       if (!parentLicense.features.subOrgsEnabled) {
@@ -721,7 +721,7 @@ export const createOrganization = action({
       }
 
       // Check sub-org limit
-      const currentSubOrgCount = await ctx.runQuery(internal.organizations.countSubOrganizations, {
+      const currentSubOrgCount = await (ctx as any).runQuery(generatedApi.internal.organizations.countSubOrganizations, {
         parentOrganizationId: args.parentOrganizationId,
       });
       const limit = parentLicense.limits.maxSubOrganizations;
@@ -731,7 +731,7 @@ export const createOrganization = action({
     }
 
     // 6. Create the organization
-    const organizationId: Id<"organizations"> = await ctx.runMutation(internal.organizations.createOrgRecord, {
+    const organizationId: Id<"organizations"> = await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgRecord, {
       businessName: args.businessName,
       name: args.businessName, // Display name = business name
       slug,
@@ -741,7 +741,7 @@ export const createOrganization = action({
     });
 
     // 7. Create organization_settings ontology object with provided locale settings
-    await ctx.runMutation(internal.organizations.createOrgSettings, {
+    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
       organizationId,
       createdBy: userId,
       timezone: args.timezone,
@@ -751,7 +751,7 @@ export const createOrganization = action({
 
     // 8. Save contact information (if provided)
     if (args.contactEmail || args.contactPhone) {
-      await ctx.runMutation(internal.organizationOntology.createOrgContact, {
+      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgContact, {
         organizationId,
         createdBy: userId,
         primaryEmail: args.contactEmail,
@@ -761,7 +761,7 @@ export const createOrganization = action({
 
     // 9. Save profile information (if provided)
     if (args.industry || args.description) {
-      await ctx.runMutation(internal.organizationOntology.createOrgProfile, {
+      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgProfile, {
         organizationId,
         createdBy: userId,
         industry: args.industry,
@@ -771,20 +771,20 @@ export const createOrganization = action({
 
     // 10. Add creator as org_owner (if requested, default true)
     if (args.addCreatorAsOwner !== false) {
-      await ctx.runMutation(internal.organizations.addCreatorAsOwner, {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
         userId,
         organizationId,
       });
     }
 
     // 11. Assign all apps to new organization (automatic app availability)
-    await ctx.runMutation(internal.onboarding.assignAllAppsToOrg, {
+    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
       organizationId,
       userId,
     });
 
     // 12. Log success audit
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId,
       action: "create_organization",
@@ -843,13 +843,13 @@ export const createSubOrganization = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; organizationId: Id<"organizations">; slug: string; message: string }> => {
     // 1. Authenticate user
-    const authResult = await ctx.runQuery(internal.rbacHelpers.requireAuthenticatedUserQuery, {
+    const authResult = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
       sessionId: args.sessionId,
     });
     const userId: Id<"users"> = authResult.userId;
 
     // 2. Verify parent organization exists
-    const parentOrg = await ctx.runQuery(internal.organizations.getOrgById, {
+    const parentOrg = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrgById, {
       organizationId: args.parentOrganizationId,
     });
     if (!parentOrg) {
@@ -857,7 +857,7 @@ export const createSubOrganization = action({
     }
 
     // 3. Check user is org_owner of parent organization
-    const membership = await ctx.runQuery(internal.organizations.getUserMembership, {
+    const membership = await (ctx as any).runQuery(generatedApi.internal.organizations.getUserMembership, {
       userId,
       organizationId: args.parentOrganizationId,
     });
@@ -865,7 +865,7 @@ export const createSubOrganization = action({
       throw new Error("You are not a member of this organization");
     }
 
-    const memberRole = await ctx.runQuery(internal.rbac.getRoleById, {
+    const memberRole = await (ctx as any).runQuery(generatedApi.internal.rbac.getRoleById, {
       roleId: membership.role,
     });
     if (!memberRole || memberRole.name !== "org_owner") {
@@ -873,7 +873,7 @@ export const createSubOrganization = action({
     }
 
     // 4. Check parent's license allows sub-orgs
-    const parentLicense = await ctx.runQuery(internal.licensing.helpers.getLicenseInternalQuery, {
+    const parentLicense = await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.getLicenseInternalQuery, {
       organizationId: args.parentOrganizationId,
     });
     if (!parentLicense.features.subOrgsEnabled) {
@@ -881,7 +881,7 @@ export const createSubOrganization = action({
     }
 
     // 5. Check sub-org limit
-    const currentSubOrgCount = await ctx.runQuery(internal.organizations.countSubOrganizations, {
+    const currentSubOrgCount = await (ctx as any).runQuery(generatedApi.internal.organizations.countSubOrganizations, {
       parentOrganizationId: args.parentOrganizationId,
     });
     const limit = parentLicense.limits.maxSubOrganizations;
@@ -905,7 +905,7 @@ export const createSubOrganization = action({
     const slug = `${parentOrg.slug}-${baseSlug}`;
 
     // 8. Check for duplicate slug
-    const existingOrg = await ctx.runQuery(internal.organizations.getOrgBySlug, {
+    const existingOrg = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrgBySlug, {
       slug,
     });
 
@@ -914,7 +914,7 @@ export const createSubOrganization = action({
     }
 
     // 9. Create the sub-organization
-    const organizationId: Id<"organizations"> = await ctx.runMutation(internal.organizations.createOrgRecord, {
+    const organizationId: Id<"organizations"> = await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgRecord, {
       businessName: args.businessName,
       name: args.businessName,
       slug,
@@ -924,7 +924,7 @@ export const createSubOrganization = action({
     });
 
     // 10. Create organization_settings
-    await ctx.runMutation(internal.organizations.createOrgSettings, {
+    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
       organizationId,
       createdBy: userId,
       timezone: args.timezone,
@@ -934,7 +934,7 @@ export const createSubOrganization = action({
 
     // 11. Save contact information (if provided)
     if (args.contactEmail || args.contactPhone) {
-      await ctx.runMutation(internal.organizationOntology.createOrgContact, {
+      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgContact, {
         organizationId,
         createdBy: userId,
         primaryEmail: args.contactEmail,
@@ -943,19 +943,19 @@ export const createSubOrganization = action({
     }
 
     // 12. Add creator as org_owner of sub-org
-    await ctx.runMutation(internal.organizations.addCreatorAsOwner, {
+    await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
       userId,
       organizationId,
     });
 
     // 13. Assign all apps to new sub-organization
-    await ctx.runMutation(internal.onboarding.assignAllAppsToOrg, {
+    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
       organizationId,
       userId,
     });
 
     // 14. Log success audit
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId,
       action: "create_sub_organization",
@@ -1321,7 +1321,7 @@ export const deleteOrganization = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
     // Call internal mutation to handle the deletion
-    const result = await ctx.runMutation(internal.organizations.deleteOrganizationInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.organizations.deleteOrganizationInternal, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
     });
@@ -1441,7 +1441,7 @@ export const restoreOrganization = action({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
-    const result = await ctx.runMutation(internal.organizations.restoreOrganizationInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.organizations.restoreOrganizationInternal, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
     });
@@ -1484,7 +1484,7 @@ export const restoreOrganizationInternal = internalMutation({
     });
 
     // 6. Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: args.organizationId,
       action: "restore_organization",
@@ -1516,7 +1516,7 @@ export const permanentlyDeleteOrganization = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; message: string }> => {
     // Call internal mutation to handle the permanent deletion
-    const result = await ctx.runMutation(internal.organizations.permanentlyDeleteOrganizationInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.organizations.permanentlyDeleteOrganizationInternal, {
       sessionId: args.sessionId,
       organizationId: args.organizationId,
     });
@@ -1717,7 +1717,7 @@ export const clearStripeSubscription = mutation({
     await ctx.db.patch(args.organizationId, updates);
 
     // 5. Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: args.organizationId,
       action: "clear_stripe_subscription",

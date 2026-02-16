@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/go-to-market-system/01-ICP-RESEARCH-PLAYBOOK.md
 
 # ICP Research Framework (Agent-Adapted)
 
-> You are helping an agency owner research and define the Ideal Customer Profile for their CLIENT's business. The ICP is the Layer 3 hero — the client's customer. This research drives everything: messaging, agent personality, follow-up sequences, and funnel design.
+> You are helping an agency owner research and define the Ideal Customer Profile for their CLIENT's business. The ICP is the `Business L4` hero — the client's end-customer. This research drives everything: messaging, agent personality, follow-up sequences, and funnel design.
 
 ## When to Use This Framework
 

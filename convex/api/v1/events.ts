@@ -11,10 +11,11 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getCorsHeaders } from "./corsHeaders";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST EVENTS
@@ -69,7 +70,7 @@ export const listEvents = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query events using internal query
-    const result = await ctx.runQuery(internal.api.v1.eventsInternal.listEventsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.api.v1.eventsInternal.listEventsInternal, {
       organizationId: authContext.organizationId,
       subtype,
       status,
@@ -162,7 +163,7 @@ export const createEvent = httpAction(async (ctx, request) => {
     }
 
     // 4. Create event
-    const result = await ctx.runMutation(internal.api.v1.eventsInternal.createEventInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.api.v1.eventsInternal.createEventInternal, {
       organizationId: authContext.organizationId,
       subtype,
       name,
@@ -248,7 +249,7 @@ export const getEvent = httpAction(async (ctx, request) => {
     }
 
     // 4. Get event by ID
-    const event = await ctx.runQuery(internal.api.v1.eventsInternal.getEventByIdInternal, {
+    const event = await (ctx as any).runQuery(generatedApi.internal.api.v1.eventsInternal.getEventByIdInternal, {
       eventId: eventId as Id<"objects">,
       organizationId: authContext.organizationId,
     });
@@ -331,7 +332,7 @@ export const updateEvent = httpAction(async (ctx, request) => {
     const { name, description, subtype, status, startDate, endDate, location, timezone, maxCapacity, customProperties } = body;
 
     // 5. Update event
-    await ctx.runMutation(internal.api.v1.eventsInternal.updateEventInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.eventsInternal.updateEventInternal, {
       organizationId: authContext.organizationId,
       eventId,
       updates: {
@@ -419,7 +420,7 @@ export const getEventAttendees = httpAction(async (ctx, request) => {
     }
 
     // 4. Get event attendees
-    const result = await ctx.runQuery(internal.api.v1.eventsInternal.getEventAttendeesInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.api.v1.eventsInternal.getEventAttendeesInternal, {
       organizationId: authContext.organizationId,
       eventId,
       ticketType,
@@ -505,7 +506,7 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -543,8 +544,8 @@ export const getEventBySlug = httpAction(async (ctx, request) => {
     }
 
     // 3. Get event by slug
-    const event = await ctx.runQuery(
-      internal.api.v1.eventsInternal.getEventBySlugInternal,
+    const event = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.eventsInternal.getEventBySlugInternal,
       {
         slug,
         organizationId,
@@ -617,7 +618,7 @@ export const getEventById = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -643,8 +644,8 @@ export const getEventById = httpAction(async (ctx, request) => {
     }
 
     // 3. Get event by ID
-    const event = await ctx.runQuery(
-      internal.api.v1.eventsInternal.getEventByIdInternal,
+    const event = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.eventsInternal.getEventByIdInternal,
       {
         eventId: eventId as Id<"objects">,
         organizationId,
@@ -733,7 +734,7 @@ export const cancelEvent = httpAction(async (ctx, request) => {
     }
 
     // 4. Cancel event
-    await ctx.runMutation(internal.api.v1.eventsInternal.cancelEventInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.api.v1.eventsInternal.cancelEventInternal, {
       organizationId: authContext.organizationId,
       eventId,
       performedBy: authContext.userId,
@@ -796,7 +797,7 @@ export const getEventProducts = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -822,8 +823,8 @@ export const getEventProducts = httpAction(async (ctx, request) => {
     }
 
     // 3. Get products for event
-    const products = await ctx.runQuery(
-      internal.api.v1.eventsInternal.getEventProductsInternal,
+    const products = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.eventsInternal.getEventProductsInternal,
       {
         eventId: eventId as Id<"objects">,
         organizationId,

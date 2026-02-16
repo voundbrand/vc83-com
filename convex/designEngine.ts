@@ -7,7 +7,7 @@
 
 import { v } from "convex/values";
 import { mutation, query, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import type { Doc, Id } from "./_generated/dataModel";
 
 // ============================================================================
@@ -402,7 +402,7 @@ export const generateEmbedding = action({
     const embedding = data.data[0].embedding as number[];
 
     // Store the embedding
-    await ctx.runMutation(internal.designEngine.updateEmbedding, {
+    await (ctx as any).runMutation(generatedApi.internal.designEngine.updateEmbedding, {
       patternId: args.patternId,
       embedding,
     });
@@ -472,8 +472,8 @@ export const searchPatterns = action({
     // 3. Fetch full pattern data
     const patterns: PatternWithScore[] = [];
     for (const result of results) {
-      const pattern = await ctx.runQuery(
-        internal.designEngine.getPatternById,
+      const pattern = await (ctx as any).runQuery(
+        generatedApi.internal.designEngine.getPatternById,
         { id: result._id }
       );
       if (pattern) {
@@ -515,8 +515,8 @@ export const buildRAGContext = internalAction({
   },
   handler: async (ctx, args): Promise<string | null> => {
     // Search for relevant patterns
-    const patterns = await ctx.runAction(
-      internal.designEngine.searchPatternsInternal,
+    const patterns = await (ctx as any).runAction(
+      generatedApi.internal.designEngine.searchPatternsInternal,
       {
         query: args.userMessage,
         limit: args.limit || 5,
@@ -605,8 +605,8 @@ export const searchPatternsInternal = internalAction({
       // Fetch full pattern data
       const patterns: PatternWithScore[] = [];
       for (const result of results) {
-        const pattern = await ctx.runQuery(
-          internal.designEngine.getPatternById,
+        const pattern = await (ctx as any).runQuery(
+          generatedApi.internal.designEngine.getPatternById,
           { id: result._id }
         );
         if (pattern) {

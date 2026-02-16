@@ -13,10 +13,11 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // POST /api/v1/cli/applications - Register Application
@@ -70,7 +71,7 @@ export const registerApplication = httpAction(async (ctx, request) => {
     const targetOrgId = organizationId || authContext.organizationId;
 
     // Verify user has access to the organization
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: targetOrgId,
     });
@@ -83,7 +84,7 @@ export const registerApplication = httpAction(async (ctx, request) => {
     }
 
     // Register application
-    const result = await ctx.runMutation(internal.applicationOntology.registerApplicationInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.applicationOntology.registerApplicationInternal, {
       organizationId: targetOrgId,
       name,
       description,
@@ -124,7 +125,7 @@ export const registerApplication = httpAction(async (ctx, request) => {
     }
 
     // Generate API key for the new application
-    const apiKeyResult = await ctx.runAction(internal.api.v1.cliAuth.generateCliApiKeyInternal, {
+    const apiKeyResult = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.generateCliApiKeyInternal, {
       organizationId: targetOrgId,
       userId: authContext.userId,
       name: `${name} API Key`,
@@ -134,7 +135,7 @@ export const registerApplication = httpAction(async (ctx, request) => {
     // Link API key to application
     // This enforces "one API key = one application" constraint
     try {
-      await ctx.runMutation(internal.api.v1.cliApplicationsInternal.linkApiKeyToApplication, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.cliApplicationsInternal.linkApiKeyToApplication, {
         applicationId: result.applicationId,
         apiKeyId: apiKeyResult.id,
       });
@@ -230,7 +231,7 @@ export const listApplications = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // Verify user has access to the organization
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: organizationId as Id<"organizations">,
     });
@@ -243,7 +244,7 @@ export const listApplications = httpAction(async (ctx, request) => {
     }
 
     // List applications
-    const result = await ctx.runQuery(internal.applicationOntology.listApplicationsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.applicationOntology.listApplicationsInternal, {
       organizationId: organizationId as Id<"organizations">,
       status,
       limit,
@@ -319,7 +320,7 @@ export const getApplicationByPath = httpAction(async (ctx, request) => {
     }
 
     // Verify user has access to the organization
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: organizationId as Id<"organizations">,
     });
@@ -332,7 +333,7 @@ export const getApplicationByPath = httpAction(async (ctx, request) => {
     }
 
     // Find application
-    const app = await ctx.runQuery(internal.applicationOntology.getApplicationByPathHashInternal, {
+    const app = await (ctx as any).runQuery(generatedApi.internal.applicationOntology.getApplicationByPathHashInternal, {
       organizationId: organizationId as Id<"organizations">,
       projectPathHash: hash,
     });
@@ -403,7 +404,7 @@ export const getApplication = httpAction(async (ctx, request) => {
     }
 
     // Get application
-    const app = await ctx.runQuery(internal.applicationOntology.getApplicationInternal, {
+    const app = await (ctx as any).runQuery(generatedApi.internal.applicationOntology.getApplicationInternal, {
       applicationId: applicationId as Id<"objects">,
       organizationId: authContext.organizationId,
     });
@@ -416,7 +417,7 @@ export const getApplication = httpAction(async (ctx, request) => {
     }
 
     // Verify user has access to the application's organization
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: app.organizationId,
     });
@@ -504,7 +505,7 @@ export const updateApplication = httpAction(async (ctx, request) => {
     }
 
     // Get application to verify ownership
-    const app = await ctx.runQuery(internal.applicationOntology.getApplicationInternal, {
+    const app = await (ctx as any).runQuery(generatedApi.internal.applicationOntology.getApplicationInternal, {
       applicationId: applicationId as Id<"objects">,
       organizationId: authContext.organizationId,
     });
@@ -517,7 +518,7 @@ export const updateApplication = httpAction(async (ctx, request) => {
     }
 
     // Verify user has access
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: app.organizationId,
     });
@@ -533,7 +534,7 @@ export const updateApplication = httpAction(async (ctx, request) => {
     const body = await request.json();
 
     // Update application
-    await ctx.runMutation(internal.applicationOntology.updateApplicationInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.applicationOntology.updateApplicationInternal, {
       applicationId: applicationId as Id<"objects">,
       organizationId: app.organizationId,
       name: body.name,
@@ -601,7 +602,7 @@ export const syncApplication = httpAction(async (ctx, request) => {
     }
 
     // Get application to verify ownership
-    const app = await ctx.runQuery(internal.applicationOntology.getApplicationInternal, {
+    const app = await (ctx as any).runQuery(generatedApi.internal.applicationOntology.getApplicationInternal, {
       applicationId: applicationId as Id<"objects">,
       organizationId: authContext.organizationId,
     });
@@ -614,7 +615,7 @@ export const syncApplication = httpAction(async (ctx, request) => {
     }
 
     // Verify user has access
-    const hasAccess = await ctx.runQuery(internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
+    const hasAccess = await (ctx as any).runQuery(generatedApi.internal.api.v1.cliApplicationsInternal.checkOrgAccessInternal, {
       userId: authContext.userId,
       organizationId: app.organizationId,
     });
@@ -639,7 +640,7 @@ export const syncApplication = httpAction(async (ctx, request) => {
     // If CLI is reporting sync results
     if (results) {
       // Record sync event
-      await ctx.runMutation(internal.api.v1.cliApplicationsInternal.recordSyncEvent, {
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.cliApplicationsInternal.recordSyncEvent, {
         applicationId: applicationId as Id<"objects">,
         direction: results.direction || direction,
         status: results.status || "success",

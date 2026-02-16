@@ -5,8 +5,9 @@
  */
 
 import { action, internalMutation } from "./_generated/server";
-import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
+
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Submit feedback (public action)
@@ -35,10 +36,10 @@ export const submitFeedback = action({
     }
 
     // Get org details
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
     // Store feedback in objects table
-    await ctx.runMutation(internal.feedback.insertFeedback, {
+    await (ctx as any).runMutation(generatedApi.internal.feedback.insertFeedback, {
       organizationId: args.organizationId,
       category: args.category,
       rating: args.rating,
@@ -47,7 +48,7 @@ export const submitFeedback = action({
 
     // Send email notification (non-blocking)
     try {
-      await ctx.runAction(internal.actions.feedbackEmail.sendFeedbackNotification, {
+      await (ctx as any).runAction(generatedApi.internal.actions.feedbackEmail.sendFeedbackNotification, {
         category: args.category,
         rating: args.rating,
         message: args.message.trim(),

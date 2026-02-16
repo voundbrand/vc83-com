@@ -14,7 +14,6 @@
 
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
   type TriggerContext,
@@ -22,6 +21,8 @@ import {
   matchesTriggerFilters,
   buildBookingTriggerContext,
 } from "./sequenceTriggers";
+
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // INTERNAL QUERIES
@@ -159,7 +160,7 @@ export const processBookingTrigger = internalMutation({
 
     // Handle cancellation differently - exit enrollments instead of creating new ones
     if (args.triggerEvent === "booking_cancelled") {
-      await ctx.runMutation(internal.sequences.exitHandler.exitEnrollmentsForBooking, {
+      await (ctx as any).runMutation(generatedApi.internal.sequences.exitHandler.exitEnrollmentsForBooking, {
         bookingId: args.bookingId,
         reason: "booking_cancelled",
       });
@@ -167,7 +168,7 @@ export const processBookingTrigger = internalMutation({
     }
 
     // Find matching sequences
-    const matchingSequences = await ctx.runQuery(internal.sequences.sequenceProcessor.findMatchingSequences, {
+    const matchingSequences = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.findMatchingSequences, {
       organizationId: booking.organizationId,
       triggerEvent: args.triggerEvent,
     });
@@ -192,7 +193,7 @@ export const processBookingTrigger = internalMutation({
 
       // Check enrollment mode
       const enrollmentMode = (seqProps.enrollmentMode as string) || "allow_per_booking";
-      const alreadyEnrolled = await ctx.runQuery(internal.sequences.sequenceProcessor.checkEnrollmentExists, {
+      const alreadyEnrolled = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.checkEnrollmentExists, {
         sequenceId: sequence._id,
         contactId,
         bookingId: args.bookingId,
@@ -215,7 +216,7 @@ export const processBookingTrigger = internalMutation({
       });
 
       // Schedule messages for this enrollment
-      await ctx.runMutation(internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
+      await (ctx as any).runMutation(generatedApi.internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
         enrollmentId,
       });
 
@@ -251,7 +252,7 @@ export const processPipelineTrigger = internalMutation({
     };
 
     // Find matching sequences
-    const matchingSequences = await ctx.runQuery(internal.sequences.sequenceProcessor.findMatchingSequences, {
+    const matchingSequences = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.findMatchingSequences, {
       organizationId: args.organizationId,
       triggerEvent: "pipeline_stage_changed",
     });
@@ -271,7 +272,7 @@ export const processPipelineTrigger = internalMutation({
       }
 
       const enrollmentMode = (seqProps.enrollmentMode as string) || "skip_duplicates";
-      const alreadyEnrolled = await ctx.runQuery(internal.sequences.sequenceProcessor.checkEnrollmentExists, {
+      const alreadyEnrolled = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.checkEnrollmentExists, {
         sequenceId: sequence._id,
         contactId: args.contactId,
         enrollmentMode,
@@ -286,7 +287,7 @@ export const processPipelineTrigger = internalMutation({
         source: "trigger",
       });
 
-      await ctx.runMutation(internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
+      await (ctx as any).runMutation(generatedApi.internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
         enrollmentId,
       });
 
@@ -315,7 +316,7 @@ export const processTagTrigger = internalMutation({
       triggeredAt: Date.now(),
     };
 
-    const matchingSequences = await ctx.runQuery(internal.sequences.sequenceProcessor.findMatchingSequences, {
+    const matchingSequences = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.findMatchingSequences, {
       organizationId: args.organizationId,
       triggerEvent: "contact_tagged",
     });
@@ -335,7 +336,7 @@ export const processTagTrigger = internalMutation({
       }
 
       const enrollmentMode = (seqProps.enrollmentMode as string) || "skip_duplicates";
-      const alreadyEnrolled = await ctx.runQuery(internal.sequences.sequenceProcessor.checkEnrollmentExists, {
+      const alreadyEnrolled = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.checkEnrollmentExists, {
         sequenceId: sequence._id,
         contactId: args.contactId,
         enrollmentMode,
@@ -350,7 +351,7 @@ export const processTagTrigger = internalMutation({
         source: "trigger",
       });
 
-      await ctx.runMutation(internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
+      await (ctx as any).runMutation(generatedApi.internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
         enrollmentId,
       });
 
@@ -384,7 +385,7 @@ export const enrollFromWorkflow = internalMutation({
     const seqProps = sequence.customProperties as Record<string, unknown>;
     const enrollmentMode = (seqProps.enrollmentMode as string) || "allow_per_booking";
 
-    const alreadyEnrolled = await ctx.runQuery(internal.sequences.sequenceProcessor.checkEnrollmentExists, {
+    const alreadyEnrolled = await (ctx as any).runQuery(generatedApi.internal.sequences.sequenceProcessor.checkEnrollmentExists, {
       sequenceId: args.sequenceId,
       contactId: args.contactId,
       bookingId: args.bookingId,
@@ -414,7 +415,7 @@ export const enrollFromWorkflow = internalMutation({
       referenceTimestamp,
     });
 
-    await ctx.runMutation(internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
+    await (ctx as any).runMutation(generatedApi.internal.sequences.stepExecutor.scheduleEnrollmentMessages, {
       enrollmentId,
     });
 

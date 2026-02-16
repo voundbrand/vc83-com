@@ -301,7 +301,7 @@ All tax settings are stored in the **ontology system**:
 ## 📞 Support
 
 For questions about:
-- **Tax configuration** → See [TAX_INTEGRATION_COMPLETE.md](./TAX_INTEGRATION_COMPLETE.md)
+- **Tax configuration** → See [TAX_INTEGRATION_COMPLETE.md](./reference_docs/TAX_INTEGRATION_COMPLETE.md)
 - **Stripe Tax** → See [STRIPE_TAX_INTEGRATION.md](./STRIPE_TAX_INTEGRATION.md)
 - **Tax system architecture** → See [TAX_SYSTEM.md](./TAX_SYSTEM.md)
 - **Integration guide** → See [TAX_SETTINGS_INTEGRATION.md](./TAX_SETTINGS_INTEGRATION.md)

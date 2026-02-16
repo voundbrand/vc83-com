@@ -10,8 +10,9 @@
 
 import { action, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Convert markdown content to PDF and store in media library
@@ -49,7 +50,7 @@ export const convertMarkdownToPdf = action({
     const { sessionId, organizationId, markdownContent, documentTitle } = args;
 
     // Verify authentication using internal query
-    const sessionData = await ctx.runQuery(api.compliance.verifySession, {
+    const sessionData = await (ctx as any).runQuery(generatedApi.api.compliance.verifySession, {
       sessionId,
       organizationId,
     });
@@ -123,7 +124,7 @@ export const convertMarkdownToPdf = action({
     );
 
     // Create organizationMedia record
-    const mediaData: { mediaId: Id<"organizationMedia">; url: string | null } = await ctx.runMutation(internal.compliance.saveCompliancePdf, {
+    const mediaData: { mediaId: Id<"organizationMedia">; url: string | null } = await (ctx as any).runMutation(generatedApi.internal.compliance.saveCompliancePdf, {
       sessionId,
       organizationId,
       userId: sessionData.userId,
@@ -624,7 +625,7 @@ export const exportUserData = action({
     };
   }> => {
     // Verify session
-    const session = await ctx.runQuery(internal.auth.getSessionById, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
       sessionId: args.sessionId,
     });
 
@@ -635,12 +636,12 @@ export const exportUserData = action({
     const userId = session.userId;
 
     // Gather all user data using internal query
-    const exportData = await ctx.runQuery(internal.compliance.gatherUserDataForExport, {
+    const exportData = await (ctx as any).runQuery(generatedApi.internal.compliance.gatherUserDataForExport, {
       userId,
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: undefined,
       action: "export_user_data",
@@ -946,7 +947,7 @@ export const permanentlyDeleteAccountImmediate = action({
     }
 
     // Verify session
-    const session = await ctx.runQuery(internal.auth.getSessionById, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
       sessionId: args.sessionId,
     });
 
@@ -957,7 +958,7 @@ export const permanentlyDeleteAccountImmediate = action({
     const userId = session.userId;
 
     // Get user email for audit log
-    const user = await ctx.runQuery(internal.compliance.getUserForDeletion, {
+    const user = await (ctx as any).runQuery(generatedApi.internal.compliance.getUserForDeletion, {
       userId,
     });
 
@@ -966,12 +967,12 @@ export const permanentlyDeleteAccountImmediate = action({
     }
 
     // Execute immediate permanent deletion
-    await ctx.runMutation(internal.compliance.executeImmediateDeletion, {
+    await (ctx as any).runMutation(generatedApi.internal.compliance.executeImmediateDeletion, {
       userId,
     });
 
     // Log audit event (before deleting session)
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
       organizationId: undefined,
       action: "permanent_delete_account_immediate",
@@ -986,7 +987,7 @@ export const permanentlyDeleteAccountImmediate = action({
     });
 
     // Delete all sessions for this user
-    await ctx.runMutation(internal.compliance.deleteAllUserSessions, {
+    await (ctx as any).runMutation(generatedApi.internal.compliance.deleteAllUserSessions, {
       userId,
     });
 

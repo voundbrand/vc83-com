@@ -20,9 +20,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { api, internal } from "../../_generated/api";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -58,7 +59,7 @@ async function validateSessionFromRequest(
 
   try {
     // Validate session and get user info
-    const session = await ctx.runQuery(internal.api.v1.aiChatInternal.validateSession, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.api.v1.aiChatInternal.validateSession, {
       sessionId,
     });
 
@@ -168,14 +169,14 @@ export const createConversation = httpAction(async (ctx, request) => {
     const { title } = body as { title?: string };
 
     // Create conversation
-    const conversationId = await ctx.runMutation(api.ai.conversations.createConversation, {
+    const conversationId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.createConversation, {
       organizationId: auth.organizationId,
       userId: auth.userId,
       title,
     });
 
     // Get the created conversation
-    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
     });
 
@@ -220,7 +221,7 @@ export const listConversations = httpAction(async (ctx, request) => {
     );
 
     // Get conversations
-    const conversations = await ctx.runQuery(api.ai.conversations.listConversations, {
+    const conversations = await (ctx as any).runQuery(generatedApi.api.ai.conversations.listConversations, {
       organizationId: auth.organizationId,
       userId: auth.userId,
       limit,
@@ -273,7 +274,7 @@ export const getConversation = httpAction(async (ctx, request) => {
     }
 
     // Get conversation
-    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
     });
 
@@ -336,7 +337,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
     }
 
     // Call the AI chat action
-    const result = await ctx.runAction(api.ai.chat.sendMessage, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.chat.sendMessage, {
       conversationId: conversationId as Id<"aiConversations"> | undefined,
       message: message.trim(),
       organizationId: auth.organizationId,
@@ -388,7 +389,7 @@ export const getSettings = httpAction(async (ctx, request) => {
 
   try {
     // Get AI settings
-    const settings = await ctx.runQuery(api.ai.settings.getAISettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
       organizationId: auth.organizationId,
     });
 
@@ -453,7 +454,7 @@ export const getModels = httpAction(async (ctx, request) => {
 
   try {
     // Get AI settings to find enabled models
-    const settings = await ctx.runQuery(api.ai.settings.getAISettings, {
+    const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
       organizationId: auth.organizationId,
     });
 
@@ -529,7 +530,7 @@ export const approveTool = httpAction(async (ctx, request) => {
     const { dontAskAgain } = body as { dontAskAgain?: boolean };
 
     // Approve the tool execution
-    await ctx.runMutation(api.ai.conversations.approveToolExecution, {
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.approveToolExecution, {
       executionId,
       dontAskAgain,
     });
@@ -574,7 +575,7 @@ export const rejectTool = httpAction(async (ctx, request) => {
     }
 
     // Reject the tool execution
-    await ctx.runMutation(api.ai.conversations.rejectToolExecution, {
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.rejectToolExecution, {
       executionId,
     });
 
@@ -620,13 +621,13 @@ export const handleToolAction = httpAction(async (ctx, request) => {
       const body = await request.json().catch(() => ({}));
       const { dontAskAgain } = body as { dontAskAgain?: boolean };
 
-      await ctx.runMutation(api.ai.conversations.approveToolExecution, {
+      await (ctx as any).runMutation(generatedApi.api.ai.conversations.approveToolExecution, {
         executionId,
         dontAskAgain,
       });
       return successResponse({}, origin);
     } else if (action === "reject") {
-      await ctx.runMutation(api.ai.conversations.rejectToolExecution, {
+      await (ctx as any).runMutation(generatedApi.api.ai.conversations.rejectToolExecution, {
         executionId,
       });
       return successResponse({}, origin);
@@ -673,7 +674,7 @@ export const getPendingTools = httpAction(async (ctx, request) => {
     }
 
     // Get pending tool executions
-    const pendingTools = await ctx.runQuery(api.ai.conversations.getPendingToolExecutions, {
+    const pendingTools = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getPendingToolExecutions, {
       conversationId,
     });
 
@@ -725,7 +726,7 @@ export const updateConversation = httpAction(async (ctx, request) => {
     const { title } = body as { title?: string };
 
     // Verify ownership first
-    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
     });
 
@@ -734,7 +735,7 @@ export const updateConversation = httpAction(async (ctx, request) => {
     }
 
     // Update conversation
-    await ctx.runMutation(api.ai.conversations.updateConversation, {
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.updateConversation, {
       conversationId,
       title,
     });
@@ -778,7 +779,7 @@ export const archiveConversation = httpAction(async (ctx, request) => {
     }
 
     // Verify ownership first
-    const conversation = await ctx.runQuery(api.ai.conversations.getConversation, {
+    const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
     });
 
@@ -787,7 +788,7 @@ export const archiveConversation = httpAction(async (ctx, request) => {
     }
 
     // Archive conversation
-    await ctx.runMutation(api.ai.conversations.archiveConversation, {
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.archiveConversation, {
       conversationId,
     });
 
@@ -839,7 +840,7 @@ export const listOrganizations = httpAction(async (ctx, request) => {
   try {
     // Get user's organizations using existing query
     // Returns array of { organization: {...}, role: string, joinedAt: number }
-    const result = await ctx.runQuery(api.organizations.getUserOrganizations, {
+    const result = await (ctx as any).runQuery(generatedApi.api.organizations.getUserOrganizations, {
       sessionId: auth.sessionId,
     });
 
@@ -922,13 +923,13 @@ export const switchOrganization = httpAction(async (ctx, request) => {
     }
 
     // Switch organization using existing mutation
-    await ctx.runMutation(api.auth.switchOrganization, {
+    await (ctx as any).runMutation(generatedApi.api.auth.switchOrganization, {
       sessionId: auth.sessionId,
       organizationId: organizationId as Id<"organizations">,
     });
 
     // Get the organization details to return
-    const org = await ctx.runQuery(internal.api.v1.aiChatInternal.getOrganization, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.api.v1.aiChatInternal.getOrganization, {
       organizationId: organizationId as Id<"organizations">,
     });
 

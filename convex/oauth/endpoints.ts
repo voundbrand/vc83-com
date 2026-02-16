@@ -12,7 +12,8 @@
  */
 
 import { httpAction } from "../_generated/server";
-import { api } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 /**
  * GET /oauth/authorize
@@ -57,7 +58,7 @@ export const authorize = httpAction(async (ctx, request) => {
 
   try {
     // Validate authorization request
-    const validation = await ctx.runQuery(api.oauth.authorize.validateAuthorizationRequest, {
+    const validation = await (ctx as any).runQuery(generatedApi.api.oauth.authorize.validateAuthorizationRequest, {
       clientId,
       redirectUri,
       responseType,
@@ -156,7 +157,7 @@ export const authorizePost = httpAction(async (ctx, request) => {
   try {
     if (action === "approve") {
       // User approved - generate authorization code
-      const result = await ctx.runMutation(api.oauth.authorize.approveAuthorization, {
+      const result = await (ctx as any).runMutation(generatedApi.api.oauth.authorize.approveAuthorization, {
         clientId,
         redirectUri,
         scope,
@@ -169,7 +170,7 @@ export const authorizePost = httpAction(async (ctx, request) => {
       return Response.redirect(result.redirectUrl, 302);
     } else if (action === "deny") {
       // User denied - redirect with error
-      const result = await ctx.runMutation(api.oauth.authorize.denyAuthorization, {
+      const result = await (ctx as any).runMutation(generatedApi.api.oauth.authorize.denyAuthorization, {
         redirectUri,
         state,
         reason: "User denied authorization",
@@ -549,7 +550,7 @@ export const token = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runAction(api.oauth.tokens.exchangeAuthorizationCode, {
+      const result = await (ctx as any).runAction(generatedApi.api.oauth.tokens.exchangeAuthorizationCode, {
         code,
         clientId,
         clientSecret: clientSecret || undefined,
@@ -583,7 +584,7 @@ export const token = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runAction(api.oauth.tokens.refreshAccessToken, {
+      const result = await (ctx as any).runAction(generatedApi.api.oauth.tokens.refreshAccessToken, {
         refreshToken,
         clientId,
         clientSecret: clientSecret || undefined,
@@ -665,7 +666,7 @@ export const revoke = httpAction(async (ctx, request) => {
       return new Response(null, { status: 200 });
     }
 
-    await ctx.runAction(api.oauth.tokens.revokeToken, {
+    await (ctx as any).runAction(generatedApi.api.oauth.tokens.revokeToken, {
       token,
       tokenTypeHint: tokenTypeHint as any,
       clientId,

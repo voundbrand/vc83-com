@@ -427,5 +427,5 @@ formResponses[].ticketNumber → Sequential: 1, 2, 3...
 
 For complete API documentation, see:
 - **[API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)** ⭐ Complete spec
-- **[FRONTEND_BACKEND_INTEGRATION_SUMMARY.md](./FRONTEND_BACKEND_INTEGRATION_SUMMARY.md)** Quick reference
+- **[FRONTEND_BACKEND_INTEGRATION_SUMMARY.md](./reference_docs/FRONTEND_BACKEND_INTEGRATION_SUMMARY.md)** Quick reference
 - **[FRONTEND_CHECKOUT_INTEGRATION.md](./FRONTEND_CHECKOUT_INTEGRATION.md)** Integration guide

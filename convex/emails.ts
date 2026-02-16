@@ -7,8 +7,9 @@
 
 import { v } from "convex/values";
 import { mutation, query, action, internalMutation } from "./_generated/server";
-import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Sync emails from Microsoft Graph API
@@ -25,7 +26,7 @@ export const syncEmailsFromMicrosoft = action({
     totalFetched: number;
   }> => {
     // Get the OAuth connection
-    const connection = await ctx.runQuery(internal.oauth.microsoft.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.microsoft.getConnection, {
       connectionId: args.connectionId,
     });
 
@@ -42,7 +43,7 @@ export const syncEmailsFromMicrosoft = action({
     }
 
     // Fetch emails from Microsoft Graph API
-    const emailsResponse = await ctx.runAction(api.oauth.graphClient.getEmails, {
+    const emailsResponse = await (ctx as any).runAction(generatedApi.api.oauth.graphClient.getEmails, {
       connectionId: args.connectionId,
       top: args.top || 50, // Default to 50 most recent emails
     });
@@ -70,7 +71,7 @@ export const syncEmailsFromMicrosoft = action({
 
     for (const email of emailsData?.value || []) {
       try {
-        const emailObjectId = await ctx.runMutation(internal.emails.createEmailObject, {
+        const emailObjectId = await (ctx as any).runMutation(generatedApi.internal.emails.createEmailObject, {
           organizationId: connection.organizationId,
           userId: connection.userId!,
           emailData: {
@@ -100,7 +101,7 @@ export const syncEmailsFromMicrosoft = action({
     }
 
     // Update lastSyncAt timestamp on the connection
-    await ctx.runMutation(internal.oauth.microsoft.updateLastSync, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.microsoft.updateLastSync, {
       connectionId: args.connectionId,
     });
 

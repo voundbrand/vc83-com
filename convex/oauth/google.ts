@@ -8,7 +8,8 @@
 import { action, mutation, query, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 // Google OAuth endpoints
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -52,7 +53,7 @@ export const initiateGoogleOAuth = mutation({
 
     // For organizational connections, verify user has manage_integrations permission
     if (args.connectionType === "organizational") {
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -140,7 +141,7 @@ export const handleGoogleCallback = action({
       userId: Id<"users">;
       organizationId: Id<"organizations">;
       connectionType: "personal" | "organizational";
-    } | null = await ctx.runQuery(internal.oauth.google.verifyState, {
+    } | null = await (ctx as any).runQuery(generatedApi.internal.oauth.google.verifyState, {
       state: args.state,
     });
 
@@ -191,11 +192,11 @@ export const handleGoogleCallback = action({
     const profile = await profileResponse.json();
 
     // Encrypt tokens before storage
-    const encryptedAccessToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
-    const encryptedRefreshToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedRefreshToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.refresh_token || tokenData.access_token, // Use access token if no refresh token
     });
 
@@ -203,7 +204,7 @@ export const handleGoogleCallback = action({
     const tokenExpiresAt = Date.now() + (tokenData.expires_in * 1000);
 
     // Store connection in database
-    const connectionId: Id<"oauthConnections"> = await ctx.runMutation(internal.oauth.google.storeConnection, {
+    const connectionId: Id<"oauthConnections"> = await (ctx as any).runMutation(generatedApi.internal.oauth.google.storeConnection, {
       userId: stateRecord.connectionType === "personal" ? stateRecord.userId : undefined,
       organizationId: stateRecord.organizationId,
       provider: "google",
@@ -223,8 +224,8 @@ export const handleGoogleCallback = action({
 
     // Fetch sub-calendars immediately after connection is established
     try {
-      await ctx.runAction(
-        internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
+      await (ctx as any).runAction(
+        generatedApi.internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
         { connectionId }
       );
     } catch (e) {
@@ -233,13 +234,13 @@ export const handleGoogleCallback = action({
     }
 
     // Delete used state token
-    await ctx.runMutation(internal.oauth.google.deleteState, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.google.deleteState, {
       state: args.state,
     });
 
     // Log audit event
     if (stateRecord.organizationId) {
-      await ctx.runMutation(internal.rbac.logAudit, {
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
         userId: stateRecord.userId,
         organizationId: stateRecord.organizationId,
         action: "connect_oauth",
@@ -424,7 +425,7 @@ export const disconnectGoogle = mutation({
       }
     } else {
       // Organizational connection: need manage_integrations permission
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -443,7 +444,7 @@ export const disconnectGoogle = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: connection.organizationId,
       action: "disconnect_oauth",
@@ -563,13 +564,13 @@ export const refreshGoogleToken = internalAction({
   args: { connectionId: v.id("oauthConnections") },
   handler: async (ctx, args) => {
     // Get connection
-    const connection = await ctx.runQuery(internal.oauth.google.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.google.getConnection, {
       connectionId: args.connectionId,
     });
     if (!connection) throw new Error("Connection not found");
 
     // Decrypt refresh token
-    const refreshToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const refreshToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted: connection.refreshToken,
     });
 
@@ -587,7 +588,7 @@ export const refreshGoogleToken = internalAction({
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      await ctx.runMutation(internal.oauth.google.updateConnectionStatus, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.google.updateConnectionStatus, {
         connectionId: args.connectionId,
         status: "error",
         error: `Token refresh failed: ${errorText}`,
@@ -598,20 +599,20 @@ export const refreshGoogleToken = internalAction({
     const tokenData = await tokenResponse.json();
 
     // Encrypt new access token
-    const encryptedAccessToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
     // If Google provides a new refresh token, encrypt it too
     let encryptedRefreshToken: string | undefined;
     if (tokenData.refresh_token) {
-      encryptedRefreshToken = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+      encryptedRefreshToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
         plaintext: tokenData.refresh_token,
       });
     }
 
     // Update connection with new token
-    await ctx.runMutation(internal.oauth.google.updateConnectionTokens, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.google.updateConnectionTokens, {
       connectionId: args.connectionId,
       accessToken: encryptedAccessToken,
       tokenExpiresAt: Date.now() + (tokenData.expires_in * 1000),

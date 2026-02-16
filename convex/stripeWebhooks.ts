@@ -11,7 +11,7 @@
  */
 
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { v } from "convex/values";
 import { getProviderByCode } from "./paymentProviders";
 import type { ProviderWebhookEvent } from "./paymentProviders/types";
@@ -58,8 +58,8 @@ export const processWebhook = internalAction({
         const status = result.metadata.status as string;
 
         // Find organization by account ID
-        const org = await ctx.runQuery(
-          internal.stripeConnect.findOrgByStripeAccount,
+        const org = await (ctx as any).runQuery(
+          generatedApi.internal.stripeConnect.findOrgByStripeAccount,
           {
             stripeAccountId: accountId,
           }
@@ -70,8 +70,8 @@ export const processWebhook = internalAction({
           const existingProvider = org.paymentProviders?.find((p: any) => p.providerCode === "stripe-connect");
           const isTestMode = existingProvider?.isTestMode ?? false;
 
-          await ctx.runMutation(
-            internal.stripeConnect.updateStripeConnectAccountInternal,
+          await (ctx as any).runMutation(
+            generatedApi.internal.stripeConnect.updateStripeConnectAccountInternal,
             {
               organizationId: org._id,
               stripeAccountId: accountId,
@@ -93,16 +93,16 @@ export const processWebhook = internalAction({
         // Clear Stripe connection
         const accountId = result.metadata.accountId as string;
 
-        const org = await ctx.runQuery(
-          internal.stripeConnect.findOrgByStripeAccount,
+        const org = await (ctx as any).runQuery(
+          generatedApi.internal.stripeConnect.findOrgByStripeAccount,
           {
             stripeAccountId: accountId,
           }
         );
 
         if (org) {
-          await ctx.runMutation(
-            internal.stripeConnect.clearStripeConnection,
+          await (ctx as any).runMutation(
+            generatedApi.internal.stripeConnect.clearStripeConnection,
             {
               organizationId: org._id,
             }
@@ -125,7 +125,7 @@ export const processWebhook = internalAction({
         });
 
         // Future: Store in transactions table with full checkout details
-        // await ctx.runMutation(internal.transactions.createTransaction, {
+        // await (ctx as any).runMutation(generatedApi.internal.transactions.createTransaction, {
         //   type: "checkout",
         //   providerCode: "stripe",
         //   providerTransactionId: result.metadata.sessionId,
@@ -154,7 +154,7 @@ export const processWebhook = internalAction({
         });
 
         // Future: Store in transactions table
-        // await ctx.runMutation(internal.transactions.createTransaction, {
+        // await (ctx as any).runMutation(generatedApi.internal.transactions.createTransaction, {
         //   type: "payment",
         //   providerCode: "stripe-connect",
         //   providerTransactionId: result.metadata.paymentIntentId,
@@ -177,7 +177,7 @@ export const processWebhook = internalAction({
       }
 
       // Log successful processing
-      await ctx.runMutation(internal.stripeWebhooks.logWebhookEvent, {
+      await (ctx as any).runMutation(generatedApi.internal.stripeWebhooks.logWebhookEvent, {
         eventId: args.eventId,
         eventType: args.eventType,
         processedAt: Date.now(),
@@ -193,7 +193,7 @@ export const processWebhook = internalAction({
       console.error(`Error processing webhook ${args.eventId}:`, error);
 
       // Log the failure
-      await ctx.runMutation(internal.stripeWebhooks.logWebhookEvent, {
+      await (ctx as any).runMutation(generatedApi.internal.stripeWebhooks.logWebhookEvent, {
         eventId: args.eventId,
         eventType: args.eventType,
         processedAt: Date.now(),

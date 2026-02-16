@@ -15,7 +15,7 @@
 
 import { internalAction, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 // Id type not needed - commented for clarity
 
 /**
@@ -26,7 +26,7 @@ import { internal } from "../_generated/api";
  *
  * Usage:
  * ```typescript
- * ctx.scheduler.runAfter(0, internal.security.usageTracking.trackUsageAsync, {
+ * (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackUsageAsync, {
  *   organizationId: authContext.organizationId,
  *   authMethod: "api_key",
  *   apiKeyId: authContext.apiKeyId,
@@ -57,7 +57,7 @@ export const trackUsageAsync = internalAction({
   },
   handler: async (ctx, args) => {
     // Store usage metadata
-    await ctx.runMutation(internal.security.usageTracking.storeUsageMetadata, {
+    await (ctx as any).runMutation(generatedApi.internal.security.usageTracking.storeUsageMetadata, {
       organizationId: args.organizationId,
       authMethod: args.authMethod,
       apiKeyId: args.apiKeyId,
@@ -75,7 +75,7 @@ export const trackUsageAsync = internalAction({
 
     // If API key, update last used timestamp
     if (args.apiKeyId) {
-      await ctx.runMutation(internal.security.usageTracking.updateApiKeyLastUsed, {
+      await (ctx as any).runMutation(generatedApi.internal.security.usageTracking.updateApiKeyLastUsed, {
         apiKeyId: args.apiKeyId,
       });
     }
@@ -83,7 +83,7 @@ export const trackUsageAsync = internalAction({
     // TODO: Trigger anomaly detection (async, non-blocking)
     // Requires: convex/security/actions.ts to be exported
     // if (args.apiKeyId) {
-    //   ctx.scheduler.runAfter(0, internal.security.actions.detectAnomaliesAction, {
+    //   (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.actions.detectAnomaliesAction, {
     //     usage: {
     //       organizationId: args.organizationId,
     //       authMethod: args.authMethod,
@@ -171,7 +171,7 @@ export const updateApiKeyLastUsed = internalMutation({
  *
  * Usage:
  * ```typescript
- * ctx.scheduler.runAfter(0, internal.security.usageTracking.trackFailedAuthAsync, {
+ * (ctx.scheduler as any).runAfter(0, generatedApi.internal.security.usageTracking.trackFailedAuthAsync, {
  *   apiKeyPrefix: "sk_live_abcd",
  *   tokenType: "api_key",
  *   endpoint: request.url,
@@ -195,7 +195,7 @@ export const trackFailedAuthAsync = internalAction({
   },
   handler: async (ctx, args) => {
     // Store failed attempt
-    await ctx.runMutation(internal.security.usageTracking.storeFailedAuthAttempt, {
+    await (ctx as any).runMutation(generatedApi.internal.security.usageTracking.storeFailedAuthAttempt, {
       apiKeyPrefix: args.apiKeyPrefix,
       tokenType: args.tokenType,
       endpoint: args.endpoint,
@@ -212,8 +212,8 @@ export const trackFailedAuthAsync = internalAction({
     // TODO: Use recentFailures count for security event triggering
     // Currently commented out as createSecurityEvent is not exported
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _recentFailures = await ctx.runMutation(
-      internal.security.usageTracking.getRecentFailedAuthCount,
+    const _recentFailures = await (ctx as any).runMutation(
+      generatedApi.internal.security.usageTracking.getRecentFailedAuthCount,
       {
         ipAddress: args.ipAddress,
         since: fiveMinutesAgo,
@@ -223,7 +223,7 @@ export const trackFailedAuthAsync = internalAction({
     // TODO: If 20+ failures in 5 minutes, trigger security event
     // Requires: convex/security/actions.ts to export createSecurityEvent
     // if (recentFailures >= 20) {
-    //   await ctx.runMutation(internal.security.actions.createSecurityEvent, {
+    //   await (ctx as any).runMutation(generatedApi.internal.security.actions.createSecurityEvent, {
     //     organizationId: null as any, // Will be set if we can identify org
     //     eventType: "failed_auth_spike",
     //     severity: "critical",
@@ -305,7 +305,7 @@ export const getRecentFailedAuthCount = internalMutation({
  * export default {
  *   "cleanup-usage-metadata": {
  *     schedule: "0 2 * * *", // 2 AM daily
- *     handler: internal.security.usageTracking.cleanupOldMetadata,
+ *     handler: generatedApi.internal.security.usageTracking.cleanupOldMetadata,
  *   },
  * };
  * ```
@@ -315,11 +315,11 @@ export const cleanupOldMetadata = internalAction({
   handler: async (ctx) => {
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
 
-    await ctx.runMutation(internal.security.usageTracking.deleteOldUsageMetadata, {
+    await (ctx as any).runMutation(generatedApi.internal.security.usageTracking.deleteOldUsageMetadata, {
       before: thirtyDaysAgo,
     });
 
-    await ctx.runMutation(internal.security.usageTracking.deleteOldFailedAuthAttempts, {
+    await (ctx as any).runMutation(generatedApi.internal.security.usageTracking.deleteOldFailedAuthAttempts, {
       before: thirtyDaysAgo,
     });
   },

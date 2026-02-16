@@ -22,8 +22,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 export const executeCalculatePricing = action({
   args: {
@@ -97,7 +98,7 @@ export const executeCalculatePricing = action({
       }
 
       // Get product pricing from database
-      const product = await ctx.runQuery(api.ontologyHelpers.getObject, {
+      const product = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
         objectId: productItem.productId as Id<"objects">,
       });
 
@@ -146,7 +147,7 @@ export const executeCalculatePricing = action({
 
     if (context.discountCode) {
       // Get discount from first product (could be enhanced to support global discounts)
-      const firstProduct = await ctx.runQuery(api.ontologyHelpers.getObject, {
+      const firstProduct = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObject, {
         objectId: context.products[0].productId as Id<"objects">,
       });
 

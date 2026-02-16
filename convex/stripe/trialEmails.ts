@@ -11,7 +11,7 @@
 
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { Resend } from "resend";
 
 const createResendClient = () => {
@@ -28,12 +28,12 @@ export const sendTrialStartedEmail = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const org = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal,
       { organizationId: args.organizationId }
     );
-    const members = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationMembers,
+    const members = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers,
       { organizationId: args.organizationId }
     );
 
@@ -87,12 +87,12 @@ export const sendTrialReminderEmail = internalAction({
     trialEnd: v.number(),
   },
   handler: async (ctx, args) => {
-    const org = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal,
       { organizationId: args.organizationId }
     );
-    const members = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationMembers,
+    const members = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers,
       { organizationId: args.organizationId }
     );
 
@@ -156,12 +156,12 @@ export const sendTrialConvertedEmail = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const org = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal,
       { organizationId: args.organizationId }
     );
-    const members = await ctx.runQuery(
-      internal.stripe.platformWebhooks.getOrganizationMembers,
+    const members = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers,
       { organizationId: args.organizationId }
     );
 

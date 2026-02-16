@@ -8,7 +8,7 @@ priority: 2
 
 # Hero Definition Framework
 
-Use this framework when helping an agency owner define WHO their client's customer is. This is Layer 3 hero identification — the most important step before building any agent, funnel, or content.
+Use this framework when helping an agency owner define WHO their client's customer is. This is `Business L4` hero identification — the most important step before building any agent, funnel, or content.
 
 ## Why Hero Definition Comes First
 

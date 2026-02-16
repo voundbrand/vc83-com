@@ -10,8 +10,9 @@
 
 import { internalAction, internalQuery, internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * GENERATE TICKET PDF INTERNAL
@@ -24,7 +25,7 @@ export const generateTicketPdfInternal = internalAction({
   },
   handler: async (ctx, args): Promise<ArrayBuffer | null> => {
     // Get ticket data
-    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
     }) as { _id: string; organizationId: string; customProperties?: Record<string, unknown> } | null;
 
@@ -70,7 +71,7 @@ export const getTicketForPdf = internalAction({
     qrCode: string;
     registrationData: Record<string, unknown>;
   } | null> => {
-    const ticket = await ctx.runQuery(internal.ticketOntology.getTicketInternal, {
+    const ticket = await (ctx as any).runQuery(generatedApi.internal.ticketOntology.getTicketInternal, {
       ticketId: args.ticketId,
     }) as { _id: string; organizationId: string; status: string; customProperties?: Record<string, unknown> } | null;
 

@@ -17,8 +17,9 @@
 
 import { v } from "convex/values";
 import { internalAction, internalQuery, internalMutation } from "../../_generated/server";
-import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TYPES
@@ -256,14 +257,14 @@ export const handleWebchatMessage = internalAction({
 
       // Try to get existing session
       if (sessionToken) {
-        existingSession = await ctx.runQuery(internal.api.v1.webchatApi.getWebchatSession, {
+        existingSession = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
           sessionToken,
         });
       }
 
       // Create new session if needed
       if (!existingSession) {
-        const result = await ctx.runMutation(internal.api.v1.webchatApi.createWebchatSession, {
+        const result = await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.createWebchatSession, {
           organizationId: args.organizationId,
           agentId: args.agentId,
           visitorInfo: args.visitorInfo,
@@ -271,14 +272,14 @@ export const handleWebchatMessage = internalAction({
         sessionToken = result.sessionToken;
       } else {
         // Update existing session activity
-        await ctx.runMutation(internal.api.v1.webchatApi.updateSessionActivity, {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.updateSessionActivity, {
           sessionToken: sessionToken!,
           visitorInfo: args.visitorInfo,
         });
       }
 
       // Get agent config for response
-      const agentConfig = await ctx.runQuery(internal.api.v1.webchatApi.getWebchatConfig, {
+      const agentConfig = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatConfig, {
         agentId: args.agentId,
       });
 
@@ -292,7 +293,7 @@ export const handleWebchatMessage = internalAction({
 
       // Route message through the agent execution pipeline
       // The sessionToken becomes the externalContactIdentifier for webchat channel
-      const result = await ctx.runAction(api.ai.agentExecution.processInboundMessage, {
+      const result = await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
         organizationId: args.organizationId,
         channel: "webchat",
         externalContactIdentifier: sessionToken!,
@@ -305,7 +306,7 @@ export const handleWebchatMessage = internalAction({
 
       // Update session with agent session ID if created
       if (result.sessionId) {
-        await ctx.runMutation(internal.api.v1.webchatApi.updateSessionActivity, {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.updateSessionActivity, {
           sessionToken: sessionToken!,
           agentSessionId: result.sessionId as Id<"agentSessions">,
         });

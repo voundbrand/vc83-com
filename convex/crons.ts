@@ -5,7 +5,7 @@
  */
 
 import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 const crons = cronJobs();
 
@@ -28,7 +28,7 @@ crons.daily(
     hourUTC: 2, // 2 AM UTC
     minuteUTC: 0,
   },
-  internal.accountManagement.permanentlyDeleteExpiredAccounts
+  generatedApi.internal.accountManagement.permanentlyDeleteExpiredAccounts
 );
 
 /**
@@ -49,7 +49,7 @@ crons.daily(
     hourUTC: 3, // 3 AM UTC
     minuteUTC: 0,
   },
-  internal.transactionInvoicing.cleanupExpiredPdfCache
+  generatedApi.internal.transactionInvoicing.cleanupExpiredPdfCache
 );
 
 /**
@@ -69,7 +69,7 @@ crons.daily(
     hourUTC: 4, // 4 AM UTC (after other cleanup jobs)
     minuteUTC: 0,
   },
-  internal.ai.modelDiscovery.fetchAvailableModels
+  generatedApi.internal.ai.modelDiscovery.fetchAvailableModels
 );
 
 /**
@@ -93,7 +93,7 @@ crons.daily(
     hourUTC: 5, // 5 AM UTC (after model refresh)
     minuteUTC: 0,
   },
-  internal.licensing.badgeVerification.verifyAllBadgesInternal
+  generatedApi.internal.licensing.badgeVerification.verifyAllBadgesInternal
 );
 
 /**
@@ -112,7 +112,7 @@ crons.daily(
 crons.interval(
   "Process sequence messages",
   { minutes: 5 },
-  internal.sequences.messageQueueProcessor.processScheduledMessages
+  generatedApi.internal.sequences.messageQueueProcessor.processScheduledMessages
 );
 
 /**
@@ -132,7 +132,7 @@ crons.daily(
     hourUTC: 6, // 6 AM UTC (after badge verification)
     minuteUTC: 0,
   },
-  internal.sequences.messageQueueProcessor.cleanupOldMessages
+  generatedApi.internal.sequences.messageQueueProcessor.cleanupOldMessages
 );
 
 /**
@@ -151,7 +151,7 @@ crons.daily(
 crons.interval(
   "Sync external calendar events",
   { minutes: 15 },
-  internal.calendarSyncOntology.syncAllConnections
+  generatedApi.internal.calendarSyncOntology.syncAllConnections
 );
 
 /**
@@ -169,7 +169,7 @@ crons.interval(
 crons.interval(
   "Expire stale agent sessions",
   { minutes: 15 },
-  internal.ai.agentSessions.expireStaleSessions
+  generatedApi.internal.ai.agentSessions.expireStaleSessions
 );
 
 /**
@@ -187,7 +187,7 @@ crons.interval(
 crons.interval(
   "Retry dead letter queue messages",
   { minutes: 5 },
-  internal.ai.deadLetterQueue.retryDeadLetters
+  generatedApi.internal.ai.deadLetterQueue.retryDeadLetters
 );
 
 /**
@@ -207,7 +207,7 @@ crons.daily(
     hourUTC: 3,
     minuteUTC: 30,
   },
-  internal.credits.sharing.cleanupOldLedgerEntries
+  generatedApi.internal.credits.sharing.cleanupOldLedgerEntries
 );
 
 /**
@@ -230,7 +230,7 @@ crons.weekly(
     hourUTC: 9,
     minuteUTC: 0,
   },
-  internal.ai.soulEvolution.scheduledReflection
+  generatedApi.internal.ai.soulEvolution.scheduledReflection
 );
 
 /**
@@ -249,7 +249,7 @@ crons.weekly(
 crons.interval(
   "Archive idle Quinn workers",
   { minutes: 15 },
-  internal.ai.workerPool.archiveIdleWorkers
+  generatedApi.internal.ai.workerPool.archiveIdleWorkers
 );
 
 /**
@@ -266,7 +266,7 @@ crons.interval(
 crons.interval(
   "Mark abandoned AI training sessions",
   { minutes: 15 },
-  internal.ai.trainingData.markAbandonedSessions,
+  generatedApi.internal.ai.trainingData.markAbandonedSessions,
   { olderThanMinutes: 15 }
 );
 
@@ -284,7 +284,7 @@ crons.interval(
 crons.interval(
   "Auto-resume timed out escalations",
   { minutes: 5 },
-  internal.ai.escalation.autoResumeTimedOutEscalations
+  generatedApi.internal.ai.escalation.autoResumeTimedOutEscalations
 );
 
 export default crons;

@@ -19,7 +19,7 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import type { Id } from "../../_generated/dataModel";
@@ -88,8 +88,8 @@ export const logEvent = httpAction(async (ctx, request) => {
     }
 
     // Log event
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.logActivityEventInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.logActivityEventInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -164,8 +164,8 @@ export const getEvents = httpAction(async (ctx, request) => {
     }
 
     // Get events
-    const result = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getActivityEventsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getActivityEventsInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -236,8 +236,8 @@ export const getStats = httpAction(async (ctx, request) => {
     }
 
     // Get stats
-    const stats = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getActivityStatsInternal,
+    const stats = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getActivityStatsInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -310,8 +310,8 @@ export const registerPage = httpAction(async (ctx, request) => {
     }
 
     // Register page
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.registerPageInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.registerPageInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -398,8 +398,8 @@ export const bulkRegisterPages = httpAction(async (ctx, request) => {
     }
 
     // Bulk register
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.bulkRegisterPagesInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.bulkRegisterPagesInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -468,8 +468,8 @@ export const getPages = httpAction(async (ctx, request) => {
     }
 
     // Get pages
-    const pages = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getApplicationPagesInternal,
+    const pages = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getApplicationPagesInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -558,8 +558,8 @@ export const updatePageBindings = httpAction(async (ctx, request) => {
     }
 
     // Update bindings
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.updatePageBindingsInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.updatePageBindingsInternal,
       {
         pageId: pageId as Id<"objects">,
         objectBindings,
@@ -621,8 +621,8 @@ export const deletePage = httpAction(async (ctx, request) => {
     }
 
     // Delete page
-    await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.deletePageInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.deletePageInternal,
       {
         pageId: pageId as Id<"objects">,
         organizationId: authContext.organizationId,
@@ -683,8 +683,8 @@ export const getSettings = httpAction(async (ctx, request) => {
     }
 
     // Get settings
-    const settings = await ctx.runQuery(
-      internal.api.v1.activityProtocolInternal.getSettingsInternal,
+    const settings = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.activityProtocolInternal.getSettingsInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,
@@ -752,8 +752,8 @@ export const updateSettings = httpAction(async (ctx, request) => {
     }
 
     // Update settings
-    const result = await ctx.runMutation(
-      internal.api.v1.activityProtocolInternal.updateSettingsInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.activityProtocolInternal.updateSettingsInternal,
       {
         organizationId: authContext.organizationId,
         applicationId: applicationId as Id<"objects">,

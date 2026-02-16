@@ -19,7 +19,7 @@
  */
 
 import { mutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 export const seed = mutation({
   args: {},
@@ -39,8 +39,8 @@ export const seed = mutation({
       // PART 1: Basic Information (Headers, Labels, Placeholders)
       // ============================================================
       console.log("📦 Part 1/3: Basic Information...");
-      results.basicInfo = await ctx.runMutation(
-        internal.translations.seedCheckout_01a_BasicInfo.seed
+      results.basicInfo = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckout_01a_BasicInfo.seed
       );
       console.log(`   ✅ ${results.basicInfo.count} translations inserted (${results.basicInfo.totalKeys} keys)\n`);
 
@@ -48,8 +48,8 @@ export const seed = mutation({
       // PART 2: Error Messages
       // ============================================================
       console.log("📦 Part 2/3: Error Messages...");
-      results.errors = await ctx.runMutation(
-        internal.translations.seedCheckout_01b_Errors.seed
+      results.errors = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckout_01b_Errors.seed
       );
       console.log(`   ✅ ${results.errors.count} translations inserted (${results.errors.totalKeys} keys)\n`);
 
@@ -57,8 +57,8 @@ export const seed = mutation({
       // PART 3: B2B Fields & Countries
       // ============================================================
       console.log("📦 Part 3/3: B2B Fields & Countries...");
-      results.b2bFields = await ctx.runMutation(
-        internal.translations.seedCheckout_01c_B2BFields.seed
+      results.b2bFields = await (ctx as any).runMutation(
+        generatedApi.internal.translations.seedCheckout_01c_B2BFields.seed
       );
       console.log(`   ✅ ${results.b2bFields.count} translations inserted (${results.b2bFields.totalKeys} keys)\n`);
 

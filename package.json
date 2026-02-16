@@ -16,7 +16,8 @@
     "test:integration": "vitest run tests/integration",
     "test:permissions": "vitest run tests/unit/permissions",
     "test:roles": "vitest run tests/unit/roles",
-    "test:model": "npx tsx scripts/test-model-validation.ts"
+    "test:model": "npx tsx scripts/test-model-validation.ts",
+    "docs:guard": "bash scripts/ci/check-docs-guard.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -84,6 +85,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript/native-preview": "^7.0.0-dev.20260216.1",
     "@vitest/ui": "^3.2.4",
     "convex-helpers": "^0.1.104",
     "convex-test": "^0.0.38",

@@ -20,7 +20,7 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 
@@ -42,7 +42,7 @@ export const getTicketPdf = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -68,8 +68,8 @@ export const getTicketPdf = httpAction(async (ctx, request) => {
     }
 
     // 3. Generate ticket PDF
-    const pdfBlob = await ctx.runAction(
-      internal.api.v1.ticketsInternal.generateTicketPdfInternal,
+    const pdfBlob = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.ticketsInternal.generateTicketPdfInternal,
       {
         ticketId,
         organizationId,
@@ -159,8 +159,8 @@ export const listTickets = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query tickets
-    const result = await ctx.runQuery(
-      internal.api.v1.ticketsInternal.listTicketsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.ticketsInternal.listTicketsInternal,
       {
         organizationId: authContext.organizationId,
         eventId,
@@ -236,8 +236,8 @@ export const getTicket = httpAction(async (ctx, request) => {
     }
 
     // 4. Get ticket
-    const ticket = await ctx.runQuery(
-      internal.ticketOntology.getTicketInternal,
+    const ticket = await (ctx as any).runQuery(
+      generatedApi.internal.ticketOntology.getTicketInternal,
       { ticketId: ticketId as Id<"objects"> }
     );
 
@@ -337,8 +337,8 @@ export const redeemTicket = httpAction(async (ctx, request) => {
     }
 
     // 5. Redeem ticket
-    await ctx.runMutation(
-      internal.api.v1.ticketsInternal.redeemTicketInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.ticketsInternal.redeemTicketInternal,
       {
         organizationId: authContext.organizationId,
         ticketId,
@@ -431,8 +431,8 @@ export const voidTicket = httpAction(async (ctx, request) => {
     }
 
     // 5. Void ticket
-    await ctx.runMutation(
-      internal.api.v1.ticketsInternal.voidTicketInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.ticketsInternal.voidTicketInternal,
       {
         organizationId: authContext.organizationId,
         ticketId,
@@ -518,8 +518,8 @@ export const validateTicket = httpAction(async (ctx, request) => {
     }
 
     // 4. Validate ticket
-    const result = await ctx.runQuery(
-      internal.api.v1.ticketsInternal.validateTicketInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.ticketsInternal.validateTicketInternal,
       {
         organizationId: authContext.organizationId,
         ticketId,
@@ -568,7 +568,7 @@ export const handleTicketsGet = httpAction(async (ctx, request) => {
       }
 
       const apiKey = authHeader.substring(7);
-      const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+      const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
         apiKey,
       });
 
@@ -593,8 +593,8 @@ export const handleTicketsGet = httpAction(async (ctx, request) => {
       }
 
       // 3. Generate ticket PDF
-      const pdfBlob = await ctx.runAction(
-        internal.api.v1.ticketsInternal.generateTicketPdfInternal,
+      const pdfBlob = await (ctx as any).runAction(
+        generatedApi.internal.api.v1.ticketsInternal.generateTicketPdfInternal,
         {
           ticketId,
           organizationId,
@@ -659,8 +659,8 @@ export const handleTicketsGet = httpAction(async (ctx, request) => {
       }
 
       // 4. Get ticket
-      const ticket = await ctx.runQuery(
-        internal.ticketOntology.getTicketInternal,
+      const ticket = await (ctx as any).runQuery(
+        generatedApi.internal.ticketOntology.getTicketInternal,
         { ticketId: ticketId as Id<"objects"> }
       );
 
@@ -746,8 +746,8 @@ export const handleTicketsPost = httpAction(async (ctx, request) => {
         // Body is optional
       }
 
-      await ctx.runMutation(
-        internal.api.v1.ticketsInternal.redeemTicketInternal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.ticketsInternal.redeemTicketInternal,
         {
           organizationId: authContext.organizationId,
           ticketId,
@@ -815,8 +815,8 @@ export const handleTicketsPost = httpAction(async (ctx, request) => {
         // Body is optional
       }
 
-      await ctx.runMutation(
-        internal.api.v1.ticketsInternal.voidTicketInternal,
+      await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.ticketsInternal.voidTicketInternal,
         {
           organizationId: authContext.organizationId,
           ticketId,

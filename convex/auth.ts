@@ -1,7 +1,8 @@
 import { action, mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { api, internal } from "./_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("./_generated/api");
 
 // Check if user needs password setup (first-time login)
 export const checkNeedsPasswordSetup = query({
@@ -48,7 +49,7 @@ export const setupPassword = action({
   }> => {
     // First, verify user exists and needs password setup
     const checkResult: { userExists: boolean; hasPassword: boolean; userId: Id<"users"> | null } =
-      await ctx.runQuery(internal.auth.internalCheckUser, {
+      await (ctx as any).runQuery(generatedApi.internal.auth.internalCheckUser, {
         email: args.email,
       });
 
@@ -61,7 +62,7 @@ export const setupPassword = action({
     }
 
     // Hash the password using bcrypt in Node.js runtime
-    const passwordHash: string = await ctx.runAction(internal.cryptoActions.hashPassword, {
+    const passwordHash: string = await (ctx as any).runAction(generatedApi.internal.cryptoActions.hashPassword, {
       password: args.password,
     });
 
@@ -71,7 +72,7 @@ export const setupPassword = action({
       sessionId: string;
       user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
     } =
-      await ctx.runMutation(internal.auth.internalSetupPassword, {
+      await (ctx as any).runMutation(generatedApi.internal.auth.internalSetupPassword, {
         userId: checkResult.userId!,
         passwordHash,
         firstName: args.firstName,
@@ -79,7 +80,7 @@ export const setupPassword = action({
       });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: checkResult.userId!,
       organizationId: undefined, // Global action for initial setup
       action: "setup_password",
@@ -233,7 +234,7 @@ export const signIn = action({
       firstName?: string;
       lastName?: string;
       isActive: boolean;
-    } = await ctx.runQuery(internal.auth.internalGetUserAuth, {
+    } = await (ctx as any).runQuery(generatedApi.internal.auth.internalGetUserAuth, {
       email: args.email,
     });
 
@@ -248,7 +249,7 @@ export const signIn = action({
     }
 
     // Verify password using bcrypt
-    const isValid: boolean = await ctx.runAction(internal.cryptoActions.verifyPassword, {
+    const isValid: boolean = await (ctx as any).runAction(generatedApi.internal.cryptoActions.verifyPassword, {
       password: args.password,
       hash: userData.passwordHash,
     });
@@ -269,14 +270,14 @@ export const signIn = action({
       sessionId: string;
       user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
     } =
-      await ctx.runMutation(internal.auth.internalCreateSession, {
+      await (ctx as any).runMutation(generatedApi.internal.auth.internalCreateSession, {
         userId: userData.userId!,
         email: userData.email!,
         organizationId, // Org-scoped session for security
       });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: userData.userId!,
       organizationId: userData.defaultOrgId,
       action: "sign_in",
@@ -375,7 +376,7 @@ export const signOut = mutation({
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
     if (session) {
       // Log audit event before deletion
-      await ctx.runMutation(internal.rbac.logAudit, {
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
         userId: session.userId,
         organizationId: undefined,
         action: "sign_out",
@@ -473,7 +474,7 @@ export const switchOrganization = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: args.organizationId,
       action: "switch_organization",
@@ -780,7 +781,7 @@ export const adminCreateUser = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; userId: Id<"users">; message: string }> => {
     // Verify admin permissions
-    const canCreate: boolean = await ctx.runQuery(api.auth.canUserPerform, {
+    const canCreate: boolean = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_users",
       resource: "users",
@@ -798,7 +799,7 @@ export const adminCreateUser = action({
       email: string;
       createdAt: number;
       expiresAt: number;
-    } | null = await ctx.runQuery(internal.auth.internalGetSession, {
+    } | null = await (ctx as any).runQuery(generatedApi.internal.auth.internalGetSession, {
       sessionId: args.sessionId,
     });
 
@@ -808,7 +809,7 @@ export const adminCreateUser = action({
 
     // Check if user already exists
     const existingUser: { userExists: boolean; hasPassword: boolean; userId: Id<"users"> | null } =
-      await ctx.runQuery(internal.auth.internalCheckUser, {
+      await (ctx as any).runQuery(generatedApi.internal.auth.internalCheckUser, {
         email: args.email,
       });
 
@@ -817,7 +818,7 @@ export const adminCreateUser = action({
     }
 
     // Create the user
-    const userId: Id<"users"> = await ctx.runMutation(internal.auth.internalCreateUser, {
+    const userId: Id<"users"> = await (ctx as any).runMutation(generatedApi.internal.auth.internalCreateUser, {
       email: args.email,
       firstName: args.firstName,
       lastName: args.lastName,
@@ -827,7 +828,7 @@ export const adminCreateUser = action({
 
     // If organization and role specified, add membership
     if (args.organizationId && args.roleId) {
-      await ctx.runMutation(internal.auth.internalAddOrgMembership, {
+      await (ctx as any).runMutation(generatedApi.internal.auth.internalAddOrgMembership, {
         userId,
         organizationId: args.organizationId,
         roleId: args.roleId,
@@ -836,7 +837,7 @@ export const adminCreateUser = action({
     }
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: session.userId,
       organizationId: args.organizationId,
       action: "create_user",
@@ -1056,7 +1057,7 @@ export const syncFrontendUser = internalMutation({
     } | null;
 
     // Check by OAuth provider first
-    const existingUserByOAuth: FrontendUserObject = await ctx.runQuery(internal.auth.findFrontendUserByOAuth, {
+    const existingUserByOAuth: FrontendUserObject = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByOAuth, {
       oauthProvider: args.oauthProvider,
       oauthId: args.oauthId,
       organizationId,
@@ -1075,7 +1076,7 @@ export const syncFrontendUser = internalMutation({
     }
 
     // Check by email
-    const existingUserByEmail: FrontendUserObject = await ctx.runQuery(internal.auth.findFrontendUserByEmail, {
+    const existingUserByEmail: FrontendUserObject = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByEmail, {
       email: args.email,
       organizationId,
     }) as FrontendUserObject;
@@ -1114,7 +1115,7 @@ export const syncFrontendUser = internalMutation({
     });
 
     // Link to CRM contact if exists
-    await ctx.runMutation(internal.auth.linkFrontendUserToCRM, {
+    await (ctx as any).runMutation(generatedApi.internal.auth.linkFrontendUserToCRM, {
       userId,
       email: args.email,
       organizationId,

@@ -16,7 +16,7 @@
  */
 
 import { internalAction, internalMutation, internalQuery, ActionCtx } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
@@ -173,7 +173,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
 
   // Sync billing details to organization
   try {
-    await ctx.runMutation(internal.stripe.platformWebhooks.syncPlatformBillingDetails, {
+    await (ctx as any).runMutation(generatedApi.internal.stripe.platformWebhooks.syncPlatformBillingDetails, {
       organizationId,
       isB2B,
       billingEmail: customerEmail,
@@ -203,12 +203,12 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   if (checkoutType === "platform-tier") {
     try {
       // Get organization details
-      const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, {
+      const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, {
         organizationId,
       });
 
       // Send sales team notification
-      await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+      await (ctx as any).runAction(generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
         eventType: "platform_tier_upgrade",
         user: {
           email: customerEmail || "",
@@ -243,7 +243,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
 
     if (credits > 0) {
       try {
-        await ctx.runMutation(internal.credits.index.addPurchasedCredits, {
+        await (ctx as any).runMutation(generatedApi.internal.credits.index.addPurchasedCredits, {
           organizationId,
           credits,
           packId: `credit-purchase-${amountEur}eur`,
@@ -289,7 +289,7 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
   if (!organizationId) {
     console.error("[Platform Webhooks] No organizationId in subscription metadata");
     // Try to find organization by Stripe customer ID
-    const org = await ctx.runQuery(internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
       stripeCustomerId: customer,
     });
 
@@ -354,7 +354,7 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
   if (!organizationId) {
     console.error("[Platform Webhooks] No organizationId in subscription metadata for update");
     // Try to find organization by Stripe customer ID
-    const org = await ctx.runQuery(internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
       stripeCustomerId: customer,
     });
 
@@ -380,7 +380,7 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
   console.log(`[Platform Webhooks] Updating subscription for org ${organizationId}: ${tier} tier, status: ${status}`);
 
   // Get current plan before updating to detect upgrade/downgrade
-  const currentOrg = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+  const currentOrg = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
   const previousTier = currentOrg?.plan || "free";
   const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
 
@@ -443,7 +443,7 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
 
   if (!organizationId) {
     // Try to find organization by Stripe customer ID
-    const org = await ctx.runQuery(internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
+    const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.findOrgByStripeCustomer, {
       stripeCustomerId: customer,
     });
 
@@ -464,7 +464,7 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
   console.log(`[Platform Webhooks] Subscription deleted for org ${organizationId}, reverting to Free tier`);
 
   // Get current tier before reverting for the email
-  const currentOrg = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+  const currentOrg = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
   const previousTier = currentOrg?.plan || "pro";
 
   await updateOrganizationTier(ctx, organizationId, "free", {
@@ -504,8 +504,8 @@ async function sendSubscriptionLifecycleEmail(
   } = {}
 ) {
   try {
-    const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
-    const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+    const members = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
 
     const primaryMember = members.find((m: { isActive: boolean }) => m.isActive);
     const email = primaryMember?.user?.email;
@@ -514,7 +514,7 @@ async function sendSubscriptionLifecycleEmail(
       return;
     }
 
-    await ctx.runAction(internal.actions.subscriptionEmails.sendSubscriptionEmail, {
+    await (ctx as any).runAction(generatedApi.internal.actions.subscriptionEmails.sendSubscriptionEmail, {
       to: email,
       event,
       organizationName: org?.name || "Your Organization",
@@ -541,8 +541,8 @@ async function sendSalesTeamNotification(
   metadata: Record<string, unknown> = {}
 ) {
   try {
-    const org = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
-    const members = await ctx.runQuery(internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, { organizationId });
+    const members = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationMembers, { organizationId });
 
     const primaryMember = members.find((m: { isActive: boolean }) => m.isActive);
     const userEmail = primaryMember?.user?.email || "";
@@ -551,7 +551,7 @@ async function sendSalesTeamNotification(
     const firstName = user?.firstName || user?.name?.split(" ")[0] || "";
     const lastName = user?.lastName || user?.name?.split(" ").slice(1).join(" ") || "";
 
-    await ctx.runAction(internal.actions.salesNotificationEmail.sendSalesNotification, {
+    await (ctx as any).runAction(generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
       eventType,
       user: { email: userEmail, firstName, lastName },
       organization: {
@@ -593,7 +593,7 @@ async function updateOrganizationTier(
   const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
 
   // Update organization.plan field
-  await ctx.runMutation(internal.stripe.platformWebhooks.updateOrganizationPlan, {
+  await (ctx as any).runMutation(generatedApi.internal.stripe.platformWebhooks.updateOrganizationPlan, {
     organizationId,
     plan: normalizedTier,
     stripeSubscriptionId: subscriptionInfo.stripeSubscriptionId,
@@ -601,7 +601,7 @@ async function updateOrganizationTier(
   });
 
   // Upsert organization_license object
-  await ctx.runMutation(internal.stripe.platformWebhooks.upsertOrganizationLicense, {
+  await (ctx as any).runMutation(generatedApi.internal.stripe.platformWebhooks.upsertOrganizationLicense, {
     organizationId,
     planTier: normalizedTier,
     status: subscriptionInfo.status === "active" ? "active" : "suspended",

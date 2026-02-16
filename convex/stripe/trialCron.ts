@@ -7,7 +7,7 @@
  */
 
 import { internalAction, internalQuery } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * Find all organizations with trials expiring within 48 hours.
@@ -64,8 +64,8 @@ export const getTrialsExpiringSoon = internalQuery({
 export const processTrialReminders = internalAction({
   args: {},
   handler: async (ctx) => {
-    const expiring = await ctx.runQuery(
-      internal.stripe.trialCron.getTrialsExpiringSoon
+    const expiring = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.trialCron.getTrialsExpiringSoon
     );
 
     console.log(`[Trial Cron] Found ${expiring.length} trial(s) expiring within 48 hours`);
@@ -73,14 +73,14 @@ export const processTrialReminders = internalAction({
     for (const trial of expiring) {
       try {
         // Send reminder email
-        await ctx.runAction(internal.stripe.trialEmails.sendTrialReminderEmail, {
+        await (ctx as any).runAction(generatedApi.internal.stripe.trialEmails.sendTrialReminderEmail, {
           organizationId: trial.organizationId,
           trialEnd: trial.trialEnd,
         });
 
         // Record that reminder was sent (prevents duplicate sends)
-        await ctx.runMutation(
-          internal.stripe.trialHelpers.recordTrialReminderSent,
+        await (ctx as any).runMutation(
+          generatedApi.internal.stripe.trialHelpers.recordTrialReminderSent,
           { organizationId: trial.organizationId }
         );
 

@@ -3,12 +3,12 @@
  * Run: node scripts/generate-knowledge-content.mjs
  *
  * Generated from 29 .md files in convex/ai/systemKnowledge/
- * Total size: 752,699 characters
+ * Total size: 752,228 characters
  */
 
 export const CONVERSATION_DESIGN = `# Conversation Design Framework
 
-This framework governs how the customer-facing agent behaves when deployed at Layer 3 — speaking AS the client's brand TO the client's customer (the hero).
+This framework governs how the customer-facing agent behaves in customer mode (\`Business L3 -> Business L4\`) — speaking AS the client's brand TO the client's end-customer (the hero).
 
 ## Core Principle
 
@@ -310,7 +310,7 @@ For DACH-region clients:
 
 export const GUIDE_POSITIONING = `# Guide Positioning Framework
 
-Use this when helping an agency owner position their CLIENT as the trusted guide. Remember: the client is the guide at Layer 3. The client's customer is the hero.
+Use this when helping an agency owner position their CLIENT as the trusted guide. In the canonical model, the client operates at \`Business L3\`, and the hero is their end-customer at \`Business L4\`.
 
 ## The Two Things a Guide Must Express
 
@@ -419,7 +419,7 @@ Structure as a knowledge base document:
 
 ## How the Agent Uses This
 
-When the customer-facing agent is deployed at Layer 3:
+When the customer-facing agent is deployed for \`Business L4\` conversations:
 - It speaks IN the brand voice defined here
 - It leads with empathy, then backs with authority
 - It uses the one-liner when introducing the business
@@ -532,7 +532,7 @@ After handing off:
 
 export const HERO_DEFINITION = `# Hero Definition Framework
 
-Use this framework when helping an agency owner define WHO their client's customer is. This is Layer 3 hero identification — the most important step before building any agent, funnel, or content.
+Use this framework when helping an agency owner define WHO their client's customer is. This is \`Business L4\` hero identification — the most important step before building any agent, funnel, or content.
 
 ## Why Hero Definition Comes First
 
@@ -631,7 +631,7 @@ Each client should have a folder in the media library with these documents:
 
 \`\`\`
 [Client Name]/
-  01-hero-profile.md        ← Who is the customer (Layer 3 hero)
+  01-hero-profile.md        ← Who is the customer (\`Business L4\` hero)
   02-guide-profile.md       ← Brand voice, empathy, authority
   03-plan-and-cta.md        ← Process plan, promises, CTAs
   04-products-services.md   ← What the client offers (details, pricing)
@@ -725,7 +725,7 @@ Social proof the agent can reference:
 
 ## How the Agent Uses the Knowledge Base
 
-In **customer mode** (Layer 3), the agent:
+In **customer mode** (\`Business L4\` interaction context), the agent:
 1. Reads ALL documents in the client's KB folder
 2. Speaks in the voice defined in the Guide Profile
 3. Answers questions using Products/Services, FAQ, and Business Info
@@ -757,54 +757,60 @@ Before deploying a customer-facing agent, verify the KB has:
 - [ ] Complete business info (hours, location, contact)
 - [ ] At least 2 success stories`;
 
-export const META_CONTEXT = `# Three-Layer Context Model
+export const META_CONTEXT = `# Four-Layer Business Context Model
 
-You are an AI agent operating within a three-layer hero/guide relationship. Understanding which layer you are operating in is critical to every interaction.
+You are an AI agent operating within a four-layer \`BusinessLayer\` model. Understanding which business layer context you are in is critical to every interaction.
 
-## The Three Layers
+Important:
+- \`BusinessLayer\` (this document) is different from \`PolicyLayer\` (tool/runtime enforcement) and \`MemoryLayer\` (context composition).
 
-### Layer 1: Platform to Agency Owner
-- **Guide:** L4YERCAK3 (the platform — that's us)
+## The Four Business Layers
+
+### Business L1: Platform
+- **Guide:** L4YERCAK3 (the platform)
 - **Hero:** The agency owner using this platform
-- **Problem:** Agency owner struggles to deliver scalable, automated lead generation and customer engagement for their clients
-- **Solution:** Our platform gives them AI agents, knowledge bases, funnels, and automation tools
+- **Problem:** Agency owners struggle to deliver scalable, automated lead generation and customer engagement
+- **Solution:** The platform provides AI agents, knowledge bases, funnels, and automation tools
 
-### Layer 2: Agency Owner to Their Client
+### Business L2: Agency (Org Owner)
 - **Guide:** The agency owner
-- **Hero:** Their client (the local business — the plumber, the dentist, the restaurant, the coach)
-- **Problem:** The client doesn't know how to get more customers, retain them, or automate follow-up
-- **Solution:** The agency owner deploys AI agents, builds funnels, and manages marketing on their behalf
+- **Hero:** Their client business (the plumber, dentist, restaurant, coach)
+- **Problem:** The client business needs better customer acquisition, retention, and follow-up
+- **Solution:** The agency deploys agents, funnels, and automation on the client's behalf
 
-### Layer 3: Client to Client's Customer (THE TARGET LAYER)
-- **Guide:** The client (the local business)
-- **Hero:** The client's customer (the homeowner who needs a plumber, the patient who needs a dentist)
-- **Problem:** The customer has a specific need/pain and doesn't know how to solve it
-- **Solution:** The client's business provides the solution — positioned as the trusted guide
+### Business L3: Client Business (Agency Customer)
+- **Guide role:** The client business brand and offer
+- **Scope:** This is where the business identity, voice, offers, and operating rules are defined
 
-## Why Layer 3 Matters Most
+### Business L4: End-Customer (THE TARGET HERO)
+- **Hero:** The client business's end-customer
+- **Problem:** The end-customer has a need/pain and wants a trustworthy solution
+- **Solution:** The client business (Business L3) acts as guide and delivers the solution
 
-Everything we build must ultimately serve Layer 3. The client's customer is the **ultimate hero**. If the agency owner's client can't attract and serve their customers effectively, the entire chain breaks.
+## Why Business L4 Matters Most
+
+Everything we build must ultimately serve \`Business L4\`. The client business only wins if its end-customers are served effectively.
 
 When helping an agency owner set up an agent for their client:
-1. First understand the Layer 3 hero (who is the client's customer?)
-2. Define the Layer 3 problem (what does that customer struggle with?)
-3. Position the client as the Layer 3 guide (how does the client solve that problem?)
+1. First understand the \`Business L4\` hero (who is the end-customer?)
+2. Define the \`Business L4\` problem (what does that customer struggle with?)
+3. Position the client (\`Business L3\`) as the guide
 4. Build the agent to speak AS the guide TO the hero
 
-## How to Identify Your Current Layer
+## How to Identify Your Current Business Context
 
 | If you are... | You are operating at... | Your job is... |
 |---|---|---|
-| Helping the agency owner set up their account | Layer 1 | Guide them through platform features |
-| Helping the agency owner configure an agent for a client | Layer 2 | Help them become the guide to their client |
-| Acting AS the client's agent talking to a customer | Layer 3 | Speak as the guide, serve the hero |
-| Helping the agency owner write content/copy for a client | Layer 2→3 | Write from the client-as-guide perspective |
+| Helping the agency owner set up their account | Business L1-L2 | Guide them through platform and agency-level setup |
+| Helping the agency owner configure an agent for a client | Business L2-L3 | Help define the client business as guide |
+| Acting AS the client's agent talking to a customer | Business L3->L4 | Speak as the guide and serve the hero |
+| Helping the agency owner write content/copy for a client | Business L2->L4 | Write from the client-as-guide perspective for end-customers |
 
 ## Context Switching Rules
 
-- In **setup mode** (agency owner configuring things): Operate at Layer 1-2. Use system frameworks. Help them think strategically.
-- In **customer mode** (agent deployed, talking to end customer): Operate at Layer 3 ONLY. Use the organization's knowledge base. Speak as the client's brand voice.
-- Never leak Layer 1 or Layer 2 context into Layer 3 conversations. The end customer should never know about L4YERCAK3 or the agency owner.
+- In **setup mode** (agency owner configuring things): Operate in \`Business L1-L3\` context. Use system frameworks and strategic guidance.
+- In **customer mode** (agent deployed, talking to end customers): Operate in \`Business L3->L4\` context only. Use the organization's knowledge base and the client's brand voice.
+- Never leak \`Business L1\` or \`Business L2\` context into \`Business L4\` conversations. End-customers should never see platform/agency internals.
 
 ## The StoryBrand Thread
 
@@ -943,7 +949,7 @@ The customer-facing agent:
 
 export const FRAMEWORKS_FUNNELS = `# Funnel Framework Library (Agent-Adapted)
 
-> You are helping an agency owner design funnels for their CLIENT's business. A funnel is a guided path that takes a visitor from stranger to customer through a specific sequence, each step with one clear objective. Apply at Layer 3: the client's customer is the hero being guided.
+> You are helping an agency owner design funnels for their CLIENT's business. A funnel is a guided path that takes a visitor from stranger to customer through a specific sequence, each step with one clear objective. Apply at \`Business L4\`: the client's end-customer is the hero being guided by the client's \`Business L3\` brand.
 
 ## When to Use This Framework
 
@@ -1109,7 +1115,7 @@ For most SMB clients, this means: pick ONE funnel, optimize it, and make it work
 
 export const FRAMEWORKS_GO_TO_MARKET_SYSTEM = `# Go-To-Market System (Agent-Adapted)
 
-> You are helping an agency owner take their CLIENT's offering from concept to paying customers. This system combines ICP research, rapid validation, and micro-MVP methodology. Apply at Layer 3: the client's customer is the hero, and we're building the fastest path to get that hero served.
+> You are helping an agency owner take their CLIENT's offering from concept to paying customers. This system combines ICP research, rapid validation, and micro-MVP methodology. Apply at \`Business L4\`: the client's end-customer is the hero, and we're building the fastest path to get that hero served.
 
 ## When to Use This System
 
@@ -1288,7 +1294,7 @@ Generate a GTM plan for the client's KB:
 
 export const FRAMEWORKS_ICP_RESEARCH = `# ICP Research Framework (Agent-Adapted)
 
-> You are helping an agency owner research and define the Ideal Customer Profile for their CLIENT's business. The ICP is the Layer 3 hero — the client's customer. This research drives everything: messaging, agent personality, follow-up sequences, and funnel design.
+> You are helping an agency owner research and define the Ideal Customer Profile for their CLIENT's business. The ICP is the \`Business L4\` hero — the client's end-customer. This research drives everything: messaging, agent personality, follow-up sequences, and funnel design.
 
 ## When to Use This Framework
 
@@ -1450,7 +1456,7 @@ Generate these for the client's KB folder:
 
 export const FRAMEWORKS_MARKETING_MADE_SIMPLE = `# Marketing Made Simple Framework (Agent-Adapted)
 
-> You are helping an agency owner build a complete sales funnel for their CLIENT's business using the Marketing Made Simple framework. This creates the 5 essential marketing pieces every business needs. Apply at Layer 3: the client is the guide, their customer is the hero.
+> You are helping an agency owner build a complete sales funnel for their CLIENT's business using the Marketing Made Simple framework. This creates the 5 essential marketing pieces every business needs. Apply at \`Business L4\`: the client (\`Business L3\`) is the guide, their end-customer is the hero.
 
 ## When to Use This Framework
 
@@ -1634,7 +1640,7 @@ Generate these for the client's KB:
 
 export const FRAMEWORKS_MCKINSEY_CONSULTANT = `# McKinsey Strategy Frameworks (Agent-Adapted)
 
-> You are helping an agency owner think strategically about their CLIENT's market position, competitive landscape, and growth strategy. These frameworks bring consulting-level rigor to small business strategy. Apply at Layer 3: analyze the client's market through the lens of their customer (the hero).
+> You are helping an agency owner think strategically about their CLIENT's market position, competitive landscape, and growth strategy. These frameworks bring consulting-level rigor to small business strategy. Apply at \`Business L4\`: analyze the client's market through the lens of their end-customer (the hero).
 
 ## When to Use These Frameworks
 
@@ -1709,7 +1715,7 @@ Use when you need to differentiate the client from competitors.
 
 Use when clarifying what the client actually offers vs. what the hero actually needs.
 
-**Customer side (Layer 3 hero):**
+**Customer side (\`Business L4\` hero):**
 - Jobs to be done: What are they trying to accomplish?
 - Pains: What makes the job difficult?
 - Gains: What outcomes do they want?
@@ -1801,7 +1807,7 @@ Generate a strategic summary for the client's KB:
 
 export const FRAMEWORKS_PERFECT_WEBINAR = `# Perfect Webinar / Content Framework (Agent-Adapted)
 
-> You are helping an agency owner create a structured content sequence for their CLIENT's business that breaks false beliefs and moves the audience toward buying. Based on Russell Brunson's Perfect Webinar framework, adapted for video, written content, or multi-touch sequences. Apply at Layer 3: address the beliefs of the client's CUSTOMER (the hero).
+> You are helping an agency owner create a structured content sequence for their CLIENT's business that breaks false beliefs and moves the audience toward buying. Based on Russell Brunson's Perfect Webinar framework, adapted for video, written content, or multi-touch sequences. Apply at \`Business L4\`: address the beliefs of the client's end-customer (the hero).
 
 ## When to Use This Framework
 
@@ -1939,7 +1945,7 @@ If the agency owner doesn't know, reference the ICP research — these beliefs a
 
 export const FRAMEWORKS_STORYBRAND = `# StoryBrand Messaging Framework (Agent-Adapted)
 
-> You are helping an agency owner create a StoryBrand BrandScript for their CLIENT's business. Remember the three-layer model: the client is the GUIDE, the client's customer is the HERO. Always apply this framework at Layer 3.
+> You are helping an agency owner create a StoryBrand BrandScript for their CLIENT's business. Remember the canonical four-layer \`BusinessLayer\` model: the client operates at \`Business L3\` as the GUIDE, and the client's end-customer at \`Business L4\` is the HERO. Always apply this framework for \`Business L4\` conversations.
 
 ## When to Use This Framework
 
@@ -3550,9 +3556,9 @@ export const SKILLS_BOOKING_APPOINTMENT_SKILL = `# Skill: Booking & Appointment 
 
 ## 1. Purpose
 
-Deploy a complete online booking and appointment system for a service-based business. The agency (Layer 2) configures this skill on behalf of their client (Layer 3) -- a dentist, consultant, salon, therapist, coach, physiotherapist, or any provider that sells time-based services.
+Deploy a complete online booking and appointment system for a service-based business. The agency (\`Business L2\`) configures this skill on behalf of their client business (\`Business L3\`) -- a dentist, consultant, salon, therapist, coach, physiotherapist, or any provider that sells time-based services.
 
-**Outcome:** End customers (Layer 4) browse available services, select a time slot, fill an intake form, and book online. The system then:
+**Outcome:** End customers (\`Business L4\`) browse available services, select a time slot, fill an intake form, and book online. The system then:
 
 - Creates/updates a CRM contact automatically
 - Sends a confirmation email and optional SMS/WhatsApp
@@ -5426,7 +5432,7 @@ export const SKILLS_CLIENT_ONBOARDING_SKILL = `# Skill: Client Onboarding
 
 ## 1. Purpose
 
-This skill builds a complete client onboarding system with structured intake, project setup, milestone tracking, and automated communication. An agency deploys this skill to systematize how they onboard their own clients. The outcome: every new client goes through a consistent discovery process, receives a project with milestones and tasks, gets automated progress updates, and reaches launch faster. The three-layer relationship applies: L4YERCAK3 provides the platform infrastructure, the agency configures and deploys the onboarding system, and the agency's clients (the "end customers" in this context) are the ones being onboarded. When a new client signs, the intake questionnaire captures business info, goals, and challenges. An AI agent analyzes the responses. The CRM pipeline moves the client through stages from signed to retained. Automated sequences deliver welcome materials, reminders, progress updates, and check-ins. The project tracks milestones and tasks so nothing falls through the cracks.
+This skill builds a complete client onboarding system for an agency's client. The deployment creates a project with milestones and tasks that track every phase of onboarding, captures detailed client information through an intake questionnaire, automates welcome communications and internal team notifications, analyzes questionnaire responses with AI to generate discovery insights, and tracks onboarding progress through a dedicated CRM pipeline. The outcome is a structured, repeatable onboarding process where new clients move through defined stages from contract signing to launch, with automated touchpoints ensuring nothing falls through the cracks. The canonical four-layer \`BusinessLayer\` model applies: \`Business L1\` (platform) provides infrastructure, \`Business L2\` (agency) configures and deploys, and the onboarded client stakeholder here is the \`Business L3\` customer (this workflow usually does not target a separate \`Business L4\` audience).
 
 ---
 
@@ -5436,65 +5442,40 @@ This skill builds a complete client onboarding system with structured intake, pr
 
 | type | subtype | customProperties used |
 |------|---------|----------------------|
-| \`project\` | \`client_project\` | \`projectCode\`, \`description\`, \`status\` ("planning" initially), \`startDate\`, \`endDate\`, \`budget\`, \`milestones\` (Array of \`{ title, dueDate, assignedTo, status }\`), \`tasks\` (Array of \`{ title, description, status, priority, assignedTo, dueDate }\`), \`internalTeam\` (Array of \`{ userId, role }\`), \`clientTeam\` (Array of \`{ contactId, role }\`), \`publicPageConfig\` |
-| \`form\` | \`application\` | \`fields\` (array of field objects), \`formSettings\` (redirect URL, notifications, submission behavior), \`displayMode\`, \`conditionalLogic\`, \`submissionWorkflow\` |
-| \`crm_contact\` | \`customer\` | \`firstName\`, \`lastName\`, \`email\`, \`phone\`, \`companyName\`, \`contactType\`, \`tags\`, \`pipelineStageId\`, \`customFields\` |
-| \`crm_organization\` | \`customer\` | \`companyName\`, \`industry\`, \`employeeCount\`, \`customFields\`, \`addresses\` |
+| \`project\` | \`client_project\` | \`projectCode\`, \`description\`, \`status\`, \`startDate\`, \`endDate\`, \`budget\`, \`milestones\` (array of milestone objects with \`title\`, \`dueDate\`, \`assignedTo\`, \`status\`), \`tasks\` (array of task objects with \`title\`, \`description\`, \`status\`, \`priority\`, \`assignedTo\`, \`dueDate\`), \`internalTeam\` (array of \`{ userId, role }\`), \`clientTeam\` (array of \`{ contactId, role }\`), \`publicPageConfig\` |
+| \`crm_contact\` | \`customer\` | \`firstName\`, \`lastName\`, \`email\`, \`phone\`, \`companyName\`, \`contactType\`, \`tags\`, \`pipelineStageId\`, \`pipelineDealValue\`, \`customFields\` (business info, goals, brand assets metadata, target audience) |
+| \`form\` | \`application\` | \`fields\` (array of field objects for onboarding questionnaire), \`formSettings\` (redirect URL, notifications), \`submissionWorkflow\` |
 | \`layer_workflow\` | \`workflow\` | Full \`LayerWorkflowData\`: \`nodes\`, \`edges\`, \`metadata\`, \`triggers\` |
-| \`automation_sequence\` | \`lifecycle\` | Steps array with \`channel\`, \`timing\`, \`content\` -- onboarding drip |
-| \`builder_app\` | \`template_based\` | Intake questionnaire page, client portal page, welcome page files |
+| \`automation_sequence\` | \`nachher\` | Steps array with \`channel\`, \`timing\`, \`content\` -- welcome and milestone notification sequence |
+| \`automation_sequence\` | \`lifecycle\` | Steps array with \`channel\`, \`timing\`, \`content\` -- ongoing check-in sequence |
+| \`builder_app\` | \`template_based\` | Client welcome/portal page files |
 
 ### Object Links (\`objectLinks\` table)
 
 | linkType | sourceObjectId | targetObjectId |
 |----------|---------------|----------------|
-| \`project_contact\` | project (client onboarding) | crm_contact (client contact) |
-| \`workflow_form\` | workflow (intake processing) | form (intake questionnaire) |
-| \`workflow_sequence\` | workflow (intake processing) | sequence (onboarding drip) |
-
-### Project File System
-
-**Default folders:** \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\`
-
-**File kinds used:** \`folder\`, \`virtual\`, \`media_ref\`, \`builder_ref\`, \`layer_ref\`
+| \`workflow_form\` | workflow (intake processing) | form (onboarding questionnaire) |
+| \`workflow_sequence\` | workflow (intake processing) | sequence (welcome + milestone notifications) |
+| \`project_contact\` | project (client project) | CRM contact (client stakeholder) |
 
 ---
 
 ## 3. Builder Components
 
-### Client Intake Questionnaire Page
+### Client Welcome / Portal Page
 
-The Builder generates a single-page intake questionnaire (\`builder_app\`, subtype: \`template_based\`) with these sections:
+The Builder generates a client-facing welcome page (\`builder_app\`, subtype: \`template_based\`) with these sections:
 
-1. **Welcome Message** -- Warm greeting from the agency. Sets expectations for the onboarding process. Explains what happens after the questionnaire is submitted. Estimated time to complete (10-15 minutes).
-2. **Onboarding Form Embed** -- Embedded application form (see Form below). The form renders inline on the page.
-3. **Timeline Expectations** -- Visual timeline showing the onboarding phases: Discovery (week 1), Strategy (week 2), Setup (weeks 3-4), Launch (week 5-6), Optimization (ongoing). Sets clear expectations for deliverables and milestones.
+1. **Welcome Hero Section** -- Personalized greeting ("Welcome, [Client Name]!"), agency logo and branding, brief description of what to expect during onboarding.
+2. **Onboarding Timeline Section** -- Visual milestone timeline showing phases: Discovery, Setup, Launch Prep, Launch, Optimize. Each phase shows estimated dates and current status.
+3. **Questionnaire CTA Section** -- Prominent call-to-action to complete the onboarding questionnaire. Shows completion status if already submitted. Embedded form or link to standalone form page.
+4. **Team Introduction Section** -- Photos and roles of the internal team members assigned to the client project (account manager, designer, developer, strategist).
+5. **Resources Section** -- Links to brand asset upload portal, communication channels (Slack, email), meeting scheduler, and any relevant documentation or guides.
+6. **Footer** -- Agency contact information, support email, privacy policy link.
 
-**File:** \`/builder/intake-questionnaire-page/index.html\`
+**File:** \`/builder/client-portal/index.html\`
 
-### Client Portal / Project Page
-
-Displayed after onboarding begins. The client's central hub for their project:
-
-1. **Milestones Section** -- Visual progress tracker showing all project milestones with status indicators (pending, in progress, completed). Each milestone expands to show associated tasks.
-2. **Tasks Section** -- Active tasks assigned to the client (e.g., "Provide brand assets," "Review strategy document"). Tasks assigned to the agency team are visible but clearly labeled.
-3. **Progress Overview** -- Percentage complete, current phase, next milestone due date.
-4. **File Sharing** -- Shared assets, deliverables, contracts. Upload area for client to submit materials.
-5. **Communication** -- Recent updates, messages, and notifications related to the project.
-
-**File:** \`/builder/client-portal-page/index.html\`
-
-### Welcome Page
-
-Displayed immediately after the client completes the intake questionnaire:
-
-1. **Credentials Section** -- Login details for the client portal. Password reset link if applicable.
-2. **Getting Started Resources** -- Quick-start guide, FAQ, video walkthrough of the portal.
-3. **Team Introductions** -- Photos, names, and roles of the agency team members assigned to this client. Direct contact information for the primary point of contact.
-
-**File:** \`/builder/welcome-page/index.html\`
-
-### Intake Questionnaire Form
+### Onboarding Questionnaire Form
 
 **Object:** \`type: "form"\`, \`subtype: "application"\`
 
@@ -5502,36 +5483,54 @@ Displayed immediately after the client completes the intake questionnaire:
 
 \`\`\`json
 [
-  { "type": "section_header", "label": "Business Information" },
-  { "type": "text",     "label": "Company Name",         "required": true,  "placeholder": "Acme Corp" },
-  { "type": "text",     "label": "Your Full Name",       "required": true,  "placeholder": "Jane Smith" },
-  { "type": "email",    "label": "Email Address",        "required": true,  "placeholder": "jane@acme.com" },
-  { "type": "phone",    "label": "Phone Number",         "required": true,  "placeholder": "+1 (555) 000-0000" },
-  { "type": "text",     "label": "Website URL",          "required": false, "placeholder": "https://acme.com" },
-  { "type": "select",   "label": "Industry",             "required": true,  "options": ["E-commerce", "SaaS", "Professional Services", "Healthcare", "Real Estate", "Education", "Other"] },
-  { "type": "number",   "label": "Number of Employees",  "required": false, "placeholder": "10" },
-  { "type": "section_header", "label": "Goals & Challenges" },
-  { "type": "textarea", "label": "What are your top 3 business goals for the next 6 months?", "required": true, "placeholder": "1. Increase revenue by 20%\\n2. Launch new product line\\n3. Improve customer retention" },
-  { "type": "textarea", "label": "What are the biggest challenges you are currently facing?", "required": true, "placeholder": "Describe your main pain points..." },
-  { "type": "multi_select", "label": "Which marketing channels are you currently using?", "required": true, "options": ["Social Media", "Email Marketing", "SEO", "Paid Ads (Google)", "Paid Ads (Facebook/Instagram)", "Content Marketing", "Referrals", "Events", "None"] },
-  { "type": "section_header", "label": "Brand & Audience" },
-  { "type": "textarea", "label": "Describe your ideal customer in 2-3 sentences", "required": true, "placeholder": "Our ideal customer is..." },
-  { "type": "textarea", "label": "What makes your business different from competitors?", "required": true, "placeholder": "Our unique value is..." },
-  { "type": "file",     "label": "Upload your brand guidelines or logo (if available)", "required": false }
+  { "type": "section_header", "label": "Business Information", "required": false },
+  { "type": "text",     "label": "Business Name",          "required": true,  "placeholder": "Your business name" },
+  { "type": "text",     "label": "Business Address",       "required": true,  "placeholder": "123 Main St, City, State ZIP" },
+  { "type": "phone",    "label": "Business Phone",         "required": true,  "placeholder": "+1 (555) 000-0000" },
+  { "type": "email",    "label": "Primary Contact Email",  "required": true,  "placeholder": "owner@business.com" },
+  { "type": "text",     "label": "Website URL (if existing)", "required": false, "placeholder": "https://yourbusiness.com" },
+  { "type": "section_header", "label": "Brand Identity", "required": false },
+  { "type": "textarea", "label": "Brand Story / Mission Statement", "required": true, "placeholder": "Tell us about your brand, its history, and what you stand for..." },
+  { "type": "text",     "label": "Primary Brand Colors (hex codes)", "required": false, "placeholder": "#FF5733, #333333, #FFFFFF" },
+  { "type": "text",     "label": "Brand Fonts (if any)",   "required": false, "placeholder": "Montserrat, Open Sans" },
+  { "type": "select",   "label": "Do you have a logo and brand guidelines?", "required": true, "options": ["Yes, ready to share", "Yes, but needs updating", "No, I need branding help", "I have a logo but no formal guidelines"] },
+  { "type": "select",   "label": "Do you have professional photography?", "required": true, "options": ["Yes, high-quality photos available", "Some photos but need more", "No professional photos", "I can arrange a photoshoot"] },
+  { "type": "section_header", "label": "Goals and Objectives", "required": false },
+  { "type": "textarea", "label": "What are your top 3 business goals for the next 6 months?", "required": true, "placeholder": "1. Increase foot traffic by 30%\\n2. Build online presence\\n3. Launch delivery service" },
+  { "type": "select",   "label": "What is your primary marketing objective?", "required": true, "options": ["Increase brand awareness", "Generate leads / new customers", "Increase sales / revenue", "Improve customer retention", "Launch a new product or service", "Enter a new market"] },
+  { "type": "number",   "label": "Monthly marketing budget (USD)", "required": false, "placeholder": "2000" },
+  { "type": "section_header", "label": "Target Audience", "required": false },
+  { "type": "textarea", "label": "Describe your ideal customer", "required": true, "placeholder": "Age range, location, income level, interests, pain points..." },
+  { "type": "text",     "label": "Geographic target area",  "required": true,  "placeholder": "e.g., Within 15 miles of downtown Seattle" },
+  { "type": "multi_select", "label": "Where does your audience spend time online?", "required": false, "options": ["Instagram", "Facebook", "TikTok", "Google Search", "YouTube", "LinkedIn", "Yelp", "Local directories", "Email newsletters"] },
+  { "type": "section_header", "label": "Competitive Landscape", "required": false },
+  { "type": "textarea", "label": "Who are your top 3 competitors?", "required": true, "placeholder": "Competitor 1: Name, website, what they do well\\nCompetitor 2: ...\\nCompetitor 3: ..." },
+  { "type": "textarea", "label": "What makes you different from competitors?", "required": true, "placeholder": "Your unique selling proposition, specialties, awards, history..." },
+  { "type": "section_header", "label": "Current Marketing", "required": false },
+  { "type": "multi_select", "label": "Which marketing channels do you currently use?", "required": false, "options": ["Website", "Social media", "Email marketing", "Google Ads", "Facebook/Instagram Ads", "Print advertising", "Direct mail", "Referral program", "Events/sponsorships", "None"] },
+  { "type": "textarea", "label": "What has worked well in the past? What has not?", "required": false, "placeholder": "Share any marketing wins or lessons learned..." },
+  { "type": "section_header", "label": "Access and Credentials", "required": false },
+  { "type": "textarea", "label": "List any existing accounts we will need access to", "required": false, "placeholder": "Google Business Profile, Facebook Business Page, Instagram, website hosting, analytics, etc." },
+  { "type": "textarea", "label": "Anything else we should know?", "required": false, "placeholder": "Upcoming events, seasonal considerations, special requirements..." }
 ]
 \`\`\`
 
 **formSettings:**
-
 \`\`\`json
 {
-  "redirectUrl": "/welcome",
+  "redirectUrl": "/onboarding-thank-you",
   "notifications": { "adminEmail": true, "respondentEmail": true },
   "submissionBehavior": "redirect"
 }
 \`\`\`
 
-> **Customization note:** The "Industry" select field options and the goals/challenges textarea prompts MUST be adapted to the agency's specific niche. See Section 8.
+> **Customization note:** The fields above are designed for a marketing agency onboarding a business client. The section headers, field labels, and select options MUST be adapted to the agency's specific service offering. See Section 8.
+
+### Progress Dashboard Page (Optional)
+
+A secondary builder page that displays project milestones and task completion status. Useful for agencies that want to give clients visibility into project progress beyond the initial welcome page.
+
+**File:** \`/builder/progress-dashboard/index.html\`
 
 ---
 
@@ -5545,110 +5544,15 @@ Displayed immediately after the client completes the intake questionnaire:
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_form_submitted\` | "Intake Form Submitted" | \`{ "formId": "<INTAKE_FORM_ID>" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Update Client Contact" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": ["new_client", "intake_completed"], "customFields": { "companyName": "{{trigger.companyName}}", "industry": "{{trigger.industry}}", "goals": "{{trigger.topBusinessGoals}}", "challenges": "{{trigger.biggestChallenges}}", "idealCustomer": "{{trigger.idealCustomer}}", "differentiator": "{{trigger.whatMakesYourBusinessDifferent}}", "currentChannels": "{{trigger.marketingChannels}}", "websiteUrl": "{{trigger.websiteUrl}}", "employeeCount": "{{trigger.numberOfEmployees}}" } }\` | \`ready\` |
-| \`crm-2\` | \`lc_crm\` | "Move to Discovery" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "discovery" }\` | \`ready\` |
-| \`ai-1\` | \`lc_ai_agent\` | "Analyze Intake Responses" | \`{ "prompt": "Analyze this client's intake questionnaire responses. Summarize the following:\\n1. Business type and industry\\n2. Primary goals (ranked by urgency)\\n3. Key challenges and pain points\\n4. Current marketing channels and gaps\\n5. Target audience profile\\n6. Unique competitive advantages\\n\\nFlag any red flags or special requirements that the account team should address immediately. Provide a recommended priority order for the first 30 days of engagement.", "model": "default" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Send Welcome Pack" | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "Welcome to [Agency Name] - Here's What Happens Next", "body": "Hi {{crm-1.output.firstName}},\\n\\nWelcome aboard! We're excited to start working with you.\\n\\nHere's what to expect over the coming weeks:\\n\\n1. Discovery (This Week): We'll review your questionnaire responses and schedule a kickoff call.\\n2. Strategy (Week 2): We'll present our recommended strategy based on your goals.\\n3. Setup (Weeks 3-4): We'll build and configure everything.\\n4. Launch (Weeks 5-6): Go live with review and final adjustments.\\n\\nYour client portal is ready: [PORTAL_LINK]\\nLogin credentials: [CREDENTIALS]\\n\\nYour dedicated team:\\n- Account Manager: [AM_NAME] ([AM_EMAIL])\\n- Project Lead: [PL_NAME] ([PL_EMAIL])\\n\\nIf you have any questions, reply to this email or reach out to your Account Manager directly.\\n\\nLooking forward to achieving great things together,\\n[Agency Name] Team" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Notify Admin: New Intake" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "New Client Intake: {{crm-1.output.firstName}} {{crm-1.output.lastName}} - {{crm-1.output.customFields.companyName}}", "body": "A new client has completed the onboarding intake questionnaire.\\n\\nClient: {{crm-1.output.firstName}} {{crm-1.output.lastName}}\\nCompany: {{crm-1.output.customFields.companyName}}\\nIndustry: {{crm-1.output.customFields.industry}}\\nEmail: {{crm-1.output.email}}\\nPhone: {{crm-1.output.phone}}\\n\\nAI Analysis Summary:\\n{{ai-1.output.result}}\\n\\nAction Required:\\n1. Review AI analysis and flag any concerns\\n2. Schedule kickoff call within 48 hours\\n3. Assign internal team members to the project\\n\\nView in CRM: [CRM_LINK]" }\` | \`ready\` |
-| \`ac-1\` | \`activecampaign\` | "Sync to ActiveCampaign" | \`{ "action": "add_contact", "email": "{{crm-1.output.email}}", "firstName": "{{crm-1.output.firstName}}", "lastName": "{{crm-1.output.lastName}}" }\` | \`ready\` |
-| \`ac-2\` | \`activecampaign\` | "Tag: Onboarding" | \`{ "action": "add_tag", "contactEmail": "{{crm-1.output.email}}", "tag": "onboarding" }\` | \`ready\` |
-| \`ac-3\` | \`activecampaign\` | "Add to Onboarding Automation" | \`{ "action": "add_to_automation", "contactEmail": "{{crm-1.output.email}}", "automationId": "<AC_CLIENT_ONBOARDING_AUTOMATION_ID>" }\` | \`ready\` |
-
-**Edges:**
-
-| id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|-------------|-------------|
-| \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
-| \`e-3\` | \`crm-1\` | \`ai-1\` | \`output\` | \`input\` |
-| \`e-4\` | \`ai-1\` | \`email-1\` | \`output\` | \`input\` |
-| \`e-5\` | \`ai-1\` | \`email-2\` | \`output\` | \`input\` |
-| \`e-6\` | \`crm-1\` | \`ac-1\` | \`output\` | \`input\` |
-| \`e-7\` | \`ac-1\` | \`ac-2\` | \`output\` | \`input\` |
-| \`e-8\` | \`ac-2\` | \`ac-3\` | \`output\` | \`input\` |
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`crm-1\` | 350 | 300 |
-| \`crm-2\` | 600 | 500 |
-| \`ai-1\` | 600 | 300 |
-| \`email-1\` | 850 | 200 |
-| \`email-2\` | 850 | 400 |
-| \`ac-1\` | 600 | 100 |
-| \`ac-2\` | 850 | 100 |
-| \`ac-3\` | 1100 | 100 |
-
-**Mutations to execute:**
-
-1. \`createWorkflow({ sessionId, name: "Client Intake Processing", description: "Processes intake form submissions, updates CRM, runs AI analysis, sends welcome pack, notifies admin, syncs to ActiveCampaign" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Client Intake Processing", nodes: [...], edges: [...], triggers: [{ type: "trigger_form_submitted", config: { formId: "<INTAKE_FORM_ID>" } }] })\`
-3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
-
----
-
-### Workflow 2: Questionnaire Reminder (Required)
-
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Intake Questionnaire Reminder"\`
-
-**Trigger:** \`trigger_schedule\`
-
-**Nodes:**
-
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_schedule\` | "Daily 10am Check" | \`{ "cronExpression": "0 10 * * *", "timezone": "America/New_York" }\` | \`ready\` |
-| \`code-1\` | \`code_block\` | "Find Overdue Contacts" | \`{ "code": "// Query contacts in 'signed' pipeline stage who have been there for >2 days without a form submission.\\nconst contacts = await ctx.query('objects', { type: 'crm_contact', 'customProperties.pipelineStageId': 'signed' });\\nconst twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);\\nconst overdue = contacts.filter(c => c.createdAt < twoDaysAgo && !c.customProperties.tags?.includes('intake_completed'));\\nreturn { contacts: overdue };" }\` | \`ready\` |
-| \`loop-1\` | \`loop_iterator\` | "Each Overdue Contact" | \`{ "arrayField": "contacts", "maxIterations": 50 }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Reminder Email" | \`{ "action": "send-confirmation-email", "to": "{{loop-1.each_item.customProperties.email}}", "subject": "Don't forget to complete your onboarding questionnaire", "body": "Hi {{loop-1.each_item.customProperties.firstName}},\\n\\nWe noticed you haven't completed your onboarding questionnaire yet. This is the first step to getting started, and it only takes about 10-15 minutes.\\n\\nComplete your questionnaire here: [INTAKE_FORM_LINK]\\n\\nOnce we receive your responses, we'll:\\n1. Review your business goals and challenges\\n2. Schedule your kickoff call\\n3. Begin building your custom strategy\\n\\nIf you have any questions or need help, just reply to this email.\\n\\nBest,\\n[Agency Name] Team" }\` | \`ready\` |
-| \`sms-1\` | \`lc_sms\` | "Reminder SMS" | \`{ "to": "{{loop-1.each_item.customProperties.phone}}", "body": "Hi {{loop-1.each_item.customProperties.firstName}}, just a friendly reminder to complete your onboarding questionnaire so we can get started: [INTAKE_FORM_LINK]" }\` | \`ready\` |
-
-**Edges:**
-
-| id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|-------------|-------------|
-| \`e-1\` | \`trigger-1\` | \`code-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`code-1\` | \`loop-1\` | \`output\` | \`input\` |
-| \`e-3\` | \`loop-1\` | \`email-1\` | \`each_item\` | \`input\` |
-| \`e-4\` | \`email-1\` | \`sms-1\` | \`output\` | \`input\` |
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 200 |
-| \`code-1\` | 350 | 200 |
-| \`loop-1\` | 600 | 200 |
-| \`email-1\` | 850 | 200 |
-| \`sms-1\` | 1100 | 200 |
-
-**Mutations to execute:**
-
-1. \`createWorkflow({ sessionId, name: "Intake Questionnaire Reminder", description: "Daily check for clients who signed but have not completed the intake questionnaire after 2 days" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Intake Questionnaire Reminder", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 10 * * *", timezone: "America/New_York" } }] })\`
-3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
-
----
-
-### Workflow 3: Milestone Completion (Required)
-
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Milestone Completion Handler"\`
-
-**Trigger:** \`trigger_webhook\`
-
-**Nodes:**
-
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_webhook\` | "Milestone Completed Webhook" | \`{ "path": "/milestone-complete", "secret": "<WEBHOOK_SECRET>" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Advance Pipeline Stage" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "{{trigger.nextPipelineStage}}" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Client: Milestone Complete" | \`{ "action": "send-confirmation-email", "to": "{{trigger.clientEmail}}", "subject": "Milestone Complete: {{trigger.milestoneTitle}}", "body": "Hi {{trigger.clientFirstName}},\\n\\nGreat news -- we've completed the \\"{{trigger.milestoneTitle}}\\" milestone!\\n\\nHere's a summary of what was accomplished:\\n{{trigger.milestoneSummary}}\\n\\nNext up: {{trigger.nextMilestoneTitle}}\\nExpected completion: {{trigger.nextMilestoneDueDate}}\\n\\nYou can view your full project progress in your client portal: [PORTAL_LINK]\\n\\nIf you have any questions about what's coming next, don't hesitate to reach out.\\n\\nOnward,\\n[Agency Name] Team" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Admin: Next Milestone" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "Milestone Completed for {{trigger.clientFirstName}} {{trigger.clientLastName}}: {{trigger.milestoneTitle}}", "body": "Client: {{trigger.clientFirstName}} {{trigger.clientLastName}} ({{trigger.companyName}})\\nCompleted Milestone: {{trigger.milestoneTitle}}\\nNew Pipeline Stage: {{trigger.nextPipelineStage}}\\n\\nNext Milestone: {{trigger.nextMilestoneTitle}}\\nDue Date: {{trigger.nextMilestoneDueDate}}\\n\\nAction Required:\\n1. Review milestone deliverables\\n2. Update task assignments for next milestone\\n3. Confirm timeline with client if needed" }\` | \`ready\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_form_submitted\` | "Questionnaire Submitted" | \`{ "formId": "<QUESTIONNAIRE_FORM_ID>" }\` | \`ready\` | \`{ "x": 100, "y": 250 }\` |
+| \`crm-1\` | \`lc_crm\` | "Update Client Contact" | \`{ "action": "update-contact", "contactId": "{{trigger.metadata.contactId}}", "tags": ["onboarding_active", "questionnaire_completed"], "customFields": { "businessName": "{{trigger.businessName}}", "businessAddress": "{{trigger.businessAddress}}", "businessPhone": "{{trigger.businessPhone}}", "website": "{{trigger.websiteUrl}}", "brandStory": "{{trigger.brandStoryMissionStatement}}", "brandColors": "{{trigger.primaryBrandColors}}", "hasLogo": "{{trigger.doYouHaveALogoAndBrandGuidelines}}", "hasPhotography": "{{trigger.doYouHaveProfessionalPhotography}}", "goals": "{{trigger.whatAreYourTop3BusinessGoals}}", "primaryObjective": "{{trigger.whatIsYourPrimaryMarketingObjective}}", "monthlyBudget": "{{trigger.monthlyMarketingBudget}}", "idealCustomer": "{{trigger.describeYourIdealCustomer}}", "geoTarget": "{{trigger.geographicTargetArea}}", "onlineChannels": "{{trigger.whereDoesYourAudienceSpendTimeOnline}}", "competitors": "{{trigger.whoAreYourTop3Competitors}}", "differentiator": "{{trigger.whatMakesYouDifferentFromCompetitors}}", "currentChannels": "{{trigger.whichMarketingChannelsDoYouCurrentlyUse}}", "pastResults": "{{trigger.whatHasWorkedWellInThePast}}", "existingAccounts": "{{trigger.listAnyExistingAccountsWeWillNeedAccessTo}}", "additionalNotes": "{{trigger.anythingElseWeShouldKnow}}" } }\` | \`ready\` | \`{ "x": 350, "y": 250 }\` |
+| \`email-1\` | \`lc_email\` | "Send Welcome Pack" | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "Welcome aboard! Here's your onboarding roadmap", "body": "Hi {{crm-1.output.firstName}},\\n\\nThank you for completing the onboarding questionnaire. We are excited to get started on your project.\\n\\nHere is what happens next:\\n\\n1. Our team will review your questionnaire responses within 24 hours\\n2. Your account manager will schedule a discovery call to discuss your goals in detail\\n3. We will prepare a customized strategy based on your input\\n\\nIn the meantime, you can access your client portal here: [PORTAL_LINK]\\n\\nYour dedicated team:\\n- Account Manager: [AM_NAME] ([AM_EMAIL])\\n- Project Lead: [PL_NAME] ([PL_EMAIL])\\n\\nIf you have any questions, reply to this email or reach out to your account manager directly.\\n\\nWelcome to the team,\\n[AGENCY_NAME]" }\` | \`ready\` | \`{ "x": 600, "y": 100 }\` |
+| \`ai-1\` | \`lc_ai_agent\` | "Analyze Questionnaire" | \`{ "prompt": "Analyze the following client onboarding questionnaire responses and produce a structured discovery brief. Include: 1) Business summary (2-3 sentences), 2) Key goals ranked by priority, 3) Target audience profile, 4) Competitive positioning opportunities, 5) Recommended marketing channels based on audience and budget, 6) Potential challenges or risks, 7) Suggested quick wins for the first 30 days. Client responses: {{crm-1.output.customFields}}", "model": "claude-sonnet" }\` | \`ready\` | \`{ "x": 600, "y": 250 }\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Discovery" | \`{ "action": "move-pipeline-stage", "contactId": "{{crm-1.output.contactId}}", "pipelineStageId": "discovery" }\` | \`ready\` | \`{ "x": 850, "y": 250 }\` |
+| \`ac-1\` | \`activecampaign\` | "Tag Onboarding Active" | \`{ "action": "add_tag", "contactEmail": "{{crm-1.output.email}}", "tag": "onboarding_active" }\` | \`ready\` | \`{ "x": 850, "y": 400 }\` |
+| \`email-2\` | \`lc_email\` | "Notify Team: New Questionnaire" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "New Client Questionnaire: {{crm-1.output.customFields.businessName}}", "body": "A new client has completed their onboarding questionnaire.\\n\\nClient: {{crm-1.output.firstName}} {{crm-1.output.lastName}}\\nBusiness: {{crm-1.output.customFields.businessName}}\\nPrimary Goal: {{crm-1.output.customFields.primaryObjective}}\\nMonthly Budget: \${{crm-1.output.customFields.monthlyBudget}}\\n\\nAI Discovery Brief:\\n{{ai-1.output.result}}\\n\\nFull questionnaire responses are available in the CRM contact record.\\n\\nNext step: Schedule discovery call within 24 hours." }\` | \`ready\` | \`{ "x": 1100, "y": 250 }\` |
 
 **Edges:**
 
@@ -5656,131 +5560,152 @@ Displayed immediately after the client completes the intake questionnaire:
 |----|--------|--------|-------------|-------------|
 | \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
 | \`e-2\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
-| \`e-3\` | \`crm-1\` | \`email-2\` | \`output\` | \`input\` |
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 200 |
-| \`crm-1\` | 350 | 200 |
-| \`email-1\` | 600 | 100 |
-| \`email-2\` | 600 | 300 |
+| \`e-3\` | \`crm-1\` | \`ai-1\` | \`output\` | \`input\` |
+| \`e-4\` | \`ai-1\` | \`crm-2\` | \`output\` | \`input\` |
+| \`e-5\` | \`crm-1\` | \`ac-1\` | \`output\` | \`input\` |
+| \`e-6\` | \`ai-1\` | \`email-2\` | \`output\` | \`input\` |
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Milestone Completion Handler", description: "Handles milestone completions: advances pipeline stage, notifies client and admin" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Milestone Completion Handler", nodes: [...], edges: [...], triggers: [{ type: "trigger_webhook", config: { path: "/milestone-complete", secret: "<WEBHOOK_SECRET>" } }] })\`
+1. \`createWorkflow({ sessionId, name: "Client Intake Processing", description: "Processes onboarding questionnaire submissions, updates CRM, analyzes responses with AI, moves pipeline to discovery, notifies team" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Client Intake Processing", nodes: [...], edges: [...], triggers: [{ type: "trigger_form_submitted", config: { formId: "<QUESTIONNAIRE_FORM_ID>" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 4: Launch Notification (Required)
+### Workflow 2: Milestone Tracking (Required)
 
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Client Launch Notification"\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Onboarding Milestone Tracker"\`
 
-**Trigger:** \`trigger_contact_updated\`
+**Trigger:** \`trigger_webhook\`
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_contact_updated\` | "Contact Updated" | \`{}\` | \`ready\` |
-| \`if-1\` | \`if_then\` | "Is Pipeline = Launched?" | \`{ "expression": "{{trigger.contact.customProperties.pipelineStageId}} === 'launched'" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Client: You're Live!" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.customProperties.email}}", "subject": "You're Live! Your launch is complete", "body": "Hi {{trigger.contact.customProperties.firstName}},\\n\\nThe moment we've been working toward is here -- you're officially live!\\n\\nHere's what's now active:\\n{{trigger.launchSummary}}\\n\\nWhat happens next:\\n- We'll monitor performance closely over the first 2 weeks\\n- You'll receive a performance report at the end of week 1\\n- We'll schedule a 30-day review call to discuss results and next steps\\n\\nIf you notice anything that needs immediate attention, reach out to your Account Manager: [AM_EMAIL]\\n\\nCongratulations on this milestone!\\n\\n[Agency Name] Team" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Admin: Client Launched" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "Client Launched: {{trigger.contact.customProperties.firstName}} {{trigger.contact.customProperties.lastName}} - {{trigger.contact.customProperties.companyName}}", "body": "Client {{trigger.contact.customProperties.firstName}} {{trigger.contact.customProperties.lastName}} ({{trigger.contact.customProperties.companyName}}) has been moved to the 'launched' pipeline stage.\\n\\nAction Required:\\n1. Verify all deliverables are live and functioning\\n2. Set up performance monitoring\\n3. Schedule 30-day review call\\n4. Transition from onboarding to ongoing account management" }\` | \`ready\` |
-| \`ac-1\` | \`activecampaign\` | "Tag: Launched" | \`{ "action": "add_tag", "contactEmail": "{{trigger.contact.customProperties.email}}", "tag": "launched" }\` | \`ready\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_webhook\` | "Milestone Completed" | \`{ "path": "/webhooks/milestone-complete", "secret": "<WEBHOOK_SECRET>" }\` | \`ready\` | \`{ "x": 100, "y": 250 }\` |
+| \`if-1\` | \`if_then\` | "Check Milestone Type" | \`{ "expression": "{{trigger.milestoneTitle}} === 'Discovery'" }\` | \`ready\` | \`{ "x": 350, "y": 150 }\` |
+| \`crm-1\` | \`lc_crm\` | "Move to Setup" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "setup" }\` | \`ready\` | \`{ "x": 600, "y": 50 }\` |
+| \`if-2\` | \`if_then\` | "Is Setup Complete?" | \`{ "expression": "{{trigger.milestoneTitle}} === 'Setup'" }\` | \`ready\` | \`{ "x": 600, "y": 200 }\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Launch Prep" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launch_prep" }\` | \`ready\` | \`{ "x": 850, "y": 150 }\` |
+| \`if-3\` | \`if_then\` | "Is Launch Prep Complete?" | \`{ "expression": "{{trigger.milestoneTitle}} === 'Launch Prep'" }\` | \`ready\` | \`{ "x": 850, "y": 300 }\` |
+| \`crm-3\` | \`lc_crm\` | "Move to Launched" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launched" }\` | \`ready\` | \`{ "x": 1100, "y": 250 }\` |
+| \`email-1\` | \`lc_email\` | "Client: Milestone Complete" | \`{ "action": "send-confirmation-email", "to": "{{trigger.clientEmail}}", "subject": "Milestone Complete: {{trigger.milestoneTitle}}", "body": "Hi {{trigger.clientFirstName}},\\n\\nGreat news! We have completed the {{trigger.milestoneTitle}} phase of your project.\\n\\nHere is a summary of what was accomplished:\\n{{trigger.milestoneSummary}}\\n\\nNext up: {{trigger.nextMilestoneTitle}} (target date: {{trigger.nextMilestoneDueDate}})\\n\\nYou can view your full project timeline on your client portal: [PORTAL_LINK]\\n\\nIf you have any questions, reach out to your account manager.\\n\\nOnward,\\n[AGENCY_NAME]" }\` | \`ready\` | \`{ "x": 1100, "y": 450 }\` |
+| \`email-2\` | \`lc_email\` | "Team: Milestone Complete" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "Milestone Complete: {{trigger.milestoneTitle}} - {{trigger.clientBusinessName}}", "body": "Milestone completed for {{trigger.clientBusinessName}}.\\n\\nCompleted: {{trigger.milestoneTitle}}\\nNext Phase: {{trigger.nextMilestoneTitle}}\\nDue Date: {{trigger.nextMilestoneDueDate}}\\nAssigned To: {{trigger.nextMilestoneAssignedTo}}\\n\\nPipeline has been updated automatically." }\` | \`ready\` | \`{ "x": 1350, "y": 250 }\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
 |----|--------|--------|-------------|-------------|
 | \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`if-1\` | \`email-1\` | \`true\` | \`input\` |
-| \`e-3\` | \`email-1\` | \`email-2\` | \`output\` | \`input\` |
-| \`e-4\` | \`email-2\` | \`ac-1\` | \`output\` | \`input\` |
-
-> Note: The \`false\` handle of \`if-1\` has no connection -- contacts moved to any other pipeline stage are ignored by this workflow.
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 200 |
-| \`if-1\` | 350 | 200 |
-| \`email-1\` | 600 | 200 |
-| \`email-2\` | 850 | 200 |
-| \`ac-1\` | 1100 | 200 |
+| \`e-2\` | \`if-1\` | \`crm-1\` | \`true\` | \`input\` |
+| \`e-3\` | \`if-1\` | \`if-2\` | \`false\` | \`input\` |
+| \`e-4\` | \`if-2\` | \`crm-2\` | \`true\` | \`input\` |
+| \`e-5\` | \`if-2\` | \`if-3\` | \`false\` | \`input\` |
+| \`e-6\` | \`if-3\` | \`crm-3\` | \`true\` | \`input\` |
+| \`e-7\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-8\` | \`crm-2\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-9\` | \`crm-3\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-10\` | \`email-1\` | \`email-2\` | \`output\` | \`input\` |
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Client Launch Notification", description: "Detects when a contact moves to launched stage, sends launch emails, tags in ActiveCampaign" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Client Launch Notification", nodes: [...], edges: [...], triggers: [{ type: "trigger_contact_updated", config: {} }] })\`
+1. \`createWorkflow({ sessionId, name: "Onboarding Milestone Tracker", description: "Tracks milestone completions, moves pipeline stages, notifies client and internal team" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Onboarding Milestone Tracker", nodes: [...], edges: [...], triggers: [{ type: "trigger_webhook", config: { path: "/webhooks/milestone-complete", secret: "<WEBHOOK_SECRET>" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 5: 30-Day Check-In (Required)
+### Workflow 3: Questionnaire Reminder (Optional)
 
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "30-Day Check-In"\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Onboarding Questionnaire Reminder"\`
 
-**Trigger:** \`trigger_contact_updated\`
+**Trigger:** \`trigger_schedule\`
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_contact_updated\` | "Contact Updated" | \`{}\` | \`ready\` |
-| \`if-1\` | \`if_then\` | "Is Pipeline = Launched?" | \`{ "expression": "{{trigger.contact.customProperties.pipelineStageId}} === 'launched'" }\` | \`ready\` |
-| \`wait-1\` | \`wait_delay\` | "Wait 30 Days" | \`{ "duration": 30, "unit": "days" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "30-Day Check-In Email" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.customProperties.email}}", "subject": "How's everything going? Your 30-day check-in", "body": "Hi {{trigger.contact.customProperties.firstName}},\\n\\nIt's been 30 days since we launched, and I wanted to check in.\\n\\nA few things I'd love to hear about:\\n- How are things going overall?\\n- Are you seeing the results you expected?\\n- Is there anything that needs adjustment?\\n- What questions have come up?\\n\\nI'd like to schedule a quick 30-minute review call to go over your results and discuss opportunities for optimization.\\n\\nBook your review call here: [BOOKING_LINK]\\n\\nOr just reply to this email with your thoughts.\\n\\nBest,\\n[Account Manager Name]\\n[Agency Name]" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Move to Optimizing" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contact._id}}", "pipelineStageId": "optimizing" }\` | \`ready\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_schedule\` | "Check Questionnaire Status" | \`{ "cronExpression": "0 9 * * *", "timezone": "<CLIENT_TIMEZONE>" }\` | \`ready\` | \`{ "x": 100, "y": 200 }\` |
+| \`crm-1\` | \`lc_crm\` | "Check Contact Tags" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": [] }\` | \`ready\` | \`{ "x": 350, "y": 200 }\` |
+| \`if-1\` | \`if_then\` | "Questionnaire Completed?" | \`{ "expression": "{{crm-1.output.tags}}.includes('questionnaire_completed')" }\` | \`ready\` | \`{ "x": 600, "y": 200 }\` |
+| \`email-1\` | \`lc_email\` | "Send Reminder" | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "Quick reminder: Your onboarding questionnaire", "body": "Hi {{crm-1.output.firstName}},\\n\\nWe noticed you have not yet completed the onboarding questionnaire. This helps us understand your business and build the best strategy for you.\\n\\nIt takes about 15-20 minutes to complete: [QUESTIONNAIRE_LINK]\\n\\nThe sooner we receive your responses, the sooner we can kick off the discovery phase and start delivering results.\\n\\nIf you have any questions about the form, just reply to this email.\\n\\nBest,\\n[ACCOUNT_MANAGER_NAME]\\n[AGENCY_NAME]" }\` | \`ready\` | \`{ "x": 850, "y": 300 }\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
 |----|--------|--------|-------------|-------------|
-| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`if-1\` | \`wait-1\` | \`true\` | \`input\` |
-| \`e-3\` | \`wait-1\` | \`email-1\` | \`output\` | \`input\` |
-| \`e-4\` | \`email-1\` | \`crm-1\` | \`output\` | \`input\` |
+| \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`crm-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-3\` | \`if-1\` | \`email-1\` | \`false\` | \`input\` |
 
-> Note: The \`false\` handle of \`if-1\` has no connection -- only contacts in the "launched" stage enter the 30-day wait.
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 200 |
-| \`if-1\` | 350 | 200 |
-| \`wait-1\` | 600 | 200 |
-| \`email-1\` | 850 | 200 |
-| \`crm-1\` | 1100 | 200 |
+> Note: The \`true\` handle of \`if-1\` has no connection -- contacts who have already completed the questionnaire are not sent a reminder. The flow ends silently.
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "30-Day Check-In", description: "Waits 30 days after a client is launched, sends check-in email, moves pipeline to optimizing" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "30-Day Check-In", nodes: [...], edges: [...], triggers: [{ type: "trigger_contact_updated", config: {} }] })\`
+1. \`createWorkflow({ sessionId, name: "Onboarding Questionnaire Reminder", description: "Daily check for incomplete onboarding questionnaires, sends reminder emails" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Onboarding Questionnaire Reminder", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 * * *", timezone: "<CLIENT_TIMEZONE>" } }] })\`
+3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
+
+---
+
+### Workflow 4: Onboarding Completion (Required)
+
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Client Onboarding Completion"\`
+
+**Trigger:** \`trigger_manual\`
+
+**Nodes:**
+
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_manual\` | "All Milestones Done" | \`{ "sampleData": { "contactId": "sample_contact_id", "projectId": "sample_project_id", "clientEmail": "client@example.com", "clientFirstName": "Jane", "businessName": "Sample Business" } }\` | \`ready\` | \`{ "x": 100, "y": 250 }\` |
+| \`crm-1\` | \`lc_crm\` | "Move to Launched" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launched" }\` | \`ready\` | \`{ "x": 350, "y": 250 }\` |
+| \`email-1\` | \`lc_email\` | "Launch Announcement" | \`{ "action": "send-confirmation-email", "to": "{{trigger.clientEmail}}", "subject": "You are officially launched! Here is what comes next", "body": "Hi {{trigger.clientFirstName}},\\n\\nCongratulations! Your onboarding is complete and everything is now live.\\n\\nHere is a summary of what we built together:\\n\\n- Website: [WEBSITE_URL]\\n- Social profiles: [SOCIAL_LINKS]\\n- Google Business Profile: [GBP_LINK]\\n- Review management system: Active\\n- Content calendar: Loaded for the next 30 days\\n\\nWhat happens now:\\n1. We will monitor performance daily and send you weekly reports\\n2. Your first performance review call is scheduled for [DATE]\\n3. Our team continues managing your campaigns and content\\n\\nYou can always check your project status on your client portal: [PORTAL_LINK]\\n\\nThank you for trusting us with your marketing. We are excited to watch your business grow.\\n\\nCheers,\\n[AGENCY_NAME]" }\` | \`ready\` | \`{ "x": 600, "y": 150 }\` |
+| \`ac-1\` | \`activecampaign\` | "Remove Onboarding Tag" | \`{ "action": "add_tag", "contactEmail": "{{trigger.clientEmail}}", "tag": "onboarding_complete" }\` | \`ready\` | \`{ "x": 600, "y": 350 }\` |
+| \`ac-2\` | \`activecampaign\` | "Tag Active Client" | \`{ "action": "add_tag", "contactEmail": "{{trigger.clientEmail}}", "tag": "active_client" }\` | \`ready\` | \`{ "x": 850, "y": 350 }\` |
+| \`email-2\` | \`lc_email\` | "Notify Team: Client Launched" | \`{ "action": "send-admin-notification", "to": "<ADMIN_EMAIL>", "subject": "Client Launched: {{trigger.businessName}}", "body": "{{trigger.businessName}} has completed onboarding and is now live.\\n\\nClient: {{trigger.clientFirstName}}\\nBusiness: {{trigger.businessName}}\\nPipeline Stage: Launched\\n\\nOnboarding tags updated:\\n- Removed: onboarding_active\\n- Added: active_client, onboarding_complete\\n\\nThis client is now in the optimization phase. Ensure weekly reports are scheduled and the first performance review call is booked." }\` | \`ready\` | \`{ "x": 850, "y": 150 }\` |
+
+**Edges:**
+
+| id | source | target | sourceHandle | targetHandle |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-3\` | \`crm-1\` | \`ac-1\` | \`output\` | \`input\` |
+| \`e-4\` | \`ac-1\` | \`ac-2\` | \`output\` | \`input\` |
+| \`e-5\` | \`email-1\` | \`email-2\` | \`output\` | \`input\` |
+
+**Mutations to execute:**
+
+1. \`createWorkflow({ sessionId, name: "Client Onboarding Completion", description: "Marks client as launched, sends launch announcement, updates tags, notifies internal team" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Client Onboarding Completion", nodes: [...], edges: [...], triggers: [{ type: "trigger_manual", config: { sampleData: { contactId: "sample_contact_id", projectId: "sample_project_id" } } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
 ## 5. CRM Pipeline Definition
 
-### Pipeline Name: "Client Onboarding"
+### Pipeline Name: "Client Onboarding Pipeline"
 
 | Stage ID | Stage Name | Description | Automation Trigger |
 |----------|-----------|-------------|-------------------|
-| \`signed\` | Signed | Client has signed the agreement. Intake questionnaire link sent. Awaiting form submission. | Manual -- set when contract is signed. Questionnaire Reminder workflow (Workflow 2) monitors contacts stuck here. |
-| \`intake_sent\` | Intake Sent | Intake questionnaire has been sent to the client. Waiting for completion. | Set when questionnaire link is delivered. Workflow 2 sends reminders after 2 days. |
-| \`discovery\` | Discovery | Client completed the intake questionnaire. AI analysis generated. Kickoff call being scheduled. | Auto-set by Workflow 1 (\`crm-2\` node) when intake form is submitted. |
-| \`strategy\` | Strategy | Discovery complete. Agency is developing the strategy and presenting it to the client. | Manual move after kickoff call. Milestone Completion webhook (Workflow 3) can trigger this. |
-| \`setup\` | Setup | Strategy approved. Agency is building and configuring deliverables. | Auto-set by Workflow 3 when "Strategy" milestone is completed with \`nextPipelineStage: "setup"\`. |
-| \`review\` | Review | Setup complete. Client is reviewing deliverables before launch. | Auto-set by Workflow 3 when "Setup" milestone is completed with \`nextPipelineStage: "review"\`. |
-| \`launch_prep\` | Launch Prep | Client approved deliverables. Final launch preparations underway. | Auto-set by Workflow 3 when "Review" milestone is completed with \`nextPipelineStage: "launch_prep"\`. |
-| \`launched\` | Launched | Everything is live. Client is in active operation. Monitoring period begins. | Auto-set by Workflow 3 when "Launch" milestone is completed. Triggers Workflow 4 (launch notification) and Workflow 5 (30-day check-in). |
-| \`optimizing\` | Optimizing | 30-day review completed. Ongoing optimization and account management. | Auto-set by Workflow 5 (\`crm-1\` node) after the 30-day check-in email. |
-| \`retained\` | Retained | Client has renewed or expanded their engagement. Long-term relationship. | Manual move after renewal discussion. |
+| \`signed\` | Signed | Contract signed, client officially engaged. Onboarding begins. | Manual move after contract execution |
+| \`discovery\` | Discovery | Questionnaire completed, AI analysis generated, discovery call scheduled. | Auto-set by Workflow 1 (\`crm-2\` node) after questionnaire submission |
+| \`setup\` | Setup | Active build phase: website, profiles, systems being configured. | Auto-set by Workflow 2 (\`crm-1\` node) when Discovery milestone completes |
+| \`launch_prep\` | Launch Prep | Final review, content loaded, testing and QA in progress. | Auto-set by Workflow 2 (\`crm-2\` node) when Setup milestone completes |
+| \`launched\` | Launched | All deliverables live. Client is operational. | Auto-set by Workflow 2 (\`crm-3\` node) or Workflow 4 (\`crm-1\` node) |
+| \`optimizing\` | Optimizing | Ongoing management phase: monitoring, reporting, iterating. | Manual move after first performance review, typically 2-4 weeks post-launch |
+
+### Stage Transitions
+
+\`\`\`
+signed -> discovery           (questionnaire submitted, Workflow 1)
+discovery -> setup            (discovery milestone completed, Workflow 2)
+setup -> launch_prep          (setup milestone completed, Workflow 2)
+launch_prep -> launched       (launch prep milestone completed, Workflow 2 / Workflow 4)
+launched -> optimizing        (manual, after first performance review)
+\`\`\`
 
 ---
 
@@ -5792,234 +5717,162 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 \`\`\`
 /
-+-- builder/
-|   +-- intake-questionnaire-page/   (kind: builder_ref -> builder_app for intake questionnaire)
-|   +-- client-portal-page/          (kind: builder_ref -> builder_app for client portal)
-|   +-- welcome-page/                (kind: builder_ref -> builder_app for welcome page)
-+-- layers/
-|   +-- intake-processing-workflow    (kind: layer_ref -> layer_workflow "Client Intake Processing")
-|   +-- questionnaire-reminder-workflow (kind: layer_ref -> layer_workflow "Intake Questionnaire Reminder")
-|   +-- milestone-completion-workflow (kind: layer_ref -> layer_workflow "Milestone Completion Handler")
-|   +-- launch-notification-workflow  (kind: layer_ref -> layer_workflow "Client Launch Notification")
-|   +-- check-in-workflow             (kind: layer_ref -> layer_workflow "30-Day Check-In")
-+-- notes/
-|   +-- client-brief                  (kind: virtual, content: client overview, goals, ICP, contract details)
-|   +-- discovery-notes               (kind: virtual, content: kickoff call notes, AI intake analysis, key findings)
-|   +-- strategy-doc                  (kind: virtual, content: recommended strategy, timeline, deliverables, budget)
-|   +-- launch-checklist              (kind: virtual, content: pre-launch verification items)
-|   +-- meeting-notes/                (kind: folder)
-|       +-- kickoff-call              (kind: virtual, content: agenda, notes, action items)
-|       +-- strategy-review           (kind: virtual, content: client feedback, approved changes)
-|       +-- launch-review             (kind: virtual, content: go/no-go decision, final adjustments)
-+-- assets/
-    +-- brand-assets-received/        (kind: folder)
-    |   +-- logo                      (kind: media_ref -> uploaded client logo)
-    |   +-- brand-guidelines          (kind: media_ref -> uploaded brand guide PDF)
-    +-- deliverables/                 (kind: folder)
-    |   +-- strategy-presentation     (kind: media_ref -> strategy deck)
-    |   +-- design-mockups            (kind: media_ref -> design files)
-    +-- contracts/                    (kind: folder)
-        +-- signed-agreement          (kind: media_ref -> signed contract PDF)
-        +-- scope-of-work             (kind: media_ref -> SOW document)
+├── builder/
+│   ├── client-portal/              (kind: builder_ref -> builder_app for client welcome/portal page)
+│   └── progress-dashboard/         (kind: builder_ref -> builder_app for progress dashboard -- optional)
+├── layers/
+│   ├── intake-processing-workflow   (kind: layer_ref -> layer_workflow "Client Intake Processing")
+│   ├── milestone-tracker-workflow   (kind: layer_ref -> layer_workflow "Onboarding Milestone Tracker")
+│   ├── questionnaire-reminder       (kind: layer_ref -> layer_workflow "Onboarding Questionnaire Reminder" -- optional)
+│   └── completion-workflow          (kind: layer_ref -> layer_workflow "Client Onboarding Completion")
+├── notes/
+│   ├── onboarding-brief             (kind: virtual, content: client overview, service scope, timeline, KPIs)
+│   ├── discovery-brief              (kind: virtual, content: AI-generated analysis from questionnaire responses)
+│   └── meeting-notes/               (kind: folder)
+│       ├── discovery-call            (kind: virtual, content: discovery call notes and action items)
+│       └── kickoff-call              (kind: virtual, content: kickoff meeting notes)
+├── assets/
+│   ├── brand-assets/                (kind: folder)
+│   │   ├── logo                     (kind: media_ref -> client logo files)
+│   │   ├── brand-guidelines         (kind: media_ref -> brand guideline document)
+│   │   └── photography/             (kind: folder)
+│   │       └── product-photos       (kind: media_ref -> client product/service photos)
+│   ├── questionnaire-responses/     (kind: folder)
+│   │   └── intake-form-data         (kind: virtual, content: raw questionnaire response data)
+│   └── deliverables/                (kind: folder)
+│       ├── website-files            (kind: media_ref -> exported website assets)
+│       ├── social-templates         (kind: media_ref -> social media templates)
+│       └── content-calendar         (kind: media_ref -> content calendar export)
 \`\`\`
 
 **Mutations to execute:**
 
 1. \`initializeProjectFolders({ organizationId: <ORG_ID>, projectId: <PROJECT_ID> })\`
-2. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "client-brief", parentPath: "/notes", content: "<client brief markdown>" })\`
-3. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "discovery-notes", parentPath: "/notes", content: "<discovery notes markdown>" })\`
-4. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "strategy-doc", parentPath: "/notes", content: "<strategy document markdown>" })\`
-5. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "launch-checklist", parentPath: "/notes", content: "<launch checklist markdown>" })\`
-6. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "meeting-notes", parentPath: "/notes" })\`
-7. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "brand-assets-received", parentPath: "/assets" })\`
-8. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "deliverables", parentPath: "/assets" })\`
-9. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "contracts", parentPath: "/assets" })\`
-10. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <INTAKE_PAGE_APP_ID> })\`
-11. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <PORTAL_PAGE_APP_ID> })\`
-12. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <WELCOME_PAGE_APP_ID> })\`
-13. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <INTAKE_PROCESSING_WF_ID> })\`
-14. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <QUESTIONNAIRE_REMINDER_WF_ID> })\`
-15. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <MILESTONE_COMPLETION_WF_ID> })\`
-16. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <LAUNCH_NOTIFICATION_WF_ID> })\`
-17. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <CHECK_IN_WF_ID> })\`
+2. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "onboarding-brief", parentPath: "/notes", content: "<onboarding brief markdown>" })\`
+3. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "discovery-brief", parentPath: "/notes", content: "<AI-generated discovery brief>" })\`
+4. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "meeting-notes", parentPath: "/notes" })\`
+5. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "questionnaire-responses", parentPath: "/assets" })\`
+6. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "deliverables", parentPath: "/assets" })\`
+7. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <CLIENT_PORTAL_APP_ID> })\`
+8. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <INTAKE_WF_ID> })\`
+9. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <MILESTONE_WF_ID> })\`
+10. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <COMPLETION_WF_ID> })\`
 
 ---
 
 ## 7. Data Flow Diagram
 
 \`\`\`
-                              CLIENT ONBOARDING - DATA FLOW
-                              ==============================
+                                CLIENT ONBOARDING - DATA FLOW
+                                ==============================
 
-  AGENCY                       PLATFORM (L4YERCAK3)                          EXTERNAL SYSTEMS
-  ======                       ====================                          ================
+  CLIENT                           PLATFORM (L4YERCAK3)                        EXTERNAL SYSTEMS
+  ======                           ====================                        ================
 
-  +-------------------+
-  | Agency signs      |
-  | new client        |
-  +--------+----------+
+  +------------------+
+  | Contract Signed  |
+  | (manual trigger) |
+  +--------+---------+
            |
-           | (manual: set pipeline to "signed")
+           | agency creates project + contact + sends questionnaire link
            v
-  +-------------------+
-  | Sends intake      |
-  | questionnaire     |----> pipeline stage: "signed" / "intake_sent"
-  | link to client    |
-  +--------+----------+
-           |
-           |         +--------------------------------------------------------------+
-           |         | WORKFLOW 2: Questionnaire Reminder (daily cron)               |
-           |         |                                                              |
-           |         |  trigger_schedule (daily 10am)                               |
-           |         |       | (output -> input)                                    |
-           |         |       v                                                      |
-           |         |  code_block [find contacts in "signed" stage >2 days         |
-           |         |              without "intake_completed" tag]                  |
-           |         |       | (output -> input)                                    |
-           |         |       v                                                      |
-           |         |  loop_iterator [each overdue contact]                        |
-           |         |       | (each_item -> input)                                 |
-           |         |       v                                                      |
-           |         |  lc_email ["Complete your questionnaire"]                    |
-           |         |       | (output -> input)                                    |
-           |         |       v                                                      |
-           |         |  lc_sms [short reminder with link]                           |
-           |         +--------------------------------------------------------------+
+  +------------------+
+  | Receives Welcome |
+  | Email + Portal   |
+  | Link             |
+  +--------+---------+
            |
            v
-  +-------------------+
-  | CLIENT fills out  |-----> submitPublicForm({ formId, responses, metadata })
-  | intake form       |
-  +--------+----------+
+  +------------------+
+  | Fills Out        |-----> submitPublicForm({ formId, responses, metadata })
+  | Onboarding       |
+  | Questionnaire    |
+  +--------+---------+
            |
-           |         +--------------------------------------------------------------+
-           |         | WORKFLOW 1: Intake Processing                                 |
-           |         |                                                              |
-           +-------->|  trigger_form_submitted                                      |
-                     |       | (output -> input)                                    |
-                     |       v                                                      |
-                     |  lc_crm [update-contact]                                     |
-                     |  -> updates customProperties with intake data                |
-                     |  -> adds tags: ["new_client", "intake_completed"]            |
-                     |       |                                                      |
-                     |       +-------------+----------------+                       |
-                     |       |             |                |                       |
-                     |  (output->input) (output->input) (output->input)             |
-                     |       |             |                |                       |
-                     |       v             v                v                       |
-                     |  lc_crm         lc_ai_agent    activecampaign  ------+       |
-                     |  [move-pipeline [analyze intake [add_contact]        |       |
-                     |   -> "discovery"] responses]        |               |       |
-                     |                     |          (output->input)  +----+----+  |
-                     |                     |               v           |         |  |
-                     |            (output->input)  activecampaign     | Active  |  |
-                     |                     |       [add_tag:          | Campaign|  |
-                     |          +----------+---+    "onboarding"]     |         |  |
-                     |          |              |         |             +---------+  |
-                     |     (output->input) (output->input)|                        |
-                     |          |              |    (output->input)                 |
-                     |          v              v         v                          |
-                     |     lc_email       lc_email  activecampaign                 |
-                     |     [send welcome  [send-admin [add_to_automation           |
-                     |      pack to       notification: "client_onboarding"]       |
-                     |      client]       AI summary]                              |
-                     +--------------------------------------------------------------+
-                     |
-                     | PROJECT CREATED (with milestones and tasks)
-                     |
-                     v
-  +-------------------+       +----------------------------------------------+
-  | Discovery phase   |       | Milestones:                                  |
-  | Kickoff call      |       | 1. Discovery    (week 1)   -> "strategy"     |
-  | scheduled         |       | 2. Strategy     (week 2)   -> "setup"        |
-  +--------+----------+       | 3. Setup        (weeks 3-4)-> "review"       |
-           |                  | 4. Launch       (weeks 5-6)-> "launched"     |
-           |                  | 5. Optimization (ongoing)  -> "optimizing"   |
-           v                  +----------------------------------------------+
-  +-------------------+
-  | Milestone         |
-  | completions       |
-  +--------+----------+
-           |
-           |         +--------------------------------------------------------------+
-           |         | WORKFLOW 3: Milestone Completion                              |
-           |         |                                                              |
-           +-------->|  trigger_webhook ("/milestone-complete")                     |
-                     |       | (output -> input)                                    |
-                     |       v                                                      |
-                     |  lc_crm [move-pipeline-stage based on milestone]             |
-                     |       |                                                      |
-                     |       +-------------------+                                  |
-                     |       |                   |                                  |
-                     |  (output->input)    (output->input)                          |
-                     |       v                   v                                  |
-                     |  lc_email            lc_email                                |
-                     |  [milestone complete [admin: next                            |
-                     |   notification to    milestone details]                      |
-                     |   client]                                                    |
-                     +--------------------------------------------------------------+
-                     |
-                     v
-  +-------------------+
-  | Launch prep       |
-  | -> LAUNCHED       |
-  +--------+----------+
-           |
-           |         +--------------------------------------------------------------+
-           |         | WORKFLOW 4: Launch Notification                               |
-           |         |                                                              |
-           |         |  trigger_contact_updated                                     |
-           |         |       | (output -> input)                                    |
-           |         |       v                                                      |
-           +-------->|  if_then [pipelineStage === "launched"]                      |
-                     |       | (true -> input)                                      |
-                     |       v                                                      |
-                     |  lc_email ["You're live!"]                                   |
-                     |       | (output -> input)                                    |
-                     |       v                                                      |
-                     |  lc_email [admin: "Client launched"]                         |
-                     |       | (output -> input)                     +----------+   |
-                     |       v                                       |          |   |
-                     |  activecampaign [add_tag: "launched"] ------->| Active   |   |
-                     |                                               | Campaign |   |
-                     +--------------------------------------------------------------+
-                     |
-                     |  30 days pass...
-                     |
-                     |         +------------------------------------------------------+
-                     |         | WORKFLOW 5: 30-Day Check-In                           |
-                     |         |                                                      |
-                     |         |  trigger_contact_updated                              |
-                     |         |       | (output -> input)                             |
-                     +-------->|       v                                               |
-                               |  if_then [pipelineStage === "launched"]               |
-                               |       | (true -> input)                               |
-                               |       v                                               |
-                               |  wait_delay [30 days]                                 |
-                               |       | (output -> input)                             |
-                               |       v                                               |
-                               |  lc_email ["How's everything going?"]                 |
-                               |       | (output -> input)                             |
-                               |       v                                               |
-                               |  lc_crm [move-pipeline-stage -> "optimizing"]         |
-                               +------------------------------------------------------+
+           |         +----------------------------------------------------------+
+           |         |  WORKFLOW 1: Intake Processing                            |
+           |         |                                                          |
+           +-------->|  trigger_form_submitted                                  |
+                     |         |                                                |
+                     |         | (output -> input)                              |
+                     |         v                                                |
+                     |  lc_crm [update-contact]                                 |
+                     |  -> updates objects { type: "crm_contact",               |
+                     |     subtype: "customer", tags: ["onboarding_active",     |
+                     |     "questionnaire_completed"] }                         |
+                     |         |                                                |
+                     |         +------------+-------------+                     |
+                     |         |            |             |                     |
+                     |    (output->input) (output->input) (output->input)       |
+                     |         |            |             |                     |
+                     |         v            v             v                     |
+                     |    lc_email     lc_ai_agent   activecampaign            |
+                     |    [send-       [analyze       [add_tag:                 |
+                     |    confirmation  questionnaire  "onboarding_active"]     |
+                     |    -email:      responses]           |                   |
+                     |    welcome pack]     |               |         +------+  |
+                     |                      |               +-------->| AC   |  |
+                     |                 (output->input)                +------+  |
+                     |                      v                                   |
+                     |                 lc_crm [move-pipeline-stage              |
+                     |                  -> "discovery"]                         |
+                     |                      |                                   |
+                     |                 (output->input)                          |
+                     |                      v                                   |
+                     |                 lc_email                                 |
+                     |                 [send-admin-notification:                |
+                     |                  "New questionnaire + AI brief"]         |
+                     |                                                          |
+                     +----------------------------------------------------------+
+
+           MILESTONE PROGRESSION (Workflow 2):
+
+           [Discovery Phase]
+                |
+                | milestone completed (webhook)
+                v
+           lc_crm [move-pipeline-stage -> "setup"]
+                |
+                +---> lc_email [client: milestone complete]
+                +---> lc_email [team: milestone complete]
+                |
+                v
+           [Setup Phase]
+                |
+                | milestone completed (webhook)
+                v
+           lc_crm [move-pipeline-stage -> "launch_prep"]
+                |
+                +---> lc_email [client: milestone complete]
+                +---> lc_email [team: milestone complete]
+                |
+                v
+           [Launch Prep Phase]
+                |
+                | milestone completed (webhook)
+                v
+           lc_crm [move-pipeline-stage -> "launched"]
+                |
+                +---> lc_email [client: milestone complete]
+                +---> lc_email [team: milestone complete]
+
+           COMPLETION (Workflow 4):
+
+           trigger_manual (all milestones done)
+                |
+                v
+           lc_crm [move-pipeline-stage -> "launched"]
+                |
+                +---> lc_email [launch announcement to client]
+                +---> activecampaign [add_tag: "onboarding_complete"]
+                |          |
+                |          v
+                |     activecampaign [add_tag: "active_client"]
+                +---> lc_email [send-admin-notification: "Client launched"]
 
   PIPELINE PROGRESSION:
 
-  [signed] -> [intake_sent] -> [discovery] -> [strategy] -> [setup] -> [review]
-                                                                          |
-       [retained] <-- [optimizing] <-- [launched] <-- [launch_prep] <-----+
-
-
-  ONBOARDING SEQUENCE (lifecycle):
-
-  Immediate ....... Welcome + login credentials + getting started guide + expectations
-  +1 day .......... Quick win: "Do this first" (complete your profile, review first deliverable)
-  +3 days ......... Feature spotlight: how to use the client portal
-  +5 days ......... Check-in email + SMS: "Any questions so far?"
-  +7 days ......... Success story: client case study (similar industry)
-  +14 days ........ Advanced tips: how to get the most from the engagement
-  +30 days ........ Review + expand: schedule review call, discuss additional services
+  [signed] --> [discovery] --> [setup] --> [launch_prep] --> [launched] --> [optimizing]
 \`\`\`
 
 ---
@@ -6030,38 +5883,37 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 | Item | Why | Where |
 |------|-----|-------|
-| Intake questionnaire fields | Must match the agency's niche and the type of information they need from clients (industry-specific questions) | Form \`fields\` array -- change "Industry" options, goals/challenges prompts, add niche-specific fields |
-| Milestone names and timeline | Every agency has a different delivery process and timeline | Project \`milestones\` array -- adjust titles, due dates, and order to match delivery workflow |
-| Team member assignments | Each client needs specific people assigned | \`addInternalTeamMember\` and \`addClientTeamMember\` calls -- set userId, contactId, and roles |
-| Welcome email content | Must include actual portal link, real credentials, real team member names and emails | Workflow 1 \`email-1\` node config \`body\` -- replace all \`[PLACEHOLDER]\` values |
-| Admin notification email | Must go to the actual account manager or operations lead | Workflow 1 \`email-2\`, Workflow 3 \`email-2\` node config \`to\` |
-| AI analysis prompt | Must specify what the agency cares about analyzing (varies by niche) | Workflow 1 \`ai-1\` node config \`prompt\` -- add industry-specific analysis criteria |
+| Service type / offering | Determines questionnaire fields, milestone names, deliverables | Form \`fields\` array, project \`milestones\` array, file system \`/deliverables\` |
+| Milestone names and timeline | Must match the agency's actual delivery process | \`createMilestone\` calls, Workflow 2 \`if_then\` expressions, sequence step content |
+| Questionnaire fields | Must capture information relevant to the specific service being delivered | Form \`fields\` array -- change section headers, labels, options, required flags |
+| Team members | Must reflect actual staff assigned to the project | \`addInternalTeamMember\` calls, welcome email body, client portal team section |
+| Agency name and branding | Appears in all client-facing emails and the portal page | \`lc_email\` node config \`body\`, builder page content |
+| Admin notification email | Internal team must receive alerts | Workflow 1 \`email-2\` and Workflow 2 \`email-2\` node config \`to\` |
+| Webhook secret | Secures milestone completion endpoint | Workflow 2 \`trigger_webhook\` config \`secret\` |
 
 ### Should-Customize (significantly improves the onboarding experience)
 
 | Item | Why | Default |
 |------|-----|---------|
-| Pipeline stage names | Must match the agency's internal terminology | Generic: signed, discovery, strategy, setup, review, launch_prep, launched, optimizing, retained |
-| Progress update email templates | Should reflect the agency's voice and brand | Generic professional tone with placeholder content |
-| Launch checklist items | Must include agency-specific verification steps | Generic checklist (verify deliverables, check links, test forms) |
-| Sequence email content | Must speak to the client's industry and the agency's value proposition | Generic onboarding sequence with placeholder tips and case studies |
-| ActiveCampaign automation ID | Agency may have existing automations for client management | No automation enrollment by default |
-| Webhook secret | Must be unique per deployment for security | Placeholder \`<WEBHOOK_SECRET>\` |
+| Welcome email copy | Should reflect the agency's voice, specific service details, and actual portal URL | Generic welcome template with placeholder links |
+| Onboarding timeline / due dates | Must match realistic delivery schedule for the service | No specific dates set |
+| Milestone descriptions | Help clients understand what each phase involves | Generic phase names only |
+| AI analysis prompt | Should focus on extracting insights relevant to the service being delivered | Generic marketing analysis prompt |
+| Client portal page design | Should match agency brand and include service-specific information | Generic welcome page template |
+| ActiveCampaign tags | Tags should align with the agency's existing segmentation strategy | Generic \`onboarding_active\` and \`active_client\` tags |
 
 ### Can-Use-Default (work out of the box for most deployments)
 
 | Item | Default Value |
 |------|--------------|
-| Project file system structure | \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\` with sub-folders as specified in Section 6 |
-| Sequence timing | Immediate, +1 day, +3 days, +5 days, +7 days, +14 days, +30 days |
-| Workflow structure | 5 workflows as defined: intake processing, questionnaire reminder, milestone completion, launch notification, 30-day check-in |
-| Form type | \`application\` subtype |
+| Pipeline stages | signed -> discovery -> setup -> launch_prep -> launched -> optimizing |
+| Workflow structure | 4 workflows as defined in Section 4 |
+| File system folder structure | \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\` with sub-folders for brand assets, questionnaire responses, deliverables |
+| Questionnaire reminder timing | Daily at 9:00 AM in client timezone |
 | Contact subtype | \`customer\` |
 | Project subtype | \`client_project\` |
-| Sequence subtype | \`lifecycle\` |
 | Workflow status progression | \`draft\` -> \`ready\` -> \`active\` |
-| Reminder check frequency | Daily at 10am |
-| Check-in timing | 30 days after launch |
+| Sequence channels | \`email\` for all steps |
 
 ---
 
@@ -6071,961 +5923,1011 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| Project not linked to contact | Client cannot be associated with their project; portal shows no project | Create objectLink: \`{ sourceObjectId: <PROJECT_ID>, targetObjectId: <CONTACT_ID>, linkType: "project_contact" }\`. Also call \`addClientTeamMember({ sessionId, projectId, contactId, role: "client" })\`. |
-| Milestones not created when project is created | Project exists but has no milestones; milestone completion workflow has nothing to trigger against | After \`createProject\`, immediately call \`createMilestone\` for each milestone: Discovery, Strategy, Setup, Launch, Optimization. Include \`dueDate\` and \`assignedTo\` for each. |
-| Intake form too long (>15 fields) | Drop-off rate increases significantly; clients abandon the questionnaire | Keep the form to 12-15 fields maximum. Use \`section_header\` fields to break up sections visually. Move non-essential questions to the kickoff call. |
-| AI agent prompt too vague | AI analysis returns generic, unhelpful summaries that the team cannot act on | Specify exactly what to analyze: business type, goals ranked by urgency, challenges, current channels, gaps, target audience, competitive advantages, red flags, and recommended priorities. |
-| Questionnaire reminder running for clients who already submitted | Clients who completed the form still receive "please complete" reminders | The \`code_block\` in Workflow 2 must filter by checking \`!tags.includes('intake_completed')\`. Workflow 1 must add the \`intake_completed\` tag before the reminder workflow runs. |
-| Milestone completion webhook not configured | Milestone completions do not advance the pipeline or notify anyone | Configure the webhook path \`/milestone-complete\` in the platform settings. Ensure the calling system sends \`contactId\`, \`nextPipelineStage\`, \`milestoneTitle\`, \`milestoneSummary\`, \`nextMilestoneTitle\`, \`nextMilestoneDueDate\`, \`clientEmail\`, \`clientFirstName\`, \`clientLastName\`, \`companyName\`. |
-| 30-day check-in triggering from wrong pipeline stage | Check-in emails sent to clients who are not yet launched (e.g., in "setup" stage) | The \`if_then\` node in Workflow 5 must check \`pipelineStageId === 'launched'\` exactly. Ensure the expression matches the exact stage ID string. |
-| Internal team not added to project | Project has no team assignments; nobody knows who is responsible | After creating the project, call \`addInternalTeamMember\` for each team member: account manager, project lead, and any specialists. Use the correct \`userId\` and \`role\` for each. |
-| Form not linked to workflow | Intake form submissions do not trigger the Intake Processing Workflow | Create objectLink: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <FORM_ID>, linkType: "workflow_form" }\`. Also ensure \`trigger_form_submitted\` node config has the correct \`formId\`. |
-| Sequence not linked to workflow | Clients complete onboarding but never receive the drip sequence | Create objectLink: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <SEQUENCE_ID>, linkType: "workflow_sequence" }\`. The sequence trigger event must be \`form_submitted\` or \`manual_enrollment\`. |
-| Workflow left in \`draft\` status | No automations execute; intake forms are submitted but nothing happens | After saving all nodes/edges, call \`updateWorkflowStatus({ status: "active" })\` for all 5 workflows. |
+| Form not linked to workflow | Questionnaire submissions do not trigger the Intake Processing Workflow | Create objectLink: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <FORM_ID>, linkType: "workflow_form" }\`. Also ensure \`trigger_form_submitted\` node config has the correct \`formId\`. |
+| ActiveCampaign integration not connected | \`activecampaign\` nodes fail silently or error | Verify the agency's ActiveCampaign API credentials are configured in the organization's integration settings before activating the workflow. |
+| Milestone webhook path mismatch | Milestone completions do not trigger pipeline moves | Ensure the webhook path in Workflow 2 matches the exact path being called when marking milestones complete. Copy-paste the path, do not retype. |
+| Pipeline stage IDs mismatch | \`move-pipeline-stage\` action fails or moves to wrong stage | The \`pipelineStageId\` values in \`lc_crm\` node configs must exactly match the stage IDs defined in the CRM pipeline. Copy-paste, do not retype. |
+| Workflow 2 \`if_then\` expressions do not match milestone titles | Pipeline never advances because the condition never evaluates to true | The \`expression\` strings in Workflow 2 \`if-1\`, \`if-2\`, \`if-3\` must use the exact milestone title strings passed in the webhook payload. |
+| Missing email sender configuration | Emails fail to send or land in spam | Confirm the organization has a verified sender domain and the \`lc_email\` node \`to\` field uses valid template variables. |
+| Form \`formId\` placeholder not replaced | Workflow trigger never fires | After creating the form, update the \`trigger_form_submitted\` node config with the actual \`formId\` returned by \`createForm\`. Then call \`saveWorkflow\` again. |
+| Workflow left in \`draft\` status | No automations execute | After saving all nodes/edges, call \`updateWorkflowStatus({ status: "active" })\`. |
+| AI agent prompt too generic | Discovery brief lacks actionable insights for the specific service | Customize the \`lc_ai_agent\` prompt to focus on the agency's specific service area and the type of analysis that will be most useful. |
+| Client contact not created before questionnaire | \`update-contact\` in Workflow 1 fails because there is no contact to update | Create the CRM contact during the project setup step (before sending the questionnaire link). The questionnaire form metadata must include the \`contactId\`. |
+| Project milestones not aligned with pipeline stages | Pipeline moves happen at wrong times or not at all | Each milestone completion should map to exactly one pipeline stage transition. Audit the Workflow 2 \`if_then\` chain against the pipeline definition. |
 
 ### Pre-Launch Self-Check List
 
-1. Intake form exists and is published (\`publishForm\` was called).
-2. Intake form \`formId\` is set in Workflow 1 \`trigger_form_submitted\` node config.
-3. \`objectLink\` with \`linkType: "workflow_form"\` connects Workflow 1 to the intake form.
-4. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 1 to the onboarding sequence.
-5. \`objectLink\` with \`linkType: "project_contact"\` connects the project to the client contact.
-6. All \`pipelineStageId\` values in \`lc_crm\` nodes match actual pipeline stage IDs.
-7. ActiveCampaign \`automationId\` in Workflow 1 \`ac-3\` is a real automation ID (not a placeholder).
-8. \`lc_email\` sender identity is configured and verified.
-9. Welcome email contains actual portal link, credentials, and team member info.
-10. All 5 workflows have \`status: "active"\`.
-11. Project has milestones created (Discovery, Strategy, Setup, Launch, Optimization).
-12. Project has internal team members assigned via \`addInternalTeamMember\`.
-13. Project has client team members assigned via \`addClientTeamMember\`.
-14. Webhook path \`/milestone-complete\` is configured and accessible.
-15. Onboarding sequence has 7 steps with correct timing offsets.
-16. Builder apps (intake page, portal page, welcome page) are deployed.
-17. Questionnaire reminder cron schedule and timezone are correct.
+1. CRM contact for the client exists and has \`pipelineStageId\` set to \`signed\`.
+2. Project created with all milestones, tasks, internalTeam, and clientTeam populated.
+3. Onboarding questionnaire form exists and is published (\`publishForm\` was called).
+4. Form \`formId\` is set in Workflow 1 \`trigger_form_submitted\` node config.
+5. \`objectLink\` with \`linkType: "workflow_form"\` connects Workflow 1 to the questionnaire form.
+6. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 1 to the welcome sequence.
+7. \`objectLink\` with \`linkType: "project_contact"\` connects the project to the client contact.
+8. All \`pipelineStageId\` values in \`lc_crm\` nodes match actual pipeline stage IDs.
+9. Workflow 2 \`if_then\` expressions match the exact milestone title strings.
+10. Webhook secret in Workflow 2 is set and matches the calling system.
+11. ActiveCampaign tags and integration credentials are configured.
+12. \`lc_email\` sender identity is configured and verified.
+13. Client portal page is deployed and accessible at the URL referenced in emails.
+14. AI agent prompt in Workflow 1 is customized for the specific service.
+15. All four workflows have \`status: "active"\`.
+16. File system scaffold is initialized with all required folders.
+17. Internal team members are notified of their project assignments.
 
 ---
 
 ## 10. Example Deployment Scenario
 
-### Scenario: Digital Marketing Agency Onboarding E-Commerce Clients
+### Scenario: Digital Marketing Agency Onboards a Restaurant Client
 
-A digital marketing agency ("GrowthStack Agency") systematizes onboarding for their e-commerce clients. When a new e-commerce brand signs a 6-month retainer, the intake questionnaire captures detailed business information, and the system automates the entire onboarding flow from signed contract to active optimization.
+A digital marketing agency ("Amplify Digital Agency") onboards a new restaurant client ("Bella Cucina Italian Restaurant"). The service package includes a complete digital marketing solution: website redesign, social media management, local SEO, Google Business Profile optimization, and online review management.
+
+**Agency:** Amplify Digital Agency
+**Client:** Bella Cucina Italian Restaurant
+**Service:** Complete digital marketing package (website, social media, local SEO, review management)
+**Contract Value:** $3,500/month
+**Onboarding Timeline:** 8 weeks
 
 ---
 
-### Step 1: Create the Project
+### Step 1: Create the CRM Contact
+
+\`\`\`
+createContact({
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  firstName: "Marco",
+  lastName: "Rossi",
+  email: "marco@bellacucina.com",
+  phone: "+1 (555) 892-4310",
+  contactType: "customer",
+  customFields: {
+    "companyName": "Bella Cucina Italian Restaurant",
+    "contractValue": 3500,
+    "contractStartDate": "2026-03-01",
+    "servicePackage": "Complete Digital Marketing"
+  },
+  tags: ["new_client", "restaurant", "digital_marketing_package"]
+})
+// Returns: contactId = "contact_bella_cucina_001"
+\`\`\`
+
+---
+
+### Step 2: Create the Project
 
 \`\`\`
 createProject({
   sessionId: "<SESSION_ID>",
   organizationId: "<ORG_ID>",
-  name: "BrightHome Co. - E-Commerce Growth Retainer",
+  name: "Bella Cucina - Digital Marketing Onboarding",
   subtype: "client_project",
-  description: "6-month growth retainer for BrightHome Co., a DTC home goods e-commerce brand. Focus: paid ads, email marketing, conversion rate optimization.",
-  startDate: 1706745600000,
-  endDate: 1722470400000,
-  budget: 36000,
-  clientContactId: "<BRIGHTHOME_CONTACT_ID>"
+  description: "Complete digital marketing onboarding for Bella Cucina Italian Restaurant. Includes website redesign, social media setup, local SEO, Google Business Profile optimization, and review management system.",
+  startDate: 1740787200000,
+  endDate: 1744588800000,
+  budget: 28000,
+  clientContactId: "contact_bella_cucina_001"
 })
-// Returns: projectId = "proj_brighthome_001"
+// Returns: projectId = "proj_bella_cucina_001"
 \`\`\`
 
 \`\`\`
 initializeProjectFolders({
   organizationId: "<ORG_ID>",
-  projectId: "proj_brighthome_001"
+  projectId: "proj_bella_cucina_001"
 })
 \`\`\`
 
-**Create milestones:**
+### Step 2b: Create Milestones
 
 \`\`\`
 createMilestone({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
+  projectId: "proj_bella_cucina_001",
   title: "Discovery",
-  dueDate: 1707350400000,
-  assignedTo: "<ACCOUNT_MANAGER_USER_ID>"
+  dueDate: 1741392000000,
+  assignedTo: "user_account_manager_001"
 })
 
 createMilestone({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  title: "Brand Audit",
-  dueDate: 1707955200000,
-  assignedTo: "<STRATEGIST_USER_ID>"
-})
-
-createMilestone({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  title: "Strategy",
-  dueDate: 1708560000000,
-  assignedTo: "<STRATEGIST_USER_ID>"
-})
-
-createMilestone({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
+  projectId: "proj_bella_cucina_001",
   title: "Setup",
-  dueDate: 1709769600000,
-  assignedTo: "<PROJECT_LEAD_USER_ID>"
+  dueDate: 1742601600000,
+  assignedTo: "user_project_lead_001"
 })
 
 createMilestone({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
+  projectId: "proj_bella_cucina_001",
+  title: "Launch Prep",
+  dueDate: 1743811200000,
+  assignedTo: "user_project_lead_001"
+})
+
+createMilestone({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
   title: "Launch",
-  dueDate: 1710979200000,
-  assignedTo: "<PROJECT_LEAD_USER_ID>"
+  dueDate: 1744243200000,
+  assignedTo: "user_account_manager_001"
 })
 
 createMilestone({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  title: "Optimization",
-  dueDate: 1722470400000,
-  assignedTo: "<ACCOUNT_MANAGER_USER_ID>"
+  projectId: "proj_bella_cucina_001",
+  title: "Optimize",
+  dueDate: 1744588800000,
+  assignedTo: "user_strategist_001"
 })
 \`\`\`
 
-**Create tasks per milestone:**
+### Step 2c: Create Tasks
 
 \`\`\`
-// Discovery tasks
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Complete onboarding questionnaire", description: "Client fills out the intake form with business details, goals, and challenges",
-  status: "pending", priority: "high", assignedTo: "<BRIGHTHOME_CONTACT_ID>", dueDate: 1707004800000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Send onboarding questionnaire",
+  description: "Send the intake questionnaire to Marco Rossi with portal access link",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_account_manager_001",
+  dueDate: 1740873600000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Review AI intake analysis", description: "Account manager reviews the AI-generated analysis of the client's questionnaire responses",
-  status: "pending", priority: "high", assignedTo: "<ACCOUNT_MANAGER_USER_ID>", dueDate: 1707091200000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Conduct brand audit",
+  description: "Review existing brand materials, website, social presence, and online reputation",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_strategist_001",
+  dueDate: 1741219200000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Schedule and conduct kickoff call", description: "30-minute call to align on goals, timeline, and working process",
-  status: "pending", priority: "high", assignedTo: "<ACCOUNT_MANAGER_USER_ID>", dueDate: 1707177600000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Competitor analysis",
+  description: "Analyze top 3 competing restaurants in the area: Mario's Trattoria, The Olive Garden, Casa di Pasta",
+  status: "pending",
+  priority: "medium",
+  assignedTo: "user_strategist_001",
+  dueDate: 1741219200000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Collect brand assets and logins", description: "Gather logo files, brand guidelines, ad account access, analytics access, email platform access",
-  status: "pending", priority: "medium", assignedTo: "<BRIGHTHOME_CONTACT_ID>", dueDate: 1707350400000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Schedule discovery call",
+  description: "30-minute call with Marco to review questionnaire responses and AI discovery brief",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_account_manager_001",
+  dueDate: 1741046400000
+})
 
-// Brand Audit tasks
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Audit current ad accounts", description: "Review existing Google Ads and Meta Ads performance, identify waste and opportunity",
-  status: "pending", priority: "high", assignedTo: "<ADS_SPECIALIST_USER_ID>", dueDate: 1707609600000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Website wireframes and design",
+  description: "Create wireframes for new restaurant website with online menu, reservations, and photo gallery",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_designer_001",
+  dueDate: 1742083200000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Audit email marketing", description: "Review existing flows, campaigns, deliverability, list health",
-  status: "pending", priority: "high", assignedTo: "<EMAIL_SPECIALIST_USER_ID>", dueDate: 1707609600000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Set up social media profiles",
+  description: "Create or optimize Instagram, Facebook, and TikTok profiles with brand assets",
+  status: "pending",
+  priority: "medium",
+  assignedTo: "user_social_manager_001",
+  dueDate: 1742256000000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Audit website conversion", description: "Review site speed, UX, checkout flow, product pages, mobile experience",
-  status: "pending", priority: "high", assignedTo: "<STRATEGIST_USER_ID>", dueDate: 1707782400000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Google Business Profile optimization",
+  description: "Claim, verify, and fully optimize Google Business Profile with photos, hours, menu, and categories",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_seo_specialist_001",
+  dueDate: 1742428800000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Competitive analysis", description: "Analyze 3 top competitors: ad strategy, email strategy, pricing, positioning",
-  status: "pending", priority: "medium", assignedTo: "<STRATEGIST_USER_ID>", dueDate: 1707955200000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Build website",
+  description: "Develop responsive restaurant website based on approved wireframes",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_developer_001",
+  dueDate: 1742601600000
+})
 
-// Strategy tasks
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Develop growth strategy deck", description: "Create comprehensive strategy including channels, budget allocation, timeline, KPIs",
-  status: "pending", priority: "high", assignedTo: "<STRATEGIST_USER_ID>", dueDate: 1708300800000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Create content calendar",
+  description: "30-day content calendar for Instagram, Facebook, TikTok with restaurant-specific content themes",
+  status: "pending",
+  priority: "medium",
+  assignedTo: "user_social_manager_001",
+  dueDate: 1743292800000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Strategy presentation to client", description: "Present strategy, gather feedback, get approval to proceed",
-  status: "pending", priority: "high", assignedTo: "<ACCOUNT_MANAGER_USER_ID>", dueDate: 1708560000000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Set up review management",
+  description: "Configure automated review request system for Google, Yelp, and TripAdvisor",
+  status: "pending",
+  priority: "medium",
+  assignedTo: "user_seo_specialist_001",
+  dueDate: 1743465600000
+})
 
-// Setup tasks
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Build ad campaigns", description: "Set up Google Shopping, Search, and Meta campaigns per approved strategy",
-  status: "pending", priority: "high", assignedTo: "<ADS_SPECIALIST_USER_ID>", dueDate: 1709164800000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Create ad creatives",
+  description: "Design Facebook and Instagram ad creatives for launch campaign",
+  status: "pending",
+  priority: "medium",
+  assignedTo: "user_designer_001",
+  dueDate: 1743638400000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Build email flows", description: "Set up welcome series, abandoned cart, post-purchase, win-back flows",
-  status: "pending", priority: "high", assignedTo: "<EMAIL_SPECIALIST_USER_ID>", dueDate: 1709164800000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "QA and testing",
+  description: "Test website across devices, verify all social links, check Google Business Profile accuracy",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_project_lead_001",
+  dueDate: 1743811200000
+})
 
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Implement tracking and analytics", description: "Set up conversion tracking, UTM framework, custom dashboard",
-  status: "pending", priority: "medium", assignedTo: "<PROJECT_LEAD_USER_ID>", dueDate: 1709769600000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "Go live",
+  description: "Launch website, activate social campaigns, start review management, begin content publishing",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_project_lead_001",
+  dueDate: 1744243200000
+})
 
-// Launch tasks
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Client review of all deliverables", description: "Client reviews and approves ad creatives, email templates, landing pages",
-  status: "pending", priority: "high", assignedTo: "<BRIGHTHOME_CONTACT_ID>", dueDate: 1710374400000 })
-
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Pre-launch QA checklist", description: "Verify tracking, test email flows, check ad targeting, review budgets",
-  status: "pending", priority: "high", assignedTo: "<PROJECT_LEAD_USER_ID>", dueDate: 1710720000000 })
-
-createTask({ sessionId: "<SESSION_ID>", projectId: "proj_brighthome_001",
-  title: "Go live", description: "Activate all campaigns, turn on email flows, confirm everything is running",
-  status: "pending", priority: "high", assignedTo: "<PROJECT_LEAD_USER_ID>", dueDate: 1710979200000 })
+createTask({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  title: "First performance review",
+  description: "Review 2-week performance data, adjust campaigns, present report to Marco",
+  status: "pending",
+  priority: "high",
+  assignedTo: "user_strategist_001",
+  dueDate: 1744588800000
+})
 \`\`\`
 
-**Assign team members:**
+### Step 2d: Assign Team Members
 
 \`\`\`
 addInternalTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  userId: "<ACCOUNT_MANAGER_USER_ID>",
+  projectId: "proj_bella_cucina_001",
+  userId: "user_account_manager_001",
   role: "Account Manager"
 })
 
 addInternalTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  userId: "<PROJECT_LEAD_USER_ID>",
+  projectId: "proj_bella_cucina_001",
+  userId: "user_project_lead_001",
   role: "Project Lead"
 })
 
 addInternalTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  userId: "<STRATEGIST_USER_ID>",
-  role: "Strategist"
+  projectId: "proj_bella_cucina_001",
+  userId: "user_strategist_001",
+  role: "Digital Strategist"
 })
 
 addInternalTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  userId: "<ADS_SPECIALIST_USER_ID>",
-  role: "Paid Ads Specialist"
+  projectId: "proj_bella_cucina_001",
+  userId: "user_designer_001",
+  role: "Designer"
 })
 
 addInternalTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  userId: "<EMAIL_SPECIALIST_USER_ID>",
-  role: "Email Marketing Specialist"
+  projectId: "proj_bella_cucina_001",
+  userId: "user_developer_001",
+  role: "Web Developer"
+})
+
+addInternalTeamMember({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  userId: "user_social_manager_001",
+  role: "Social Media Manager"
+})
+
+addInternalTeamMember({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  userId: "user_seo_specialist_001",
+  role: "SEO Specialist"
 })
 
 addClientTeamMember({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  contactId: "<BRIGHTHOME_CONTACT_ID>",
-  role: "Client - Primary Contact"
-})
-
-addClientTeamMember({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  contactId: "<BRIGHTHOME_MARKETING_CONTACT_ID>",
-  role: "Client - Marketing Manager"
+  projectId: "proj_bella_cucina_001",
+  contactId: "contact_bella_cucina_001",
+  role: "Business Owner / Primary Contact"
 })
 \`\`\`
 
 ---
 
-### Step 2: Create the Intake Questionnaire Form
+### Step 3: Create the Onboarding Questionnaire Form
 
 \`\`\`
 createForm({
   sessionId: "<SESSION_ID>",
   organizationId: "<ORG_ID>",
-  name: "BrightHome Co. Onboarding Questionnaire",
-  description: "E-commerce client onboarding intake form for GrowthStack Agency",
+  name: "Bella Cucina Onboarding Questionnaire",
+  description: "Intake questionnaire for Bella Cucina Italian Restaurant digital marketing onboarding",
   fields: [
-    { "type": "section_header", "label": "Business Information" },
-    { "type": "text",     "label": "Company Name",           "required": true,  "placeholder": "BrightHome Co." },
-    { "type": "text",     "label": "Your Full Name",         "required": true,  "placeholder": "Sarah Mitchell" },
-    { "type": "email",    "label": "Email Address",          "required": true,  "placeholder": "sarah@brighthome.co" },
-    { "type": "phone",    "label": "Phone Number",           "required": true,  "placeholder": "+1 (555) 000-0000" },
-    { "type": "text",     "label": "Website URL",            "required": true,  "placeholder": "https://brighthome.co" },
-    { "type": "select",   "label": "E-Commerce Platform",    "required": true,
-      "options": ["Shopify", "WooCommerce", "BigCommerce", "Magento", "Custom", "Other"] },
-    { "type": "number",   "label": "Monthly Revenue (USD)",  "required": true,  "placeholder": "50000" },
-    { "type": "number",   "label": "Number of SKUs",         "required": true,  "placeholder": "150" },
-    { "type": "section_header", "label": "Goals & Challenges" },
-    { "type": "textarea", "label": "What are your top 3 growth goals for the next 6 months?", "required": true,
-      "placeholder": "1. Increase monthly revenue from $50K to $80K\\n2. Improve ROAS on paid ads from 2x to 4x\\n3. Build email list to 25,000 subscribers" },
-    { "type": "textarea", "label": "What are the biggest challenges you are currently facing?", "required": true,
-      "placeholder": "Rising ad costs, low email open rates, high cart abandonment..." },
-    { "type": "multi_select", "label": "Which marketing channels are you currently using?", "required": true,
-      "options": ["Google Ads (Shopping)", "Google Ads (Search)", "Facebook/Instagram Ads", "TikTok Ads", "Email Marketing", "SEO", "Influencer Marketing", "Affiliate Program", "Content/Blog", "None"] },
-    { "type": "section_header", "label": "Brand & Audience" },
-    { "type": "textarea", "label": "Describe your ideal customer", "required": true,
-      "placeholder": "Our ideal customer is a homeowner aged 28-45, interested in modern home decor, shops online regularly..." },
-    { "type": "text",     "label": "Top 3 Competitors",      "required": true,
-      "placeholder": "Competitor A, Competitor B, Competitor C" },
-    { "type": "textarea", "label": "What makes your brand unique?", "required": true,
-      "placeholder": "Our products are sustainably sourced, we offer free design consultations..." },
-    { "type": "file",     "label": "Upload your brand guidelines (if available)", "required": false }
+    { "type": "section_header", "label": "Restaurant Information", "required": false },
+    { "type": "text",     "label": "Business Name",           "required": true,  "placeholder": "Bella Cucina Italian Restaurant" },
+    { "type": "text",     "label": "Business Address",        "required": true,  "placeholder": "456 Oak Street, Portland, OR 97201" },
+    { "type": "phone",    "label": "Business Phone",          "required": true,  "placeholder": "+1 (555) 892-4310" },
+    { "type": "email",    "label": "Primary Contact Email",   "required": true,  "placeholder": "marco@bellacucina.com" },
+    { "type": "text",     "label": "Website URL (if existing)", "required": false, "placeholder": "https://bellacucina.com" },
+    { "type": "text",     "label": "Hours of Operation",      "required": true,  "placeholder": "Mon-Thu 11am-9pm, Fri-Sat 11am-10pm, Sun 12pm-8pm" },
+    { "type": "text",     "label": "Year Established",        "required": false, "placeholder": "2018" },
+    { "type": "section_header", "label": "Menu and Specialties", "required": false },
+    { "type": "textarea", "label": "Describe your menu highlights and signature dishes", "required": true, "placeholder": "Our handmade pasta is prepared fresh daily. Signature dishes include Osso Buco alla Milanese, truffle risotto, and our wood-fired Margherita pizza..." },
+    { "type": "select",   "label": "Do you offer any of the following?", "required": true, "options": ["Dine-in only", "Dine-in + Takeout", "Dine-in + Takeout + Delivery", "Dine-in + Takeout + Delivery + Catering", "All of the above plus private events"] },
+    { "type": "text",     "label": "Average price per person", "required": false, "placeholder": "$25-45" },
+    { "type": "section_header", "label": "Brand Identity", "required": false },
+    { "type": "textarea", "label": "Tell us the story of your restaurant", "required": true, "placeholder": "How did the restaurant start? What is your philosophy? What makes the dining experience special?" },
+    { "type": "text",     "label": "Primary Brand Colors (hex codes)", "required": false, "placeholder": "#8B0000, #F5F5DC, #2C2C2C" },
+    { "type": "select",   "label": "Do you have a logo and brand guidelines?", "required": true, "options": ["Yes, ready to share", "Yes, but needs updating", "No, I need branding help", "I have a logo but no formal guidelines"] },
+    { "type": "select",   "label": "Do you have professional food photography?", "required": true, "options": ["Yes, high-quality photos of most dishes", "Some photos but need more", "No professional photos", "I can arrange a photoshoot"] },
+    { "type": "section_header", "label": "Target Audience", "required": false },
+    { "type": "textarea", "label": "Describe your ideal diner", "required": true, "placeholder": "Age range, dining occasions (date night, family, business lunch), income level, food preferences..." },
+    { "type": "text",     "label": "Geographic target area",  "required": true,  "placeholder": "Within 10 miles of downtown Portland" },
+    { "type": "multi_select", "label": "Where does your target audience find restaurants?", "required": true, "options": ["Google Search", "Google Maps", "Instagram", "Facebook", "TikTok", "Yelp", "TripAdvisor", "Word of mouth", "Food blogs / influencers", "Local publications"] },
+    { "type": "section_header", "label": "Competition", "required": false },
+    { "type": "textarea", "label": "Who are your top 3 competitors?", "required": true, "placeholder": "1. Mario's Trattoria (mariostrattoria.com) - known for their wine list\\n2. The Olive Garden on Hawthorne - chain but heavy marketing\\n3. Casa di Pasta (casadipasta.com) - similar price point, strong social media" },
+    { "type": "textarea", "label": "What makes Bella Cucina different from these competitors?", "required": true, "placeholder": "Our handmade pasta, family recipes from Tuscany, intimate atmosphere, chef's table experience..." },
+    { "type": "section_header", "label": "Goals and Budget", "required": false },
+    { "type": "textarea", "label": "What are your top 3 business goals for the next 6 months?", "required": true, "placeholder": "1. Increase weekday dinner reservations by 40%\\n2. Build Instagram following to 5,000\\n3. Become #1 rated Italian restaurant on Google in Portland" },
+    { "type": "select",   "label": "What is your primary marketing objective?", "required": true, "options": ["Increase brand awareness", "Drive more reservations", "Increase takeout and delivery orders", "Improve online reviews and ratings", "Launch catering or private events service", "Build social media presence"] },
+    { "type": "number",   "label": "Monthly marketing budget (USD) beyond our retainer", "required": false, "placeholder": "1500" },
+    { "type": "section_header", "label": "Current Marketing", "required": false },
+    { "type": "multi_select", "label": "Which marketing channels do you currently use?", "required": false, "options": ["Website", "Instagram", "Facebook", "TikTok", "Google Business Profile", "Yelp listing", "Email newsletter", "Google Ads", "Facebook/Instagram Ads", "Print advertising", "Local event sponsorships", "Influencer partnerships", "None"] },
+    { "type": "textarea", "label": "What has worked well in the past? What has not?", "required": false, "placeholder": "Our Instagram food photos get good engagement, but we post inconsistently. Tried Google Ads once but did not see results..." },
+    { "type": "section_header", "label": "Access and Credentials", "required": false },
+    { "type": "textarea", "label": "List existing accounts we will need access to", "required": false, "placeholder": "Google Business Profile (claimed, email: marco@bellacucina.com)\\nInstagram: @bellacucinapdx\\nFacebook: Bella Cucina Portland\\nYelp: listed but not claimed\\nWebsite hosting: GoDaddy" },
+    { "type": "textarea", "label": "Anything else we should know?", "required": false, "placeholder": "We are renovating the patio in April. Chef Marco is available for video content on Tuesdays. We have a private dining room for events..." }
   ],
   formSettings: {
-    "redirectUrl": "/welcome-brighthome",
+    "redirectUrl": "/onboarding-thank-you",
     "notifications": { "adminEmail": true, "respondentEmail": true },
     "submissionBehavior": "redirect"
   }
 })
-// Returns: formId = "form_brighthome_intake_001"
+// Returns: formId = "form_bella_cucina_questionnaire_001"
 \`\`\`
 
 \`\`\`
-publishForm({ sessionId: "<SESSION_ID>", formId: "form_brighthome_intake_001" })
+publishForm({ sessionId: "<SESSION_ID>", formId: "form_bella_cucina_questionnaire_001" })
 \`\`\`
 
 ---
 
-### Step 3: Create the CRM Pipeline
+### Step 4: Create the CRM Pipeline
 
-The pipeline is configured within the organization's CRM settings:
+The pipeline is configured within the organization's CRM settings with these stages:
 
 | Stage ID | Stage Name | Description |
 |----------|-----------|-------------|
-| \`signed\` | Retainer Signed | Client signed the 6-month retainer agreement |
-| \`intake_sent\` | Questionnaire Sent | Onboarding questionnaire link delivered to client |
-| \`discovery\` | Discovery | Questionnaire completed, AI analysis generated, kickoff call scheduling |
-| \`strategy\` | Brand Audit & Strategy | Auditing current channels, developing growth strategy |
-| \`setup\` | Campaign Build | Building ad campaigns, email flows, tracking infrastructure |
-| \`review\` | Client Review | Client reviewing and approving all deliverables |
-| \`launch_prep\` | Launch Prep | Final QA, pre-launch checklist, budget confirmation |
-| \`launched\` | Launched | All campaigns live, monitoring period active |
-| \`optimizing\` | Optimizing | 30-day review completed, ongoing optimization and scaling |
-| \`retained\` | Retained | Client renewed or expanded retainer |
+| \`signed\` | Signed | Contract signed with Bella Cucina. Onboarding begins. |
+| \`discovery\` | Discovery | Questionnaire completed, AI brief generated, discovery call scheduled. |
+| \`setup\` | Setup | Website being built, social profiles created, Google Business optimized. |
+| \`launch_prep\` | Launch Prep | Content calendar loaded, ad creatives ready, review system configured, QA in progress. |
+| \`launched\` | Launched | All channels live. Website, social, ads, and review management active. |
+| \`optimizing\` | Optimizing | Ongoing management: weekly reports, campaign adjustments, content publishing. |
 
 ---
 
-### Step 4: Create All Workflows
+### Step 5: Create the Workflows
 
 **Workflow 1: Intake Processing**
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "BrightHome Intake Processing",
-  description: "Processes e-commerce client intake: updates CRM, AI analysis, welcome pack, admin notification, ActiveCampaign sync"
+  name: "Bella Cucina Intake Processing",
+  description: "Processes onboarding questionnaire, updates CRM with restaurant details, generates AI discovery brief, moves to discovery stage, notifies team"
 })
-// Returns: workflowId = "wf_brighthome_intake_001"
+// Returns: workflowId = "wf_bella_cucina_intake_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_brighthome_intake_001",
-  name: "BrightHome Intake Processing",
+  workflowId: "wf_bella_cucina_intake_001",
+  name: "Bella Cucina Intake Processing",
   nodes: [
     {
       "id": "trigger-1",
       "type": "trigger_form_submitted",
-      "position": { "x": 100, "y": 300 },
-      "config": { "formId": "form_brighthome_intake_001" },
+      "position": { "x": 100, "y": 250 },
+      "config": { "formId": "form_bella_cucina_questionnaire_001" },
       "status": "ready",
-      "label": "Intake Form Submitted"
+      "label": "Questionnaire Submitted"
     },
     {
       "id": "crm-1",
       "type": "lc_crm",
-      "position": { "x": 350, "y": 300 },
+      "position": { "x": 350, "y": 250 },
       "config": {
         "action": "update-contact",
-        "contactId": "{{trigger.contactId}}",
-        "tags": ["new_client", "intake_completed", "ecommerce", "brighthome"],
+        "contactId": "{{trigger.metadata.contactId}}",
+        "tags": ["onboarding_active", "questionnaire_completed", "restaurant"],
         "customFields": {
-          "companyName": "{{trigger.companyName}}",
-          "websiteUrl": "{{trigger.websiteUrl}}",
-          "ecommercePlatform": "{{trigger.eCommercePlatform}}",
-          "monthlyRevenue": "{{trigger.monthlyRevenue}}",
-          "numberOfSkus": "{{trigger.numberOfSkus}}",
-          "growthGoals": "{{trigger.topGrowthGoals}}",
-          "challenges": "{{trigger.biggestChallenges}}",
-          "currentChannels": "{{trigger.marketingChannels}}",
-          "idealCustomer": "{{trigger.idealCustomer}}",
-          "competitors": "{{trigger.topCompetitors}}",
-          "uniqueValue": "{{trigger.whatMakesYourBrandUnique}}"
+          "businessName": "{{trigger.businessName}}",
+          "businessAddress": "{{trigger.businessAddress}}",
+          "businessPhone": "{{trigger.businessPhone}}",
+          "website": "{{trigger.websiteUrl}}",
+          "hoursOfOperation": "{{trigger.hoursOfOperation}}",
+          "yearEstablished": "{{trigger.yearEstablished}}",
+          "menuHighlights": "{{trigger.describeYourMenuHighlightsAndSignatureDishes}}",
+          "serviceTypes": "{{trigger.doYouOfferAnyOfTheFollowing}}",
+          "averagePrice": "{{trigger.averagePricePerPerson}}",
+          "brandStory": "{{trigger.tellUsTheStoryOfYourRestaurant}}",
+          "brandColors": "{{trigger.primaryBrandColors}}",
+          "hasLogo": "{{trigger.doYouHaveALogoAndBrandGuidelines}}",
+          "hasPhotography": "{{trigger.doYouHaveProfessionalFoodPhotography}}",
+          "idealDiner": "{{trigger.describeYourIdealDiner}}",
+          "geoTarget": "{{trigger.geographicTargetArea}}",
+          "discoveryChannels": "{{trigger.whereDoesYourTargetAudienceFindRestaurants}}",
+          "competitors": "{{trigger.whoAreYourTop3Competitors}}",
+          "differentiator": "{{trigger.whatMakesBellaCucinaDifferent}}",
+          "goals": "{{trigger.whatAreYourTop3BusinessGoals}}",
+          "primaryObjective": "{{trigger.whatIsYourPrimaryMarketingObjective}}",
+          "adBudget": "{{trigger.monthlyMarketingBudget}}",
+          "currentChannels": "{{trigger.whichMarketingChannelsDoYouCurrentlyUse}}",
+          "pastResults": "{{trigger.whatHasWorkedWellInThePast}}",
+          "existingAccounts": "{{trigger.listExistingAccountsWeWillNeedAccessTo}}",
+          "additionalNotes": "{{trigger.anythingElseWeShouldKnow}}"
         }
       },
       "status": "ready",
-      "label": "Update Client Contact"
+      "label": "Update Bella Cucina Contact"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 600, "y": 100 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{crm-1.output.email}}",
+        "subject": "Welcome aboard, Marco! Your Bella Cucina onboarding roadmap",
+        "body": "Hi Marco,\\n\\nThank you for completing the onboarding questionnaire for Bella Cucina. We are thrilled to start working on your digital marketing.\\n\\nHere is what happens next:\\n\\n1. Our team reviews your responses and the AI-generated discovery brief (within 24 hours)\\n2. Your account manager Sarah will schedule a discovery call to discuss your goals\\n3. We will prepare a customized marketing strategy for Bella Cucina\\n\\nYour client portal is live: https://amplifydigital.com/portal/bella-cucina\\n\\nYour dedicated Amplify Digital team:\\n- Account Manager: Sarah Chen (sarah@amplifydigital.com)\\n- Project Lead: James Park (james@amplifydigital.com)\\n- Digital Strategist: Lisa Nguyen (lisa@amplifydigital.com)\\n- Designer: Alex Rivera (alex@amplifydigital.com)\\n- Web Developer: Chris Taylor (chris@amplifydigital.com)\\n- Social Media Manager: Maya Johnson (maya@amplifydigital.com)\\n- SEO Specialist: David Kim (david@amplifydigital.com)\\n\\nIf you have any questions, reply to this email or reach out to Sarah directly.\\n\\nBenvenuto a bordo,\\nThe Amplify Digital Team"
+      },
+      "status": "ready",
+      "label": "Send Welcome Pack"
+    },
+    {
+      "id": "ai-1",
+      "type": "lc_ai_agent",
+      "position": { "x": 600, "y": 250 },
+      "config": {
+        "prompt": "Analyze the following restaurant client onboarding questionnaire responses and produce a structured discovery brief for a digital marketing agency. Include:\\n\\n1) Restaurant summary (2-3 sentences covering concept, location, and dining experience)\\n2) Menu and service analysis (key differentiators, price positioning, service offerings)\\n3) Target audience profile (demographics, dining occasions, discovery channels)\\n4) Competitive positioning (how to differentiate from the 3 listed competitors)\\n5) Recommended marketing channel priority (ranked by expected ROI for a restaurant, considering budget and audience)\\n6) Local SEO opportunities (Google Business Profile, Yelp, TripAdvisor, local directory opportunities)\\n7) Content strategy suggestions (types of content that work for restaurants: food photography, behind-the-scenes, chef stories, seasonal menus)\\n8) Potential challenges or risks (seasonality, competition, budget constraints)\\n9) Quick wins for the first 30 days (high-impact, low-effort actions)\\n10) Recommended KPIs to track\\n\\nClient responses: {{crm-1.output.customFields}}",
+        "model": "claude-sonnet"
+      },
+      "status": "ready",
+      "label": "Analyze Questionnaire"
     },
     {
       "id": "crm-2",
       "type": "lc_crm",
-      "position": { "x": 600, "y": 500 },
+      "position": { "x": 850, "y": 250 },
       "config": {
         "action": "move-pipeline-stage",
-        "contactId": "{{trigger.contactId}}",
+        "contactId": "{{crm-1.output.contactId}}",
         "pipelineStageId": "discovery"
       },
       "status": "ready",
       "label": "Move to Discovery"
     },
     {
-      "id": "ai-1",
-      "type": "lc_ai_agent",
-      "position": { "x": 600, "y": 300 },
+      "id": "ac-1",
+      "type": "activecampaign",
+      "position": { "x": 850, "y": 400 },
       "config": {
-        "prompt": "Analyze this e-commerce client's onboarding questionnaire. Provide:\\n\\n1. Business Profile: Platform, revenue level, catalog size, market position\\n2. Growth Goals (ranked by impact and feasibility)\\n3. Key Challenges: What's holding them back? Which are quick wins vs. structural?\\n4. Channel Assessment: Current channels, performance gaps, untapped opportunities\\n5. Competitive Landscape: How do they differentiate? Where are they vulnerable?\\n6. Target Audience: Who are they selling to? Is it well-defined?\\n7. Red Flags: Unrealistic expectations, missing capabilities, budget concerns\\n8. Recommended Priority for First 30 Days: What should we tackle first for maximum impact?\\n\\nBe specific and actionable. The account team will use this to prepare for the kickoff call.",
-        "model": "default"
+        "action": "add_tag",
+        "contactEmail": "{{crm-1.output.email}}",
+        "tag": "onboarding_active"
       },
       "status": "ready",
-      "label": "AI Analysis"
-    },
-    {
-      "id": "email-1",
-      "type": "lc_email",
-      "position": { "x": 850, "y": 200 },
-      "config": {
-        "action": "send-confirmation-email",
-        "to": "{{crm-1.output.email}}",
-        "subject": "Welcome to GrowthStack - Here's What Happens Next",
-        "body": "Hi {{crm-1.output.firstName}},\\n\\nWelcome to GrowthStack Agency! We're thrilled to start working with BrightHome Co.\\n\\nHere's your onboarding timeline:\\n\\nWeek 1 - Discovery: We'll review your questionnaire, analyze your current setup, and schedule a kickoff call.\\nWeek 2 - Brand Audit: Deep dive into your ad accounts, email marketing, website, and competitors.\\nWeek 3 - Strategy: We'll present a comprehensive growth strategy tailored to BrightHome.\\nWeeks 4-5 - Setup: Building campaigns, email flows, and tracking infrastructure.\\nWeek 6 - Launch: Everything goes live with close monitoring.\\n\\nYour client portal: https://app.growthstack.agency/portal/brighthome\\nLogin: {{crm-1.output.email}}\\nTemporary password: [TEMP_PASSWORD]\\n\\nYour dedicated team:\\n- Account Manager: Jessica Park (jessica@growthstack.agency)\\n- Project Lead: Marcus Chen (marcus@growthstack.agency)\\n- Ads Specialist: Alex Rivera\\n- Email Specialist: Dana Kim\\n\\nFirst step: If you haven't already, please gather your brand assets and ad account credentials. We'll need those for the brand audit.\\n\\nQuestions? Reply here or reach out to Jessica directly.\\n\\nExcited to grow BrightHome together,\\nThe GrowthStack Team"
-      },
-      "status": "ready",
-      "label": "Send Welcome Pack"
+      "label": "Tag Onboarding Active"
     },
     {
       "id": "email-2",
       "type": "lc_email",
-      "position": { "x": 850, "y": 400 },
+      "position": { "x": 1100, "y": 250 },
       "config": {
         "action": "send-admin-notification",
-        "to": "jessica@growthstack.agency",
-        "subject": "New Client Intake: {{crm-1.output.firstName}} {{crm-1.output.lastName}} - BrightHome Co.",
-        "body": "A new e-commerce client has completed the onboarding questionnaire.\\n\\nClient: {{crm-1.output.firstName}} {{crm-1.output.lastName}}\\nCompany: BrightHome Co.\\nPlatform: {{crm-1.output.customFields.ecommercePlatform}}\\nMonthly Revenue: \${{crm-1.output.customFields.monthlyRevenue}}\\nSKUs: {{crm-1.output.customFields.numberOfSkus}}\\nEmail: {{crm-1.output.email}}\\nPhone: {{crm-1.output.phone}}\\n\\n--- AI Analysis ---\\n{{ai-1.output.result}}\\n--- End AI Analysis ---\\n\\nAction Required:\\n1. Review AI analysis and flag any concerns\\n2. Schedule kickoff call within 48 hours\\n3. Assign internal team in the project\\n4. Request ad account and analytics access\\n\\nProject: https://app.growthstack.agency/projects/proj_brighthome_001"
+        "to": "team@amplifydigital.com",
+        "subject": "New Client Questionnaire: Bella Cucina Italian Restaurant",
+        "body": "Bella Cucina has completed their onboarding questionnaire.\\n\\nClient: Marco Rossi\\nBusiness: Bella Cucina Italian Restaurant\\nPrimary Goal: Increase weekday dinner reservations by 40%\\nPrimary Objective: Drive more reservations\\nAd Budget: $1,500/month\\n\\nAI Discovery Brief:\\n{{ai-1.output.result}}\\n\\nFull questionnaire responses are available in the CRM contact record.\\n\\nNext step: Sarah, schedule discovery call with Marco within 24 hours."
       },
       "status": "ready",
-      "label": "Notify Account Manager"
-    },
-    {
-      "id": "ac-1",
-      "type": "activecampaign",
-      "position": { "x": 600, "y": 100 },
-      "config": {
-        "action": "add_contact",
-        "email": "{{crm-1.output.email}}",
-        "firstName": "{{crm-1.output.firstName}}",
-        "lastName": "{{crm-1.output.lastName}}"
-      },
-      "status": "ready",
-      "label": "Sync to ActiveCampaign"
-    },
-    {
-      "id": "ac-2",
-      "type": "activecampaign",
-      "position": { "x": 850, "y": 100 },
-      "config": {
-        "action": "add_tag",
-        "contactEmail": "{{crm-1.output.email}}",
-        "tag": "onboarding"
-      },
-      "status": "ready",
-      "label": "Tag: Onboarding"
-    },
-    {
-      "id": "ac-3",
-      "type": "activecampaign",
-      "position": { "x": 1100, "y": 100 },
-      "config": {
-        "action": "add_to_automation",
-        "contactEmail": "{{crm-1.output.email}}",
-        "automationId": "ac_automation_client_onboarding_2024"
-      },
-      "status": "ready",
-      "label": "Add to Onboarding Automation"
+      "label": "Notify Team: Questionnaire Complete"
     }
   ],
   edges: [
     { "id": "e-1", "source": "trigger-1", "target": "crm-1",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "crm-1",     "target": "crm-2",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-3", "source": "crm-1",     "target": "ai-1",   "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-4", "source": "ai-1",      "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-5", "source": "ai-1",      "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-6", "source": "crm-1",     "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-7", "source": "ac-1",      "target": "ac-2",    "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-8", "source": "ac-2",      "target": "ac-3",    "sourceHandle": "output", "targetHandle": "input" }
+    { "id": "e-2", "source": "crm-1",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-3", "source": "crm-1",     "target": "ai-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "ai-1",      "target": "crm-2",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "crm-1",     "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-6", "source": "ai-1",      "target": "email-2", "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_form_submitted", "config": { "formId": "form_brighthome_intake_001" } }]
+  triggers: [{ "type": "trigger_form_submitted", "config": { "formId": "form_bella_cucina_questionnaire_001" } }]
 })
 \`\`\`
 
 \`\`\`
-updateWorkflowStatus({ sessionId: "<SESSION_ID>", workflowId: "wf_brighthome_intake_001", status: "active" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_bella_cucina_intake_001",
+  status: "active"
+})
 \`\`\`
 
-**Workflow 2: Questionnaire Reminder**
+**Workflow 2: Milestone Tracking**
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "E-Commerce Client Questionnaire Reminder",
-  description: "Daily reminder for e-commerce clients who signed but haven't completed the intake questionnaire"
+  name: "Bella Cucina Milestone Tracker",
+  description: "Tracks milestone completions for Bella Cucina project, moves pipeline stages, sends client and team notifications"
 })
-// Returns: workflowId = "wf_brighthome_reminder_001"
+// Returns: workflowId = "wf_bella_cucina_milestone_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_brighthome_reminder_001",
-  name: "E-Commerce Client Questionnaire Reminder",
+  workflowId: "wf_bella_cucina_milestone_001",
+  name: "Bella Cucina Milestone Tracker",
+  nodes: [
+    {
+      "id": "trigger-1",
+      "type": "trigger_webhook",
+      "position": { "x": 100, "y": 250 },
+      "config": { "path": "/webhooks/milestone-complete", "secret": "wh_bella_cucina_ms_secret_2026" },
+      "status": "ready",
+      "label": "Milestone Completed"
+    },
+    {
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 350, "y": 150 },
+      "config": { "expression": "{{trigger.milestoneTitle}} === 'Discovery'" },
+      "status": "ready",
+      "label": "Is Discovery Complete?"
+    },
+    {
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 600, "y": 50 },
+      "config": { "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "setup" },
+      "status": "ready",
+      "label": "Move to Setup"
+    },
+    {
+      "id": "if-2",
+      "type": "if_then",
+      "position": { "x": 600, "y": 200 },
+      "config": { "expression": "{{trigger.milestoneTitle}} === 'Setup'" },
+      "status": "ready",
+      "label": "Is Setup Complete?"
+    },
+    {
+      "id": "crm-2",
+      "type": "lc_crm",
+      "position": { "x": 850, "y": 150 },
+      "config": { "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launch_prep" },
+      "status": "ready",
+      "label": "Move to Launch Prep"
+    },
+    {
+      "id": "if-3",
+      "type": "if_then",
+      "position": { "x": 850, "y": 300 },
+      "config": { "expression": "{{trigger.milestoneTitle}} === 'Launch Prep'" },
+      "status": "ready",
+      "label": "Is Launch Prep Complete?"
+    },
+    {
+      "id": "crm-3",
+      "type": "lc_crm",
+      "position": { "x": 1100, "y": 250 },
+      "config": { "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launched" },
+      "status": "ready",
+      "label": "Move to Launched"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 1100, "y": 450 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "marco@bellacucina.com",
+        "subject": "Milestone Complete: {{trigger.milestoneTitle}} - Bella Cucina",
+        "body": "Hi Marco,\\n\\nGreat news! We have completed the {{trigger.milestoneTitle}} phase of your Bella Cucina digital marketing project.\\n\\nHere is a summary of what was accomplished:\\n{{trigger.milestoneSummary}}\\n\\nNext up: {{trigger.nextMilestoneTitle}} (target date: {{trigger.nextMilestoneDueDate}})\\n\\nYou can view your full project timeline on your client portal: https://amplifydigital.com/portal/bella-cucina\\n\\nIf you have any questions, reach out to Sarah at sarah@amplifydigital.com.\\n\\nOnward,\\nThe Amplify Digital Team"
+      },
+      "status": "ready",
+      "label": "Client: Milestone Complete"
+    },
+    {
+      "id": "email-2",
+      "type": "lc_email",
+      "position": { "x": 1350, "y": 250 },
+      "config": {
+        "action": "send-admin-notification",
+        "to": "team@amplifydigital.com",
+        "subject": "Milestone Complete: {{trigger.milestoneTitle}} - Bella Cucina",
+        "body": "Milestone completed for Bella Cucina Italian Restaurant.\\n\\nCompleted: {{trigger.milestoneTitle}}\\nNext Phase: {{trigger.nextMilestoneTitle}}\\nDue Date: {{trigger.nextMilestoneDueDate}}\\nAssigned To: {{trigger.nextMilestoneAssignedTo}}\\n\\nPipeline has been updated to {{trigger.nextPipelineStage}} automatically."
+      },
+      "status": "ready",
+      "label": "Team: Milestone Complete"
+    }
+  ],
+  edges: [
+    { "id": "e-1",  "source": "trigger-1", "target": "if-1",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2",  "source": "if-1",      "target": "crm-1",  "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-3",  "source": "if-1",      "target": "if-2",   "sourceHandle": "false",  "targetHandle": "input" },
+    { "id": "e-4",  "source": "if-2",      "target": "crm-2",  "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-5",  "source": "if-2",      "target": "if-3",   "sourceHandle": "false",  "targetHandle": "input" },
+    { "id": "e-6",  "source": "if-3",      "target": "crm-3",  "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-7",  "source": "crm-1",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-8",  "source": "crm-2",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-9",  "source": "crm-3",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-10", "source": "email-1",   "target": "email-2", "sourceHandle": "output", "targetHandle": "input" }
+  ],
+  triggers: [{ "type": "trigger_webhook", "config": { "path": "/webhooks/milestone-complete", "secret": "wh_bella_cucina_ms_secret_2026" } }]
+})
+\`\`\`
+
+\`\`\`
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_bella_cucina_milestone_001",
+  status: "active"
+})
+\`\`\`
+
+**Workflow 3: Questionnaire Reminder (Optional)**
+
+\`\`\`
+createWorkflow({
+  sessionId: "<SESSION_ID>",
+  name: "Bella Cucina Questionnaire Reminder",
+  description: "Sends reminder to complete onboarding questionnaire if not completed within 48 hours"
+})
+// Returns: workflowId = "wf_bella_cucina_reminder_001"
+\`\`\`
+
+\`\`\`
+saveWorkflow({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_bella_cucina_reminder_001",
+  name: "Bella Cucina Questionnaire Reminder",
   nodes: [
     {
       "id": "trigger-1",
       "type": "trigger_schedule",
       "position": { "x": 100, "y": 200 },
-      "config": { "cronExpression": "0 10 * * *", "timezone": "America/New_York" },
+      "config": { "cronExpression": "0 9 * * *", "timezone": "America/Los_Angeles" },
       "status": "ready",
-      "label": "Daily 10am Check"
-    },
-    {
-      "id": "code-1",
-      "type": "code_block",
-      "position": { "x": 350, "y": 200 },
-      "config": {
-        "code": "const contacts = await ctx.query('objects', { type: 'crm_contact', 'customProperties.pipelineStageId': 'signed' });\\nconst twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);\\nconst overdue = contacts.filter(c => c.createdAt < twoDaysAgo && !c.customProperties.tags?.includes('intake_completed'));\\nreturn { contacts: overdue };"
-      },
-      "status": "ready",
-      "label": "Find Overdue Clients"
-    },
-    {
-      "id": "loop-1",
-      "type": "loop_iterator",
-      "position": { "x": 600, "y": 200 },
-      "config": { "arrayField": "contacts", "maxIterations": 50 },
-      "status": "ready",
-      "label": "Each Overdue Client"
-    },
-    {
-      "id": "email-1",
-      "type": "lc_email",
-      "position": { "x": 850, "y": 200 },
-      "config": {
-        "action": "send-confirmation-email",
-        "to": "{{loop-1.each_item.customProperties.email}}",
-        "subject": "Quick reminder: Complete your onboarding questionnaire",
-        "body": "Hi {{loop-1.each_item.customProperties.firstName}},\\n\\nWe noticed you haven't completed your onboarding questionnaire yet. This is the first step to kicking off our work together, and it only takes about 10-15 minutes.\\n\\nComplete it here: [INTAKE_FORM_LINK]\\n\\nOnce we receive your responses, we'll:\\n1. Run a detailed analysis of your business and goals\\n2. Schedule your kickoff call within 48 hours\\n3. Begin the brand audit and strategy development\\n\\nIf you have any questions or need help, just reply to this email or reach out to Jessica at jessica@growthstack.agency.\\n\\nBest,\\nGrowthStack Team"
-      },
-      "status": "ready",
-      "label": "Reminder Email"
-    },
-    {
-      "id": "sms-1",
-      "type": "lc_sms",
-      "position": { "x": 1100, "y": 200 },
-      "config": {
-        "to": "{{loop-1.each_item.customProperties.phone}}",
-        "body": "Hi {{loop-1.each_item.customProperties.firstName}}, friendly reminder to complete your GrowthStack onboarding questionnaire so we can get started: [INTAKE_FORM_LINK]"
-      },
-      "status": "ready",
-      "label": "Reminder SMS"
-    }
-  ],
-  edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "code-1",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "code-1",    "target": "loop-1",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-3", "source": "loop-1",    "target": "email-1", "sourceHandle": "each_item", "targetHandle": "input" },
-    { "id": "e-4", "source": "email-1",   "target": "sms-1",   "sourceHandle": "output", "targetHandle": "input" }
-  ],
-  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 10 * * *", "timezone": "America/New_York" } }]
-})
-\`\`\`
-
-\`\`\`
-updateWorkflowStatus({ sessionId: "<SESSION_ID>", workflowId: "wf_brighthome_reminder_001", status: "active" })
-\`\`\`
-
-**Workflow 3: Milestone Completion**
-
-\`\`\`
-createWorkflow({
-  sessionId: "<SESSION_ID>",
-  name: "BrightHome Milestone Completion",
-  description: "Handles milestone completions for BrightHome project"
-})
-// Returns: workflowId = "wf_brighthome_milestone_001"
-\`\`\`
-
-\`\`\`
-saveWorkflow({
-  sessionId: "<SESSION_ID>",
-  workflowId: "wf_brighthome_milestone_001",
-  name: "BrightHome Milestone Completion",
-  nodes: [
-    {
-      "id": "trigger-1",
-      "type": "trigger_webhook",
-      "position": { "x": 100, "y": 200 },
-      "config": { "path": "/milestone-complete", "secret": "wh_brighthome_ms_secret_2024" },
-      "status": "ready",
-      "label": "Milestone Completed"
+      "label": "Daily Check at 9AM PT"
     },
     {
       "id": "crm-1",
       "type": "lc_crm",
       "position": { "x": 350, "y": 200 },
-      "config": {
-        "action": "move-pipeline-stage",
-        "contactId": "{{trigger.contactId}}",
-        "pipelineStageId": "{{trigger.nextPipelineStage}}"
-      },
+      "config": { "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": [] },
       "status": "ready",
-      "label": "Advance Pipeline"
+      "label": "Check Contact Tags"
+    },
+    {
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 600, "y": 200 },
+      "config": { "expression": "{{crm-1.output.tags}}.includes('questionnaire_completed')" },
+      "status": "ready",
+      "label": "Questionnaire Completed?"
     },
     {
       "id": "email-1",
       "type": "lc_email",
-      "position": { "x": 600, "y": 100 },
+      "position": { "x": 850, "y": 300 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.clientEmail}}",
-        "subject": "Milestone Complete: {{trigger.milestoneTitle}}",
-        "body": "Hi {{trigger.clientFirstName}},\\n\\nGreat news - we've completed the \\"{{trigger.milestoneTitle}}\\" milestone for BrightHome Co.!\\n\\nHere's what was accomplished:\\n{{trigger.milestoneSummary}}\\n\\nNext up: {{trigger.nextMilestoneTitle}}\\nExpected completion: {{trigger.nextMilestoneDueDate}}\\n\\nView your full project progress: https://app.growthstack.agency/portal/brighthome\\n\\nIf you have any questions, reach out to Jessica.\\n\\nOnward,\\nGrowthStack Team"
+        "to": "marco@bellacucina.com",
+        "subject": "Quick reminder: Your Bella Cucina onboarding questionnaire",
+        "body": "Hi Marco,\\n\\nWe noticed you have not yet completed the onboarding questionnaire for Bella Cucina. This helps us understand your restaurant, your goals, and your competition so we can build the best marketing strategy.\\n\\nIt takes about 15-20 minutes to complete: https://amplifydigital.com/forms/bella-cucina-questionnaire\\n\\nThe sooner we receive your responses, the sooner we can kick off the discovery phase and start driving more customers to Bella Cucina.\\n\\nIf you have any questions about the form, just reply to this email or call me directly.\\n\\nBest,\\nSarah Chen\\nAccount Manager, Amplify Digital Agency\\nsarah@amplifydigital.com | (555) 201-8834"
       },
       "status": "ready",
-      "label": "Notify Client"
-    },
-    {
-      "id": "email-2",
-      "type": "lc_email",
-      "position": { "x": 600, "y": 300 },
-      "config": {
-        "action": "send-admin-notification",
-        "to": "jessica@growthstack.agency",
-        "subject": "Milestone Done - BrightHome: {{trigger.milestoneTitle}}",
-        "body": "Client: BrightHome Co.\\nCompleted: {{trigger.milestoneTitle}}\\nNew Pipeline Stage: {{trigger.nextPipelineStage}}\\n\\nNext: {{trigger.nextMilestoneTitle}} (due {{trigger.nextMilestoneDueDate}})\\n\\nAction: Update task assignments, confirm timeline."
-      },
-      "status": "ready",
-      "label": "Notify Admin"
+      "label": "Send Questionnaire Reminder"
     }
   ],
   edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "crm-1",   "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "crm-1",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-3", "source": "crm-1",     "target": "email-2", "sourceHandle": "output", "targetHandle": "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "crm-1",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "crm-1",     "target": "if-1",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-3", "source": "if-1",      "target": "email-1", "sourceHandle": "false",  "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_webhook", "config": { "path": "/milestone-complete", "secret": "wh_brighthome_ms_secret_2024" } }]
+  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 9 * * *", "timezone": "America/Los_Angeles" } }]
 })
 \`\`\`
 
 \`\`\`
-updateWorkflowStatus({ sessionId: "<SESSION_ID>", workflowId: "wf_brighthome_milestone_001", status: "active" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_bella_cucina_reminder_001",
+  status: "active"
+})
 \`\`\`
 
-**Workflow 4: Launch Notification**
+**Workflow 4: Onboarding Completion**
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "BrightHome Launch Notification",
-  description: "Sends launch emails and tags when BrightHome moves to launched stage"
+  name: "Bella Cucina Onboarding Completion",
+  description: "Marks Bella Cucina as launched, sends launch announcement to Marco, updates ActiveCampaign tags, notifies internal team"
 })
-// Returns: workflowId = "wf_brighthome_launch_001"
+// Returns: workflowId = "wf_bella_cucina_completion_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_brighthome_launch_001",
-  name: "BrightHome Launch Notification",
+  workflowId: "wf_bella_cucina_completion_001",
+  name: "Bella Cucina Onboarding Completion",
   nodes: [
     {
       "id": "trigger-1",
-      "type": "trigger_contact_updated",
-      "position": { "x": 100, "y": 200 },
-      "config": {},
+      "type": "trigger_manual",
+      "position": { "x": 100, "y": 250 },
+      "config": { "sampleData": { "contactId": "contact_bella_cucina_001", "projectId": "proj_bella_cucina_001", "clientEmail": "marco@bellacucina.com", "clientFirstName": "Marco", "businessName": "Bella Cucina Italian Restaurant" } },
       "status": "ready",
-      "label": "Contact Updated"
+      "label": "All Milestones Done"
     },
     {
-      "id": "if-1",
-      "type": "if_then",
-      "position": { "x": 350, "y": 200 },
-      "config": { "expression": "{{trigger.contact.customProperties.pipelineStageId}} === 'launched'" },
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 350, "y": 250 },
+      "config": { "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "launched" },
       "status": "ready",
-      "label": "Is Launched?"
+      "label": "Move to Launched"
     },
     {
       "id": "email-1",
       "type": "lc_email",
-      "position": { "x": 600, "y": 200 },
+      "position": { "x": 600, "y": 150 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.contact.customProperties.email}}",
-        "subject": "You're Live! BrightHome campaigns are launched",
-        "body": "Hi {{trigger.contact.customProperties.firstName}},\\n\\nThe moment we've been building toward is here -- BrightHome's campaigns are officially live!\\n\\nWhat's now active:\\n- Google Shopping campaigns across your full product catalog\\n- Facebook/Instagram prospecting and retargeting ads\\n- Email welcome series, abandoned cart, and post-purchase flows\\n- Conversion tracking and analytics dashboard\\n\\nWhat happens next:\\n- We'll monitor performance closely over the first 2 weeks\\n- You'll receive a weekly performance snapshot every Monday\\n- We'll schedule a 30-day review call to discuss results and optimization opportunities\\n\\nYour live dashboard: https://app.growthstack.agency/portal/brighthome/dashboard\\n\\nIf you notice anything that needs immediate attention, reach out to Jessica at jessica@growthstack.agency.\\n\\nCongratulations on this milestone!\\n\\nThe GrowthStack Team"
+        "to": "marco@bellacucina.com",
+        "subject": "Bella Cucina is officially launched! Here is what comes next",
+        "body": "Hi Marco,\\n\\nCongratulations! Your Bella Cucina digital marketing is now fully live. Here is everything we built together:\\n\\n- Website: https://bellacucina.com (redesigned with online menu, reservations, and photo gallery)\\n- Instagram: @bellacucinapdx (optimized profile, first 30 days of content scheduled)\\n- Facebook: Bella Cucina Portland (page optimized, ad campaigns active)\\n- Google Business Profile: Fully optimized with photos, menu, hours, and posts\\n- Review Management: Automated review requests active for Google, Yelp, and TripAdvisor\\n- Content Calendar: 30 days of social content loaded and scheduled\\n\\nWhat happens now:\\n1. We monitor performance daily and send you weekly reports every Monday\\n2. Your first performance review call with Lisa is scheduled for March 28\\n3. Our team continues managing your campaigns, content, and online reputation\\n4. Ad campaigns are live with a $1,500/month budget across Facebook and Google\\n\\nYour client portal stays active: https://amplifydigital.com/portal/bella-cucina\\n\\nThank you for trusting Amplify Digital with Bella Cucina's marketing. We are excited to watch your restaurant grow.\\n\\nCheers,\\nThe Amplify Digital Team"
       },
       "status": "ready",
-      "label": "Client: You're Live!"
-    },
-    {
-      "id": "email-2",
-      "type": "lc_email",
-      "position": { "x": 850, "y": 200 },
-      "config": {
-        "action": "send-admin-notification",
-        "to": "jessica@growthstack.agency",
-        "subject": "Client Launched: BrightHome Co.",
-        "body": "BrightHome Co. has been moved to 'launched'.\\n\\nAction Required:\\n1. Verify all campaigns are live and serving\\n2. Confirm tracking is firing correctly\\n3. Set up weekly performance report\\n4. Schedule 30-day review call\\n5. Transition to ongoing account management cadence"
-      },
-      "status": "ready",
-      "label": "Admin: Client Launched"
+      "label": "Launch Announcement"
     },
     {
       "id": "ac-1",
       "type": "activecampaign",
-      "position": { "x": 1100, "y": 200 },
-      "config": {
-        "action": "add_tag",
-        "contactEmail": "{{trigger.contact.customProperties.email}}",
-        "tag": "launched"
-      },
+      "position": { "x": 600, "y": 350 },
+      "config": { "action": "add_tag", "contactEmail": "marco@bellacucina.com", "tag": "onboarding_complete" },
       "status": "ready",
-      "label": "Tag: Launched"
-    }
-  ],
-  edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "if-1",      "target": "email-1", "sourceHandle": "true",   "targetHandle": "input" },
-    { "id": "e-3", "source": "email-1",   "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-4", "source": "email-2",   "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" }
-  ],
-  triggers: [{ "type": "trigger_contact_updated", "config": {} }]
-})
-\`\`\`
-
-\`\`\`
-updateWorkflowStatus({ sessionId: "<SESSION_ID>", workflowId: "wf_brighthome_launch_001", status: "active" })
-\`\`\`
-
-**Workflow 5: 30-Day Check-In**
-
-\`\`\`
-createWorkflow({
-  sessionId: "<SESSION_ID>",
-  name: "BrightHome 30-Day Check-In",
-  description: "30-day post-launch check-in for BrightHome"
-})
-// Returns: workflowId = "wf_brighthome_checkin_001"
-\`\`\`
-
-\`\`\`
-saveWorkflow({
-  sessionId: "<SESSION_ID>",
-  workflowId: "wf_brighthome_checkin_001",
-  name: "BrightHome 30-Day Check-In",
-  nodes: [
-    {
-      "id": "trigger-1",
-      "type": "trigger_contact_updated",
-      "position": { "x": 100, "y": 200 },
-      "config": {},
-      "status": "ready",
-      "label": "Contact Updated"
+      "label": "Tag Onboarding Complete"
     },
     {
-      "id": "if-1",
-      "type": "if_then",
-      "position": { "x": 350, "y": 200 },
-      "config": { "expression": "{{trigger.contact.customProperties.pipelineStageId}} === 'launched'" },
+      "id": "ac-2",
+      "type": "activecampaign",
+      "position": { "x": 850, "y": 350 },
+      "config": { "action": "add_tag", "contactEmail": "marco@bellacucina.com", "tag": "active_client" },
       "status": "ready",
-      "label": "Is Launched?"
+      "label": "Tag Active Client"
     },
     {
-      "id": "wait-1",
-      "type": "wait_delay",
-      "position": { "x": 600, "y": 200 },
-      "config": { "duration": 30, "unit": "days" },
-      "status": "ready",
-      "label": "Wait 30 Days"
-    },
-    {
-      "id": "email-1",
+      "id": "email-2",
       "type": "lc_email",
-      "position": { "x": 850, "y": 200 },
+      "position": { "x": 850, "y": 150 },
       "config": {
-        "action": "send-confirmation-email",
-        "to": "{{trigger.contact.customProperties.email}}",
-        "subject": "Your 30-Day Results Are In - Let's Review",
-        "body": "Hi {{trigger.contact.customProperties.firstName}},\\n\\nIt's been 30 days since we launched BrightHome's campaigns, and I'd love to review the results with you.\\n\\nI'd like to cover:\\n- Campaign performance vs. the goals we set\\n- What's working well and what needs adjustment\\n- Optimization opportunities for the next phase\\n- Any new goals or priorities on your end\\n\\nBook your 30-minute review call: [BOOKING_LINK]\\n\\nOr just reply with a few times that work for you.\\n\\nLooking forward to sharing the results,\\nJessica Park\\nGrowthStack Agency"
+        "action": "send-admin-notification",
+        "to": "team@amplifydigital.com",
+        "subject": "Client Launched: Bella Cucina Italian Restaurant",
+        "body": "Bella Cucina Italian Restaurant has completed onboarding and is now live.\\n\\nClient: Marco Rossi\\nBusiness: Bella Cucina Italian Restaurant\\nPipeline Stage: Launched\\nContract Value: $3,500/month\\n\\nOnboarding tags updated:\\n- Added: onboarding_complete, active_client\\n\\nThis client is now in the optimization phase. Action items:\\n1. Lisa: Ensure weekly reports are scheduled (Mondays)\\n2. Sarah: Book first performance review call for March 28\\n3. Maya: Confirm content calendar is publishing on schedule\\n4. David: Monitor Google Business Profile insights daily for first 2 weeks"
       },
       "status": "ready",
-      "label": "30-Day Check-In Email"
-    },
-    {
-      "id": "crm-1",
-      "type": "lc_crm",
-      "position": { "x": 1100, "y": 200 },
-      "config": {
-        "action": "move-pipeline-stage",
-        "contactId": "{{trigger.contact._id}}",
-        "pipelineStageId": "optimizing"
-      },
-      "status": "ready",
-      "label": "Move to Optimizing"
+      "label": "Notify Team: Client Launched"
     }
   ],
   edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "if-1",      "target": "wait-1",  "sourceHandle": "true",   "targetHandle": "input" },
-    { "id": "e-3", "source": "wait-1",    "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-4", "source": "email-1",   "target": "crm-1",   "sourceHandle": "output", "targetHandle": "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "crm-1",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "crm-1",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-3", "source": "crm-1",     "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "ac-1",      "target": "ac-2",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "email-1",   "target": "email-2", "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_contact_updated", "config": {} }]
+  triggers: [{ "type": "trigger_manual", "config": { "sampleData": { "contactId": "contact_bella_cucina_001", "projectId": "proj_bella_cucina_001" } } }]
 })
 \`\`\`
 
 \`\`\`
-updateWorkflowStatus({ sessionId: "<SESSION_ID>", workflowId: "wf_brighthome_checkin_001", status: "active" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_bella_cucina_completion_001",
+  status: "active"
+})
 \`\`\`
 
 ---
 
-### Step 5: Create the Onboarding Sequence
+### Step 6: Create the Sequences
 
-**Object:** \`type: "automation_sequence"\`, \`subtype: "lifecycle"\`, \`name: "E-Commerce Client Onboarding Sequence"\`
+**Sequence A: Welcome and Onboarding Touchpoints** (\`subtype: "nachher"\`)
 
-**Trigger event:** \`form_submitted\`
+**Object:** \`type: "automation_sequence"\`, \`subtype: "nachher"\`, \`name: "Bella Cucina Welcome Sequence"\`
 
-**Steps:**
+**Trigger event:** \`pipeline_stage_changed\` (to \`signed\`)
 
 | Step | Channel | Timing | Subject | Body Summary |
 |------|---------|--------|---------|-------------|
-| 1 | \`email\` | \`{ offset: 0, unit: "minutes", referencePoint: "trigger_event" }\` | "Welcome to GrowthStack - Your Onboarding Guide" | Welcome message, login credentials for client portal, getting started guide (how to navigate the portal, what to expect week by week), team introductions with photos and roles, expectations for communication cadence (weekly updates, Slack channel, monthly calls). |
-| 2 | \`email\` | \`{ offset: 1, unit: "days", referencePoint: "trigger_event" }\` | "Your First Quick Win: Do This Before Our Kickoff Call" | Quick win action: gather and upload brand assets (logo, brand guidelines, product photos) to the client portal. Provide step-by-step instructions. Explain why this helps: "The sooner we have these, the faster we can start the brand audit." Include direct upload link. |
-| 3 | \`email\` | \`{ offset: 3, unit: "days", referencePoint: "trigger_event" }\` | "Getting the Most from Your Client Portal" | Feature spotlight: walkthrough of the client portal. How to view milestones and track progress. How to see tasks assigned to you. How to upload files and share documents. How to communicate with your team. Include screenshots or video link. |
-| 4 | \`email\` + \`sms\` | \`{ offset: 5, unit: "days", referencePoint: "trigger_event" }\` | "Quick Check-In: How's Everything Going?" | Email: "We're a few days into the discovery phase. How are you feeling about things so far? Any questions about the process? Anything you need from us?" SMS: "Hi [name], just checking in on your GrowthStack onboarding. Any questions? Reply here or email jessica@growthstack.agency" |
-| 5 | \`email\` | \`{ offset: 7, unit: "days", referencePoint: "trigger_event" }\` | "How We Helped [Similar Brand] Grow 3x in 6 Months" | Success story: case study of a similar e-commerce brand. Their starting point (similar challenges to BrightHome). What GrowthStack did (strategy overview). Results achieved (revenue growth, ROAS improvement, email revenue). Key takeaway: "This is the kind of growth we're building for BrightHome." |
-| 6 | \`email\` | \`{ offset: 14, unit: "days", referencePoint: "trigger_event" }\` | "Pro Tips: How Our Most Successful Clients Work With Us" | Advanced tips from top-performing clients: provide timely feedback on deliverables, share sales data and promotions calendar proactively, attend the weekly check-in calls, use the portal for all file sharing (not email attachments), flag concerns early rather than letting them build up. |
-| 7 | \`email\` | \`{ offset: 30, unit: "days", referencePoint: "trigger_event" }\` | "Your 30-Day Onboarding Review" | Review and expand: summary of what's been accomplished in the first 30 days, transition from onboarding to ongoing optimization, introduction of the monthly reporting cadence, invitation to discuss additional services or expanded scope. Include scheduling link for the 30-day review call. |
+| 1 | \`email\` | \`{ offset: 0, unit: "minutes", referencePoint: "trigger_event" }\` | "Welcome to Amplify Digital, Marco!" | Welcome email with onboarding overview. Introduce the team: Sarah Chen (Account Manager), James Park (Project Lead), Lisa Nguyen (Strategist), Alex Rivera (Designer), Chris Taylor (Developer), Maya Johnson (Social Media), David Kim (SEO). Set expectations for the 8-week timeline. Include client portal link: https://amplifydigital.com/portal/bella-cucina. Include questionnaire link with "Please complete within 48 hours." |
+| 2 | \`email\` | \`{ offset: 2, unit: "days", referencePoint: "trigger_event" }\` | "Questionnaire reminder: Help us understand Bella Cucina" | Friendly reminder to complete the questionnaire if not already done. Emphasize that responses drive the strategy: "Your answers help us understand your restaurant, your ideal diners, and your competition." Include direct link to the questionnaire form. Mention it takes 15-20 minutes. |
+| 3 | \`email\` | \`{ offset: 5, unit: "days", referencePoint: "trigger_event" }\` | "Your discovery call is coming up" | Remind Marco about the upcoming discovery call with Sarah and Lisa. Share what to prepare: any additional brand assets (logo files, menu PDF, photos), access credentials for Google Business Profile, Instagram, Facebook, website hosting. Include calendar link to reschedule if needed. |
+| 4 | \`email\` | \`{ offset: 14, unit: "days", referencePoint: "trigger_event" }\` | "Setup is underway: Here is a sneak peek" | Mid-setup update with progress on: website wireframes showing the new menu page and reservation system, social profile setup on Instagram and Facebook, Google Business Profile verification status. Include preview screenshots. Reinforce timeline: "We are on track for launch in Week 5." |
+| 5 | \`email\` | \`{ offset: 28, unit: "days", referencePoint: "trigger_event" }\` | "Launch prep: Final review needed" | Request Marco's review and approval on: website design (homepage, menu, about, reservations, gallery), social profile branding and bio copy, content calendar themes for the first 30 days (food photography Mondays, behind-the-scenes Wednesdays, community Fridays), ad creative concepts for Facebook and Instagram. Include review deadline: 3 business days. |
+| 6 | \`email\` | \`{ offset: 35, unit: "days", referencePoint: "trigger_event" }\` | "Bella Cucina is live!" | Launch day email. Everything is live: website at bellacucina.com, Instagram @bellacucinapdx, Facebook Bella Cucina Portland, Google Business Profile fully optimized, review request system active, content calendar publishing, ad campaigns running. Remind about first performance review call with Lisa on March 28. |
+| 7 | \`email\` | \`{ offset: 65, unit: "days", referencePoint: "trigger_event" }\` | "Your 30-day check-in: How is everything going?" | 30-day post-launch check-in. Share early performance highlights: website traffic, social follower growth, Google Business views, new reviews collected, ad campaign results. Ask for feedback on the onboarding experience. Confirm ongoing management rhythm: weekly reports every Monday, monthly strategy call on the first Thursday of each month. |
+
+**Sequence B: Ongoing Client Lifecycle** (\`subtype: "lifecycle"\`)
+
+**Object:** \`type: "automation_sequence"\`, \`subtype: "lifecycle"\`, \`name: "Bella Cucina Client Lifecycle"\`
+
+**Trigger event:** \`contact_tagged\` (tag: \`"active_client"\`)
+
+| Step | Channel | Timing | Subject | Body Summary |
+|------|---------|--------|---------|-------------|
+| 1 | \`email\` | \`{ offset: 30, unit: "days", referencePoint: "trigger_event" }\` | "Your first monthly performance report" | Comprehensive 30-day report: website traffic (sessions, page views, top pages), social metrics (followers gained, engagement rate, top posts), Google Business Profile (views, searches, direction requests, calls), review summary (new reviews, average rating across Google, Yelp, TripAdvisor), ad performance (impressions, clicks, cost per click, conversions). Include next month's strategy adjustments. |
+| 2 | \`email\` | \`{ offset: 60, unit: "days", referencePoint: "trigger_event" }\` | "60-day milestone: Let us talk about what is next" | Two-month review. Invite to quarterly strategy session with Lisa. Share growth trends across all channels. Propose new initiatives: seasonal menu promotion campaign, local influencer partnership (food bloggers in Portland), catering service launch promotion, holiday event marketing (Easter brunch, summer patio opening). |
+| 3 | \`email\` | \`{ offset: 90, unit: "days", referencePoint: "trigger_event" }\` | "Quarterly strategy session: Agenda inside" | Pre-meeting agenda for quarterly review. Include performance dashboard link. Discussion topics: campaign performance across all channels, budget allocation review (what is delivering best ROI), new opportunities (TikTok content, email newsletter to reservation database, loyalty program), upcoming seasonal events (summer patio season, restaurant week, holiday menus), content strategy evolution based on what resonates with Bella Cucina's audience. |
 
 ---
 
-### Step 6: Link All Objects
+### Step 7: Link All Objects
 
 \`\`\`
-// Link project to client contact
+// Link Workflow 1 to questionnaire form
 objectLinks.create({
-  sourceObjectId: "proj_brighthome_001",
-  targetObjectId: "<BRIGHTHOME_CONTACT_ID>",
-  linkType: "project_contact"
-})
-
-// Link project to marketing manager contact
-objectLinks.create({
-  sourceObjectId: "proj_brighthome_001",
-  targetObjectId: "<BRIGHTHOME_MARKETING_CONTACT_ID>",
-  linkType: "project_contact"
-})
-
-// Link intake workflow to form
-objectLinks.create({
-  sourceObjectId: "wf_brighthome_intake_001",
-  targetObjectId: "form_brighthome_intake_001",
+  sourceObjectId: "wf_bella_cucina_intake_001",
+  targetObjectId: "form_bella_cucina_questionnaire_001",
   linkType: "workflow_form"
 })
 
-// Link intake workflow to onboarding sequence
+// Link Workflow 1 to welcome sequence
 objectLinks.create({
-  sourceObjectId: "wf_brighthome_intake_001",
-  targetObjectId: "<ONBOARDING_SEQUENCE_ID>",
+  sourceObjectId: "wf_bella_cucina_intake_001",
+  targetObjectId: "<WELCOME_SEQUENCE_ID>",
   linkType: "workflow_sequence"
+})
+
+// Link project to client contact
+objectLinks.create({
+  sourceObjectId: "proj_bella_cucina_001",
+  targetObjectId: "contact_bella_cucina_001",
+  linkType: "project_contact"
 })
 \`\`\`
 
 ---
 
-### Step 7: Populate the File System
+### Step 8: Populate the File System
 
 \`\`\`
 createVirtualFile({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "client-brief",
+  projectId: "proj_bella_cucina_001",
+  name: "onboarding-brief",
   parentPath: "/notes",
-  content: "# BrightHome Co. - Client Brief\\n\\n## Company Overview\\n- Company: BrightHome Co.\\n- Industry: DTC Home Goods E-Commerce\\n- Platform: Shopify\\n- Monthly Revenue: ~$50,000\\n- SKUs: ~150 products\\n- Website: https://brighthome.co\\n\\n## Engagement\\n- Type: 6-month growth retainer\\n- Budget: $6,000/month ($36,000 total)\\n- Start: February 2024\\n- Focus: Paid ads, email marketing, CRO\\n\\n## Goals\\n1. Increase monthly revenue from $50K to $80K\\n2. Improve ROAS on paid ads from 2x to 4x\\n3. Build email list to 25,000 subscribers\\n\\n## Challenges\\n- Rising CAC on Facebook/Instagram\\n- Low email engagement (12% open rate)\\n- High cart abandonment (72%)\\n- Limited brand differentiation in crowded market\\n\\n## Team\\n- Client Contact: Sarah Mitchell (CEO)\\n- Client Marketing: Tom Reynolds (Marketing Manager)\\n- GrowthStack AM: Jessica Park\\n- GrowthStack PL: Marcus Chen\\n- Ads: Alex Rivera\\n- Email: Dana Kim"
+  content: "# Bella Cucina - Digital Marketing Onboarding Brief\\n\\n## Client\\nBella Cucina Italian Restaurant\\nOwner: Marco Rossi\\nLocation: 456 Oak Street, Portland, OR 97201\\n\\n## Service Package\\nComplete Digital Marketing: website redesign, social media management, local SEO, Google Business Profile optimization, review management\\n\\n## Contract\\nMonthly retainer: $3,500\\nAdditional ad budget: $1,500/month\\nContract start: March 1, 2026\\n\\n## Timeline\\n- Week 1: Discovery (questionnaire, brand audit, competitor analysis, discovery call)\\n- Weeks 2-3: Setup (website build, social profiles, Google Business, review systems)\\n- Week 4: Launch Prep (content calendar, ad creatives, testing, QA)\\n- Week 5: Launch (all channels go live)\\n- Weeks 6-8: Optimize (performance review, adjustments, reporting)\\n\\n## KPIs\\n- Increase weekday dinner reservations by 40%\\n- Build Instagram following to 5,000\\n- Become #1 rated Italian restaurant on Google in Portland\\n- Achieve 4.7+ average rating across review platforms\\n- Drive 500+ monthly website visitors from organic search\\n\\n## Team\\n- Account Manager: Sarah Chen\\n- Project Lead: James Park\\n- Digital Strategist: Lisa Nguyen\\n- Designer: Alex Rivera\\n- Web Developer: Chris Taylor\\n- Social Media Manager: Maya Johnson\\n- SEO Specialist: David Kim"
 })
 
 createVirtualFile({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "discovery-notes",
+  projectId: "proj_bella_cucina_001",
+  name: "discovery-brief",
   parentPath: "/notes",
-  content: "# Discovery Notes - BrightHome Co.\\n\\n## AI Intake Analysis\\n[AI analysis will be populated after intake form submission]\\n\\n## Kickoff Call Notes\\n[To be completed after kickoff call]\\n\\n## Key Findings\\n[To be populated during discovery phase]"
-})
-
-createVirtualFile({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "strategy-doc",
-  parentPath: "/notes",
-  content: "# Growth Strategy - BrightHome Co.\\n\\n## Executive Summary\\n[To be completed after brand audit]\\n\\n## Channel Strategy\\n[Paid ads, email, CRO recommendations]\\n\\n## Timeline & Deliverables\\n[Week-by-week breakdown]\\n\\n## Budget Allocation\\n[Channel-by-channel budget split]\\n\\n## KPIs & Targets\\n[Monthly targets for each channel]"
-})
-
-createVirtualFile({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "launch-checklist",
-  parentPath: "/notes",
-  content: "# Pre-Launch Checklist - BrightHome Co.\\n\\n## Paid Ads\\n- [ ] Google Shopping feed approved and serving\\n- [ ] Google Search campaigns active with correct targeting\\n- [ ] Facebook prospecting campaigns live\\n- [ ] Facebook retargeting pixel firing correctly\\n- [ ] Instagram ad placements verified\\n- [ ] All conversion tracking firing\\n- [ ] Budget caps set correctly\\n\\n## Email Marketing\\n- [ ] Welcome series active (5 emails)\\n- [ ] Abandoned cart flow active (3 emails)\\n- [ ] Post-purchase flow active (3 emails)\\n- [ ] Win-back flow active (3 emails)\\n- [ ] All sender domains verified\\n- [ ] Suppression lists configured\\n\\n## Analytics\\n- [ ] Google Analytics 4 events verified\\n- [ ] UTM framework documented and applied\\n- [ ] Custom dashboard created and accessible\\n- [ ] Weekly report template configured\\n\\n## Client Approval\\n- [ ] Ad creatives approved by client\\n- [ ] Email templates approved by client\\n- [ ] Landing pages approved by client\\n- [ ] Budget allocation approved by client\\n- [ ] Go-live date confirmed"
+  content: "# AI Discovery Brief - Bella Cucina\\n\\n(This file will be populated automatically by the AI agent in Workflow 1 after Marco completes the onboarding questionnaire. The AI analysis will include: restaurant summary, menu analysis, target audience profile, competitive positioning, recommended channels, local SEO opportunities, content strategy, challenges, quick wins, and KPIs.)"
 })
 
 createFolder({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
+  projectId: "proj_bella_cucina_001",
   name: "meeting-notes",
   parentPath: "/notes"
 })
 
+createVirtualFile({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_bella_cucina_001",
+  name: "discovery-call",
+  parentPath: "/notes/meeting-notes",
+  content: "# Discovery Call Notes - Bella Cucina\\n\\nDate: TBD (to be scheduled after questionnaire completion)\\nAttendees: Marco Rossi (client), Sarah Chen (AM), Lisa Nguyen (strategist)\\n\\n## Agenda\\n1. Review questionnaire responses and AI discovery brief\\n2. Discuss business goals in detail\\n3. Review competitor landscape\\n4. Align on marketing strategy and priorities\\n5. Confirm timeline and milestones\\n6. Discuss brand asset handoff process\\n7. Set communication cadence expectations\\n\\n## Notes\\n(To be filled during call)\\n\\n## Action Items\\n(To be filled during call)"
+})
+
 createFolder({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "brand-assets-received",
+  projectId: "proj_bella_cucina_001",
+  name: "questionnaire-responses",
   parentPath: "/assets"
 })
 
 createFolder({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
+  projectId: "proj_bella_cucina_001",
   name: "deliverables",
   parentPath: "/assets"
 })
 
-createFolder({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_brighthome_001",
-  name: "contracts",
-  parentPath: "/assets"
-})
-
 captureBuilderApp({
-  projectId: "proj_brighthome_001",
-  builderAppId: "<INTAKE_PAGE_APP_ID>"
-})
-
-captureBuilderApp({
-  projectId: "proj_brighthome_001",
-  builderAppId: "<PORTAL_PAGE_APP_ID>"
-})
-
-captureBuilderApp({
-  projectId: "proj_brighthome_001",
-  builderAppId: "<WELCOME_PAGE_APP_ID>"
+  projectId: "proj_bella_cucina_001",
+  builderAppId: "<CLIENT_PORTAL_APP_ID>"
 })
 
 captureLayerWorkflow({
-  projectId: "proj_brighthome_001",
-  layerWorkflowId: "wf_brighthome_intake_001"
+  projectId: "proj_bella_cucina_001",
+  layerWorkflowId: "wf_bella_cucina_intake_001"
 })
 
 captureLayerWorkflow({
-  projectId: "proj_brighthome_001",
-  layerWorkflowId: "wf_brighthome_reminder_001"
+  projectId: "proj_bella_cucina_001",
+  layerWorkflowId: "wf_bella_cucina_milestone_001"
 })
 
 captureLayerWorkflow({
-  projectId: "proj_brighthome_001",
-  layerWorkflowId: "wf_brighthome_milestone_001"
+  projectId: "proj_bella_cucina_001",
+  layerWorkflowId: "wf_bella_cucina_reminder_001"
 })
 
 captureLayerWorkflow({
-  projectId: "proj_brighthome_001",
-  layerWorkflowId: "wf_brighthome_launch_001"
-})
-
-captureLayerWorkflow({
-  projectId: "proj_brighthome_001",
-  layerWorkflowId: "wf_brighthome_checkin_001"
+  projectId: "proj_bella_cucina_001",
+  layerWorkflowId: "wf_bella_cucina_completion_001"
 })
 \`\`\`
 
@@ -7035,48 +6937,46 @@ captureLayerWorkflow({
 
 | # | Object Type | Subtype | Name | Key Detail |
 |---|------------|---------|------|-----------|
-| 1 | \`project\` | \`client_project\` | "BrightHome Co. - E-Commerce Growth Retainer" | 6 milestones, 16 tasks, 5 internal + 2 client team members |
-| 2 | \`form\` | \`application\` | "BrightHome Co. Onboarding Questionnaire" | 15 fields (3 section headers + 12 input fields), published |
-| 3 | \`crm_contact\` | \`customer\` | "Sarah Mitchell" | Primary client contact |
-| 4 | \`crm_contact\` | \`customer\` | "Tom Reynolds" | Client marketing manager |
-| 5 | \`crm_organization\` | \`customer\` | "BrightHome Co." | DTC home goods e-commerce |
-| 6 | \`layer_workflow\` | \`workflow\` | "BrightHome Intake Processing" | 9 nodes, 8 edges, active |
-| 7 | \`layer_workflow\` | \`workflow\` | "E-Commerce Client Questionnaire Reminder" | 5 nodes, 4 edges, active |
-| 8 | \`layer_workflow\` | \`workflow\` | "BrightHome Milestone Completion" | 4 nodes, 3 edges, active |
-| 9 | \`layer_workflow\` | \`workflow\` | "BrightHome Launch Notification" | 5 nodes, 4 edges, active |
-| 10 | \`layer_workflow\` | \`workflow\` | "BrightHome 30-Day Check-In" | 5 nodes, 4 edges, active |
-| 11 | \`automation_sequence\` | \`lifecycle\` | "E-Commerce Client Onboarding Sequence" | 7 steps over 30 days |
-| 12 | \`builder_app\` | \`template_based\` | "Intake Questionnaire Page" | Welcome + form embed + timeline |
-| 13 | \`builder_app\` | \`template_based\` | "Client Portal Page" | Milestones + tasks + files + comms |
-| 14 | \`builder_app\` | \`template_based\` | "Welcome Page" | Credentials + resources + team intro |
+| 1 | \`project\` | \`client_project\` | "Bella Cucina - Digital Marketing Onboarding" | 5 milestones, 14 tasks, 7 internal team, 1 client team |
+| 2 | \`crm_contact\` | \`customer\` | "Marco Rossi" | Bella Cucina owner, primary contact |
+| 3 | \`form\` | \`application\` | "Bella Cucina Onboarding Questionnaire" | 28 fields across 7 sections, published |
+| 4 | \`layer_workflow\` | \`workflow\` | "Bella Cucina Intake Processing" | 7 nodes, 6 edges, active |
+| 5 | \`layer_workflow\` | \`workflow\` | "Bella Cucina Milestone Tracker" | 9 nodes, 10 edges, active |
+| 6 | \`layer_workflow\` | \`workflow\` | "Bella Cucina Questionnaire Reminder" | 4 nodes, 3 edges, active |
+| 7 | \`layer_workflow\` | \`workflow\` | "Bella Cucina Onboarding Completion" | 6 nodes, 5 edges, active |
+| 8 | \`automation_sequence\` | \`nachher\` | "Bella Cucina Welcome Sequence" | 7 emails over 65 days |
+| 9 | \`automation_sequence\` | \`lifecycle\` | "Bella Cucina Client Lifecycle" | 3 emails over 90 days |
+| 10 | \`builder_app\` | \`template_based\` | "Bella Cucina Client Portal" | Welcome page + timeline + questionnaire CTA + team |
 
 | # | Link Type | Source | Target |
 |---|----------|--------|--------|
-| 1 | \`project_contact\` | Project (1) | Contact - Sarah (3) |
-| 2 | \`project_contact\` | Project (1) | Contact - Tom (4) |
-| 3 | \`workflow_form\` | Workflow - Intake (6) | Form (2) |
-| 4 | \`workflow_sequence\` | Workflow - Intake (6) | Sequence (11) |
+| 1 | \`workflow_form\` | Workflow (4) | Form (3) |
+| 2 | \`workflow_sequence\` | Workflow (4) | Sequence (8) |
+| 3 | \`project_contact\` | Project (1) | Contact (2) |
 
 ### Credit Cost Estimate
 
 | Action | Count | Credits Each | Total |
 |--------|-------|-------------|-------|
-| Behavior: update-contact | 1 per client | 1 | 1 |
-| Behavior: move-pipeline-stage (to discovery) | 1 per client | 1 | 1 |
-| AI agent: analyze intake | 1 per client | 3 | 3 |
+| Behavior: update-contact (questionnaire data) | 1 per client | 1 | 1 |
+| Behavior: move-pipeline-stage (discovery) | 1 per client | 1 | 1 |
 | Behavior: send-confirmation-email (welcome pack) | 1 per client | 1 | 1 |
-| Behavior: send-admin-notification (intake) | 1 per client | 1 | 1 |
-| Behavior: activecampaign-sync (add_contact) | 1 per client | 1 | 1 |
-| Behavior: activecampaign-sync (add_tag) | 1 per client | 1 | 1 |
-| Behavior: activecampaign-sync (add_to_automation) | 1 per client | 1 | 1 |
-| Milestone completion (pipeline + 2 emails) x 6 | 6 per client | 3 | 18 |
-| Launch notification (email + admin + tag) | 1 per client | 3 | 3 |
-| 30-day check-in (email + pipeline move) | 1 per client | 2 | 2 |
-| Sequence: 7 steps (6 email + 1 SMS) | 7 per client | 1 | 7 |
-| Questionnaire reminder (email + SMS, avg 1 reminder) | 1 per client | 2 | 2 |
-| **Total per client** | | | **42 credits** |
+| Behavior: activecampaign-sync (add_tag: onboarding_active) | 1 per client | 1 | 1 |
+| AI agent: analyze questionnaire | 1 per client | 3 | 3 |
+| Behavior: send-admin-notification (team alert) | 1 per client | 1 | 1 |
+| Workflow 2: move-pipeline-stage (per milestone) | 3 per client | 1 | 3 |
+| Workflow 2: send-confirmation-email (client notification, per milestone) | 3 per client | 1 | 3 |
+| Workflow 2: send-admin-notification (team notification, per milestone) | 3 per client | 1 | 3 |
+| Workflow 3: questionnaire reminder (if triggered) | 1-3 per client | 1 | 2 |
+| Workflow 4: move-pipeline-stage (launched) | 1 per client | 1 | 1 |
+| Workflow 4: send-confirmation-email (launch announcement) | 1 per client | 1 | 1 |
+| Workflow 4: activecampaign-sync (add_tag x2) | 2 per client | 1 | 2 |
+| Workflow 4: send-admin-notification (team alert) | 1 per client | 1 | 1 |
+| Sequence A: 7 emails (welcome + onboarding touchpoints) | 7 per client | 1 | 7 |
+| Sequence B: 3 emails (lifecycle) | 3 per client | 1 | 3 |
+| **Total per client onboarding** | | | **34 credits** |
 
-For an agency onboarding 5 new clients/month: approximately 210 credits/month.`;
+For an agency onboarding 5 new clients per month: approximately 170 credits/month.`;
 
 export const SKILLS_ECOMMERCE_STOREFRONT_SKILL = `# Skill: E-Commerce Storefront
 
@@ -7086,7 +6986,7 @@ export const SKILLS_ECOMMERCE_STOREFRONT_SKILL = `# Skill: E-Commerce Storefront
 
 ## 1. Purpose
 
-This skill builds a complete e-commerce product sales system for an agency's client. The deployment creates a product catalog with physical and digital products, wires up a checkout flow with Stripe payment processing, automates order processing with invoice generation and CRM tracking, sends confirmation emails and syncs contacts to ActiveCampaign, manages shipping notifications for physical products, and runs post-purchase nurture sequences that drive reviews, cross-sell recommendations, and repeat purchases. The three-layer relationship applies: the L4YERCAK3 platform provides the infrastructure, the agency configures and deploys the storefront for their client, and the client's end customers are the buyers entering the store. The outcome is a fully automated system where every purchase flows through order processing, invoice generation, customer relationship management, and multi-step post-purchase engagement without manual intervention.
+This skill builds a complete e-commerce product sales system for an agency's client. The deployment creates a product catalog with physical and digital products, wires up a checkout flow with Stripe payment processing, automates order processing with invoice generation and CRM tracking, sends confirmation emails and syncs contacts to ActiveCampaign, manages shipping notifications for physical products, and runs post-purchase nurture sequences that drive reviews, cross-sell recommendations, and repeat purchases. The canonical four-layer \`BusinessLayer\` model applies: \`Business L1\` (platform) provides infrastructure, \`Business L2\` (agency) configures and deploys for the client business at \`Business L3\`, and the buyers entering the store are \`Business L4\` end-customers. The outcome is a fully automated system where every purchase flows through order processing, invoice generation, customer relationship management, and multi-step post-purchase engagement without manual intervention.
 
 ---
 
@@ -9530,1242 +9430,1569 @@ steps: [
 
 export const SKILLS_FUNDRAISING_DONATIONS_SKILL = `# Skill: Fundraising / Donations
 
-> **Canonical ontology reference:** \`_SHARED.md\` in the parent \`skills/\` directory.
-> Every table name, field name, mutation signature, node type, and handle name
-> used below is taken verbatim from that document. Do not alias or abbreviate.
+> References: \`_SHARED.md\` for all ontology definitions, mutation signatures, node types, and link types.
 
 ---
 
 ## 1. Purpose
 
-Deploy a complete online fundraising and donation system for an agency's nonprofit client
-(charity, foundation, community organization, school, religious institution).
-
-**Outcome after execution:**
-
-- Tiered donation products created (digital subtype, unlimited inventory): $25, $50, $100, $250, and custom amount.
-- Donor information form published with dedication/tribute and recurring option fields.
-- Checkout flow wired to process one-time and recurring donations via Stripe.
-- CRM pipeline tracks every donor from prospect through first-time, repeat, monthly sustainer, major donor, and lapsed stages.
-- Tax receipt invoices generated automatically as b2c_single with organization tax ID.
-- Layers workflows automate donation processing, repeat donor detection, impact updates, failed payment recovery, lapsed donor re-engagement, and year-end appeals.
-- Donor stewardship sequences nurture donors toward recurring and major giving.
-- All objects linked so the system is fully connected end-to-end.
-
-**Three-layer context:** L4YERCAK3 (platform) -> Agency (deploys the skill) -> Agency's Client (the nonprofit / charity) -> End Customer (the donor).
+This skill builds a complete fundraising and donation system for a nonprofit or charity organization. The deployment creates tiered donation products (one-time and recurring), a donor-facing landing page with an embedded donation form, a checkout flow integrated with payment processing, CRM contact tracking for all donors, automated tax receipt generation via the invoicing system, thank-you email sequences, impact reporting automation, and donor stewardship workflows that segment and nurture donors based on giving level. The system handles major donor alerts, recurring sustainer management, year-end appeals, and lapsed donor re-engagement. The canonical four-layer \`BusinessLayer\` model applies: \`Business L1\` (platform) provides infrastructure, \`Business L2\` (agency) configures and deploys for the nonprofit client at \`Business L3\`, and donors entering the funnel are \`Business L4\` end-customers.
 
 ---
 
 ## 2. Ontologies Involved
 
-### 2.1 Product (digital -- donation tiers)
+### Objects (\`objects\` table)
 
-\`\`\`
-objects {
-  _id: Id<"objects">
-  organizationId: Id<"organizations">
-  type: "product"
-  subtype: "digital"
-  name: string                         // e.g. "Donation — $50 Medical Care Fund"
-  customProperties: {
-    productCode: string                // e.g. "DON-PF-050"
-    description: string                // what the donation funds
-    price: number                      // in cents, e.g. 5000
-    currency: string                   // "USD"
-    inventory: number                  // -1 (unlimited — donations never sell out)
-    sold: number                       // starts at 0
-    taxBehavior: string                // "inclusive" (donations are not taxed)
-    maxQuantity: number                // 1 (one donation per transaction; donor picks tier)
-    requiresShipping: false
-    invoiceConfig: {
-      generateReceipt: true,
-      receiptType: "tax_receipt",
-      includeOrgTaxId: true
-    }
-  }
-  createdBy: Id<"users">
-  createdAt: number
-  updatedAt?: number
-}
-\`\`\`
+| type | subtype | customProperties used |
+|------|---------|----------------------|
+| \`product\` | \`digital\` | \`productCode\`, \`description\`, \`price\` (cents), \`currency\`, \`taxBehavior\`, \`maxQuantity\` -- one product per donation tier plus a custom-amount product |
+| \`crm_contact\` | \`customer\` | \`firstName\`, \`lastName\`, \`email\`, \`phone\`, \`contactType\`, \`tags\`, \`pipelineStageId\`, \`pipelineDealValue\`, \`customFields\` (dedicationType, tributeName, isAnonymous, isRecurring, totalGiven, firstDonationDate, lastDonationDate) |
+| \`form\` | \`registration\` | \`fields\` (array of field objects), \`formSettings\` (redirect URL, notifications), \`submissionWorkflow\` |
+| \`layer_workflow\` | \`workflow\` | Full \`LayerWorkflowData\`: \`nodes\`, \`edges\`, \`metadata\`, \`triggers\` |
+| \`automation_sequence\` | \`nachher\` | Steps array with \`channel\`, \`timing\`, \`content\` -- immediate thank you, impact story, progress update |
+| \`automation_sequence\` | \`lifecycle\` | Steps array with \`channel\`, \`timing\`, \`content\` -- re-engagement, annual appeal, upgrade ask |
+| \`builder_app\` | \`template_based\` | Donation landing page, thank-you/confirmation page, campaign progress page files |
+| \`project\` | \`campaign\` | \`projectCode\`, \`description\`, \`status\`, \`startDate\`, \`endDate\`, \`budget\`, \`milestones\` |
 
-### 2.2 Form (registration -- donor information + dedication)
+### Object Links (\`objectLinks\` table)
 
-\`\`\`
-objects {
-  _id: Id<"objects">
-  organizationId: Id<"organizations">
-  type: "form"
-  subtype: "registration"
-  name: string                         // e.g. "Pawsitive Futures Donation Form"
-  customProperties: {
-    fields: [
-      { type: "section_header", label: "Your Information",       required: false },
-      { type: "text",           label: "First Name",             required: true  },
-      { type: "text",           label: "Last Name",              required: true  },
-      { type: "email",          label: "Email",                  required: true  },
-      { type: "phone",          label: "Phone",                  required: false },
-      { type: "section_header", label: "Your Donation",          required: false },
-      { type: "select",         label: "Donation Amount",        required: true,
-        options: ["$25 — Feed a Pet for a Week", "$50 — Medical Care Fund", "$100 — Sponsor an Adoption", "$250 — Guardian Angel", "Other Amount"] },
-      { type: "number",         label: "Custom Amount ($)",      required: false,
-        placeholder: "Enter your custom donation amount" },
-      { type: "radio",          label: "Frequency",              required: true,
-        options: ["One-Time", "Monthly Recurring"] },
-      { type: "section_header", label: "Dedication (Optional)",  required: false },
-      { type: "select",         label: "Dedication Type",        required: false,
-        options: ["None", "In Honor Of", "In Memory Of"] },
-      { type: "text",           label: "Dedication Name",        required: false,
-        placeholder: "Name of the person you are honoring" },
-      { type: "textarea",       label: "Personal Message",       required: false,
-        placeholder: "Add a personal message (included on receipt)" },
-      { type: "checkbox",       label: "I agree to the donation terms and refund policy", required: true }
-    ],
-    formSettings: {
-      redirectUrl: "/thank-you",
-      notifications: { adminEmail: true, respondentEmail: true },
-      submissionBehavior: "redirect"
-    },
-    displayMode: "embedded",
-    conditionalLogic: [
-      { fieldId: "custom_amount",   operator: "visible_when", value: "Other Amount",    action: "show", targetFieldId: "custom_amount" },
-      { fieldId: "dedication_name", operator: "visible_when", value: "None",            action: "hide", targetFieldId: "dedication_name" },
-      { fieldId: "personal_message",operator: "visible_when", value: "None",            action: "hide", targetFieldId: "personal_message" }
-    ],
-    submissionWorkflow: {}
-  }
-  createdBy: Id<"users">
-  createdAt: number
-  updatedAt?: number
-}
-\`\`\`
-
-### 2.3 CRM Contact (donor)
-
-\`\`\`
-objects {
-  _id: Id<"objects">
-  organizationId: Id<"organizations">
-  type: "crm_contact"
-  subtype: "prospect"                  // promoted to "customer" after first donation
-  name: string                         // "Sarah Mitchell"
-  customProperties: {
-    firstName: string
-    lastName: string
-    email: string
-    phone: string
-    companyName: string
-    contactType: "donor"
-    tags: ["donor", "tier_50_medical_care", "campaign_general", "one_time"]
-    pipelineStageId: string            // current stage ID
-    pipelineDealValue: number          // cumulative lifetime giving in cents
-    customFields: {
-      totalDonations: number           // cumulative dollar amount in cents
-      donationCount: number            // number of separate donations
-      firstDonationDate: number        // timestamp
-      lastDonationDate: number         // timestamp
-      isRecurring: boolean
-      dedicationType: string           // "none" | "in_honor_of" | "in_memory_of"
-      dedicationName: string
-      campaignSource: string           // which campaign drove this donor
-    }
-    addresses: [{ street: string, city: string, state: string, zip: string, country: string }]
-  }
-  createdBy: Id<"users">
-  createdAt: number
-  updatedAt?: number
-}
-\`\`\`
-
-### 2.4 Invoice (b2c_single -- tax receipt)
-
-\`\`\`
-Invoice {
-  type: "b2c_single"
-  status: "draft" -> "sent" -> "paid"
-  customProperties: {
-    donorName: string
-    donorEmail: string
-    donationAmount: number             // in cents
-    donationDate: number               // timestamp
-    organizationName: string           // "Pawsitive Futures"
-    organizationTaxId: string          // e.g. "EIN: 12-3456789"
-    receiptNumber: string              // auto-generated on seal
-    taxDeductibleAmount: number        // in cents (full amount for 501c3)
-    dedicationType: string
-    dedicationName: string
-    personalMessage: string
-    paymentTerms: "due_on_receipt"
-  }
-}
-\`\`\`
-
-### 2.5 Workflow (layer_workflow)
-
-\`\`\`
-objects {
-  _id: Id<"objects">
-  organizationId: Id<"organizations">
-  type: "layer_workflow"
-  subtype: "workflow"
-  name: string                         // e.g. "Donation Processing Workflow"
-  customProperties: {
-    // See LayerWorkflowData in section 4
-  }
-  createdBy: Id<"users">
-  createdAt: number
-  updatedAt?: number
-}
-\`\`\`
-
-### 2.6 Sequence (automation_sequence)
-
-\`\`\`
-objects {
-  _id: Id<"objects">
-  organizationId: Id<"organizations">
-  type: "automation_sequence"
-  subtype: "nachher" | "lifecycle" | "custom"
-  name: string                         // e.g. "Donor Stewardship Sequence"
-  customProperties: {
-    triggerEvent: string               // "pipeline_stage_changed" | "contact_tagged" | "manual_enrollment"
-    channel: "email" | "sms" | "whatsapp" | "preferred"
-    steps: [...]                       // see section 4.7
-  }
-  createdBy: Id<"users">
-  createdAt: number
-  updatedAt?: number
-}
-\`\`\`
-
-### 2.7 Object Links
-
-All links use \`objectLinks { sourceObjectId, targetObjectId, linkType, properties? }\`.
-
-| linkType            | source             | target             | purpose                                      |
-|---------------------|--------------------|--------------------|----------------------------------------------|
-| \`checkout_product\`  | checkout object    | product (digital)  | Checkout sells these donation products        |
-| \`product_form\`      | product (digital)  | form (registration)| Donation product requires this donor form     |
-| \`workflow_form\`     | workflow           | form (registration)| Workflow triggered by this form               |
-| \`workflow_sequence\` | workflow           | sequence           | Workflow enrolls donor into this sequence     |
+| linkType | sourceObjectId | targetObjectId |
+|----------|---------------|----------------|
+| \`workflow_form\` | workflow (donation processing) | form (donor registration) |
+| \`workflow_sequence\` | workflow (donation processing) | sequence (donor stewardship nachher) |
+| \`workflow_sequence\` | workflow (recurring donation management) | sequence (sustainer lifecycle) |
+| \`product_form\` | product (each donation tier) | form (donor registration) |
+| \`checkout_product\` | checkout transaction | product (donation tier) |
+| \`project_contact\` | project (campaign) | CRM contact (nonprofit stakeholder) |
 
 ---
 
 ## 3. Builder Components
 
-### 3.1 Donation Landing Page (\`/builder/donation-page\`)
+### Donation Landing Page
 
-- **Hero section:** Organization name, mission statement headline (StoryBrand: "Every pet deserves a loving home"), hero image of beneficiaries, primary CTA button ("Give Now").
-- **Impact stats bar:** Three or four key metrics in a horizontal strip (e.g., "2,400 pets rescued", "98% adoption rate", "15 years serving our community", "$1.2M raised this year").
-- **Cause story section:** StoryBrand narrative -- the problem (animals in need), the guide (the organization), the plan (how donations are used), the success (outcomes). Two to three paragraphs with inline images.
-- **Donation tier cards:** Card-per-tier layout showing tier name, amount, what it funds, and "Select" CTA per tier. Cards for: $25 "Feed a Pet for a Week", $50 "Medical Care Fund", $100 "Sponsor an Adoption", $250 "Guardian Angel", and "Custom Amount" with input field.
-- **Progress bar / goal thermometer:** Visual progress indicator showing current campaign total vs. goal (e.g., "$32,450 of $50,000 raised"). Percentage fill, donor count ("287 donors").
-- **Donor form embed:** Embedded \`form\` object (subtype: \`registration\`). When a tier card is selected, the "Donation Amount" select field auto-populates.
-- **Testimonials section:** Two to three testimonial cards from beneficiaries or previous donors (photo, quote, name). Example: "Thanks to Pawsitive Futures, our family found the perfect companion. -- The Mitchell Family"
-- **Recurring giving callout:** Highlighted section explaining the impact of monthly giving with a "Become a Monthly Sustainer" CTA.
-- **Footer:** Organization address, tax-exempt status notice ("Pawsitive Futures is a registered 501(c)(3). EIN: 12-3456789. Your donation is tax-deductible."), contact email, social links.
+The Builder generates a donation landing page (\`builder_app\`, subtype: \`template_based\`) with these sections:
 
-### 3.2 Thank-You Page (\`/builder/thank-you-page\`)
+1. **Cause Story Section** -- Compelling narrative about the organization's mission and who they serve. Uses StoryBrand framework: the beneficiaries are the heroes, the donor is the guide who empowers transformation. Hero image of impact (rescued animal, built shelter, served meals).
+2. **Impact Statistics Section** -- 3-4 key metrics displayed as large numbers with labels. Examples: "2,400 animals rescued," "$1.2M raised last year," "98% of donations go directly to programs."
+3. **Donation Tiers Section** -- Card-based layout showing each tier with name, amount, impact statement, and "Donate" button. Highlighted/recommended tier uses a visual badge ("Most Popular" or "Best Value"). Custom amount option at the end.
+4. **Donor Form Section** -- Embedded registration form (see Form below). Renders inline below the tiers or in a modal triggered by tier selection.
+5. **Recurring Option Section** -- Toggle or radio group: "Make this a monthly gift" with explanation of sustainer benefits. Shows monthly equivalent for each tier.
+6. **Social Proof Section** -- Donor testimonials (2-3 quotes), trust badges (GuideStar/Charity Navigator ratings, 501(c)(3) badge), total raised progress bar.
+7. **Footer** -- Tax deductibility notice, EIN/Tax ID, privacy policy link, organization contact info.
 
-- Thank-you headline: "Thank you for your generous gift!"
-- Receipt confirmation: "Your tax receipt has been sent to [email]. Please save it for your records."
-- Donation summary: Amount, frequency (one-time / monthly), dedication if provided.
-- Impact preview: "Your $50 donation will provide medical care for a rescued animal this month."
-- Social sharing buttons: "Share your support" with pre-populated message for Facebook, Twitter/X, LinkedIn.
-- Recurring upgrade prompt (for one-time donors): "Want to make an even bigger impact? Convert your gift to a monthly donation." with CTA button.
-- Organization contact: "Questions about your donation? Contact us at donate@pawsitivefutures.org"
+**File:** \`/builder/donation-page/index.html\`
 
-### 3.3 Campaign Page Template (\`/builder/campaign-template\`)
+### Thank-You / Confirmation Page
 
-- Campaign-specific hero: Campaign name, unique goal, campaign-specific imagery.
-- Campaign progress bar: Goal amount, current raised, donor count, days remaining.
-- Campaign story: Why this specific campaign matters (e.g., "New Beginnings Wing -- providing a state-of-the-art facility for rescued animals").
-- Campaign-specific tier cards: May differ from general donation tiers (e.g., "Name a Kennel — $500", "Sponsor a Room — $2,500").
-- Donor form embed: Same form object, pre-tagged with campaign name.
-- Campaign updates feed: Chronological updates showing campaign progress milestones.
+Displayed after successful donation (configured via \`formSettings.redirectUrl\`):
 
-### 3.4 Donor Wall / Recognition Page (\`/builder/donor-wall\`)
+1. **Confirmation Message** -- "Thank you, [firstName]! Your generous gift of $[amount] makes a real difference."
+2. **Tax Receipt Info** -- "A tax-deductible receipt has been sent to [email]. Please keep it for your records. Our Tax ID is [TAX_ID]."
+3. **Impact Message** -- Specific impact statement matching their tier: "Your $100 gift sponsors one month of shelter care for a rescue animal."
+4. **Share Buttons** -- Social sharing with pre-filled text: "I just donated to [Org Name]! Join me in supporting [cause]. [link]"
+5. **Next Step CTA** -- "Want to multiply your impact? Share this campaign with friends" or "Become a monthly sustainer."
 
-- Optional public page listing donors who consent to recognition.
-- Tiered display: "Guardian Angels ($250+)", "Sustainers (Monthly)", "Supporters" groupings.
-- Each entry: Donor name (or "Anonymous"), donation tier, date.
-- Total raised counter at the top.
-- "Join these generous supporters" CTA linking back to donation page.
+**File:** \`/builder/thank-you-page/index.html\`
+
+### Campaign Progress Page (Optional)
+
+Displays real-time campaign progress:
+
+1. **Thermometer/Progress Bar** -- Visual showing amount raised vs. goal. Percentage and dollar amount displayed.
+2. **Recent Donors** -- Scrolling list of recent donations (first name + tier, or "Anonymous Donor").
+3. **Milestone Markers** -- Visual markers on the progress bar at 25%, 50%, 75%, 100%.
+4. **Campaign Deadline** -- Countdown timer if the campaign has an end date.
+
+**File:** \`/builder/campaign-progress/index.html\`
+
+### Donor Form
+
+**Object:** \`type: "form"\`, \`subtype: "registration"\`
+
+**Fields array:**
+
+\`\`\`json
+[
+  { "type": "text",    "label": "First Name",          "required": true,  "placeholder": "Jane" },
+  { "type": "text",    "label": "Last Name",           "required": true,  "placeholder": "Smith" },
+  { "type": "email",   "label": "Email Address",       "required": true,  "placeholder": "you@email.com" },
+  { "type": "phone",   "label": "Phone Number",        "required": false, "placeholder": "+1 (555) 000-0000" },
+  { "type": "number",  "label": "Donation Amount",     "required": true,  "placeholder": "100" },
+  { "type": "radio",   "label": "Gift Frequency",      "required": true,  "options": ["One-Time Gift", "Monthly Recurring"] },
+  { "type": "select",  "label": "Dedication Type",     "required": false, "options": ["None", "In Honor Of", "In Memory Of"] },
+  { "type": "text",    "label": "Tribute Name",        "required": false, "placeholder": "Name of person being honored or remembered" },
+  { "type": "checkbox","label": "Make my donation anonymous", "required": false },
+  { "type": "textarea","label": "Message (optional)",  "required": false, "placeholder": "Leave a message of support..." }
+]
+\`\`\`
+
+**formSettings:**
+\`\`\`json
+{
+  "redirectUrl": "/thank-you-donation",
+  "notifications": { "adminEmail": true, "respondentEmail": true },
+  "submissionBehavior": "redirect"
+}
+\`\`\`
+
+> **Customization note:** The "Donation Amount" field may be pre-filled when a donor clicks a specific tier button on the landing page. The "Dedication Type" and "Tribute Name" fields use conditional logic: "Tribute Name" is only shown when "Dedication Type" is not "None". See Section 8.
 
 ---
 
 ## 4. Layers Automations
 
-### 4.1 Workflow 1 -- Donation Processing
+### Workflow 1: Donation Processing (Required)
 
-**Name:** \`Donation Processing Workflow\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Donation Processing Workflow"\`
+
 **Trigger:** \`trigger_payment_received\`
 
 **Nodes:**
 
-| id         | type                       | label                        | position          | config |
-|------------|----------------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_payment_received\` | Payment Received             | { x:0, y:0 }     | \`{ paymentProvider: "any" }\` |
-| \`n-crm1\`   | \`lc_crm\`                  | Create Donor Contact         | { x:300, y:0 }   | \`{ action: "create-contact", firstName: "{{paymentData.firstName}}", lastName: "{{paymentData.lastName}}", email: "{{paymentData.email}}", phone: "{{paymentData.phone}}", contactType: "donor", tags: ["donor", "{{tierTag}}", "{{campaignTag}}"], customFields: { totalDonations: "{{paymentData.amount}}", donationCount: 1, firstDonationDate: "{{now}}", lastDonationDate: "{{now}}", isRecurring: "{{paymentData.isRecurring}}", dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}", campaignSource: "{{formData.campaignSource}}" } }\` |
-| \`n-crm2\`   | \`lc_crm\`                  | Move to First-Time Donor     | { x:600, y:0 }   | \`{ action: "move-pipeline-stage", pipelineStageId: "first_time_donor" }\` |
-| \`n-cond1\`  | \`if_then\`                 | Is Recurring?                | { x:900, y:0 }   | \`{ expression: "{{paymentData.isRecurring}} === true" }\` |
-| \`n-crm3\`   | \`lc_crm\`                  | Move to Monthly Sustainer    | { x:1200, y:-150 }| \`{ action: "move-pipeline-stage", pipelineStageId: "monthly_sustainer" }\` |
-| \`n-crm3t\`  | \`lc_crm\`                  | Tag Recurring Donor          | { x:1500, y:-150 }| \`{ action: "update-contact", tags: ["recurring_donor", "monthly_sustainer"] }\` |
-| \`n-inv\`    | \`lc_invoicing\`            | Generate Tax Receipt         | { x:1200, y:150 } | \`{ action: "generate-invoice", invoiceType: "b2c_single", includeFields: { donorName: "{{contact.firstName}} {{contact.lastName}}", donorEmail: "{{contact.email}}", donationAmount: "{{paymentData.amount}}", donationDate: "{{now}}", organizationName: "{{org.name}}", organizationTaxId: "{{org.taxId}}", taxDeductibleAmount: "{{paymentData.amount}}", dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}", personalMessage: "{{formData.personalMessage}}" } }\` |
-| \`n-merge\`  | \`merge\`                   | Merge Paths                  | { x:1800, y:0 }  | \`{ mergeStrategy: "first" }\` |
-| \`n-email1\` | \`lc_email\`               | Thank You + Tax Receipt      | { x:2100, y:0 }  | \`{ action: "send-confirmation-email", subject: "Thank you for your generous donation to {{org.name}}!", templateId: "donation_thank_you", data: { donorName: "{{contact.firstName}}", donationAmount: "{{paymentData.amountFormatted}}", organizationName: "{{org.name}}", impactPreview: "{{tierImpactStatement}}", receiptAttached: true, dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}" } }\` |
-| \`n-email2\` | \`lc_email\`               | Admin Notification           | { x:2400, y:0 }  | \`{ action: "send-admin-notification", subject: "New donation: \${{paymentData.amountFormatted}} from {{contact.firstName}} {{contact.lastName}}", templateId: "donation_admin_alert", data: { donorName: "{{contact.firstName}} {{contact.lastName}}", amount: "{{paymentData.amountFormatted}}", isRecurring: "{{paymentData.isRecurring}}", campaignSource: "{{formData.campaignSource}}" } }\` |
-| \`n-ac1\`    | \`activecampaign\`         | Sync Contact to AC           | { x:2700, y:0 }  | \`{ action: "add_contact", email: "{{contact.email}}", firstName: "{{contact.firstName}}", lastName: "{{contact.lastName}}" }\` |
-| \`n-ac2\`    | \`activecampaign\`         | Tag Donor in AC              | { x:3000, y:0 }  | \`{ action: "add_tag", tag: "donor" }\` |
-| \`n-ac3\`    | \`activecampaign\`         | Add to Donors List           | { x:3300, y:0 }  | \`{ action: "add_to_list", listName: "donors" }\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_payment_received\` | "Donation Payment Received" | \`{ "paymentProvider": "any" }\` | \`ready\` | \`{ "x": 100, "y": 300 }\` |
+| \`checkout-1\` | \`lc_checkout\` | "Create Donation Transaction" | \`{ "action": "create-transaction", "productId": "{{trigger.productId}}", "amount": "{{trigger.amount}}", "currency": "{{trigger.currency}}", "metadata": { "donationType": "donation", "campaignId": "<CAMPAIGN_PROJECT_ID>" } }\` | \`ready\` | \`{ "x": 350, "y": 300 }\` |
+| \`crm-1\` | \`lc_crm\` | "Create or Update Donor Contact" | \`{ "action": "create-contact", "contactType": "customer", "tags": ["donor", "build-the-new-shelter-fund"], "mapFields": { "email": "{{trigger.customerEmail}}", "firstName": "{{trigger.customerFirstName}}", "lastName": "{{trigger.customerLastName}}", "phone": "{{trigger.customerPhone}}", "customFields": { "dedicationType": "{{trigger.metadata.dedicationType}}", "tributeName": "{{trigger.metadata.tributeName}}", "isAnonymous": "{{trigger.metadata.isAnonymous}}", "isRecurring": "{{trigger.metadata.isRecurring}}", "lastDonationDate": "{{trigger.timestamp}}", "totalGiven": "{{trigger.amount}}" } } }\` | \`ready\` | \`{ "x": 600, "y": 300 }\` |
+| \`invoice-1\` | \`lc_invoicing\` | "Generate Tax Receipt" | \`{ "action": "generate-invoice", "transactionId": "{{checkout-1.output.transactionId}}", "contactId": "{{crm-1.output.contactId}}", "metadata": { "taxDeductible": true, "taxId": "47-1234567", "organizationName": "Second Chance Animal Rescue", "receiptType": "donation" } }\` | \`ready\` | \`{ "x": 850, "y": 150 }\` |
+| \`email-1\` | \`lc_email\` | "Send Thank You + Tax Receipt" | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "Thank You for Your Generous Donation to Second Chance Animal Rescue", "body": "Dear {{crm-1.output.firstName}},\\n\\nThank you for your generous donation of \${{trigger.amountFormatted}} to Second Chance Animal Rescue and our Build the New Shelter Fund campaign.\\n\\nYour gift makes a real difference. Here is what your donation provides:\\n{{trigger.impactStatement}}\\n\\nYour tax-deductible receipt is attached to this email. For your records:\\n- Donation Amount: \${{trigger.amountFormatted}}\\n- Date: {{trigger.dateFormatted}}\\n- Tax ID (EIN): 47-1234567\\n- Organization: Second Chance Animal Rescue, Inc.\\n\\nNo goods or services were provided in exchange for this contribution.\\n\\nWith gratitude,\\nThe Second Chance Animal Rescue Team\\n\\nP.S. Want to multiply your impact? Share our campaign with friends and family: https://secondchanceanimalrescue.org/donate" }\` | \`ready\` | \`{ "x": 850, "y": 350 }\` |
+| \`ac-1\` | \`activecampaign\` | "Sync Donor to ActiveCampaign" | \`{ "action": "add_contact", "email": "{{crm-1.output.email}}", "firstName": "{{crm-1.output.firstName}}", "lastName": "{{crm-1.output.lastName}}" }\` | \`ready\` | \`{ "x": 850, "y": 550 }\` |
+| \`ac-2\` | \`activecampaign\` | "Tag Donor in ActiveCampaign" | \`{ "action": "add_tag", "contactEmail": "{{crm-1.output.email}}", "tag": "donor-shelter-fund" }\` | \`ready\` | \`{ "x": 1100, "y": 550 }\` |
+| \`if-1\` | \`if_then\` | "Is Major Donor?" | \`{ "expression": "{{trigger.amount}} >= 25000" }\` | \`ready\` | \`{ "x": 1100, "y": 300 }\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Pipeline Stage" | \`{ "action": "move-pipeline-stage", "contactId": "{{crm-1.output.contactId}}", "pipelineStageId": "first_time_donor" }\` | \`ready\` | \`{ "x": 1350, "y": 150 }\` |
+| \`crm-3\` | \`lc_crm\` | "Move to Major Donor" | \`{ "action": "move-pipeline-stage", "contactId": "{{crm-1.output.contactId}}", "pipelineStageId": "major_donor" }\` | \`ready\` | \`{ "x": 1350, "y": 300 }\` |
 
 **Edges:**
 
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-crm1\`  | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-crm1\`  | \`n-crm2\`  | \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-crm2\`  | \`n-cond1\` | \`output\`     | \`input\`      |
-| \`e-4\`  | \`n-cond1\` | \`n-crm3\`  | \`true\`       | \`input\`      |
-| \`e-5\`  | \`n-crm3\`  | \`n-crm3t\` | \`output\`     | \`input\`      |
-| \`e-6\`  | \`n-crm3t\` | \`n-merge\` | \`output\`     | \`input_a\`    |
-| \`e-7\`  | \`n-cond1\` | \`n-inv\`   | \`false\`      | \`input\`      |
-| \`e-8\`  | \`n-inv\`   | \`n-merge\` | \`output\`     | \`input_b\`    |
-| \`e-9\`  | \`n-merge\` | \`n-email1\`| \`output\`     | \`input\`      |
-| \`e-10\` | \`n-email1\`| \`n-email2\`| \`output\`     | \`input\`      |
-| \`e-11\` | \`n-email2\`| \`n-ac1\`   | \`output\`     | \`input\`      |
-| \`e-12\` | \`n-ac1\`   | \`n-ac2\`   | \`output\`     | \`input\`      |
-| \`e-13\` | \`n-ac2\`   | \`n-ac3\`   | \`output\`     | \`input\`      |
+| id | source | target | sourceHandle | targetHandle |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`checkout-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`checkout-1\` | \`crm-1\` | \`output\` | \`input\` |
+| \`e-3\` | \`crm-1\` | \`invoice-1\` | \`output\` | \`input\` |
+| \`e-4\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-5\` | \`crm-1\` | \`ac-1\` | \`output\` | \`input\` |
+| \`e-6\` | \`ac-1\` | \`ac-2\` | \`output\` | \`input\` |
+| \`e-7\` | \`crm-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-8\` | \`if-1\` | \`crm-2\` | \`false\` | \`input\` |
+| \`e-9\` | \`if-1\` | \`crm-3\` | \`true\` | \`input\` |
+
+**Mutations to execute:**
+
+1. \`createWorkflow({ sessionId, name: "Donation Processing Workflow", description: "Processes donations, creates donor contacts, generates tax receipts, sends thank-you emails, syncs to ActiveCampaign, routes by donation amount" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Donation Processing Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }] })\`
+3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### 4.2 Workflow 2 -- Repeat Donor Detection
+### Workflow 2: Recurring Donation Management (Required)
 
-**Name:** \`Repeat Donor Detection Workflow\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Recurring Donation Management Workflow"\`
+
 **Trigger:** \`trigger_payment_received\`
 
 **Nodes:**
 
-| id         | type                       | label                        | position          | config |
-|------------|----------------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_payment_received\` | Payment Received             | { x:0, y:0 }     | \`{ paymentProvider: "any" }\` |
-| \`n-code1\`  | \`code_block\`              | Check Previous Donations     | { x:300, y:0 }   | \`{ code: "const contact = context.contact; const count = contact.customFields.donationCount || 0; output.hasPrevious = count > 1; output.totalGiving = contact.customFields.totalDonations || 0; output.donationCount = count;" }\` |
-| \`n-cond1\`  | \`if_then\`                 | Has Previous Donation?       | { x:600, y:0 }   | \`{ expression: "{{hasPrevious}} === true" }\` |
-| \`n-crm1\`   | \`lc_crm\`                  | Move to Repeat Donor         | { x:900, y:-100 } | \`{ action: "move-pipeline-stage", pipelineStageId: "repeat_donor" }\` |
-| \`n-cond2\`  | \`if_then\`                 | Total Giving > $1000?        | { x:1200, y:-100 }| \`{ expression: "{{totalGiving}} > 100000" }\` |
-| \`n-crm2\`   | \`lc_crm\`                  | Move to Major Donor          | { x:1500, y:-200 }| \`{ action: "move-pipeline-stage", pipelineStageId: "major_donor" }\` |
-| \`n-crm2t\`  | \`lc_crm\`                  | Tag Major Donor              | { x:1800, y:-200 }| \`{ action: "update-contact", tags: ["major_donor"] }\` |
-| \`n-email1\` | \`lc_email\`               | Admin: Major Donor Milestone | { x:2100, y:-200 }| \`{ action: "send-admin-notification", subject: "Major donor milestone: {{contact.firstName}} {{contact.lastName}} — \${{totalGivingFormatted}} lifetime", templateId: "major_donor_alert", data: { donorName: "{{contact.firstName}} {{contact.lastName}}", totalGiving: "{{totalGivingFormatted}}", donationCount: "{{donationCount}}" } }\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_payment_received\` | "Payment Received" | \`{ "paymentProvider": "any" }\` | \`ready\` | \`{ "x": 100, "y": 200 }\` |
+| \`if-1\` | \`if_then\` | "Is Recurring Donation?" | \`{ "expression": "{{trigger.metadata.isRecurring}} === true" }\` | \`ready\` | \`{ "x": 350, "y": 200 }\` |
+| \`crm-1\` | \`lc_crm\` | "Tag as Monthly Sustainer" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": ["monthly_sustainer", "recurring_donor"], "customFields": { "isRecurring": true, "lastDonationDate": "{{trigger.timestamp}}", "totalGiven": "{{trigger.runningTotal}}" } }\` | \`ready\` | \`{ "x": 600, "y": 100 }\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Sustainer Stage" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "monthly_sustainer" }\` | \`ready\` | \`{ "x": 850, "y": 100 }\` |
+| \`email-1\` | \`lc_email\` | "Send Monthly Thank You" | \`{ "action": "send-confirmation-email", "to": "{{trigger.customerEmail}}", "subject": "Your Monthly Gift to Second Chance Animal Rescue Has Been Processed", "body": "Dear {{trigger.customerFirstName}},\\n\\nThank you for your continued monthly support of Second Chance Animal Rescue. Your recurring gift of \${{trigger.amountFormatted}} has been successfully processed.\\n\\nThis month, your gift helped provide:\\n{{trigger.monthlyImpactStatement}}\\n\\nSince you started giving monthly, you have contributed a total of \${{trigger.runningTotalFormatted}}. That is incredible.\\n\\nYour tax-deductible receipt for this month's gift is attached.\\n\\nWith gratitude,\\nThe Second Chance Animal Rescue Team\\n\\nP.S. Know someone who loves animals as much as you? Share our mission: https://secondchanceanimalrescue.org/donate" }\` | \`ready\` | \`{ "x": 850, "y": 250 }\` |
+| \`ac-1\` | \`activecampaign\` | "Tag Sustainer in AC" | \`{ "action": "add_tag", "contactEmail": "{{trigger.customerEmail}}", "tag": "sustainer" }\` | \`ready\` | \`{ "x": 1100, "y": 100 }\` |
 
 **Edges:**
 
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-code1\` | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-code1\` | \`n-cond1\` | \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-cond1\` | \`n-crm1\`  | \`true\`       | \`input\`      |
-| \`e-4\`  | \`n-crm1\`  | \`n-cond2\` | \`output\`     | \`input\`      |
-| \`e-5\`  | \`n-cond2\` | \`n-crm2\`  | \`true\`       | \`input\`      |
-| \`e-6\`  | \`n-crm2\`  | \`n-crm2t\` | \`output\`     | \`input\`      |
-| \`e-7\`  | \`n-crm2t\` | \`n-email1\`| \`output\`     | \`input\`      |
+| id | source | target | sourceHandle | targetHandle |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`if-1\` | \`crm-1\` | \`true\` | \`input\` |
+| \`e-3\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
+| \`e-4\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-5\` | \`crm-2\` | \`ac-1\` | \`output\` | \`input\` |
+
+> Note: The \`false\` handle of \`if-1\` has no connection -- one-time donations are handled entirely by Workflow 1. This workflow only activates for recurring payments.
+
+**Mutations to execute:**
+
+1. \`createWorkflow({ sessionId, name: "Recurring Donation Management Workflow", description: "Manages recurring monthly donations, tags sustainers, sends monthly thank-you emails, updates pipeline" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Recurring Donation Management Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }] })\`
+3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### 4.3 Workflow 3 -- Monthly Impact Update
+### Workflow 3: Major Donor Alert (Required)
 
-**Name:** \`Monthly Impact Update Workflow\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Major Donor Alert Workflow"\`
+
+**Trigger:** \`trigger_payment_received\`
+
+**Nodes:**
+
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_payment_received\` | "Payment Received" | \`{ "paymentProvider": "any" }\` | \`ready\` | \`{ "x": 100, "y": 200 }\` |
+| \`if-1\` | \`if_then\` | "Amount >= $250?" | \`{ "expression": "{{trigger.amount}} >= 25000" }\` | \`ready\` | \`{ "x": 350, "y": 200 }\` |
+| \`email-1\` | \`lc_email\` | "Notify Development Team" | \`{ "action": "send-admin-notification", "to": "development@secondchanceanimalrescue.org", "subject": "Major Donation Alert: \${{trigger.amountFormatted}} from {{trigger.customerFirstName}} {{trigger.customerLastName}}", "body": "A major donation has been received. Please arrange a personal thank-you call within 24 hours.\\n\\nDonor Details:\\n- Name: {{trigger.customerFirstName}} {{trigger.customerLastName}}\\n- Email: {{trigger.customerEmail}}\\n- Phone: {{trigger.customerPhone}}\\n- Amount: \${{trigger.amountFormatted}}\\n- Donation Tier: {{trigger.tierName}}\\n- Recurring: {{trigger.metadata.isRecurring}}\\n- Dedication: {{trigger.metadata.dedicationType}} - {{trigger.metadata.tributeName}}\\n- Message: {{trigger.metadata.message}}\\n\\nRecommended Actions:\\n1. Personal phone call from Executive Director within 24 hours\\n2. Handwritten thank-you card mailed within 48 hours\\n3. Add to major donor recognition wall (if not anonymous)\\n4. Invite to upcoming donor appreciation event\\n\\nView donor profile in CRM: [LINK]" }\` | \`ready\` | \`{ "x": 600, "y": 100 }\` |
+| \`crm-1\` | \`lc_crm\` | "Move to Major Donor Stage" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "major_donor" }\` | \`ready\` | \`{ "x": 600, "y": 250 }\` |
+| \`ac-1\` | \`activecampaign\` | "Tag as Major Donor in AC" | \`{ "action": "add_tag", "contactEmail": "{{trigger.customerEmail}}", "tag": "major_donor" }\` | \`ready\` | \`{ "x": 850, "y": 100 }\` |
+| \`ac-2\` | \`activecampaign\` | "Add to Major Donor List" | \`{ "action": "add_to_list", "contactEmail": "{{trigger.customerEmail}}", "listId": "<AC_MAJOR_DONOR_LIST_ID>" }\` | \`ready\` | \`{ "x": 1100, "y": 100 }\` |
+
+**Edges:**
+
+| id | source | target | sourceHandle | targetHandle |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`if-1\` | \`email-1\` | \`true\` | \`input\` |
+| \`e-3\` | \`if-1\` | \`crm-1\` | \`true\` | \`input\` |
+| \`e-4\` | \`email-1\` | \`ac-1\` | \`output\` | \`input\` |
+| \`e-5\` | \`ac-1\` | \`ac-2\` | \`output\` | \`input\` |
+
+> Note: The \`false\` handle of \`if-1\` has no connection -- donations under $250 are handled by Workflow 1 pipeline routing. This workflow only fires the admin alert and major donor tagging for gifts at or above the $250 threshold. The threshold amount (25000 cents = $250) should be adjusted to match the organization's major donor definition.
+
+**Mutations to execute:**
+
+1. \`createWorkflow({ sessionId, name: "Major Donor Alert Workflow", description: "Sends admin notification to development team for donations >= $250, moves donor to major donor pipeline stage, tags in ActiveCampaign" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Major Donor Alert Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }] })\`
+3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
+
+---
+
+### Workflow 4: Year-End Appeal (Optional)
+
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Year-End Appeal Workflow"\`
+
 **Trigger:** \`trigger_schedule\`
 
 **Nodes:**
 
-| id         | type                | label                        | position          | config |
-|------------|---------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_schedule\`  | 1st of Month                 | { x:0, y:0 }     | \`{ cronExpression: "0 9 1 * *", timezone: "America/New_York" }\` |
-| \`n-code1\`  | \`code_block\`       | Generate Impact Stats        | { x:300, y:0 }   | \`{ code: "const stats = await getMonthlyImpactStats(context.organizationId); output.impactStats = stats; output.donors = await getDonorsThisMonth(context.organizationId);" }\` |
-| \`n-loop\`   | \`loop_iterator\`    | Each Donor This Month        | { x:600, y:0 }   | \`{ arrayField: "donors", maxIterations: 5000 }\` |
-| \`n-email1\` | \`lc_email\`         | Monthly Impact Email         | { x:900, y:-50 } | \`{ action: "send-confirmation-email", subject: "Your impact this month at {{org.name}}", templateId: "monthly_impact_update", data: { donorName: "{{item.firstName}}", impactStats: "{{impactStats}}", personalImpact: "Your \${{item.lastDonationFormatted}} donation helped {{item.personalImpactStatement}}", organizationName: "{{org.name}}" } }\` |
+| id | type | label | config | status | position |
+|----|------|-------|--------|--------|----------|
+| \`trigger-1\` | \`trigger_schedule\` | "November Campaign Start" | \`{ "cronExpression": "0 9 1 11 *", "timezone": "America/Chicago" }\` | \`ready\` | \`{ "x": 100, "y": 200 }\` |
+| \`email-1\` | \`lc_email\` | "Year-End Appeal Email" | \`{ "action": "send-confirmation-email", "to": "{{donor.email}}", "subject": "Your Year-End Gift Can Change Lives Before December 31", "body": "Dear {{donor.firstName}},\\n\\nAs the year draws to a close, I want to share something personal with you.\\n\\nThis year, Second Chance Animal Rescue has rescued 847 animals, performed 1,200 veterinary procedures, and found forever homes for 623 cats and dogs. But there are still animals waiting.\\n\\nOur Build the New Shelter Fund has raised $112,000 of our $150,000 goal. We are so close.\\n\\nYour year-end gift -- in any amount -- is tax-deductible for 2026 and goes directly to completing the new shelter facility that will double our capacity.\\n\\nHere is what your gift provides:\\n- $25 feeds a rescue animal for one week\\n- $50 covers one veterinary checkup\\n- $100 sponsors a month of shelter care\\n- $250 funds a complete rescue operation\\n- $500+ names a kennel in the new shelter\\n\\nDonate now: https://secondchanceanimalrescue.org/donate\\n\\nThank you for being part of our mission.\\n\\nWith hope,\\nDr. Sarah Mitchell\\nExecutive Director\\nSecond Chance Animal Rescue\\nTax ID: 47-1234567" }\` | \`ready\` | \`{ "x": 350, "y": 200 }\` |
+| \`wait-1\` | \`wait_delay\` | "Wait 10 Days" | \`{ "duration": 10, "unit": "days" }\` | \`ready\` | \`{ "x": 600, "y": 200 }\` |
+| \`email-2\` | \`lc_email\` | "Reminder Email" | \`{ "action": "send-confirmation-email", "to": "{{donor.email}}", "subject": "We Are 75% There -- Can You Help Us Reach Our Goal?", "body": "Dear {{donor.firstName}},\\n\\nGreat news -- since our last update, generous donors like you have helped us reach $125,000 of our $150,000 goal for the Build the New Shelter Fund.\\n\\nWe are 75% of the way there, but we still need $25,000 to break ground in January.\\n\\nI wanted to share a quick story. Last week, we rescued a senior dog named Biscuit from a neglect situation. He arrived malnourished, scared, and with a broken leg. Today, after surgery and round-the-clock care from our team, Biscuit is wagging his tail and learning to trust people again. He will be ready for his forever home by the new year.\\n\\nBiscuit is exactly why the new shelter matters. More space means more animals like him get a second chance.\\n\\nCan you help us close the gap? Even $25 makes a difference.\\n\\nDonate now: https://secondchanceanimalrescue.org/donate\\n\\nWith gratitude,\\nDr. Sarah Mitchell\\nExecutive Director" }\` | \`ready\` | \`{ "x": 850, "y": 200 }\` |
+| \`wait-2\` | \`wait_delay\` | "Wait Until Dec 28" | \`{ "duration": 8, "unit": "days" }\` | \`ready\` | \`{ "x": 1100, "y": 200 }\` |
+| \`email-3\` | \`lc_email\` | "Last Chance Email" | \`{ "action": "send-confirmation-email", "to": "{{donor.email}}", "subject": "Last Chance: Your Tax-Deductible Gift Must Be Made by December 31", "body": "Dear {{donor.firstName}},\\n\\nThis is a friendly reminder that December 31 is the deadline for tax-deductible charitable contributions for the 2026 tax year.\\n\\nSecond Chance Animal Rescue is a registered 501(c)(3) nonprofit (Tax ID: 47-1234567), and your donation is fully tax-deductible to the extent allowed by law.\\n\\nWe are now at $140,000 of our $150,000 goal. Just $10,000 more and we can begin construction on the new shelter in January.\\n\\nThis is your last chance to make your year-end gift count -- for the animals and for your taxes.\\n\\nMake your tax-deductible gift now: https://secondchanceanimalrescue.org/donate\\n\\nThank you for standing with us.\\n\\nWith hope for the new year,\\nDr. Sarah Mitchell\\nExecutive Director\\nSecond Chance Animal Rescue\\n\\nP.S. Gifts of $250 or more receive a personalized impact report and invitation to our Shelter Groundbreaking Ceremony in February." }\` | \`ready\` | \`{ "x": 1350, "y": 200 }\` |
 
 **Edges:**
 
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-code1\` | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-code1\` | \`n-loop\`  | \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-loop\`  | \`n-email1\`| \`each_item\`  | \`input\`      |
+| id | source | target | sourceHandle | targetHandle |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`email-1\` | \`wait-1\` | \`output\` | \`input\` |
+| \`e-3\` | \`wait-1\` | \`email-2\` | \`output\` | \`input\` |
+| \`e-4\` | \`email-2\` | \`wait-2\` | \`output\` | \`input\` |
+| \`e-5\` | \`wait-2\` | \`email-3\` | \`output\` | \`input\` |
+
+**Mutations to execute:**
+
+1. \`createWorkflow({ sessionId, name: "Year-End Appeal Workflow", description: "Sends year-end appeal email series in November-December to drive tax-deductible donations before December 31" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Year-End Appeal Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 1 11 *", timezone: "America/Chicago" } }] })\`
+3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### 4.4 Workflow 4 -- Recurring Donation Failed
+## 5. CRM Pipeline Definition
 
-**Name:** \`Recurring Donation Failed Workflow\`
-**Trigger:** \`trigger_webhook\`
+### Donor Pipeline
 
-**Nodes:**
+**Pipeline Name:** "Donor Pipeline"
 
-| id         | type                | label                        | position          | config |
-|------------|---------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_webhook\`   | Stripe Payment Failed        | { x:0, y:0 }     | \`{ path: "/stripe-payment-failed", secret: "{{payment_failed_webhook_secret}}" }\` |
-| \`n-crm1\`   | \`lc_crm\`           | Tag Payment Failed           | { x:300, y:0 }   | \`{ action: "update-contact", tags: ["payment_failed"] }\` |
-| \`n-email1\` | \`lc_email\`         | Payment Failed Notice        | { x:600, y:0 }   | \`{ action: "send-confirmation-email", subject: "Action needed: your monthly donation to {{org.name}} could not be processed", templateId: "payment_failed_first", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", organizationName: "{{org.name}}" } }\` |
-| \`n-wait1\`  | \`wait_delay\`       | Wait 3 Days                  | { x:900, y:0 }   | \`{ duration: 3, unit: "days" }\` |
-| \`n-cond1\`  | \`if_then\`          | Still Failed?                | { x:1200, y:0 }  | \`{ expression: "{{contact.tags}}.includes('payment_failed')" }\` |
-| \`n-email2\` | \`lc_email\`         | Second Reminder              | { x:1500, y:-100 }| \`{ action: "send-confirmation-email", subject: "Reminder: please update your payment method for {{org.name}}", templateId: "payment_failed_second", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", organizationName: "{{org.name}}" } }\` |
-| \`n-wait2\`  | \`wait_delay\`       | Wait 4 Days                  | { x:1800, y:-100 }| \`{ duration: 4, unit: "days" }\` |
-| \`n-email3\` | \`lc_email\`         | Final Notice                 | { x:2100, y:-100 }| \`{ action: "send-confirmation-email", subject: "Final notice: your recurring donation to {{org.name}} will be cancelled", templateId: "payment_failed_final", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", manualDonationUrl: "{{donationPageUrl}}", organizationName: "{{org.name}}" } }\` |
-
-**Edges:**
-
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-crm1\`  | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-crm1\`  | \`n-email1\`| \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-email1\`| \`n-wait1\` | \`output\`     | \`input\`      |
-| \`e-4\`  | \`n-wait1\` | \`n-cond1\` | \`output\`     | \`input\`      |
-| \`e-5\`  | \`n-cond1\` | \`n-email2\`| \`true\`       | \`input\`      |
-| \`e-6\`  | \`n-email2\`| \`n-wait2\` | \`output\`     | \`input\`      |
-| \`e-7\`  | \`n-wait2\` | \`n-email3\`| \`output\`     | \`input\`      |
-
----
-
-### 4.5 Workflow 5 -- Lapsed Donor Re-engagement
-
-**Name:** \`Lapsed Donor Re-engagement Workflow\`
-**Trigger:** \`trigger_schedule\`
-
-**Nodes:**
-
-| id         | type                | label                        | position          | config |
-|------------|---------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_schedule\`  | Quarterly Check              | { x:0, y:0 }     | \`{ cronExpression: "0 9 1 1,4,7,10 *", timezone: "America/New_York" }\` |
-| \`n-code1\`  | \`code_block\`       | Query Lapsed Donors          | { x:300, y:0 }   | \`{ code: "const sixMonthsAgo = Date.now() - (180 * 24 * 60 * 60 * 1000); output.lapsedDonors = await queryContacts({ organizationId: context.organizationId, filter: { 'customFields.lastDonationDate': { $lt: sixMonthsAgo }, 'customFields.isRecurring': { $ne: true }, 'tags': { $nin: ['monthly_sustainer'] } } });" }\` |
-| \`n-loop\`   | \`loop_iterator\`    | Each Lapsed Donor            | { x:600, y:0 }   | \`{ arrayField: "lapsedDonors", maxIterations: 5000 }\` |
-| \`n-crm1\`   | \`lc_crm\`           | Move to Lapsed               | { x:900, y:-50 }  | \`{ action: "move-pipeline-stage", pipelineStageId: "lapsed" }\` |
-| \`n-email1\` | \`lc_email\`         | Re-engagement Email          | { x:1200, y:-50 } | \`{ action: "send-confirmation-email", subject: "We miss your support, {{contact.firstName}} — see the impact you made", templateId: "lapsed_donor_reengagement", data: { donorName: "{{item.firstName}}", previousImpact: "Your past donations helped {{item.personalImpactStatement}}", newCampaign: "{{currentCampaign.name}}", donationPageUrl: "{{donationPageUrl}}", organizationName: "{{org.name}}" } }\` |
-| \`n-ac1\`    | \`activecampaign\`   | Add to Reactivation          | { x:1500, y:-50 } | \`{ action: "add_to_automation", automationName: "donor_reactivation" }\` |
-
-**Edges:**
-
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-code1\` | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-code1\` | \`n-loop\`  | \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-loop\`  | \`n-crm1\`  | \`each_item\`  | \`input\`      |
-| \`e-4\`  | \`n-crm1\`  | \`n-email1\`| \`output\`     | \`input\`      |
-| \`e-5\`  | \`n-email1\`| \`n-ac1\`   | \`output\`     | \`input\`      |
-
----
-
-### 4.6 Workflow 6 -- Year-End Appeal
-
-**Name:** \`Year-End Appeal Workflow\`
-**Trigger:** \`trigger_schedule\`
-
-**Nodes:**
-
-| id         | type                | label                        | position          | config |
-|------------|---------------------|------------------------------|-------------------|--------|
-| \`n-trig\`   | \`trigger_schedule\`  | December 1st                 | { x:0, y:0 }     | \`{ cronExpression: "0 9 1 12 *", timezone: "America/New_York" }\` |
-| \`n-code1\`  | \`code_block\`       | Generate Giving Summaries    | { x:300, y:0 }   | \`{ code: "const allDonors = await queryContacts({ organizationId: context.organizationId, filter: { 'customFields.donationCount': { $gte: 1 } } }); output.donors = allDonors.map(d => ({ ...d, yearTotal: calculateYearTotal(d), taxSummary: generateTaxSummary(d) }));" }\` |
-| \`n-loop\`   | \`loop_iterator\`    | Each Donor                   | { x:600, y:0 }   | \`{ arrayField: "donors", maxIterations: 10000 }\` |
-| \`n-email1\` | \`lc_email\`         | Year-in-Review + Appeal      | { x:900, y:-50 }  | \`{ action: "send-confirmation-email", subject: "Your {{year}} impact at {{org.name}} — and a special year-end appeal", templateId: "year_end_appeal", data: { donorName: "{{item.firstName}}", yearTotal: "{{item.yearTotalFormatted}}", taxSummary: "{{item.taxSummary}}", impactHighlights: "{{yearImpactHighlights}}", appealMessage: "{{yearEndAppealMessage}}", donationPageUrl: "{{donationPageUrl}}", organizationName: "{{org.name}}" } }\` |
-| \`n-ac1\`    | \`activecampaign\`   | Tag Year-End Appeal          | { x:1200, y:-50 } | \`{ action: "add_tag", tag: "year_end_appeal_{{year}}" }\` |
-
-**Edges:**
-
-| id     | source    | target    | sourceHandle | targetHandle |
-|--------|-----------|-----------|--------------|--------------|
-| \`e-1\`  | \`n-trig\`  | \`n-code1\` | \`output\`     | \`input\`      |
-| \`e-2\`  | \`n-code1\` | \`n-loop\`  | \`output\`     | \`input\`      |
-| \`e-3\`  | \`n-loop\`  | \`n-email1\`| \`each_item\`  | \`input\`      |
-| \`e-4\`  | \`n-email1\`| \`n-ac1\`   | \`output\`     | \`input\`      |
-
----
-
-### 4.7 Sequences
-
-#### Donor Stewardship Sequence (subtype: \`nachher\`)
-
-**Name:** \`Donor Stewardship Sequence\`
-**Trigger event:** \`pipeline_stage_changed\` (to \`first_time_donor\`)
-**Reference point:** \`trigger_event\` (= moment of first donation)
-
-| step | channel  | offset | unit    | referencePoint | subject / body summary |
-|------|----------|--------|---------|----------------|------------------------|
-| 1    | email    | 0      | minutes | trigger_event  | "Thank you for your gift to {{org.name}}!" + tax receipt PDF attached + immediate impact preview |
-| 2    | email    | 7      | days    | trigger_event  | "Here's what your donation did" + specific impact story with photo (e.g., "Meet Luna, the rescue you helped save") |
-| 3    | email    | 30     | days    | trigger_event  | "Progress update from {{org.name}}" + cause progress stats, new milestones reached, how donor's contribution fits in |
-| 4    | email    | 90     | days    | trigger_event  | "Your support matters — will you give again?" + re-engagement ask with new campaign highlight OR upgrade to monthly giving prompt |
-
-#### Annual Appeal Sequence (subtype: \`lifecycle\`)
-
-**Name:** \`Annual Appeal Sequence\`
-**Trigger event:** \`contact_tagged\` (tag: \`year_end_appeal_{{year}}\`)
-**Reference point:** \`trigger_event\`
-
-| step | channel  | offset | unit    | referencePoint | subject / body summary |
-|------|----------|--------|---------|----------------|------------------------|
-| 1    | email    | 0      | minutes | trigger_event  | "Your {{year}} year-in-review from {{org.name}}" + personalized giving summary + annual tax statement + impact highlights |
-| 2    | email    | 5      | days    | trigger_event  | "A special message from our team" + heartfelt appeal from executive director + matching gift opportunity if available |
-| 3    | email    | 12     | days    | trigger_event  | "Last chance for a tax-deductible gift this year" + urgency (Dec 31 deadline) + impact multiplier messaging |
-| 4    | sms      | 14     | days    | trigger_event  | "Final hours to make your year-end gift to {{org.name}}. Give now: {{donationPageUrl}}" |
-
-#### Lapsed Donor Re-engagement Sequence (subtype: \`custom\`)
-
-**Name:** \`Lapsed Donor Re-engagement Sequence\`
-**Trigger event:** \`pipeline_stage_changed\` (to \`lapsed\`)
-**Reference point:** \`trigger_event\`
-
-| step | channel  | offset | unit    | referencePoint | subject / body summary |
-|------|----------|--------|---------|----------------|------------------------|
-| 1    | email    | 0      | minutes | trigger_event  | "We miss your support, {{firstName}}" + reminder of past impact + what's new at the organization |
-| 2    | email    | 7      | days    | trigger_event  | "See what's changed since your last gift" + new programs, success stories, updated needs |
-| 3    | email    | 21     | days    | trigger_event  | "A personal note from our founder" + heartfelt re-engagement letter + low-barrier ask ($25 minimum) |
-| 4    | email    | 45     | days    | trigger_event  | "One more chance to make a difference" + final re-engagement with specific urgent need + matching gift if available |
-
----
-
-## 5. CRM Pipeline
-
-**Pipeline name:** \`Donor Pipeline: {{organization_name}}\`
-
-| order | stageId             | label              | auto-transition trigger |
-|-------|---------------------|--------------------|------------------------|
-| 1     | \`prospect\`          | Prospect           | Contact created via form submission (no payment yet) or manual import |
-| 2     | \`first_time_donor\`  | First-Time Donor   | First donation payment received (Workflow 1: \`n-crm2\`) |
-| 3     | \`repeat_donor\`      | Repeat Donor       | Second or subsequent donation detected (Workflow 2: \`n-crm1\`, donationCount > 1) |
-| 4     | \`monthly_sustainer\` | Monthly Sustainer  | Recurring donation signup detected (Workflow 1: \`n-crm3\`, isRecurring === true) |
-| 5     | \`major_donor\`       | Major Donor ($1000+)| Cumulative giving exceeds $1,000 / 100000 cents (Workflow 2: \`n-crm2\`, totalDonations > 100000) |
-| 6     | \`legacy_prospect\`   | Legacy Prospect    | Manual move by org admin — donor expresses interest in planned/estate giving |
-| 7     | \`lapsed\`            | Lapsed             | No donation in 6+ months, excluding monthly sustainers (Workflow 5: \`n-crm1\`) |
-| 8     | \`reactivated\`       | Reactivated        | Lapsed donor makes a new donation — detected by Workflow 2 when contact.pipelineStageId === "lapsed" and new payment received |
-
-**Stage transitions and automation triggers:**
-
-- \`prospect -> first_time_donor\`: Triggered by Workflow 1 (\`trigger_payment_received\` -> \`lc_crm\` move-pipeline-stage to \`first_time_donor\`).
-- \`first_time_donor -> repeat_donor\`: Triggered by Workflow 2 when \`code_block\` detects donationCount > 1.
-- \`first_time_donor -> monthly_sustainer\`: Triggered by Workflow 1 \`if_then\` when \`isRecurring === true\`.
-- \`repeat_donor -> major_donor\`: Triggered by Workflow 2 when \`code_block\` detects totalDonations > 100000 cents.
-- \`monthly_sustainer -> major_donor\`: Same mechanism — cumulative check applies to all donors.
-- \`any stage -> lapsed\`: Triggered by Workflow 5 quarterly scan for donors with lastDonationDate > 6 months ago (excluding monthly_sustainer with active recurring).
-- \`lapsed -> reactivated\`: Triggered when Workflow 1 processes a new payment for a contact whose current pipelineStageId is \`lapsed\`.
-- \`any stage -> legacy_prospect\`: Manual move only — no automated trigger.
+| Stage ID | Stage Name | Description | Automation Trigger |
+|----------|-----------|-------------|-------------------|
+| \`prospect\` | Prospect | Contact has engaged with content or visited the donation page but has not yet donated. | Auto-set when form is viewed but not submitted, or when contact is imported from external list |
+| \`first_time_donor\` | First-Time Donor | Contact has made their first donation (any amount, one-time). | Auto-set by Workflow 1 (\`crm-2\` node) when amount < $250 threshold |
+| \`repeat_donor\` | Repeat Donor | Contact has made two or more donations across separate transactions. | Auto-set by Workflow 1 when contact already has \`firstDonationDate\` in customFields |
+| \`major_donor\` | Major Donor | Contact has donated $250 or more in a single transaction, or cumulative giving exceeds $1,000. | Auto-set by Workflow 3 (\`crm-1\` node) for single gifts >= $250; auto-set by Workflow 1 when \`totalGiven\` >= $1,000 |
+| \`monthly_sustainer\` | Monthly Sustainer | Contact has an active recurring monthly donation. | Auto-set by Workflow 2 (\`crm-2\` node) when recurring flag is true |
+| \`lapsed\` | Lapsed Donor | Contact has not donated in the last 12 months. Previously had at least one donation. | Set by a scheduled lifecycle sequence that checks \`lastDonationDate\` against current date |
 
 ---
 
 ## 6. File System Scaffold
 
+**Project:** \`type: "project"\`, \`subtype: "campaign"\`
+
+After calling \`initializeProjectFolders({ organizationId, projectId })\`, the default folders are created. Then populate:
+
 \`\`\`
-/builder
-  /donation-page               # kind: builder_ref — Cause story, impact stats, tier cards, progress bar, form embed, testimonials
-  /thank-you-page              # kind: builder_ref — Receipt confirmation, impact preview, social sharing, recurring upgrade prompt
-  /campaign-template           # kind: builder_ref — Campaign-specific hero, goal progress, campaign story, tier cards
-  /donor-wall                  # kind: builder_ref — Optional public donor recognition page
-
-/layers
-  /donation-processing-workflow      # kind: layer_ref — Workflow 1: payment -> CRM -> receipt -> email -> AC sync
-  /repeat-donor-workflow             # kind: layer_ref — Workflow 2: detect repeat/major donors
-  /impact-update-workflow            # kind: layer_ref — Workflow 3: monthly impact emails
-  /payment-failed-workflow           # kind: layer_ref — Workflow 4: failed recurring payment recovery
-  /lapsed-donor-workflow             # kind: layer_ref — Workflow 5: quarterly lapsed donor re-engagement
-  /year-end-appeal-workflow          # kind: layer_ref — Workflow 6: annual year-end appeal
-
-/notes
-  /cause-narrative             # kind: virtual — Organization mission, cause story, StoryBrand messaging
-  /impact-metrics              # kind: virtual — What donations fund, cost-per-outcome (e.g., "$50 = 1 month medical care")
-  /campaign-calendar           # kind: virtual — Annual fundraising campaign schedule with goals
-  /tax-receipt-template        # kind: virtual — Tax receipt layout, org tax ID, legal language
-
-/assets
-  /cause-photos                # kind: folder — Beneficiary photos, facility photos, event photos
-  /beneficiary-stories         # kind: folder — Individual success stories with photos for impact emails
-  /impact-infographics         # kind: folder — Visual stats (animals rescued, adoption rate, etc.)
-  /logo                        # kind: media_ref — Organization logo for receipts and emails
+/
++-- builder/
+|   +-- donation-page/            (kind: builder_ref -> builder_app for donation landing page)
+|   +-- thank-you-page/           (kind: builder_ref -> builder_app for thank-you/confirmation page)
+|   +-- campaign-progress/        (kind: builder_ref -> builder_app for campaign progress page -- optional)
++-- layers/
+|   +-- donation-processing-wf    (kind: layer_ref -> layer_workflow "Donation Processing Workflow")
+|   +-- recurring-management-wf   (kind: layer_ref -> layer_workflow "Recurring Donation Management Workflow")
+|   +-- major-donor-alert-wf      (kind: layer_ref -> layer_workflow "Major Donor Alert Workflow")
+|   +-- year-end-appeal-wf        (kind: layer_ref -> layer_workflow "Year-End Appeal Workflow" -- optional)
++-- notes/
+|   +-- campaign-brief            (kind: virtual, content: campaign objectives, target audience, fundraising goal, timeline)
+|   +-- donor-communication-copy  (kind: virtual, content: all email templates, sequence drafts, appeal copy)
+|   +-- impact-statements         (kind: virtual, content: impact descriptions per tier, statistics, stories)
++-- assets/
+|   +-- campaign-materials/       (kind: folder)
+|   |   +-- campaign-logo         (kind: media_ref -> campaign-specific logo or badge)
+|   |   +-- hero-image            (kind: media_ref -> landing page hero image)
+|   |   +-- impact-photos/        (kind: folder)
+|   |       +-- rescue-photo-1    (kind: media_ref -> impact photo for emails and landing page)
+|   |       +-- rescue-photo-2    (kind: media_ref -> impact photo)
+|   +-- donor-lists/              (kind: folder)
+|   |   +-- imported-prospects    (kind: virtual, content: CSV or list of imported prospect contacts)
+|   +-- reports/                  (kind: folder)
+|   |   +-- monthly-impact-report (kind: virtual, content: monthly impact report template)
+|   |   +-- donor-summary         (kind: virtual, content: donor giving summary by tier)
+|   +-- receipts/                 (kind: folder -- tax receipts are auto-generated by invoicing system)
 \`\`\`
 
-**Initialization mutation:** \`initializeProjectFolders({ organizationId, projectId })\` creates the four root folders. Then \`createVirtualFile\` and \`captureBuilderApp\` / \`captureLayerWorkflow\` populate each entry.
+**Mutations to execute:**
+
+1. \`initializeProjectFolders({ organizationId: <ORG_ID>, projectId: <PROJECT_ID> })\`
+2. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "campaign-brief", parentPath: "/notes", content: "<campaign brief markdown>" })\`
+3. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "donor-communication-copy", parentPath: "/notes", content: "<all email templates and sequence copy>" })\`
+4. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "impact-statements", parentPath: "/notes", content: "<impact descriptions per tier>" })\`
+5. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "campaign-materials", parentPath: "/assets" })\`
+6. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "impact-photos", parentPath: "/assets/campaign-materials" })\`
+7. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "donor-lists", parentPath: "/assets" })\`
+8. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "reports", parentPath: "/assets" })\`
+9. \`createFolder({ sessionId, projectId: <PROJECT_ID>, name: "receipts", parentPath: "/assets" })\`
+10. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <DONATION_PAGE_APP_ID> })\`
+11. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <THANK_YOU_PAGE_APP_ID> })\`
+12. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <DONATION_PROCESSING_WF_ID> })\`
+13. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <RECURRING_MANAGEMENT_WF_ID> })\`
+14. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <MAJOR_DONOR_ALERT_WF_ID> })\`
+15. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <YEAR_END_APPEAL_WF_ID> })\` -- if using Workflow 4
 
 ---
 
 ## 7. Data Flow Diagram
 
 \`\`\`
-                              FUNDRAISING / DONATION DATA FLOW
-============================================================================================================
+                                  FUNDRAISING / DONATIONS - DATA FLOW
+                                  ====================================
 
-  Donor (End Customer)          Platform                                     Backend Systems
-  --------------------          --------                                     ---------------
+  DONOR                          PLATFORM (L4YERCAK3)                        EXTERNAL SYSTEMS
+  =====                          ====================                        ================
 
-  [ Visit donation page ]
-        |
-        v
-  [ View cause story,       Donation Landing Page (builder_ref)
-    impact stats,               |
-    progress bar ]              |
-        |                       |
-        v                       v
-  [ Select tier or         Tier Cards: $25 / $50 / $100 / $250 / Custom
-    enter custom amount ]       |
-        |                       |
-        v                       v
-  [ Fill donor form ] -----> form (subtype: registration)
-    - First Name                  - firstName, lastName, email, phone
-    - Last Name                   - donationAmount, customAmount
-    - Email                       - frequency (one-time / monthly)
-    - Dedication                  - dedicationType, dedicationName, personalMessage
-        |                       |
-        v                       v
-  [ Checkout ] ------------> lc_checkout (create-transaction)
-    - Stripe payment              |
-    - One-time or recurring       |
-        |                         v
-        |                  trigger_payment_received
-        |                         |
-        |                         v
-        |                  +--------------------------------------------+
-        |                  | Workflow 1: Donation Processing             |
-        |                  |                                            |
-        |                  | lc_crm (create-contact)                    |
-        |                  |   tags: ["donor", tier_tag, campaign_tag]  |
-        |                  |                                            |
-        |                  | lc_crm (move-pipeline-stage:               |
-        |                  |         "first_time_donor")                |
-        |                  |                                            |
-        |                  | if_then: isRecurring?                      |
-        |                  |   true  -> move to "monthly_sustainer"     |
-        |                  |   false -> continue                        |
-        |                  |                                            |
-        |                  | lc_invoicing (generate tax receipt)        |
-        |                  |   b2c_single, org tax ID, dedication       |
-        |                  |                                            |
-        |                  | lc_email (thank you + receipt PDF)         |
-        |                  | lc_email (admin notification)              |
-        |                  |                                            |
-        |                  | activecampaign (add_contact, add_tag,      |
-        |                  |                 add_to_list:"donors")      |
-        |                  +--------------------------------------------+
-        |                         |
-        v                         v
-  [ Receives thank-you    Workflow 2: Repeat Donor Detection
-    email + tax receipt ]    (runs on every payment)
-        |                    code_block -> donationCount > 1?
-        |                      true  -> move to "repeat_donor"
-        |                      totalGiving > $1000?
-        |                        true  -> move to "major_donor"
-        |                        admin notification
-        |                         |
-        v                         v
-  [ Thank-you page ]       Stewardship Sequence begins (nachher)
-    - Receipt confirmation        |
-    - Impact preview         +0:  Thank you + receipt (step 1)
-    - Social share buttons   +7d: Impact story (step 2)
-    - Recurring upgrade CTA  +30d: Cause progress update (step 3)
-        |                    +90d: Re-engagement / upgrade ask (step 4)
-        v                         |
-  [ Receives impact               v
-    story email (+7d) ]    Workflow 3: Monthly Impact Update
-        |                    trigger_schedule (1st of month)
-        v                    loop all donors -> personalized impact email
-  [ Receives cause                |
-    update (+30d) ]               v
-        |                  Workflow 5: Lapsed Re-engagement (quarterly)
-        v                    code_block -> no donation in 6+ months?
-  [ Receives upgrade              (excluding monthly sustainers)
-    ask (+90d) ]             -> move to "lapsed"
-        |                    -> re-engagement email
-        |                    -> activecampaign automation
-        v                         |
-  [ Donates again? ] -------> Workflow 1 re-triggers
-    yes -> "reactivated"          |
-    no  -> remains "lapsed"       v
-        |                  Workflow 6: Year-End Appeal (Dec 1)
-        v                    code_block -> personalized giving summaries
-  [ Receives year-end       loop all donors -> year-in-review email
-    appeal (Dec) ]           + tax summary + annual appeal
-        |
-        v
-  [ Gives year-end gift? ] -> Workflow 1 + Workflow 2 cycle continues
-        |
-        v
-  Donor lifecycle:
-  prospect -> first_time_donor -> repeat_donor -> major_donor
-                               -> monthly_sustainer
-                               -> lapsed -> reactivated
+  +------------------+
+  | Visits Donation  |
+  | Page (Builder)   |
+  +--------+---------+
+           |
+           v
+  +------------------+
+  | Selects Donation |
+  | Tier / Amount    |
+  +--------+---------+
+           |
+           v
+  +------------------+
+  | Fills Donor Form |-----> submitPublicForm({ formId, responses, metadata })
+  | (Registration)   |
+  +--------+---------+
+           |
+           v
+  +------------------+
+  | Checkout / Pay   |-----> lc_checkout (create-transaction via Stripe)
+  | (Stripe)         |
+  +--------+---------+                                                      +----------+
+           |                                                                |          |
+           |         +----------------------------------------------------------+      |
+           |         |  WORKFLOW 1: Donation Processing                     |   |      |
+           |         |                                                     |   |      |
+           +-------->|  trigger_payment_received                           |   |      |
+                     |         |                                           |   |      |
+                     |    (output -> input)                                |   |      |
+                     |         v                                           |   |      |
+                     |  lc_checkout [create-transaction]                   |   |      |
+                     |         |                                           |   |      |
+                     |    (output -> input)                                |   |      |
+                     |         v                                           |   |      |
+                     |  lc_crm [create-contact]                            |   |      |
+                     |  -> creates objects { type: "crm_contact",          |   |      |
+                     |     subtype: "customer", tags: ["donor"] }          |   |      |
+                     |         |                                           |   |      |
+                     |         +--------+---------+---------+              |   |      |
+                     |         |        |         |         |              |   |      |
+                     |         v        v         v         v              |   |      |
+                     |   lc_invoicing lc_email  active   if_then           |   |      |
+                     |   [generate-  [thank    campaign  [amount           |   |      |
+                     |    invoice    you +     [add_     >= $250?]         |   |      |
+                     |    tax       receipt]   contact]      |             |   |      |
+                     |    receipt]      |         |     +----+----+        |   |      |
+                     |         |       |    (out->in)  |         |        |   |      |
+                     |         |       |         v   (true)   (false)     |   |      |
+                     |         |       |    active    |         |         |   |      |
+                     |         |       |    campaign  v         v         |   |      |
+                     |         |       |    [add_tag] crm       crm      |   |      |
+                     |         |       |              [major    [first    |   |      |
+                     |         |       |              _donor]   _time]    |   |      |
+                     |         |       |                                  |   |      |
+                     +----------------------------------------------------------+   |
+                     |                                                         |    |
+                     |  WORKFLOW 2: Recurring Donation Management               |    |
+                     |                                                         |    |
+                     |  trigger_payment_received                               |    |
+                     |         |                                               |    |
+                     |    (output -> input)                                    |    |
+                     |         v                                               |    |
+                     |    if_then [is recurring?]                              |    |
+                     |         |                                               |    |
+                     |    (true -> input)                                      |    |
+                     |         v                                               |    |
+                     |    lc_crm [update-contact, tag: "monthly_sustainer"]    |    |
+                     |         |                                               |    |
+                     |    +----+----+                                          |    |
+                     |    |         |                                          |    |
+                     |    v         v                                     +---------+
+                     | lc_crm   lc_email                                 | Active  |
+                     | [move to [monthly                                 | Campaign|
+                     | sustainer] thank you]     activecampaign -------->|         |
+                     |    |                      [add_tag:               +---------+
+                     |    +----> activecampaign   "sustainer"]
+                     |          [add_tag]
+                     |                                                         |
+                     +----------------------------------------------------------+
+                     |                                                         |
+                     |  WORKFLOW 3: Major Donor Alert                           |
+                     |                                                         |
+                     |  trigger_payment_received                               |
+                     |         |                                               |
+                     |    (output -> input)                                    |
+                     |         v                                               |
+                     |    if_then [amount >= $250?]                            |
+                     |         |                                               |
+                     |    (true -> input)        (true -> input)               |
+                     |         v                       v                       |
+                     |    lc_email               lc_crm                        |
+                     |    [send-admin-           [move to                      |
+                     |     notification]          "major_donor"]               |
+                     |         |                                               |
+                     |    (output -> input)                                    |
+                     |         v                                               |
+                     |    activecampaign [add_tag: "major_donor"]              |
+                     |         |                                               |
+                     |    (output -> input)                                    |
+                     |         v                                               |
+                     |    activecampaign [add_to_list: major donors]           |
+                     |                                                         |
+                     +----------------------------------------------------------+
+                     |
+                     |  SEQUENCES
+                     |
+                     |  Stewardship (nachher):
+                     |  Step 1: Immediate .... Thank you + tax receipt
+                     |  Step 2: +7 days ...... Impact story from the field
+                     |  Step 3: +30 days ..... Campaign progress update
+                     |  Step 4: +90 days ..... Re-engagement / upgrade ask
+                     |
+                     |  Lifecycle:
+                     |  Step 1: Annual ....... Year-end appeal (November)
+                     |  Step 2: Anniversary .. Giving anniversary thank you
+                     |  Step 3: Lapsed ....... 12-month re-engagement
+                     |
+                     +----------------------------------------------------------+
+
+  DONOR PIPELINE PROGRESSION:
+
+  [prospect] --> [first_time_donor] --> [repeat_donor] --> [major_donor]
+                                                      \\--> [monthly_sustainer]
+                                                      \\--> [lapsed]
 \`\`\`
 
 ---
 
 ## 8. Customization Points
 
-### Must Customize (skill will not work without these)
+### Must-Customize (deployment will fail or be meaningless without these)
 
-| Item                               | Where                                        | Example value |
-|------------------------------------|----------------------------------------------|---------------|
-| Organization / cause name          | All templates, emails, sequences, pipeline   | "Pawsitive Futures" |
-| Mission statement                  | Donation page hero, cause story section       | "Every pet deserves a loving home" |
-| Donation tiers and amounts         | Product objects (\`price\`, \`name\`)             | $25 Feed a Pet, $50 Medical Care, $100 Sponsor Adoption, $250 Guardian Angel |
-| Tax ID / charitable registration   | Tax receipt invoice config, footer            | "EIN: 12-3456789" |
-| Impact metrics (what donations fund) | Tier cards, impact emails, stewardship sequence | "$50 = 1 month of medical care for a rescued animal" |
+| Item | Why | Where |
+|------|-----|-------|
+| Cause / mission description | The entire landing page narrative depends on the organization's specific mission and story | Builder donation page hero section, cause story section |
+| Donation tier names, amounts, and impact statements | Each tier must reflect what the specific dollar amount provides for the specific organization | Product \`name\`, \`price\`, \`description\` fields; landing page tier cards |
+| Organization name | Appears in all donor communications, receipts, and legal notices | \`lc_email\` node config \`body\`, invoice metadata, landing page footer, form confirmation |
+| Tax ID (EIN) | Required for valid tax-deductible receipts; incorrect EIN creates legal liability | \`lc_invoicing\` node config \`metadata.taxId\`, thank-you page, email signatures, landing page footer |
+| Admin notification email | Development team must receive major donor alerts at the correct address | Workflow 3 \`email-1\` node config \`to\` field |
+| ActiveCampaign list ID(s) | Donor contacts must sync to the correct AC list for the organization | \`ac-3\` node config \`listId\` in Workflow 1, \`ac-2\` node config \`listId\` in Workflow 3 |
+| ActiveCampaign tag names | Tags must be meaningful for the organization's donor segmentation | \`ac-2\` node config \`tag\` in Workflows 1, 2, and 3 |
+| Campaign goal amount | Displayed on progress page and in appeal emails | Campaign progress page, Year-End Appeal email bodies |
 
-### Should Customize (defaults work but results improve with tuning)
+### Should-Customize (significantly improves donor conversion and stewardship)
 
-| Item                               | Where                                        | Default |
-|------------------------------------|----------------------------------------------|---------|
-| Donation page copy (cause story)   | Builder donation-page, StoryBrand narrative   | Generic nonprofit template text |
-| Thank-you email content            | \`lc_email\` node config, stewardship step 1    | Generic "Thank you for your donation" |
-| Stewardship sequence content       | Sequence steps body content                   | Template impact stories and updates |
-| Campaign goals and names           | Campaign template, progress bar               | No campaign (general fund only) |
-| Donor recognition thresholds       | Pipeline stages, major donor cutoff            | $1,000 for major donor |
-| Beneficiary stories and photos     | \`/assets/beneficiary-stories\`, impact emails   | Placeholder content |
-| Year-end appeal messaging          | Workflow 6 email template                     | Generic year-in-review template |
+| Item | Why | Default |
+|------|-----|---------|
+| Thank-you email copy | Personalized, heartfelt copy converts one-time donors to recurring | Generic thank-you template with placeholder impact statements |
+| Impact story content | Real stories from the organization build emotional connection | Placeholder story framework |
+| Donor recognition approach | Some organizations publicly recognize donors, others keep gifts private | Anonymous option on form, no public recognition wall |
+| Campaign goal and timeline | Specific goal creates urgency; timeline creates accountability | No goal amount or deadline set |
+| Major donor threshold | $250 is a common threshold but varies by organization size | $250 (25000 cents) in \`if_then\` expression |
+| Year-end appeal copy | Must reference actual achievements and real campaign progress | Generic appeal template |
+| Executive director name | Personal sign-off builds trust | "[Executive Director Name]" placeholder |
+| Social sharing text | Pre-filled sharing text should reference the specific cause | Generic "I just donated" template |
 
-### Can Use Defaults (ready out of the box)
+### Can-Use-Default (work out of the box for most fundraising deployments)
 
-| Item                               | Default value |
-|------------------------------------|---------------|
-| Pipeline stages                    | prospect, first_time_donor, repeat_donor, monthly_sustainer, major_donor, legacy_prospect, lapsed, reactivated |
-| Workflow structure                 | 6 workflows as defined in section 4 |
-| Stewardship timing                 | Immediate, +7d, +30d, +90d |
-| Form field structure               | firstName, lastName, email, phone, donationAmount, customAmount, frequency, dedicationType, dedicationName, personalMessage |
-| File system layout                 | /builder, /layers, /notes, /assets |
-| Sequence channel mix               | Email primary, SMS for final year-end appeal nudge only |
-| Link types                         | checkout_product, product_form, workflow_form, workflow_sequence |
+| Item | Default Value |
+|------|--------------|
+| Form field types and order | firstName (req), lastName (req), email (req), phone (opt), amount (req), frequency (req), dedication (opt), tribute name (opt), anonymous (opt), message (opt) |
+| Pipeline stages | prospect, first_time_donor, repeat_donor, major_donor, monthly_sustainer, lapsed |
+| Workflow trigger types | \`trigger_payment_received\` for Workflows 1-3, \`trigger_schedule\` for Workflow 4 |
+| Sequence timing | Immediate, +7 days, +30 days, +90 days for stewardship; annual for appeals |
+| Sequence channel | \`email\` for all steps |
+| Tax receipt format | Standard invoice with tax-deductible notice and EIN |
+| File system folder structure | \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\` with campaign-materials, donor-lists, reports, receipts subfolders |
+| Contact subtype | \`customer\` (donors are customers of the nonprofit) |
+| Project subtype | \`campaign\` |
+| Workflow status progression | \`draft\` -> \`ready\` -> \`active\` |
+| Invoice type | \`b2c_single\` for individual donation receipts |
 
 ---
 
 ## 9. Common Pitfalls
 
-### 9.1 Tax receipt missing organization's tax ID / charitable number
+### What Breaks
 
-**Problem:** Invoice generated by \`lc_invoicing\` does not include \`organizationTaxId\` in the config.
-**Symptom:** Donors receive a receipt that cannot be used for tax deductions because it lacks the required charitable registration number.
-**Fix:** Ensure the \`lc_invoicing\` node config includes \`organizationTaxId: "{{org.taxId}}"\` and that the organization's \`customProperties\` has \`taxId\` set (e.g., "EIN: 12-3456789"). Verify the tax receipt template in \`/notes/tax-receipt-template\` includes the legal notice.
+| Pitfall | Symptom | Fix |
+|---------|---------|-----|
+| Tax receipt not generated | Donors do not receive tax-deductible documentation; organization risks IRS compliance issues | Ensure \`lc_invoicing\` node is present in Workflow 1 with \`action: "generate-invoice"\` and correct \`transactionId\` and \`contactId\` mappings. Verify the invoice metadata includes \`taxDeductible: true\`, the correct \`taxId\`, and \`organizationName\`. |
+| Recurring donations not tracked | Monthly sustainers appear as one-time donors; no sustainer tag or pipeline stage | Workflow 2 must have the \`if_then\` node checking \`{{trigger.metadata.isRecurring}} === true\`. Verify the payment provider passes the recurring flag in the trigger metadata. Confirm \`crm-1\` node applies the \`monthly_sustainer\` tag. |
+| Major donor alert threshold wrong | Admin notifications fire for every $25 donation, or never fire at all | The \`if_then\` expression in Workflow 3 uses amounts in cents. $250 = 25000 cents. Verify the expression reads \`{{trigger.amount}} >= 25000\`, not \`>= 250\`. Adjust the threshold to match the organization's definition of a major donor. |
+| Impact updates not sent | Donors never hear about the impact of their gift; stewardship sequence is silent | Ensure \`objectLink\` exists: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <SEQUENCE_ID>, linkType: "workflow_sequence" }\`. Verify the sequence trigger event is \`form_submitted\` or \`manual_enrollment\`. Confirm all 4 sequence steps have correct timing offsets. |
+| Form not linked to checkout | Donation form submissions do not trigger payment processing | The donation form must be linked to the donation products via \`objectLink\` with \`linkType: "product_form"\` for each tier product. The checkout flow must have \`objectLink\` with \`linkType: "checkout_product"\` for each product. |
+| Duplicate donor contacts created | Same donor appears multiple times in CRM after repeat donations | Use \`update-contact\` instead of \`create-contact\` when the email already exists. The \`lc_crm\` node should check for existing contacts by email before creating new ones. Configure the node with a merge/upsert strategy. |
+| Anonymous donations still show donor name | Donors who checked "anonymous" see their name in public recognition | Check the \`isAnonymous\` flag in all display logic. The campaign progress page "Recent Donors" section must filter anonymous donations and display "Anonymous Donor" instead of the name. |
+| Year-end appeal sent to all contacts | Non-donors and prospects receive the year-end appeal, causing confusion or unsubscribes | The Year-End Appeal Workflow (Workflow 4) must filter recipients to contacts with the "donor" tag or those in the donor pipeline. Add a \`filter\` node after the trigger to check for donor status. |
+| Tax ID missing or incorrect | Tax receipts are legally invalid; donors cannot claim deductions | Double-check the \`taxId\` value in \`lc_invoicing\` metadata and in all email templates. The EIN must match the organization's IRS determination letter exactly. |
+| Dedication/tribute information lost | Donors who gave "In Memory Of" someone do not see the tribute acknowledged | Verify the form \`dedicationType\` and \`tributeName\` fields are mapped to \`customFields\` in the \`lc_crm\` node config. Ensure the thank-you email template includes conditional logic to display tribute information when present. |
 
-### 9.2 Donation products using inventory limits
+### Pre-Launch Self-Check List
 
-**Problem:** Product \`inventory\` set to a specific number (e.g., 100) instead of -1 (unlimited).
-**Symptom:** After N donations, the system shows "sold out" on the donation page. Donations are not physical goods and should never have a cap.
-**Fix:** Set \`inventory: -1\` on all donation products. Inventory limits are appropriate for ticket or physical product subtypes, not for digital donation tiers.
-
-### 9.3 Recurring vs one-time not distinguished in CRM tags
-
-**Problem:** Workflow 1 tags all donors identically regardless of whether the donation is one-time or recurring.
-**Symptom:** Monthly sustainers are not identified in ActiveCampaign or CRM; re-engagement sequences incorrectly target active recurring donors.
-**Fix:** The \`if_then\` node in Workflow 1 must branch on \`isRecurring\`. The \`true\` path must add tags \`["recurring_donor", "monthly_sustainer"]\` and move to \`monthly_sustainer\` stage. The \`false\` path continues without these tags.
-
-### 9.4 Lapsed donor query not excluding monthly sustainers
-
-**Problem:** Workflow 5 \`code_block\` queries all donors with \`lastDonationDate > 6 months ago\` without excluding contacts tagged \`monthly_sustainer\` or with \`isRecurring: true\`.
-**Symptom:** Active monthly sustainers whose individual charge dates happened to be processed under a different date field receive "we miss you" re-engagement emails.
-**Fix:** Add exclusion filter: \`'customFields.isRecurring': { $ne: true }\` and \`'tags': { $nin: ['monthly_sustainer'] }\` in the lapsed donor query.
-
-### 9.5 Year-end appeal sending to unsubscribed contacts
-
-**Problem:** Workflow 6 \`loop_iterator\` iterates all donors without checking opt-out status.
-**Symptom:** Unsubscribed donors receive the year-end appeal, violating CAN-SPAM / GDPR and damaging sender reputation.
-**Fix:** Add a \`filter\` node after the \`code_block\` that checks \`contact.tags\` does not include \`unsubscribed\` or \`email_opt_out\`. Alternatively, filter in the \`code_block\` query.
-
-### 9.6 Impact update workflow not personalized
-
-**Problem:** Workflow 3 sends the same generic impact email to all donors regardless of which campaign or tier they donated to.
-**Symptom:** A donor who gave to "Medical Care Fund" receives impact stats about building construction. Feels impersonal and reduces engagement.
-**Fix:** The \`code_block\` in Workflow 3 must correlate each donor's \`campaignSource\` and \`tierTag\` with the corresponding impact metrics. Use \`item.personalImpactStatement\` that is generated per-donor in the code block.
-
-### 9.7 Custom donation amount not handled by fixed-price products
-
-**Problem:** Only fixed-tier products ($25, $50, $100, $250) exist. When a donor selects "Other Amount" and enters $75, no matching product exists.
-**Symptom:** Checkout fails or defaults to the wrong tier. The custom amount is ignored.
-**Fix:** Create a "Custom Donation" product with \`price: 0\` and configure the checkout flow to accept a dynamic amount from the form's \`customAmount\` field. The \`lc_checkout\` node's \`create-transaction\` action must support \`overrideAmount: "{{formData.customAmount}}"\`.
-
-### 9.8 Dedication / tribute field not passed through to receipt
-
-**Problem:** Form captures \`dedicationType\`, \`dedicationName\`, and \`personalMessage\` but the \`lc_invoicing\` node config does not map these fields.
-**Symptom:** Tax receipt is generated without the dedication information. Donor expected "In Memory Of John Smith" on the receipt.
-**Fix:** Include \`dedicationType\`, \`dedicationName\`, and \`personalMessage\` in the \`lc_invoicing\` node's \`includeFields\` config as shown in Workflow 1 node \`n-inv\`.
-
-### 9.9 Missing \`checkout_product\` links
-
-**Problem:** Checkout object exists but \`checkout_product\` links are not created for donation products.
-**Symptom:** Checkout session has no line items; payment of $0 or error.
-**Fix:** For each donation product, create \`objectLinks { sourceObjectId: checkoutId, targetObjectId: productId, linkType: "checkout_product" }\`.
-
-### 9.10 Recurring donor pipeline stage conflict
-
-**Problem:** Workflow 2 moves a monthly sustainer to \`repeat_donor\` stage, overwriting their \`monthly_sustainer\` stage.
-**Symptom:** Active monthly sustainers lose their sustainer status in the pipeline after their second monthly charge.
-**Fix:** Workflow 2's \`code_block\` must check if \`contact.pipelineStageId === "monthly_sustainer"\` and skip the \`move-pipeline-stage\` to \`repeat_donor\` in that case. Monthly sustainers should only advance to \`major_donor\` when cumulative giving exceeds $1,000.
+1. All donation tier products exist and are published (\`publishProduct\` was called for each).
+2. Each product has the correct \`price\` in cents, \`currency\`, \`description\`, and impact statement.
+3. Donor form exists and is published (\`publishForm\` was called).
+4. Form \`formId\` is set in Workflow 1 trigger config (if using \`trigger_form_submitted\` as a secondary trigger).
+5. \`objectLink\` with \`linkType: "product_form"\` connects each product to the donor form.
+6. \`objectLink\` with \`linkType: "checkout_product"\` connects checkout to each product.
+7. \`objectLink\` with \`linkType: "workflow_form"\` connects Workflow 1 to the donor form.
+8. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 1 to the stewardship sequence.
+9. All \`pipelineStageId\` values in \`lc_crm\` nodes match actual pipeline stage IDs (prospect, first_time_donor, repeat_donor, major_donor, monthly_sustainer, lapsed).
+10. Tax ID (EIN) is correct and matches IRS records in all locations: invoice metadata, email templates, landing page footer.
+11. Organization name is consistent across all email templates, invoices, and landing pages.
+12. ActiveCampaign \`listId\`, \`tag\`, and credential settings are real (not placeholders).
+13. \`lc_email\` sender identity is configured and verified (SPF/DKIM).
+14. Major donor alert email address is correct and monitored by the development team.
+15. Major donor threshold in \`if_then\` expression is in cents (25000 = $250).
+16. Recurring donation flag is correctly passed from payment provider to trigger metadata.
+17. All four workflows have \`status: "active"\`.
+18. Stewardship sequence has 4 steps with correct timing offsets (0, +7d, +30d, +90d).
+19. Builder apps (donation page, thank-you page) are deployed and accessible.
+20. Campaign progress page (if used) correctly reads and displays real-time donation totals.
+21. Landing page hero section, cause story, and impact stats are customized (not placeholder copy).
+22. Privacy policy link in footer is live and references the organization's actual privacy policy.
 
 ---
 
-## 10. Example Deployment
+## 10. Example Deployment Scenario
 
-> A marketing agency sets up online fundraising for a local animal shelter, "Pawsitive Futures".
-> The shelter needs: a general donation page with tiers ($25 "Feed a Pet for a Week", $50 "Medical Care Fund",
-> $100 "Sponsor an Adoption", $250 "Guardian Angel", custom amount), a specific campaign for building a new wing
-> ("New Beginnings Wing -- Goal: $50,000"), and automated donor stewardship.
+### Scenario: Animal Rescue Donation System
 
-### Step 1: Create Donation Products
+A nonprofit agency sets up a donation system for an animal rescue organization. The agency configures the complete fundraising infrastructure on L4YERCAK3 so that the animal rescue can accept donations, process tax receipts, steward donors, and run campaigns.
 
-**Product 1 -- Feed a Pet ($25):**
+**Organization:** Second Chance Animal Rescue
+**Campaign:** Build the New Shelter Fund
+**Goal:** $150,000
+**Tax ID (EIN):** 47-1234567
+**Executive Director:** Dr. Sarah Mitchell
+
+**Donation Tiers:**
+
+| Tier Name | Amount | Impact Statement |
+|-----------|--------|-----------------|
+| Friend | $25 | Provides one week of food for a rescue animal |
+| Champion | $50 | Covers one veterinary checkup |
+| Hero | $100 | Sponsors one month of shelter care |
+| Guardian | $250 | Funds one complete rescue operation |
+| Founder | $500+ | Names a kennel in the new shelter |
+
+---
+
+### Step 1: Create the Project
+
+\`\`\`
+createProject({
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Second Chance Animal Rescue - Build the New Shelter Fund",
+  subtype: "campaign",
+  description: "Fundraising campaign to raise $150,000 for a new shelter facility. Donation tiers from $25 to $500+. Includes one-time and recurring giving, tax receipt generation, donor stewardship, and year-end appeal automation.",
+  startDate: 1706745600000,
+  endDate: 1735689600000,
+  budget: 15000000
+})
+// Returns: projectId = "proj_shelter_fund_001"
+\`\`\`
+
+\`\`\`
+initializeProjectFolders({
+  organizationId: "<ORG_ID>",
+  projectId: "proj_shelter_fund_001"
+})
+\`\`\`
+
+---
+
+### Step 2: Create Donation Tier Products
+
 \`\`\`
 createProduct({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Donation — $25 Feed a Pet for a Week",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Friend Donation - $25",
   subtype: "digital",
   price: 2500,
   currency: "USD",
-  description: "Your $25 feeds a rescued animal for one full week, including nutritious meals and treats.",
-  productCode: "DON-PF-025",
-  inventory: -1,
-  sold: 0,
-  taxBehavior: "inclusive",
-  maxQuantity: 1,
-  requiresShipping: false,
-  invoiceConfig: { generateReceipt: true, receiptType: "tax_receipt", includeOrgTaxId: true }
+  description: "Provides one week of food for a rescue animal. Your $25 gift ensures that a cat or dog in our care receives nutritious meals every day for seven days.",
+  productCode: "DONATE-FRIEND-25",
+  taxBehavior: "exempt",
+  maxQuantity: 1
 })
+// Returns: productId = "prod_friend_25"
 \`\`\`
 
-**Product 2 -- Medical Care ($50):**
+\`\`\`
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_friend_25" })
+\`\`\`
+
 \`\`\`
 createProduct({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Donation — $50 Medical Care Fund",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Champion Donation - $50",
   subtype: "digital",
   price: 5000,
   currency: "USD",
-  description: "Your $50 provides one month of medical care for a rescued animal, including vaccinations and checkups.",
-  productCode: "DON-PF-050",
-  inventory: -1,
-  sold: 0,
-  taxBehavior: "inclusive",
-  maxQuantity: 1,
-  requiresShipping: false,
-  invoiceConfig: { generateReceipt: true, receiptType: "tax_receipt", includeOrgTaxId: true }
+  description: "Covers one veterinary checkup for a rescue animal. Your $50 gift pays for a full wellness exam, vaccinations, and parasite treatment for one animal.",
+  productCode: "DONATE-CHAMPION-50",
+  taxBehavior: "exempt",
+  maxQuantity: 1
 })
+// Returns: productId = "prod_champion_50"
 \`\`\`
 
-**Product 3 -- Sponsor an Adoption ($100):**
+\`\`\`
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_champion_50" })
+\`\`\`
+
 \`\`\`
 createProduct({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Donation — $100 Sponsor an Adoption",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Hero Donation - $100",
   subtype: "digital",
   price: 10000,
   currency: "USD",
-  description: "Your $100 covers the full adoption preparation for one animal — spay/neuter, microchip, and wellness check.",
-  productCode: "DON-PF-100",
-  inventory: -1,
-  sold: 0,
-  taxBehavior: "inclusive",
-  maxQuantity: 1,
-  requiresShipping: false,
-  invoiceConfig: { generateReceipt: true, receiptType: "tax_receipt", includeOrgTaxId: true }
+  description: "Sponsors one month of shelter care for a rescue animal. Your $100 gift covers housing, food, medical monitoring, socialization, and enrichment activities for one animal for 30 days.",
+  productCode: "DONATE-HERO-100",
+  taxBehavior: "exempt",
+  maxQuantity: 1
 })
+// Returns: productId = "prod_hero_100"
 \`\`\`
 
-**Product 4 -- Guardian Angel ($250):**
+\`\`\`
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_hero_100" })
+\`\`\`
+
 \`\`\`
 createProduct({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Donation — $250 Guardian Angel",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Guardian Donation - $250",
   subtype: "digital",
   price: 25000,
   currency: "USD",
-  description: "Your $250 sponsors emergency surgery or critical medical treatment for an animal in urgent need.",
-  productCode: "DON-PF-250",
-  inventory: -1,
-  sold: 0,
-  taxBehavior: "inclusive",
-  maxQuantity: 1,
-  requiresShipping: false,
-  invoiceConfig: { generateReceipt: true, receiptType: "tax_receipt", includeOrgTaxId: true }
+  description: "Funds one complete rescue operation. Your $250 gift covers the full cost of rescuing one animal from a neglect or abuse situation, including transport, emergency veterinary care, intake processing, and initial shelter placement.",
+  productCode: "DONATE-GUARDIAN-250",
+  taxBehavior: "exempt",
+  maxQuantity: 1
 })
+// Returns: productId = "prod_guardian_250"
 \`\`\`
 
-**Product 5 -- Custom Amount:**
+\`\`\`
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_guardian_250" })
+\`\`\`
+
 \`\`\`
 createProduct({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Donation — Custom Amount",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Founder Donation - $500+",
+  subtype: "digital",
+  price: 50000,
+  currency: "USD",
+  description: "Names a kennel in the new shelter. Your $500+ gift earns you permanent recognition with a named kennel plaque in the new Second Chance Animal Rescue shelter facility. You will also receive a personalized impact report and invitation to the shelter groundbreaking ceremony.",
+  productCode: "DONATE-FOUNDER-500",
+  taxBehavior: "exempt",
+  maxQuantity: 1
+})
+// Returns: productId = "prod_founder_500"
+\`\`\`
+
+\`\`\`
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_founder_500" })
+\`\`\`
+
+\`\`\`
+createProduct({
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Custom Donation Amount",
   subtype: "digital",
   price: 0,
   currency: "USD",
-  description: "Give any amount you choose to support Pawsitive Futures' mission.",
-  productCode: "DON-PF-CUSTOM",
-  inventory: -1,
-  sold: 0,
-  taxBehavior: "inclusive",
-  maxQuantity: 1,
-  requiresShipping: false,
-  invoiceConfig: { generateReceipt: true, receiptType: "tax_receipt", includeOrgTaxId: true }
+  description: "Give any amount you choose. Every dollar makes a difference for the animals in our care.",
+  productCode: "DONATE-CUSTOM",
+  taxBehavior: "exempt",
+  maxQuantity: 1
 })
+// Returns: productId = "prod_custom_amount"
 \`\`\`
 
-Then publish all products:
 \`\`\`
-publishProduct({ sessionId: "<session>", productId: "<don_25_id>" })
-publishProduct({ sessionId: "<session>", productId: "<don_50_id>" })
-publishProduct({ sessionId: "<session>", productId: "<don_100_id>" })
-publishProduct({ sessionId: "<session>", productId: "<don_250_id>" })
-publishProduct({ sessionId: "<session>", productId: "<don_custom_id>" })
+publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_custom_amount" })
 \`\`\`
 
-### Step 2: Create Donor Information Form
+---
+
+### Step 3: Create the Donor Form
 
 \`\`\`
 createForm({
-  sessionId: "<session>",
-  organizationId: "<org>",
-  name: "Pawsitive Futures Donation Form",
-  description: "Donate to support rescued animals at Pawsitive Futures.",
+  sessionId: "<SESSION_ID>",
+  organizationId: "<ORG_ID>",
+  name: "Second Chance Animal Rescue Donor Form",
+  description: "Donation form for the Build the New Shelter Fund campaign. Captures donor information, gift amount, frequency, and dedication options.",
   fields: [
-    { type: "section_header", label: "Your Information",       required: false },
-    { type: "text",           label: "First Name",             required: true  },
-    { type: "text",           label: "Last Name",              required: true  },
-    { type: "email",          label: "Email",                  required: true  },
-    { type: "phone",          label: "Phone",                  required: false },
-    { type: "section_header", label: "Your Donation",          required: false },
-    { type: "select",         label: "Donation Amount",        required: true,
-      options: ["$25 — Feed a Pet for a Week", "$50 — Medical Care Fund", "$100 — Sponsor an Adoption", "$250 — Guardian Angel", "Other Amount"] },
-    { type: "number",         label: "Custom Amount ($)",      required: false, placeholder: "Enter your custom donation amount" },
-    { type: "radio",          label: "Frequency",              required: true,  options: ["One-Time", "Monthly Recurring"] },
-    { type: "section_header", label: "Dedication (Optional)",  required: false },
-    { type: "select",         label: "Dedication Type",        required: false, options: ["None", "In Honor Of", "In Memory Of"] },
-    { type: "text",           label: "Dedication Name",        required: false, placeholder: "Name of the person you are honoring" },
-    { type: "textarea",       label: "Personal Message",       required: false, placeholder: "Add a personal message (included on receipt)" },
-    { type: "checkbox",       label: "I agree to the donation terms and refund policy", required: true }
+    { "type": "text",     "label": "First Name",          "required": true,  "placeholder": "Jane" },
+    { "type": "text",     "label": "Last Name",           "required": true,  "placeholder": "Smith" },
+    { "type": "email",    "label": "Email Address",       "required": true,  "placeholder": "you@email.com" },
+    { "type": "phone",    "label": "Phone Number",        "required": false, "placeholder": "+1 (555) 000-0000" },
+    { "type": "number",   "label": "Donation Amount",     "required": true,  "placeholder": "100" },
+    { "type": "radio",    "label": "Gift Frequency",      "required": true,  "options": ["One-Time Gift", "Monthly Recurring"] },
+    { "type": "select",   "label": "Dedication Type",     "required": false, "options": ["None", "In Honor Of", "In Memory Of"] },
+    { "type": "text",     "label": "Tribute Name",        "required": false, "placeholder": "Name of person being honored or remembered" },
+    { "type": "checkbox", "label": "Make my donation anonymous", "required": false },
+    { "type": "textarea", "label": "Message (optional)",  "required": false, "placeholder": "Leave a message of support for the animals..." }
   ],
   formSettings: {
-    redirectUrl: "/thank-you",
-    notifications: { adminEmail: true, respondentEmail: true },
-    submissionBehavior: "redirect"
+    "redirectUrl": "/thank-you-donation",
+    "notifications": { "adminEmail": true, "respondentEmail": true },
+    "submissionBehavior": "redirect"
   }
 })
+// Returns: formId = "form_shelter_donor_001"
 \`\`\`
 
-Then publish: \`publishForm({ sessionId: "<session>", formId: "<form_id>" })\`
-
-### Step 3: Create Checkout & Link Products
-
-Create checkout object, then link all five donation products:
-
 \`\`\`
-// objectLinks for checkout
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_25_id>",     linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_50_id>",     linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_100_id>",    linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_250_id>",    linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_custom_id>", linkType: "checkout_product" }
+publishForm({ sessionId: "<SESSION_ID>", formId: "form_shelter_donor_001" })
 \`\`\`
 
-### Step 4: Create CRM Pipeline
+---
 
-Pipeline: **"Donor Pipeline: Pawsitive Futures"**
+### Step 4: Create the CRM Pipeline
 
-Stages (in order):
-1. \`prospect\` -- "Prospect"
-2. \`first_time_donor\` -- "First-Time Donor"
-3. \`repeat_donor\` -- "Repeat Donor"
-4. \`monthly_sustainer\` -- "Monthly Sustainer"
-5. \`major_donor\` -- "Major Donor ($1,000+)"
-6. \`legacy_prospect\` -- "Legacy Prospect"
-7. \`lapsed\` -- "Lapsed"
-8. \`reactivated\` -- "Reactivated"
+The pipeline is configured within the organization's CRM settings with these stages:
 
-### Step 5: Create Workflows
+| Stage ID | Stage Name | Description |
+|----------|-----------|-------------|
+| \`prospect\` | Prospect | Visited donation page but has not yet donated |
+| \`first_time_donor\` | First-Time Donor | Made their first donation to Second Chance Animal Rescue |
+| \`repeat_donor\` | Repeat Donor | Has donated two or more times |
+| \`major_donor\` | Major Donor | Donated $250 or more in a single gift, or $1,000+ cumulative |
+| \`monthly_sustainer\` | Monthly Sustainer | Has an active recurring monthly donation |
+| \`lapsed\` | Lapsed Donor | Has not donated in the last 12 months |
 
-**Workflow 1 -- Donation Processing (see section 4.1):**
+---
+
+### Step 5: Create the Donation Processing Workflow
+
 \`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Donation Processing", description: "Processes all incoming donations: CRM contact, tax receipt, thank-you email, ActiveCampaign sync" })
+createWorkflow({
+  sessionId: "<SESSION_ID>",
+  name: "Donation Processing Workflow",
+  description: "Processes all donations to Build the New Shelter Fund. Creates transaction, donor contact, tax receipt, thank-you email, ActiveCampaign sync, and pipeline routing based on amount."
+})
+// Returns: workflowId = "wf_donation_processing_001"
+\`\`\`
 
+\`\`\`
 saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf1_id>",
-  name: "Pawsitive Futures — Donation Processing",
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_donation_processing_001",
+  name: "Donation Processing Workflow",
   nodes: [
-    { id: "n-trig",   type: "trigger_payment_received", position: { x: 0, y: 0 },      config: { paymentProvider: "any" },                                                                                                                                                                                                                                         status: "ready", label: "Payment Received" },
-    { id: "n-crm1",   type: "lc_crm",                   position: { x: 300, y: 0 },     config: { action: "create-contact", firstName: "{{paymentData.firstName}}", lastName: "{{paymentData.lastName}}", email: "{{paymentData.email}}", phone: "{{paymentData.phone}}", contactType: "donor", tags: ["donor", "{{tierTag}}", "{{campaignTag}}"], customFields: { totalDonations: "{{paymentData.amount}}", donationCount: 1, firstDonationDate: "{{now}}", lastDonationDate: "{{now}}", isRecurring: "{{paymentData.isRecurring}}", dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}", campaignSource: "{{formData.campaignSource}}" } }, status: "ready", label: "Create Donor Contact" },
-    { id: "n-crm2",   type: "lc_crm",                   position: { x: 600, y: 0 },     config: { action: "move-pipeline-stage", pipelineStageId: "first_time_donor" },                                                                                                                                                                                              status: "ready", label: "Move to First-Time Donor" },
-    { id: "n-cond1",  type: "if_then",                   position: { x: 900, y: 0 },     config: { expression: "{{paymentData.isRecurring}} === true" },                                                                                                                                                                                                              status: "ready", label: "Is Recurring?" },
-    { id: "n-crm3",   type: "lc_crm",                   position: { x: 1200, y: -150 },  config: { action: "move-pipeline-stage", pipelineStageId: "monthly_sustainer" },                                                                                                                                                                                             status: "ready", label: "Move to Monthly Sustainer" },
-    { id: "n-crm3t",  type: "lc_crm",                   position: { x: 1500, y: -150 },  config: { action: "update-contact", tags: ["recurring_donor", "monthly_sustainer"] },                                                                                                                                                                                        status: "ready", label: "Tag Recurring Donor" },
-    { id: "n-inv",    type: "lc_invoicing",              position: { x: 1200, y: 150 },   config: { action: "generate-invoice", invoiceType: "b2c_single", includeFields: { donorName: "{{contact.firstName}} {{contact.lastName}}", donorEmail: "{{contact.email}}", donationAmount: "{{paymentData.amount}}", donationDate: "{{now}}", organizationName: "Pawsitive Futures", organizationTaxId: "EIN: 12-3456789", taxDeductibleAmount: "{{paymentData.amount}}", dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}", personalMessage: "{{formData.personalMessage}}" } }, status: "ready", label: "Generate Tax Receipt" },
-    { id: "n-merge",  type: "merge",                     position: { x: 1800, y: 0 },    config: { mergeStrategy: "first" },                                                                                                                                                                                                                                         status: "ready", label: "Merge Paths" },
-    { id: "n-email1", type: "lc_email",                  position: { x: 2100, y: 0 },    config: { action: "send-confirmation-email", subject: "Thank you for your generous donation to Pawsitive Futures!", templateId: "donation_thank_you", data: { donorName: "{{contact.firstName}}", donationAmount: "{{paymentData.amountFormatted}}", organizationName: "Pawsitive Futures", impactPreview: "{{tierImpactStatement}}", receiptAttached: true, dedicationType: "{{formData.dedicationType}}", dedicationName: "{{formData.dedicationName}}" } }, status: "ready", label: "Thank You + Tax Receipt" },
-    { id: "n-email2", type: "lc_email",                  position: { x: 2400, y: 0 },    config: { action: "send-admin-notification", subject: "New donation: \${{paymentData.amountFormatted}} from {{contact.firstName}} {{contact.lastName}}", templateId: "donation_admin_alert", data: { donorName: "{{contact.firstName}} {{contact.lastName}}", amount: "{{paymentData.amountFormatted}}", isRecurring: "{{paymentData.isRecurring}}", campaignSource: "{{formData.campaignSource}}" } }, status: "ready", label: "Admin Notification" },
-    { id: "n-ac1",    type: "activecampaign",            position: { x: 2700, y: 0 },    config: { action: "add_contact", email: "{{contact.email}}", firstName: "{{contact.firstName}}", lastName: "{{contact.lastName}}" },                                                                                                                                        status: "ready", label: "Sync Contact to AC" },
-    { id: "n-ac2",    type: "activecampaign",            position: { x: 3000, y: 0 },    config: { action: "add_tag", tag: "donor" },                                                                                                                                                                                                                                status: "ready", label: "Tag Donor in AC" },
-    { id: "n-ac3",    type: "activecampaign",            position: { x: 3300, y: 0 },    config: { action: "add_to_list", listName: "donors" },                                                                                                                                                                                                                      status: "ready", label: "Add to Donors List" }
+    {
+      "id": "trigger-1",
+      "type": "trigger_payment_received",
+      "position": { "x": 100, "y": 300 },
+      "config": { "paymentProvider": "any" },
+      "status": "ready",
+      "label": "Donation Payment Received"
+    },
+    {
+      "id": "checkout-1",
+      "type": "lc_checkout",
+      "position": { "x": 350, "y": 300 },
+      "config": {
+        "action": "create-transaction",
+        "productId": "{{trigger.productId}}",
+        "amount": "{{trigger.amount}}",
+        "currency": "{{trigger.currency}}",
+        "metadata": {
+          "donationType": "donation",
+          "campaignId": "proj_shelter_fund_001"
+        }
+      },
+      "status": "ready",
+      "label": "Create Donation Transaction"
+    },
+    {
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 600, "y": 300 },
+      "config": {
+        "action": "create-contact",
+        "contactType": "customer",
+        "tags": ["donor", "build-the-new-shelter-fund"],
+        "mapFields": {
+          "email": "{{trigger.customerEmail}}",
+          "firstName": "{{trigger.customerFirstName}}",
+          "lastName": "{{trigger.customerLastName}}",
+          "phone": "{{trigger.customerPhone}}",
+          "customFields": {
+            "dedicationType": "{{trigger.metadata.dedicationType}}",
+            "tributeName": "{{trigger.metadata.tributeName}}",
+            "isAnonymous": "{{trigger.metadata.isAnonymous}}",
+            "isRecurring": "{{trigger.metadata.isRecurring}}",
+            "lastDonationDate": "{{trigger.timestamp}}",
+            "totalGiven": "{{trigger.amount}}"
+          }
+        }
+      },
+      "status": "ready",
+      "label": "Create or Update Donor Contact"
+    },
+    {
+      "id": "invoice-1",
+      "type": "lc_invoicing",
+      "position": { "x": 850, "y": 150 },
+      "config": {
+        "action": "generate-invoice",
+        "transactionId": "{{checkout-1.output.transactionId}}",
+        "contactId": "{{crm-1.output.contactId}}",
+        "metadata": {
+          "taxDeductible": true,
+          "taxId": "47-1234567",
+          "organizationName": "Second Chance Animal Rescue",
+          "receiptType": "donation"
+        }
+      },
+      "status": "ready",
+      "label": "Generate Tax Receipt"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 850, "y": 350 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{crm-1.output.email}}",
+        "subject": "Thank You for Your Generous Donation to Second Chance Animal Rescue",
+        "body": "Dear {{crm-1.output.firstName}},\\n\\nThank you for your generous donation of \${{trigger.amountFormatted}} to Second Chance Animal Rescue and our Build the New Shelter Fund campaign.\\n\\nYour gift makes a real difference. Here is what your donation provides:\\n{{trigger.impactStatement}}\\n\\nYour tax-deductible receipt is attached to this email. For your records:\\n- Donation Amount: \${{trigger.amountFormatted}}\\n- Date: {{trigger.dateFormatted}}\\n- Tax ID (EIN): 47-1234567\\n- Organization: Second Chance Animal Rescue, Inc.\\n\\nNo goods or services were provided in exchange for this contribution.\\n\\nWith gratitude,\\nThe Second Chance Animal Rescue Team\\n\\nP.S. Want to multiply your impact? Share our campaign with friends and family: https://secondchanceanimalrescue.org/donate"
+      },
+      "status": "ready",
+      "label": "Send Thank You + Tax Receipt"
+    },
+    {
+      "id": "ac-1",
+      "type": "activecampaign",
+      "position": { "x": 850, "y": 550 },
+      "config": {
+        "action": "add_contact",
+        "email": "{{crm-1.output.email}}",
+        "firstName": "{{crm-1.output.firstName}}",
+        "lastName": "{{crm-1.output.lastName}}"
+      },
+      "status": "ready",
+      "label": "Sync Donor to ActiveCampaign"
+    },
+    {
+      "id": "ac-2",
+      "type": "activecampaign",
+      "position": { "x": 1100, "y": 550 },
+      "config": {
+        "action": "add_tag",
+        "contactEmail": "{{crm-1.output.email}}",
+        "tag": "donor-shelter-fund"
+      },
+      "status": "ready",
+      "label": "Tag Donor in ActiveCampaign"
+    },
+    {
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 1100, "y": 300 },
+      "config": {
+        "expression": "{{trigger.amount}} >= 25000"
+      },
+      "status": "ready",
+      "label": "Is Major Donor? (>= $250)"
+    },
+    {
+      "id": "crm-2",
+      "type": "lc_crm",
+      "position": { "x": 1350, "y": 150 },
+      "config": {
+        "action": "move-pipeline-stage",
+        "contactId": "{{crm-1.output.contactId}}",
+        "pipelineStageId": "first_time_donor"
+      },
+      "status": "ready",
+      "label": "Set Pipeline: First-Time Donor"
+    },
+    {
+      "id": "crm-3",
+      "type": "lc_crm",
+      "position": { "x": 1350, "y": 300 },
+      "config": {
+        "action": "move-pipeline-stage",
+        "contactId": "{{crm-1.output.contactId}}",
+        "pipelineStageId": "major_donor"
+      },
+      "status": "ready",
+      "label": "Set Pipeline: Major Donor"
+    }
   ],
   edges: [
-    { id: "e-1",  source: "n-trig",   target: "n-crm1",  sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-2",  source: "n-crm1",   target: "n-crm2",  sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-3",  source: "n-crm2",   target: "n-cond1", sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-4",  source: "n-cond1",  target: "n-crm3",  sourceHandle: "true",     targetHandle: "input" },
-    { id: "e-5",  source: "n-crm3",   target: "n-crm3t", sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-6",  source: "n-crm3t",  target: "n-merge", sourceHandle: "output",   targetHandle: "input_a" },
-    { id: "e-7",  source: "n-cond1",  target: "n-inv",   sourceHandle: "false",    targetHandle: "input" },
-    { id: "e-8",  source: "n-inv",    target: "n-merge", sourceHandle: "output",   targetHandle: "input_b" },
-    { id: "e-9",  source: "n-merge",  target: "n-email1",sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-10", source: "n-email1", target: "n-email2",sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-11", source: "n-email2", target: "n-ac1",   sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-12", source: "n-ac1",    target: "n-ac2",   sourceHandle: "output",   targetHandle: "input" },
-    { id: "e-13", source: "n-ac2",    target: "n-ac3",   sourceHandle: "output",   targetHandle: "input" }
+    { "id": "e-1", "source": "trigger-1",  "target": "checkout-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "checkout-1", "target": "crm-1",      "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-3", "source": "crm-1",      "target": "invoice-1",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "crm-1",      "target": "email-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "crm-1",      "target": "ac-1",       "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-6", "source": "ac-1",       "target": "ac-2",       "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-7", "source": "crm-1",      "target": "if-1",       "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-8", "source": "if-1",       "target": "crm-2",      "sourceHandle": "false",  "targetHandle": "input" },
+    { "id": "e-9", "source": "if-1",       "target": "crm-3",      "sourceHandle": "true",   "targetHandle": "input" }
   ],
-  triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }]
+  triggers: [{ "type": "trigger_payment_received", "config": { "paymentProvider": "any" } }]
 })
-
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf1_id>", status: "active" })
 \`\`\`
 
-**Workflow 2 -- Repeat Donor Detection (see section 4.2):**
 \`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Repeat Donor Detection", description: "Detects repeat donors and major donor milestones" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_donation_processing_001",
+  status: "active"
+})
+\`\`\`
 
+---
+
+### Step 6: Create the Recurring Donation Management Workflow
+
+\`\`\`
+createWorkflow({
+  sessionId: "<SESSION_ID>",
+  name: "Recurring Donation Management Workflow",
+  description: "Manages recurring monthly donations. Tags sustainers, sends monthly thank-you emails, updates pipeline stage."
+})
+// Returns: workflowId = "wf_recurring_management_001"
+\`\`\`
+
+\`\`\`
 saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf2_id>",
-  name: "Pawsitive Futures — Repeat Donor Detection",
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_recurring_management_001",
+  name: "Recurring Donation Management Workflow",
   nodes: [
-    { id: "n-trig",   type: "trigger_payment_received", position: { x: 0, y: 0 },      config: { paymentProvider: "any" },                                                                                            status: "ready", label: "Payment Received" },
-    { id: "n-code1",  type: "code_block",               position: { x: 300, y: 0 },     config: { code: "const contact = context.contact; const count = contact.customFields.donationCount || 0; output.hasPrevious = count > 1; output.totalGiving = contact.customFields.totalDonations || 0; output.donationCount = count;" }, status: "ready", label: "Check Previous Donations" },
-    { id: "n-cond1",  type: "if_then",                  position: { x: 600, y: 0 },     config: { expression: "{{hasPrevious}} === true" },                                                                            status: "ready", label: "Has Previous Donation?" },
-    { id: "n-crm1",   type: "lc_crm",                   position: { x: 900, y: -100 },  config: { action: "move-pipeline-stage", pipelineStageId: "repeat_donor" },                                                    status: "ready", label: "Move to Repeat Donor" },
-    { id: "n-cond2",  type: "if_then",                  position: { x: 1200, y: -100 }, config: { expression: "{{totalGiving}} > 100000" },                                                                            status: "ready", label: "Total Giving > $1000?" },
-    { id: "n-crm2",   type: "lc_crm",                   position: { x: 1500, y: -200 }, config: { action: "move-pipeline-stage", pipelineStageId: "major_donor" },                                                      status: "ready", label: "Move to Major Donor" },
-    { id: "n-crm2t",  type: "lc_crm",                   position: { x: 1800, y: -200 }, config: { action: "update-contact", tags: ["major_donor"] },                                                                    status: "ready", label: "Tag Major Donor" },
-    { id: "n-email1", type: "lc_email",                  position: { x: 2100, y: -200 }, config: { action: "send-admin-notification", subject: "Major donor milestone: {{contact.firstName}} {{contact.lastName}} — lifetime giving exceeded $1,000", templateId: "major_donor_alert", data: { donorName: "{{contact.firstName}} {{contact.lastName}}", totalGiving: "{{totalGivingFormatted}}", donationCount: "{{donationCount}}" } }, status: "ready", label: "Admin: Major Donor Milestone" }
+    {
+      "id": "trigger-1",
+      "type": "trigger_payment_received",
+      "position": { "x": 100, "y": 200 },
+      "config": { "paymentProvider": "any" },
+      "status": "ready",
+      "label": "Payment Received"
+    },
+    {
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 350, "y": 200 },
+      "config": {
+        "expression": "{{trigger.metadata.isRecurring}} === true"
+      },
+      "status": "ready",
+      "label": "Is Recurring Donation?"
+    },
+    {
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 600, "y": 100 },
+      "config": {
+        "action": "update-contact",
+        "contactId": "{{trigger.contactId}}",
+        "tags": ["monthly_sustainer", "recurring_donor"],
+        "customFields": {
+          "isRecurring": true,
+          "lastDonationDate": "{{trigger.timestamp}}",
+          "totalGiven": "{{trigger.runningTotal}}"
+        }
+      },
+      "status": "ready",
+      "label": "Tag as Monthly Sustainer"
+    },
+    {
+      "id": "crm-2",
+      "type": "lc_crm",
+      "position": { "x": 850, "y": 100 },
+      "config": {
+        "action": "move-pipeline-stage",
+        "contactId": "{{trigger.contactId}}",
+        "pipelineStageId": "monthly_sustainer"
+      },
+      "status": "ready",
+      "label": "Move to Sustainer Stage"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 850, "y": 250 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{trigger.customerEmail}}",
+        "subject": "Your Monthly Gift to Second Chance Animal Rescue Has Been Processed",
+        "body": "Dear {{trigger.customerFirstName}},\\n\\nThank you for your continued monthly support of Second Chance Animal Rescue. Your recurring gift of \${{trigger.amountFormatted}} has been successfully processed.\\n\\nThis month, your gift helped provide:\\n{{trigger.monthlyImpactStatement}}\\n\\nSince you started giving monthly, you have contributed a total of \${{trigger.runningTotalFormatted}}. That is incredible.\\n\\nYour tax-deductible receipt for this month's gift is attached.\\n\\nWith gratitude,\\nThe Second Chance Animal Rescue Team\\n\\nP.S. Know someone who loves animals as much as you? Share our mission: https://secondchanceanimalrescue.org/donate"
+      },
+      "status": "ready",
+      "label": "Send Monthly Thank You"
+    },
+    {
+      "id": "ac-1",
+      "type": "activecampaign",
+      "position": { "x": 1100, "y": 100 },
+      "config": {
+        "action": "add_tag",
+        "contactEmail": "{{trigger.customerEmail}}",
+        "tag": "sustainer"
+      },
+      "status": "ready",
+      "label": "Tag Sustainer in AC"
+    }
   ],
   edges: [
-    { id: "e-1", source: "n-trig",  target: "n-code1", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-2", source: "n-code1", target: "n-cond1", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-3", source: "n-cond1", target: "n-crm1",  sourceHandle: "true",   targetHandle: "input" },
-    { id: "e-4", source: "n-crm1",  target: "n-cond2", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-5", source: "n-cond2", target: "n-crm2",  sourceHandle: "true",   targetHandle: "input" },
-    { id: "e-6", source: "n-crm2",  target: "n-crm2t", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-7", source: "n-crm2t", target: "n-email1",sourceHandle: "output", targetHandle: "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "if-1",      "target": "crm-1",   "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-3", "source": "crm-1",     "target": "crm-2",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "crm-1",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "crm-2",     "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }]
+  triggers: [{ "type": "trigger_payment_received", "config": { "paymentProvider": "any" } }]
 })
-
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf2_id>", status: "active" })
 \`\`\`
 
-**Workflow 3 -- Monthly Impact Update (see section 4.3):**
 \`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Monthly Impact Update", description: "Sends personalized monthly impact emails to donors" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_recurring_management_001",
+  status: "active"
+})
+\`\`\`
 
+---
+
+### Step 7: Create the Major Donor Alert Workflow
+
+\`\`\`
+createWorkflow({
+  sessionId: "<SESSION_ID>",
+  name: "Major Donor Alert Workflow",
+  description: "Sends admin notification to development team for donations >= $250. Moves donor to major donor pipeline stage and tags in ActiveCampaign."
+})
+// Returns: workflowId = "wf_major_donor_alert_001"
+\`\`\`
+
+\`\`\`
 saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf3_id>",
-  name: "Pawsitive Futures — Monthly Impact Update",
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_major_donor_alert_001",
+  name: "Major Donor Alert Workflow",
   nodes: [
-    { id: "n-trig",   type: "trigger_schedule",  position: { x: 0, y: 0 },     config: { cronExpression: "0 9 1 * *", timezone: "America/New_York" },                                             status: "ready", label: "1st of Month" },
-    { id: "n-code1",  type: "code_block",        position: { x: 300, y: 0 },    config: { code: "const stats = await getMonthlyImpactStats(context.organizationId); output.impactStats = stats; output.donors = await getDonorsThisMonth(context.organizationId);" }, status: "ready", label: "Generate Impact Stats" },
-    { id: "n-loop",   type: "loop_iterator",     position: { x: 600, y: 0 },    config: { arrayField: "donors", maxIterations: 5000 },                                                            status: "ready", label: "Each Donor This Month" },
-    { id: "n-email1", type: "lc_email",          position: { x: 900, y: -50 },  config: { action: "send-confirmation-email", subject: "Your impact this month at Pawsitive Futures", templateId: "monthly_impact_update", data: { donorName: "{{item.firstName}}", impactStats: "{{impactStats}}", personalImpact: "Your \${{item.lastDonationFormatted}} donation helped {{item.personalImpactStatement}}", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Monthly Impact Email" }
+    {
+      "id": "trigger-1",
+      "type": "trigger_payment_received",
+      "position": { "x": 100, "y": 200 },
+      "config": { "paymentProvider": "any" },
+      "status": "ready",
+      "label": "Payment Received"
+    },
+    {
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 350, "y": 200 },
+      "config": {
+        "expression": "{{trigger.amount}} >= 25000"
+      },
+      "status": "ready",
+      "label": "Amount >= $250?"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 600, "y": 100 },
+      "config": {
+        "action": "send-admin-notification",
+        "to": "development@secondchanceanimalrescue.org",
+        "subject": "Major Donation Alert: \${{trigger.amountFormatted}} from {{trigger.customerFirstName}} {{trigger.customerLastName}}",
+        "body": "A major donation has been received. Please arrange a personal thank-you call within 24 hours.\\n\\nDonor Details:\\n- Name: {{trigger.customerFirstName}} {{trigger.customerLastName}}\\n- Email: {{trigger.customerEmail}}\\n- Phone: {{trigger.customerPhone}}\\n- Amount: \${{trigger.amountFormatted}}\\n- Donation Tier: {{trigger.tierName}}\\n- Recurring: {{trigger.metadata.isRecurring}}\\n- Dedication: {{trigger.metadata.dedicationType}} - {{trigger.metadata.tributeName}}\\n- Message: {{trigger.metadata.message}}\\n\\nRecommended Actions:\\n1. Personal phone call from Executive Director (Dr. Sarah Mitchell) within 24 hours\\n2. Handwritten thank-you card mailed within 48 hours\\n3. Add to major donor recognition wall (if not anonymous)\\n4. Invite to upcoming donor appreciation event\\n5. For Founder-level ($500+): confirm kennel naming details\\n\\nView donor profile in CRM: [LINK]"
+      },
+      "status": "ready",
+      "label": "Notify Development Team"
+    },
+    {
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 600, "y": 250 },
+      "config": {
+        "action": "move-pipeline-stage",
+        "contactId": "{{trigger.contactId}}",
+        "pipelineStageId": "major_donor"
+      },
+      "status": "ready",
+      "label": "Move to Major Donor Stage"
+    },
+    {
+      "id": "ac-1",
+      "type": "activecampaign",
+      "position": { "x": 850, "y": 100 },
+      "config": {
+        "action": "add_tag",
+        "contactEmail": "{{trigger.customerEmail}}",
+        "tag": "major_donor"
+      },
+      "status": "ready",
+      "label": "Tag as Major Donor in AC"
+    },
+    {
+      "id": "ac-2",
+      "type": "activecampaign",
+      "position": { "x": 1100, "y": 100 },
+      "config": {
+        "action": "add_to_list",
+        "contactEmail": "{{trigger.customerEmail}}",
+        "listId": "ac_list_major_donors"
+      },
+      "status": "ready",
+      "label": "Add to Major Donor List"
+    }
   ],
   edges: [
-    { id: "e-1", source: "n-trig",  target: "n-code1",  sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-2", source: "n-code1", target: "n-loop",   sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-3", source: "n-loop",  target: "n-email1", sourceHandle: "each_item", targetHandle: "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "if-1",      "target": "email-1", "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-3", "source": "if-1",      "target": "crm-1",   "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-4", "source": "email-1",   "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "ac-1",      "target": "ac-2",    "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 1 * *", timezone: "America/New_York" } }]
+  triggers: [{ "type": "trigger_payment_received", "config": { "paymentProvider": "any" } }]
 })
-
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf3_id>", status: "active" })
 \`\`\`
 
-**Workflow 4 -- Recurring Donation Failed (see section 4.4):**
 \`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Payment Failed Recovery", description: "Recovers failed recurring donation payments with escalating reminders" })
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_major_donor_alert_001",
+  status: "active"
+})
+\`\`\`
 
+---
+
+### Step 8: Create the Year-End Appeal Workflow
+
+\`\`\`
+createWorkflow({
+  sessionId: "<SESSION_ID>",
+  name: "Year-End Appeal Workflow",
+  description: "Sends year-end appeal email series in November-December to drive tax-deductible donations before December 31."
+})
+// Returns: workflowId = "wf_year_end_appeal_001"
+\`\`\`
+
+\`\`\`
 saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf4_id>",
-  name: "Pawsitive Futures — Payment Failed Recovery",
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_year_end_appeal_001",
+  name: "Year-End Appeal Workflow",
   nodes: [
-    { id: "n-trig",   type: "trigger_webhook",  position: { x: 0, y: 0 },       config: { path: "/stripe-payment-failed", secret: "pf_payment_failed_secret" },                     status: "ready", label: "Stripe Payment Failed" },
-    { id: "n-crm1",   type: "lc_crm",           position: { x: 300, y: 0 },      config: { action: "update-contact", tags: ["payment_failed"] },                                     status: "ready", label: "Tag Payment Failed" },
-    { id: "n-email1", type: "lc_email",          position: { x: 600, y: 0 },      config: { action: "send-confirmation-email", subject: "Action needed: your monthly donation to Pawsitive Futures could not be processed", templateId: "payment_failed_first", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Payment Failed Notice" },
-    { id: "n-wait1",  type: "wait_delay",        position: { x: 900, y: 0 },      config: { duration: 3, unit: "days" },                                                             status: "ready", label: "Wait 3 Days" },
-    { id: "n-cond1",  type: "if_then",           position: { x: 1200, y: 0 },     config: { expression: "{{contact.tags}}.includes('payment_failed')" },                              status: "ready", label: "Still Failed?" },
-    { id: "n-email2", type: "lc_email",          position: { x: 1500, y: -100 },  config: { action: "send-confirmation-email", subject: "Reminder: please update your payment method for Pawsitive Futures", templateId: "payment_failed_second", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Second Reminder" },
-    { id: "n-wait2",  type: "wait_delay",        position: { x: 1800, y: -100 },  config: { duration: 4, unit: "days" },                                                             status: "ready", label: "Wait 4 Days" },
-    { id: "n-email3", type: "lc_email",          position: { x: 2100, y: -100 },  config: { action: "send-confirmation-email", subject: "Final notice: your recurring donation to Pawsitive Futures will be cancelled", templateId: "payment_failed_final", data: { donorName: "{{contact.firstName}}", updatePaymentUrl: "{{updatePaymentLink}}", manualDonationUrl: "https://pawsitivefutures.example.com/donate", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Final Notice" }
+    {
+      "id": "trigger-1",
+      "type": "trigger_schedule",
+      "position": { "x": 100, "y": 200 },
+      "config": { "cronExpression": "0 9 1 11 *", "timezone": "America/Chicago" },
+      "status": "ready",
+      "label": "November Campaign Start"
+    },
+    {
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 350, "y": 200 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{donor.email}}",
+        "subject": "Your Year-End Gift Can Change Lives Before December 31",
+        "body": "Dear {{donor.firstName}},\\n\\nAs the year draws to a close, I want to share something personal with you.\\n\\nThis year, Second Chance Animal Rescue has rescued 847 animals, performed 1,200 veterinary procedures, and found forever homes for 623 cats and dogs. But there are still animals waiting.\\n\\nOur Build the New Shelter Fund has raised $112,000 of our $150,000 goal. We are so close.\\n\\nYour year-end gift -- in any amount -- is tax-deductible for 2026 and goes directly to completing the new shelter facility that will double our capacity.\\n\\nHere is what your gift provides:\\n- $25 feeds a rescue animal for one week\\n- $50 covers one veterinary checkup\\n- $100 sponsors a month of shelter care\\n- $250 funds a complete rescue operation\\n- $500+ names a kennel in the new shelter\\n\\nDonate now: https://secondchanceanimalrescue.org/donate\\n\\nThank you for being part of our mission.\\n\\nWith hope,\\nDr. Sarah Mitchell\\nExecutive Director\\nSecond Chance Animal Rescue\\nTax ID: 47-1234567"
+      },
+      "status": "ready",
+      "label": "Year-End Appeal Email"
+    },
+    {
+      "id": "wait-1",
+      "type": "wait_delay",
+      "position": { "x": 600, "y": 200 },
+      "config": { "duration": 10, "unit": "days" },
+      "status": "ready",
+      "label": "Wait 10 Days"
+    },
+    {
+      "id": "email-2",
+      "type": "lc_email",
+      "position": { "x": 850, "y": 200 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{donor.email}}",
+        "subject": "We Are 75% There -- Can You Help Us Reach Our Goal?",
+        "body": "Dear {{donor.firstName}},\\n\\nGreat news -- since our last update, generous donors like you have helped us reach $125,000 of our $150,000 goal for the Build the New Shelter Fund.\\n\\nWe are 75% of the way there, but we still need $25,000 to break ground in January.\\n\\nI wanted to share a quick story. Last week, we rescued a senior dog named Biscuit from a neglect situation. He arrived malnourished, scared, and with a broken leg. Today, after surgery and round-the-clock care from our team, Biscuit is wagging his tail and learning to trust people again. He will be ready for his forever home by the new year.\\n\\nBiscuit is exactly why the new shelter matters. More space means more animals like him get a second chance.\\n\\nCan you help us close the gap? Even $25 makes a difference.\\n\\nDonate now: https://secondchanceanimalrescue.org/donate\\n\\nWith gratitude,\\nDr. Sarah Mitchell\\nExecutive Director"
+      },
+      "status": "ready",
+      "label": "Reminder Email"
+    },
+    {
+      "id": "wait-2",
+      "type": "wait_delay",
+      "position": { "x": 1100, "y": 200 },
+      "config": { "duration": 8, "unit": "days" },
+      "status": "ready",
+      "label": "Wait Until Dec 28"
+    },
+    {
+      "id": "email-3",
+      "type": "lc_email",
+      "position": { "x": 1350, "y": 200 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{donor.email}}",
+        "subject": "Last Chance: Your Tax-Deductible Gift Must Be Made by December 31",
+        "body": "Dear {{donor.firstName}},\\n\\nThis is a friendly reminder that December 31 is the deadline for tax-deductible charitable contributions for the 2026 tax year.\\n\\nSecond Chance Animal Rescue is a registered 501(c)(3) nonprofit (Tax ID: 47-1234567), and your donation is fully tax-deductible to the extent allowed by law.\\n\\nWe are now at $140,000 of our $150,000 goal. Just $10,000 more and we can begin construction on the new shelter in January.\\n\\nThis is your last chance to make your year-end gift count -- for the animals and for your taxes.\\n\\nMake your tax-deductible gift now: https://secondchanceanimalrescue.org/donate\\n\\nThank you for standing with us.\\n\\nWith hope for the new year,\\nDr. Sarah Mitchell\\nExecutive Director\\nSecond Chance Animal Rescue\\n\\nP.S. Gifts of $250 or more receive a personalized impact report and invitation to our Shelter Groundbreaking Ceremony in February."
+      },
+      "status": "ready",
+      "label": "Last Chance Email"
+    }
   ],
   edges: [
-    { id: "e-1", source: "n-trig",   target: "n-crm1",  sourceHandle: "output", targetHandle: "input" },
-    { id: "e-2", source: "n-crm1",   target: "n-email1",sourceHandle: "output", targetHandle: "input" },
-    { id: "e-3", source: "n-email1", target: "n-wait1", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-4", source: "n-wait1",  target: "n-cond1", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-5", source: "n-cond1",  target: "n-email2",sourceHandle: "true",   targetHandle: "input" },
-    { id: "e-6", source: "n-email2", target: "n-wait2", sourceHandle: "output", targetHandle: "input" },
-    { id: "e-7", source: "n-wait2",  target: "n-email3",sourceHandle: "output", targetHandle: "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "email-1",   "target": "wait-1",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-3", "source": "wait-1",    "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "email-2",   "target": "wait-2",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "wait-2",    "target": "email-3", "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ type: "trigger_webhook", config: { path: "/stripe-payment-failed", secret: "pf_payment_failed_secret" } }]
+  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 9 1 11 *", "timezone": "America/Chicago" } }]
+})
+\`\`\`
+
+\`\`\`
+updateWorkflowStatus({
+  sessionId: "<SESSION_ID>",
+  workflowId: "wf_year_end_appeal_001",
+  status: "active"
+})
+\`\`\`
+
+---
+
+### Step 9: Create the Donor Stewardship Sequence
+
+**Object:** \`type: "automation_sequence"\`, \`subtype: "nachher"\`, \`name: "Donor Stewardship Sequence"\`
+
+**Trigger event:** \`form_submitted\`
+
+**Steps:**
+
+| Step | Channel | Timing | Subject | Body |
+|------|---------|--------|---------|------|
+| 1 | \`email\` | \`{ offset: 0, unit: "minutes", referencePoint: "trigger_event" }\` | "Thank You for Your Generous Donation to Second Chance Animal Rescue" | Dear {{contact.firstName}},\\n\\nThank you for your generous donation of \${{donation.amountFormatted}} to Second Chance Animal Rescue and our Build the New Shelter Fund campaign.\\n\\nYour gift makes a real difference. Here is what your donation provides:\\n{{donation.impactStatement}}\\n\\nYour tax-deductible receipt is attached to this email. For your records:\\n- Donation Amount: \${{donation.amountFormatted}}\\n- Date: {{donation.dateFormatted}}\\n- Tax ID (EIN): 47-1234567\\n- Organization: Second Chance Animal Rescue, Inc.\\n\\nNo goods or services were provided in exchange for this contribution.\\n\\nWith gratitude,\\nThe Second Chance Animal Rescue Team |
+| 2 | \`email\` | \`{ offset: 7, unit: "days", referencePoint: "trigger_event" }\` | "See the Impact Your Gift is Making Right Now" | Dear {{contact.firstName}},\\n\\nOne week ago, you made a generous donation to Second Chance Animal Rescue. I wanted to share a story about exactly where your dollars are going.\\n\\nMeet Luna -- a two-year-old tabby cat who was found abandoned in a parking garage last Tuesday. When our rescue team brought her in, she was dehydrated, underweight, and had a respiratory infection. Thanks to supporters like you, Luna received immediate veterinary care, antibiotics, and a warm, safe place to recover.\\n\\nToday, Luna is eating well, purring up a storm, and starting to trust her caregivers. She will be ready for adoption in about two weeks.\\n\\nThis is what your gift does. Every dollar you gave went directly to providing food, shelter, and medical care for animals like Luna.\\n\\nIf you would like to follow Luna's journey to her forever home, check our social media: @SecondChanceAnimalRescue\\n\\nWith gratitude,\\nDr. Sarah Mitchell\\nExecutive Director |
+| 3 | \`email\` | \`{ offset: 30, unit: "days", referencePoint: "trigger_event" }\` | "Your Impact Update: Build the New Shelter Fund Progress" | Dear {{contact.firstName}},\\n\\nI wanted to give you a quick update on the Build the New Shelter Fund -- because you are part of making this happen.\\n\\nCampaign Progress:\\n- Goal: $150,000\\n- Raised So Far: \${{campaign.totalRaised}}\\n- Percentage: {{campaign.percentComplete}}%\\n- Total Donors: {{campaign.totalDonors}}\\n\\nThis Month's Highlights:\\n- 67 animals rescued\\n- 89 adoptions completed\\n- 142 veterinary procedures performed\\n- 23 foster families actively caring for animals\\n\\nYour \${{donation.amountFormatted}} donation is part of this progress. Every tier of giving -- from Friend ($25) to Founder ($500+) -- adds up to real, measurable change.\\n\\nWe still need \${{campaign.remainingAmount}} to reach our goal. If you know anyone who loves animals, please share our donation page: https://secondchanceanimalrescue.org/donate\\n\\nThank you for being in our corner.\\n\\nWarmly,\\nDr. Sarah Mitchell\\nExecutive Director |
+| 4 | \`email\` | \`{ offset: 90, unit: "days", referencePoint: "trigger_event" }\` | "We Miss You -- Here is What Has Happened Since Your Last Gift" | Dear {{contact.firstName}},\\n\\nIt has been three months since your generous donation to Second Chance Animal Rescue, and I wanted to share what has happened since then.\\n\\nSince your gift:\\n- 203 animals have been rescued\\n- 267 animals found their forever homes\\n- The Build the New Shelter Fund has reached \${{campaign.totalRaised}}\\n\\nYour original gift of \${{donation.amountFormatted}} was part of making all of this possible. But the work continues every single day.\\n\\nRight now, we have 84 animals in our care who need food, shelter, and medical attention. The new shelter facility will allow us to double our capacity and save even more lives.\\n\\nWould you consider making another gift today? Even a small amount helps.\\n\\n- $25 feeds a rescue animal for one week\\n- $50 covers one veterinary checkup\\n- $100 sponsors a month of shelter care\\n\\nDonate again: https://secondchanceanimalrescue.org/donate\\n\\nOr, if you are able, consider becoming a monthly sustainer. A recurring gift of just $25/month provides consistent, reliable support that helps us plan ahead and rescue more animals.\\n\\nBecome a monthly sustainer: https://secondchanceanimalrescue.org/donate?recurring=true\\n\\nThank you for everything, {{contact.firstName}}.\\n\\nWith hope,\\nDr. Sarah Mitchell\\nExecutive Director |
+
+---
+
+### Step 10: Create the Lifecycle Sequence
+
+**Object:** \`type: "automation_sequence"\`, \`subtype: "lifecycle"\`, \`name: "Donor Lifecycle Sequence"\`
+
+**Trigger event:** \`pipeline_stage_changed\`
+
+**Steps:**
+
+| Step | Channel | Timing | Subject | Body |
+|------|---------|--------|---------|------|
+| 1 | \`email\` | \`{ offset: 365, unit: "days", referencePoint: "trigger_event" }\` | "Happy Giving Anniversary, {{contact.firstName}}!" | Dear {{contact.firstName}},\\n\\nOne year ago today, you made your first donation to Second Chance Animal Rescue. We want to celebrate that anniversary with you.\\n\\nIn the past year, your support -- combined with hundreds of other generous donors -- helped us:\\n- Rescue 847 animals from neglect and abandonment\\n- Complete 1,200 veterinary procedures\\n- Find forever homes for 623 cats and dogs\\n- Raise \${{campaign.totalRaised}} toward the Build the New Shelter Fund\\n\\nYou are part of this story, and we are grateful.\\n\\nAs you reflect on the past year, would you consider renewing your support? A gift today -- in any amount -- helps us continue this life-saving work.\\n\\nRenew your gift: https://secondchanceanimalrescue.org/donate\\n\\nWith gratitude on this special day,\\nDr. Sarah Mitchell\\nExecutive Director |
+
+---
+
+### Step 11: Link All Objects
+
+\`\`\`
+// Link Workflow 1 to donor form
+objectLinks.create({
+  sourceObjectId: "wf_donation_processing_001",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "workflow_form"
 })
 
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf4_id>", status: "active" })
-\`\`\`
-
-**Workflow 5 -- Lapsed Donor Re-engagement (see section 4.5):**
-\`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Lapsed Donor Re-engagement", description: "Quarterly scan for lapsed donors with re-engagement outreach" })
-
-saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf5_id>",
-  name: "Pawsitive Futures — Lapsed Donor Re-engagement",
-  nodes: [
-    { id: "n-trig",   type: "trigger_schedule",  position: { x: 0, y: 0 },      config: { cronExpression: "0 9 1 1,4,7,10 *", timezone: "America/New_York" },                                    status: "ready", label: "Quarterly Check" },
-    { id: "n-code1",  type: "code_block",        position: { x: 300, y: 0 },     config: { code: "const sixMonthsAgo = Date.now() - (180 * 24 * 60 * 60 * 1000); output.lapsedDonors = await queryContacts({ organizationId: context.organizationId, filter: { 'customFields.lastDonationDate': { $lt: sixMonthsAgo }, 'customFields.isRecurring': { $ne: true }, 'tags': { $nin: ['monthly_sustainer'] } } });" }, status: "ready", label: "Query Lapsed Donors" },
-    { id: "n-loop",   type: "loop_iterator",     position: { x: 600, y: 0 },     config: { arrayField: "lapsedDonors", maxIterations: 5000 },                                                     status: "ready", label: "Each Lapsed Donor" },
-    { id: "n-crm1",   type: "lc_crm",            position: { x: 900, y: -50 },   config: { action: "move-pipeline-stage", pipelineStageId: "lapsed" },                                             status: "ready", label: "Move to Lapsed" },
-    { id: "n-email1", type: "lc_email",           position: { x: 1200, y: -50 },  config: { action: "send-confirmation-email", subject: "We miss your support, {{contact.firstName}} — see the impact you made at Pawsitive Futures", templateId: "lapsed_donor_reengagement", data: { donorName: "{{item.firstName}}", previousImpact: "Your past donations helped rescue and rehome animals in need", newCampaign: "New Beginnings Wing", donationPageUrl: "https://pawsitivefutures.example.com/donate", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Re-engagement Email" },
-    { id: "n-ac1",    type: "activecampaign",     position: { x: 1500, y: -50 },  config: { action: "add_to_automation", automationName: "donor_reactivation" },                                    status: "ready", label: "Add to Reactivation" }
-  ],
-  edges: [
-    { id: "e-1", source: "n-trig",   target: "n-code1",  sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-2", source: "n-code1",  target: "n-loop",   sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-3", source: "n-loop",   target: "n-crm1",   sourceHandle: "each_item", targetHandle: "input" },
-    { id: "e-4", source: "n-crm1",   target: "n-email1", sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-5", source: "n-email1", target: "n-ac1",    sourceHandle: "output",    targetHandle: "input" }
-  ],
-  triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 1 1,4,7,10 *", timezone: "America/New_York" } }]
+// Link Workflow 1 to stewardship sequence
+objectLinks.create({
+  sourceObjectId: "wf_donation_processing_001",
+  targetObjectId: "<STEWARDSHIP_SEQUENCE_ID>",
+  linkType: "workflow_sequence"
 })
 
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf5_id>", status: "active" })
-\`\`\`
-
-**Workflow 6 -- Year-End Appeal (see section 4.6):**
-\`\`\`
-createWorkflow({ sessionId: "<session>", name: "Pawsitive Futures — Year-End Appeal", description: "Annual year-end giving appeal with personalized summaries" })
-
-saveWorkflow({
-  sessionId: "<session>",
-  workflowId: "<wf6_id>",
-  name: "Pawsitive Futures — Year-End Appeal",
-  nodes: [
-    { id: "n-trig",   type: "trigger_schedule",  position: { x: 0, y: 0 },      config: { cronExpression: "0 9 1 12 *", timezone: "America/New_York" },                                           status: "ready", label: "December 1st" },
-    { id: "n-code1",  type: "code_block",        position: { x: 300, y: 0 },     config: { code: "const allDonors = await queryContacts({ organizationId: context.organizationId, filter: { 'customFields.donationCount': { $gte: 1 } } }); output.donors = allDonors.map(d => ({ ...d, yearTotal: calculateYearTotal(d), taxSummary: generateTaxSummary(d) }));" }, status: "ready", label: "Generate Giving Summaries" },
-    { id: "n-loop",   type: "loop_iterator",     position: { x: 600, y: 0 },     config: { arrayField: "donors", maxIterations: 10000 },                                                          status: "ready", label: "Each Donor" },
-    { id: "n-email1", type: "lc_email",          position: { x: 900, y: -50 },   config: { action: "send-confirmation-email", subject: "Your 2025 impact at Pawsitive Futures — and a special year-end appeal", templateId: "year_end_appeal", data: { donorName: "{{item.firstName}}", yearTotal: "{{item.yearTotalFormatted}}", taxSummary: "{{item.taxSummary}}", impactHighlights: "This year, Pawsitive Futures rescued 342 animals, achieved a 96% adoption rate, and opened our new medical wing.", appealMessage: "As we close out the year, we invite you to make one more gift. Every dollar raised before December 31 will be matched 1:1 by our Guardian Angel sponsors.", donationPageUrl: "https://pawsitivefutures.example.com/donate", organizationName: "Pawsitive Futures" } }, status: "ready", label: "Year-in-Review + Appeal" },
-    { id: "n-ac1",    type: "activecampaign",    position: { x: 1200, y: -50 },  config: { action: "add_tag", tag: "year_end_appeal_2025" },                                                       status: "ready", label: "Tag Year-End Appeal" }
-  ],
-  edges: [
-    { id: "e-1", source: "n-trig",   target: "n-code1",  sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-2", source: "n-code1",  target: "n-loop",   sourceHandle: "output",    targetHandle: "input" },
-    { id: "e-3", source: "n-loop",   target: "n-email1", sourceHandle: "each_item", targetHandle: "input" },
-    { id: "e-4", source: "n-email1", target: "n-ac1",    sourceHandle: "output",    targetHandle: "input" }
-  ],
-  triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 1 12 *", timezone: "America/New_York" } }]
+// Link Workflow 2 to lifecycle sequence
+objectLinks.create({
+  sourceObjectId: "wf_recurring_management_001",
+  targetObjectId: "<LIFECYCLE_SEQUENCE_ID>",
+  linkType: "workflow_sequence"
 })
 
-updateWorkflowStatus({ sessionId: "<session>", workflowId: "<wf6_id>", status: "active" })
+// Link each product to the donor form
+objectLinks.create({
+  sourceObjectId: "prod_friend_25",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+objectLinks.create({
+  sourceObjectId: "prod_champion_50",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+objectLinks.create({
+  sourceObjectId: "prod_hero_100",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+objectLinks.create({
+  sourceObjectId: "prod_guardian_250",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+objectLinks.create({
+  sourceObjectId: "prod_founder_500",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+objectLinks.create({
+  sourceObjectId: "prod_custom_amount",
+  targetObjectId: "form_shelter_donor_001",
+  linkType: "product_form"
+})
+
+// Link project to nonprofit stakeholder contact
+objectLinks.create({
+  sourceObjectId: "proj_shelter_fund_001",
+  targetObjectId: "<NONPROFIT_CONTACT_ID>",
+  linkType: "project_contact"
+})
 \`\`\`
 
-### Step 6: Create Sequences
+---
 
-**Donor Stewardship Sequence:**
-\`\`\`
-// type: "automation_sequence", subtype: "nachher"
-// name: "Pawsitive Futures — Donor Stewardship"
-// triggerEvent: "pipeline_stage_changed" (to "first_time_donor")
-steps: [
-  { channel: "email", timing: { offset: 0,  unit: "minutes", referencePoint: "trigger_event" }, content: { subject: "Thank you for your gift to Pawsitive Futures!", body: "Dear {{firstName}}, your generous donation of \${{donationAmount}} is already making a difference. Attached is your tax receipt for your records. Here's a preview of your impact: {{tierImpactStatement}}." } },
-  { channel: "email", timing: { offset: 7,  unit: "days",    referencePoint: "trigger_event" }, content: { subject: "Meet Luna — here's what your donation did", body: "Dear {{firstName}}, we wanted to share a story that your generosity made possible. Luna, a 3-year-old tabby cat, arrived at our shelter malnourished and frightened. Thanks to donors like you, Luna received the medical care she needed and was adopted last Tuesday by the Martinez family." } },
-  { channel: "email", timing: { offset: 30, unit: "days",    referencePoint: "trigger_event" }, content: { subject: "Progress update from Pawsitive Futures", body: "Dear {{firstName}}, this month at Pawsitive Futures: 28 animals rescued, 31 adopted into forever homes, and our new medical wing is 64% funded. Your contribution is part of this progress. Thank you for standing with us." } },
-  { channel: "email", timing: { offset: 90, unit: "days",    referencePoint: "trigger_event" }, content: { subject: "Your support matters — will you give again?", body: "Dear {{firstName}}, it's been 3 months since your donation, and the need continues. This quarter, we've launched our 'New Beginnings Wing' campaign to build a state-of-the-art facility for rescued animals. Would you consider another gift today? Or even better — become a monthly sustainer and make a lasting impact." } }
-]
-\`\`\`
-
-**Annual Appeal Sequence:**
-\`\`\`
-// type: "automation_sequence", subtype: "lifecycle"
-// name: "Pawsitive Futures — Annual Appeal"
-// triggerEvent: "contact_tagged" (tag: "year_end_appeal_2025")
-steps: [
-  { channel: "email", timing: { offset: 0,  unit: "minutes", referencePoint: "trigger_event" }, content: { subject: "Your 2025 year-in-review from Pawsitive Futures", body: "Dear {{firstName}}, in 2025 you gave \${{yearTotal}} to Pawsitive Futures. Here's what your generosity accomplished: 342 animals rescued, 96% adoption rate, and the opening of our new medical wing. Your annual tax summary is attached." } },
-  { channel: "email", timing: { offset: 5,  unit: "days",    referencePoint: "trigger_event" }, content: { subject: "A special message from our founder", body: "Dear {{firstName}}, I'm Dr. Sarah Chen, founder of Pawsitive Futures. This holiday season, I'm writing to share why your support means everything. [Personal story]. Every dollar donated before December 31 will be matched 1:1 by our Guardian Angel sponsors." } },
-  { channel: "email", timing: { offset: 12, unit: "days",    referencePoint: "trigger_event" }, content: { subject: "Last chance for a tax-deductible gift this year", body: "Dear {{firstName}}, the clock is ticking — December 31 is just days away. A gift today is tax-deductible for 2025 and will be doubled through our matching program. Even $25 feeds a rescued pet for a week." } },
-  { channel: "sms",   timing: { offset: 14, unit: "days",    referencePoint: "trigger_event" }, content: { body: "Final hours to make your year-end gift to Pawsitive Futures — and it'll be matched 1:1. Give now: https://pawsitivefutures.example.com/donate" } }
-]
-\`\`\`
-
-**Lapsed Donor Re-engagement Sequence:**
-\`\`\`
-// type: "automation_sequence", subtype: "custom"
-// name: "Pawsitive Futures — Lapsed Donor Re-engagement"
-// triggerEvent: "pipeline_stage_changed" (to "lapsed")
-steps: [
-  { channel: "email", timing: { offset: 0,  unit: "minutes", referencePoint: "trigger_event" }, content: { subject: "We miss your support, {{firstName}}", body: "Dear {{firstName}}, it's been a while since your last gift to Pawsitive Futures, and we wanted you to know — your past donations helped rescue and rehome dozens of animals. Here's what's new: we've launched the New Beginnings Wing campaign and expanded our medical services." } },
-  { channel: "email", timing: { offset: 7,  unit: "days",    referencePoint: "trigger_event" }, content: { subject: "See what's changed since your last gift to Pawsitive Futures", body: "Dear {{firstName}}, since you last donated, we've added a dedicated surgery suite, started a foster family program, and partnered with 12 local veterinary clinics. Your support made all of this groundwork possible." } },
-  { channel: "email", timing: { offset: 21, unit: "days",    referencePoint: "trigger_event" }, content: { subject: "A personal note from our founder about the animals who need you", body: "Dear {{firstName}}, I'm Dr. Sarah Chen. I wanted to reach out personally because donors like you are the reason Pawsitive Futures exists. Right now, we have 47 animals waiting for care. Even a $25 gift feeds a rescued pet for a full week." } },
-  { channel: "email", timing: { offset: 45, unit: "days",    referencePoint: "trigger_event" }, content: { subject: "One more chance to make a difference for rescued animals", body: "Dear {{firstName}}, this is our final outreach. We respect your inbox, and if you'd prefer not to hear from us, you can update your preferences below. But if you're still passionate about helping animals, today is a great day to give — every donation this quarter is being matched." } }
-]
-\`\`\`
-
-### Step 7: Link All Objects
+### Step 12: Populate the File System
 
 \`\`\`
-// Products -> Form
-{ sourceObjectId: "<don_25_id>",     targetObjectId: "<form_id>", linkType: "product_form" }
-{ sourceObjectId: "<don_50_id>",     targetObjectId: "<form_id>", linkType: "product_form" }
-{ sourceObjectId: "<don_100_id>",    targetObjectId: "<form_id>", linkType: "product_form" }
-{ sourceObjectId: "<don_250_id>",    targetObjectId: "<form_id>", linkType: "product_form" }
-{ sourceObjectId: "<don_custom_id>", targetObjectId: "<form_id>", linkType: "product_form" }
+createVirtualFile({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "campaign-brief",
+  parentPath: "/notes",
+  content: "# Second Chance Animal Rescue - Build the New Shelter Fund\\n\\n## Campaign Objective\\nRaise $150,000 to fund construction of a new shelter facility that will double the organization's capacity to rescue and house animals.\\n\\n## Organization\\n- Name: Second Chance Animal Rescue, Inc.\\n- Tax ID (EIN): 47-1234567\\n- Executive Director: Dr. Sarah Mitchell\\n- Location: Austin, TX\\n- Founded: 2015\\n- Website: https://secondchanceanimalrescue.org\\n\\n## Target Audience\\n- Animal lovers in the Austin metro area (30-mile radius)\\n- Previous donors and volunteers\\n- Social media followers and email subscribers\\n- Pet owners and pet industry professionals\\n- Local business owners interested in corporate sponsorship\\n\\n## Donation Tiers\\n1. Friend - $25 (one week of food)\\n2. Champion - $50 (one veterinary checkup)\\n3. Hero - $100 (one month of shelter care)\\n4. Guardian - $250 (one complete rescue operation)\\n5. Founder - $500+ (named kennel in new shelter)\\n\\n## Campaign Timeline\\n- Launch: February 2026\\n- Mid-campaign push: June 2026\\n- Year-end appeal: November-December 2026\\n- Goal deadline: December 31, 2026\\n\\n## KPIs\\n- Total raised vs. goal ($150,000)\\n- Number of unique donors\\n- Average donation amount\\n- Recurring donor conversion rate (target: 15%)\\n- Major donor count ($250+)\\n- Email open rate (target: 30%+)\\n- Donor retention rate year-over-year"
+})
 
-// Checkout -> Products
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_25_id>",     linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_50_id>",     linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_100_id>",    linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_250_id>",    linkType: "checkout_product" }
-{ sourceObjectId: "<checkout_id>", targetObjectId: "<don_custom_id>", linkType: "checkout_product" }
+createVirtualFile({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "donor-communication-copy",
+  parentPath: "/notes",
+  content: "# Donor Communication Copy - Build the New Shelter Fund\\n\\n## Thank You Email (Immediate)\\nSubject: Thank You for Your Generous Donation to Second Chance Animal Rescue\\n[See Stewardship Sequence Step 1 for full body]\\n\\n## Impact Story Email (+7 days)\\nSubject: See the Impact Your Gift is Making Right Now\\n[See Stewardship Sequence Step 2 for full body]\\n\\n## Progress Update Email (+30 days)\\nSubject: Your Impact Update: Build the New Shelter Fund Progress\\n[See Stewardship Sequence Step 3 for full body]\\n\\n## Re-engagement Email (+90 days)\\nSubject: We Miss You -- Here is What Has Happened Since Your Last Gift\\n[See Stewardship Sequence Step 4 for full body]\\n\\n## Year-End Appeal (November 1)\\nSubject: Your Year-End Gift Can Change Lives Before December 31\\n[See Workflow 4, email-1 for full body]\\n\\n## Year-End Reminder (November 11)\\nSubject: We Are 75% There -- Can You Help Us Reach Our Goal?\\n[See Workflow 4, email-2 for full body]\\n\\n## Year-End Last Chance (December 28)\\nSubject: Last Chance: Your Tax-Deductible Gift Must Be Made by December 31\\n[See Workflow 4, email-3 for full body]\\n\\n## Monthly Sustainer Thank You (Each Month)\\nSubject: Your Monthly Gift to Second Chance Animal Rescue Has Been Processed\\n[See Workflow 2, email-1 for full body]\\n\\n## Giving Anniversary (Annual)\\nSubject: Happy Giving Anniversary, {{contact.firstName}}!\\n[See Lifecycle Sequence Step 1 for full body]"
+})
 
-// Workflow 1 -> Form
-{ sourceObjectId: "<wf1_id>", targetObjectId: "<form_id>", linkType: "workflow_form" }
+createVirtualFile({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "impact-statements",
+  parentPath: "/notes",
+  content: "# Impact Statements by Donation Tier\\n\\n## Friend - $25\\nYour $25 gift provides one week of nutritious food for a rescue animal. Every bowl of food you provide helps a cat or dog in our care stay healthy and strong while they wait for their forever home.\\n\\n## Champion - $50\\nYour $50 gift covers one complete veterinary checkup for a rescue animal. This includes a full wellness exam, vaccinations, parasite treatment, and health screening -- everything needed to ensure the animal is healthy and ready for adoption.\\n\\n## Hero - $100\\nYour $100 gift sponsors one full month of shelter care for a rescue animal. This covers housing, daily meals, medical monitoring, socialization sessions, enrichment activities, and the loving attention of our staff and volunteers.\\n\\n## Guardian - $250\\nYour $250 gift funds one complete rescue operation. This covers the full cost of responding to a neglect or abuse report, safely transporting the animal, providing emergency veterinary care, completing intake processing, and placing the animal in our shelter.\\n\\n## Founder - $500+\\nYour $500+ gift earns you permanent recognition with a named kennel plaque in the new Second Chance Animal Rescue shelter facility. Your generosity will be seen by every visitor, volunteer, and adopter who walks through our doors for years to come. You will also receive a personalized impact report and an invitation to our Shelter Groundbreaking Ceremony.\\n\\n## Custom Amount\\nEvery dollar you give makes a difference. Your gift goes directly to providing food, shelter, medical care, and love to the animals in our care."
+})
 
-// Workflow 1 -> Stewardship Sequence
-{ sourceObjectId: "<wf1_id>", targetObjectId: "<stewardship_seq_id>", linkType: "workflow_sequence" }
+createFolder({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "campaign-materials",
+  parentPath: "/assets"
+})
 
-// Workflow 5 -> Lapsed Re-engagement Sequence
-{ sourceObjectId: "<wf5_id>", targetObjectId: "<lapsed_seq_id>", linkType: "workflow_sequence" }
+createFolder({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "impact-photos",
+  parentPath: "/assets/campaign-materials"
+})
 
-// Workflow 6 -> Annual Appeal Sequence
-{ sourceObjectId: "<wf6_id>", targetObjectId: "<annual_appeal_seq_id>", linkType: "workflow_sequence" }
+createFolder({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "donor-lists",
+  parentPath: "/assets"
+})
+
+createFolder({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "reports",
+  parentPath: "/assets"
+})
+
+createFolder({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_shelter_fund_001",
+  name: "receipts",
+  parentPath: "/assets"
+})
+
+captureBuilderApp({
+  projectId: "proj_shelter_fund_001",
+  builderAppId: "<DONATION_PAGE_APP_ID>"
+})
+
+captureBuilderApp({
+  projectId: "proj_shelter_fund_001",
+  builderAppId: "<THANK_YOU_PAGE_APP_ID>"
+})
+
+captureLayerWorkflow({
+  projectId: "proj_shelter_fund_001",
+  layerWorkflowId: "wf_donation_processing_001"
+})
+
+captureLayerWorkflow({
+  projectId: "proj_shelter_fund_001",
+  layerWorkflowId: "wf_recurring_management_001"
+})
+
+captureLayerWorkflow({
+  projectId: "proj_shelter_fund_001",
+  layerWorkflowId: "wf_major_donor_alert_001"
+})
+
+captureLayerWorkflow({
+  projectId: "proj_shelter_fund_001",
+  layerWorkflowId: "wf_year_end_appeal_001"
+})
 \`\`\`
 
-### Summary of Created Objects
+---
 
-| #  | Object                                              | type                | subtype      |
-|----|-----------------------------------------------------|---------------------|--------------|
-| 1  | Donation -- $25 Feed a Pet for a Week               | product             | digital      |
-| 2  | Donation -- $50 Medical Care Fund                   | product             | digital      |
-| 3  | Donation -- $100 Sponsor an Adoption                | product             | digital      |
-| 4  | Donation -- $250 Guardian Angel                     | product             | digital      |
-| 5  | Donation -- Custom Amount                           | product             | digital      |
-| 6  | Pawsitive Futures Donation Form                     | form                | registration |
-| 7  | Pawsitive Futures -- Donation Processing            | layer_workflow      | workflow     |
-| 8  | Pawsitive Futures -- Repeat Donor Detection         | layer_workflow      | workflow     |
-| 9  | Pawsitive Futures -- Monthly Impact Update          | layer_workflow      | workflow     |
-| 10 | Pawsitive Futures -- Payment Failed Recovery        | layer_workflow      | workflow     |
-| 11 | Pawsitive Futures -- Lapsed Donor Re-engagement     | layer_workflow      | workflow     |
-| 12 | Pawsitive Futures -- Year-End Appeal                | layer_workflow      | workflow     |
-| 13 | Pawsitive Futures -- Donor Stewardship              | automation_sequence | nachher      |
-| 14 | Pawsitive Futures -- Annual Appeal                  | automation_sequence | lifecycle    |
-| 15 | Pawsitive Futures -- Lapsed Donor Re-engagement     | automation_sequence | custom       |
+### Complete Object Inventory
 
-**Total objectLinks created:** 18 (5 product_form + 5 checkout_product + 1 workflow_form + 3 workflow_sequence + 4 implicit from mutations)
+| # | Object Type | Subtype | Name | Key Detail |
+|---|------------|---------|------|-----------|
+| 1 | \`project\` | \`campaign\` | "Second Chance Animal Rescue - Build the New Shelter Fund" | Container for all assets, $150K goal |
+| 2 | \`product\` | \`digital\` | "Friend Donation - $25" | 2500 cents, food for one week |
+| 3 | \`product\` | \`digital\` | "Champion Donation - $50" | 5000 cents, one vet checkup |
+| 4 | \`product\` | \`digital\` | "Hero Donation - $100" | 10000 cents, one month shelter care |
+| 5 | \`product\` | \`digital\` | "Guardian Donation - $250" | 25000 cents, one rescue operation |
+| 6 | \`product\` | \`digital\` | "Founder Donation - $500+" | 50000 cents, named kennel |
+| 7 | \`product\` | \`digital\` | "Custom Donation Amount" | 0 cents (custom amount at checkout) |
+| 8 | \`form\` | \`registration\` | "Second Chance Animal Rescue Donor Form" | 10 fields, published |
+| 9 | \`layer_workflow\` | \`workflow\` | "Donation Processing Workflow" | 10 nodes, 9 edges, active |
+| 10 | \`layer_workflow\` | \`workflow\` | "Recurring Donation Management Workflow" | 6 nodes, 5 edges, active |
+| 11 | \`layer_workflow\` | \`workflow\` | "Major Donor Alert Workflow" | 6 nodes, 5 edges, active |
+| 12 | \`layer_workflow\` | \`workflow\` | "Year-End Appeal Workflow" | 6 nodes, 5 edges, active |
+| 13 | \`automation_sequence\` | \`nachher\` | "Donor Stewardship Sequence" | 4 emails over 90 days |
+| 14 | \`automation_sequence\` | \`lifecycle\` | "Donor Lifecycle Sequence" | Annual giving anniversary |
+| 15 | \`builder_app\` | \`template_based\` | "Donation Landing Page" | Cause story + tiers + form + social proof |
+| 16 | \`builder_app\` | \`template_based\` | "Donation Thank You Page" | Confirmation + receipt info + share |
+| 17 | \`builder_app\` | \`template_based\` | "Campaign Progress Page" | Thermometer + recent donors (optional) |
 
-**Total workflow nodes:** 48 (13 in Workflow 1 + 8 in Workflow 2 + 4 in Workflow 3 + 7 in Workflow 4 + 6 in Workflow 5 + 5 in Workflow 6 + 5 in Workflow 6)
-**Total workflow edges:** 38 (13 in Workflow 1 + 7 in Workflow 2 + 3 in Workflow 3 + 7 in Workflow 4 + 5 in Workflow 5 + 4 in Workflow 6)
-**Total sequence steps:** 12 (4 stewardship + 4 annual appeal + 4 lapsed re-engagement)
-**Credit cost estimate:** ~13 behavior executions per donation (Workflow 1 nodes) + ~8 per repeat detection (Workflow 2) + sequence steps per contact over time`;
+| # | Link Type | Source | Target |
+|---|----------|--------|--------|
+| 1 | \`workflow_form\` | Workflow: Donation Processing (9) | Form (8) |
+| 2 | \`workflow_sequence\` | Workflow: Donation Processing (9) | Sequence: Stewardship (13) |
+| 3 | \`workflow_sequence\` | Workflow: Recurring Management (10) | Sequence: Lifecycle (14) |
+| 4 | \`product_form\` | Product: Friend $25 (2) | Form (8) |
+| 5 | \`product_form\` | Product: Champion $50 (3) | Form (8) |
+| 6 | \`product_form\` | Product: Hero $100 (4) | Form (8) |
+| 7 | \`product_form\` | Product: Guardian $250 (5) | Form (8) |
+| 8 | \`product_form\` | Product: Founder $500+ (6) | Form (8) |
+| 9 | \`product_form\` | Product: Custom Amount (7) | Form (8) |
+| 10 | \`project_contact\` | Project (1) | Nonprofit stakeholder contact |
+
+### Credit Cost Estimate
+
+| Action | Count | Credits Each | Total |
+|--------|-------|-------------|-------|
+| Behavior: create-transaction | 1 per donation | 1 | 1 |
+| Behavior: create-contact | 1 per new donor | 1 | 1 |
+| Behavior: generate-invoice (tax receipt) | 1 per donation | 1 | 1 |
+| Behavior: send-confirmation-email (thank you) | 1 per donation | 1 | 1 |
+| Behavior: activecampaign-sync (add_contact) | 1 per new donor | 1 | 1 |
+| Behavior: activecampaign-sync (add_tag) | 1 per donation | 1 | 1 |
+| Behavior: move-pipeline-stage | 1 per donation | 1 | 1 |
+| Stewardship Sequence: 4 emails | 4 per donor | 1 | 4 |
+| **Subtotal per one-time donor** | | | **11 credits** |
+| Behavior: recurring check (Workflow 2) | 1 per recurring payment | 1 | 1 |
+| Behavior: update-contact (sustainer tag) | 1 per recurring payment | 1 | 1 |
+| Behavior: move-pipeline-stage (sustainer) | 1 per first recurring | 1 | 1 |
+| Behavior: send-confirmation-email (monthly) | 1 per recurring payment | 1 | 1 |
+| Behavior: activecampaign-sync (sustainer tag) | 1 per first recurring | 1 | 1 |
+| **Subtotal per recurring payment** | | | **+5 credits** |
+| Behavior: major donor check (Workflow 3) | 1 per donation >= $250 | 1 | 1 |
+| Behavior: send-admin-notification | 1 per major donation | 1 | 1 |
+| Behavior: move-pipeline-stage (major) | 1 per major donation | 1 | 1 |
+| Behavior: activecampaign-sync (major tag) | 1 per major donation | 1 | 1 |
+| Behavior: activecampaign-sync (major list) | 1 per major donation | 1 | 1 |
+| **Subtotal per major donor** | | | **+5 credits** |
+| Year-End Appeal: 3 emails | 3 per donor on list | 1 | 3 |
+| Lifecycle: 1 anniversary email | 1 per donor per year | 1 | 1 |
+| **Subtotal per donor per year (appeal + anniversary)** | | | **+4 credits** |
+
+**Example scenario: 500 donors/year, 15% recurring (75 sustainers), 10% major donors (50):**
+
+| Segment | Donors | Credits/Donor | Annual Credits |
+|---------|--------|--------------|---------------|
+| One-time donors | 375 | 11 | 4,125 |
+| Recurring donors (first payment) | 75 | 16 (11 + 5) | 1,200 |
+| Recurring donors (subsequent 11 months) | 75 x 11 = 825 payments | 5 | 4,125 |
+| Major donor surcharge | 50 | 5 | 250 |
+| Year-end appeal (all donors) | 500 | 3 | 1,500 |
+| Anniversary email (all donors) | 500 | 1 | 500 |
+| **Total estimated annual credits** | | | **11,700 credits** |`;
 
 export const SKILLS_LEAD_GENERATION_SKILL = `# Skill: Lead Generation Funnel
 
@@ -10775,7 +11002,7 @@ export const SKILLS_LEAD_GENERATION_SKILL = `# Skill: Lead Generation Funnel
 
 ## 1. Purpose
 
-This skill builds a complete lead generation funnel deployment for an agency's client. The deployment captures leads through a landing page with an embedded registration form, creates CRM contacts with pipeline tracking, sends confirmation emails, syncs contacts to ActiveCampaign for ongoing marketing, and enrolls each new lead into a Soap Opera email sequence that nurtures them over seven days. The outcome is a fully automated system where qualified leads flow into the CRM with pipeline stage progression, while unqualified leads receive nurture content until they are ready to engage. The three-layer relationship applies: the L4YERCAK3 platform provides the infrastructure, the agency configures and deploys the funnel for their client, and the client's end customers are the leads entering the funnel.
+This skill builds a complete lead generation funnel deployment for an agency's client. The deployment captures leads through a landing page with an embedded registration form, creates CRM contacts with pipeline tracking, sends confirmation emails, syncs contacts to ActiveCampaign for ongoing marketing, and enrolls each new lead into a Soap Opera email sequence that nurtures them over seven days. The outcome is a fully automated system where qualified leads flow into the CRM with pipeline stage progression, while unqualified leads receive nurture content until they are ready to engage. The canonical four-layer \`BusinessLayer\` model applies: \`Business L1\` (platform) provides infrastructure, \`Business L2\` (agency) configures and deploys for the client business at \`Business L3\`, and leads entering the funnel are \`Business L4\` end-customers.
 
 ---
 
@@ -13782,7 +14009,7 @@ objectLinks.create({
 - [x] Project file system scaffold initialized with \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\`
 - [x] Copy generated: StoryBrand one-liner, headlines, email subjects`;
 
-export const SKILLS_WEBINAR_VIRTUAL_EVENT_SKILL = `# Skill: Webinar / Virtual Event Funnel
+export const SKILLS_WEBINAR_VIRTUAL_EVENT_SKILL = `# Skill: Webinar / Virtual Event
 
 > References: \`_SHARED.md\` for all ontology definitions, mutation signatures, node types, and link types.
 
@@ -13790,7 +14017,7 @@ export const SKILLS_WEBINAR_VIRTUAL_EVENT_SKILL = `# Skill: Webinar / Virtual Ev
 
 ## 1. Purpose
 
-This skill builds a complete webinar or virtual event funnel for an agency's client. The deployment handles registration capture, pre-webinar reminder automation, attendance tracking via webhook, replay delivery, and structured post-webinar sales sequences that differ based on whether the registrant attended or not. The agency deploys this for a client running masterclasses, live trainings, product demos, or sales presentations. The three-layer relationship applies: the L4YERCAK3 platform provides the infrastructure, the agency configures and deploys the funnel for their client, and the client's end customers are the registrants entering the funnel. Outcome: registrants are converted to attendees through a multi-touch reminder sequence, attendees are converted to buyers through a structured post-webinar offer sequence using the Perfect Webinar framework (origin story, 3 secrets, the stack, the close), and no-shows are recovered through replay delivery with urgency-driven follow-up.
+This skill builds a complete webinar and virtual event deployment for an agency's client. The deployment captures registrations through a landing page with an embedded form, creates CRM contacts with pipeline tracking, sends confirmation emails with calendar invite links, syncs registrants to ActiveCampaign, runs a multi-touch pre-webinar reminder sequence (email and SMS), tracks attendance via webhook, branches post-webinar follow-up into attended and no-show paths with tailored replay and offer emails, and moves contacts through a conversion pipeline that ends in a purchase or consultation booking. The canonical four-layer \`BusinessLayer\` model applies: \`Business L1\` (platform) provides infrastructure, \`Business L2\` (agency) configures and deploys for the client presenter/host at \`Business L3\`, and registrants who attend or watch the replay are \`Business L4\` end-customers.
 
 ---
 
@@ -13800,92 +14027,56 @@ This skill builds a complete webinar or virtual event funnel for an agency's cli
 
 | type | subtype | customProperties used |
 |------|---------|----------------------|
-| \`form\` | \`registration\` | \`fields\` (email, firstName, lastName, phone), \`formSettings\` (redirectUrl to thank-you page, notifications, submissionBehavior), \`submissionWorkflow\` |
-| \`crm_contact\` | \`lead\` -> \`customer\` | \`firstName\`, \`lastName\`, \`email\`, \`phone\`, \`contactType\`, \`tags\` (["webinar_name","registrant"] -> ["attended"] or ["no_show"] -> ["customer","product_name"]), \`pipelineStageId\`, \`pipelineDealValue\`, \`customFields\` |
-| \`product\` | \`digital\` | \`productCode\`, \`description\`, \`price\` (cents), \`currency\`, \`saleStartDate\` (webinar date), \`saleEndDate\` (offer deadline), \`maxQuantity\` |
-| \`project\` | \`campaign\` | \`projectCode\`, \`description\`, \`status\`, \`startDate\`, \`endDate\` |
-| \`layer_workflow\` | \`workflow\` | Full \`LayerWorkflowData\`: \`nodes\`, \`edges\`, \`metadata\`, \`triggers\` -- six workflows total |
-| \`automation_sequence\` | \`vorher\` | Pre-webinar reminder steps: confirmation, 7d anticipation, 1d reminder, 1h SMS, live notification |
-| \`automation_sequence\` | \`nachher\` | Post-webinar attended: replay, takeaways+offer, offer+FAQ, deadline, last chance |
-| \`automation_sequence\` | \`nachher\` | Post-webinar no-show: missed it+replay, highlights+offer, social proof+offer, final replay deadline |
-| \`automation_sequence\` | \`custom\` | Belief-breaking pre-sell: vehicle, internal, external, the stack, the close |
-| \`builder_app\` | \`template_based\` | Registration page, thank-you page, webinar room page, replay page, offer/sales page |
+| \`crm_contact\` | \`lead\` | \`firstName\`, \`lastName\`, \`email\`, \`phone\`, \`companyName\`, \`contactType\`, \`tags\`, \`pipelineStageId\`, \`pipelineDealValue\`, \`customFields\` (includes \`webinarAttended: boolean\`, \`registrationSource: string\`, \`offerClicked: boolean\`) |
+| \`form\` | \`registration\` | \`fields\` (array of field objects), \`formSettings\` (redirect URL, notifications, submissionBehavior), \`displayMode\`, \`submissionWorkflow\` |
+| \`layer_workflow\` | \`workflow\` | Full \`LayerWorkflowData\`: \`nodes\`, \`edges\`, \`metadata\`, \`triggers\` |
+| \`automation_sequence\` | \`vorher\` | Steps array with \`channel\`, \`timing\`, \`content\` -- pre-webinar reminders |
+| \`automation_sequence\` | \`nachher\` | Steps array with \`channel\`, \`timing\`, \`content\` -- post-webinar attended follow-up |
+| \`automation_sequence\` | \`nachher\` | Steps array with \`channel\`, \`timing\`, \`content\` -- post-webinar no-show follow-up |
+| \`builder_app\` | \`template_based\` | Webinar registration page and thank-you/confirmation page files |
+| \`project\` | \`campaign\` | \`projectCode\`, \`description\`, \`status\`, \`startDate\`, \`endDate\`, \`budget\` |
 
 ### Object Links (\`objectLinks\` table)
 
 | linkType | sourceObjectId | targetObjectId |
 |----------|---------------|----------------|
-| \`workflow_form\` | workflow (registration) | form (registration) |
-| \`workflow_sequence\` | workflow (registration) | sequence (pre-webinar vorher) |
-| \`workflow_sequence\` | workflow (post-attended) | sequence (post-attended nachher) |
-| \`workflow_sequence\` | workflow (post-no-show) | sequence (post-no-show nachher) |
-| \`checkout_product\` | checkout transaction | product (post-webinar offer) |
-| \`product_form\` | product (post-webinar offer) | form (registration) -- optional, if offer requires registration data |
-| \`project_contact\` | project | CRM contact (client stakeholder) |
+| \`workflow_form\` | workflow (webinar registration) | form (registration) |
+| \`workflow_sequence\` | workflow (webinar registration) | sequence (pre-webinar vorher) |
+| \`workflow_sequence\` | workflow (post-webinar attended) | sequence (post-attended nachher) |
+| \`workflow_sequence\` | workflow (post-webinar no-show) | sequence (post-noshow nachher) |
+| \`project_contact\` | project | CRM contact (client stakeholder / webinar host) |
 
 ---
 
 ## 3. Builder Components
 
-### Registration Page
+### 3.1 Webinar Registration Page (\`/builder/webinar-registration-page\`)
 
-The Builder generates a landing page (\`builder_app\`, subtype: \`template_based\`) with these sections:
+The Builder generates a single-page registration page (\`builder_app\`, subtype: \`template_based\`) with these sections:
 
-1. **Hero Section** -- Headline with promise (StoryBrand: external problem statement), subheadline (the transformation promise, e.g., "Join [Speaker] for a free masterclass on [Topic] and discover the 3 secrets to [Desired Outcome]"), primary CTA button ("Reserve My Seat").
-2. **Speaker Section** -- Speaker photo, name, title, and 2-3 sentence bio establishing authority.
-3. **What You Will Learn Section** -- 3 bullet points describing the key takeaways. Each bullet maps to one of the Perfect Webinar "3 Secrets."
-4. **Countdown Timer** -- Live countdown to webinar date/time. Shows date, time, and timezone.
-5. **Registration Form Embed** -- Embedded registration form (see Form below). Renders inline on the page.
-6. **Social Proof Section** -- Testimonial cards (2-3 quotes from past attendees or clients), trust badges, attendance statistics ("5,000+ have attended our masterclasses").
-7. **Footer** -- Privacy policy link, agency branding.
+1. **Hero Section** -- Webinar title as H1, subtitle with the transformation promise ("Learn how to [desired outcome] in [timeframe]"), date and time with timezone, speaker headshot and name, primary CTA button ("Reserve Your Seat").
+2. **What You Will Learn Section** -- 3-5 bullet points describing key takeaways from the webinar. Each bullet is a benefit statement, not a feature.
+3. **Speaker Bio Section** -- Speaker photo (larger), name, title, company, 2-3 sentence bio establishing credibility, optional social links.
+4. **Form Embed Section** -- Embedded registration form (see Form below). The form renders inline on the page below the speaker section.
+5. **Social Proof Section** -- Testimonial quotes from past webinar attendees or coaching clients (2-3 quotes), attendee count ("500+ business owners have attended"), trust badges or media logos.
+6. **FAQ Section** -- Accordion with 4-5 common questions: "Is this live?", "Will there be a replay?", "How long is the webinar?", "Is there a cost?", "What if I can't make it live?"
+7. **Footer** -- Privacy policy link, agency/host branding, support email.
 
-**File:** \`/builder/registration-page/index.html\`
+**File:** \`/builder/webinar-registration-page/index.html\`
 
-### Thank-You Page
+### 3.2 Thank-You / Confirmation Page (\`/builder/confirmation-page\`)
 
 Displayed after form submission (configured via \`formSettings.redirectUrl\`):
 
-1. **Confirmation Message** -- "You're registered! [Webinar Name] is on [Date] at [Time] [Timezone]."
-2. **Add-to-Calendar Link** -- Google Calendar / iCal / Outlook links with pre-filled event details (title, date, time, join link).
-3. **What to Expect Section** -- "Here's what happens next: 1) Check your inbox for a confirmation email with the join link. 2) You'll get reminders before the event. 3) Show up live for exclusive bonuses."
-4. **Share Section** -- Optional share buttons to invite colleagues/friends.
+1. **Confirmation Message** -- "You're Registered! Check your inbox for the details."
+2. **Webinar Details Card** -- Title, date, time, timezone, join link placeholder ("Link will be emailed to you 1 hour before the webinar").
+3. **Add to Calendar Buttons** -- Google Calendar, Apple Calendar (.ics download), Outlook links with event title, date, time, and join URL pre-filled.
+4. **Share Section** -- "Know someone who would benefit? Share this webinar:" with social sharing buttons (Twitter, LinkedIn, Facebook, email).
+5. **Next Step CTA** -- Optional secondary offer: "While you wait, check out [free resource / blog post / community link]."
 
-**File:** \`/builder/thank-you-page/index.html\`
+**File:** \`/builder/confirmation-page/index.html\`
 
-### Webinar Room Page
-
-The live event page (used if self-hosting, otherwise join link points to external platform):
-
-1. **Live Stream Embed** -- Video player embed (Mux, YouTube Live, Zoom embed, or external platform link).
-2. **Chat Section** -- Live chat or Q&A widget.
-3. **Offer CTA** -- Sticky banner or sidebar with the post-webinar offer, price, and "Buy Now" button. Appears at the appropriate moment during the presentation (after "the stack").
-
-**File:** \`/builder/webinar-room-page/index.html\`
-
-### Replay Page
-
-Available after the live event for attendees and no-shows:
-
-1. **Recording Embed** -- Video player with the webinar recording.
-2. **Offer Section Below Video** -- Full offer details, price, testimonials, and checkout CTA.
-3. **Countdown Timer** -- Replay availability deadline (e.g., "Replay available for 5 more days").
-
-**File:** \`/builder/replay-page/index.html\`
-
-### Offer / Sales Page
-
-Standalone page for the post-webinar product offer:
-
-1. **Headline** -- Offer name and value proposition.
-2. **The Stack** -- Complete list of everything included with individual values.
-3. **Price and CTA** -- Webinar-only price vs. regular price, checkout button.
-4. **Testimonials** -- Customer success stories.
-5. **FAQ Section** -- Top 5-7 objection-handling questions.
-6. **Guarantee** -- Money-back guarantee details.
-
-**File:** \`/builder/offer-page/index.html\`
-
-### Registration Form
+### 3.3 Registration Form
 
 **Object:** \`type: "form"\`, \`subtype: "registration"\`
 
@@ -13893,29 +14084,33 @@ Standalone page for the post-webinar product offer:
 
 \`\`\`json
 [
-  { "type": "email",  "label": "Email Address",  "required": true,  "placeholder": "you@email.com" },
-  { "type": "text",   "label": "First Name",     "required": true,  "placeholder": "Jane" },
-  { "type": "text",   "label": "Last Name",      "required": true,  "placeholder": "Smith" },
-  { "type": "phone",  "label": "Phone Number",   "required": true,  "placeholder": "+1 (555) 000-0000" }
+  { "type": "text",     "label": "First Name",    "required": true,  "placeholder": "Jane" },
+  { "type": "text",     "label": "Last Name",     "required": true,  "placeholder": "Smith" },
+  { "type": "email",    "label": "Email Address",  "required": true,  "placeholder": "you@company.com" },
+  { "type": "phone",    "label": "Phone Number",   "required": false, "placeholder": "+1 (555) 000-0000" },
+  { "type": "text",     "label": "Company Name",   "required": false, "placeholder": "Acme Corp" },
+  { "type": "select",   "label": "Biggest Challenge", "required": true,
+    "options": ["Getting more clients", "Raising my prices", "Time management", "Scaling my team", "Other"] }
 ]
 \`\`\`
 
 **formSettings:**
+
 \`\`\`json
 {
-  "redirectUrl": "/thank-you",
+  "redirectUrl": "/confirmation",
   "notifications": { "adminEmail": true, "respondentEmail": true },
   "submissionBehavior": "redirect"
 }
 \`\`\`
 
-> **Note:** Phone is required because SMS reminders are a critical part of the pre-webinar sequence. Without phone, the 1-hour and "starting now" SMS reminders cannot be sent.
+> **Customization note:** The "Biggest Challenge" select field is the qualifying question. Its label and options MUST be adapted to the webinar topic and the host's target audience. See Section 8.
 
 ---
 
 ## 4. Layers Automations
 
-### Workflow 1: Registration (Required)
+### 4.1 Workflow 1 -- Webinar Registration (Required)
 
 **Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Webinar Registration Workflow"\`
 
@@ -13923,20 +14118,20 @@ Standalone page for the post-webinar product offer:
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_form_submitted\` | "Registration Form Submitted" | \`{ "formId": "<FORM_ID>" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Create Registrant Contact" | \`{ "action": "create-contact", "contactType": "lead", "tags": ["<WEBINAR_NAME>", "registrant"], "mapFields": { "email": "{{trigger.email}}", "firstName": "{{trigger.firstName}}", "lastName": "{{trigger.lastName}}", "phone": "{{trigger.phone}}" } }\` | \`ready\` |
-| \`crm-2\` | \`lc_crm\` | "Set Pipeline: Registered" | \`{ "action": "move-pipeline-stage", "contactId": "{{crm-1.output.contactId}}", "pipelineStageId": "registered" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Send Confirmation Email" | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "You're registered for [Webinar Name]!", "body": "Hi {{crm-1.output.firstName}},\\n\\nYou're confirmed for [Webinar Name]!\\n\\nDate: [Date]\\nTime: [Time] [Timezone]\\nJoin Link: [JOIN_LINK]\\n\\nAdd to your calendar: [CALENDAR_LINK]\\n\\nWhat you'll discover:\\n1. [Secret 1 teaser]\\n2. [Secret 2 teaser]\\n3. [Secret 3 teaser]\\n\\nWe'll send you reminders before the event so you don't miss it.\\n\\nSee you there,\\n[Speaker Name]" }\` | \`ready\` |
-| \`ac-1\` | \`activecampaign\` | "Sync to ActiveCampaign" | \`{ "action": "add_contact", "email": "{{crm-1.output.email}}", "firstName": "{{crm-1.output.firstName}}", "lastName": "{{crm-1.output.lastName}}" }\` | \`ready\` |
-| \`ac-2\` | \`activecampaign\` | "Tag: Webinar Registered" | \`{ "action": "add_tag", "contactEmail": "{{crm-1.output.email}}", "tag": "<WEBINAR_NAME>_registered" }\` | \`ready\` |
-| \`ac-3\` | \`activecampaign\` | "Add to Registrants List" | \`{ "action": "add_to_list", "contactEmail": "{{crm-1.output.email}}", "listId": "<AC_LIST_ID>" }\` | \`ready\` |
+| id | type | label | position | config | status |
+|----|------|-------|----------|--------|--------|
+| \`trigger-1\` | \`trigger_form_submitted\` | "Registration Form Submitted" | { x: 100, y: 250 } | \`{ "formId": "<FORM_ID>" }\` | \`ready\` |
+| \`crm-1\` | \`lc_crm\` | "Create Registrant Contact" | { x: 350, y: 250 } | \`{ "action": "create-contact", "contactType": "lead", "tags": ["webinar-registrant", "<WEBINAR_TAG>"], "mapFields": { "email": "{{trigger.email}}", "firstName": "{{trigger.firstName}}", "lastName": "{{trigger.lastName}}", "phone": "{{trigger.phone}}", "companyName": "{{trigger.companyName}}", "customFields": { "biggestChallenge": "{{trigger.biggestChallenge}}", "webinarAttended": false, "registrationSource": "webinar-landing-page" } } }\` | \`ready\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Registered" | { x: 600, y: 100 } | \`{ "action": "move-pipeline-stage", "contactId": "{{crm-1.output.contactId}}", "pipelineStageId": "registered" }\` | \`ready\` |
+| \`email-1\` | \`lc_email\` | "Send Confirmation Email" | { x: 600, y: 250 } | \`{ "action": "send-confirmation-email", "to": "{{crm-1.output.email}}", "subject": "You're registered for {{webinarTitle}}!", "body": "Hi {{crm-1.output.firstName}},\\n\\nYou're confirmed for:\\n\\n{{webinarTitle}}\\nDate: {{webinarDate}}\\nTime: {{webinarTime}} {{webinarTimezone}}\\n\\nAdd to your calendar: {{calendarLink}}\\n\\nYour join link will arrive 1 hour before we go live.\\n\\nSee you there,\\n{{speakerName}}" }\` | \`ready\` |
+| \`ac-1\` | \`activecampaign\` | "Sync to ActiveCampaign" | { x: 600, y: 400 } | \`{ "action": "add_contact", "email": "{{crm-1.output.email}}", "firstName": "{{crm-1.output.firstName}}", "lastName": "{{crm-1.output.lastName}}" }\` | \`ready\` |
+| \`ac-2\` | \`activecampaign\` | "Tag Registrant" | { x: 850, y: 400 } | \`{ "action": "add_tag", "contactEmail": "{{crm-1.output.email}}", "tag": "webinar-registered-<WEBINAR_TAG>" }\` | \`ready\` |
+| \`ac-3\` | \`activecampaign\` | "Add to Webinar List" | { x: 1100, y: 400 } | \`{ "action": "add_to_list", "contactEmail": "{{crm-1.output.email}}", "listId": "<AC_WEBINAR_LIST_ID>" }\` | \`ready\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
+|----|--------|--------|-------------|-------------|
 | \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
 | \`e-2\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
 | \`e-3\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
@@ -13944,322 +14139,211 @@ Standalone page for the post-webinar product offer:
 | \`e-5\` | \`ac-1\` | \`ac-2\` | \`output\` | \`input\` |
 | \`e-6\` | \`ac-2\` | \`ac-3\` | \`output\` | \`input\` |
 
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`crm-1\` | 350 | 300 |
-| \`crm-2\` | 600 | 150 |
-| \`email-1\` | 600 | 300 |
-| \`ac-1\` | 600 | 500 |
-| \`ac-2\` | 850 | 500 |
-| \`ac-3\` | 1100 | 500 |
-
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Webinar Registration Workflow", description: "Captures registrations, creates CRM leads, sends confirmation with join link, syncs to ActiveCampaign" })\`
+1. \`createWorkflow({ sessionId, name: "Webinar Registration Workflow", description: "Captures webinar registrations, creates CRM contacts, sends confirmation with calendar link, syncs to ActiveCampaign" })\`
 2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Webinar Registration Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_form_submitted", config: { formId: "<FORM_ID>" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 2: Pre-Webinar Reminders (Required)
+### 4.2 Workflow 2 -- Webinar Reminder (Required)
 
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Pre-Webinar Reminder Workflow"\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Webinar Reminder Workflow"\`
 
-**Trigger:** \`trigger_schedule\` -- fires 7 days before webinar date
+**Trigger:** \`trigger_schedule\` (cron-based, fires at specific times before the webinar)
+
+This workflow uses \`wait_delay\` nodes to space out reminders relative to a scheduled trigger that fires 7 days before the webinar. An alternative approach is to use a \`vorher\` sequence (see Section 4.5) with \`referencePoint: "booking_start"\`. Both patterns are valid; this workflow version gives finer control over branching logic.
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_schedule\` | "7 Days Before Webinar" | \`{ "cronExpression": "<CRON_7D_BEFORE>", "timezone": "<TIMEZONE>" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Anticipation Email" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "[Webinar Name] is in 7 days -- here's what to expect", "body": "Hi {{trigger.contact.firstName}},\\n\\n[Webinar Name] is just one week away!\\n\\nHere's what you'll learn:\\n- [Secret 1: detailed teaser]\\n- [Secret 2: detailed teaser]\\n- [Secret 3: detailed teaser]\\n\\nAbout your host:\\n[Speaker Name] is [Speaker Bio -- 2-3 sentences establishing authority].\\n\\nTo prepare:\\n- Block off [Time] [Timezone] on [Date]\\n- Find a quiet space where you can focus\\n- Bring a notepad -- you'll want to take notes\\n\\nSee you next [Day]!\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-1\` | \`wait_delay\` | "Wait 6 Days" | \`{ "duration": 6, "unit": "days" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Tomorrow Reminder Email" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "[Webinar Name] is TOMORROW", "body": "Hi {{trigger.contact.firstName}},\\n\\n[Webinar Name] is tomorrow at [Time] [Timezone].\\n\\nJoin Link: [JOIN_LINK]\\n\\nHere's a quick reminder of what we'll cover:\\n1. [Secret 1]\\n2. [Secret 2]\\n3. [Secret 3]\\n\\nPlus, everyone who attends live will get [live-attendance bonus].\\n\\nSee you tomorrow!\\n[Speaker Name]" }\` | \`ready\` |
-| \`sms-1\` | \`lc_sms\` | "Tomorrow SMS Reminder" | \`{ "to": "{{trigger.contact.phone}}", "body": "[Webinar Name] is tomorrow at [Time] [Timezone]! Save your spot: [JOIN_LINK]" }\` | \`ready\` |
-| \`wait-2\` | \`wait_delay\` | "Wait 23 Hours" | \`{ "duration": 23, "unit": "hours" }\` | \`ready\` |
-| \`sms-2\` | \`lc_sms\` | "1 Hour SMS Reminder" | \`{ "to": "{{trigger.contact.phone}}", "body": "[Webinar Name] starts in 1 HOUR! Join here: [JOIN_LINK]" }\` | \`ready\` |
-| \`wait-3\` | \`wait_delay\` | "Wait 1 Hour" | \`{ "duration": 1, "unit": "hours" }\` | \`ready\` |
-| \`email-3\` | \`lc_email\` | "We're Live Email" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "We're LIVE! Join [Webinar Name] now", "body": "Hi {{trigger.contact.firstName}},\\n\\n[Webinar Name] is happening RIGHT NOW!\\n\\nJoin here: [JOIN_LINK]\\n\\nDon't miss it -- we're starting with [opening hook].\\n\\n[Speaker Name]" }\` | \`ready\` |
+| id | type | label | position | config | status |
+|----|------|-------|----------|--------|--------|
+| \`trigger-1\` | \`trigger_schedule\` | "7 Days Before Webinar" | { x: 100, y: 250 } | \`{ "cronExpression": "0 9 <7_DAYS_BEFORE_DAY> <MONTH> *", "timezone": "{{webinarTimezone}}" }\` | \`ready\` |
+| \`email-1\` | \`lc_email\` | "7-Day Reminder Email" | { x: 350, y: 250 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "{{webinarTitle}} is in 7 days!", "body": "Hi {{contact.firstName}},\\n\\nJust a quick reminder -- {{webinarTitle}} is happening in one week!\\n\\nDate: {{webinarDate}}\\nTime: {{webinarTime}} {{webinarTimezone}}\\n\\nHere's what we'll cover:\\n- {{takeaway1}}\\n- {{takeaway2}}\\n- {{takeaway3}}\\n\\nMake sure it's on your calendar: {{calendarLink}}\\n\\nSee you there,\\n{{speakerName}}" }\` | \`ready\` |
+| \`wait-1\` | \`wait_delay\` | "Wait 5 Days" | { x: 600, y: 250 } | \`{ "duration": 5, "unit": "days" }\` | \`ready\` |
+| \`email-2\` | \`lc_email\` | "1-Day Reminder Email" | { x: 850, y: 250 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "Tomorrow: {{webinarTitle}} -- don't miss it", "body": "Hi {{contact.firstName}},\\n\\n{{webinarTitle}} is TOMORROW.\\n\\nDate: {{webinarDate}}\\nTime: {{webinarTime}} {{webinarTimezone}}\\n\\nI'll be sharing the exact strategies I used to {{keyResult}}. This is going to be a packed session.\\n\\nYour join link will arrive 1 hour before we go live.\\n\\nSee you tomorrow,\\n{{speakerName}}" }\` | \`ready\` |
+| \`wait-2\` | \`wait_delay\` | "Wait 23 Hours" | { x: 1100, y: 250 } | \`{ "duration": 23, "unit": "hours" }\` | \`ready\` |
+| \`email-3\` | \`lc_email\` | "1-Hour Reminder Email" | { x: 1350, y: 150 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "We're live in 60 minutes -- here's your link", "body": "Hi {{contact.firstName}},\\n\\n{{webinarTitle}} starts in 1 hour.\\n\\nJoin here: {{joinLink}}\\n\\nGrab a notebook and a coffee -- this is going to be good.\\n\\nSee you inside,\\n{{speakerName}}" }\` | \`ready\` |
+| \`sms-1\` | \`lc_sms\` | "1-Hour SMS Reminder" | { x: 1350, y: 350 } | \`{ "to": "{{contact.phone}}", "body": "{{speakerName}} here. {{webinarTitle}} starts in 1 hour. Join: {{joinLink}}" }\` | \`ready\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
+|----|--------|--------|-------------|-------------|
 | \`e-1\` | \`trigger-1\` | \`email-1\` | \`output\` | \`input\` |
 | \`e-2\` | \`email-1\` | \`wait-1\` | \`output\` | \`input\` |
 | \`e-3\` | \`wait-1\` | \`email-2\` | \`output\` | \`input\` |
-| \`e-4\` | \`email-2\` | \`sms-1\` | \`output\` | \`input\` |
-| \`e-5\` | \`sms-1\` | \`wait-2\` | \`output\` | \`input\` |
-| \`e-6\` | \`wait-2\` | \`sms-2\` | \`output\` | \`input\` |
-| \`e-7\` | \`sms-2\` | \`wait-3\` | \`output\` | \`input\` |
-| \`e-8\` | \`wait-3\` | \`email-3\` | \`output\` | \`input\` |
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`email-1\` | 350 | 300 |
-| \`wait-1\` | 600 | 300 |
-| \`email-2\` | 850 | 300 |
-| \`sms-1\` | 1100 | 300 |
-| \`wait-2\` | 1350 | 300 |
-| \`sms-2\` | 1600 | 300 |
-| \`wait-3\` | 1850 | 300 |
-| \`email-3\` | 2100 | 300 |
+| \`e-4\` | \`email-2\` | \`wait-2\` | \`output\` | \`input\` |
+| \`e-5\` | \`wait-2\` | \`email-3\` | \`output\` | \`input\` |
+| \`e-6\` | \`wait-2\` | \`sms-1\` | \`output\` | \`input\` |
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Pre-Webinar Reminder Workflow", description: "Sends anticipation email 7 days before, reminder email+SMS 1 day before, SMS 1 hour before, and live notification at start time" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Pre-Webinar Reminder Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "<CRON_7D_BEFORE>", timezone: "<TIMEZONE>" } }] })\`
+1. \`createWorkflow({ sessionId, name: "Webinar Reminder Workflow", description: "Sends 7-day, 1-day, and 1-hour reminders via email and SMS" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Webinar Reminder Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 9 <7_DAYS_BEFORE_DAY> <MONTH> *", timezone: "{{webinarTimezone}}" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 3: Attendance Tracking (Required)
-
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Attendance Tracking Workflow"\`
-
-**Trigger:** \`trigger_webhook\` -- receives attendance data from webinar platform
-
-**Nodes:**
-
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_webhook\` | "Attendance Webhook" | \`{ "path": "/webinar-attendance", "secret": "<WEBHOOK_SECRET>" }\` | \`ready\` |
-| \`if-1\` | \`if_then\` | "Did They Attend?" | \`{ "expression": "{{trigger.attended}} === true" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Mark as Attended" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": ["attended", "<WEBINAR_NAME>_attended"] }\` | \`ready\` |
-| \`crm-2\` | \`lc_crm\` | "Pipeline: Attended" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "attended" }\` | \`ready\` |
-| \`crm-3\` | \`lc_crm\` | "Mark as No-Show" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": ["no_show", "<WEBINAR_NAME>_no_show"] }\` | \`ready\` |
-| \`crm-4\` | \`lc_crm\` | "Pipeline: No-Show" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "no_show" }\` | \`ready\` |
-| \`if-2\` | \`if_then\` | "Stayed to Offer?" | \`{ "expression": "{{trigger.stayedToOffer}} === true" }\` | \`ready\` |
-| \`crm-5\` | \`lc_crm\` | "Pipeline: Stayed to Offer" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "stayed_to_offer" }\` | \`ready\` |
-
-**Edges:**
-
-| id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
-| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`if-1\` | \`crm-1\` | \`true\` | \`input\` |
-| \`e-3\` | \`if-1\` | \`crm-3\` | \`false\` | \`input\` |
-| \`e-4\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
-| \`e-5\` | \`crm-3\` | \`crm-4\` | \`output\` | \`input\` |
-| \`e-6\` | \`crm-2\` | \`if-2\` | \`output\` | \`input\` |
-| \`e-7\` | \`if-2\` | \`crm-5\` | \`true\` | \`input\` |
-
-> Note: The \`false\` handle of \`if-2\` has no connection -- attendees who did not stay to the offer remain at the "attended" pipeline stage and still receive the post-attended sequence.
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`if-1\` | 350 | 300 |
-| \`crm-1\` | 600 | 150 |
-| \`crm-2\` | 850 | 150 |
-| \`if-2\` | 1100 | 150 |
-| \`crm-5\` | 1350 | 50 |
-| \`crm-3\` | 600 | 450 |
-| \`crm-4\` | 850 | 450 |
-
-**Mutations to execute:**
-
-1. \`createWorkflow({ sessionId, name: "Attendance Tracking Workflow", description: "Receives attendance webhook, splits attended vs no-show, updates CRM tags and pipeline stages" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Attendance Tracking Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_webhook", config: { path: "/webinar-attendance", secret: "<WEBHOOK_SECRET>" } }] })\`
-3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
-
----
-
-### Workflow 4: Post-Webinar Attended (Required)
+### 4.3 Workflow 3 -- Post-Webinar Attended (Required)
 
 **Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Post-Webinar Attended Workflow"\`
 
-**Trigger:** \`trigger_contact_updated\` -- fires when contact is tagged "attended"
+**Trigger:** \`trigger_webhook\` (called by the webinar platform or manually after the event to process attendees)
+
+This workflow processes contacts who DID attend the webinar. The webhook payload includes \`{ contactId, attended: true }\`. In practice, the host exports the attendee list and triggers this webhook per contact, or uses the \`trigger_manual\` with a batch of contact IDs.
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_contact_updated\` | "Contact Tagged: Attended" | \`{}\` | \`ready\` |
-| \`wait-1\` | \`wait_delay\` | "Wait 1 Hour" | \`{ "duration": 1, "unit": "hours" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Replay + Resources" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "Your [Webinar Name] replay + resources", "body": "Hi {{trigger.contact.firstName}},\\n\\nThank you for attending [Webinar Name]!\\n\\nHere's your replay: [REPLAY_LINK]\\n\\nDownload the slides: [SLIDES_LINK]\\n\\nKey resources mentioned:\\n- [Resource 1]\\n- [Resource 2]\\n- [Resource 3]\\n\\nAs promised, here's the special offer we discussed at the end. This is only available for attendees and expires on [DEADLINE_DATE]:\\n\\n[OFFER_NAME] -- [OFFER_LINK]\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-2\` | \`wait_delay\` | "Wait 1 Day" | \`{ "duration": 1, "unit": "days" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Key Takeaways + Offer" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "The 3 biggest takeaways from [Webinar Name]", "body": "Hi {{trigger.contact.firstName}},\\n\\nIn case you missed any of it, here are the 3 biggest takeaways from yesterday's session:\\n\\n1. [Secret 1 summary + key insight]\\n2. [Secret 2 summary + key insight]\\n3. [Secret 3 summary + key insight]\\n\\nThe question is: what are you going to do with this information?\\n\\nOption A: Try to implement everything yourself (most people get stuck here)\\nOption B: Let us help you fast-track results with [OFFER_NAME]\\n\\n[OFFER_LINK]\\n\\nThe special attendee pricing expires [DEADLINE_DATE].\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-3\` | \`wait_delay\` | "Wait 1 Day" | \`{ "duration": 1, "unit": "days" }\` | \`ready\` |
-| \`email-3\` | \`lc_email\` | "Offer + FAQ + Testimonials" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "Your questions about [Offer Name] answered", "body": "Hi {{trigger.contact.firstName}},\\n\\nI've been getting a lot of questions about [OFFER_NAME], so let me address the top ones:\\n\\nQ: [FAQ 1]?\\nA: [Answer 1]\\n\\nQ: [FAQ 2]?\\nA: [Answer 2]\\n\\nQ: [FAQ 3]?\\nA: [Answer 3]\\n\\nHere's what [Customer Name] said after joining:\\n\\"[Testimonial quote]\\"\\n\\nAnd [Customer Name 2]:\\n\\"[Testimonial quote 2]\\"\\n\\n[OFFER_LINK]\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-4\` | \`wait_delay\` | "Wait 2 Days" | \`{ "duration": 2, "unit": "days" }\` | \`ready\` |
-| \`email-4\` | \`lc_email\` | "Deadline Warning" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "Only [X] days left for [Offer Name]", "body": "Hi {{trigger.contact.firstName}},\\n\\nQuick reminder: the special attendee pricing for [OFFER_NAME] expires on [DEADLINE_DATE].\\n\\nAfter that, the price goes back to [REGULAR_PRICE].\\n\\nHere's everything you get:\\n- [Stack item 1] (value: $X)\\n- [Stack item 2] (value: $X)\\n- [Stack item 3] (value: $X)\\n- [Bonus 1] (value: $X)\\n- [Bonus 2] (value: $X)\\n\\nTotal value: $[TOTAL_VALUE]\\nYour price: $[OFFER_PRICE]\\n\\n[OFFER_LINK]\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-5\` | \`wait_delay\` | "Wait 1 Day" | \`{ "duration": 1, "unit": "days" }\` | \`ready\` |
-| \`email-5\` | \`lc_email\` | "Last Chance Email" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "FINAL HOURS: [Offer Name] closes tonight", "body": "Hi {{trigger.contact.firstName}},\\n\\nThis is your last chance.\\n\\n[OFFER_NAME] at the special attendee price of $[OFFER_PRICE] closes TONIGHT at midnight.\\n\\nAfter tonight:\\n- The price goes to $[REGULAR_PRICE]\\n- [Bonus 1] is removed\\n- [Bonus 2] is removed\\n\\nIf you've been on the fence, now is the time.\\n\\n[OFFER_LINK]\\n\\n[Speaker Name]\\n\\nP.S. If you have any last-minute questions, reply to this email. I'm here to help." }\` | \`ready\` |
-| \`sms-1\` | \`lc_sms\` | "Final CTA SMS" | \`{ "to": "{{trigger.contact.phone}}", "body": "Last chance! [OFFER_NAME] special pricing closes tonight. Grab it here: [OFFER_LINK]" }\` | \`ready\` |
+| id | type | label | position | config | status |
+|----|------|-------|----------|--------|--------|
+| \`trigger-1\` | \`trigger_webhook\` | "Attendance Webhook" | { x: 100, y: 300 } | \`{ "path": "/webinar-attendance", "secret": "{{attendance_webhook_secret}}" }\` | \`ready\` |
+| \`if-1\` | \`if_then\` | "Did Attend?" | { x: 350, y: 300 } | \`{ "expression": "{{trigger.attended}} === true" }\` | \`ready\` |
+| \`crm-1\` | \`lc_crm\` | "Update: Attended" | { x: 600, y: 100 } | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "customFields": { "webinarAttended": true } }\` | \`ready\` |
+| \`crm-2\` | \`lc_crm\` | "Move to Attended" | { x: 850, y: 100 } | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "attended" }\` | \`ready\` |
+| \`email-1\` | \`lc_email\` | "Replay + Offer Email" | { x: 1100, y: 100 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "Replay + special offer from {{webinarTitle}}", "body": "Hi {{contact.firstName}},\\n\\nThank you for attending {{webinarTitle}}!\\n\\nAs promised, here's the replay: {{replayLink}}\\n\\nDuring the webinar, I mentioned {{offerName}}. As a thank-you for showing up live, you get an exclusive discount:\\n\\n{{offerDescription}}\\nRegular price: {{regularPrice}}\\nYour price: {{discountPrice}}\\nOffer expires: {{offerDeadline}}\\n\\n{{offerCTALink}}\\n\\nIf you have questions, just reply to this email.\\n\\n{{speakerName}}" }\` | \`ready\` |
+| \`ac-1\` | \`activecampaign\` | "Tag: Attended" | { x: 1350, y: 100 } | \`{ "action": "add_tag", "contactEmail": "{{contact.email}}", "tag": "webinar-attended-<WEBINAR_TAG>" }\` | \`ready\` |
+| \`crm-3\` | \`lc_crm\` | "Update: No-Show" | { x: 600, y: 500 } | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "customFields": { "webinarAttended": false } }\` | \`ready\` |
+| \`crm-4\` | \`lc_crm\` | "Move to No-Show" | { x: 850, y: 500 } | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "no_show" }\` | \`ready\` |
+| \`email-2\` | \`lc_email\` | "Replay Available Email" | { x: 1100, y: 500 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "You missed {{webinarTitle}} -- here's the replay", "body": "Hi {{contact.firstName}},\\n\\nSorry you couldn't make it to {{webinarTitle}} live.\\n\\nGood news: the replay is ready for you: {{replayLink}}\\n\\nI covered some powerful strategies including:\\n- {{takeaway1}}\\n- {{takeaway2}}\\n- {{takeaway3}}\\n\\nWatch it before it comes down on {{replayDeadline}}.\\n\\n{{speakerName}}" }\` | \`ready\` |
+| \`ac-2\` | \`activecampaign\` | "Tag: No-Show" | { x: 1350, y: 500 } | \`{ "action": "add_tag", "contactEmail": "{{contact.email}}", "tag": "webinar-noshow-<WEBINAR_TAG>" }\` | \`ready\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
-| \`e-1\` | \`trigger-1\` | \`wait-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`wait-1\` | \`email-1\` | \`output\` | \`input\` |
-| \`e-3\` | \`email-1\` | \`wait-2\` | \`output\` | \`input\` |
-| \`e-4\` | \`wait-2\` | \`email-2\` | \`output\` | \`input\` |
-| \`e-5\` | \`email-2\` | \`wait-3\` | \`output\` | \`input\` |
-| \`e-6\` | \`wait-3\` | \`email-3\` | \`output\` | \`input\` |
-| \`e-7\` | \`email-3\` | \`wait-4\` | \`output\` | \`input\` |
-| \`e-8\` | \`wait-4\` | \`email-4\` | \`output\` | \`input\` |
-| \`e-9\` | \`email-4\` | \`wait-5\` | \`output\` | \`input\` |
-| \`e-10\` | \`wait-5\` | \`email-5\` | \`output\` | \`input\` |
-| \`e-11\` | \`email-5\` | \`sms-1\` | \`output\` | \`input\` |
-
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`wait-1\` | 350 | 300 |
-| \`email-1\` | 600 | 300 |
-| \`wait-2\` | 850 | 300 |
-| \`email-2\` | 1100 | 300 |
-| \`wait-3\` | 1350 | 300 |
-| \`email-3\` | 1600 | 300 |
-| \`wait-4\` | 1850 | 300 |
-| \`email-4\` | 2100 | 300 |
-| \`wait-5\` | 2350 | 300 |
-| \`email-5\` | 2600 | 300 |
-| \`sms-1\` | 2850 | 300 |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`if-1\` | \`crm-1\` | \`true\` | \`input\` |
+| \`e-3\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
+| \`e-4\` | \`crm-2\` | \`email-1\` | \`output\` | \`input\` |
+| \`e-5\` | \`email-1\` | \`ac-1\` | \`output\` | \`input\` |
+| \`e-6\` | \`if-1\` | \`crm-3\` | \`false\` | \`input\` |
+| \`e-7\` | \`crm-3\` | \`crm-4\` | \`output\` | \`input\` |
+| \`e-8\` | \`crm-4\` | \`email-2\` | \`output\` | \`input\` |
+| \`e-9\` | \`email-2\` | \`ac-2\` | \`output\` | \`input\` |
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Post-Webinar Attended Workflow", description: "Sends replay+resources at +1h, takeaways+offer at +1d, FAQ+testimonials at +2d, deadline warning at +4d, last chance email+SMS at +5d" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Post-Webinar Attended Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_contact_updated", config: {} }] })\`
+1. \`createWorkflow({ sessionId, name: "Post-Webinar Attended Workflow", description: "Processes attendance, branches attended vs no-show, sends replay and offer, tags in ActiveCampaign" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Post-Webinar Attended Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_webhook", config: { path: "/webinar-attendance", secret: "{{attendance_webhook_secret}}" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 5: Post-Webinar No-Show (Required)
+### 4.4 Workflow 4 -- Post-Webinar No-Show Nurture (Required)
 
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Post-Webinar No-Show Workflow"\`
+**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Post-Webinar No-Show Nurture Workflow"\`
 
-**Trigger:** \`trigger_contact_updated\` -- fires when contact is tagged "no_show"
+**Trigger:** \`trigger_schedule\` (fires 2 days after the webinar to run a dedicated nurture sequence for no-shows)
+
+This workflow complements Workflow 3. While Workflow 3 sends the immediate replay email to no-shows, this workflow fires a few days later to run a dedicated no-show nurture sequence with urgency-driven replay and offer messaging.
 
 **Nodes:**
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_contact_updated\` | "Contact Tagged: No-Show" | \`{}\` | \`ready\` |
-| \`wait-1\` | \`wait_delay\` | "Wait 2 Hours" | \`{ "duration": 2, "unit": "hours" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "You Missed It + Replay" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "You missed [Webinar Name] -- but here's the replay", "body": "Hi {{trigger.contact.firstName}},\\n\\nWe missed you at [Webinar Name] today!\\n\\nGood news: I've saved the replay for you. But it's only available for a limited time.\\n\\nWatch the replay here: [REPLAY_LINK]\\n\\nIn this session, [Speaker Name] revealed:\\n1. [Secret 1 teaser]\\n2. [Secret 2 teaser]\\n3. [Secret 3 teaser]\\n\\nDon't miss it -- the replay comes down on [REPLAY_DEADLINE].\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-2\` | \`wait_delay\` | "Wait 1 Day" | \`{ "duration": 1, "unit": "days" }\` | \`ready\` |
-| \`email-2\` | \`lc_email\` | "Highlights + Replay + Offer" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "The 3 things you missed at [Webinar Name]", "body": "Hi {{trigger.contact.firstName}},\\n\\nHere are the 3 biggest reveals from [Webinar Name]:\\n\\n1. [Secret 1 summary -- just enough to create curiosity]\\n2. [Secret 2 summary -- compelling insight]\\n3. [Secret 3 summary -- the one that changes everything]\\n\\nWatch the full replay to get the details: [REPLAY_LINK]\\n\\nAttendees also got access to a special offer: [OFFER_NAME] at $[OFFER_PRICE] (normally $[REGULAR_PRICE]).\\n\\nSince you registered, you qualify too -- but only until [DEADLINE_DATE]: [OFFER_LINK]\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-3\` | \`wait_delay\` | "Wait 2 Days" | \`{ "duration": 2, "unit": "days" }\` | \`ready\` |
-| \`email-3\` | \`lc_email\` | "Social Proof + Offer" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "Here's what attendees are saying about [Webinar Name]", "body": "Hi {{trigger.contact.firstName}},\\n\\nPeople who attended [Webinar Name] have been reaching out. Here's what they're saying:\\n\\n\\"[Testimonial 1]\\" -- [Name]\\n\\"[Testimonial 2]\\" -- [Name]\\n\\"[Testimonial 3]\\" -- [Name]\\n\\nIf you haven't watched the replay yet: [REPLAY_LINK]\\n\\nAnd if you're ready to take the next step: [OFFER_LINK]\\n\\nSpecial pricing ends [DEADLINE_DATE].\\n\\n[Speaker Name]" }\` | \`ready\` |
-| \`wait-4\` | \`wait_delay\` | "Wait 2 Days" | \`{ "duration": 2, "unit": "days" }\` | \`ready\` |
-| \`email-4\` | \`lc_email\` | "Final Replay Deadline" | \`{ "action": "send-confirmation-email", "to": "{{trigger.contact.email}}", "subject": "Replay comes down TOMORROW: [Webinar Name]", "body": "Hi {{trigger.contact.firstName}},\\n\\nLast chance: the replay of [Webinar Name] comes down tomorrow.\\n\\nWatch it here before it's gone: [REPLAY_LINK]\\n\\nThis is also the last day to get [OFFER_NAME] at the special price of $[OFFER_PRICE].\\n\\nAfter tomorrow, it goes back to $[REGULAR_PRICE] and the bonuses are removed.\\n\\n[OFFER_LINK]\\n\\n[Speaker Name]" }\` | \`ready\` |
+| id | type | label | position | config | status |
+|----|------|-------|----------|--------|--------|
+| \`trigger-1\` | \`trigger_schedule\` | "2 Days After Webinar" | { x: 100, y: 250 } | \`{ "cronExpression": "0 10 <2_DAYS_AFTER_DAY> <MONTH> *", "timezone": "{{webinarTimezone}}" }\` | \`ready\` |
+| \`if-1\` | \`if_then\` | "Is No-Show?" | { x: 350, y: 250 } | \`{ "expression": "{{contact.customFields.webinarAttended}} === false" }\` | \`ready\` |
+| \`email-1\` | \`lc_email\` | "Replay Urgency Email" | { x: 600, y: 150 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "Replay coming down soon -- {{webinarTitle}}", "body": "Hi {{contact.firstName}},\\n\\nThe replay of {{webinarTitle}} is still available, but not for long.\\n\\nWatch it here: {{replayLink}}\\n\\nHere's what attendees said:\\n\\"{{testimonial1}}\\"\\n\\"{{testimonial2}}\\"\\n\\nPlus, there's a special offer for anyone who watches: {{offerDescription}}\\n\\nReplay expires: {{replayDeadline}}\\n\\n{{speakerName}}" }\` | \`ready\` |
+| \`wait-1\` | \`wait_delay\` | "Wait 2 Days" | { x: 850, y: 150 } | \`{ "duration": 2, "unit": "days" }\` | \`ready\` |
+| \`email-2\` | \`lc_email\` | "Final Replay + Offer Email" | { x: 1100, y: 150 } | \`{ "action": "send-confirmation-email", "to": "{{contact.email}}", "subject": "Last chance: replay expires tonight", "body": "Hi {{contact.firstName}},\\n\\nThis is your final reminder -- the {{webinarTitle}} replay comes down tonight at midnight.\\n\\nWatch now: {{replayLink}}\\n\\nAnd if what I shared resonates, {{offerName}} is still available at the special rate of {{discountPrice}} (regular {{regularPrice}}).\\n\\nAfter tonight, the replay and the discount are both gone.\\n\\n{{offerCTALink}}\\n\\n{{speakerName}}" }\` | \`ready\` |
+| \`crm-1\` | \`lc_crm\` | "Move to Follow-Up" | { x: 1350, y: 150 } | \`{ "action": "move-pipeline-stage", "contactId": "{{contact._id}}", "pipelineStageId": "follow_up" }\` | \`ready\` |
 
 **Edges:**
 
 | id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
-| \`e-1\` | \`trigger-1\` | \`wait-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`wait-1\` | \`email-1\` | \`output\` | \`input\` |
-| \`e-3\` | \`email-1\` | \`wait-2\` | \`output\` | \`input\` |
-| \`e-4\` | \`wait-2\` | \`email-2\` | \`output\` | \`input\` |
-| \`e-5\` | \`email-2\` | \`wait-3\` | \`output\` | \`input\` |
-| \`e-6\` | \`wait-3\` | \`email-3\` | \`output\` | \`input\` |
-| \`e-7\` | \`email-3\` | \`wait-4\` | \`output\` | \`input\` |
-| \`e-8\` | \`wait-4\` | \`email-4\` | \`output\` | \`input\` |
+|----|--------|--------|-------------|-------------|
+| \`e-1\` | \`trigger-1\` | \`if-1\` | \`output\` | \`input\` |
+| \`e-2\` | \`if-1\` | \`email-1\` | \`true\` | \`input\` |
+| \`e-3\` | \`email-1\` | \`wait-1\` | \`output\` | \`input\` |
+| \`e-4\` | \`wait-1\` | \`email-2\` | \`output\` | \`input\` |
+| \`e-5\` | \`email-2\` | \`crm-1\` | \`output\` | \`input\` |
 
-**Node positions (canvas layout):**
-
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`wait-1\` | 350 | 300 |
-| \`email-1\` | 600 | 300 |
-| \`wait-2\` | 850 | 300 |
-| \`email-2\` | 1100 | 300 |
-| \`wait-3\` | 1350 | 300 |
-| \`email-3\` | 1600 | 300 |
-| \`wait-4\` | 1850 | 300 |
-| \`email-4\` | 2100 | 300 |
+> Note: The \`false\` handle of \`if-1\` has no connection -- contacts who DID attend are already being handled by the post-attended sequence from Workflow 3.
 
 **Mutations to execute:**
 
-1. \`createWorkflow({ sessionId, name: "Post-Webinar No-Show Workflow", description: "Sends replay at +2h, highlights+offer at +1d, social proof+offer at +3d, final replay deadline at +5d" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Post-Webinar No-Show Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_contact_updated", config: {} }] })\`
+1. \`createWorkflow({ sessionId, name: "Post-Webinar No-Show Nurture Workflow", description: "Runs a 2-email urgency sequence for no-shows with replay deadline and offer" })\`
+2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Post-Webinar No-Show Nurture Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_schedule", config: { cronExpression: "0 10 <2_DAYS_AFTER_DAY> <MONTH> *", timezone: "{{webinarTimezone}}" } }] })\`
 3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
 
 ---
 
-### Workflow 6: Purchase (Required)
+### 4.5 Sequences
 
-**Object:** \`type: "layer_workflow"\`, \`subtype: "workflow"\`, \`name: "Webinar Purchase Workflow"\`
+#### Pre-Webinar Reminder Sequence (subtype: \`vorher\`)
 
-**Trigger:** \`trigger_payment_received\`
+**Name:** \`Pre-Webinar Reminder Sequence\`
+**Trigger event:** \`form_submitted\`
+**Reference point:** \`booking_start\` (= webinar start time)
 
-**Nodes:**
+This sequence is an alternative to Workflow 2 above. If using this sequence approach, link it via \`workflow_sequence\` from Workflow 1. If using Workflow 2 (the standalone reminder workflow), skip this sequence. Do not use both.
 
-| id | type | label | config | status |
-|----|------|-------|--------|--------|
-| \`trigger-1\` | \`trigger_payment_received\` | "Payment Received" | \`{ "paymentProvider": "any" }\` | \`ready\` |
-| \`crm-1\` | \`lc_crm\` | "Update to Customer" | \`{ "action": "update-contact", "contactId": "{{trigger.contactId}}", "tags": ["customer", "<PRODUCT_NAME>"] }\` | \`ready\` |
-| \`crm-2\` | \`lc_crm\` | "Pipeline: Purchased" | \`{ "action": "move-pipeline-stage", "contactId": "{{trigger.contactId}}", "pipelineStageId": "purchased" }\` | \`ready\` |
-| \`invoice-1\` | \`lc_invoicing\` | "Generate Invoice" | \`{ "action": "generate-invoice", "transactionId": "{{trigger.transactionId}}", "contactId": "{{trigger.contactId}}" }\` | \`ready\` |
-| \`email-1\` | \`lc_email\` | "Receipt + Access" | \`{ "action": "send-confirmation-email", "to": "{{trigger.customerEmail}}", "subject": "Your purchase: [Offer Name] -- here's your access", "body": "Hi {{trigger.customerFirstName}},\\n\\nThank you for purchasing [OFFER_NAME]!\\n\\nHere's how to get started:\\n1. [Access step 1]\\n2. [Access step 2]\\n3. [Access step 3]\\n\\nYour invoice is attached to this email.\\n\\nIf you have any questions, reply to this email or contact us at [SUPPORT_EMAIL].\\n\\nWelcome aboard!\\n[Speaker Name]" }\` | \`ready\` |
+| step | channel | offset | unit | referencePoint | subject / body summary |
+|------|---------|--------|------|----------------|------------------------|
+| 1 | email | 0 | minutes | trigger_event | "You're registered for {{webinarTitle}}!" + confirmation details, calendar link, what to expect |
+| 2 | email | -7 | days | booking_start | "{{webinarTitle}} is in 1 week!" + what will be covered, pre-webinar resource link |
+| 3 | email | -1 | days | booking_start | "Tomorrow: {{webinarTitle}} -- don't miss it" + last-minute prep, reminder to clear schedule |
+| 4 | sms | -1 | days | booking_start | "Reminder: {{webinarTitle}} is tomorrow at {{webinarTime}}. Save the date!" |
+| 5 | email | -1 | hours | booking_start | "We're live in 60 minutes -- here's your join link" + {{joinLink}} |
+| 6 | sms | -1 | hours | booking_start | "{{speakerName}} here. {{webinarTitle}} starts in 1 hour. Join: {{joinLink}}" |
 
-**Edges:**
+#### Post-Webinar Attended Sequence (subtype: \`nachher\`)
 
-| id | source | target | sourceHandle | targetHandle |
-|----|--------|--------|--------------|--------------|
-| \`e-1\` | \`trigger-1\` | \`crm-1\` | \`output\` | \`input\` |
-| \`e-2\` | \`crm-1\` | \`crm-2\` | \`output\` | \`input\` |
-| \`e-3\` | \`crm-1\` | \`invoice-1\` | \`output\` | \`input\` |
-| \`e-4\` | \`crm-1\` | \`email-1\` | \`output\` | \`input\` |
+**Name:** \`Post-Webinar Attended Sequence\`
+**Trigger event:** \`contact_tagged\`
+**Condition:** Contact has tag \`webinar-attended-<WEBINAR_TAG>\`
+**Reference point:** \`trigger_event\` (= moment attendance is confirmed)
 
-**Node positions (canvas layout):**
+| step | channel | offset | unit | referencePoint | subject / body summary |
+|------|---------|--------|------|----------------|------------------------|
+| 1 | email | +2 | hours | trigger_event | "Thank you for attending {{webinarTitle}}! Here's the replay + slides" + {{replayLink}}, {{slidesLink}} |
+| 2 | email | +1 | days | trigger_event | "The #1 takeaway from {{webinarTitle}} + your exclusive offer" + recap of key insight, introduce {{offerName}} at {{discountPrice}} |
+| 3 | email | +2 | days | trigger_event | "What {{clientName}} achieved after implementing this" + case study / social proof, offer reminder |
+| 4 | email | +4 | days | trigger_event | "{{offerName}} discount expires in 48 hours" + scarcity, FAQ about the offer, testimonials |
+| 5 | email | +6 | days | trigger_event | "Last chance: {{offerName}} closes tonight at midnight" + final urgency, last call CTA |
 
-| id | x | y |
-|----|---|---|
-| \`trigger-1\` | 100 | 300 |
-| \`crm-1\` | 350 | 300 |
-| \`crm-2\` | 600 | 150 |
-| \`invoice-1\` | 600 | 300 |
-| \`email-1\` | 600 | 450 |
+#### Post-Webinar No-Show Sequence (subtype: \`nachher\`)
 
-**Mutations to execute:**
+**Name:** \`Post-Webinar No-Show Sequence\`
+**Trigger event:** \`contact_tagged\`
+**Condition:** Contact has tag \`webinar-noshow-<WEBINAR_TAG>\`
+**Reference point:** \`trigger_event\` (= moment no-show is confirmed)
 
-1. \`createWorkflow({ sessionId, name: "Webinar Purchase Workflow", description: "Processes purchase, updates CRM to customer, moves pipeline to purchased, generates invoice, sends receipt with access details" })\`
-2. \`saveWorkflow({ sessionId, workflowId: <ID>, name: "Webinar Purchase Workflow", nodes: [...], edges: [...], triggers: [{ type: "trigger_payment_received", config: { paymentProvider: "any" } }] })\`
-3. \`updateWorkflowStatus({ sessionId, workflowId: <ID>, status: "active" })\`
+| step | channel | offset | unit | referencePoint | subject / body summary |
+|------|---------|--------|------|----------------|------------------------|
+| 1 | email | +2 | hours | trigger_event | "We missed you at {{webinarTitle}} -- here's the replay" + {{replayLink}}, brief summary of what was covered |
+| 2 | email | +1 | days | trigger_event | "The most powerful insight from {{webinarTitle}}" + tease one key takeaway, {{replayLink}} reminder |
+| 3 | email | +3 | days | trigger_event | "People who watched the replay are saying..." + social proof from attendees, offer introduction |
+| 4 | email | +5 | days | trigger_event | "Final chance: replay and offer expire tonight" + last call for replay access, final offer push |
 
 ---
 
 ## 5. CRM Pipeline Definition
 
-### Generic Pipeline
+**Pipeline Name:** \`Webinar: {{webinarTitle}}\`
 
-**Pipeline Name:** "Webinar: [Webinar Name]"
+| order | stageId | label | auto-transition trigger |
+|-------|---------|-------|------------------------|
+| 1 | \`registered\` | Registered | On form submission (Workflow 1, \`crm-2\` node) |
+| 2 | \`reminded\` | Reminded | On pre-webinar reminder sequence step 2 (7-day reminder) sent |
+| 3 | \`attended\` | Attended | On attendance webhook (Workflow 3, \`crm-2\` node) when \`attended === true\` |
+| 4 | \`no_show\` | No-Show | On attendance webhook (Workflow 3, \`crm-4\` node) when \`attended === false\` |
+| 5 | \`stayed_to_offer\` | Stayed to Offer | Manual move by host or automated if webinar platform reports watch duration |
+| 6 | \`purchased\` | Purchased | On \`trigger_payment_received\` for the offer product, or manual move |
+| 7 | \`follow_up\` | Follow-Up | On completion of post-webinar sequence (Workflow 4, \`crm-1\` node) |
 
-| Stage ID | Stage Name | Description | Automation Trigger |
-|----------|-----------|-------------|-------------------|
-| \`registered\` | Registered | Contact submitted the registration form. | Auto-set by Workflow 1 (\`crm-2\` node) |
-| \`reminded\` | Reminded | Contact has received at least one reminder email. | Auto-set by Workflow 2 (after first email send) |
-| \`attended\` | Attended | Contact attended the live webinar. | Auto-set by Workflow 3 (\`crm-2\` node, \`if-1\` true branch) |
-| \`stayed_to_offer\` | Stayed to Offer | Attendee stayed through the presentation to the offer section. | Auto-set by Workflow 3 (\`crm-5\` node, \`if-2\` true branch) |
-| \`no_show\` | No-Show | Registrant did not attend the live webinar. | Auto-set by Workflow 3 (\`crm-4\` node, \`if-1\` false branch) |
-| \`replay_watched\` | Replay Watched | Contact watched the replay (tracked via replay page engagement or webhook). | Manual move or external tracking webhook |
-| \`purchased\` | Purchased | Contact purchased the post-webinar offer. | Auto-set by Workflow 6 (\`crm-2\` node) |
-| \`follow_up\` | Follow-Up | Contact did not purchase but remains engaged. Moved here after offer deadline passes for manual sales follow-up. | Manual move after offer deadline |
+**Stage transitions and automation triggers:**
 
-### Stage Transition Rules
-
-- \`registered\` -> \`reminded\`: Automatic when first reminder sends (Workflow 2)
-- \`registered\` -> \`attended\` or \`no_show\`: Automatic via attendance webhook (Workflow 3)
-- \`attended\` -> \`stayed_to_offer\`: Automatic if \`stayedToOffer=true\` in webhook data (Workflow 3)
-- \`attended\` or \`no_show\` -> \`replay_watched\`: Manual or external tracking
-- Any stage -> \`purchased\`: Automatic on payment (Workflow 6)
-- \`attended\` or \`no_show\` -> \`follow_up\`: Manual move after offer deadline passes
+- \`registered -> reminded\`: Triggered when pre-webinar reminder sequence sends the 7-day reminder (step 2 of vorher sequence or Workflow 2 email-1 node).
+- \`reminded -> attended\`: Triggered by Workflow 3 attendance webhook for contacts with \`attended === true\`.
+- \`reminded -> no_show\`: Triggered by Workflow 3 attendance webhook for contacts with \`attended === false\`.
+- \`registered -> no_show\` (skip path): For contacts who registered but were never reminded (late registrations within 7 days), the attendance webhook directly moves them.
+- \`attended -> stayed_to_offer\`: Manual move or automated via watch-time threshold from webinar platform.
+- \`attended -> purchased\` or \`stayed_to_offer -> purchased\`: Triggered by \`trigger_payment_received\` for the offer product.
+- \`no_show -> follow_up\`: Triggered by Workflow 4 (\`crm-1\` node) after the no-show nurture sequence completes.
+- \`follow_up -> purchased\`: Manual move or triggered by \`trigger_payment_received\` for the offer product.
 
 ---
 
@@ -14271,206 +14355,168 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 \`\`\`
 /
-├── builder/
-│   ├── registration-page/       (kind: builder_ref -> builder_app for registration landing page)
-│   ├── thank-you-page/          (kind: builder_ref -> builder_app for post-registration confirmation)
-│   ├── webinar-room-page/       (kind: builder_ref -> builder_app for live webinar room)
-│   ├── replay-page/             (kind: builder_ref -> builder_app for replay with offer)
-│   └── offer-page/              (kind: builder_ref -> builder_app for standalone offer/sales page)
-├── layers/
-│   ├── registration-workflow    (kind: layer_ref -> layer_workflow "Webinar Registration Workflow")
-│   ├── reminder-workflow        (kind: layer_ref -> layer_workflow "Pre-Webinar Reminder Workflow")
-│   ├── attendance-tracking-workflow (kind: layer_ref -> layer_workflow "Attendance Tracking Workflow")
-│   ├── post-attended-workflow   (kind: layer_ref -> layer_workflow "Post-Webinar Attended Workflow")
-│   ├── post-no-show-workflow    (kind: layer_ref -> layer_workflow "Post-Webinar No-Show Workflow")
-│   └── purchase-workflow        (kind: layer_ref -> layer_workflow "Webinar Purchase Workflow")
-├── notes/
-│   ├── webinar-script           (kind: virtual, content: full Perfect Webinar script outline)
-│   ├── perfect-webinar-outline  (kind: virtual, content: origin story, 3 secrets, the stack, the close)
-│   ├── offer-details            (kind: virtual, content: offer name, price, stack, bonuses, guarantee)
-│   └── faq                      (kind: virtual, content: top objection-handling Q&A pairs)
-├── assets/
-│   ├── speaker-photo            (kind: media_ref -> uploaded speaker headshot)
-│   ├── presentation-slides      (kind: media_ref -> uploaded slide deck PDF)
-│   └── social-proof-screenshots/(kind: folder)
-│       ├── testimonial-1        (kind: media_ref -> screenshot of testimonial)
-│       └── testimonial-2        (kind: media_ref -> screenshot of testimonial)
++-- builder/
+|   +-- webinar-registration-page/   (kind: builder_ref -> builder_app for registration page)
+|   +-- confirmation-page/           (kind: builder_ref -> builder_app for thank-you page)
+|
++-- layers/
+|   +-- registration-workflow        (kind: layer_ref -> layer_workflow "Webinar Registration Workflow")
+|   +-- reminder-workflow            (kind: layer_ref -> layer_workflow "Webinar Reminder Workflow")
+|   +-- post-webinar-workflow        (kind: layer_ref -> layer_workflow "Post-Webinar Attended Workflow")
+|   +-- noshow-nurture-workflow      (kind: layer_ref -> layer_workflow "Post-Webinar No-Show Nurture Workflow")
+|
++-- notes/
+|   +-- webinar-brief                (kind: virtual -- webinar title, date, time, topic, target audience, offer details)
+|   +-- speaker-bio                  (kind: virtual -- speaker name, title, company, bio, headshot ref)
+|   +-- email-copy                   (kind: virtual -- all email drafts for review)
+|   +-- offer-details                (kind: virtual -- offer name, pricing, deadline, CTA link)
+|
++-- assets/
+|   +-- speaker-headshot             (kind: media_ref -> speaker photo)
+|   +-- webinar-banner               (kind: media_ref -> hero banner image for registration page)
+|   +-- brand-assets/                (kind: folder)
+|       +-- logo                     (kind: media_ref -> host/company logo)
+|       +-- slide-deck               (kind: media_ref -> presentation slides for post-webinar delivery)
 \`\`\`
 
-**Mutations to execute:**
-
-1. \`initializeProjectFolders({ organizationId: <ORG_ID>, projectId: <PROJECT_ID> })\`
-2. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "webinar-script", parentPath: "/notes", content: "<Perfect Webinar script>" })\`
-3. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "perfect-webinar-outline", parentPath: "/notes", content: "<outline: origin story, 3 secrets, stack, close>" })\`
-4. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "offer-details", parentPath: "/notes", content: "<offer name, price, stack items, bonuses, guarantee>" })\`
-5. \`createVirtualFile({ sessionId, projectId: <PROJECT_ID>, name: "faq", parentPath: "/notes", content: "<top 5-7 objection-handling Q&A>" })\`
-6. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <REGISTRATION_PAGE_APP_ID> })\`
-7. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <THANK_YOU_PAGE_APP_ID> })\`
-8. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <WEBINAR_ROOM_APP_ID> })\`
-9. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <REPLAY_PAGE_APP_ID> })\`
-10. \`captureBuilderApp({ projectId: <PROJECT_ID>, builderAppId: <OFFER_PAGE_APP_ID> })\`
-11. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <REGISTRATION_WF_ID> })\`
-12. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <REMINDER_WF_ID> })\`
-13. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <ATTENDANCE_WF_ID> })\`
-14. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <POST_ATTENDED_WF_ID> })\`
-15. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <POST_NO_SHOW_WF_ID> })\`
-16. \`captureLayerWorkflow({ projectId: <PROJECT_ID>, layerWorkflowId: <PURCHASE_WF_ID> })\`
+**Initialization mutation:** \`initializeProjectFolders({ organizationId, projectId })\` creates the four root folders. Then \`createVirtualFile\` and \`captureBuilderApp\` / \`captureLayerWorkflow\` populate each entry.
 
 ---
 
 ## 7. Data Flow Diagram
 
 \`\`\`
-                                WEBINAR / VIRTUAL EVENT FUNNEL - DATA FLOW
-                                ============================================
+                              WEBINAR / VIRTUAL EVENT DATA FLOW
+ ==========================================================================================================
 
-  END CUSTOMER                      PLATFORM (L4YERCAK3)                           EXTERNAL SYSTEMS
-  ============                      ====================                           ================
+ End Customer                    Platform (L4YERCAK3)                         External Systems
+ ============                    ====================                         ================
 
-  +---------------------+
-  | Visits Registration  |
-  | Page (Builder)       |
-  +----------+----------+
-             |
-             v
-  +---------------------+
-  | Fills Out Form       |-----> submitPublicForm({ formId, responses, metadata })
-  | (email, first, last, |
-  |  phone -- all req'd) |
-  +----------+----------+
-             |
-             |         +---------------------------------------------------------------+
-             |         |  WORKFLOW 1: Registration                                      |
-             |         |                                                               |
-             +-------->|  trigger_form_submitted                                       |
-                       |         |                                                     |
-                       |    (output -> input)                                          |
-                       |         v                                                     |
-                       |  lc_crm [create-contact]                                      |
-                       |  -> objects { type: "crm_contact", subtype: "lead",           |
-                       |     tags: ["webinar_name","registrant"] }                     |
-                       |         |                                                     |
-                       |    +----+----------+----------+                               |
-                       |    |               |          |                               |
-                       |    v               v          v                               |
-                       |  lc_crm         lc_email   activecampaign    +------------+   |
-                       |  [move-pipeline [send-     [add_contact] --> | Active     |   |
-                       |   -stage:       confirm-        |            | Campaign   |   |
-                       |   "registered"] ation:          v            |            |   |
-                       |                 join link  [add_tag:         +------------+   |
-                       |                 +calendar]  "registered"]                     |
-                       |                                 |                             |
-                       |                            (output->input)                    |
-                       |                                 v                             |
-                       |                            [add_to_list]                      |
-                       +---------------------------------------------------------------+
-                       |
-                       |  WORKFLOW 2: Pre-Webinar Reminders
-                       |
-                       |  trigger_schedule (7 days before webinar)
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  lc_email ["What you'll learn" + speaker bio]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  wait_delay [6 days]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  lc_email ["Tomorrow at [time]!"] + lc_sms ["Tomorrow!"]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  wait_delay [23 hours]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  lc_sms ["Starting in 1 hour! Join: [link]"]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  wait_delay [1 hour]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  lc_email ["We're LIVE! Join now: [link]"]
-                       |
-                       +---------------------------------------------------------------+
-                       |
-                       |                  *** WEBINAR HAPPENS ***
-                       |
-                       +---------------------------------------------------------------+
-                       |
-                       |  WORKFLOW 3: Attendance Tracking
-                       |                                                +------------+
-                       |  trigger_webhook ("/webinar-attendance") <---- | Webinar    |
-                       |         |                                      | Platform   |
-                       |    (output -> input)                           | (Zoom etc) |
-                       |         v                                      +------------+
-                       |  if_then [attended === true?]
-                       |         |                    \\
-                       |    (true -> input)       (false -> input)
-                       |         v                        v
-                       |  lc_crm [update:            lc_crm [update:
-                       |   tag "attended"]            tag "no_show"]
-                       |         |                        |
-                       |    (output -> input)         (output -> input)
-                       |         v                        v
-                       |  lc_crm [move-pipeline:     lc_crm [move-pipeline:
-                       |   "attended"]                "no_show"]
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  if_then [stayedToOffer?]
-                       |    (true -> input)
-                       |         v
-                       |  lc_crm [move-pipeline:
-                       |   "stayed_to_offer"]
-                       |
-                       +---------------------------------------------------------------+
-                       |                                    |
-                       |    ATTENDED PATH                   |    NO-SHOW PATH
-                       |    ==============                  |    =============
-                       |                                    |
-                       |  WORKFLOW 4: Post-Attended          |  WORKFLOW 5: Post-No-Show
-                       |                                    |
-                       |  trigger_contact_updated            |  trigger_contact_updated
-                       |  (tag: "attended")                  |  (tag: "no_show")
-                       |         |                          |         |
-                       |  +1h: replay+resources             |  +2h: "You missed it"+replay
-                       |  +1d: takeaways+offer              |  +1d: highlights+replay+offer
-                       |  +2d: FAQ+testimonials+offer       |  +3d: social proof+offer
-                       |  +4d: deadline warning             |  +5d: final replay deadline
-                       |  +5d: last chance email+SMS        |
-                       |                                    |
-                       +---------------------------------------------------------------+
-                       |
-                       |  WORKFLOW 6: Purchase
-                       |
-                       |  trigger_payment_received
-                       |         |
-                       |    (output -> input)
-                       |         v
-                       |  lc_crm [update: tags ["customer","product_name"]]
-                       |         |
-                       |    +----+----+
-                       |    |    |    |
-                       |    v    v    v
-                       |  lc_crm  lc_invoicing  lc_email
-                       |  [move-  [generate-     [receipt +
-                       |  pipeline: invoice]     access details]
-                       |  "purchased"]
-                       |
-                       +---------------------------------------------------------------+
-
-  PIPELINE PROGRESSION:
-
-  [registered] -> [reminded] -> [attended] -> [stayed_to_offer] -> [purchased]
-                            \\                                  \\-> [follow_up]
-                             -> [no_show] -> [replay_watched] -> [purchased]
-                                                              \\-> [follow_up]
+ [ Visit registration page ]
+       |
+       v
+ [ View webinar details,   ] ---> Registration Page (builder_ref)
+ [ speaker bio, takeaways  ]
+       |
+       v
+ [ Fill registration form  ] ---> form (subtype: registration)
+       |                              |
+       |                              v
+       |                     trigger_form_submitted
+       |                              |
+       |                     +-------------------------------+
+       |                     | WORKFLOW 1: Registration       |
+       |                     |                               |
+       |                     |  lc_crm [create-contact]      |
+       |                     |  -> crm_contact, subtype: lead|
+       |                     |  -> tags: webinar-registrant  |
+       |                     |         |                     |
+       |                     |    +----+----+----+           |
+       |                     |    |         |    |           |
+       |                     |    v         v    v           |
+       |                     | lc_crm   lc_email  AC        |
+       |                     | [move     [send    [add_     |-----> ActiveCampaign
+       |                     |  stage:   confirm  contact,  |       (add_contact,
+       |                     |  regist-  +cal     add_tag,  |        add_tag,
+       |                     |  ered]    link]    add_to_   |        add_to_list)
+       |                     |                    list]     |
+       |                     +-------------------------------+
+       |
+ [ Receives confirmation   ]
+ [ email + calendar invite  ]
+       |
+       |                     +-------------------------------+
+       |                     | WORKFLOW 2: Reminders          |
+       |                     |                               |
+       |                     | trigger_schedule (7 days before)|
+       |                     |    |                          |
+       |                     |    v                          |
+       |                     | lc_email [-7d reminder]       |
+       |                     |    |                          |
+       |                     | wait_delay [5 days]           |
+       |                     |    |                          |
+       |                     | lc_email [-1d reminder]       |
+       |                     |    |                          |
+       |                     | wait_delay [23 hours]         |
+       |                     |    |                          |
+       |                     |    +--------+                 |
+       |                     |    |        |                 |
+       |                     |    v        v                 |
+       |                     | lc_email  lc_sms              |
+       |                     | [-1h]     [-1h]               |
+       |                     +-------------------------------+
+       |
+       v
+ [ Attends webinar LIVE    ]
+       |
+       v                     +-------------------------------+
+ [ Host uploads attendee   ] | WORKFLOW 3: Post-Webinar      |
+ [ list via webhook        ] |                               |
+       |                     | trigger_webhook               |
+       |                     |    |                          |
+       |                     | if_then [attended?]           |
+       |                     |   /              \\            |
+       |                     | true            false         |
+       |                     |  |                |           |
+       |                     |  v                v           |
+       |                     | lc_crm          lc_crm       |
+       |                     | [update:        [update:     |
+       |                     |  attended=true]  attended=    |
+       |                     |  |               false]      |
+       |                     |  v                |           |
+       |                     | lc_crm            v           |
+       |                     | [move->          lc_crm      |
+       |                     |  attended]       [move->     |
+       |                     |  |                no_show]   |
+       |                     |  v                |           |
+       |                     | lc_email          v           |
+       |                     | [replay +        lc_email    |
+       |                     |  offer]          [replay     |
+       |                     |  |                available] |
+       |                     |  v                |           |
+       |                     | AC [tag:          v           |
+       |                     |  attended]       AC [tag:    |-----> ActiveCampaign
+       |                     |                  no_show]    |       (tag attended /
+       |                     +-------------------------------+        no-show)
+       |
+       |                     +-------------------------------+
+       |                     | WORKFLOW 4: No-Show Nurture    |
+       |                     |                               |
+       |                     | trigger_schedule (+2 days)     |
+       |                     |    |                          |
+       |                     | if_then [is no-show?]         |
+       |                     |    |                          |
+       |                     | lc_email [replay urgency]     |
+       |                     |    |                          |
+       |                     | wait_delay [2 days]           |
+       |                     |    |                          |
+       |                     | lc_email [final replay +      |
+       |                     |           offer deadline]     |
+       |                     |    |                          |
+       |                     | lc_crm [move -> follow_up]    |
+       |                     +-------------------------------+
+       |
+       v
+ [ Watches replay OR       ]     ATTENDED PATH           NO-SHOW PATH
+ [ attends live            ]     ==============          ==============
+       |                         Post-Attended Seq.      Post-No-Show Seq.
+       |                         (nachher)               (nachher)
+       |                            |                       |
+       |                         +2h: replay + slides    +2h: replay available
+       |                         +1d: key takeaway +     +1d: powerful insight
+       |                              offer intro            + replay
+       |                         +2d: case study +       +3d: social proof +
+       |                              offer reminder          offer intro
+       |                         +4d: 48hr deadline      +5d: final chance:
+       |                         +6d: last chance             replay + offer
+       |                                                      expire
+       v
+ [ Clicks offer / purchases ] -> trigger_payment_received
+       |                              |
+       |                     lc_crm [move -> purchased]
+       |                     lc_email [receipt + onboarding]
+       v
+ [ Customer onboarding     ]
 \`\`\`
 
 ---
@@ -14481,39 +14527,38 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 | Item | Why | Where |
 |------|-----|-------|
-| Webinar topic/title | Appears in every email subject, page headline, and CRM tags | All \`lc_email\` node configs, builder pages, CRM tag values, pipeline name |
-| Webinar date/time/timezone | Required for countdown timer, reminder timing, schedule triggers, and all email content | Workflow 2 \`trigger_schedule\` config (\`cronExpression\`, \`timezone\`), all email bodies, registration page countdown, thank-you page confirmation |
-| Speaker name and bio | Appears on registration page, anticipation email, and all follow-up emails | Builder registration page speaker section, \`email-1\` in Workflow 2, email signatures in all workflows |
-| Join link / platform | The URL registrants use to join the live webinar | All reminder emails, "We're Live" email, thank-you page, SMS messages |
-| Post-webinar offer details | Product name, price, regular price, deadline, stack items, bonuses, guarantee | Product \`customProperties\` (price, saleEndDate), all post-webinar email bodies, offer page, replay page |
-| Replay link | URL where the webinar recording is hosted | Post-attended email-1, all no-show emails, replay page builder app |
-| Webhook secret | Authentication for the attendance tracking webhook | Workflow 3 \`trigger-1\` config \`secret\` |
-| ActiveCampaign list ID | The AC list for webinar registrants | Workflow 1 \`ac-3\` node config \`listId\` |
+| Webinar title | Appears in every email, landing page, calendar invite | Builder registration page, all \`lc_email\` node configs, sequence content, pipeline name |
+| Webinar date and time | Drives all reminder timing, calendar links, schedule triggers | \`trigger_schedule\` cron expressions, \`wait_delay\` calculations, sequence \`referencePoint\` offsets, landing page, email body content |
+| Webinar timezone | Affects all scheduled triggers and display times | \`trigger_schedule\` node config \`timezone\`, landing page, email body content |
+| Join link (Zoom/WebinarJam/etc.) | Registrants need this to attend | \`lc_email\` 1-hour reminder body, \`lc_sms\` reminder body, confirmation page placeholder |
+| Speaker name and bio | Establishes credibility on registration page and emails | Builder registration page speaker section, email signatures, sequence content |
+| Offer details (name, price, discount, deadline, CTA link) | The entire post-webinar monetization depends on this | Post-webinar email content, sequence steps 2-5, offer CTA links |
 
-### Should-Customize (significantly improves conversion and relevance)
+### Should-Customize (defaults work but results improve with tuning)
 
 | Item | Why | Default |
 |------|-----|---------|
-| Registration page copy (3 bullet points) | Must map to the Perfect Webinar "3 Secrets" for the specific topic | Generic "What you'll learn" placeholder bullets |
-| Reminder email content | Industry-specific language and anticipation hooks | Generic reminder templates |
-| Post-webinar email sequence copy | Must reference actual webinar content, real testimonials, real FAQ | Generic Perfect Webinar follow-up framework |
-| Replay page design | Should include offer CTA positioned below video | Basic video embed + offer section |
-| Offer pricing (webinar price vs regular price) | Contrast creates urgency | Placeholder $X values |
-| Belief-breaking sequence content | The 3 false beliefs must match the audience's actual objections | Generic framework placeholders |
-| Calendar add link | Must contain correct date, time, timezone, and join URL | Placeholder \`[CALENDAR_LINK]\` |
+| Registration page copy | StoryBrand framework: headline should name the pain, subtitle names the transformation | Generic placeholder copy |
+| Email content / voice | Must sound like the speaker, use their language and stories | Generic professional tone |
+| Key takeaways (bullet points) | Drive registration conversion -- must be specific to the topic | 3 placeholder bullet points |
+| Replay link | Must be updated after the webinar is recorded | Placeholder URL |
+| Offer pricing (regular and discount) | Must match the actual product/program pricing | Placeholder dollar amounts |
+| Qualifying question options | "Biggest Challenge" options must match the ICP's actual challenges | Generic business challenges |
+| Social proof / testimonials | Real quotes from past clients/attendees convert better | Placeholder testimonial blocks |
+| ActiveCampaign list and tag names | Must match the client's segmentation strategy | Generic \`webinar-registered-<tag>\` pattern |
 
-### Can-Use-Default (work out of the box for most deployments)
+### Can-Use-Default (ready out of the box for most deployments)
 
 | Item | Default Value |
 |------|--------------|
-| Form fields and order | email (req), firstName (req), lastName (req), phone (req) |
-| Pipeline stages | registered, reminded, attended, stayed_to_offer, no_show, replay_watched, purchased, follow_up |
-| Workflow structure (6 workflows) | Registration, Reminders, Attendance Tracking, Post-Attended, Post-No-Show, Purchase |
-| Pre-webinar reminder timing | -7d email, -1d email+SMS, -1h SMS, start time email |
-| Post-attended sequence timing | +1h, +1d, +2d, +4d, +5d |
-| Post-no-show sequence timing | +2h, +1d, +3d, +5d |
+| Form field types and order | firstName (req), lastName (req), email (req), phone (opt), company (opt), qualifying select (req) |
+| Workflow node execution order | trigger -> crm -> email + AC (parallel) -> pipeline stage |
+| Reminder timing | -7 days, -1 day, -1 hour (email); -1 hour (SMS) |
+| Post-webinar sequence timing | Attended: +2h, +1d, +2d, +4d, +6d; No-show: +2h, +1d, +3d, +5d |
+| Sequence channels | \`email\` for all steps, \`sms\` for 1-hour reminder only |
+| Pipeline stages | registered, reminded, attended, no_show, stayed_to_offer, purchased, follow_up |
 | File system folder structure | \`/builder\`, \`/layers\`, \`/notes\`, \`/assets\` |
-| Contact subtype | \`lead\` (changes to \`customer\` on purchase) |
+| Contact subtype | \`lead\` |
 | Project subtype | \`campaign\` |
 | Workflow status progression | \`draft\` -> \`ready\` -> \`active\` |
 
@@ -14525,47 +14570,47 @@ After calling \`initializeProjectFolders({ organizationId, projectId })\`, the d
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| No attendance tracking webhook configured | Cannot split attended vs no-show; all registrants receive the same post-webinar sequence (or none) | Configure the webinar platform (Zoom, WebinarJam, etc.) to POST to the \`/webinar-attendance\` webhook endpoint with \`{ contactId, attended: boolean, stayedToOffer: boolean }\`. Verify the webhook fires with a test event before going live. |
-| Reminder sequence timing calculated from registration instead of webinar date | Early registrants get reminders weeks early; late registrants get reminders after the event | Use \`trigger_schedule\` with a cron expression set to exactly 7 days before the webinar date. All \`wait_delay\` nodes count forward from that fixed trigger point. Do NOT use \`trigger_event\` (registration time) as the reference. |
-| No-show sequence sending to attendees | Attendees receive "You missed it" emails despite attending | Workflow 3 \`if_then\` node must correctly split on \`{{trigger.attended}} === true\`. Verify the webhook payload format matches the expression. The attended and no-show workflows trigger on different tags ("attended" vs "no_show"), so ensure Workflow 3 sets the correct tags before Workflows 4 and 5 fire. |
-| Replay link not time-limited | No-shows have no urgency to watch; replay stays up forever diminishing live attendance for future webinars | Set a replay deadline (typically 5-7 days post-webinar). Reference the deadline in all no-show emails and the replay page countdown timer. Remove or redirect the replay page after deadline. |
-| Post-webinar offer not linked to checkout | "Buy Now" buttons on replay/offer pages do not work; purchase workflow never triggers | Create the product object (\`type: "product"\`, \`subtype: "digital"\`), then create \`objectLink\` with \`linkType: "checkout_product"\`. Ensure the offer page and replay page CTA buttons point to the checkout URL. |
-| Registration form missing phone field | SMS reminders in Workflow 2 (\`sms-1\`, \`sms-2\`) fail silently because contact has no phone number | Phone field MUST be \`required: true\` in the form. If phone is optional, add an \`if_then\` check before each \`lc_sms\` node to verify phone exists. |
-| Timezone not set on schedule triggers | Reminders fire at wrong time; "starting in 1 hour" SMS arrives at 3 AM | Set \`timezone\` in the \`trigger_schedule\` config to match the webinar's timezone (e.g., "America/New_York"). Double-check the cron expression accounts for the correct date and time. |
-| Form not linked to workflow | Registration form submissions do not trigger the Registration Workflow | Create objectLink: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <FORM_ID>, linkType: "workflow_form" }\`. Also ensure \`trigger_form_submitted\` node config has the correct \`formId\`. |
-| Workflow left in \`draft\` status | No automations execute, registrants get no confirmation or reminders | After saving all nodes/edges, call \`updateWorkflowStatus({ status: "active" })\` for ALL six workflows. |
-| ActiveCampaign integration not connected | \`activecampaign\` nodes fail silently or error | Verify the organization's ActiveCampaign API credentials are configured in integration settings before activating Workflow 1. |
+| Form not linked to workflow | Form submissions do not trigger the Registration Workflow | Create objectLink: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <FORM_ID>, linkType: "workflow_form" }\`. Ensure \`trigger_form_submitted\` node config has the correct \`formId\`. |
+| Reminder timing uses wrong cron expression | 7-day reminder fires on the wrong date, or fires every month instead of once | Verify the \`cronExpression\` in \`trigger_schedule\` uses the exact day and month values. For a March 15 webinar, the 7-day reminder should be \`"0 9 8 3 *"\` (March 8 at 9 AM). |
+| Attendance webhook not triggered | All registrants show as no-shows regardless of actual attendance | Ensure the host knows to call the \`/webinar-attendance\` webhook endpoint with \`{ contactId, attended: true/false }\` for each registrant after the webinar. Provide documentation or a simple upload tool. |
+| No-show sequence still enrolls attendees | Attendees receive "you missed it" emails | Verify \`if_then\` node in Workflow 4 checks \`{{contact.customFields.webinarAttended}} === false\`. Ensure Workflow 3 sets \`webinarAttended: true\` before Workflow 4 fires. Time Workflow 4 schedule to fire AFTER Workflow 3 has processed all contacts. |
+| Replay link not updated after webinar | All replay emails contain a placeholder URL | After the webinar, update the \`replayLink\` variable in all post-webinar email templates and sequence step content before the first post-webinar email fires. |
+| Offer deadline mismatch | Offer "expires tonight" email goes out but the payment link still works, or vice versa | Coordinate the \`offerDeadline\` date in email copy with the actual Stripe coupon/link expiration. Both must match exactly. |
+| Calendar link not configured | "Add to Calendar" buttons on confirmation page and emails do nothing or link to wrong event | Generate the \`.ics\` file with correct event title, date, time, timezone, and join URL. Test the Google Calendar link format: \`https://calendar.google.com/calendar/render?action=TEMPLATE&text={{title}}&dates={{start}}/{{end}}&details={{description}}&location={{joinLink}}\`. |
+| ActiveCampaign integration not connected | \`activecampaign\` nodes fail silently or error | Verify the organization's ActiveCampaign API credentials are configured in integration settings before activating any workflow. |
+| Sequence not linked to workflow | Registrants receive confirmation but no follow-up reminders | Ensure objectLink exists: \`{ sourceObjectId: <WORKFLOW_ID>, targetObjectId: <SEQUENCE_ID>, linkType: "workflow_sequence" }\`. |
+| Pipeline stage IDs mismatch | \`move-pipeline-stage\` action fails or moves to wrong stage | The \`pipelineStageId\` values in all \`lc_crm\` node configs must exactly match the stage IDs defined in the CRM pipeline. Copy-paste from the pipeline definition, do not retype. |
+| Workflow left in draft status | No automations execute despite everything being configured | After saving all nodes/edges, call \`updateWorkflowStatus({ status: "active" })\` for each workflow. |
+| SMS not sent (phone not collected) | 1-hour SMS reminder fails silently for registrants who skipped the phone field | The phone field is optional in the form. The \`lc_sms\` node should gracefully skip contacts without a phone number. Consider making phone required if SMS reminders are critical. |
 
 ### Pre-Launch Self-Check List
 
 1. Registration form exists and is published (\`publishForm\` was called).
-2. Form \`formId\` is set in Workflow 1 \`trigger_form_submitted\` node config.
-3. \`objectLink\` with \`linkType: "workflow_form"\` connects Workflow 1 to form.
-4. Post-webinar product exists with correct price and \`saleEndDate\`.
-5. \`objectLink\` with \`linkType: "checkout_product"\` connects checkout to product.
-6. All \`pipelineStageId\` values in \`lc_crm\` nodes match actual pipeline stage IDs.
-7. ActiveCampaign \`listId\` and tags are real (not placeholders).
-8. \`lc_email\` sender identity is configured and verified.
-9. Join link is valid and tested.
-10. Replay link is ready (or placeholder will be swapped before post-webinar workflows fire).
-11. Webinar platform webhook is configured to POST to \`/webinar-attendance\`.
-12. Webhook payload format matches \`if_then\` expression in Workflow 3.
-13. \`trigger_schedule\` cron expression and timezone are correct for 7 days before webinar.
-14. All six workflows have \`status: "active"\`.
-15. Registration page \`formSettings.redirectUrl\` points to the thank-you page.
-16. Builder apps (all 5 pages) are deployed.
-17. Calendar add link on thank-you page contains correct date, time, timezone, and join URL.
-18. Offer page checkout CTA points to the correct checkout URL.
-19. Phone field on form is \`required: true\` (needed for SMS).
-20. Replay deadline date is set and referenced consistently across all email copy.
+2. Form \`formId\` is set in Workflow 1's \`trigger_form_submitted\` node config.
+3. \`objectLink\` with \`linkType: "workflow_form"\` connects Workflow 1 to the registration form.
+4. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 1 to the pre-webinar reminder sequence (if using sequence approach).
+5. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 3 to the post-attended sequence.
+6. \`objectLink\` with \`linkType: "workflow_sequence"\` connects Workflow 3 to the post-noshow sequence (or Workflow 4 to the no-show sequence).
+7. All \`pipelineStageId\` values in \`lc_crm\` nodes match actual pipeline stage IDs.
+8. ActiveCampaign \`listId\`, \`tag\`, and credential configuration are verified.
+9. \`lc_email\` sender identity is configured and verified.
+10. Registration page \`formSettings.redirectUrl\` points to the confirmation page.
+11. Calendar link on the confirmation page generates a valid \`.ics\` file or Google Calendar URL with correct date, time, timezone, and join link.
+12. All four workflows have \`status: "active"\`.
+13. \`trigger_schedule\` cron expressions match the correct dates (7 days before webinar, 2 days after webinar).
+14. Webinar join link is populated in the 1-hour reminder email and SMS templates.
+15. Replay link placeholder is documented for post-webinar update.
+16. Offer product/link is created and the deadline matches the email copy.
+17. Builder apps (registration page, confirmation page) are deployed and accessible.
+18. Test a registration end-to-end: submit form, verify CRM contact created, verify confirmation email received, verify ActiveCampaign sync.
 
 ---
 
 ## 10. Example Deployment Scenario
 
-### Scenario: SaaS Company Webinar -- "How to 10x Your Sales Pipeline with AI"
+### Scenario: Business Coaching Webinar
 
-A marketing agency ("Growth Lever Agency") sets up a webinar funnel for their client, "PipelineAI" (a SaaS company). The webinar is hosted by CEO Jane Smith. **Webinar: "How to 10x Your Sales Pipeline with AI"**, scheduled for **March 20, 2026 at 2:00 PM EST**. Post-webinar offer: **"AI Sales Accelerator"** annual plan, **$1,997/year** (webinar-only price, normally $2,997/year).
+A marketing agency ("Growth Partner Agency") sets up a webinar for their client, business coach **Marcus Johnson**. The webinar is **"The 5-Figure Client Blueprint: How to Land Premium Clients Without Cold Calling"**, scheduled for **March 15, 2025 at 2:00 PM EST**. The back-end offer is a **12-Week Coaching Program** priced at **$2,997** with a webinar-exclusive discount of **$1,997** for attendees.
 
 ---
 
@@ -14575,19 +14620,19 @@ A marketing agency ("Growth Lever Agency") sets up a webinar funnel for their cl
 createProject({
   sessionId: "<SESSION_ID>",
   organizationId: "<ORG_ID>",
-  name: "PipelineAI - 10x Sales Webinar Funnel",
+  name: "Marcus Johnson - 5-Figure Client Blueprint Webinar",
   subtype: "campaign",
-  description: "Webinar funnel for 'How to 10x Your Sales Pipeline with AI' hosted by CEO Jane Smith. Target: B2B sales leaders at companies with 10-500 employees. Post-webinar offer: AI Sales Accelerator annual plan at $1,997.",
-  startDate: 1741996800000,
-  endDate: 1743206400000
+  description: "Live webinar funnel for business coach Marcus Johnson. Webinar: The 5-Figure Client Blueprint. Offer: 12-Week Coaching Program ($2,997 regular, $1,997 webinar-only). Target: service-based business owners doing $5K-$15K/month who want to land premium clients.",
+  startDate: 1740787200000,
+  endDate: 1742601600000
 })
-// Returns: projectId = "proj_pipeline_webinar_001"
+// Returns: projectId = "proj_mj_webinar_001"
 \`\`\`
 
 \`\`\`
 initializeProjectFolders({
   organizationId: "<ORG_ID>",
-  projectId: "proj_pipeline_webinar_001"
+  projectId: "proj_mj_webinar_001"
 })
 \`\`\`
 
@@ -14599,143 +14644,133 @@ initializeProjectFolders({
 createForm({
   sessionId: "<SESSION_ID>",
   organizationId: "<ORG_ID>",
-  name: "10x Sales Pipeline Webinar Registration",
-  description: "Captures registrations for the March 20 webinar with Jane Smith",
+  name: "5-Figure Client Blueprint Webinar Registration",
+  description: "Registration form for Marcus Johnson's premium client acquisition webinar",
   fields: [
-    { "type": "email",  "label": "Email Address",  "required": true,  "placeholder": "you@company.com" },
-    { "type": "text",   "label": "First Name",     "required": true,  "placeholder": "Jane" },
-    { "type": "text",   "label": "Last Name",      "required": true,  "placeholder": "Smith" },
-    { "type": "phone",  "label": "Phone Number",   "required": true,  "placeholder": "+1 (555) 000-0000" }
+    { "type": "text",    "label": "First Name",       "required": true,  "placeholder": "Marcus" },
+    { "type": "text",    "label": "Last Name",        "required": true,  "placeholder": "Johnson" },
+    { "type": "email",   "label": "Email Address",     "required": true,  "placeholder": "you@company.com" },
+    { "type": "phone",   "label": "Phone Number",      "required": false, "placeholder": "+1 (555) 000-0000" },
+    { "type": "text",    "label": "Business Name",     "required": false, "placeholder": "Your business name" },
+    { "type": "select",  "label": "What's your biggest challenge with landing premium clients?", "required": true,
+      "options": [
+        "I don't know how to find them",
+        "I attract low-budget clients instead",
+        "I struggle with pricing and proposals",
+        "I rely on referrals and need a system",
+        "I'm just getting started"
+      ]
+    }
   ],
   formSettings: {
-    "redirectUrl": "/thank-you-10x-webinar",
+    "redirectUrl": "/webinar-confirmed",
     "notifications": { "adminEmail": true, "respondentEmail": true },
     "submissionBehavior": "redirect"
   }
 })
-// Returns: formId = "form_10x_webinar_001"
+// Returns: formId = "form_mj_webinar_001"
 \`\`\`
 
 \`\`\`
-publishForm({ sessionId: "<SESSION_ID>", formId: "form_10x_webinar_001" })
-\`\`\`
-
----
-
-### Step 3: Create the Post-Webinar Product
-
-\`\`\`
-createProduct({
-  sessionId: "<SESSION_ID>",
-  organizationId: "<ORG_ID>",
-  name: "AI Sales Accelerator - Annual Plan (Webinar Offer)",
-  subtype: "digital",
-  price: 199700,
-  currency: "USD",
-  description: "Annual subscription to PipelineAI's AI Sales Accelerator platform. Includes: AI-powered lead scoring, automated outreach sequences, pipeline analytics dashboard, 1-on-1 onboarding call, private Slack community access, and 12 months of product updates.",
-  productCode: "AISA-ANNUAL-WEBINAR",
-  saleStartDate: 1742493600000,
-  saleEndDate: 1743012000000,
-  maxQuantity: 100
-})
-// Returns: productId = "prod_aisa_webinar_001"
-\`\`\`
-
-\`\`\`
-publishProduct({ sessionId: "<SESSION_ID>", productId: "prod_aisa_webinar_001" })
+publishForm({ sessionId: "<SESSION_ID>", formId: "form_mj_webinar_001" })
 \`\`\`
 
 ---
 
-### Step 4: Create the CRM Pipeline
+### Step 3: Create CRM Pipeline
 
 The pipeline is configured within the organization's CRM settings with these stages:
 
 | Stage ID | Stage Name | Description |
 |----------|-----------|-------------|
-| \`registered\` | Registered | Signed up for the webinar |
-| \`reminded\` | Reminded | Received at least one reminder |
-| \`attended\` | Attended | Joined the live webinar |
-| \`stayed_to_offer\` | Stayed to Offer | Stayed through the presentation to the offer reveal |
-| \`no_show\` | No-Show | Did not attend the live session |
-| \`replay_watched\` | Replay Watched | Watched the replay recording |
-| \`purchased\` | Purchased | Bought the AI Sales Accelerator |
-| \`follow_up\` | Follow-Up | Did not purchase; flagged for manual sales outreach |
+| \`registered\` | Registered | Submitted webinar registration form |
+| \`reminded\` | Reminded | Received 7-day reminder email |
+| \`attended\` | Attended | Attended the live webinar |
+| \`no_show\` | No-Show | Did not attend the live webinar |
+| \`stayed_to_offer\` | Stayed to Offer | Watched through to the offer pitch |
+| \`purchased\` | Purchased | Bought the 12-Week Coaching Program |
+| \`follow_up\` | Follow-Up | Completed post-webinar sequence, not yet converted |
 
 ---
 
-### Step 5: Create the Registration Workflow
+### Step 4: Create Workflow 1 -- Webinar Registration
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "10x Webinar Registration",
-  description: "Captures webinar registrations, creates CRM leads, sends confirmation with join link and calendar invite, syncs to ActiveCampaign"
+  name: "MJ Webinar - Registration",
+  description: "Captures registrations for The 5-Figure Client Blueprint webinar, creates CRM lead, sends confirmation with calendar link, syncs to ActiveCampaign"
 })
-// Returns: workflowId = "wf_10x_registration_001"
+// Returns: workflowId = "wf_mj_registration_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_registration_001",
-  name: "10x Webinar Registration",
+  workflowId: "wf_mj_registration_001",
+  name: "MJ Webinar - Registration",
   nodes: [
     {
       "id": "trigger-1",
       "type": "trigger_form_submitted",
-      "position": { "x": 100, "y": 300 },
-      "config": { "formId": "form_10x_webinar_001" },
+      "position": { "x": 100, "y": 250 },
+      "config": { "formId": "form_mj_webinar_001" },
       "status": "ready",
       "label": "Webinar Registration Submitted"
     },
     {
       "id": "crm-1",
       "type": "lc_crm",
-      "position": { "x": 350, "y": 300 },
+      "position": { "x": 350, "y": 250 },
       "config": {
         "action": "create-contact",
         "contactType": "lead",
-        "tags": ["10x_sales_webinar", "registrant"],
+        "tags": ["webinar-registrant", "5-figure-client-blueprint", "marcus-johnson"],
         "mapFields": {
           "email": "{{trigger.email}}",
           "firstName": "{{trigger.firstName}}",
           "lastName": "{{trigger.lastName}}",
-          "phone": "{{trigger.phone}}"
+          "phone": "{{trigger.phone}}",
+          "companyName": "{{trigger.businessName}}",
+          "customFields": {
+            "biggestChallenge": "{{trigger.whatIsYourBiggestChallengeWithLandingPremiumClients}}",
+            "webinarAttended": false,
+            "registrationSource": "webinar-landing-page"
+          }
         }
       },
       "status": "ready",
-      "label": "Create Webinar Lead"
+      "label": "Create Registrant Contact"
     },
     {
       "id": "crm-2",
       "type": "lc_crm",
-      "position": { "x": 600, "y": 150 },
+      "position": { "x": 600, "y": 100 },
       "config": {
         "action": "move-pipeline-stage",
         "contactId": "{{crm-1.output.contactId}}",
         "pipelineStageId": "registered"
       },
       "status": "ready",
-      "label": "Pipeline: Registered"
+      "label": "Move to Registered"
     },
     {
       "id": "email-1",
       "type": "lc_email",
-      "position": { "x": 600, "y": 300 },
+      "position": { "x": 600, "y": 250 },
       "config": {
         "action": "send-confirmation-email",
         "to": "{{crm-1.output.email}}",
-        "subject": "You're in! 10x Your Sales Pipeline with AI -- March 20 at 2 PM EST",
-        "body": "Hi {{crm-1.output.firstName}},\\n\\nYou're confirmed for \\"How to 10x Your Sales Pipeline with AI\\" with PipelineAI CEO Jane Smith!\\n\\nDate: Thursday, March 20, 2026\\nTime: 2:00 PM EST\\nJoin Link: https://webinar.pipelineai.com/10x-sales\\n\\nAdd to your calendar: https://calendar.pipelineai.com/10x-sales-invite\\n\\nIn this 60-minute masterclass, you'll discover:\\n\\n1. The AI Prospecting System that finds your ideal buyers while you sleep (and why manual prospecting is dead)\\n2. The Follow-Up Framework that turns cold leads into booked demos in 48 hours (without sounding robotic)\\n3. The Pipeline Multiplier that helped our clients close 3-5x more deals in 90 days (with the same team size)\\n\\nPlus, everyone who attends LIVE gets a free copy of our AI Sales Playbook (valued at $497).\\n\\nWe'll send you reminders before the event so you don't miss it.\\n\\nSee you on March 20!\\nJane Smith\\nCEO, PipelineAI"
+        "subject": "You're in! The 5-Figure Client Blueprint is on March 15",
+        "body": "Hi {{crm-1.output.firstName}},\\n\\nYou're confirmed for The 5-Figure Client Blueprint!\\n\\nHere are the details:\\n\\nWhat: The 5-Figure Client Blueprint: How to Land Premium Clients Without Cold Calling\\nWhen: Saturday, March 15, 2025 at 2:00 PM EST\\nWhere: Online (your join link will arrive 1 hour before we go live)\\n\\nAdd to your calendar: https://calendar.google.com/calendar/render?action=TEMPLATE&text=The+5-Figure+Client+Blueprint&dates=20250315T190000Z/20250315T210000Z&details=Join+Marcus+Johnson+live&location=Zoom\\n\\nHere's what I'll cover:\\n- The 3-step system I use to attract $10K+ clients on autopilot\\n- Why cold calling and cold DMs are killing your brand (and what to do instead)\\n- The exact positioning framework that makes premium clients come to YOU\\n- A live Q&A where I'll answer your specific questions\\n\\nThis is going to be a high-value session. Bring a notebook.\\n\\nSee you on the 15th,\\nMarcus Johnson\\n\\nP.S. Can't make it live? Register anyway. I'll send you the replay if you're on the list."
       },
       "status": "ready",
-      "label": "Send Confirmation + Join Link"
+      "label": "Send Confirmation + Calendar Link"
     },
     {
       "id": "ac-1",
       "type": "activecampaign",
-      "position": { "x": 600, "y": 500 },
+      "position": { "x": 600, "y": 450 },
       "config": {
         "action": "add_contact",
         "email": "{{crm-1.output.email}}",
@@ -14748,11 +14783,11 @@ saveWorkflow({
     {
       "id": "ac-2",
       "type": "activecampaign",
-      "position": { "x": 850, "y": 500 },
+      "position": { "x": 850, "y": 450 },
       "config": {
         "action": "add_tag",
         "contactEmail": "{{crm-1.output.email}}",
-        "tag": "10x_sales_webinar_registered"
+        "tag": "webinar-registered-5-figure-blueprint"
       },
       "status": "ready",
       "label": "Tag: Webinar Registered"
@@ -14760,14 +14795,14 @@ saveWorkflow({
     {
       "id": "ac-3",
       "type": "activecampaign",
-      "position": { "x": 1100, "y": 500 },
+      "position": { "x": 1100, "y": 450 },
       "config": {
         "action": "add_to_list",
         "contactEmail": "{{crm-1.output.email}}",
-        "listId": "ac_list_10x_webinar_registrants"
+        "listId": "ac_list_mj_webinar_march2025"
       },
       "status": "ready",
-      "label": "Add to Registrants List"
+      "label": "Add to Webinar List"
     }
   ],
   edges: [
@@ -14778,177 +14813,156 @@ saveWorkflow({
     { "id": "e-5", "source": "ac-1",      "target": "ac-2",    "sourceHandle": "output", "targetHandle": "input" },
     { "id": "e-6", "source": "ac-2",      "target": "ac-3",    "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_form_submitted", "config": { "formId": "form_10x_webinar_001" } }]
+  triggers: [{ "type": "trigger_form_submitted", "config": { "formId": "form_mj_webinar_001" } }]
 })
 \`\`\`
 
 \`\`\`
 updateWorkflowStatus({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_registration_001",
+  workflowId: "wf_mj_registration_001",
   status: "active"
 })
 \`\`\`
 
 ---
 
-### Step 6: Create the Pre-Webinar Reminder Workflow
+### Step 5: Create Workflow 2 -- Webinar Reminders
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "10x Webinar Reminders",
-  description: "Sends anticipation email 7 days before, reminder+SMS 1 day before, SMS 1 hour before, and live notification at start"
+  name: "MJ Webinar - Reminders",
+  description: "Sends 7-day, 1-day, and 1-hour reminders for The 5-Figure Client Blueprint webinar via email and SMS"
 })
-// Returns: workflowId = "wf_10x_reminders_001"
+// Returns: workflowId = "wf_mj_reminders_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_reminders_001",
-  name: "10x Webinar Reminders",
+  workflowId: "wf_mj_reminders_001",
+  name: "MJ Webinar - Reminders",
   nodes: [
     {
       "id": "trigger-1",
       "type": "trigger_schedule",
-      "position": { "x": 100, "y": 300 },
-      "config": { "cronExpression": "0 14 13 3 5", "timezone": "America/New_York" },
+      "position": { "x": 100, "y": 250 },
+      "config": { "cronExpression": "0 9 8 3 *", "timezone": "America/New_York" },
       "status": "ready",
-      "label": "7 Days Before (March 13 2 PM EST)"
+      "label": "March 8 - 7 Days Before"
     },
     {
       "id": "email-1",
       "type": "lc_email",
-      "position": { "x": 350, "y": 300 },
+      "position": { "x": 350, "y": 250 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.contact.email}}",
-        "subject": "\\"How to 10x Your Sales Pipeline with AI\\" is in 7 days",
-        "body": "Hi {{trigger.contact.firstName}},\\n\\nOur masterclass is just one week away!\\n\\nHere's what you'll learn from PipelineAI CEO Jane Smith:\\n\\n- The AI Prospecting System: How to use AI to identify and qualify your ideal buyers automatically -- so your reps spend 100% of their time on high-value conversations\\n- The Follow-Up Framework: The exact 5-touch sequence that turns cold responses into booked demos within 48 hours (we'll show you the actual templates)\\n- The Pipeline Multiplier: How 3 of our clients went from $2M to $8M in annual pipeline in 90 days -- without hiring a single new rep\\n\\nAbout Jane:\\nJane Smith is the CEO of PipelineAI. Before founding PipelineAI, she led sales at two Y Combinator startups from $0 to $10M ARR. She's trained over 500 sales teams on AI-powered selling.\\n\\nTo prepare:\\n- Block off 2:00 PM - 3:00 PM EST on Thursday, March 20\\n- Find a quiet space -- you'll want to take notes\\n- Have your current pipeline metrics handy (we'll do a live benchmark)\\n\\nSee you next Thursday!\\nJane Smith\\nCEO, PipelineAI"
+        "to": "{{contact.email}}",
+        "subject": "The 5-Figure Client Blueprint is in 7 days!",
+        "body": "Hi {{contact.firstName}},\\n\\nJust a quick reminder -- The 5-Figure Client Blueprint webinar is happening in one week!\\n\\nDate: Saturday, March 15, 2025\\nTime: 2:00 PM EST\\n\\nHere's what we'll cover:\\n- The 3-step system I use to attract $10K+ clients on autopilot\\n- Why cold calling and cold DMs are killing your brand\\n- The exact positioning framework that makes premium clients come to YOU\\n- Live Q&A\\n\\nMake sure it's on your calendar: https://calendar.google.com/calendar/render?action=TEMPLATE&text=The+5-Figure+Client+Blueprint&dates=20250315T190000Z/20250315T210000Z&details=Join+Marcus+Johnson+live&location=Zoom\\n\\nSee you on the 15th,\\nMarcus Johnson"
       },
       "status": "ready",
-      "label": "Anticipation Email"
+      "label": "7-Day Reminder Email"
     },
     {
       "id": "wait-1",
       "type": "wait_delay",
-      "position": { "x": 600, "y": 300 },
-      "config": { "duration": 6, "unit": "days" },
+      "position": { "x": 600, "y": 250 },
+      "config": { "duration": 5, "unit": "days" },
       "status": "ready",
-      "label": "Wait 6 Days"
+      "label": "Wait 5 Days"
     },
     {
       "id": "email-2",
       "type": "lc_email",
-      "position": { "x": 850, "y": 300 },
+      "position": { "x": 850, "y": 250 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.contact.email}}",
-        "subject": "TOMORROW: How to 10x Your Sales Pipeline with AI",
-        "body": "Hi {{trigger.contact.firstName}},\\n\\n\\"How to 10x Your Sales Pipeline with AI\\" is TOMORROW at 2:00 PM EST.\\n\\nJoin Link: https://webinar.pipelineai.com/10x-sales\\n\\nQuick recap of what we'll cover:\\n1. The AI Prospecting System (find buyers while you sleep)\\n2. The Follow-Up Framework (cold leads to demos in 48 hours)\\n3. The Pipeline Multiplier (3-5x more deals, same team)\\n\\nPlus, everyone who attends LIVE gets our AI Sales Playbook ($497 value) free.\\n\\nSee you tomorrow!\\nJane"
+        "to": "{{contact.email}}",
+        "subject": "Tomorrow: The 5-Figure Client Blueprint -- don't miss this",
+        "body": "Hi {{contact.firstName}},\\n\\nThe 5-Figure Client Blueprint is TOMORROW.\\n\\nDate: Saturday, March 15, 2025\\nTime: 2:00 PM EST\\n\\nI'll be sharing the exact framework I used to go from chasing $500 clients to consistently landing $10K+ engagements -- without a single cold call.\\n\\nThis is going to be one of the most valuable 90 minutes you spend this month.\\n\\nYour join link will arrive 1 hour before we go live. Keep an eye on your inbox.\\n\\nSee you tomorrow,\\nMarcus Johnson\\n\\nP.S. Clear your schedule for 90 minutes. You'll want to take notes."
       },
       "status": "ready",
-      "label": "Tomorrow Reminder Email"
-    },
-    {
-      "id": "sms-1",
-      "type": "lc_sms",
-      "position": { "x": 1100, "y": 300 },
-      "config": {
-        "to": "{{trigger.contact.phone}}",
-        "body": "Reminder: \\"10x Your Sales Pipeline with AI\\" is TOMORROW at 2 PM EST with PipelineAI CEO Jane Smith. Save your spot: https://webinar.pipelineai.com/10x-sales"
-      },
-      "status": "ready",
-      "label": "Tomorrow SMS"
+      "label": "1-Day Reminder Email"
     },
     {
       "id": "wait-2",
       "type": "wait_delay",
-      "position": { "x": 1350, "y": 300 },
+      "position": { "x": 1100, "y": 250 },
       "config": { "duration": 23, "unit": "hours" },
       "status": "ready",
       "label": "Wait 23 Hours"
     },
     {
-      "id": "sms-2",
-      "type": "lc_sms",
-      "position": { "x": 1600, "y": 300 },
-      "config": {
-        "to": "{{trigger.contact.phone}}",
-        "body": "Starting in 1 HOUR! \\"10x Your Sales Pipeline with AI\\" begins at 2 PM EST. Join here: https://webinar.pipelineai.com/10x-sales"
-      },
-      "status": "ready",
-      "label": "1 Hour SMS"
-    },
-    {
-      "id": "wait-3",
-      "type": "wait_delay",
-      "position": { "x": 1850, "y": 300 },
-      "config": { "duration": 1, "unit": "hours" },
-      "status": "ready",
-      "label": "Wait 1 Hour"
-    },
-    {
       "id": "email-3",
       "type": "lc_email",
-      "position": { "x": 2100, "y": 300 },
+      "position": { "x": 1350, "y": 150 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.contact.email}}",
-        "subject": "We're LIVE! Join \\"10x Your Sales Pipeline\\" NOW",
-        "body": "Hi {{trigger.contact.firstName}},\\n\\n\\"How to 10x Your Sales Pipeline with AI\\" is happening RIGHT NOW!\\n\\nJoin here: https://webinar.pipelineai.com/10x-sales\\n\\nJane is starting with the story of how one sales rep went from 12 demos/month to 47 demos/month using the AI Prospecting System.\\n\\nDon't miss it!\\n\\nThe PipelineAI Team"
+        "to": "{{contact.email}}",
+        "subject": "We're live in 60 minutes -- here's your link",
+        "body": "Hi {{contact.firstName}},\\n\\nThe 5-Figure Client Blueprint starts in 1 hour.\\n\\nJoin here: https://zoom.us/j/mj-5figure-blueprint\\n\\nGrab a notebook, a coffee, and be ready to take action. I'm going to share strategies you can implement THIS WEEK.\\n\\nSee you inside,\\nMarcus Johnson"
       },
       "status": "ready",
-      "label": "We're Live Email"
+      "label": "1-Hour Reminder Email"
+    },
+    {
+      "id": "sms-1",
+      "type": "lc_sms",
+      "position": { "x": 1350, "y": 350 },
+      "config": {
+        "to": "{{contact.phone}}",
+        "body": "Marcus Johnson here. The 5-Figure Client Blueprint starts in 1 hour. Join now: https://zoom.us/j/mj-5figure-blueprint"
+      },
+      "status": "ready",
+      "label": "1-Hour SMS Reminder"
     }
   ],
   edges: [
     { "id": "e-1", "source": "trigger-1", "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
     { "id": "e-2", "source": "email-1",   "target": "wait-1",  "sourceHandle": "output", "targetHandle": "input" },
     { "id": "e-3", "source": "wait-1",    "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-4", "source": "email-2",   "target": "sms-1",   "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-5", "source": "sms-1",     "target": "wait-2",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-6", "source": "wait-2",    "target": "sms-2",   "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-7", "source": "sms-2",     "target": "wait-3",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-8", "source": "wait-3",    "target": "email-3", "sourceHandle": "output", "targetHandle": "input" }
+    { "id": "e-4", "source": "email-2",   "target": "wait-2",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "wait-2",    "target": "email-3", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-6", "source": "wait-2",    "target": "sms-1",   "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 14 13 3 5", "timezone": "America/New_York" } }]
+  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 9 8 3 *", "timezone": "America/New_York" } }]
 })
 \`\`\`
 
 \`\`\`
 updateWorkflowStatus({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_reminders_001",
+  workflowId: "wf_mj_reminders_001",
   status: "active"
 })
 \`\`\`
 
 ---
 
-### Step 7: Create the Attendance Tracking Workflow
+### Step 6: Create Workflow 3 -- Post-Webinar (Attended vs No-Show)
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "10x Webinar Attendance Tracking",
-  description: "Receives attendance webhook from webinar platform, splits attended vs no-show, updates tags and pipeline"
+  name: "MJ Webinar - Post-Webinar Attendance",
+  description: "Processes attendance data, branches attended vs no-show, sends replay/offer, tags in ActiveCampaign"
 })
-// Returns: workflowId = "wf_10x_attendance_001"
+// Returns: workflowId = "wf_mj_postwebinar_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_attendance_001",
-  name: "10x Webinar Attendance Tracking",
+  workflowId: "wf_mj_postwebinar_001",
+  name: "MJ Webinar - Post-Webinar Attendance",
   nodes: [
     {
       "id": "trigger-1",
       "type": "trigger_webhook",
       "position": { "x": 100, "y": 300 },
-      "config": { "path": "/webinar-attendance", "secret": "<WEBHOOK_SECRET>" },
+      "config": { "path": "/mj-webinar-attendance", "secret": "mj_5fig_attendance_2025" },
       "status": "ready",
       "label": "Attendance Webhook"
     },
@@ -14958,325 +14972,429 @@ saveWorkflow({
       "position": { "x": 350, "y": 300 },
       "config": { "expression": "{{trigger.attended}} === true" },
       "status": "ready",
-      "label": "Did They Attend?"
+      "label": "Did Attend?"
     },
     {
       "id": "crm-1",
       "type": "lc_crm",
-      "position": { "x": 600, "y": 150 },
+      "position": { "x": 600, "y": 100 },
       "config": {
         "action": "update-contact",
         "contactId": "{{trigger.contactId}}",
-        "tags": ["attended", "10x_sales_webinar_attended"]
+        "customFields": { "webinarAttended": true }
       },
       "status": "ready",
-      "label": "Tag: Attended"
+      "label": "Update: Attended = true"
     },
     {
       "id": "crm-2",
       "type": "lc_crm",
-      "position": { "x": 850, "y": 150 },
+      "position": { "x": 850, "y": 100 },
       "config": {
         "action": "move-pipeline-stage",
         "contactId": "{{trigger.contactId}}",
         "pipelineStageId": "attended"
       },
       "status": "ready",
-      "label": "Pipeline: Attended"
+      "label": "Move to Attended"
     },
     {
-      "id": "if-2",
-      "type": "if_then",
-      "position": { "x": 1100, "y": 150 },
-      "config": { "expression": "{{trigger.stayedToOffer}} === true" },
-      "status": "ready",
-      "label": "Stayed to Offer?"
-    },
-    {
-      "id": "crm-5",
-      "type": "lc_crm",
-      "position": { "x": 1350, "y": 50 },
+      "id": "email-1",
+      "type": "lc_email",
+      "position": { "x": 1100, "y": 100 },
       "config": {
-        "action": "move-pipeline-stage",
-        "contactId": "{{trigger.contactId}}",
-        "pipelineStageId": "stayed_to_offer"
+        "action": "send-confirmation-email",
+        "to": "{{contact.email}}",
+        "subject": "Your replay + a thank-you gift from The 5-Figure Client Blueprint",
+        "body": "Hi {{contact.firstName}},\\n\\nThank you for showing up live to The 5-Figure Client Blueprint! That tells me you're serious about landing premium clients.\\n\\nHere's what I promised:\\n\\nReplay: https://marcusjohnson.com/5-figure-replay\\nSlides: https://marcusjohnson.com/5-figure-slides\\n\\nDuring the webinar, I walked through the 3-step Premium Client Attraction System. If you're ready to implement it with my hands-on guidance, I'd like to invite you to my 12-Week Coaching Program.\\n\\nBecause you showed up live, you get the exclusive attendee rate:\\n\\nRegular price: $2,997\\nYour price: $1,997 (save $1,000)\\n\\nThis offer is only available until Friday, March 21 at midnight EST.\\n\\nLearn more and enroll: https://marcusjohnson.com/coaching-program?ref=webinar-live\\n\\nI only take 15 clients per cohort, and 4 spots are already filled.\\n\\nTo your growth,\\nMarcus Johnson"
       },
       "status": "ready",
-      "label": "Pipeline: Stayed to Offer"
+      "label": "Replay + Offer (Attended)"
+    },
+    {
+      "id": "ac-1",
+      "type": "activecampaign",
+      "position": { "x": 1350, "y": 100 },
+      "config": {
+        "action": "add_tag",
+        "contactEmail": "{{contact.email}}",
+        "tag": "webinar-attended-5-figure-blueprint"
+      },
+      "status": "ready",
+      "label": "Tag: Attended"
     },
     {
       "id": "crm-3",
       "type": "lc_crm",
-      "position": { "x": 600, "y": 450 },
+      "position": { "x": 600, "y": 500 },
       "config": {
         "action": "update-contact",
         "contactId": "{{trigger.contactId}}",
-        "tags": ["no_show", "10x_sales_webinar_no_show"]
+        "customFields": { "webinarAttended": false }
       },
       "status": "ready",
-      "label": "Tag: No-Show"
+      "label": "Update: Attended = false"
     },
     {
       "id": "crm-4",
       "type": "lc_crm",
-      "position": { "x": 850, "y": 450 },
+      "position": { "x": 850, "y": 500 },
       "config": {
         "action": "move-pipeline-stage",
         "contactId": "{{trigger.contactId}}",
         "pipelineStageId": "no_show"
       },
       "status": "ready",
-      "label": "Pipeline: No-Show"
+      "label": "Move to No-Show"
+    },
+    {
+      "id": "email-2",
+      "type": "lc_email",
+      "position": { "x": 1100, "y": 500 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{contact.email}}",
+        "subject": "You missed The 5-Figure Client Blueprint -- replay inside",
+        "body": "Hi {{contact.firstName}},\\n\\nI noticed you couldn't make it to The 5-Figure Client Blueprint live. No worries -- life happens.\\n\\nThe good news: the replay is ready for you.\\n\\nWatch it here: https://marcusjohnson.com/5-figure-replay\\n\\nIn this training, I covered:\\n- The 3-step system I use to attract $10K+ clients on autopilot\\n- Why cold calling and cold DMs are killing your brand (and what to do instead)\\n- The exact positioning framework that makes premium clients come to YOU\\n\\nThe replay will be available until Friday, March 21. After that, it comes down.\\n\\nDon't let this one slip by,\\nMarcus Johnson"
+      },
+      "status": "ready",
+      "label": "Replay Available (No-Show)"
+    },
+    {
+      "id": "ac-2",
+      "type": "activecampaign",
+      "position": { "x": 1350, "y": 500 },
+      "config": {
+        "action": "add_tag",
+        "contactEmail": "{{contact.email}}",
+        "tag": "webinar-noshow-5-figure-blueprint"
+      },
+      "status": "ready",
+      "label": "Tag: No-Show"
     }
   ],
   edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "if-1",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "if-1",      "target": "crm-1", "sourceHandle": "true",   "targetHandle": "input" },
-    { "id": "e-3", "source": "if-1",      "target": "crm-3", "sourceHandle": "false",  "targetHandle": "input" },
-    { "id": "e-4", "source": "crm-1",     "target": "crm-2", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-5", "source": "crm-3",     "target": "crm-4", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-6", "source": "crm-2",     "target": "if-2",  "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-7", "source": "if-2",      "target": "crm-5", "sourceHandle": "true",   "targetHandle": "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "if-1",      "target": "crm-1",   "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-3", "source": "crm-1",     "target": "crm-2",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "crm-2",     "target": "email-1", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "email-1",   "target": "ac-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-6", "source": "if-1",      "target": "crm-3",   "sourceHandle": "false",  "targetHandle": "input" },
+    { "id": "e-7", "source": "crm-3",     "target": "crm-4",   "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-8", "source": "crm-4",     "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-9", "source": "email-2",   "target": "ac-2",    "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_webhook", "config": { "path": "/webinar-attendance", "secret": "<WEBHOOK_SECRET>" } }]
+  triggers: [{ "type": "trigger_webhook", "config": { "path": "/mj-webinar-attendance", "secret": "mj_5fig_attendance_2025" } }]
 })
 \`\`\`
 
 \`\`\`
 updateWorkflowStatus({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_attendance_001",
+  workflowId: "wf_mj_postwebinar_001",
   status: "active"
 })
 \`\`\`
 
 ---
 
-### Step 8: Create the Post-Attended and Post-No-Show Workflows
-
-*(These follow the exact node/edge structure defined in Workflows 4 and 5 above, with these real values substituted:)*
-
-**Post-Attended Workflow** (\`wf_10x_post_attended_001\`):
-- Replay link: \`https://webinar.pipelineai.com/10x-sales-replay\`
-- Slides link: \`https://assets.pipelineai.com/10x-sales-slides.pdf\`
-- Offer name: "AI Sales Accelerator - Annual Plan"
-- Offer link: \`https://pipelineai.com/checkout/ai-sales-accelerator-webinar\`
-- Offer price: $1,997/year
-- Regular price: $2,997/year
-- Deadline: March 25, 2026
-- Stack: AI Lead Scoring Engine ($2,400 value), Automated Outreach Sequences ($1,800 value), Pipeline Analytics Dashboard ($1,200 value), 1-on-1 Onboarding Call with Jane ($500 value), Private Slack Community ($600 value), 12 Months of Updates ($1,200 value)
-- Total value: $7,700
-- FAQ: "Does it integrate with my CRM?", "How long until I see results?", "What if it doesn't work for my industry?"
-- Testimonials: "We went from 15 to 52 qualified demos per month in 60 days." -- Mark T., VP Sales at CloudOps; "The AI prospecting alone paid for the entire year in the first month." -- Sarah L., Head of Revenue at DataScale
-
-**Post-No-Show Workflow** (\`wf_10x_post_noshow_001\`):
-- Same replay, offer, and deadline values as above
-- Replay deadline: March 25, 2026 (same as offer deadline)
-
----
-
-### Step 9: Create the Purchase Workflow
+### Step 7: Create Workflow 4 -- Post-Webinar No-Show Nurture
 
 \`\`\`
 createWorkflow({
   sessionId: "<SESSION_ID>",
-  name: "10x Webinar Purchase",
-  description: "Processes AI Sales Accelerator purchases, updates CRM to customer, generates invoice, sends receipt with access"
+  name: "MJ Webinar - No-Show Nurture",
+  description: "Sends urgency-based replay and offer emails to no-shows 2-4 days after the webinar"
 })
-// Returns: workflowId = "wf_10x_purchase_001"
+// Returns: workflowId = "wf_mj_noshow_001"
 \`\`\`
 
 \`\`\`
 saveWorkflow({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_purchase_001",
-  name: "10x Webinar Purchase",
+  workflowId: "wf_mj_noshow_001",
+  name: "MJ Webinar - No-Show Nurture",
   nodes: [
     {
       "id": "trigger-1",
-      "type": "trigger_payment_received",
-      "position": { "x": 100, "y": 300 },
-      "config": { "paymentProvider": "any" },
+      "type": "trigger_schedule",
+      "position": { "x": 100, "y": 250 },
+      "config": { "cronExpression": "0 10 17 3 *", "timezone": "America/New_York" },
       "status": "ready",
-      "label": "Payment Received"
+      "label": "March 17 - 2 Days After Webinar"
     },
     {
-      "id": "crm-1",
-      "type": "lc_crm",
-      "position": { "x": 350, "y": 300 },
-      "config": {
-        "action": "update-contact",
-        "contactId": "{{trigger.contactId}}",
-        "tags": ["customer", "ai_sales_accelerator"]
-      },
+      "id": "if-1",
+      "type": "if_then",
+      "position": { "x": 350, "y": 250 },
+      "config": { "expression": "{{contact.customFields.webinarAttended}} === false" },
       "status": "ready",
-      "label": "Update to Customer"
-    },
-    {
-      "id": "crm-2",
-      "type": "lc_crm",
-      "position": { "x": 600, "y": 150 },
-      "config": {
-        "action": "move-pipeline-stage",
-        "contactId": "{{trigger.contactId}}",
-        "pipelineStageId": "purchased"
-      },
-      "status": "ready",
-      "label": "Pipeline: Purchased"
-    },
-    {
-      "id": "invoice-1",
-      "type": "lc_invoicing",
-      "position": { "x": 600, "y": 300 },
-      "config": {
-        "action": "generate-invoice",
-        "transactionId": "{{trigger.transactionId}}",
-        "contactId": "{{trigger.contactId}}"
-      },
-      "status": "ready",
-      "label": "Generate Invoice"
+      "label": "Is No-Show?"
     },
     {
       "id": "email-1",
       "type": "lc_email",
-      "position": { "x": 600, "y": 450 },
+      "position": { "x": 600, "y": 150 },
       "config": {
         "action": "send-confirmation-email",
-        "to": "{{trigger.customerEmail}}",
-        "subject": "Welcome to AI Sales Accelerator! Here's your access",
-        "body": "Hi {{trigger.customerFirstName}},\\n\\nThank you for joining AI Sales Accelerator!\\n\\nHere's how to get started:\\n\\n1. Log in to your dashboard: https://app.pipelineai.com/login (use the email you registered with)\\n2. Complete the 10-minute onboarding wizard to connect your CRM\\n3. Book your 1-on-1 onboarding call with Jane: https://calendly.com/jane-pipelineai/onboarding\\n4. Join the private Slack community: https://pipelineai.com/slack-invite\\n\\nYour invoice is attached to this email.\\n\\nIf you have any questions, reply to this email or reach us at support@pipelineai.com.\\n\\nWelcome aboard -- let's 10x that pipeline!\\nJane Smith\\nCEO, PipelineAI"
+        "to": "{{contact.email}}",
+        "subject": "The replay is coming down soon -- The 5-Figure Client Blueprint",
+        "body": "Hi {{contact.firstName}},\\n\\nThe replay of The 5-Figure Client Blueprint is still available, but not for much longer.\\n\\nWatch it here: https://marcusjohnson.com/5-figure-replay\\n\\nHere's what people who attended are saying:\\n\\n\\"I landed my first $8,000 client within 2 weeks of implementing Marcus's framework.\\" -- Sarah T., Brand Consultant\\n\\n\\"I stopped cold messaging on LinkedIn and started attracting inbound leads. Game changer.\\" -- David R., Business Coach\\n\\nPlus, I'm offering something special for everyone who watches: my 12-Week Coaching Program at $1,997 (regular $2,997).\\n\\nBut this offer -- and the replay -- expire on Friday, March 21.\\n\\nWatch now: https://marcusjohnson.com/5-figure-replay\\n\\nMarcus Johnson"
       },
       "status": "ready",
-      "label": "Receipt + Access Email"
+      "label": "Replay Urgency Email"
+    },
+    {
+      "id": "wait-1",
+      "type": "wait_delay",
+      "position": { "x": 850, "y": 150 },
+      "config": { "duration": 2, "unit": "days" },
+      "status": "ready",
+      "label": "Wait 2 Days"
+    },
+    {
+      "id": "email-2",
+      "type": "lc_email",
+      "position": { "x": 1100, "y": 150 },
+      "config": {
+        "action": "send-confirmation-email",
+        "to": "{{contact.email}}",
+        "subject": "Last chance: replay expires tonight at midnight",
+        "body": "Hi {{contact.firstName}},\\n\\nThis is your final reminder -- The 5-Figure Client Blueprint replay comes down TONIGHT at midnight EST.\\n\\nWatch now: https://marcusjohnson.com/5-figure-replay\\n\\nIf the strategies I shared resonate with you, my 12-Week Coaching Program is still available at the webinar-exclusive rate of $1,997 (regular $2,997).\\n\\nAfter tonight:\\n- The replay is gone\\n- The $1,000 discount is gone\\n- The next cohort won't open for 3 months\\n\\nEnroll now: https://marcusjohnson.com/coaching-program?ref=webinar-replay\\n\\nI only take 15 clients per cohort. Don't wait and wish you hadn't.\\n\\nMarcus Johnson"
+      },
+      "status": "ready",
+      "label": "Final Replay + Offer Email"
+    },
+    {
+      "id": "crm-1",
+      "type": "lc_crm",
+      "position": { "x": 1350, "y": 150 },
+      "config": {
+        "action": "move-pipeline-stage",
+        "contactId": "{{contact._id}}",
+        "pipelineStageId": "follow_up"
+      },
+      "status": "ready",
+      "label": "Move to Follow-Up"
     }
   ],
   edges: [
-    { "id": "e-1", "source": "trigger-1", "target": "crm-1",     "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-2", "source": "crm-1",     "target": "crm-2",     "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-3", "source": "crm-1",     "target": "invoice-1", "sourceHandle": "output", "targetHandle": "input" },
-    { "id": "e-4", "source": "crm-1",     "target": "email-1",   "sourceHandle": "output", "targetHandle": "input" }
+    { "id": "e-1", "source": "trigger-1", "target": "if-1",    "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-2", "source": "if-1",      "target": "email-1", "sourceHandle": "true",   "targetHandle": "input" },
+    { "id": "e-3", "source": "email-1",   "target": "wait-1",  "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-4", "source": "wait-1",    "target": "email-2", "sourceHandle": "output", "targetHandle": "input" },
+    { "id": "e-5", "source": "email-2",   "target": "crm-1",   "sourceHandle": "output", "targetHandle": "input" }
   ],
-  triggers: [{ "type": "trigger_payment_received", "config": { "paymentProvider": "any" } }]
+  triggers: [{ "type": "trigger_schedule", "config": { "cronExpression": "0 10 17 3 *", "timezone": "America/New_York" } }]
 })
 \`\`\`
 
 \`\`\`
 updateWorkflowStatus({
   sessionId: "<SESSION_ID>",
-  workflowId: "wf_10x_purchase_001",
+  workflowId: "wf_mj_noshow_001",
   status: "active"
 })
 \`\`\`
 
 ---
 
-### Step 10: Link All Objects
+### Step 8: Create Sequences
+
+**Post-Webinar Attended Sequence:**
 
 \`\`\`
-// Link registration workflow to form
+// type: "automation_sequence", subtype: "nachher"
+// name: "MJ Webinar - Post-Attended Sequence"
+// triggerEvent: "contact_tagged"
+// condition: contact has tag "webinar-attended-5-figure-blueprint"
+steps: [
+  {
+    channel: "email",
+    timing: { offset: 2, unit: "hours", referencePoint: "trigger_event" },
+    content: {
+      subject: "Your replay + slides from The 5-Figure Client Blueprint",
+      body: "Hi {{firstName}},\\n\\nThank you for attending The 5-Figure Client Blueprint!\\n\\nAs promised, here are your resources:\\n\\nReplay: https://marcusjohnson.com/5-figure-replay\\nSlides: https://marcusjohnson.com/5-figure-slides\\n\\nRewatch the sections on the Premium Client Attraction System (starts at 22:15) and the Positioning Framework (starts at 47:30) -- those are the two biggest needle-movers.\\n\\nTomorrow, I'll share the #1 thing that separates coaches who charge $500 from those who charge $10,000+.\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 1, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "The #1 thing that separates $500 coaches from $10K coaches",
+      body: "Hi {{firstName}},\\n\\nYesterday's webinar covered a LOT. But if there's ONE thing to implement immediately, it's this:\\n\\nPremium clients don't buy services. They buy outcomes and certainty.\\n\\nWhen you position your offer around a specific, measurable result (\\"land 3 premium clients in 90 days\\") instead of a generic promise (\\"grow your business\\"), everything changes.\\n\\nThat's exactly what we build together in my 12-Week Coaching Program.\\n\\nBecause you attended live, you qualify for the exclusive rate:\\n\\nRegular: $2,997\\nYour price: $1,997\\n\\nLearn more: https://marcusjohnson.com/coaching-program?ref=webinar-live\\n\\nOffer expires Friday, March 21 at midnight EST.\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 2, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "How Sarah went from $3K months to $15K months in 90 days",
+      body: "Hi {{firstName}},\\n\\nI want to share a quick case study.\\n\\nSarah T. came to me 6 months ago. She was a brand consultant charging $1,500 per project, working with anyone who would pay. She was burning out.\\n\\nIn the first 4 weeks of the 12-Week Coaching Program, we:\\n- Narrowed her niche to SaaS startups raising Series A\\n- Rebuilt her offer as a $8,000 Brand Positioning Sprint\\n- Set up an inbound lead system using the framework from the webinar\\n\\nBy week 8, she had landed 2 clients at $8,000 each. By week 12, she had a waitlist.\\n\\nHer words: \\"I went from chasing clients to choosing them.\\"\\n\\nIf you're ready for a similar transformation:\\nhttps://marcusjohnson.com/coaching-program?ref=webinar-live\\n\\nReminder: the $1,997 rate expires Friday at midnight.\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 4, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "48 hours left: 12-Week Coaching Program closes Friday",
+      body: "Hi {{firstName}},\\n\\nQuick update: the 12-Week Coaching Program at the webinar-exclusive rate of $1,997 closes in 48 hours.\\n\\nAfter Friday at midnight EST:\\n- The price goes back to $2,997\\n- The current cohort fills up (only 11 spots remain)\\n- The next cohort doesn't start for 3 months\\n\\nHere's what's included:\\n- 12 weekly 1-on-1 coaching calls (60 min each)\\n- Custom client attraction system built for YOUR business\\n- Positioning and messaging overhaul\\n- Proposal and pricing templates that close premium deals\\n- Private community of 15 high-level peers\\n- Lifetime access to course materials\\n\\nCommon questions:\\nQ: What if I'm not ready?\\nA: If you're doing $5K+/month and want to hit $15K+, you're ready.\\n\\nQ: Is there a payment plan?\\nA: Yes. 3 payments of $699.\\n\\nQ: What if it doesn't work?\\nA: 30-day money-back guarantee. If you don't see results, you pay nothing.\\n\\nEnroll before Friday: https://marcusjohnson.com/coaching-program?ref=webinar-live\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 6, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "Final call: coaching program closes tonight at midnight",
+      body: "Hi {{firstName}},\\n\\nThis is the last email I'll send about the 12-Week Coaching Program.\\n\\nTonight at midnight EST, the webinar-exclusive rate of $1,997 expires. The price goes back to $2,997 and the current cohort closes.\\n\\nIf you've been thinking about it, here's my honest take:\\n\\nThe coaches who transform their businesses aren't the ones who wait for the \\"perfect time.\\" They're the ones who decide and commit.\\n\\nYou showed up to the webinar. You took notes. You saw the framework. The question is: are you going to implement it alone, or do you want someone in your corner?\\n\\nLast chance: https://marcusjohnson.com/coaching-program?ref=webinar-live\\n\\nWhatever you decide, I'm rooting for you.\\n\\nMarcus Johnson\\n\\nP.S. If you have any last questions, reply to this email. I read every response."
+    }
+  }
+]
+\`\`\`
+
+**Post-Webinar No-Show Sequence:**
+
+\`\`\`
+// type: "automation_sequence", subtype: "nachher"
+// name: "MJ Webinar - Post-No-Show Sequence"
+// triggerEvent: "contact_tagged"
+// condition: contact has tag "webinar-noshow-5-figure-blueprint"
+steps: [
+  {
+    channel: "email",
+    timing: { offset: 2, unit: "hours", referencePoint: "trigger_event" },
+    content: {
+      subject: "We missed you -- here's the replay of The 5-Figure Client Blueprint",
+      body: "Hi {{firstName}},\\n\\nI noticed you couldn't make it to The 5-Figure Client Blueprint live. No worries at all -- I know schedules get crazy.\\n\\nThe replay is ready for you:\\nhttps://marcusjohnson.com/5-figure-replay\\n\\nIn this 90-minute training, I covered:\\n- The 3-step system I use to attract $10K+ clients without cold outreach\\n- Why most service-based businesses repel premium clients (and how to fix it)\\n- The Positioning Framework that makes high-value clients come to YOU\\n\\nThe replay is available until Friday, March 21.\\n\\nWatch it here: https://marcusjohnson.com/5-figure-replay\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 1, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "The most powerful strategy from the webinar (in 2 minutes)",
+      body: "Hi {{firstName}},\\n\\nI know 90 minutes is a commitment. So let me give you the single most powerful insight from The 5-Figure Client Blueprint in under 2 minutes:\\n\\nThe #1 reason service providers stay stuck at $3K-$5K/month is they position themselves as a commodity. \\"I do web design.\\" \\"I'm a business coach.\\" \\"I help with marketing.\\"\\n\\nPremium clients don't buy commodities. They buy specific, measurable outcomes delivered by a recognized authority.\\n\\nIn the webinar, I show you exactly how to reposition yourself (with real before/after examples). It's the section starting at 22:15.\\n\\nWatch the full replay: https://marcusjohnson.com/5-figure-replay\\n\\nTrust me -- this one strategy alone can double your rates.\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 3, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "People who watched the replay are already seeing results",
+      body: "Hi {{firstName}},\\n\\nI've been getting messages from people who watched The 5-Figure Client Blueprint replay, and the results are incredible:\\n\\n\\"I rewrote my LinkedIn headline using Marcus's framework and got 3 inbound inquiries within a week.\\" -- Alex M.\\n\\n\\"I raised my prices from $2,500 to $7,500 per project and my first prospect said yes without hesitation.\\" -- Jennifer K.\\n\\nThese results came from the FREE training. Imagine what happens with 12 weeks of hands-on coaching.\\n\\nI'm offering my 12-Week Coaching Program at a special rate of $1,997 (regular $2,997) for everyone who registered for the webinar.\\n\\nBut this offer -- and the replay -- expire Friday, March 21.\\n\\nWatch the replay: https://marcusjohnson.com/5-figure-replay\\nLearn about the program: https://marcusjohnson.com/coaching-program?ref=webinar-replay\\n\\nMarcus Johnson"
+    }
+  },
+  {
+    channel: "email",
+    timing: { offset: 5, unit: "days", referencePoint: "trigger_event" },
+    content: {
+      subject: "Tonight at midnight: replay + offer both expire",
+      body: "Hi {{firstName}},\\n\\nFinal notice: The 5-Figure Client Blueprint replay comes down tonight at midnight EST.\\n\\nAfter tonight:\\n- The replay link will no longer work\\n- The $1,997 coaching program offer expires (goes back to $2,997)\\n- The current cohort closes enrollment\\n\\nIf you haven't watched it yet, this is your last chance:\\nhttps://marcusjohnson.com/5-figure-replay\\n\\nAnd if the strategies resonate and you want hands-on help implementing them:\\nhttps://marcusjohnson.com/coaching-program?ref=webinar-replay\\n\\n30-day money-back guarantee. 3-payment option available ($699/month).\\n\\nWhatever you decide, I appreciate you registering. That alone tells me you're serious about growth.\\n\\nMarcus Johnson"
+    }
+  }
+]
+\`\`\`
+
+---
+
+### Step 9: Link All Objects
+
+\`\`\`
+// Workflow 1 -> Form
 objectLinks.create({
-  sourceObjectId: "wf_10x_registration_001",
-  targetObjectId: "form_10x_webinar_001",
+  sourceObjectId: "wf_mj_registration_001",
+  targetObjectId: "form_mj_webinar_001",
   linkType: "workflow_form"
 })
 
-// Link registration workflow to pre-webinar reminder sequence
+// Workflow 3 -> Post-Attended Sequence
 objectLinks.create({
-  sourceObjectId: "wf_10x_registration_001",
-  targetObjectId: "<PRE_WEBINAR_SEQUENCE_ID>",
-  linkType: "workflow_sequence"
-})
-
-// Link post-attended workflow to post-attended sequence
-objectLinks.create({
-  sourceObjectId: "wf_10x_post_attended_001",
+  sourceObjectId: "wf_mj_postwebinar_001",
   targetObjectId: "<POST_ATTENDED_SEQUENCE_ID>",
   linkType: "workflow_sequence"
 })
 
-// Link post-no-show workflow to post-no-show sequence
+// Workflow 3 -> Post-No-Show Sequence
 objectLinks.create({
-  sourceObjectId: "wf_10x_post_noshow_001",
+  sourceObjectId: "wf_mj_postwebinar_001",
   targetObjectId: "<POST_NOSHOW_SEQUENCE_ID>",
   linkType: "workflow_sequence"
 })
 
-// Link checkout to product
+// Project -> Client Contact (Marcus Johnson as stakeholder)
 objectLinks.create({
-  sourceObjectId: "<CHECKOUT_TRANSACTION_ID>",
-  targetObjectId: "prod_aisa_webinar_001",
-  linkType: "checkout_product"
+  sourceObjectId: "proj_mj_webinar_001",
+  targetObjectId: "<MARCUS_JOHNSON_CONTACT_ID>",
+  linkType: "project_contact"
 })
 \`\`\`
 
 ---
 
-### Step 11: Populate the File System
+### Step 10: Populate the File System
 
 \`\`\`
 createVirtualFile({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_pipeline_webinar_001",
-  name: "webinar-script",
+  projectId: "proj_mj_webinar_001",
+  name: "webinar-brief",
   parentPath: "/notes",
-  content: "# 10x Sales Pipeline Webinar Script\\n\\n## Opening (5 min)\\n- Hook: 'What if I told you one sales rep generated 47 demos in a single month -- without making a single cold call?'\\n- Introduce self: Jane Smith, CEO PipelineAI, trained 500+ sales teams\\n- Set the frame: 'Over the next 60 minutes, I'm going to share the 3 secrets that are transforming how B2B companies build pipeline'\\n\\n## Secret 1: The AI Prospecting System (15 min)\\n- False belief: 'You need more SDRs to get more pipeline'\\n- Story: CloudOps had 4 SDRs doing 200 calls/day, getting 15 demos/month\\n- Reframe: AI identifies ideal buyers from intent signals\\n- Proof: Same 4 SDRs, 52 demos/month, zero cold calls\\n\\n## Secret 2: The Follow-Up Framework (15 min)\\n- False belief: 'I'm not good at follow-up' / 'People don't respond'\\n- Story: DataScale's head of revenue was sending 3 follow-ups and giving up\\n- Reframe: 5-touch AI-personalized sequence with timing optimization\\n- Proof: 38% response rate, avg 48 hours to booked demo\\n\\n## Secret 3: The Pipeline Multiplier (15 min)\\n- False belief: 'Scaling pipeline means scaling headcount'\\n- Story: 3 clients went from $2M to $8M pipeline in 90 days\\n- Reframe: AI handles volume, humans handle relationships\\n- Proof: Same team size, 3-5x pipeline growth\\n\\n## The Stack (5 min)\\n- AI Lead Scoring Engine ($2,400)\\n- Automated Outreach Sequences ($1,800)\\n- Pipeline Analytics Dashboard ($1,200)\\n- 1-on-1 Onboarding Call ($500)\\n- Private Slack Community ($600)\\n- 12 Months Updates ($1,200)\\n- Total value: $7,700\\n- Webinar price: $1,997/year\\n\\n## The Close (5 min)\\n- Regular price: $2,997/year\\n- Webinar-only: $1,997/year (save $1,000)\\n- Bonuses removed after March 25\\n- CTA: pipelineai.com/checkout/ai-sales-accelerator-webinar\\n- Guarantee: 90-day money-back if you don't see pipeline growth"
+  content: "# The 5-Figure Client Blueprint Webinar\\n\\n## Overview\\nHost: Marcus Johnson, Business Coach\\nTitle: The 5-Figure Client Blueprint: How to Land Premium Clients Without Cold Calling\\nDate: Saturday, March 15, 2025\\nTime: 2:00 PM EST (90 minutes)\\nPlatform: Zoom\\n\\n## Target Audience\\nService-based business owners (coaches, consultants, freelancers, agencies) doing $5K-$15K/month who want to land premium $10K+ clients without cold outreach.\\n\\n## Key Takeaways\\n1. The 3-step Premium Client Attraction System\\n2. Why cold calling/cold DMs damage your brand\\n3. The Positioning Framework for attracting inbound premium leads\\n4. Live Q&A\\n\\n## Back-End Offer\\n12-Week Coaching Program\\nRegular: $2,997\\nWebinar attendee price: $1,997 (save $1,000)\\nPayment plan: 3x $699\\nDeadline: Friday, March 21, 2025 at midnight EST\\nCapacity: 15 clients per cohort\\n\\n## KPIs\\n- 500 registrations\\n- 40% live attendance rate (200 attendees)\\n- 30% replay watch rate of no-shows (90 replay viewers)\\n- 5% offer conversion (15 sales = $29,955 revenue)"
 })
 
 createVirtualFile({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_pipeline_webinar_001",
-  name: "perfect-webinar-outline",
+  projectId: "proj_mj_webinar_001",
+  name: "speaker-bio",
   parentPath: "/notes",
-  content: "# Perfect Webinar Outline\\n\\n## Origin Story\\nJane Smith built PipelineAI after watching sales teams burn out making hundreds of cold calls daily. At her previous startup, she realized AI could identify buying signals and automate outreach while keeping the human touch for relationship building.\\n\\n## 3 Secrets (False Beliefs to Break)\\n1. Vehicle: 'You don't need more SDRs -- you need smarter prospecting'\\n2. Internal: 'You CAN do follow-up well -- you just need the right system'\\n3. External: 'Scaling doesn't require more headcount -- AI handles the volume'\\n\\n## The Stack\\nAI Sales Accelerator Annual Plan includes 6 components totaling $7,700 in value for $1,997.\\n\\n## The Close\\nWebinar-only pricing, expires March 25. 90-day money-back guarantee."
+  content: "# Marcus Johnson - Speaker Bio\\n\\nMarcus Johnson is a business coach and consultant who helps service-based business owners land premium clients without cold calling. Over the past 8 years, he has helped 200+ coaches, consultants, and freelancers scale from $5K/month to $15K+/month using his Premium Client Attraction System.\\n\\nBefore coaching, Marcus ran a boutique branding agency where he learned firsthand the difference between chasing clients and attracting them. He closed his first $25,000 engagement without a single cold email -- and now teaches others to do the same.\\n\\nMarcus has been featured in Entrepreneur, Forbes Coaches Council, and The Coaching Podcast. He lives in Atlanta, GA with his wife and two kids."
 })
 
 createVirtualFile({
   sessionId: "<SESSION_ID>",
-  projectId: "proj_pipeline_webinar_001",
+  projectId: "proj_mj_webinar_001",
+  name: "email-copy",
+  parentPath: "/notes",
+  content: "# Email Copy - All Sequences\\n\\nSee Step 4 (registration confirmation), Step 5 (reminder emails), Step 6 (post-webinar emails), and Step 8 (sequence emails) for complete email copy.\\n\\nAll emails are written in Marcus Johnson's voice: direct, confident, mentor-like, with specific numbers and social proof. Use short paragraphs. Include P.S. lines on key conversion emails."
+})
+
+createVirtualFile({
+  sessionId: "<SESSION_ID>",
+  projectId: "proj_mj_webinar_001",
   name: "offer-details",
   parentPath: "/notes",
-  content: "# AI Sales Accelerator - Webinar Offer Details\\n\\n## Product\\n- Name: AI Sales Accelerator - Annual Plan\\n- Product code: AISA-ANNUAL-WEBINAR\\n- Webinar price: $1,997/year (199700 cents)\\n- Regular price: $2,997/year\\n- Currency: USD\\n- Sale start: March 20, 2026 (webinar date)\\n- Sale end: March 25, 2026 (offer deadline)\\n- Max quantity: 100\\n\\n## Stack\\n1. AI Lead Scoring Engine -- value $2,400\\n2. Automated Outreach Sequences -- value $1,800\\n3. Pipeline Analytics Dashboard -- value $1,200\\n4. 1-on-1 Onboarding Call with Jane -- value $500\\n5. Private Slack Community -- value $600\\n6. 12 Months of Product Updates -- value $1,200\\n\\nTotal value: $7,700\\n\\n## Bonuses (webinar-only)\\n- AI Sales Playbook PDF ($497 value) -- for live attendees only\\n- Private Slack community lifetime access\\n\\n## Guarantee\\n90-day money-back guarantee. If you don't see measurable pipeline growth in 90 days, full refund, no questions asked."
-})
-
-createVirtualFile({
-  sessionId: "<SESSION_ID>",
-  projectId: "proj_pipeline_webinar_001",
-  name: "faq",
-  parentPath: "/notes",
-  content: "# FAQ - AI Sales Accelerator\\n\\nQ: Does it integrate with my CRM?\\nA: Yes. PipelineAI integrates with Salesforce, HubSpot, Pipedrive, and 20+ other CRMs. Setup takes about 10 minutes.\\n\\nQ: How long until I see results?\\nA: Most customers see their first AI-generated qualified leads within 7 days. Measurable pipeline growth typically shows within 30-60 days.\\n\\nQ: What if it doesn't work for my industry?\\nA: We've trained AI models on 50+ B2B verticals. During your onboarding call, Jane will configure the system for your specific ICP and industry.\\n\\nQ: Do I need technical skills to set it up?\\nA: No. The onboarding wizard guides you through everything. Plus, your 1-on-1 call with Jane covers any custom configuration.\\n\\nQ: What happens after 12 months?\\nA: Your subscription renews at $2,997/year (the regular price). You can cancel anytime before renewal.\\n\\nQ: Is there a monthly plan?\\nA: Not at the webinar price. The $1,997/year offer is annual only. We offer monthly plans at $349/month ($4,188/year) outside of this promotion.\\n\\nQ: What's the refund policy?\\nA: 90-day money-back guarantee. If you don't see measurable pipeline growth, we refund 100%, no questions asked."
+  content: "# 12-Week Coaching Program - Offer Details\\n\\n## Product\\nName: 12-Week Premium Client Coaching Program\\nDelivery: 12 weekly 1-on-1 coaching calls (60 min each)\\n\\n## Pricing\\nRegular: $2,997\\nWebinar-exclusive: $1,997\\nPayment plan: 3 x $699/month\\n\\n## Deadline\\nFriday, March 21, 2025 at 11:59 PM EST\\n\\n## Capacity\\n15 clients per cohort (4 pre-filled at launch)\\n\\n## Guarantee\\n30-day money-back guarantee\\n\\n## Links\\nSales page: https://marcusjohnson.com/coaching-program\\nWebinar attendee link: https://marcusjohnson.com/coaching-program?ref=webinar-live\\nReplay viewer link: https://marcusjohnson.com/coaching-program?ref=webinar-replay\\n\\n## Included\\n- 12 weekly 1-on-1 coaching calls\\n- Custom client attraction system\\n- Positioning and messaging overhaul\\n- Proposal and pricing templates\\n- Private community of 15 peers\\n- Lifetime access to course materials"
 })
 
 captureBuilderApp({
-  projectId: "proj_pipeline_webinar_001",
+  projectId: "proj_mj_webinar_001",
   builderAppId: "<REGISTRATION_PAGE_APP_ID>"
 })
 
 captureBuilderApp({
-  projectId: "proj_pipeline_webinar_001",
-  builderAppId: "<THANK_YOU_PAGE_APP_ID>"
+  projectId: "proj_mj_webinar_001",
+  builderAppId: "<CONFIRMATION_PAGE_APP_ID>"
 })
 
-captureBuilderApp({
-  projectId: "proj_pipeline_webinar_001",
-  builderAppId: "<WEBINAR_ROOM_APP_ID>"
+captureLayerWorkflow({
+  projectId: "proj_mj_webinar_001",
+  layerWorkflowId: "wf_mj_registration_001"
 })
 
-captureBuilderApp({
-  projectId: "proj_pipeline_webinar_001",
-  builderAppId: "<REPLAY_PAGE_APP_ID>"
+captureLayerWorkflow({
+  projectId: "proj_mj_webinar_001",
+  layerWorkflowId: "wf_mj_reminders_001"
 })
 
-captureBuilderApp({
-  projectId: "proj_pipeline_webinar_001",
-  builderAppId: "<OFFER_PAGE_APP_ID>"
+captureLayerWorkflow({
+  projectId: "proj_mj_webinar_001",
+  layerWorkflowId: "wf_mj_postwebinar_001"
 })
 
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_registration_001" })
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_reminders_001" })
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_attendance_001" })
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_post_attended_001" })
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_post_noshow_001" })
-captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: "wf_10x_purchase_001" })
+captureLayerWorkflow({
+  projectId: "proj_mj_webinar_001",
+  layerWorkflowId: "wf_mj_noshow_001"
+})
 \`\`\`
 
 ---
@@ -15285,51 +15403,52 @@ captureLayerWorkflow({ projectId: "proj_pipeline_webinar_001", layerWorkflowId: 
 
 | # | Object Type | Subtype | Name | Key Detail |
 |---|------------|---------|------|-----------|
-| 1 | \`project\` | \`campaign\` | "PipelineAI - 10x Sales Webinar Funnel" | Container for all assets |
-| 2 | \`form\` | \`registration\` | "10x Sales Pipeline Webinar Registration" | 4 fields (all required), published |
-| 3 | \`product\` | \`digital\` | "AI Sales Accelerator - Annual Plan (Webinar Offer)" | $1,997/year, sale ends March 25 |
-| 4 | \`layer_workflow\` | \`workflow\` | "10x Webinar Registration" | 7 nodes, 6 edges, active |
-| 5 | \`layer_workflow\` | \`workflow\` | "10x Webinar Reminders" | 9 nodes, 8 edges, active |
-| 6 | \`layer_workflow\` | \`workflow\` | "10x Webinar Attendance Tracking" | 8 nodes, 7 edges, active |
-| 7 | \`layer_workflow\` | \`workflow\` | "10x Webinar Post-Attended" | 12 nodes, 11 edges, active |
-| 8 | \`layer_workflow\` | \`workflow\` | "10x Webinar Post-No-Show" | 9 nodes, 8 edges, active |
-| 9 | \`layer_workflow\` | \`workflow\` | "10x Webinar Purchase" | 5 nodes, 4 edges, active |
-| 10 | \`automation_sequence\` | \`vorher\` | "10x Webinar Pre-Event Reminders" | 5 touchpoints over 7 days (3 email, 2 SMS) |
-| 11 | \`automation_sequence\` | \`nachher\` | "10x Webinar Post-Attended" | 6 touchpoints over 5 days (5 email, 1 SMS) |
-| 12 | \`automation_sequence\` | \`nachher\` | "10x Webinar Post-No-Show" | 4 emails over 5 days |
-| 13 | \`builder_app\` | \`template_based\` | "10x Webinar Registration Page" | Hero + speaker + bullets + countdown + form + social proof |
-| 14 | \`builder_app\` | \`template_based\` | "10x Webinar Thank You Page" | Confirmation + calendar link + what to expect |
-| 15 | \`builder_app\` | \`template_based\` | "10x Webinar Room Page" | Live stream + chat + offer CTA |
-| 16 | \`builder_app\` | \`template_based\` | "10x Webinar Replay Page" | Recording + offer below + countdown |
-| 17 | \`builder_app\` | \`template_based\` | "10x Webinar Offer Page" | Stack + price + CTA + testimonials + FAQ + guarantee |
+| 1 | \`project\` | \`campaign\` | "Marcus Johnson - 5-Figure Client Blueprint Webinar" | Container for all assets |
+| 2 | \`form\` | \`registration\` | "5-Figure Client Blueprint Webinar Registration" | 6 fields, published |
+| 3 | \`layer_workflow\` | \`workflow\` | "MJ Webinar - Registration" | 7 nodes, 6 edges, active |
+| 4 | \`layer_workflow\` | \`workflow\` | "MJ Webinar - Reminders" | 7 nodes, 6 edges, active |
+| 5 | \`layer_workflow\` | \`workflow\` | "MJ Webinar - Post-Webinar Attendance" | 10 nodes, 9 edges, active |
+| 6 | \`layer_workflow\` | \`workflow\` | "MJ Webinar - No-Show Nurture" | 6 nodes, 5 edges, active |
+| 7 | \`automation_sequence\` | \`nachher\` | "MJ Webinar - Post-Attended Sequence" | 5 emails over 6 days |
+| 8 | \`automation_sequence\` | \`nachher\` | "MJ Webinar - Post-No-Show Sequence" | 4 emails over 5 days |
+| 9 | \`builder_app\` | \`template_based\` | "5-Figure Client Blueprint Registration Page" | Hero + speaker + form + social proof |
+| 10 | \`builder_app\` | \`template_based\` | "5-Figure Client Blueprint Confirmation Page" | Thank-you + calendar + share |
 
 | # | Link Type | Source | Target |
 |---|----------|--------|--------|
-| 1 | \`workflow_form\` | Workflow 4 (Registration) | Form 2 (Registration) |
-| 2 | \`workflow_sequence\` | Workflow 4 (Registration) | Sequence 10 (Pre-Event Vorher) |
-| 3 | \`workflow_sequence\` | Workflow 7 (Post-Attended) | Sequence 11 (Post-Attended Nachher) |
-| 4 | \`workflow_sequence\` | Workflow 8 (Post-No-Show) | Sequence 12 (Post-No-Show Nachher) |
-| 5 | \`checkout_product\` | Checkout Transaction | Product 3 (AI Sales Accelerator) |
+| 1 | \`workflow_form\` | Workflow 1 (3) | Form (2) |
+| 2 | \`workflow_sequence\` | Workflow 3 (5) | Post-Attended Sequence (7) |
+| 3 | \`workflow_sequence\` | Workflow 3 (5) | Post-No-Show Sequence (8) |
+| 4 | \`project_contact\` | Project (1) | Marcus Johnson contact |
 
 ### Credit Cost Estimate
 
-| Action | Count | Credits Each | Total |
-|--------|-------|-------------|-------|
-| Behavior: create-contact | 1 per registrant | 1 | 1 |
-| Behavior: move-pipeline-stage (registered) | 1 per registrant | 1 | 1 |
-| Behavior: send-confirmation-email (registration) | 1 per registrant | 1 | 1 |
-| Behavior: activecampaign-sync (add_contact) | 1 per registrant | 1 | 1 |
-| Behavior: activecampaign-sync (add_tag) | 1 per registrant | 1 | 1 |
-| Behavior: activecampaign-sync (add_to_list) | 1 per registrant | 1 | 1 |
-| Pre-webinar reminders: 3 emails + 2 SMS | 5 per registrant | 1 | 5 |
-| Attendance tracking: update-contact + move-pipeline-stage | 2 per registrant | 1 | 2 |
-| Post-attended: 5 emails + 1 SMS | 6 per attendee | 1 | 6 |
-| Post-no-show: 4 emails | 4 per no-show | 1 | 4 |
-| Purchase: update-contact + move-pipeline + invoice + email | 4 per buyer | 1 | 4 |
-| **Total per registrant who attends and buys** | | | **24 credits** |
-| **Total per registrant who no-shows, does not buy** | | | **15 credits** |
+| Action | Count per Registrant | Credits Each | Total per Registrant |
+|--------|---------------------|-------------|---------------------|
+| Behavior: create-contact (Workflow 1) | 1 | 1 | 1 |
+| Behavior: move-pipeline-stage to registered (Workflow 1) | 1 | 1 | 1 |
+| Behavior: send-confirmation-email (Workflow 1) | 1 | 1 | 1 |
+| Behavior: activecampaign-sync add_contact (Workflow 1) | 1 | 1 | 1 |
+| Behavior: activecampaign-sync add_tag (Workflow 1) | 1 | 1 | 1 |
+| Behavior: activecampaign-sync add_to_list (Workflow 1) | 1 | 1 | 1 |
+| Behavior: send-confirmation-email 7-day reminder (Workflow 2) | 1 | 1 | 1 |
+| Behavior: send-confirmation-email 1-day reminder (Workflow 2) | 1 | 1 | 1 |
+| Behavior: send-confirmation-email 1-hour reminder (Workflow 2) | 1 | 1 | 1 |
+| Behavior: lc_sms 1-hour reminder (Workflow 2) | 1 | 1 | 1 |
+| Behavior: update-contact attendance (Workflow 3) | 1 | 1 | 1 |
+| Behavior: move-pipeline-stage attended/no_show (Workflow 3) | 1 | 1 | 1 |
+| Behavior: send-confirmation-email replay (Workflow 3) | 1 | 1 | 1 |
+| Behavior: activecampaign-sync add_tag attended/no_show (Workflow 3) | 1 | 1 | 1 |
+| Sequence: Post-attended (5 emails) OR post-no-show (4 emails) | 4-5 | 1 | 4-5 |
+| Behavior: No-show nurture emails (Workflow 4, no-shows only) | 0-2 | 1 | 0-2 |
+| Behavior: move-pipeline-stage follow_up (Workflow 4, no-shows only) | 0-1 | 1 | 0-1 |
+| **Total per registrant (attended path)** | | | **19 credits** |
+| **Total per registrant (no-show path)** | | | **21 credits** |
 
-For 500 registrants, 60% attendance (300 attended, 200 no-show), 10% purchase rate (50 buyers): approximately 500 x 12 (shared) + 300 x 8 (attended path) + 200 x 4 (no-show path) + 50 x 4 (purchase) = 6,000 + 2,400 + 800 + 200 = **9,400 credits**.`;
+**Projection for 500 registrants:**
+- 200 attend (40%): 200 x 19 = 3,800 credits
+- 300 no-show (60%): 300 x 21 = 6,300 credits
+- **Total: approximately 10,100 credits for the entire webinar campaign**`;
 
 /** Lookup map: knowledge ID → content string */
 export const KNOWLEDGE_CONTENT: Record<string, string> = {

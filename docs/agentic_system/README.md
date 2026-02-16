@@ -22,14 +22,32 @@
 
 ---
 
+## Layer Taxonomy (Canonical)
+
+All architecture work must use the canonical layer contract:
+- [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md)
+- [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md)
+- [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md)
+
+This keeps `BusinessLayer`, `PolicyLayer`, and `MemoryLayer` terminology consistent across docs and code.
+
+---
+
 ## Documentation Map
 
 ### Architecture & Design
 
 | Document | Description |
 |----------|-------------|
+| [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md) | Canonical entrypoint + legacy-to-canonical path mapping |
+| [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md) | Active vs deprecated docs, review cadence, archive map |
+| [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md) | Canonical layer contract: Business L1-L4, Policy L1-L4, Memory L1-L5 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Full system architecture — pipeline, data model, provider registry, deployment topology |
 | [HARNESS_MODEL.md](./HARNESS_MODEL.md) | Agent harness + team harness — scoping, isolation, coordination layers |
+| [AI_COMPOSITION_PLATFORM.md](./AI_COMPOSITION_PLATFORM.md) | Knowledge → recipes → skills composition strategy |
+| [LAYERS_PRD.md](./LAYERS_PRD.md) | Layers visual automation canvas product requirements |
+| [MEMORY_ENGINE_DESIGN.md](./MEMORY_ENGINE_DESIGN.md) | Five-layer memory architecture and operator pinned notes |
+| [OPENCLAW_IDEA_INTEGRATION.md](./OPENCLAW_IDEA_INTEGRATION.md) | Integrated OpenClaw idea patterns mapped into canonical docs |
 | [TEAM_COORDINATION.md](./TEAM_COORDINATION.md) | Multi-agent sessions, handoff protocol, group chat, human escalation |
 
 ### Subsystems
@@ -83,7 +101,11 @@
 ## Cross-References
 
 - [AGENT_ARCHITECTURE_CONTEXT.md](../AGENT_ARCHITECTURE_CONTEXT.md) — Original architecture walkthrough (13-step pipeline, tool catalog, channel registry)
-- [OpenClaw Reference](../openclaw_idea/openclaw/) — Open-source patterns we've adapted (sub-agents, session TTL, retry policies, layered tool policies)
+- [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md) — Canonical architecture docs home and migration mapping
+- [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md) — Documentation lifecycle and drift control
+- [Archive Index](../archive/README.md) — Archived docs sets and archive rules
+- [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md) — Canonical layer taxonomy and invariants
+- [OPENCLAW_IDEA_INTEGRATION.md](./OPENCLAW_IDEA_INTEGRATION.md) — OpenClaw-derived ideas integrated into canonical architecture docs
 - `convex/ai/agentExecution.ts` — Core 13-step pipeline implementation
 - `convex/ai/agentSessions.ts` — Session management
 - `convex/ai/agentApprovals.ts` — Approval queue

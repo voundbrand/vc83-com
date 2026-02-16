@@ -41,7 +41,8 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit } from "./licensing/helpers";
-import { internal } from "./_generated/api";
+
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // ADDRESS VALIDATORS
@@ -1027,7 +1028,7 @@ export const inviteContactToPortal = mutation({
     });
 
     // Schedule invitation email
-    await ctx.scheduler.runAfter(0, internal.portalInvitations.sendInvitationEmail, {
+    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.portalInvitations.sendInvitationEmail, {
       invitationId,
       contactEmail,
       portalUrl: args.portalUrl,

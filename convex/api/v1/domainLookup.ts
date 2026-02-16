@@ -6,7 +6,8 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * POST /api/v1/domain-lookup
@@ -33,8 +34,8 @@ export const domainLookupHandler = httpAction(async (ctx, request) => {
     }
 
     // Look up domain configuration
-    const result = await ctx.runQuery(
-      internal.api.v1.domainLookupInternal.lookupByHostname,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.domainLookupInternal.lookupByHostname,
       { hostname }
     );
 

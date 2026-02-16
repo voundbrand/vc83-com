@@ -9,7 +9,7 @@
 
 import { httpAction } from "../_generated/server";
 import { authenticateRequest } from "./auth";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 /**
  * EXAMPLE ENDPOINT WITH ANOMALY DETECTION
@@ -47,7 +47,7 @@ export const exampleEndpointWithAnomalyDetection = httpAction(
         : undefined;
 
       // Log failed auth attempt (async)
-      ctx.scheduler.runAfter(0, internal.middleware.anomalyDetectionDb.logFailedAuth, {
+      (ctx.scheduler as any).runAfter(0, generatedApi.internal.middleware.anomalyDetectionDb.logFailedAuth, {
         apiKeyPrefix,
         tokenType: apiKeyPrefix ? "api_key" : "oauth",
         endpoint,

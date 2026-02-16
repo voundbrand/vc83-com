@@ -8,7 +8,8 @@
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 // GitHub OAuth endpoints
 const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
@@ -52,7 +53,7 @@ export const initiateGitHubOAuth = mutation({
 
     // For organizational connections, verify user has manage_integrations permission
     if (args.connectionType === "organizational") {
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -143,7 +144,7 @@ export const handleGitHubCallback = action({
       organizationId: Id<"organizations">;
       connectionType: "personal" | "organizational";
       returnUrl?: string;
-    } | null = await ctx.runQuery(internal.oauth.github.verifyState, {
+    } | null = await (ctx as any).runQuery(generatedApi.internal.oauth.github.verifyState, {
       state: args.state,
     });
 
@@ -211,7 +212,7 @@ export const handleGitHubCallback = action({
     }
 
     // Encrypt tokens before storage
-    const encryptedAccessToken: string = await ctx.runAction(internal.oauth.encryption.encryptToken, {
+    const encryptedAccessToken: string = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.encryptToken, {
       plaintext: tokenData.access_token,
     });
 
@@ -223,7 +224,7 @@ export const handleGitHubCallback = action({
     const tokenExpiresAt = Date.now() + (365 * 24 * 60 * 60 * 1000); // 1 year
 
     // Store connection in database
-    const connectionId: Id<"oauthConnections"> = await ctx.runMutation(internal.oauth.github.storeConnection, {
+    const connectionId: Id<"oauthConnections"> = await (ctx as any).runMutation(generatedApi.internal.oauth.github.storeConnection, {
       userId: stateRecord.connectionType === "personal" ? stateRecord.userId : undefined,
       organizationId: stateRecord.organizationId,
       provider: "github",
@@ -243,13 +244,13 @@ export const handleGitHubCallback = action({
     });
 
     // Delete used state token
-    await ctx.runMutation(internal.oauth.github.deleteState, {
+    await (ctx as any).runMutation(generatedApi.internal.oauth.github.deleteState, {
       state: args.state,
     });
 
     // Log audit event
     if (stateRecord.organizationId) {
-      await ctx.runMutation(internal.rbac.logAudit, {
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
         userId: stateRecord.userId,
         organizationId: stateRecord.organizationId,
         action: "connect_oauth",
@@ -307,7 +308,7 @@ export const disconnectGitHub = mutation({
       }
     } else {
       // Organizational connection: need manage_integrations permission
-      const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+      const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
         sessionId: args.sessionId,
         permission: "manage_integrations",
         resource: "oauth",
@@ -326,7 +327,7 @@ export const disconnectGitHub = mutation({
     });
 
     // Log audit event
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: connection.organizationId,
       action: "disconnect_oauth",
@@ -403,7 +404,7 @@ export const getGitHubAccessToken = internalAction({
   },
   handler: async (ctx, args): Promise<string | null> => {
     // Find active GitHub connection for organization
-    const connection = await ctx.runQuery(internal.oauth.github.getConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.github.getConnection, {
       organizationId: args.organizationId,
     });
 
@@ -412,7 +413,7 @@ export const getGitHubAccessToken = internalAction({
     }
 
     // Decrypt access token
-    const decryptedToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+    const decryptedToken = await (ctx as any).runAction(generatedApi.internal.oauth.encryption.decryptToken, {
       encrypted: connection.accessToken,
     });
 

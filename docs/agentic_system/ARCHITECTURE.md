@@ -4,6 +4,22 @@
 
 ---
 
+## Layer Taxonomy (Read First)
+
+This architecture uses multiple layer systems. The canonical definitions live in:
+- [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md)
+- [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md)
+- [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md)
+
+Interpretation rules for this document:
+- `BusinessLayer`: Platform -> Agency -> Sub-org -> End-customer
+- `PolicyLayer`: Platform -> Org -> Agent -> Session (tool/runtime enforcement)
+- `MemoryLayer`: five-layer conversation/memory composition model
+
+If section wording appears ambiguous, the canonical layer document wins.
+
+---
+
 ## High-Level Topology
 
 ```
@@ -230,6 +246,8 @@ Resolution: platform ∩ org ∩ agent ∩ session = activeTools
 
 ## Agent Hierarchy
 
+This section is `BusinessLayer` hierarchy (tenant/value chain), not `PolicyLayer` tool resolution.
+
 ```
 Platform Org (l4yercak3)
   │
@@ -247,7 +265,7 @@ Platform Org (l4yercak3)
 Per-Org Agents
   │
   ├── Primary Agent (bootstrapped after onboarding)
-  │   ├── subtype: general | customer_support | sales_assistant | booking_agent
+  │   ├── subtype: pm | general | customer_support | sales_assistant | booking_agent
   │   ├── Full tool access (within org scope)
   │   └── Soul: AI-generated from interview
   │
@@ -256,7 +274,8 @@ Per-Org Agents
   │   └── Tagged in by primary agent when needed
   │
   └── Sub-Org Agents (agency model)
-      ├── Child org's primary agent
+      ├── Child org PM agent (L3 operations)
+      ├── Child org customer_service agent (L4 end-customer conversations)
       └── Credit fallback to parent (with caps)
 ```
 
@@ -317,7 +336,8 @@ Step 13: Channel Send
 
 ## Inspired By
 
-Patterns adapted from the [OpenClaw](../openclaw_idea/openclaw/) open-source project:
+Patterns adapted from OpenClaw research and integrated canonically in:
+- [OPENCLAW_IDEA_INTEGRATION.md](./OPENCLAW_IDEA_INTEGRATION.md)
 
 - **Queue-based concurrency** — per-session + global lanes (adapted as Convex session locking)
 - **Sub-agent spawning** — `sessions_spawn` with auto-archive (adapted as Quinn worker pool)

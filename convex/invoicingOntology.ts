@@ -16,9 +16,10 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { api, internal } from "./_generated/api";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { getLicenseInternal, checkMonthlyResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // APP REGISTRATION CONSTANTS
@@ -542,7 +543,7 @@ export const createConsolidatedInvoice = mutation({
     const defaultPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
 
     // Generate invoice number if not provided (using atomic increment for gap-free numbering)
-    const invoiceNumber: string = args.invoiceNumber || (await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+    const invoiceNumber: string = args.invoiceNumber || (await (ctx as any).runMutation(generatedApi.internal.organizationOntology.getAndIncrementInvoiceNumber, {
       organizationId: args.organizationId,
     })).invoiceNumber;
 
@@ -1503,7 +1504,7 @@ export const sealInvoice = mutation({
 
     // 2. Generate final invoice number (ATOMIC - prevents duplicates)
     // Use atomic increment instead of counting invoices to prevent race conditions
-    const invoiceNumberData: { invoiceNumber: string } = await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+    const invoiceNumberData: { invoiceNumber: string } = await (ctx as any).runMutation(generatedApi.internal.organizationOntology.getAndIncrementInvoiceNumber, {
       organizationId: invoice.organizationId,
     });
     const finalInvoiceNumber = invoiceNumberData.invoiceNumber;
@@ -1931,7 +1932,7 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
     const orgPaymentTerms = normalizePaymentTerms(invoiceSettingsProps?.defaultTerms);
 
     // Generate invoice number using atomic increment for gap-free numbering
-    const invoiceNumber: string = (await ctx.runMutation(internal.organizationOntology.getAndIncrementInvoiceNumber, {
+    const invoiceNumber: string = (await (ctx as any).runMutation(generatedApi.internal.organizationOntology.getAndIncrementInvoiceNumber, {
       organizationId,
     })).invoiceNumber;
 
@@ -2093,7 +2094,7 @@ export const createSimpleInvoiceFromCheckout = internalMutation({
 
     // 10. Schedule PDF generation (if not employer billed)
     if (!args.isEmployerBilled) {
-      await ctx.scheduler.runAfter(0, internal.invoicingOntology.generateAndStorePDFForInvoice, {
+      await (ctx.scheduler as any).runAfter(0, generatedApi.internal.invoicingOntology.generateAndStorePDFForInvoice, {
         invoiceId,
         checkoutSessionId: args.checkoutSessionId,
         crmOrganizationId: args.crmOrganizationId, // Pass CRM org for B2B billing display
@@ -2166,7 +2167,7 @@ export const generateAndStorePDFForInvoice = internalAction({
   handler: async (ctx, args) => {
     try {
       // 1. Generate PDF using existing action with transaction IDs
-      const pdfResult = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+      const pdfResult = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateInvoicePDF, {
         checkoutSessionId: args.checkoutSessionId,
         crmOrganizationId: args.crmOrganizationId, // Pass for B2B "BILL TO" section
       });
@@ -2196,7 +2197,7 @@ export const generateAndStorePDFForInvoice = internalAction({
       }
 
       // 4. Update invoice with PDF URL
-      await ctx.runMutation(internal.invoicingOntology.updateInvoiceWithPDF, {
+      await (ctx as any).runMutation(generatedApi.internal.invoicingOntology.updateInvoiceWithPDF, {
         invoiceId: args.invoiceId,
         pdfUrl,
       });
@@ -2214,4 +2215,3 @@ export const generateAndStorePDFForInvoice = internalAction({
     }
   },
 });
-

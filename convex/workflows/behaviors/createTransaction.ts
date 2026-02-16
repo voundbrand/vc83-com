@@ -19,7 +19,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 export const executeCreateTransaction = action({
@@ -89,7 +89,7 @@ export const executeCreateTransaction = action({
     }
 
     // Get event details
-    const event: any = await ctx.runQuery(internal.api.v1.eventsInternal.getEventByIdInternal, {
+    const event: any = await (ctx as any).runQuery(generatedApi.internal.api.v1.eventsInternal.getEventByIdInternal, {
       eventId: context.eventId as Id<"objects">,
       organizationId: args.organizationId,
     });
@@ -116,7 +116,7 @@ export const executeCreateTransaction = action({
         continue;
       }
 
-      const product: any = await ctx.runQuery(internal.api.v1.productsInternal.getProductInternal, {
+      const product: any = await (ctx as any).runQuery(generatedApi.internal.api.v1.productsInternal.getProductInternal, {
         productId: productItem.productId as Id<"objects">,
         organizationId: args.organizationId,
       });
@@ -177,7 +177,7 @@ export const executeCreateTransaction = action({
     } else {
       // Create transaction using internal mutation (PRODUCTION)
       // Note: Use first product for legacy fields
-      transactionId = await ctx.runMutation(internal.transactionOntology.createTransactionInternal, {
+      transactionId = await (ctx as any).runMutation(generatedApi.internal.transactionOntology.createTransactionInternal, {
         organizationId: args.organizationId,
         subtype: "ticket_purchase",
 

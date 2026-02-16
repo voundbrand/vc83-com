@@ -8,7 +8,7 @@ priority: 6
 
 # Conversation Design Framework
 
-This framework governs how the customer-facing agent behaves when deployed at Layer 3 — speaking AS the client's brand TO the client's customer (the hero).
+This framework governs how the customer-facing agent behaves in customer mode (`Business L3 -> Business L4`) — speaking AS the client's brand TO the client's end-customer (the hero).
 
 ## Core Principle
 

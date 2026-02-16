@@ -12,8 +12,9 @@
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
-import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 export const layersWorkflowTool: AITool = {
   name: "create_layers_workflow",
@@ -152,7 +153,7 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
       // Step 1: Create empty workflow
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const workflowId = await (ctx as any).runMutation(
-        (api as any).layers.layerWorkflowOntology.createWorkflow,
+        generatedApi.api.layers.layerWorkflowOntology.createWorkflow,
         {
           sessionId: ctx.sessionId,
           name: args.name,
@@ -170,7 +171,7 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (ctx as any).runMutation(
-        (api as any).layers.layerWorkflowOntology.saveWorkflow,
+        generatedApi.api.layers.layerWorkflowOntology.saveWorkflow,
         {
           sessionId: ctx.sessionId,
           workflowId: workflowId as Id<"objects">,

@@ -8,7 +8,7 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 
 interface BehaviorConfig {
   type: string;
@@ -54,7 +54,7 @@ export const testWorkflow = action({
 
     try {
       // Get workflow
-      const workflow = await ctx.runQuery(api.workflows.workflowOntology.getWorkflow, {
+      const workflow = await (ctx as any).runQuery(generatedApi.api.workflows.workflowOntology.getWorkflow, {
         workflowId: args.workflowId,
         sessionId: args.sessionId,
       });
@@ -63,8 +63,7 @@ export const testWorkflow = action({
       }
 
       // CHECK FEATURE ACCESS: Test mode requires Starter+
-      const { internal } = await import("../_generated/api");
-      await ctx.runQuery(internal.licensing.helpers.checkFeatureAccessInternal, {
+      await (ctx as any).runQuery(generatedApi.internal.licensing.helpers.checkFeatureAccessInternal, {
         organizationId: workflow.organizationId,
         featureFlag: "testModeEnabled",
       });
@@ -94,7 +93,7 @@ export const testWorkflow = action({
 
         try {
           // Execute behavior using REAL implementation in DRY-RUN mode
-          const result = await ctx.runAction(api.workflows.behaviorExecutor.executeBehavior, {
+          const result = await (ctx as any).runAction(generatedApi.api.workflows.behaviorExecutor.executeBehavior, {
             sessionId: args.sessionId,
             organizationId: workflow.organizationId,
             behaviorType: behavior.type,

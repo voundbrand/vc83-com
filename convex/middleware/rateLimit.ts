@@ -21,7 +21,7 @@
  */
 
 import { ActionCtx } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { Id } from "../_generated/dataModel";
 
 /**
@@ -114,13 +114,13 @@ export async function checkRateLimit(
   const now = Date.now();
 
   // 1. Get or create bucket
-  let bucket = await ctx.runQuery(internal.middleware.rateLimitDb.getBucket, {
+  let bucket = await (ctx as any).runQuery(generatedApi.internal.middleware.rateLimitDb.getBucket, {
     identifier,
   });
 
   if (!bucket) {
     // Create new bucket with full tokens
-    bucket = await ctx.runMutation(internal.middleware.rateLimitDb.createBucket, {
+    bucket = await (ctx as any).runMutation(generatedApi.internal.middleware.rateLimitDb.createBucket, {
       identifier,
       identifierType,
       plan,
@@ -145,7 +145,7 @@ export async function checkRateLimit(
     const retryAfter = Math.ceil(secondsUntilToken);
 
     // Log violation (async, don't block)
-    ctx.scheduler.runAfter(0, internal.middleware.rateLimitDb.logViolation, {
+    (ctx.scheduler as any).runAfter(0, generatedApi.internal.middleware.rateLimitDb.logViolation, {
       identifier,
       identifierType,
       plan,
@@ -164,7 +164,7 @@ export async function checkRateLimit(
   }
 
   // 4. Consume 1 token and update bucket
-  await ctx.runMutation(internal.middleware.rateLimitDb.consumeToken, {
+  await (ctx as any).runMutation(generatedApi.internal.middleware.rateLimitDb.consumeToken, {
     identifier,
     tokensRemaining: newTokens - 1,
     lastRefill: now,

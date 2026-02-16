@@ -7,9 +7,10 @@
 
 import { v } from "convex/values";
 import { internalQuery, internalAction, internalMutation } from "../../_generated/server";
-import { internal, api } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { getProviderByCode, getConnectedAccountId } from "../../paymentProviders";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // CHECKOUT SESSION QUERIES
@@ -249,8 +250,8 @@ export const createCheckoutSessionInternal = internalAction({
     expiresAt: number;
   }> => {
     // 1. Get organization
-    const org = await ctx.runQuery(
-      internal.checkoutSessions.getOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessions.getOrganizationInternal,
       { organizationId: args.organizationId }
     );
 
@@ -259,8 +260,8 @@ export const createCheckoutSessionInternal = internalAction({
     }
 
     // 2. Get product
-    const product = await ctx.runQuery(
-      internal.productOntology.getProductInternal,
+    const product = await (ctx as any).runQuery(
+      generatedApi.internal.productOntology.getProductInternal,
       { productId: args.productId }
     ) as { name: string; status: string; customProperties?: Record<string, unknown> } | null;
 
@@ -269,8 +270,8 @@ export const createCheckoutSessionInternal = internalAction({
     }
 
     // 3. Validate product availability
-    const availability = await ctx.runQuery(
-      internal.productOntology.checkProductAvailability,
+    const availability = await (ctx as any).runQuery(
+      generatedApi.internal.productOntology.checkProductAvailability,
       { productId: args.productId }
     );
 
@@ -281,7 +282,7 @@ export const createCheckoutSessionInternal = internalAction({
     }
 
     // 4. Get Platform Org's currency from locale settings
-    const localeSettings = await ctx.runQuery(internal.checkoutSessions.getOrgLocaleSettings, {
+    const localeSettings = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrgLocaleSettings, {
       organizationId: args.organizationId
     });
 
@@ -333,8 +334,8 @@ export const createCheckoutSessionInternal = internalAction({
 
     // 6. Store session in database for later verification
     // This creates a checkout_session object to track the payment
-    const checkoutSessionId: Id<"objects"> = await ctx.runMutation(
-      internal.api.v1.checkoutInternal.storeCheckoutSessionInternal,
+    const checkoutSessionId: Id<"objects"> = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.checkoutInternal.storeCheckoutSessionInternal,
       {
         organizationId: args.organizationId,
         productId: args.productId,
@@ -452,8 +453,8 @@ export const confirmPaymentInternal = internalAction({
   }> => {
     // 1. Get checkout session
     const checkoutSessionId = args.sessionId as Id<"objects">;
-    const session = await ctx.runQuery(
-      internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
       { checkoutSessionId }
     );
 
@@ -467,8 +468,8 @@ export const confirmPaymentInternal = internalAction({
 
     // 2. Verify payment using existing checkout completion logic
     // This reuses the same logic as the UI checkout flow
-    const result = await ctx.runAction(
-      api.checkoutSessions.completeCheckoutAndFulfill,
+    const result = await (ctx as any).runAction(
+      generatedApi.api.checkoutSessions.completeCheckoutAndFulfill,
       {
         sessionId: args.sessionId,
         checkoutSessionId,
@@ -487,8 +488,8 @@ export const confirmPaymentInternal = internalAction({
     const baseUrl = process.env.CONVEX_SITE_URL || "https://l4yercak3.com";
 
     // Get all purchase items to determine download URLs
-    const purchaseItems = await ctx.runQuery(
-      api.purchaseOntology.getPurchaseItemsByCheckout,
+    const purchaseItems = await (ctx as any).runQuery(
+      generatedApi.api.purchaseOntology.getPurchaseItemsByCheckout,
       {
         sessionId: args.sessionId,
         checkoutSessionId,

@@ -19,9 +19,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST LOCATIONS
@@ -73,7 +74,7 @@ export const listLocations = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 4. Query locations
-    const result = await ctx.runQuery(internal.locationOntology.listLocationsInternal, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.locationOntology.listLocationsInternal, {
       organizationId: authContext.organizationId,
       status,
       subtype,
@@ -167,7 +168,7 @@ export const createLocation = httpAction(async (ctx, request) => {
     }
 
     // 5. Create location
-    const result = await ctx.runMutation(internal.locationOntology.createLocationInternal, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.locationOntology.createLocationInternal, {
       organizationId: authContext.organizationId,
       userId: authContext.userId,
       name: body.name,
@@ -255,7 +256,7 @@ export const getLocation = httpAction(async (ctx, request) => {
     }
 
     // 4. Get location
-    const location = await ctx.runQuery(internal.locationOntology.getLocationInternal, {
+    const location = await (ctx as any).runQuery(generatedApi.internal.locationOntology.getLocationInternal, {
       locationId,
       organizationId: authContext.organizationId,
     });
@@ -369,7 +370,7 @@ export const updateLocation = httpAction(async (ctx, request) => {
     }
 
     // 6. Update location
-    await ctx.runMutation(internal.locationOntology.updateLocationInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.locationOntology.updateLocationInternal, {
       locationId,
       organizationId: authContext.organizationId,
       name: body.name,
@@ -454,7 +455,7 @@ export const deleteLocation = httpAction(async (ctx, request) => {
     }
 
     // 4. Archive location
-    await ctx.runMutation(internal.locationOntology.archiveLocationInternal, {
+    await (ctx as any).runMutation(generatedApi.internal.locationOntology.archiveLocationInternal, {
       locationId,
       organizationId: authContext.organizationId,
     });

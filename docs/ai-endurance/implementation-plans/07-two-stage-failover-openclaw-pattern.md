@@ -7,7 +7,7 @@ Adopt a two-stage failover architecture:
 2) then fallback to next model only when profile pool is exhausted.
 
 This plan translates patterns from:
-- `docs/openclaw_idea/openclaw/docs/concepts/model-failover.md`
+- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
 
 ## Current state in this codebase
 
@@ -55,4 +55,3 @@ This plan translates patterns from:
 - Runtime can rotate profiles within provider before model fallback.
 - Cooldown/disable behavior persists and is auditable.
 - Failover metrics clearly separate profile rotation from model fallback.
-

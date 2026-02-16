@@ -19,7 +19,8 @@ import {
 } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // Channels that Chatwoot can handle
 const CHATWOOT_CHANNELS = [
@@ -132,7 +133,7 @@ export const saveChatwootSettings = mutation({
     const orgId = user.defaultOrgId as Id<"organizations">;
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -231,7 +232,7 @@ export const saveChatwootSettings = mutation({
     }
 
     // Audit log
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: orgId,
       action: existing ? "update" : "create",
@@ -268,7 +269,7 @@ export const disconnectChatwoot = mutation({
     const orgId = user.defaultOrgId as Id<"organizations">;
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -309,7 +310,7 @@ export const disconnectChatwoot = mutation({
     }
 
     // Audit log
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: orgId,
       action: "delete",

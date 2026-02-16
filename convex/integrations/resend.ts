@@ -18,7 +18,8 @@ import {
 } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { api, internal } from "../_generated/api";
+
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // QUERIES
@@ -113,7 +114,7 @@ export const saveResendSettings = mutation({
     const orgId = user.defaultOrgId as Id<"organizations">;
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -196,7 +197,7 @@ export const saveResendSettings = mutation({
     }
 
     // Audit log
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: orgId,
       action: existing ? "update" : "create",
@@ -233,7 +234,7 @@ export const disconnectResend = mutation({
     const orgId = user.defaultOrgId as Id<"organizations">;
 
     // Verify permission
-    const canManage = await ctx.runQuery(api.auth.canUserPerform, {
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
       sessionId: args.sessionId,
       permission: "manage_integrations",
       resource: "settings",
@@ -274,7 +275,7 @@ export const disconnectResend = mutation({
     }
 
     // Audit log
-    await ctx.runMutation(internal.rbac.logAudit, {
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: user._id,
       organizationId: orgId,
       action: "delete",

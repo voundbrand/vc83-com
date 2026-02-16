@@ -12,8 +12,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * POST /api/v1/auth/sync-user
@@ -79,7 +80,7 @@ export const syncUser = httpAction(async (ctx, request) => {
 
     // Get default organization for OAuth users (first non-system org)
     // In multi-tenant setups, you may want to get this from a query parameter
-    const organizations = await ctx.runQuery(internal.auth.getDefaultOrganization, {});
+    const organizations = await (ctx as any).runQuery(generatedApi.internal.auth.getDefaultOrganization, {});
     if (!organizations) {
       return new Response(
         JSON.stringify({ error: "No organization found for user registration" }),
@@ -91,7 +92,7 @@ export const syncUser = httpAction(async (ctx, request) => {
     }
 
     // Call internal mutation to sync user
-    const frontendUser = await ctx.runMutation(internal.auth.syncFrontendUser, {
+    const frontendUser = await (ctx as any).runMutation(generatedApi.internal.auth.syncFrontendUser, {
       email,
       name: name || email,
       oauthProvider,
@@ -177,7 +178,7 @@ export const validateToken = httpAction(async (ctx, request) => {
     }
 
     // Query user from database
-    const userResult = await ctx.runQuery(internal.auth.validateFrontendUser, {
+    const userResult = await (ctx as any).runQuery(generatedApi.internal.auth.validateFrontendUser, {
       userId: userId as Id<"objects">,
     });
 
@@ -270,7 +271,7 @@ export const getUser = httpAction(async (ctx, request) => {
     }
 
     // Query user
-    const userResult = await ctx.runQuery(internal.auth.validateFrontendUser, {
+    const userResult = await (ctx as any).runQuery(generatedApi.internal.auth.validateFrontendUser, {
       userId: userId as Id<"objects">,
     });
 

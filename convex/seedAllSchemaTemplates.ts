@@ -24,7 +24,7 @@
 
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 export const seedAllSchemaTemplates = internalMutation({
   args: {
@@ -54,8 +54,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 1. Seed Event Confirmation Email
     console.log("📧 [1/5] Seeding Event Confirmation Email...");
     try {
-      const eventResult = await ctx.runMutation(
-        internal.seedEventConfirmationTemplate.seedEventConfirmationTemplate,
+      const eventResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedEventConfirmationTemplate.seedEventConfirmationTemplate,
         {}
       );
       results.push({ template: "Event Confirmation Email", status: "success", result: eventResult });
@@ -71,8 +71,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 2. Seed Transaction Receipt Email
     console.log("💳 [2/5] Seeding Transaction Receipt Email...");
     try {
-      const receiptResult = await ctx.runMutation(
-        internal.seedTransactionReceiptTemplate.seedTransactionReceiptTemplate,
+      const receiptResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedTransactionReceiptTemplate.seedTransactionReceiptTemplate,
         {}
       );
       results.push({ template: "Transaction Receipt Email", status: "success", result: receiptResult });
@@ -88,8 +88,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 3. Seed Newsletter Confirmation Email
     console.log("📰 [3/5] Seeding Newsletter Confirmation Email...");
     try {
-      const newsletterResult = await ctx.runMutation(
-        internal.seedNewsletterTemplate.seedNewsletterTemplate,
+      const newsletterResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedNewsletterTemplate.seedNewsletterTemplate,
         {}
       );
       results.push({ template: "Newsletter Confirmation Email", status: "success", result: newsletterResult });
@@ -105,8 +105,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 4. Seed Invoice Email v2.0
     console.log("📄 [4/5] Seeding Invoice Email v2.0...");
     try {
-      const invoiceEmailResult = await ctx.runMutation(
-        internal.seedInvoiceEmailTemplateV2.seedInvoiceEmailTemplateV2,
+      const invoiceEmailResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedInvoiceEmailTemplateV2.seedInvoiceEmailTemplateV2,
         {}
       );
       results.push({ template: "Invoice Email v2.0", status: "success", result: invoiceEmailResult });
@@ -122,8 +122,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 5. Seed B2B Invoice PDF
     console.log("💰 [5/5] Seeding B2B Invoice PDF...");
     try {
-      const invoicePdfResult = await ctx.runMutation(
-        internal.seedInvoiceB2BTemplate.seedInvoiceB2BTemplate,
+      const invoicePdfResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedInvoiceB2BTemplate.seedInvoiceB2BTemplate,
         {}
       );
       results.push({ template: "B2B Invoice PDF", status: "success", result: invoicePdfResult });
@@ -139,8 +139,8 @@ export const seedAllSchemaTemplates = internalMutation({
     // 6. Seed System Default Template Set v2.0
     console.log("📦 [6/6] Seeding System Default Template Set v2.0...");
     try {
-      const templateSetResult = await ctx.runMutation(
-        internal.seedSystemDefaultTemplateSet.seedSystemDefaultTemplateSet,
+      const templateSetResult = await (ctx as any).runMutation(
+        generatedApi.internal.seedSystemDefaultTemplateSet.seedSystemDefaultTemplateSet,
         { overwrite: true } // Always overwrite to ensure latest config
       );
       results.push({ template: "System Default Template Set v2.0", status: "success", result: templateSetResult });
@@ -222,8 +222,8 @@ export const deleteAllSchemaTemplates = internalMutation({
 
     // Delete Event Confirmation
     try {
-      const r1 = await ctx.runMutation(
-        internal.seedEventConfirmationTemplate.deleteEventConfirmationTemplate,
+      const r1 = await (ctx as any).runMutation(
+        generatedApi.internal.seedEventConfirmationTemplate.deleteEventConfirmationTemplate,
         {}
       );
       results.push({ template: "Event Confirmation", deleted: r1.deleted });
@@ -234,8 +234,8 @@ export const deleteAllSchemaTemplates = internalMutation({
 
     // Delete Transaction Receipt
     try {
-      const r2 = await ctx.runMutation(
-        internal.seedTransactionReceiptTemplate.deleteTransactionReceiptTemplate,
+      const r2 = await (ctx as any).runMutation(
+        generatedApi.internal.seedTransactionReceiptTemplate.deleteTransactionReceiptTemplate,
         {}
       );
       results.push({ template: "Transaction Receipt", deleted: r2.deleted });
@@ -246,8 +246,8 @@ export const deleteAllSchemaTemplates = internalMutation({
 
     // Delete Newsletter
     try {
-      const r3 = await ctx.runMutation(
-        internal.seedNewsletterTemplate.deleteNewsletterTemplate,
+      const r3 = await (ctx as any).runMutation(
+        generatedApi.internal.seedNewsletterTemplate.deleteNewsletterTemplate,
         {}
       );
       results.push({ template: "Newsletter", deleted: r3.deleted });
@@ -258,8 +258,8 @@ export const deleteAllSchemaTemplates = internalMutation({
 
     // Delete Invoice Email v2
     try {
-      const r4 = await ctx.runMutation(
-        internal.seedInvoiceEmailTemplateV2.deleteInvoiceEmailTemplateV2,
+      const r4 = await (ctx as any).runMutation(
+        generatedApi.internal.seedInvoiceEmailTemplateV2.deleteInvoiceEmailTemplateV2,
         {}
       );
       results.push({ template: "Invoice Email v2", deleted: r4.deleted });

@@ -271,7 +271,7 @@ createdBy: v.optional(v.id("users")),   // Allow undefined (objectLinks already 
 
 - [Frontend User Architecture](./FRONTEND_USER_ARCHITECTURE.md)
 - [Event Management Architecture](./EVENT_MANAGEMENT_ARCHITECTURE.md)
-- [RBAC Complete Guide](./RBAC_COMPLETE_GUIDE.md)
+- [RBAC Complete Guide](./reference_docs/RBAC_COMPLETE_GUIDE.md)
 
 ---
 

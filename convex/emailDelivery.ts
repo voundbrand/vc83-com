@@ -8,7 +8,7 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 export const sendEmail = internalAction({
   args: {
@@ -44,7 +44,7 @@ export const sendEmail = internalAction({
     }
 
     // 2. Load domain config directly from database (avoid circular imports)
-    const domainConfig = await ctx.runQuery(internal.domainConfigOntology.getDomainConfigInternal, {
+    const domainConfig = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.getDomainConfigInternal, {
       configId: args.domainConfigId,
     });
 
@@ -154,7 +154,7 @@ export const sendTestEmail = internalAction({
     error?: string;
     attempts: number;
   }> => {
-    return await ctx.runAction(internal.emailDelivery.sendEmail, {
+    return await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
       domainConfigId: args.domainConfigId,
       to: args.testRecipient,
       subject: `[TEST] ${args.subject}`,
@@ -182,7 +182,7 @@ export const sendSalesNotificationEmail = internalAction({
     console.log("📧 [sendSalesNotificationEmail] Starting sales notification for session:", args.checkoutSessionId);
 
     // 1. Get checkout session
-    const session = await ctx.runQuery(internal.checkoutSessionOntology.getCheckoutSessionInternal, {
+    const session = await (ctx as any).runQuery(generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal, {
       checkoutSessionId: args.checkoutSessionId,
     });
 
@@ -209,7 +209,7 @@ export const sendSalesNotificationEmail = internalAction({
 
     // 4. Get organization for domain config
     const organizationId = session.organizationId;
-    const organization = await ctx.runQuery(internal.checkoutSessions.getOrganizationInternal, {
+    const organization = await (ctx as any).runQuery(generatedApi.internal.checkoutSessions.getOrganizationInternal, {
       organizationId,
     });
 
@@ -219,7 +219,7 @@ export const sendSalesNotificationEmail = internalAction({
     }
 
     // Get domain config (use org default, then system fallback)
-    const domainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+    const domainConfigs = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.listDomainConfigsForOrg, {
       organizationId,
     });
     let domainConfig = domainConfigs?.find((d: { status: string }) => d.status === "active");
@@ -228,9 +228,9 @@ export const sendSalesNotificationEmail = internalAction({
     if (!domainConfig) {
       console.log("📧 [sendSalesNotificationEmail] No org domain config, trying system fallback...");
 
-      const systemOrg = await ctx.runQuery(internal.helpers.backendTranslationQueries.getSystemOrganization, {});
+      const systemOrg = await (ctx as any).runQuery(generatedApi.internal.helpers.backendTranslationQueries.getSystemOrganization, {});
       if (systemOrg) {
-        const systemDomainConfigs = await ctx.runQuery(internal.domainConfigOntology.listDomainConfigsForOrg, {
+        const systemDomainConfigs = await (ctx as any).runQuery(generatedApi.internal.domainConfigOntology.listDomainConfigsForOrg, {
           organizationId: systemOrg._id,
         });
         domainConfig = systemDomainConfigs?.find((d: { status: string }) => d.status === "active");
@@ -399,7 +399,7 @@ export const sendSalesNotificationEmail = internalAction({
     try {
       const emailSubject = `🎉 New Order: ${customerName} - ${formatCurrency(totalAmount)}`;
 
-      const result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+      const result = await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
         domainConfigId: domainConfig._id,
         to: args.recipientEmail,
         subject: emailSubject,
@@ -407,7 +407,7 @@ export const sendSalesNotificationEmail = internalAction({
       });
 
       // 9. Log communication for debugging/compliance
-      await ctx.runMutation(internal.communicationTracking.logEmailCommunication, {
+      await (ctx as any).runMutation(generatedApi.internal.communicationTracking.logEmailCommunication, {
         organizationId,
         recipientEmail: args.recipientEmail,
         subject: emailSubject,

@@ -16,9 +16,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import { validateConvexId, invalidIdResponse } from "./httpHelpers";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * LIST CONVERSATIONS
@@ -56,8 +57,8 @@ export const listConversations = httpAction(async (ctx, request) => {
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const result = await ctx.runQuery(
-      internal.api.v1.conversationsInternal.listConversationsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.conversationsInternal.listConversationsInternal,
       {
         organizationId: authContext.organizationId,
         status,
@@ -127,8 +128,8 @@ export const getConversation = httpAction(async (ctx, request) => {
       return invalidIdResponse("sessionId");
     }
 
-    const conversation = await ctx.runQuery(
-      internal.api.v1.conversationsInternal.getConversationInternal,
+    const conversation = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.conversationsInternal.getConversationInternal,
       {
         organizationId: authContext.organizationId,
         sessionId,
@@ -200,8 +201,8 @@ async function getConversationMessagesInternal(ctx: HttpActionCtx, request: Requ
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "100"), 500);
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const result = await ctx.runQuery(
-      internal.api.v1.conversationsInternal.getConversationMessagesInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.conversationsInternal.getConversationMessagesInternal,
       {
         organizationId: authContext.organizationId,
         sessionId,
@@ -303,8 +304,8 @@ export const sendConversationMessage = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(
-      internal.api.v1.conversationsInternal.sendMessageInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.conversationsInternal.sendMessageInternal,
       {
         organizationId: authContext.organizationId,
         sessionId,
@@ -391,8 +392,8 @@ export const updateConversation = httpAction(async (ctx, request) => {
       );
     }
 
-    await ctx.runMutation(
-      internal.api.v1.conversationsInternal.updateConversationStatusInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.conversationsInternal.updateConversationStatusInternal,
       {
         organizationId: authContext.organizationId,
         sessionId,

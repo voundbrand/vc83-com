@@ -17,7 +17,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 export const executeCreateContact = action({
@@ -63,7 +63,7 @@ export const executeCreateContact = action({
       console.log(`✅ Using existing frontend_user: ${frontendUserId}`);
     } else {
       // Create dormant frontend_user account
-      frontendUserId = await ctx.runMutation(internal.auth.createOrGetGuestUser, {
+      frontendUserId = await (ctx as any).runMutation(generatedApi.internal.auth.createOrGetGuestUser, {
         email,
         firstName: context.customerData?.firstName,
         lastName: context.customerData?.lastName,
@@ -72,7 +72,7 @@ export const executeCreateContact = action({
     }
 
     // Step 2: Check if CRM contact already exists
-    const existingContacts = (await ctx.runQuery(api.ontologyHelpers.getObjects, {
+    const existingContacts = (await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObjects, {
       organizationId: args.organizationId,
       type: "crm_contact",
     })) as Array<{ _id: Id<"objects">; customProperties?: { email?: string } }>;
@@ -99,7 +99,7 @@ export const executeCreateContact = action({
         console.log(`✅ Creating new CRM contact for: ${email}`);
         isNew = true;
 
-        const result: any = await ctx.runMutation(internal.api.v1.crmInternal.createContactInternal, {
+        const result: any = await (ctx as any).runMutation(generatedApi.internal.api.v1.crmInternal.createContactInternal, {
           organizationId: args.organizationId,
           subtype: "event_attendee",
           email,
@@ -115,7 +115,7 @@ export const executeCreateContact = action({
 
     // Step 3: Link frontend_user → crm_contact
     if (!args.config?.dryRun) {
-      await ctx.runMutation(internal.auth.linkFrontendUserToCRM, {
+      await (ctx as any).runMutation(generatedApi.internal.auth.linkFrontendUserToCRM, {
         userId: frontendUserId,
         email,
         organizationId: args.organizationId,

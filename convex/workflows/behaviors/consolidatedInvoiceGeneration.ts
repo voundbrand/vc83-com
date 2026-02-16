@@ -19,8 +19,9 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
 import { Doc, Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CONSOLIDATED INVOICE GENERATION ACTION (PHASE 3B)
@@ -103,7 +104,7 @@ export const executeConsolidatedInvoiceGeneration = action({
 
       try {
         // Query transactions for this CRM organization
-        const result = await ctx.runQuery(api.transactionOntology.listTransactions, {
+        const result = await (ctx as any).runQuery(generatedApi.api.transactionOntology.listTransactions, {
           sessionId: args.sessionId,
           organizationId: args.organizationId,
           crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,
@@ -265,7 +266,7 @@ export const executeConsolidatedInvoiceGeneration = action({
         console.log(`   Total: €${(totalInCents / 100).toFixed(2)}`);
       } else {
         try {
-          invoiceResult = await ctx.runMutation(api.invoicingOntology.createDraftInvoiceFromTransactions, {
+          invoiceResult = await (ctx as any).runMutation(generatedApi.api.invoicingOntology.createDraftInvoiceFromTransactions, {
             sessionId: args.sessionId,
             organizationId: args.organizationId,
             crmOrganizationId: args.config.crmOrganizationId as Id<"objects">,

@@ -13,11 +13,11 @@
  */
 
 import { ActionCtx } from "./_generated/server";
-import { api } from "./_generated/api";
-import { internal } from "./_generated/api";
 import { Id, Doc } from "./_generated/dataModel";
 import type { EmailLanguage } from "../src/templates/emails/types";
 import { formatAddressLine, formatAddressBlock } from "./lib/addressFormatter";
+
+const generatedApi: any = require("./_generated/api");
 
 /**
  * Fully Resolved Invoice Data
@@ -198,7 +198,7 @@ export async function resolveInvoiceEmailData(
   if (transactionId) {
     console.log(`🔍 [RESOLVER] Fetching transaction: ${transactionId}`);
     try {
-      transaction = await ctx.runQuery(internal.transactionOntology.getTransactionInternal, {
+      transaction = await (ctx as any).runQuery(generatedApi.internal.transactionOntology.getTransactionInternal, {
         transactionId: transactionId as Id<"objects">,
       });
 
@@ -222,7 +222,7 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   console.log(`🔍 [RESOLVER] Loading organization settings for org ${invoice.organizationId}`);
 
-  const organization = await ctx.runQuery(api.organizations.get, {
+  const organization = await (ctx as any).runQuery(generatedApi.api.organizations.get, {
     id: invoice.organizationId,
   });
 
@@ -231,7 +231,7 @@ export async function resolveInvoiceEmailData(
   }
 
   // Fetch organization_settings with subtype "locale" for currency/locale info
-  const localeSettingsResult = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+  const localeSettingsResult = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
     organizationId: invoice.organizationId,
     subtype: "locale",
   });
@@ -261,7 +261,7 @@ export async function resolveInvoiceEmailData(
   // ==========================================================================
   console.log(`🔍 [RESOLVER] Loading organization branding settings...`);
 
-  const brandingSettingsResult = await ctx.runQuery(api.organizationOntology.getOrganizationSettings, {
+  const brandingSettingsResult = await (ctx as any).runQuery(generatedApi.api.organizationOntology.getOrganizationSettings, {
     organizationId: invoice.organizationId,
     subtype: "branding",
   });
@@ -305,7 +305,7 @@ export async function resolveInvoiceEmailData(
 
   if (options?.domainConfigId) {
     console.log(`🔍 [RESOLVER] Loading domain config: ${options.domainConfigId}`);
-    const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+    const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
       configId: options.domainConfigId,
     });
     domainProps = domainConfig.customProperties as DomainPropsType;
@@ -438,7 +438,7 @@ export async function resolveInvoiceEmailData(
   if (crmOrganizationId && options?.sessionId) {
     console.log(`🔍 [RESOLVER] Loading B2B CRM organization: ${crmOrganizationId}`);
     try {
-      const buyerCrmOrg = await ctx.runQuery(api.crmOntology.getPublicCrmOrganizationBilling, {
+      const buyerCrmOrg = await (ctx as any).runQuery(generatedApi.api.crmOntology.getPublicCrmOrganizationBilling, {
         crmOrganizationId: crmOrganizationId,
       });
 
@@ -478,7 +478,7 @@ export async function resolveInvoiceEmailData(
   if (contactId && options?.sessionId) {
     console.log(`🔍 [RESOLVER] Loading CRM contact for greeting: ${contactId}`);
     try {
-      const buyerCrmContact = await ctx.runQuery(api.crmOntology.getContact, {
+      const buyerCrmContact = await (ctx as any).runQuery(generatedApi.api.crmOntology.getContact, {
         sessionId: options.sessionId,
         contactId: contactId,
       });

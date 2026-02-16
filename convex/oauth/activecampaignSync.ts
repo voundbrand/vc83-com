@@ -11,7 +11,7 @@
 
 import { action, mutation, query, internalMutation, internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 
@@ -167,9 +167,9 @@ export const saveSyncConfig = mutation({
 
     // Schedule next sync if enabled
     if (args.config.enabled && args.config.syncIntervalMinutes > 0) {
-      await ctx.scheduler.runAfter(
+      await (ctx.scheduler as any).runAfter(
         args.config.syncIntervalMinutes * 60 * 1000,
-        internal.oauth.activecampaignSync.executeScheduledSync,
+        generatedApi.internal.oauth.activecampaignSync.executeScheduledSync,
         { organizationId: orgId }
       );
     }
@@ -189,7 +189,7 @@ export const executeScheduledSync = internalAction({
     console.log(`[ActiveCampaign Sync] Starting scheduled sync for org: ${args.organizationId}`);
 
     // Get sync config
-    const configObject = await ctx.runQuery(internal.oauth.activecampaignSync.getSyncConfigInternal, {
+    const configObject = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaignSync.getSyncConfigInternal, {
       organizationId: args.organizationId,
     });
 
@@ -199,7 +199,7 @@ export const executeScheduledSync = internalAction({
     }
 
     // Get ActiveCampaign connection
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     });
 
@@ -215,16 +215,16 @@ export const executeScheduledSync = internalAction({
       }
 
       // Update last sync time
-      await ctx.runMutation(internal.oauth.activecampaignSync.updateLastSync, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaignSync.updateLastSync, {
         organizationId: args.organizationId,
         lastSyncAt: Date.now(),
       });
 
       // Schedule next sync
       if (configObject.syncIntervalMinutes > 0) {
-        await ctx.scheduler.runAfter(
+        await (ctx.scheduler as any).runAfter(
           configObject.syncIntervalMinutes * 60 * 1000,
-          internal.oauth.activecampaignSync.executeScheduledSync,
+          generatedApi.internal.oauth.activecampaignSync.executeScheduledSync,
           { organizationId: args.organizationId }
         );
       }
@@ -301,7 +301,7 @@ export const triggerManualSync = action({
     error?: string;
   }> => {
     // Get current user from session
-    const user = await ctx.runQuery(api.auth.getCurrentUser, { sessionId: args.sessionId }) as {
+    const user = await (ctx as any).runQuery(generatedApi.api.auth.getCurrentUser, { sessionId: args.sessionId }) as {
       _id: Id<"users">;
       defaultOrgId?: Id<"organizations">;
     } | null;
@@ -313,7 +313,7 @@ export const triggerManualSync = action({
     const orgId = user.defaultOrgId;
 
     // Check connection
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: orgId,
     });
 
@@ -322,7 +322,7 @@ export const triggerManualSync = action({
     }
 
     // Get config
-    const config = await ctx.runQuery(internal.oauth.activecampaignSync.getSyncConfigInternal, {
+    const config = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaignSync.getSyncConfigInternal, {
       organizationId: orgId,
     });
 
@@ -334,7 +334,7 @@ export const triggerManualSync = action({
       });
 
       // Update last sync
-      await ctx.runMutation(internal.oauth.activecampaignSync.updateLastSync, {
+      await (ctx as any).runMutation(generatedApi.internal.oauth.activecampaignSync.updateLastSync, {
         organizationId: orgId,
         lastSyncAt: Date.now(),
       });
@@ -362,7 +362,7 @@ async function syncPlatformToActiveCampaign(
   config: Partial<ActiveCampaignSyncConfig>
 ): Promise<{ syncedCount: number }> {
   // Get CRM contacts from platform
-  const contacts = await ctx.runQuery(api.ontologyHelpers.getObjects, {
+  const contacts = await (ctx as any).runQuery(generatedApi.api.ontologyHelpers.getObjects, {
     organizationId,
     type: "crm_contact",
   });
@@ -380,7 +380,7 @@ async function syncPlatformToActiveCampaign(
 
     try {
       // Sync contact to ActiveCampaign
-      const acContact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+      const acContact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
         connectionId,
         email,
         firstName: contact.customProperties?.firstName,
@@ -392,7 +392,7 @@ async function syncPlatformToActiveCampaign(
       if (config.listMappings && contact.customProperties?.tags) {
         for (const mapping of config.listMappings) {
           if (contact.customProperties.tags.includes(mapping.platformTag)) {
-            await ctx.runAction(internal.oauth.activecampaign.subscribeToList, {
+            await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.subscribeToList, {
               connectionId,
               contactId: acContact.id,
               listId: mapping.activeCampaignListId,
@@ -405,7 +405,7 @@ async function syncPlatformToActiveCampaign(
       if (config.tagMappings && contact.customProperties?.tags) {
         for (const mapping of config.tagMappings) {
           if (contact.customProperties.tags.includes(mapping.platformTag)) {
-            await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+            await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
               connectionId,
               contactId: acContact.id,
               tagId: mapping.activeCampaignTagId,

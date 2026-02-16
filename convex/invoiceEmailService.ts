@@ -8,7 +8,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { Id } from "./_generated/dataModel";
 import type { EmailLanguage } from "../src/templates/emails/types";
 
@@ -39,7 +39,7 @@ export const previewInvoiceEmail = action({
     console.log(`📧 [PREVIEW] Generating invoice email preview for invoice ${args.invoiceId}`);
 
     // 1. Load invoice data
-    const invoice = await ctx.runQuery(api.invoicingOntology.getInvoiceById, {
+    const invoice = await (ctx as any).runQuery(generatedApi.api.invoicingOntology.getInvoiceById, {
       sessionId: args.sessionId,
       invoiceId: args.invoiceId,
     });
@@ -55,7 +55,7 @@ export const previewInvoiceEmail = action({
     // Note: domainProps prepared for future use with advanced branding
     if (args.domainConfigId) {
       // Use custom domain configuration
-      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+      const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
       // Note: Domain config loaded for future branding features
@@ -78,7 +78,7 @@ export const previewInvoiceEmail = action({
     } else {
       // Resolve from organization's default template set
       console.log(`📧 [PREVIEW] Resolving from organization's template set...`);
-      const resolvedId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+      const resolvedId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: invoice.organizationId,
         templateType: "email",
         context: {
@@ -94,7 +94,7 @@ export const previewInvoiceEmail = action({
     }
 
     // Step 2: Resolve the template ID to get full template metadata
-    const resolvedTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
+    const resolvedTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
       templateId: emailTemplateId,
       fallbackCategory: "transactional",
     });
@@ -147,7 +147,7 @@ export const previewInvoiceEmail = action({
     console.log(`📧 [PREVIEW] Final template code being used: ${templateCode}`);
 
     // Get email template from database by code
-    const template = await ctx.runQuery(api.pdfTemplateQueries.getEmailTemplateByCode, {
+    const template = await (ctx as any).runQuery(generatedApi.api.pdfTemplateQueries.getEmailTemplateByCode, {
       templateCode: templateCode,
     });
 
@@ -205,7 +205,7 @@ export const sendInvoiceEmail = action({
     console.log(`📧 Sending invoice email for invoice ${args.invoiceId}`);
 
     // 1. Load invoice data
-    const invoice = await ctx.runQuery(api.invoicingOntology.getInvoiceById, {
+    const invoice = await (ctx as any).runQuery(generatedApi.api.invoicingOntology.getInvoiceById, {
       sessionId: args.sessionId,
       invoiceId: args.invoiceId,
     });
@@ -222,7 +222,7 @@ export const sendInvoiceEmail = action({
 
     if (args.domainConfigId) {
       // Use custom domain configuration
-      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+      const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
       domainProps = domainConfig.customProperties as any;
@@ -254,7 +254,7 @@ export const sendInvoiceEmail = action({
     } else {
       // Resolve from organization's default template set
       console.log(`📧 [SEND] Resolving from organization's template set...`);
-      const resolvedId = await ctx.runQuery(internal.templateSetQueries.resolveIndividualTemplateInternal, {
+      const resolvedId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: invoice.organizationId,
         templateType: "email",
         context: {
@@ -270,7 +270,7 @@ export const sendInvoiceEmail = action({
     }
 
     // Step 2: Resolve the template ID to get full template metadata
-    const resolvedTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
+    const resolvedTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
       templateId: emailTemplateId,
       fallbackCategory: "transactional",
     });
@@ -326,7 +326,7 @@ export const sendInvoiceEmail = action({
     console.log(`📧 [SEND] Final template code being used: ${templateCode}`);
 
     // Get email template from database by code
-    const sendTemplate = await ctx.runQuery(api.pdfTemplateQueries.getEmailTemplateByCode, {
+    const sendTemplate = await (ctx as any).runQuery(generatedApi.api.pdfTemplateQueries.getEmailTemplateByCode, {
       templateCode: templateCode,
     });
 
@@ -363,7 +363,7 @@ export const sendInvoiceEmail = action({
       if (!pdfUrl && checkoutSessionId) {
         console.log(`📄 No PDF found for invoice ${args.invoiceId}, auto-generating...`);
         try {
-          const pdfResult = await ctx.runAction(api.pdfGeneration.generateInvoicePDF, {
+          const pdfResult = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateInvoicePDF, {
             checkoutSessionId: checkoutSessionId as any,
             crmOrganizationId: invoiceProps.billToOrganizationId as any,
             templateCode: args.pdfTemplateId ? undefined : 'b2b-professional', // Use default or let template override
@@ -426,7 +426,7 @@ export const sendInvoiceEmail = action({
     // ========================================================================
 
     // Determine best sender (Microsoft or Resend)
-    const senderConfig = await ctx.runQuery(api.oauth.emailSenderSelection.selectEmailSender, {
+    const senderConfig = await (ctx as any).runQuery(generatedApi.api.oauth.emailSenderSelection.selectEmailSender, {
       organizationId: invoice.organizationId,
       domainConfigId: args.domainConfigId,
       preferredType: args.forceSendVia,
@@ -444,7 +444,7 @@ export const sendInvoiceEmail = action({
       console.log(`📧 Attempting to send via Microsoft Graph from ${senderConfig.email}...`);
 
       try {
-        const msResult = await ctx.runAction(internal.oauth.emailSending.sendEmailViaMicrosoft, {
+        const msResult = await (ctx as any).runAction(generatedApi.internal.oauth.emailSending.sendEmailViaMicrosoft, {
           connectionId: senderConfig.connectionId,
           to: recipientEmail,
           subject,
@@ -479,7 +479,7 @@ export const sendInvoiceEmail = action({
 
       if (args.domainConfigId) {
         // Send via emailDelivery service (domain-specific)
-        result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+        result = await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
           domainConfigId: args.domainConfigId,
           to: recipientEmail,
           subject,
@@ -532,7 +532,7 @@ export const sendInvoiceEmail = action({
     // LOG COMMUNICATION
     // ========================================================================
     try {
-      await ctx.runMutation(internal.communicationTracking.logEmailCommunication, {
+      await (ctx as any).runMutation(generatedApi.internal.communicationTracking.logEmailCommunication, {
         organizationId: invoice.organizationId,
         recipientEmail,
         subject,

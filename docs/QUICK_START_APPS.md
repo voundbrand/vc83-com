@@ -80,7 +80,7 @@ l4yercak3 uses a **unified app system** where:
 ```
 
 **Refer to examples:**
-- [WEB_PUBLISHING_APP_PLAN.md](./WEB_PUBLISHING_APP_PLAN.md)
+- [WEB_PUBLISHING_APP_PLAN.md](./reference_docs/WEB_PUBLISHING_APP_PLAN.md)
 - [CHECKOUT_SYSTEM_ARCHITECTURE.md](./.kiro/checkout_system/CHECKOUT_SYSTEM_ARCHITECTURE.md)
 
 ---

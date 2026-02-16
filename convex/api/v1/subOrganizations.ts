@@ -14,9 +14,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes } from "../../middleware/auth";
 import { validateConvexId, invalidIdResponse } from "./httpHelpers";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * CREATE CHILD ORGANIZATION
@@ -52,8 +53,8 @@ export const createChildOrganization = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runMutation(
-      internal.api.v1.subOrganizationsInternal.createChildOrganizationInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.subOrganizationsInternal.createChildOrganizationInternal,
       {
         parentOrganizationId: authContext.organizationId,
         name,
@@ -126,8 +127,8 @@ export const listChildOrganizations = httpAction(async (ctx, request) => {
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const result = await ctx.runQuery(
-      internal.api.v1.subOrganizationsInternal.getChildOrganizationsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.subOrganizationsInternal.getChildOrganizationsInternal,
       {
         parentOrganizationId: authContext.organizationId,
         limit,
@@ -187,8 +188,8 @@ export const getChildOrganization = httpAction(async (ctx, request) => {
       return invalidIdResponse("childOrganizationId");
     }
 
-    const org = await ctx.runQuery(
-      internal.api.v1.subOrganizationsInternal.getChildOrganizationInternal,
+    const org = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.subOrganizationsInternal.getChildOrganizationInternal,
       {
         parentOrganizationId: authContext.organizationId,
         childOrganizationId: childId,
@@ -257,8 +258,8 @@ export const updateChildOrganization = httpAction(async (ctx, request) => {
     const body = await request.json();
     const { name, businessName, isActive } = body;
 
-    await ctx.runMutation(
-      internal.api.v1.subOrganizationsInternal.updateChildOrganizationInternal,
+    await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.subOrganizationsInternal.updateChildOrganizationInternal,
       {
         parentOrganizationId: authContext.organizationId,
         childOrganizationId: childId,

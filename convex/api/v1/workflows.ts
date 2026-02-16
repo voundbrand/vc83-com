@@ -14,7 +14,7 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import { getCorsHeaders } from "./corsHeaders";
 import { authenticateRequest, requireScopes, getEffectiveOrganizationId } from "../../middleware/auth";
 
@@ -120,8 +120,8 @@ export const triggerWorkflow = httpAction(async (ctx, request) => {
     }
 
     // 4. Execute workflow (now an action, not a mutation)
-    const result = await ctx.runAction(
-      internal.api.v1.workflowsInternal.executeWorkflowInternal,
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.workflowsInternal.executeWorkflowInternal,
       {
         organizationId,
         userId, // Pass the user who owns the API key

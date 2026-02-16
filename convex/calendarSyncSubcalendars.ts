@@ -17,7 +17,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 // ============================================================================
 // QUERIES
@@ -308,16 +308,16 @@ export const refreshSubCalendars = action({
   },
   handler: async (ctx, args): Promise<{ success: boolean; count?: number; error?: string }> => {
     // Verify session
-    const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+    const connection = await (ctx as any).runQuery(
+      generatedApi.internal.oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection || connection.status !== "active") {
       throw new Error("Invalid or inactive connection");
     }
 
-    return await ctx.runAction(
-      internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
+    return await (ctx as any).runAction(
+      generatedApi.internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
       { connectionId: args.connectionId }
     ) as { success: boolean; count?: number; error?: string };
   },
@@ -333,16 +333,16 @@ export const createBookingsCalendar = action({
     connectionId: v.id("oauthConnections"),
   },
   handler: async (ctx, args): Promise<{ success: boolean; calendarId: string | null; error?: string }> => {
-    const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+    const connection = await (ctx as any).runQuery(
+      generatedApi.internal.oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection || connection.status !== "active") {
       throw new Error("Invalid or inactive connection");
     }
 
-    return await ctx.runAction(
-      internal.calendarSyncSubcalendars.ensureBookingsCalendar,
+    return await (ctx as any).runAction(
+      generatedApi.internal.calendarSyncSubcalendars.ensureBookingsCalendar,
       { connectionId: args.connectionId }
     ) as { success: boolean; calendarId: string | null; error?: string };
   },
@@ -359,8 +359,8 @@ export const createBookingsCalendar = action({
 export const fetchAndStoreSubCalendars = internalAction({
   args: { connectionId: v.id("oauthConnections") },
   handler: async (ctx, args) => {
-    const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+    const connection = await (ctx as any).runQuery(
+      generatedApi.internal.oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection || connection.status !== "active") {
@@ -368,8 +368,8 @@ export const fetchAndStoreSubCalendars = internalAction({
     }
 
     try {
-      const result = (await ctx.runAction(
-        internal.oauth.googleClient.googleRequest,
+      const result = (await (ctx as any).runAction(
+        generatedApi.internal.oauth.googleClient.googleRequest,
         {
           connectionId: args.connectionId,
           endpoint: "/users/me/calendarList",
@@ -394,8 +394,8 @@ export const fetchAndStoreSubCalendars = internalAction({
         lastFetchedAt: Date.now(),
       }));
 
-      await ctx.runMutation(
-        internal.calendarSyncSubcalendars.storeSubCalendars,
+      await (ctx as any).runMutation(
+        generatedApi.internal.calendarSyncSubcalendars.storeSubCalendars,
         {
           connectionId: args.connectionId,
           subCalendars,
@@ -418,8 +418,8 @@ export const fetchAndStoreSubCalendars = internalAction({
 export const ensureBookingsCalendar = internalAction({
   args: { connectionId: v.id("oauthConnections") },
   handler: async (ctx, args) => {
-    const connection = await ctx.runQuery(
-      internal.oauth.google.getConnection,
+    const connection = await (ctx as any).runQuery(
+      generatedApi.internal.oauth.google.getConnection,
       { connectionId: args.connectionId }
     );
     if (!connection) return { success: false, calendarId: null };
@@ -433,8 +433,8 @@ export const ensureBookingsCalendar = internalAction({
     }
 
     try {
-      const result = (await ctx.runAction(
-        internal.oauth.googleClient.googleRequest,
+      const result = (await (ctx as any).runAction(
+        generatedApi.internal.oauth.googleClient.googleRequest,
         {
           connectionId: args.connectionId,
           endpoint: "/calendars",
@@ -452,8 +452,8 @@ export const ensureBookingsCalendar = internalAction({
 
       const calendarId = (result as Record<string, unknown>).id as string;
 
-      await ctx.runMutation(
-        internal.calendarSyncSubcalendars.storeBookingsCalendarId,
+      await (ctx as any).runMutation(
+        generatedApi.internal.calendarSyncSubcalendars.storeBookingsCalendarId,
         {
           connectionId: args.connectionId,
           calendarId,
@@ -461,8 +461,8 @@ export const ensureBookingsCalendar = internalAction({
       );
 
       // Refresh sub-calendar list to include the new one
-      await ctx.runAction(
-        internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
+      await (ctx as any).runAction(
+        generatedApi.internal.calendarSyncSubcalendars.fetchAndStoreSubCalendars,
         { connectionId: args.connectionId }
       );
 

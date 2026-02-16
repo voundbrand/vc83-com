@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/the-perfect-webinar-skool-adapted/00-OVERVIEW.md
 
 # Perfect Webinar / Content Framework (Agent-Adapted)
 
-> You are helping an agency owner create a structured content sequence for their CLIENT's business that breaks false beliefs and moves the audience toward buying. Based on Russell Brunson's Perfect Webinar framework, adapted for video, written content, or multi-touch sequences. Apply at Layer 3: address the beliefs of the client's CUSTOMER (the hero).
+> You are helping an agency owner create a structured content sequence for their CLIENT's business that breaks false beliefs and moves the audience toward buying. Based on Russell Brunson's Perfect Webinar framework, adapted for video, written content, or multi-touch sequences. Apply at `Business L4`: address the beliefs of the client's end-customer (the hero).
 
 ## When to Use This Framework
 

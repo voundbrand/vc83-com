@@ -608,7 +608,7 @@ try {
 ## Support
 
 If you encounter issues:
-1. Check [SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md](./SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md) for backend details
+1. Check [SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md](./reference_docs/SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md) for backend details
 2. Verify API key and organizationId are correct
 3. Check Convex logs for detailed error messages
 4. Review request/response formats in this document
@@ -635,7 +635,7 @@ All records are linked via `frontendUserId` for easy tracking!
 
 ## Next Steps
 
-1. Review backend implementation: [SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md](./SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md)
+1. Review backend implementation: [SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md](./reference_docs/SESSION_HANDOFF_CHECKOUT_ENHANCEMENT.md)
 2. Implement frontend flows from this guide
 3. Test all payment methods thoroughly
 4. Deploy and monitor

@@ -1,5 +1,8 @@
 # Refined Next.js Application Architecture: Restrictive Multi-Tenant Platform with Controlled Extensibility
 
+Canonical architecture docs for the agentic/layer model live here:
+- `docs/agentic_system/CANONICAL_DOCS_INDEX.md`
+
 This refined architecture builds directly on your existing RBAC database design and App Store model, aligning them tightly to your Palantir-inspired goals: **super admin (you) holds absolute control over organizations, users, app visibility, and extensibility**, while enabling a secure, SOC2-compliant, multi-tenant SaaS platform. Key refinements include:
 
 - **Controlled App Visibility:** App Store shows only super admin-approved apps per organization (via a new `appAvailabilities` junction table), preventing unauthorized discovery.

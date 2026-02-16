@@ -8,7 +8,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 import { Id } from "./_generated/dataModel";
 import { generateICSFile, icsToBase64 } from "./icsGeneration";
 
@@ -44,7 +44,7 @@ export const sendTicketConfirmationEmail = action({
     console.log(`📧 Sending ticket confirmation email for ticket ${args.ticketId}`);
 
     // 1. Load ticket data
-    const ticket = await ctx.runQuery(api.ticketOntology.getTicket, {
+    const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
@@ -61,7 +61,7 @@ export const sendTicketConfirmationEmail = action({
       throw new Error("Ticket has no associated event");
     }
 
-    const event = await ctx.runQuery(api.eventOntology.getEvent, {
+    const event = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEvent, {
       sessionId: args.sessionId,
       eventId: eventId as Id<"objects">,
     });
@@ -74,7 +74,7 @@ export const sendTicketConfirmationEmail = action({
 
     if (args.domainConfigId) {
       // Use custom domain configuration
-      const domainConfig = await ctx.runQuery(api.domainConfigOntology.getDomainConfig, {
+      const domainConfig = await (ctx as any).runQuery(generatedApi.api.domainConfigOntology.getDomainConfig, {
         configId: args.domainConfigId,
       });
       domainProps = domainConfig.customProperties as any;
@@ -102,7 +102,7 @@ export const sendTicketConfirmationEmail = action({
     if (!attendeeEmail && ticketProps.contactId) {
       console.log(`🔍 [SEND] No email in ticket props, loading CRM contact: ${ticketProps.contactId}`);
       try {
-        const contact = await ctx.runQuery(api.crmOntology.getContact, {
+        const contact = await (ctx as any).runQuery(generatedApi.api.crmOntology.getContact, {
           sessionId: args.sessionId,
           contactId: ticketProps.contactId as Id<"objects">,
         });
@@ -139,7 +139,7 @@ export const sendTicketConfirmationEmail = action({
     const language: EmailLanguage = args.language || 'de';
 
     // 6. Get template data and render email using template system
-    const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
+    const templateData = await (ctx as any).runAction(generatedApi.api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
       organizationId: ticket.organizationId, // Pass organizationId for branding
@@ -153,7 +153,7 @@ export const sendTicketConfirmationEmail = action({
     if (args.emailTemplateId) {
       // If custom email template provided, get its template code from database
       try {
-        const customTemplate = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+        const customTemplate = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
           templateId: args.emailTemplateId,
         });
 
@@ -216,7 +216,7 @@ export const sendTicketConfirmationEmail = action({
           // Determine template code if custom template provided
           let templateCode: string | undefined = undefined;
           if (args.ticketPdfTemplateId) {
-            const pdfTemplate = await ctx.runQuery(internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
+            const pdfTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
               templateId: args.ticketPdfTemplateId,
             });
             if (pdfTemplate?.templateCode) {
@@ -226,7 +226,7 @@ export const sendTicketConfirmationEmail = action({
           }
 
           // Use new generateTicketPDFFromTicket (works without checkout)
-          const generatedPdfUrl = await ctx.runAction(api.pdfGeneration.generateTicketPDFFromTicket, {
+          const generatedPdfUrl = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateTicketPDFFromTicket, {
             ticketId: args.ticketId,
             templateCode,
           });
@@ -308,7 +308,7 @@ export const sendTicketConfirmationEmail = action({
     // ========================================================================
 
     // Determine best sender (Microsoft or Resend)
-    const senderConfig = await ctx.runQuery(api.oauth.emailSenderSelection.selectEmailSender, {
+    const senderConfig = await (ctx as any).runQuery(generatedApi.api.oauth.emailSenderSelection.selectEmailSender, {
       organizationId: ticket.organizationId,
       domainConfigId: args.domainConfigId,
       preferredType: args.forceSendVia, // User can override automatic selection
@@ -326,7 +326,7 @@ export const sendTicketConfirmationEmail = action({
       console.log(`📧 Attempting to send via Microsoft Graph from ${senderConfig.email}...`);
 
       try {
-        const msResult = await ctx.runAction(internal.oauth.emailSending.sendEmailViaMicrosoft, {
+        const msResult = await (ctx as any).runAction(generatedApi.internal.oauth.emailSending.sendEmailViaMicrosoft, {
           connectionId: senderConfig.connectionId,
           to: attendeeEmail,
           subject,
@@ -364,7 +364,7 @@ export const sendTicketConfirmationEmail = action({
 
       if (args.domainConfigId) {
         // Send via emailDelivery service (domain-specific)
-        result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+        result = await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
           domainConfigId: args.domainConfigId,
           to: attendeeEmail,
           subject,
@@ -450,7 +450,7 @@ export const previewTicketEmail = action({
     language: string;
   }> => {
     // Load all data same as send action
-    const ticket = await ctx.runQuery(api.ticketOntology.getTicket, {
+    const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
@@ -461,7 +461,7 @@ export const previewTicketEmail = action({
     const language: EmailLanguage = args.language || 'de';
 
     // Get template data and render email using template system
-    const templateData = await ctx.runAction(api.emailTemplateRenderer.getEmailTemplateData, {
+    const templateData = await (ctx as any).runAction(generatedApi.api.emailTemplateRenderer.getEmailTemplateData, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
       organizationId: ticket.organizationId, // Pass organizationId for branding
@@ -475,7 +475,7 @@ export const previewTicketEmail = action({
     if (args.emailTemplateId) {
       // If custom email template provided, get its template code from database
       try {
-        const customTemplate = await ctx.runQuery(api.templateOntology.getEmailTemplateById, {
+        const customTemplate = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
           templateId: args.emailTemplateId,
         });
 

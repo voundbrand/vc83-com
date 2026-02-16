@@ -15,7 +15,7 @@
  */
 
 import { ActionCtx } from "../_generated/server";
-import { internal } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import { Id } from "../_generated/dataModel";
 
 /**
@@ -101,7 +101,7 @@ export async function detectAnomalies(
   config: AnomalyConfig = DEFAULT_ANOMALY_CONFIG
 ): Promise<void> {
   // Log usage metadata for future analysis
-  await ctx.runMutation(internal.middleware.anomalyDetectionDb.logUsageMetadata, {
+  await (ctx as any).runMutation(generatedApi.internal.middleware.anomalyDetectionDb.logUsageMetadata, {
     organizationId: usage.organizationId,
     authMethod: usage.authMethod,
     apiKeyId: usage.apiKeyId,
@@ -149,8 +149,8 @@ async function detectGeographicAnomaly(
   const timeWindowStart = now - config.geographicAnomalyTimeWindowMs;
 
   // Get countries used in time window
-  const recentCountries = await ctx.runQuery(
-    internal.middleware.anomalyDetectionDb.getRecentCountries,
+  const recentCountries = await (ctx as any).runQuery(
+    generatedApi.internal.middleware.anomalyDetectionDb.getRecentCountries,
     {
       apiKeyId: usage.apiKeyId,
       since: timeWindowStart,
@@ -165,8 +165,8 @@ async function detectGeographicAnomaly(
   // Trigger if API key used from 2+ countries
   if (recentCountries.length >= config.geographicAnomalyCountryCount) {
     // Check for duplicate alerts (cooldown)
-    const recentEvents = await ctx.runQuery(
-      internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
+    const recentEvents = await (ctx as any).runQuery(
+      generatedApi.internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
       {
         organizationId: usage.organizationId,
         eventType: "geographic_anomaly",
@@ -180,8 +180,8 @@ async function detectGeographicAnomaly(
     }
 
     // Create security event
-    await ctx.runMutation(
-      internal.middleware.anomalyDetectionDb.createSecurityEvent,
+    await (ctx as any).runMutation(
+      generatedApi.internal.middleware.anomalyDetectionDb.createSecurityEvent,
       {
         organizationId: usage.organizationId,
         eventType: "geographic_anomaly",
@@ -221,8 +221,8 @@ async function detectVelocitySpike(
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
   // Get current request count (last 5 minutes)
-  const currentRequests = await ctx.runQuery(
-    internal.middleware.anomalyDetectionDb.getRequestCount,
+  const currentRequests = await (ctx as any).runQuery(
+    generatedApi.internal.middleware.anomalyDetectionDb.getRequestCount,
     {
       organizationId: usage.organizationId,
       since: windowStart,
@@ -230,8 +230,8 @@ async function detectVelocitySpike(
   );
 
   // Get 7-day average (requests per 5 minutes)
-  const averageRate = await ctx.runQuery(
-    internal.middleware.anomalyDetectionDb.getAverageRequestRate,
+  const averageRate = await (ctx as any).runQuery(
+    generatedApi.internal.middleware.anomalyDetectionDb.getAverageRequestRate,
     {
       organizationId: usage.organizationId,
       since: sevenDaysAgo,
@@ -247,8 +247,8 @@ async function detectVelocitySpike(
   const multiplier = currentRequests / averageRate;
   if (multiplier >= config.velocitySpikeMultiplier) {
     // Check for duplicate alerts (cooldown)
-    const recentEvents = await ctx.runQuery(
-      internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
+    const recentEvents = await (ctx as any).runQuery(
+      generatedApi.internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
       {
         organizationId: usage.organizationId,
         eventType: "velocity_spike",
@@ -262,8 +262,8 @@ async function detectVelocitySpike(
     }
 
     // Create security event
-    await ctx.runMutation(
-      internal.middleware.anomalyDetectionDb.createSecurityEvent,
+    await (ctx as any).runMutation(
+      generatedApi.internal.middleware.anomalyDetectionDb.createSecurityEvent,
       {
         organizationId: usage.organizationId,
         eventType: "velocity_spike",
@@ -301,8 +301,8 @@ async function detectFailedAuthSpike(
   const windowStart = now - config.failedAuthSpikeWindowMs;
 
   // Get failed auth attempts from this IP
-  const failedAttempts = await ctx.runQuery(
-    internal.middleware.anomalyDetectionDb.getFailedAuthAttempts,
+  const failedAttempts = await (ctx as any).runQuery(
+    generatedApi.internal.middleware.anomalyDetectionDb.getFailedAuthAttempts,
     {
       ipAddress: usage.ipAddress,
       since: windowStart,
@@ -312,8 +312,8 @@ async function detectFailedAuthSpike(
   // Trigger if 20+ failed attempts
   if (failedAttempts >= config.failedAuthSpikeCount) {
     // Check for duplicate alerts (cooldown)
-    const recentEvents = await ctx.runQuery(
-      internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
+    const recentEvents = await (ctx as any).runQuery(
+      generatedApi.internal.middleware.anomalyDetectionDb.getRecentSecurityEvents,
       {
         organizationId: usage.organizationId,
         eventType: "failed_auth_spike",
@@ -327,8 +327,8 @@ async function detectFailedAuthSpike(
     }
 
     // Create security event
-    await ctx.runMutation(
-      internal.middleware.anomalyDetectionDb.createSecurityEvent,
+    await (ctx as any).runMutation(
+      generatedApi.internal.middleware.anomalyDetectionDb.createSecurityEvent,
       {
         organizationId: usage.organizationId,
         eventType: "failed_auth_spike",
@@ -376,7 +376,7 @@ export async function logFailedAuthAttempt(
     failureReason: string;
   }
 ): Promise<void> {
-  await ctx.runMutation(internal.middleware.anomalyDetectionDb.logFailedAuth, {
+  await (ctx as any).runMutation(generatedApi.internal.middleware.anomalyDetectionDb.logFailedAuth, {
     apiKeyPrefix: params.apiKeyPrefix,
     tokenType: params.tokenType,
     endpoint: params.endpoint,

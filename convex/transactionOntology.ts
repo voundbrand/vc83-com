@@ -454,7 +454,7 @@ export const getTransactionInvoice = query({
 // replaces checkout-session-based approach with proper transaction records
 
 import { internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+const generatedApi: any = require("./_generated/api");
 
 /**
  * CREATE TRANSACTION (INTERNAL)
@@ -1580,8 +1580,8 @@ export const processBookingRefundInternal = internalMutation({
     }
 
     // Create refund transaction
-    const refundTransactionId: Id<"objects"> = await ctx.runMutation(
-      internal.transactionOntology.createBookingTransactionInternal,
+    const refundTransactionId: Id<"objects"> = await (ctx as any).runMutation(
+      generatedApi.internal.transactionOntology.createBookingTransactionInternal,
       {
         organizationId: args.organizationId,
         bookingId: args.bookingId,

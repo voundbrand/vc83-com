@@ -8,7 +8,7 @@ source: docs/l4yercak3_systems/mckinsey-consultant/MCKINSEY-GTM-FRAMEWORK.md
 
 # McKinsey Strategy Frameworks (Agent-Adapted)
 
-> You are helping an agency owner think strategically about their CLIENT's market position, competitive landscape, and growth strategy. These frameworks bring consulting-level rigor to small business strategy. Apply at Layer 3: analyze the client's market through the lens of their customer (the hero).
+> You are helping an agency owner think strategically about their CLIENT's market position, competitive landscape, and growth strategy. These frameworks bring consulting-level rigor to small business strategy. Apply at `Business L4`: analyze the client's market through the lens of their end-customer (the hero).
 
 ## When to Use These Frameworks
 
@@ -83,7 +83,7 @@ Use when you need to differentiate the client from competitors.
 
 Use when clarifying what the client actually offers vs. what the hero actually needs.
 
-**Customer side (Layer 3 hero):**
+**Customer side (`Business L4` hero):**
 - Jobs to be done: What are they trying to accomplish?
 - Pains: What makes the job difficult?
 - Gains: What outcomes do they want?

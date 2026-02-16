@@ -6,9 +6,9 @@
 
 ## 1. Purpose
 
-Deploy a complete online booking and appointment system for a service-based business. The agency (Layer 2) configures this skill on behalf of their client (Layer 3) -- a dentist, consultant, salon, therapist, coach, physiotherapist, or any provider that sells time-based services.
+Deploy a complete online booking and appointment system for a service-based business. The agency (`Business L2`) configures this skill on behalf of their client business (`Business L3`) -- a dentist, consultant, salon, therapist, coach, physiotherapist, or any provider that sells time-based services.
 
-**Outcome:** End customers (Layer 4) browse available services, select a time slot, fill an intake form, and book online. The system then:
+**Outcome:** End customers (`Business L4`) browse available services, select a time slot, fill an intake form, and book online. The system then:
 
 - Creates/updates a CRM contact automatically
 - Sends a confirmation email and optional SMS/WhatsApp

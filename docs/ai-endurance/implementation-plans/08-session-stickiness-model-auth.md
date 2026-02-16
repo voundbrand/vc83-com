@@ -5,7 +5,7 @@
 Reduce instability and thrashing by pinning model/auth decisions per session, while still allowing safe escape on sustained failures.
 
 Reference pattern:
-- `docs/openclaw_idea/openclaw/docs/concepts/model-failover.md` (session stickiness behavior)
+- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md` (session stickiness behavior)
 
 ## Current state in this codebase
 
@@ -55,4 +55,3 @@ Reference pattern:
 - Session runs are stable across turns unless explicit unlock condition occurs.
 - Pin behavior observable in logs and metrics.
 - Overrides remain predictable to users/operators.
-

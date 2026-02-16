@@ -271,11 +271,11 @@ function EventsList() {
 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
-| [QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md) | 60-second test | First time testing |
-| [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md) | Comprehensive testing | Full test suite |
+| [QUICK_START_CMS_TESTING.md](./reference_docs/QUICK_START_CMS_TESTING.md) | 60-second test | First time testing |
+| [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md) | Comprehensive testing | Full test suite |
 | [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md) | Frontend integration | Building external app |
-| [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md) | Feature overview | Understanding system |
-| [CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md) | Technical details | Development reference |
+| [CMS_INTEGRATION_COMPLETE.md](./reference_docs/CMS_INTEGRATION_COMPLETE.md) | Feature overview | Understanding system |
+| [CMS_IMPLEMENTATION_SUMMARY.md](./reference_docs/CMS_IMPLEMENTATION_SUMMARY.md) | Technical details | Development reference |
 
 ---
 
@@ -343,7 +343,7 @@ wait
 **Filter Issues?** → Verify event properties match rules
 **Empty Results?** → Check event status = published
 
-**Need more help?** See [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md)
+**Need more help?** See [API_TESTING_GUIDE.md](./reference_docs/API_TESTING_GUIDE.md)
 
 ---
 

@@ -7,8 +7,9 @@
 import { action } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // TOOL DEFINITION
@@ -238,7 +239,7 @@ export const executeManageProjects = action({
       organizationId = args.organizationId;
       userId = args.userId;
     } else if (args.sessionId) {
-      const session = await ctx.runQuery(internal.stripeConnect.validateSession, {
+      const session = await (ctx as any).runQuery(generatedApi.internal.stripeConnect.validateSession, {
         sessionId: args.sessionId
       });
 
@@ -426,8 +427,8 @@ async function createProject(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -454,8 +455,8 @@ async function createProject(
   }
 
   // EXECUTE MODE: Actually create the project
-  const projectId = await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateProject,
+  const projectId = await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateProject,
     {
       organizationId,
       userId,
@@ -472,8 +473,8 @@ async function createProject(
 
   // Update work item to completed
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -514,8 +515,8 @@ async function listProjects(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
-  const result = await ctx.runQuery(
-    internal.api.v1.projectsInternal.listProjectsInternal,
+  const result = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.projectsInternal.listProjectsInternal,
     {
       organizationId,
       subtype: args.projectType,
@@ -583,8 +584,8 @@ const updates: any = {
     updates.targetEndDate = new Date(args.targetEndDate).getTime();
   }
 
-  await ctx.runMutation(
-    internal.api.v1.projectsInternal.updateProjectInternal,
+  await (ctx as any).runMutation(
+    generatedApi.internal.api.v1.projectsInternal.updateProjectInternal,
     updates
   );
 
@@ -663,8 +664,8 @@ async function createMilestone(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -691,8 +692,8 @@ async function createMilestone(
   }
 
   // EXECUTE MODE: Actually create the milestone
-  const milestoneId = await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateMilestone,
+  const milestoneId = await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateMilestone,
     {
       organizationId,
       userId,
@@ -705,8 +706,8 @@ async function createMilestone(
 
   // Update work item to completed
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -813,8 +814,8 @@ async function createTask(
     };
 
     // Create work item for tracking
-    const workItemId = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalCreateWorkItem,
+    const workItemId = await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkItem,
       {
         organizationId,
         userId,
@@ -841,8 +842,8 @@ async function createTask(
   }
 
   // EXECUTE MODE: Actually create the task
-  const taskId = await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalCreateTask,
+  const taskId = await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalCreateTask,
     {
       organizationId,
       userId,
@@ -858,8 +859,8 @@ async function createTask(
 
   // Update work item to completed
   if (args.workItemId) {
-    await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.tools.internalToolMutations.internalUpdateWorkItem,
       {
         workItemId: args.workItemId as Id<"aiWorkItems">,
         status: "completed",
@@ -902,8 +903,8 @@ async function listTasks(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
-  const tasks = await ctx.runQuery(
-    internal.api.v1.projectsInternal.listTasksInternal,
+  const tasks = await (ctx as any).runQuery(
+    generatedApi.internal.api.v1.projectsInternal.listTasksInternal,
     {
       organizationId,
       projectId: args.projectId,
@@ -981,8 +982,8 @@ const updates: any = {
     updates.assigneeId = await resolveUserByEmail(ctx, organizationId, args.assigneeEmail);
   }
 
-  await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalUpdateTask,
+  await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalUpdateTask,
     updates
   );
 
@@ -1019,8 +1020,8 @@ async function assignTask(
     assigneeId = await resolveUserByEmail(ctx, organizationId, args.assigneeEmail);
   }
 
-  await ctx.runMutation(
-    internal.ai.tools.internalToolMutations.internalUpdateTask,
+  await (ctx as any).runMutation(
+    generatedApi.internal.ai.tools.internalToolMutations.internalUpdateTask,
     {
       organizationId,
       taskId: args.taskId,
@@ -1049,7 +1050,7 @@ async function resolveUserByEmail(
   organizationId: Id<"organizations">,
   email: string
 ): Promise<Id<"users">> {
-  const user = await ctx.runQuery(internal.ai.tools.internalToolMutations.getUserByEmail, {
+  const user = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.getUserByEmail, {
     organizationId,
     email,
   });

@@ -26,7 +26,7 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 interface ActiveCampaignSyncContext {
@@ -104,7 +104,7 @@ export const executeActiveCampaignSync = action({
     }
 
     // Check if org has ActiveCampaign connected
-    const connection = await ctx.runQuery(internal.oauth.activecampaign.getConnectionByOrg, {
+    const connection = await (ctx as any).runQuery(generatedApi.internal.oauth.activecampaign.getConnectionByOrg, {
       organizationId: args.organizationId,
     }) as ActiveCampaignConnection | null;
 
@@ -154,7 +154,7 @@ export const executeActiveCampaignSync = action({
         case "upsert_contact":
         case "full_sync": {
           // Create or update contact in ActiveCampaign
-          const contact = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+          const contact = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
             connectionId: connection._id,
             email,
             firstName,
@@ -168,7 +168,7 @@ export const executeActiveCampaignSync = action({
           // For full_sync, also add to list and tags if configured
           if (config.action === "full_sync") {
             if (config.listId && activeCampaignContactId) {
-              await ctx.runAction(internal.oauth.activecampaign.subscribeToList, {
+              await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.subscribeToList, {
                 connectionId: connection._id,
                 contactId: activeCampaignContactId,
                 listId: config.listId,
@@ -177,7 +177,7 @@ export const executeActiveCampaignSync = action({
             }
 
             if (config.tagId && activeCampaignContactId) {
-              await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+              await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
                 connectionId: connection._id,
                 contactId: activeCampaignContactId,
                 tagId: config.tagId,
@@ -197,7 +197,7 @@ export const executeActiveCampaignSync = action({
           }
 
           // First ensure contact exists
-          const contactForList = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+          const contactForList = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
             connectionId: connection._id,
             email,
             firstName,
@@ -206,7 +206,7 @@ export const executeActiveCampaignSync = action({
           activeCampaignContactId = contactForList.id;
 
           // Then add to list
-          await ctx.runAction(internal.oauth.activecampaign.subscribeToList, {
+          await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.subscribeToList, {
             connectionId: connection._id,
             contactId: activeCampaignContactId,
             listId: config.listId,
@@ -224,7 +224,7 @@ export const executeActiveCampaignSync = action({
           }
 
           // First ensure contact exists
-          const contactForTag = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+          const contactForTag = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
             connectionId: connection._id,
             email,
             firstName,
@@ -233,7 +233,7 @@ export const executeActiveCampaignSync = action({
           activeCampaignContactId = contactForTag.id;
 
           // Then add tag
-          await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+          await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
             connectionId: connection._id,
             contactId: activeCampaignContactId,
             tagId: config.tagId,
@@ -245,7 +245,7 @@ export const executeActiveCampaignSync = action({
         case "trigger_automation": {
           // For automation triggers, we add the contact with a special tag
           // that's linked to the automation in ActiveCampaign
-          const contactForAutomation = await ctx.runAction(internal.oauth.activecampaign.upsertContact, {
+          const contactForAutomation = await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.upsertContact, {
             connectionId: connection._id,
             email,
             firstName,
@@ -255,7 +255,7 @@ export const executeActiveCampaignSync = action({
 
           // Add automation trigger tag if configured
           if (config.automationId) {
-            await ctx.runAction(internal.oauth.activecampaign.addTagToContact, {
+            await (ctx as any).runAction(generatedApi.internal.oauth.activecampaign.addTagToContact, {
               connectionId: connection._id,
               contactId: activeCampaignContactId,
               tagId: config.automationId,

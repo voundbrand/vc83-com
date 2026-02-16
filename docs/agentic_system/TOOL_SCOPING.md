@@ -4,6 +4,18 @@
 
 ---
 
+## Layer Taxonomy (Canonical)
+
+This document defines `PolicyLayer` resolution only:
+- `Policy L1 Platform -> Policy L2 Org -> Policy L3 Agent -> Policy L4 Session`
+
+Canonical reference:
+- [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md)
+
+Do not confuse these policy layers with `BusinessLayer` hierarchy.
+
+---
+
 ## Current State (Problems)
 
 - **`enabledTools=[]` means ALL 63 tools.** A newly bootstrapped agent has access to everything — invoices, payments, bulk email, etc. — even if the org hasn't configured Stripe or Resend.
@@ -16,26 +28,26 @@
 
 ## Layered Tool Resolution
 
-### The Four Layers
+### The Four Policy Layers
 
 ```
-Layer 1: PLATFORM (l4yercak3 controls)
+Policy L1: PLATFORM (l4yercak3 controls)
   ├── platformAllowedTools[]    → master list of ALL available tools
   ├── platformBlockedTools[]    → tools disabled globally (maintenance, broken, etc.)
   └── Managed via platform admin, not exposed to org owners
 
-Layer 2: ORGANIZATION (org owner controls)
+Policy L2: ORGANIZATION (org owner controls)
   ├── orgEnabledTools[]         → tools the org has chosen to enable
   ├── orgDisabledTools[]        → tools the org wants blocked for all agents
   └── integrationRequirements   → auto-filter: tool X requires integration Y
 
-Layer 3: AGENT (per-agent config)
+Policy L3: AGENT (per-agent config)
   ├── enabledTools[]            → agent's whitelist (empty = all org tools)
   ├── disabledTools[]           → agent-specific blocks
   ├── toolProfile               → named preset (e.g., "support", "sales")
   └── autonomyLevel + requireApprovalFor[]
 
-Layer 4: SESSION (runtime)
+Policy L4: SESSION (runtime)
   ├── disabledForSession[]      → tools disabled due to runtime errors
   ├── channelRestrictions       → some tools unavailable on certain channels
   └── Tool broker filtering     → intent-based narrowing (future)
@@ -52,26 +64,26 @@ function resolveActiveTools(
 ): ToolDefinition[] {
   let tools = getAllToolDefinitions();
 
-  // Layer 1: Platform filter
+  // Policy L1: Platform filter
   if (platform.allowedTools.length > 0) {
     tools = tools.filter(t => platform.allowedTools.includes(t.name));
   }
   tools = tools.filter(t => !platform.blockedTools.includes(t.name));
 
-  // Layer 2: Org filter
+  // Policy L2: Org filter
   if (org.enabledTools.length > 0) {
     tools = tools.filter(t => org.enabledTools.includes(t.name));
   }
   tools = tools.filter(t => !org.disabledTools.includes(t.name));
 
-  // Layer 2b: Integration filter
+  // Policy L2b: Integration filter
   tools = tools.filter(t => {
     const requirement = org.integrationRequirements[t.name];
     if (!requirement) return true;  // no integration needed
     return org.connectedIntegrations.includes(requirement);
   });
 
-  // Layer 3: Agent filter
+  // Policy L3: Agent filter
   if (agent.toolProfile) {
     const profileTools = TOOL_PROFILES[agent.toolProfile];
     tools = tools.filter(t => profileTools.includes(t.name));
@@ -81,12 +93,12 @@ function resolveActiveTools(
   }
   tools = tools.filter(t => !agent.disabledTools.includes(t.name));
 
-  // Layer 3b: Autonomy filter
+  // Policy L3b: Autonomy filter
   if (agent.autonomyLevel === "draft_only") {
     tools = tools.filter(t => t.readOnly === true);
   }
 
-  // Layer 4: Session filter
+  // Policy L4: Session filter
   tools = tools.filter(t => !session.disabledForSession.includes(t.name));
   tools = tools.filter(t => !session.channelRestrictions[session.channel]?.blocked.includes(t.name));
 

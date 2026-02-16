@@ -17,7 +17,7 @@
 
 import { action, internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+const generatedApi: any = require("../../_generated/api");
 import type { Id } from "../../_generated/dataModel";
 
 /**
@@ -145,7 +145,7 @@ export const executeCreateFormResponse = action({
       console.log(`🧪 [DRY RUN] Would create form response for: ${context.customerData?.email}`);
     } else {
       // Create form response object using internal mutation (PRODUCTION)
-      formResponseId = await ctx.runMutation(internal.workflows.behaviors.createFormResponse.createFormResponseInternal, {
+      formResponseId = await (ctx as any).runMutation(generatedApi.internal.workflows.behaviors.createFormResponse.createFormResponseInternal, {
         organizationId: args.organizationId,
         formId: context.formId,
         eventId: context.eventId,

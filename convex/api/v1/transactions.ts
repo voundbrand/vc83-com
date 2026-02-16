@@ -10,8 +10,9 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
+
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * GET TRANSACTION
@@ -48,7 +49,7 @@ export const getTransaction = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -74,8 +75,8 @@ export const getTransaction = httpAction(async (ctx, request) => {
     }
 
     // 3. Get transaction
-    const transaction = await ctx.runQuery(
-      internal.api.v1.transactionsInternal.getTransactionInternal,
+    const transaction = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.transactionsInternal.getTransactionInternal,
       {
         transactionId,
         organizationId,

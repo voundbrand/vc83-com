@@ -12,8 +12,9 @@
 
 import { internalMutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 // ============================================================================
 // TYPES
@@ -108,7 +109,7 @@ async function sendEmailMessage(
 
   try {
     // Use the existing email delivery service
-    const result = await ctx.runAction(internal.emailDelivery.sendEmail, {
+    const result = await (ctx as any).runAction(generatedApi.internal.emailDelivery.sendEmail, {
       domainConfigId,
       to: message.recipientEmail,
       subject: message.subject || "Message from your organization",
@@ -203,7 +204,7 @@ async function sendPushoverMessage(
   }
 ): Promise<SendResult> {
   try {
-    const result = await ctx.runAction(internal.integrations.pushover.sendQueuedPushoverMessage, {
+    const result = await (ctx as any).runAction(generatedApi.internal.integrations.pushover.sendQueuedPushoverMessage, {
       organizationId: message.organizationId,
       title: message.pushoverTitle,
       body: message.body,
@@ -250,7 +251,7 @@ async function sendWhatsAppMessage(
 
   try {
     // Use the org's WhatsApp connection to send
-    const result = await ctx.runAction(internal.oauth.whatsapp.sendWhatsAppMessage, {
+    const result = await (ctx as any).runAction(generatedApi.internal.oauth.whatsapp.sendWhatsAppMessage, {
       organizationId: message.organizationId,
       to: formattedPhone,
       // For sequences, we typically use templates (required for business-initiated messages)
@@ -328,7 +329,7 @@ export const sendWithFallback = internalMutation({
         updatedAt: Date.now(),
       });
 
-      const result = await ctx.runMutation(internal.sequences.messageSender.sendMessage, {
+      const result = await (ctx as any).runMutation(generatedApi.internal.sequences.messageSender.sendMessage, {
         messageId: args.messageId,
       });
 

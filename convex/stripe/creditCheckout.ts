@@ -15,9 +15,10 @@
  */
 
 import { action } from "../_generated/server";
-import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import Stripe from "stripe";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 const getStripe = () => {
   const apiKey = process.env.STRIPE_SECRET_KEY;
@@ -104,9 +105,9 @@ export const createCreditCheckoutSession = action({
     const amountCents = Math.round(args.amountEur * 100);
 
     // Get organization and existing billing details
-    const org = await ctx.runQuery(api.organizations.get, { id: args.organizationId });
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
 
-    const billingDetails = await ctx.runQuery(internal.stripe.platformCheckout.getOrganizationBillingDetails, {
+    const billingDetails = await (ctx as any).runQuery(generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails, {
       organizationId: args.organizationId,
     });
 
@@ -158,7 +159,7 @@ export const createCreditCheckoutSession = action({
       } catch {
         const customer = await stripe.customers.create(customerData);
         customerId = customer.id;
-        await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
           organizationId: args.organizationId,
           stripeCustomerId: customer.id,
         });
@@ -166,7 +167,7 @@ export const createCreditCheckoutSession = action({
     } else {
       const customer = await stripe.customers.create(customerData);
       customerId = customer.id;
-      await ctx.runMutation(internal.organizations.updateStripeCustomer, {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
         organizationId: args.organizationId,
         stripeCustomerId: customer.id,
       });

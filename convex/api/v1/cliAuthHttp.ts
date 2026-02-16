@@ -14,9 +14,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { api, internal } from "../../_generated/api";
 import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 import type { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // ============================================================================
 // GET /api/v1/auth/cli/validate - Validate CLI Session
@@ -46,7 +47,7 @@ export const validateSession = httpAction(async (ctx, request) => {
     console.log(`[CLI Auth HTTP] validateSession: Token: ${token.substring(0, 30)}... (length: ${token.length})`);
 
     // validateCliSession is now an Action (uses bcrypt verification)
-    const userInfo = await ctx.runAction(api.api.v1.cliAuth.validateCliSession, {
+    const userInfo = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.validateCliSession, {
       token,
     });
     console.log(`[CLI Auth HTTP] validateSession: Query result: ${userInfo ? 'found user' : 'null'}`);
@@ -115,7 +116,7 @@ export const refreshSession = httpAction(async (ctx, request) => {
     const token = authHeader.substring(7);
 
     // refreshCliSession is now an Action (uses bcrypt for new token)
-    const result = await ctx.runAction(api.api.v1.cliAuth.refreshCliSession, {
+    const result = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.refreshCliSession, {
       token,
     });
 
@@ -157,7 +158,7 @@ export const revokeSession = httpAction(async (ctx, request) => {
     console.log(`[CLI Auth HTTP] revokeSession: Revoking token prefix: ${token.substring(0, 20)}...`);
 
     // revokeCliSession is now an Action (uses bcrypt verification)
-    const result = await ctx.runAction(api.api.v1.cliAuth.revokeCliSession, {
+    const result = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.revokeCliSession, {
       token,
     });
 
@@ -201,7 +202,7 @@ export const listOrganizations = httpAction(async (ctx, request) => {
     console.log(`[CLI Auth HTTP] listOrganizations: Received token prefix: ${tokenPrefix}...`);
 
     // getCliUserOrganizations is now an Action (uses bcrypt verification)
-    const result = await ctx.runAction(api.api.v1.cliAuth.getCliUserOrganizations, {
+    const result = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.getCliUserOrganizations, {
       token,
     });
 
@@ -254,7 +255,7 @@ export const createOrganization = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runAction(api.api.v1.cliAuth.createCliOrganization, {
+    const result = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.createCliOrganization, {
       token,
       name,
     });
@@ -303,7 +304,7 @@ export const listApiKeys = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runQuery(api.api.v1.cliAuth.listCliApiKeys, {
+    const result = await (ctx as any).runQuery(generatedApi.api.api.v1.cliAuth.listCliApiKeys, {
       token,
       organizationId: organizationId as Id<"organizations">,
     });
@@ -357,7 +358,7 @@ export const generateApiKey = httpAction(async (ctx, request) => {
       );
     }
 
-    const result = await ctx.runAction(api.api.v1.cliAuth.generateCliApiKey, {
+    const result = await (ctx as any).runAction(generatedApi.api.api.v1.cliAuth.generateCliApiKey, {
       token,
       organizationId: organizationId as Id<"organizations">,
       name,

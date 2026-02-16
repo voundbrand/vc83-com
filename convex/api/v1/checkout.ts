@@ -64,9 +64,10 @@
  */
 
 import { httpAction } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import { authenticateRequest, requireScopes, type AuthContext } from "../../middleware/auth";
 import { Id } from "../../_generated/dataModel";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 // Helper: Authenticate and check scope
 async function authenticateWithScope(
@@ -128,7 +129,7 @@ export const getCheckoutConfig = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -142,8 +143,8 @@ export const getCheckoutConfig = httpAction(async (ctx, request) => {
     const { organizationId } = authContext;
 
     // 2. Get organization's payment provider config
-    const config = await ctx.runQuery(
-      internal.api.v1.checkoutInternal.getPaymentConfig,
+    const config = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.checkoutInternal.getPaymentConfig,
       { organizationId }
     );
 
@@ -217,7 +218,7 @@ export const createCheckoutSession = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -241,8 +242,8 @@ export const createCheckoutSession = httpAction(async (ctx, request) => {
     }
 
     // 3. Create checkout session via internal action
-    const session = await ctx.runAction(
-      internal.api.v1.checkoutInternal.createCheckoutSessionInternal,
+    const session = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.checkoutInternal.createCheckoutSessionInternal,
       {
         organizationId,
         productId: body.productId as Id<"objects">,
@@ -255,7 +256,7 @@ export const createCheckoutSession = httpAction(async (ctx, request) => {
     );
 
     // 4. Update API key usage
-    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
+    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, generatedApi.internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
     // 5. Return session details
     return new Response(JSON.stringify(session), {
@@ -315,7 +316,7 @@ export const confirmPayment = httpAction(async (ctx, request) => {
     }
 
     const apiKey = authHeader.substring(7);
-    const authContext = await ctx.runQuery(internal.api.auth.verifyApiKey, {
+    const authContext = await (ctx as any).runQuery(generatedApi.internal.api.auth.verifyApiKey, {
       apiKey,
     });
 
@@ -341,8 +342,8 @@ export const confirmPayment = httpAction(async (ctx, request) => {
     }
 
     // 3. Verify payment and fulfill order
-    const result = await ctx.runAction(
-      internal.api.v1.checkoutInternal.confirmPaymentInternal,
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.checkoutInternal.confirmPaymentInternal,
       {
         organizationId,
         sessionId: body.sessionId,
@@ -351,7 +352,7 @@ export const confirmPayment = httpAction(async (ctx, request) => {
     );
 
     // 4. Update API key usage
-    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
+    // TODO: Implement async usage tracking - await ctx.scheduler.runAfter(0, generatedApi.internal.apiKeys.trackUsage, { apiKeyId, ipAddress });
 
     // 5. Return fulfillment result
     return new Response(JSON.stringify(result), {
@@ -421,8 +422,8 @@ export const listCheckoutSessions = httpAction(async (ctx, request) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     // 3. Query checkout sessions
-    const result = await ctx.runQuery(
-      internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
       {
         organizationId: auth.authContext.organizationId,
         status,
@@ -480,8 +481,8 @@ export const getCheckoutSession = httpAction(async (ctx, request) => {
     }
 
     // 3. Get checkout session
-    const session = await ctx.runQuery(
-      internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
+    const session = await (ctx as any).runQuery(
+      generatedApi.internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
       {
         organizationId: auth.authContext.organizationId,
         sessionId,
@@ -544,8 +545,8 @@ export const cancelCheckoutSession = httpAction(async (ctx, request) => {
     }
 
     // 3. Cancel checkout session
-    const result = await ctx.runMutation(
-      internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
       {
         organizationId: auth.authContext.organizationId,
         sessionId,
@@ -599,8 +600,8 @@ export const handleCheckoutSessionsGet = httpAction(async (ctx, request) => {
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
       const offset = parseInt(url.searchParams.get("offset") || "0");
 
-      const result = await ctx.runQuery(
-        internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
+      const result = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.checkoutInternal.listCheckoutSessionsInternal,
         {
           organizationId: auth.authContext.organizationId,
           status,
@@ -642,8 +643,8 @@ export const handleCheckoutSessionsGet = httpAction(async (ctx, request) => {
         );
       }
 
-      const session = await ctx.runQuery(
-        internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
+      const session = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.checkoutInternal.getCheckoutSessionInternal,
         {
           organizationId: auth.authContext.organizationId,
           sessionId,
@@ -708,8 +709,8 @@ export const handleCheckoutSessionsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const result = await ctx.runMutation(
-        internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.api.v1.checkoutInternal.cancelCheckoutSessionInternal,
         {
           organizationId: auth.authContext.organizationId,
           sessionId,
@@ -752,8 +753,8 @@ export const handleCheckoutSessionsPost = httpAction(async (ctx, request) => {
         );
       }
 
-      const session = await ctx.runAction(
-        internal.api.v1.checkoutInternal.createCheckoutSessionInternal,
+      const session = await (ctx as any).runAction(
+        generatedApi.internal.api.v1.checkoutInternal.createCheckoutSessionInternal,
         {
           organizationId: auth.authContext.organizationId,
           productId: body.productId as Id<"objects">,

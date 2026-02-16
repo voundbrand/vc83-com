@@ -24,10 +24,10 @@ import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
 import { INTERVIEW_TOOLS } from "./interviewTools";
 import { tagInSpecialistTool, listTeamAgentsTool } from "./teamTools";
-import { api } from "../../_generated/api";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import type { ActionCtx } from "../../_generated/server";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * Tool status types
@@ -90,7 +90,7 @@ const requestFeatureTool: AITool = {
   },
   execute: async (ctx, args) => {
     // Send feature request email immediately (fire and forget)
-    ctx.runAction(internal.ai.featureRequestEmail.sendFeatureRequest, {
+    (ctx as any).runAction(generatedApi.internal.ai.featureRequestEmail.sendFeatureRequest, {
       userId: ctx.userId,
       organizationId: ctx.organizationId,
       toolName: (args.suggestedToolName as string) || "unknown_feature",
@@ -155,7 +155,7 @@ const checkOAuthConnectionTool: AITool = {
     }
 
     // Check if user has connected their Microsoft account
-    const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: ctx.sessionId
     });
 
@@ -221,7 +221,7 @@ const manageCRMTool: AITool = {
   status: "ready",
   parameters: crmToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.crmTool.executeManageCRM, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.crmTool.executeManageCRM, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -268,7 +268,7 @@ const syncContactsTool: AITool = {
     const provider = args.provider || "microsoft";
 
     // Check if user has connected their Microsoft account
-    const connection = await ctx.runQuery(api.oauth.microsoft.getUserMicrosoftConnection, {
+    const connection = await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
       sessionId: ctx.sessionId
     });
 
@@ -346,7 +346,7 @@ const syncContactsTool: AITool = {
     }
 
     // Execute the actual contact sync via the implementation
-    const result = await ctx.runAction(api.ai.tools.contactSyncTool.executeSyncContacts, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.contactSyncTool.executeSyncContacts, {
       sessionId: ctx.sessionId,
       provider,
       mode,
@@ -386,7 +386,7 @@ const sendBulkCRMEmailTool: AITool = {
     // The bulk email tool will handle OAuth connection and scope checking internally
 
     // Execute the actual bulk email via the implementation
-    const result = await ctx.runAction(api.ai.tools.bulkCRMEmailTool.executeSendBulkCRMEmail, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.bulkCRMEmailTool.executeSendBulkCRMEmail, {
       sessionId: ctx.sessionId!, // Required by tool
       target: args.target,
       content: args.content,
@@ -436,7 +436,7 @@ const createContactTool: AITool = {
   },
   execute: async (ctx, args) => {
     // Call internal mutation (bypasses session auth since we're in authenticated action)
-    const contactId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateContact, {
+    const contactId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: "customer", // Default to customer
@@ -477,7 +477,7 @@ const searchContactsTool: AITool = {
     required: ["query"]
   },
   execute: async (ctx, args) => {
-    const contacts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchContacts, {
+    const contacts = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalSearchContacts, {
       organizationId: ctx.organizationId,
       searchQuery: args.query,
       limit: args.limit || 10,
@@ -553,7 +553,7 @@ const updateContactTool: AITool = {
     if (args.jobTitle) updateArgs.jobTitle = args.jobTitle;
     if (args.notes) updateArgs.notes = args.notes;
 
-    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateContact, updateArgs);
+    await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalUpdateContact, updateArgs);
 
     return {
       success: true,
@@ -578,7 +578,7 @@ const tagContactsTool: AITool = {
     required: ["contactIds", "tags"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalTagContacts, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalTagContacts, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       contactIds: args.contactIds.map((id: string) => id as Id<"objects">),
@@ -690,7 +690,7 @@ Example ticketTypes array:
   },
   execute: async (ctx, args) => {
     // CHECK FOR DUPLICATES: Look for existing events with similar names
-    const existingEvents = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+    const existingEvents = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListEvents, {
       organizationId: ctx.organizationId,
       upcoming: false, // Check all events, not just upcoming
       limit: 100,
@@ -808,7 +808,7 @@ Example ticketTypes array:
       salesEnd: ticket.salesEnd ? new Date(ticket.salesEnd).getTime() : null,
     }));
 
-    const eventId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEventWithDetails, {
+    const eventId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateEventWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: eventType,
@@ -877,7 +877,7 @@ This helps avoid creating duplicate events when the user wants to modify an exis
     }
   },
   execute: async (ctx, args) => {
-    const events = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListEvents, {
+    const events = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListEvents, {
       organizationId: ctx.organizationId,
       upcoming: args.upcoming !== false,
       limit: args.limit || 20,
@@ -954,7 +954,7 @@ const updateEventTool: AITool = {
     if (args.capacity) updateArgs.capacity = args.capacity;
     if (args.status) updateArgs.status = args.status;
 
-    await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, updateArgs);
+    await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalUpdateEvent, updateArgs);
 
     return {
       success: true,
@@ -981,7 +981,7 @@ const registerAttendeeTool: AITool = {
     required: ["eventId", "attendeeEmail", "attendeeName"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRegisterAttendee, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalRegisterAttendee, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       eventId: args.eventId as Id<"objects">,
@@ -1009,7 +1009,7 @@ const manageProjectsTool: AITool = {
   status: "ready",
   parameters: projectsToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.projectsTool.executeManageProjects, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.projectsTool.executeManageProjects, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1061,7 +1061,7 @@ const manageBenefitsTool: AITool = {
   status: "ready",
   parameters: benefitsToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.benefitsTool.executeManageBenefits, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.benefitsTool.executeManageBenefits, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1117,7 +1117,7 @@ const manageBookingsTool: AITool = {
   status: "ready",
   parameters: bookingToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.bookingTool.executeManageBookings, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.bookingTool.executeManageBookings, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1169,7 +1169,7 @@ const manageActivityProtocolTool: AITool = {
   status: "ready",
   parameters: activityProtocolToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.activityProtocolTool.executeManageActivityProtocol, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.activityProtocolTool.executeManageActivityProtocol, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1209,7 +1209,7 @@ const manageSequencesTool: AITool = {
   status: "ready",
   parameters: sequencesToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.sequencesTool.executeManageSequences, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.sequencesTool.executeManageSequences, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1343,7 +1343,7 @@ Example fields array:
     }
 
     // CHECK FOR DUPLICATES: Look for existing forms with similar names
-    const existingForms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+    const existingForms = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListForms, {
       organizationId: ctx.organizationId,
       status: "all",
       limit: 100,
@@ -1372,7 +1372,7 @@ Example fields array:
       };
     }
 
-    const formId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateFormWithFields, {
+    const formId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateFormWithFields, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: args.formType || "survey",
@@ -1420,7 +1420,7 @@ const listFormsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
-    const forms = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListForms, {
+    const forms = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListForms, {
       organizationId: ctx.organizationId,
       status: args.status,
       limit: args.limit || 20,
@@ -1464,7 +1464,7 @@ const publishFormTool: AITool = {
     required: ["formId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalPublishForm, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       formId: args.formId as Id<"objects">,
@@ -1493,7 +1493,7 @@ const getFormResponsesTool: AITool = {
     required: ["formId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalGetFormResponses, {
+    const result = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalGetFormResponses, {
       organizationId: ctx.organizationId,
       formId: args.formId as Id<"objects">,
       limit: args.limit || 50,
@@ -1519,7 +1519,7 @@ const manageFormsTool: AITool = {
   status: "ready",
   parameters: formsToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    const result = await ctx.runAction(api.ai.tools.formsTool.executeManageForms, {
+    const result = await (ctx as any).runAction(generatedApi.api.ai.tools.formsTool.executeManageForms, {
       sessionId: ctx.sessionId,
       organizationId: ctx.organizationId,
       userId: ctx.userId,
@@ -1638,7 +1638,7 @@ Example ticket:
   },
   execute: async (ctx, args) => {
     // CHECK FOR DUPLICATES: Look for existing products with same name
-    const existingProducts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+    const existingProducts = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListProducts, {
       organizationId: ctx.organizationId,
       limit: 100,
     });
@@ -1696,7 +1696,7 @@ Example ticket:
       };
     }
 
-    const productId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateProductWithDetails, {
+    const productId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateProductWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subtype: args.productType || "physical",
@@ -1765,7 +1765,7 @@ const listProductsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
-    const products = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListProducts, {
+    const products = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListProducts, {
       organizationId: ctx.organizationId,
       status: args.status,
       limit: args.limit || 20,
@@ -1813,7 +1813,7 @@ const updateProductPriceTool: AITool = {
   execute: async (ctx, args) => {
     const priceInCents = Math.round(args.newPrice * 100);
 
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetProductPrice, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalSetProductPrice, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       productId: args.productId as Id<"objects">,
@@ -1844,7 +1844,7 @@ const activateProductTool: AITool = {
     required: ["productId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalActivateProduct, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       productId: args.productId as Id<"objects">,
@@ -1883,7 +1883,7 @@ Use cases:
     required: ["productId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetProductForm, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalSetProductForm, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       productId: args.productId as Id<"objects">,
@@ -1925,7 +1925,7 @@ const deactivateProductTool: AITool = {
     required: ["productId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalDeactivateProduct, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalDeactivateProduct, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       productId: args.productId as Id<"objects">,
@@ -1953,7 +1953,7 @@ const publishCheckoutTool: AITool = {
     required: ["checkoutId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalPublishCheckout, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       checkoutId: args.checkoutId as Id<"objects">,
@@ -2024,7 +2024,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
     if (args.eventIds && Array.isArray(args.eventIds)) {
       for (const eventId of args.eventIds) {
         try {
-          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateEvent, {
+          await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalUpdateEvent, {
             organizationId: ctx.organizationId,
             userId: ctx.userId,
             eventId: eventId as Id<"objects">,
@@ -2041,7 +2041,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
     if (args.productIds && Array.isArray(args.productIds)) {
       for (const productId of args.productIds) {
         try {
-          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalActivateProduct, {
+          await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalActivateProduct, {
             organizationId: ctx.organizationId,
             userId: ctx.userId,
             productId: productId as Id<"objects">,
@@ -2057,7 +2057,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
     if (args.formIds && Array.isArray(args.formIds)) {
       for (const formId of args.formIds) {
         try {
-          await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishForm, {
+          await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalPublishForm, {
             organizationId: ctx.organizationId,
             userId: ctx.userId,
             formId: formId as Id<"objects">,
@@ -2073,7 +2073,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
     if (args.checkoutIds && Array.isArray(args.checkoutIds)) {
       for (const checkoutId of args.checkoutIds) {
         try {
-          const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishCheckout, {
+          const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalPublishCheckout, {
             organizationId: ctx.organizationId,
             userId: ctx.userId,
             checkoutId: checkoutId as Id<"objects">,
@@ -2152,7 +2152,7 @@ const createInvoiceTool: AITool = {
       unitPrice: item.unitPrice || 0,
     }));
 
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateInvoice, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateInvoice, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       customerId: args.customerId ? (args.customerId as Id<"objects">) : undefined,
@@ -2190,7 +2190,7 @@ const sendInvoiceTool: AITool = {
     required: ["invoiceId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendInvoice, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalSendInvoice, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       invoiceId: args.invoiceId as Id<"objects">,
@@ -2227,7 +2227,7 @@ const processPaymentTool: AITool = {
     required: ["amount"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalProcessPayment, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalProcessPayment, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       invoiceId: args.invoiceId ? (args.invoiceId as Id<"objects">) : undefined,
@@ -2268,7 +2268,7 @@ const createTicketTool: AITool = {
     required: ["subject", "description"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateTicket, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateTicket, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       subject: args.subject,
@@ -2300,7 +2300,7 @@ const updateTicketStatusTool: AITool = {
     required: ["ticketId", "newStatus"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalUpdateTicketStatus, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalUpdateTicketStatus, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       ticketId: args.ticketId as Id<"objects">,
@@ -2331,7 +2331,7 @@ const listTicketsTool: AITool = {
     }
   },
   execute: async (ctx, args) => {
-    const tickets = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListTickets, {
+    const tickets = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListTickets, {
       organizationId: ctx.organizationId,
       status: args.status !== "all" ? args.status : undefined,
       limit: args.limit || 20,
@@ -2422,7 +2422,7 @@ EXAMPLE - To show a form during checkout:
     required: ["name", "trigger"]
   },
   execute: async (ctx, args) => {
-    const workflowId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateWorkflow, {
+    const workflowId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateWorkflow, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       name: args.name,
@@ -2457,7 +2457,7 @@ const enableWorkflowTool: AITool = {
     required: ["workflowId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSetWorkflowStatus, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalSetWorkflowStatus, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       workflowId: args.workflowId as Id<"objects">,
@@ -2505,7 +2505,7 @@ The response includes:
     required: []
   },
   execute: async (ctx) => {
-    const workflows = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListWorkflows, {
+    const workflows = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListWorkflows, {
       organizationId: ctx.organizationId,
     });
 
@@ -2593,7 +2593,7 @@ EXAMPLE - Add form to existing checkout workflow:
     required: ["workflowId", "behavior"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalAddBehaviorToWorkflow, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalAddBehaviorToWorkflow, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       workflowId: args.workflowId as Id<"objects">,
@@ -2648,7 +2648,7 @@ EXAMPLE - Remove form_linking from checkout workflow:
       };
     }
 
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalRemoveBehaviorFromWorkflow, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalRemoveBehaviorFromWorkflow, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       workflowId: args.workflowId as Id<"objects">,
@@ -2700,7 +2700,7 @@ const uploadMediaTool: AITool = {
     required: ["fileName"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateMediaEntry, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateMediaEntry, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       fileName: args.fileName,
@@ -2740,7 +2740,7 @@ const searchMediaTool: AITool = {
     required: ["query"]
   },
   execute: async (ctx, args) => {
-    const media = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalSearchMedia, {
+    const media = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalSearchMedia, {
       organizationId: ctx.organizationId,
       query: args.query,
       fileType: args.fileType,
@@ -2793,7 +2793,7 @@ const createTemplateTool: AITool = {
     required: ["name", "subject", "body"]
   },
   execute: async (ctx, args) => {
-    const templateId = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateEmailTemplate, {
+    const templateId = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateEmailTemplate, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       name: args.name,
@@ -2829,7 +2829,7 @@ const sendEmailFromTemplateTool: AITool = {
     required: ["templateId", "recipientEmail"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalSendEmailFromTemplate, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalSendEmailFromTemplate, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       templateId: args.templateId as Id<"objects">,
@@ -2871,7 +2871,7 @@ const createPageTool: AITool = {
     required: ["title", "slug"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreatePage, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreatePage, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       title: args.title,
@@ -2906,7 +2906,7 @@ const publishPageTool: AITool = {
     required: ["pageId"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalPublishPage, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalPublishPage, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       pageId: args.pageId as Id<"objects">,
@@ -3108,7 +3108,7 @@ This template automatically adapts based on product behaviors and can skip steps
   },
   execute: async (ctx, args) => {
     // CHECK FOR DUPLICATES: Look for existing checkout pages with same name
-    const existingCheckouts = await ctx.runQuery(internal.ai.tools.internalToolMutations.internalListCheckouts, {
+    const existingCheckouts = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.internalListCheckouts, {
       organizationId: ctx.organizationId,
       limit: 100,
     });
@@ -3136,7 +3136,7 @@ This template automatically adapts based on product behaviors and can skip steps
       };
     }
 
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalCreateCheckoutPageWithDetails, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalCreateCheckoutPageWithDetails, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       name: args.name,
@@ -3214,7 +3214,7 @@ const generateCertificateTool: AITool = {
     required: ["recipientName", "certificateType"]
   },
   execute: async (ctx, args) => {
-    const result = await ctx.runMutation(internal.ai.tools.internalToolMutations.internalGenerateCertificate, {
+    const result = await (ctx as any).runMutation(generatedApi.internal.ai.tools.internalToolMutations.internalGenerateCertificate, {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       recipientName: args.recipientName,
@@ -3407,7 +3407,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
     status: "ready" as ToolStatus,
     parameters: webinarToolDefinition.function.parameters,
     execute: async (ctx, args) => {
-      const result = await ctx.runAction(api.ai.tools.webinarTool.executeManageWebinars, {
+      const result = await (ctx as any).runAction(generatedApi.api.ai.tools.webinarTool.executeManageWebinars, {
         sessionId: ctx.sessionId,
         organizationId: ctx.organizationId,
         userId: ctx.userId,
@@ -3447,7 +3447,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
     windowName: "Checkout",
     parameters: bookingWorkflowToolDefinition.function.parameters,
     execute: async (ctx, args) => {
-      const result = await ctx.runAction(api.ai.tools.bookingWorkflowTool.executeConfigureBookingWorkflow, {
+      const result = await (ctx as any).runAction(generatedApi.api.ai.tools.bookingWorkflowTool.executeConfigureBookingWorkflow, {
         sessionId: ctx.sessionId,
         organizationId: ctx.organizationId,
         userId: ctx.userId,

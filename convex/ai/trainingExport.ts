@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery } from "../_generated/server";
-import { internal as internalApi } from "../_generated/api";
+const generatedApi: any = require("../_generated/api");
 import type { Doc } from "../_generated/dataModel";
 
 /**
@@ -88,8 +88,8 @@ export const exportTrainingData = action({
     // Query training examples - using mutation wrapper to avoid Convex type depth issues
     const limit = args.limit || 1000;
     // Convex type instantiation depth workaround - internalApi reference causes TS2589
-    const fetchFn = internalApi.ai.trainingExport.fetchExportableExamples;
-    const allExamples: Doc<"aiTrainingExamples">[] = await ctx.runMutation(fetchFn, {
+    const fetchFn = generatedApi.internal.ai.trainingExport.fetchExportableExamples;
+    const allExamples: Doc<"aiTrainingExamples">[] = await (ctx as any).runMutation(fetchFn, {
       onlyHighQuality: args.onlyHighQuality,
       limit,
     });
@@ -156,7 +156,7 @@ export const exportTrainingData = action({
     // Mark examples as exported
     if (markAsExported && examples.length > 0) {
       const exampleIds = examples.map((e) => e._id);
-      await ctx.runMutation(internalApi.ai.trainingExport.markExported, {
+      await (ctx as any).runMutation(generatedApi.internal.ai.trainingExport.markExported, {
         exampleIds,
         batchId,
       });
@@ -355,8 +355,8 @@ export const exportAutoTrainFormat = action({
     // Query training examples
     const limit = args.limit || 1000;
     // Convex type instantiation depth workaround
-    const fetchFn = internalApi.ai.trainingExport.fetchExportableExamples;
-    const allExamples: Doc<"aiTrainingExamples">[] = await ctx.runMutation(fetchFn, {
+    const fetchFn = generatedApi.internal.ai.trainingExport.fetchExportableExamples;
+    const allExamples: Doc<"aiTrainingExamples">[] = await (ctx as any).runMutation(fetchFn, {
       onlyHighQuality: args.onlyHighQuality,
       limit,
       includeExported: args.includeExported,
@@ -474,8 +474,8 @@ export const exportFireworksFormat = action({
     // Query training examples
     const limit = args.limit || 1000;
     // Convex type instantiation depth workaround
-    const fetchFn = internalApi.ai.trainingExport.fetchExportableExamples;
-    const allExamples: Doc<"aiTrainingExamples">[] = await ctx.runMutation(fetchFn, {
+    const fetchFn = generatedApi.internal.ai.trainingExport.fetchExportableExamples;
+    const allExamples: Doc<"aiTrainingExamples">[] = await (ctx as any).runMutation(fetchFn, {
       onlyHighQuality: args.onlyHighQuality,
       limit,
       includeExported: args.includeExported,
@@ -575,8 +575,8 @@ export const exportAutoTrainTextFormat = action({
     // Query training examples
     const limit = args.limit || 1000;
     // Convex type instantiation depth workaround
-    const fetchFn = internalApi.ai.trainingExport.fetchExportableExamples;
-    const allExamples: Doc<"aiTrainingExamples">[] = await ctx.runMutation(fetchFn, {
+    const fetchFn = generatedApi.internal.ai.trainingExport.fetchExportableExamples;
+    const allExamples: Doc<"aiTrainingExamples">[] = await (ctx as any).runMutation(fetchFn, {
       onlyHighQuality: args.onlyHighQuality,
       limit,
       includeExported: args.includeExported,

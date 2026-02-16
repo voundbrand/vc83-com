@@ -94,22 +94,22 @@ export function resolveActiveTools(params: {
 }): ToolDefinition[] {
   let tools = params.allTools;
 
-  // Layer 1: Platform blocked
+  // Policy L1: Platform blocked
   tools = tools.filter(t => !params.platformBlocked.includes(t.name));
 
-  // Layer 2: Org
+  // Policy L2: Org
   if (params.orgEnabled.length > 0) {
     tools = tools.filter(t => params.orgEnabled.includes(t.name));
   }
   tools = tools.filter(t => !params.orgDisabled.includes(t.name));
 
-  // Layer 2b: Integration filter
+  // Policy L2b: Integration filter
   tools = tools.filter(t => {
     const req = INTEGRATION_REQUIREMENTS[t.name];
     return !req || params.connectedIntegrations.includes(req);
   });
 
-  // Layer 3: Agent profile + explicit
+  // Policy L3: Agent profile + explicit
   if (params.agentProfile && TOOL_PROFILES[params.agentProfile]) {
     const profile = TOOL_PROFILES[params.agentProfile];
     if (!profile.includes("*")) {
@@ -121,12 +121,12 @@ export function resolveActiveTools(params: {
   }
   tools = tools.filter(t => !params.agentDisabled.includes(t.name));
 
-  // Layer 3b: Autonomy
+  // Policy L3b: Autonomy
   if (params.autonomyLevel === "draft_only") {
     tools = tools.filter(t => t.readOnly === true);
   }
 
-  // Layer 4: Session + channel
+  // Policy L4: Session + channel
   tools = tools.filter(t => !params.sessionDisabled.includes(t.name));
   const channelBlocked = CHANNEL_TOOL_RESTRICTIONS[params.channel] ?? [];
   tools = tools.filter(t => !channelBlocked.includes(t.name));

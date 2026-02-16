@@ -15,7 +15,7 @@
 - Guardrails — what safety mechanisms exist?
 - Memory — how does it compare to our 5-layer memory engine?
 
-**Reference:** [02_MEMORY_ENGINE_DESIGN.md](../ghl_integration_plus_memory/02_MEMORY_ENGINE_DESIGN.md)
+**Reference:** [MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md)
 
 ---
 

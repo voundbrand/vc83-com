@@ -9,7 +9,8 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
 
 /**
  * Tool definition in OpenAI function calling format
@@ -129,8 +130,8 @@ export const executeDataQuery = action({
   },
   handler: async (ctx, args) => {
     // Fetch objects from DB (scoped by org + type)
-    const rawResults = await ctx.runQuery(
-      internal.ai.tools.dataQueryInternal.queryObjects,
+    const rawResults = await (ctx as any).runQuery(
+      generatedApi.internal.ai.tools.dataQueryInternal.queryObjects,
       {
         organizationId: args.organizationId,
         objectType: args.objectType,
