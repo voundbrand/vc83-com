@@ -8,11 +8,6 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 import type * as accountManagement from "../accountManagement.js";
 import type * as actions_apiKeys from "../actions/apiKeys.js";
 import type * as actions_betaAccessEmails from "../actions/betaAccessEmails.js";
@@ -178,8 +173,8 @@ import type * as appAvailability from "../appAvailability.js";
 import type * as applicationOntology from "../applicationOntology.js";
 import type * as auditLogExport from "../auditLogExport.js";
 import type * as auditTemplates from "../auditTemplates.js";
-import type * as auth_identity from "../auth/identity.js";
 import type * as auth from "../auth.js";
+import type * as auth_identity from "../auth/identity.js";
 import type * as availabilityOntology from "../availabilityOntology.js";
 import type * as b2bInvoiceHelper from "../b2bInvoiceHelper.js";
 import type * as benefitsMemberSync from "../benefitsMemberSync.js";
@@ -358,13 +353,13 @@ import type * as oauth_verifiedIntegrations from "../oauth/verifiedIntegrations.
 import type * as oauth_whatsapp from "../oauth/whatsapp.js";
 import type * as objectLinksInternal from "../objectLinksInternal.js";
 import type * as objectsInternal from "../objectsInternal.js";
+import type * as onboarding from "../onboarding.js";
 import type * as onboarding_agencySubOrgBootstrap from "../onboarding/agencySubOrgBootstrap.js";
 import type * as onboarding_completeOnboarding from "../onboarding/completeOnboarding.js";
 import type * as onboarding_orgBootstrap from "../onboarding/orgBootstrap.js";
 import type * as onboarding_seedPlatformAgents from "../onboarding/seedPlatformAgents.js";
 import type * as onboarding_telegramLinking from "../onboarding/telegramLinking.js";
 import type * as onboarding_telegramResolver from "../onboarding/telegramResolver.js";
-import type * as onboarding from "../onboarding.js";
 import type * as ontologyHelpers from "../ontologyHelpers.js";
 import type * as ontologyTranslations from "../ontologyTranslations.js";
 import type * as organizationApiSettings from "../organizationApiSettings.js";
@@ -663,14 +658,12 @@ import type * as workflows_workflowValidation from "../workflows/workflowValidat
 import type * as zapier_triggers from "../zapier/triggers.js";
 import type * as zapier_webhooks from "../zapier/webhooks.js";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
 declare const fullApi: ApiFromModules<{
   accountManagement: typeof accountManagement;
   "actions/apiKeys": typeof actions_apiKeys;
@@ -837,8 +830,8 @@ declare const fullApi: ApiFromModules<{
   applicationOntology: typeof applicationOntology;
   auditLogExport: typeof auditLogExport;
   auditTemplates: typeof auditTemplates;
-  "auth/identity": typeof auth_identity;
   auth: typeof auth;
+  "auth/identity": typeof auth_identity;
   availabilityOntology: typeof availabilityOntology;
   b2bInvoiceHelper: typeof b2bInvoiceHelper;
   benefitsMemberSync: typeof benefitsMemberSync;
@@ -1017,13 +1010,13 @@ declare const fullApi: ApiFromModules<{
   "oauth/whatsapp": typeof oauth_whatsapp;
   objectLinksInternal: typeof objectLinksInternal;
   objectsInternal: typeof objectsInternal;
+  onboarding: typeof onboarding;
   "onboarding/agencySubOrgBootstrap": typeof onboarding_agencySubOrgBootstrap;
   "onboarding/completeOnboarding": typeof onboarding_completeOnboarding;
   "onboarding/orgBootstrap": typeof onboarding_orgBootstrap;
   "onboarding/seedPlatformAgents": typeof onboarding_seedPlatformAgents;
   "onboarding/telegramLinking": typeof onboarding_telegramLinking;
   "onboarding/telegramResolver": typeof onboarding_telegramResolver;
-  onboarding: typeof onboarding;
   ontologyHelpers: typeof ontologyHelpers;
   ontologyTranslations: typeof ontologyTranslations;
   organizationApiSettings: typeof organizationApiSettings;
@@ -1322,11 +1315,31 @@ declare const fullApi: ApiFromModules<{
   "zapier/triggers": typeof zapier_triggers;
   "zapier/webhooks": typeof zapier_webhooks;
 }>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
   typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
   typeof fullApi,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

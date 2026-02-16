@@ -341,7 +341,10 @@ export const processMuxWebhook = internalAction({
         console.log(`[Mux Webhook] Asset created: ${data.id}`);
         // Asset is being processed, update webinar status
         if (data.passthrough) {
-          await ctx.runMutation(internal.webinarOntology.updateWebinarMuxStatus, {
+          // Avoid deep type instantiation by requiring generated API at runtime
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const generatedApi: any = require("../_generated/api");
+          await (ctx as any).runMutation(generatedApi.internal.webinarOntology.updateWebinarMuxStatus, {
             webinarId: data.passthrough,
             muxAssetId: data.id,
             status: "processing",
@@ -354,7 +357,9 @@ export const processMuxWebhook = internalAction({
         // Asset is ready for playback
         if (data.passthrough) {
           const playbackId = data.playback_ids?.[0]?.id;
-          await ctx.runMutation(internal.webinarOntology.updateWebinarMuxStatus, {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const generatedApi: any = require("../_generated/api");
+          await (ctx as any).runMutation(generatedApi.internal.webinarOntology.updateWebinarMuxStatus, {
             webinarId: data.passthrough,
             muxAssetId: data.id,
             muxPlaybackId: playbackId,
@@ -368,7 +373,9 @@ export const processMuxWebhook = internalAction({
         console.error(`[Mux Webhook] Asset errored: ${data.id}`, data.errors);
         // Asset processing failed
         if (data.passthrough) {
-          await ctx.runMutation(internal.webinarOntology.updateWebinarMuxStatus, {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const generatedApi: any = require("../_generated/api");
+          await (ctx as any).runMutation(generatedApi.internal.webinarOntology.updateWebinarMuxStatus, {
             webinarId: data.passthrough,
             muxAssetId: data.id,
             status: "errored",
@@ -381,7 +388,9 @@ export const processMuxWebhook = internalAction({
         console.log(`[Mux Webhook] Live stream active: ${data.id}`);
         // Live stream has started receiving data
         if (data.passthrough) {
-          await ctx.runMutation(internal.webinarOntology.updateWebinarLiveStatus, {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const generatedApi: any = require("../_generated/api");
+          await (ctx as any).runMutation(generatedApi.internal.webinarOntology.updateWebinarLiveStatus, {
             webinarId: data.passthrough,
             liveStreamId: data.id,
             status: "live",
@@ -394,7 +403,9 @@ export const processMuxWebhook = internalAction({
         console.log(`[Mux Webhook] Live stream idle: ${data.id}`);
         // Live stream stopped receiving data
         if (data.passthrough) {
-          await ctx.runMutation(internal.webinarOntology.updateWebinarLiveStatus, {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const generatedApi: any = require("../_generated/api");
+          await (ctx as any).runMutation(generatedApi.internal.webinarOntology.updateWebinarLiveStatus, {
             webinarId: data.passthrough,
             liveStreamId: data.id,
             status: "idle",
