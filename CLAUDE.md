@@ -116,12 +116,13 @@ claude mcp add claude-flow npx claude-flow@alpha mcp start
 - `npx convex deploy` — production deployment
 
 ### Safe alternatives to use instead:
-- **TypeScript check:** `npx tsc --noEmit` (local only, no side effects)
+- **TypeScript check (scoped):** `npx tsc --noEmit --pretty -- <files>` — check only the files you changed (local only, no side effects)
+- **TypeScript check (full):** `npx tsc --noEmit` — full project check (local only, slower, use sparingly)
 - **Lint check:** `npm run lint` (local only)
 - **Build check:** `npm run build` (local only)
 - **Check git status:** `git status` / `git diff` (read-only)
 
-**Rule:** If you need to verify code compiles, use `npx tsc --noEmit`. Never use `npx convex dev` for type checking — it deploys code.
+**Rule:** After making changes, prefer scoped type checks on the files you touched: `npx tsc --noEmit --pretty -- file1.ts file2.ts`. Only run full `npx tsc --noEmit` when needed for cross-file validation. Never use `npx convex dev` for type checking — it deploys code.
 
 ## Code Style
 
