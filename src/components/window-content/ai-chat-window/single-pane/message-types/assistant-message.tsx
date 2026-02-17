@@ -1,5 +1,8 @@
 "use client"
 
+import { Loader2, CheckCircle2, XCircle } from "lucide-react"
+import { ShellBotIcon } from "@/components/icons/shell-icons"
+
 interface AssistantMessageProps {
   content: string
   toolExecution?: {
@@ -25,7 +28,9 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
         }}
       >
         <div className="flex items-start gap-2">
-          <span className="text-base">🤖</span>
+          <span className="flex h-5 w-5 items-center justify-center">
+            <ShellBotIcon size={16} tone="active" />
+          </span>
           <div className="flex-1 space-y-2">
             <div className="leading-relaxed whitespace-pre-wrap break-words">
               {content}
@@ -43,9 +48,9 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
                   color: toolExecution.status === "running" ? 'var(--win95-text)' : '#ffffff'
                 }}
               >
-                {toolExecution.status === "running" && <span className="animate-spin">⚙️</span>}
-                {toolExecution.status === "success" && <span>✅</span>}
-                {toolExecution.status === "error" && <span>❌</span>}
+                {toolExecution.status === "running" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {toolExecution.status === "success" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                {toolExecution.status === "error" && <XCircle className="w-3.5 h-3.5" />}
                 <span>{toolExecution.message}</span>
               </div>
             )}

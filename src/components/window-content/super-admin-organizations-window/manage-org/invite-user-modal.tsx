@@ -154,7 +154,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 borderColor: "var(--success)",
               }}
             >
-              <p className="font-semibold text-lg mb-2">✓ {t("ui.manage.invite.success_title")}</p>
+              <p className="font-semibold text-lg mb-2"> {t("ui.manage.invite.success_title")}</p>
               <p className="text-sm">{t("ui.manage.invite.success_message")}</p>
               <p className="text-sm mt-1">{t("ui.manage.invite.success_email_sent")}</p>
             </div>

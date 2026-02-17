@@ -454,7 +454,7 @@ export function InvoicingSection() {
                       borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--win95-border)"
                     }}
                   >
-                    {hasStripeInvoiceEnabled ? "✓ Stripe Invoicing Active" : "○ Internal Only"}
+                    {hasStripeInvoiceEnabled ? " Stripe Invoicing Active" : "○ Internal Only"}
                   </div>
                 </div>
               </div>

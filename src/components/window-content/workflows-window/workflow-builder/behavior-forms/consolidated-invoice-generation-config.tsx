@@ -421,11 +421,11 @@ export function ConsolidatedInvoiceGenerationConfigForm({
         </p>
         <ul className="text-[10px] space-y-1" style={{ color: "var(--neutral-gray)" }}>
           <li>
-            ✓ {config.crmOrganizationId ? t("ui.workflows.consolidated_invoice.summary.consolidate") : t("ui.workflows.consolidated_invoice.summary.consolidate_criteria")}
+             {config.crmOrganizationId ? t("ui.workflows.consolidated_invoice.summary.consolidate") : t("ui.workflows.consolidated_invoice.summary.consolidate_criteria")}
           </li>
-          <li>✓ {t("ui.workflows.consolidated_invoice.summary.payment_terms")} {config.paymentTerms || "NET 30"}</li>
-          <li>✓ {t("ui.workflows.consolidated_invoice.summary.minimum")} {config.minimumTicketCount || 1} {t("ui.workflows.consolidated_invoice.summary.tickets_required")}</li>
-          <li>✓ {config.sendEmail !== false ? t("ui.workflows.consolidated_invoice.summary.email_sent") : t("ui.workflows.consolidated_invoice.summary.no_email")}</li>
+          <li> {t("ui.workflows.consolidated_invoice.summary.payment_terms")} {config.paymentTerms || "NET 30"}</li>
+          <li> {t("ui.workflows.consolidated_invoice.summary.minimum")} {config.minimumTicketCount || 1} {t("ui.workflows.consolidated_invoice.summary.tickets_required")}</li>
+          <li> {config.sendEmail !== false ? t("ui.workflows.consolidated_invoice.summary.email_sent") : t("ui.workflows.consolidated_invoice.summary.no_email")}</li>
         </ul>
       </div>
     </div>

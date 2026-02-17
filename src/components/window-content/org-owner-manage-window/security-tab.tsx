@@ -122,7 +122,7 @@ export function SecurityTab({ organizationId, sessionId }: SecurityTabProps) {
           borderColor: 'var(--win95-border)',
         }}
       >
-        <span className="text-lg">🔑</span>
+        <span className="text-lg"></span>
         <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
           <strong style={{ color: 'var(--win95-text)' }}>Looking for API Keys?</strong>
           <p className="mt-1">
@@ -261,7 +261,7 @@ function PasskeySetupModal({
 
       // Success!
       notification.success(
-        "✅ Face ID / Touch ID",
+        " Face ID / Touch ID",
         `Your ${deviceName} has been set up successfully!`
       );
       onClose();

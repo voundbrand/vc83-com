@@ -145,7 +145,7 @@ export function CalendarSettings() {
       { x: 150, y: 100 },
       { width: 900, height: 650 },
       "ui.windows.integrations.title",
-      "🔗"
+      undefined
     )
   }
 

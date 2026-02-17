@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Eye, EyeOff, Smartphone } from "lucide-react";
+import { Eye, EyeOff, Smartphone, Hourglass, PartyPopper, Clipboard, Download, UserRound, Lock, Cake, X } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-banner";
@@ -364,7 +364,13 @@ export function LoginWindow() {
     return (
       <div className="h-full flex flex-col retro-bg p-6">
         <div className="text-center mb-6">
-          <div className="text-6xl mb-4">{betaGatingStatus?.enabled ? "⏳" : "🎉"}</div>
+          <div className="mb-4 flex justify-center">
+            {betaGatingStatus?.enabled ? (
+              <Hourglass className="w-14 h-14" />
+            ) : (
+              <PartyPopper className="w-14 h-14" />
+            )}
+          </div>
           <h2 className="font-pixel text-xl retro-text mb-2">
             {betaGatingStatus?.enabled ? "Beta Access Requested" : "Welcome to l4yercak3!"}
           </h2>
@@ -379,7 +385,7 @@ export function LoginWindow() {
         {betaGatingStatus?.enabled && (
           <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
             <p className="text-sm mb-2">
-              <strong>⏳ Awaiting Approval</strong>
+              <strong>Awaiting Approval</strong>
             </p>
             <p className="text-xs">
               We'll review your request within 24-48 hours. You'll receive an email confirmation once approved. Keep your API key safe for when you get access.
@@ -410,8 +416,9 @@ export function LoginWindow() {
             }}
             className="flex-1 retro-button py-2"
           >
-            <span className="font-pixel text-xs">
-              📋 Copy to Clipboard
+            <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
+              <Clipboard className="w-3.5 h-3.5" />
+              Copy to Clipboard
             </span>
           </button>
 
@@ -432,8 +439,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             }}
             className="flex-1 retro-button py-2"
           >
-            <span className="font-pixel text-xs">
-              💾 Download .env File
+            <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
+              <Download className="w-3.5 h-3.5" />
+              Download .env File
             </span>
           </button>
         </div>
@@ -493,7 +501,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
         <div className="flex-1 flex flex-col items-center justify-center space-y-6">
           <div className="text-center space-y-2">
-            <div className="text-6xl mb-4">👤</div>
+            <div className="mb-4 flex justify-center">
+              <UserRound className="w-14 h-14" />
+            </div>
             <h2 className="font-pixel text-lg retro-text">
               {t('ui.login.welcome', { name: user.firstName || user.email })}
             </h2>
@@ -537,7 +547,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="text-center mb-6">
-              <div className="text-4xl mb-2">🔐</div>
+              <div className="mb-2 flex justify-center">
+                <Lock className="w-10 h-10" />
+              </div>
               <h2 className="font-pixel text-lg retro-text">
                 {t('ui.login.title_system_access')}
               </h2>
@@ -550,7 +562,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             {betaGatingStatus?.enabled && (
               <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
                 <p className="text-xs">
-                  <strong>🔒 Private Beta:</strong> We're currently in private beta. New signups will require approval before accessing the platform.
+                  <strong>Private Beta:</strong> We're currently in private beta. New signups will require approval before accessing the platform.
                 </p>
               </div>
             )}
@@ -705,7 +717,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           <div className="w-full max-w-sm">
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="text-center mb-6">
-                <div className="text-4xl mb-2">🎂</div>
+                <div className="mb-2 flex justify-center">
+                  <Cake className="w-10 h-10" />
+                </div>
                 <h2 className="font-pixel text-lg retro-text">
                   {betaGatingStatus?.enabled ? "Apply for Beta Access" : "Start Building with l4yercak3"}
                 </h2>
@@ -720,7 +734,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               {betaGatingStatus?.enabled && (
                 <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
                   <p className="text-xs">
-                    <strong>🔒 Beta Access Required:</strong> Your account will be created, but you'll need admin approval before accessing the platform. We'll email you when approved.
+                    <strong>Beta Access Required:</strong> Your account will be created, but you'll need admin approval before accessing the platform. We'll email you when approved.
                   </p>
                 </div>
               )}
@@ -901,7 +915,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 </div>
                 {passwordMatch !== null && (
                   <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
-                    {passwordMatch ? "Passwords match ✓" : "Passwords don't match ✗"}
+                    {passwordMatch ? "Passwords match" : "Passwords don't match"}
                   </p>
                 )}
               </div>
@@ -968,7 +982,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           <div className="w-full max-w-sm">
             <form onSubmit={handleSetupPassword} className="space-y-4">
               <div className="text-center mb-6">
-                <div className="text-4xl mb-2">🎂</div>
+                <div className="mb-2 flex justify-center">
+                  <Cake className="w-10 h-10" />
+                </div>
                 <h2 className="font-pixel text-lg retro-text">
                   {t('ui.login.title_welcome')}
                 </h2>
@@ -1103,7 +1119,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
         <div className="w-full max-w-sm">
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="text-center mb-6">
-              <div className="text-4xl mb-2">🔐</div>
+              <div className="mb-2 flex justify-center">
+                <Lock className="w-10 h-10" />
+              </div>
               <h2 className="font-pixel text-lg retro-text">
                 {t('ui.login.title_sign_in')}
               </h2>
@@ -1243,14 +1261,16 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                         background: "var(--win95-button-face)",
                       }}
                     >
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>✕</span>
+                      <X className="w-3 h-3" style={{ color: "var(--win95-text)" }} />
                     </button>
                   </div>
 
                   {/* Content */}
                   <div className="p-6 space-y-4" style={{ background: 'var(--win95-bg)' }}>
                     <div className="text-center">
-                      <div className="text-5xl mb-3">🔐</div>
+                      <div className="mb-3 flex justify-center">
+                        <Lock className="w-12 h-12" />
+                      </div>
                       <h3 className="font-pixel text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
                         {t('ui.login.passkey_setup_required.heading')}
                       </h3>

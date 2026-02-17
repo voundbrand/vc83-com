@@ -1,5 +1,7 @@
 "use client";
 
+import { Radio, CircleDollarSign, BarChart3, Users, Calendar, Info } from "lucide-react";
+
 /**
  * About Window - Static platform information
  *
@@ -14,7 +16,10 @@ export function AboutWindow() {
     <div className="flex flex-col h-full px-4 py-2 overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
       {/* Header */}
       <div className="text-center mb-6 pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-2xl font-bold mb-1" style={{ color: 'var(--win95-text)' }}>🍰 About l4yercak3</h2>
+        <h2 className="text-2xl font-bold mb-1 flex items-center justify-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <Info className="h-6 w-6" />
+          About l4yercak3
+        </h2>
         <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>Stack Your Startup Tools Like a Pro</p>
       </div>
 
@@ -56,31 +61,31 @@ export function AboutWindow() {
             borderColor: 'var(--win95-border)'
           }}>
             <div className="flex items-start gap-2">
-              <span style={{ color: 'var(--win95-highlight)' }}>📻</span>
+              <Radio className="h-4 w-4 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div style={{ color: 'var(--win95-text)' }}>
                 <strong>Podcasting:</strong> Manage episodes, guests, and releases
               </div>
             </div>
             <div className="flex items-start gap-2">
-              <span style={{ color: 'var(--win95-highlight)' }}>💰</span>
+              <CircleDollarSign className="h-4 w-4 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div style={{ color: 'var(--win95-text)' }}>
                 <strong>Invoicing:</strong> Create professional invoices in seconds
               </div>
             </div>
             <div className="flex items-start gap-2">
-              <span style={{ color: 'var(--win95-highlight)' }}>📊</span>
+              <BarChart3 className="h-4 w-4 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div style={{ color: 'var(--win95-text)' }}>
                 <strong>Analytics:</strong> Track performance and growth metrics
               </div>
             </div>
             <div className="flex items-start gap-2">
-              <span style={{ color: 'var(--win95-highlight)' }}>👥</span>
+              <Users className="h-4 w-4 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div style={{ color: 'var(--win95-text)' }}>
                 <strong>Subscribers:</strong> Build and manage your email list
               </div>
             </div>
             <div className="flex items-start gap-2">
-              <span style={{ color: 'var(--win95-highlight)' }}>📅</span>
+              <Calendar className="h-4 w-4 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
               <div style={{ color: 'var(--win95-text)' }}>
                 <strong>Scheduling:</strong> Plan releases and automate workflows
               </div>

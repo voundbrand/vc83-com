@@ -41,6 +41,11 @@ import { useFinderClipboard } from "./use-finder-clipboard";
 import { useFinderKeyboard } from "./use-finder-keyboard";
 import { useFinderDragDrop } from "./use-finder-drag-drop";
 import { useFinderTabs } from "./use-finder-tabs";
+import {
+  SHELL_MOTION,
+  buildShellTransition,
+  useReducedMotionPreference,
+} from "@/lib/motion";
 import type { ProjectFile, FinderMode, ContextMenuState } from "./finder-types";
 
 export function FinderWindow() {
@@ -59,6 +64,7 @@ export function FinderWindow() {
   const [sortBy, setSortBy] = useState<SortOption>("name");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotionPreference();
 
   // Preview panel
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
@@ -90,10 +96,12 @@ export function FinderWindow() {
   const [orgFoldersInitialized, setOrgFoldersInitialized] = useState(false);
 
   // Pending invites count
-  const pendingInvites = useQuery(
-    api.projectSharing.listPendingInvites,
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
+  const listPendingInvitesQuery = (api as any).projectSharing.listPendingInvites;
+  const pendingInvites = (useQuery as any)(
+    listPendingInvitesQuery,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as unknown[] | undefined;
 
   // ---- FILE QUERIES (dual-scope: project or org) ----
   const isProjectMode = mode === "project" && !!selectedProjectId;
@@ -407,13 +415,11 @@ export function FinderWindow() {
     <div
       ref={containerRef}
       tabIndex={0}
-      className="h-full flex outline-none"
-      style={{ background: "var(--win95-bg)" }}
+      className="h-full flex outline-none finder-shell"
     >
       {/* Left Sidebar */}
       <div
-        className="w-56 flex-shrink-0 border-r-2 flex flex-col"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="w-56 flex-shrink-0 border-r-2 flex flex-col finder-sidebar-divider"
       >
         <FinderSidebar
           mode={mode}
@@ -543,17 +549,37 @@ export function FinderWindow() {
                   <>
                     <div
                       onMouseDown={handleResizeStart}
-                      className="w-1.5 flex-shrink-0 cursor-col-resize group relative"
-                      style={{ background: "var(--win95-border)" }}
+                      className="w-1.5 flex-shrink-0 cursor-col-resize group relative finder-resize-handle"
                     >
                       <div className="absolute inset-y-0 -left-1 -right-1 z-10" title="Drag to resize" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
-                        <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
-                        <div className="w-1 h-1 rounded-full" style={{ background: "var(--neutral-gray)" }} />
+                      <div
+                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100"
+                        style={{
+                          transition: buildShellTransition(
+                            "opacity",
+                            SHELL_MOTION.durationMs.fast,
+                            prefersReducedMotion,
+                          ),
+                        }}
+                      >
+                        <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
+                        <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
+                        <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
                       </div>
                     </div>
-                    <div className="flex-shrink-0" style={{ width: previewWidth }}>
+                    <div
+                      className="flex-shrink-0"
+                      style={{
+                        width: previewWidth,
+                        transition: isResizing.current
+                          ? "none"
+                          : buildShellTransition(
+                            "width",
+                            SHELL_MOTION.durationMs.fast,
+                            prefersReducedMotion,
+                          ),
+                      }}
+                    >
                       <FinderPreview
                         file={previewFile}
                         onClose={() => setPreviewFile(null)}

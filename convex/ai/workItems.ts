@@ -9,6 +9,118 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 
+interface OutcomeAggregation {
+  totalScanned: number;
+  successCount: number;
+  failureCount: number;
+  pendingCount: number;
+  ignoredCount: number;
+  successRate: number;
+  failureRate: number;
+  statusBreakdown: Array<{ status: string; count: number }>;
+}
+
+export interface ToolSuccessFailureAggregation {
+  windowHours: number;
+  since: number;
+  toolExecutions: OutcomeAggregation;
+  workItems: OutcomeAggregation;
+  combined: OutcomeAggregation;
+}
+
+function normalizeStatus(statusRaw: unknown): string | null {
+  if (typeof statusRaw !== "string") {
+    return null;
+  }
+  const normalized = statusRaw.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function aggregateOutcomeStatuses(statuses: Array<string | null | undefined>): OutcomeAggregation {
+  let successCount = 0;
+  let failureCount = 0;
+  let pendingCount = 0;
+  let ignoredCount = 0;
+  const statusCounts = new Map<string, number>();
+
+  for (const statusRaw of statuses) {
+    const status = normalizeStatus(statusRaw);
+    if (!status) {
+      ignoredCount += 1;
+      continue;
+    }
+
+    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+
+    if (status === "success" || status === "completed") {
+      successCount += 1;
+      continue;
+    }
+
+    if (status === "failed" || status === "error" || status === "disabled") {
+      failureCount += 1;
+      continue;
+    }
+
+    if (
+      status === "proposed"
+      || status === "approved"
+      || status === "executing"
+      || status === "pending"
+      || status === "preview"
+    ) {
+      pendingCount += 1;
+      continue;
+    }
+
+    ignoredCount += 1;
+  }
+
+  const consideredTotal = successCount + failureCount;
+  const successRate =
+    consideredTotal > 0
+      ? Number((successCount / consideredTotal).toFixed(4))
+      : 0;
+  const failureRate =
+    consideredTotal > 0
+      ? Number((failureCount / consideredTotal).toFixed(4))
+      : 0;
+
+  return {
+    totalScanned: statuses.length,
+    successCount,
+    failureCount,
+    pendingCount,
+    ignoredCount,
+    successRate,
+    failureRate,
+    statusBreakdown: Array.from(statusCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([status, count]) => ({ status, count })),
+  };
+}
+
+export function aggregateToolSuccessFailure(
+  toolExecutionStatuses: Array<string | null | undefined>,
+  workItemStatuses: Array<string | null | undefined>,
+  options: { windowHours: number; since: number }
+): ToolSuccessFailureAggregation {
+  const toolExecutions = aggregateOutcomeStatuses(toolExecutionStatuses);
+  const workItems = aggregateOutcomeStatuses(workItemStatuses);
+  const combined = aggregateOutcomeStatuses([
+    ...toolExecutionStatuses,
+    ...workItemStatuses,
+  ]);
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    toolExecutions,
+    workItems,
+    combined,
+  };
+}
+
 // ============================================================================
 // CONTACT SYNC QUERIES
 // ============================================================================
@@ -247,6 +359,49 @@ export const getActiveWorkItems = query({
 
     // Sort by creation date (newest first)
     return workItems.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+/**
+ * Aggregate tool/work-item success-failure ratios for SLO dashboards.
+ */
+export const getToolSuccessFailureRatio = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    hours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const toolExecutions = await ctx.db
+      .query("aiToolExecutions")
+      .withIndex("by_org_time", (q) =>
+        q.eq("organizationId", args.organizationId).gte("executedAt", since)
+      )
+      .collect();
+
+    const workItems = await ctx.db
+      .query("aiWorkItems")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    const recentWorkItems = workItems.filter((item) => {
+      const timestamp = item.completedAt ?? item.createdAt;
+      return timestamp >= since;
+    });
+
+    return {
+      source: "tool_executions_and_work_items",
+      ...aggregateToolSuccessFailure(
+        toolExecutions.map((execution) => execution.status),
+        recentWorkItems.map((item) => item.status),
+        { windowHours: clampedHours, since }
+      ),
+    };
   },
 });
 

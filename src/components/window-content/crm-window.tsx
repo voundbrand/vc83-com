@@ -1,20 +1,25 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Users, Building2, LayoutGrid, TrendingUp, Library, Settings, ArrowLeft, Maximize2 } from "lucide-react"
-import Link from "next/link"
-import { ContactsList } from "./crm-window/contacts-list"
-import { ContactDetail } from "./crm-window/contact-detail"
-import { OrganizationsList } from "./crm-window/organizations-list"
-import { OrganizationDetail } from "./crm-window/organization-detail"
-import { ActivePipelinesTab } from "./crm-window/active-pipelines-tab"
-import { PipelineTemplatesTab } from "./crm-window/pipeline-templates-tab"
-import { PipelineSettingsTab } from "./crm-window/pipeline-settings-tab"
-import type { Id } from "../../../convex/_generated/dataModel"
-import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { useState } from "react";
+import { ArrowLeft, Building2, LayoutGrid, Library, Maximize2, Settings, TrendingUp, Users } from "lucide-react";
+import Link from "next/link";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { ContactsList } from "./crm-window/contacts-list";
+import { ContactDetail } from "./crm-window/contact-detail";
+import { OrganizationsList } from "./crm-window/organizations-list";
+import { OrganizationDetail } from "./crm-window/organization-detail";
+import { ActivePipelinesTab } from "./crm-window/active-pipelines-tab";
+import { PipelineTemplatesTab } from "./crm-window/pipeline-templates-tab";
+import { PipelineSettingsTab } from "./crm-window/pipeline-settings-tab";
+import {
+  InteriorRoot,
+  InteriorTabButton,
+  InteriorTabRow,
+} from "@/components/window-content/shared/interior-primitives";
 
-type ViewType = "contacts" | "organizations" | "pipeline"
-type PipelineSubView = "active" | "templates" | "settings"
+type ViewType = "contacts" | "organizations" | "pipeline";
+type PipelineSubView = "active" | "templates" | "settings";
 
 interface CRMWindowProps {
   /** When true, shows back-to-desktop navigation (for /crm route) */
@@ -22,154 +27,100 @@ interface CRMWindowProps {
 }
 
 export function CRMWindow({ fullScreen = false }: CRMWindowProps) {
-  const { t } = useNamespaceTranslations("ui.crm")
-  const [activeView, setActiveView] = useState<ViewType>("contacts")
-  const [pipelineSubView, setPipelineSubView] = useState<PipelineSubView>("active")
-  const [selectedContactId, setSelectedContactId] = useState<Id<"objects"> | null>(null)
-  const [selectedOrgId, setSelectedOrgId] = useState<Id<"objects"> | null>(null)
-  const [newlyCreatedPipelineId, setNewlyCreatedPipelineId] = useState<Id<"objects"> | null>(null)
+  const { t } = useNamespaceTranslations("ui.crm");
+  const [activeView, setActiveView] = useState<ViewType>("contacts");
+  const [pipelineSubView, setPipelineSubView] = useState<PipelineSubView>("active");
+  const [selectedContactId, setSelectedContactId] = useState<Id<"objects"> | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<Id<"objects"> | null>(null);
+  const [newlyCreatedPipelineId, setNewlyCreatedPipelineId] = useState<Id<"objects"> | null>(null);
 
-  // Reset selection when switching views
   const handleViewSwitch = (view: ViewType) => {
-    setActiveView(view)
-    setSelectedContactId(null)
-    setSelectedOrgId(null)
-  }
+    setActiveView(view);
+    setSelectedContactId(null);
+    setSelectedOrgId(null);
+  };
 
-  // Handle template creation - navigate to the new pipeline
   const handleTemplateCreated = (pipelineId: Id<"objects">) => {
-    setNewlyCreatedPipelineId(pipelineId)
-    setPipelineSubView("active")
-  }
+    setNewlyCreatedPipelineId(pipelineId);
+    setPipelineSubView("active");
+  };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
-      {/* View Switcher Tabs */}
-      <div
-        className="flex gap-1 border-b-2 p-2"
-        style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
-        }}
-      >
-        {/* Back to desktop link (full-screen mode only) */}
+    <InteriorRoot className="flex h-full flex-col">
+      <InteriorTabRow className="gap-2 px-2 py-2">
         {fullScreen && (
-          <Link
-            href="/"
-            className="retro-button px-3 py-2 flex items-center gap-2"
-            title="Back to Desktop"
-          >
-            <ArrowLeft size={16} />
+          <Link href="/" className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs" title="Back to Desktop">
+            <ArrowLeft size={14} />
           </Link>
         )}
-        <button
-          onClick={() => handleViewSwitch("contacts")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "contacts" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "contacts" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "contacts" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
-        >
-          <Users size={16} />
-          <span className="font-pixel text-xs">{t("ui.crm.tabs.contacts")}</span>
-        </button>
-        <button
-          onClick={() => handleViewSwitch("organizations")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "organizations" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "organizations" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "organizations" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
-        >
-          <Building2 size={16} />
-          <span className="font-pixel text-xs">{t("ui.crm.tabs.organizations")}</span>
-        </button>
-        <button
-          onClick={() => handleViewSwitch("pipeline")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "pipeline" ? "shadow-inner" : ""
-          }`}
-          style={{
-            background: activeView === "pipeline" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: activeView === "pipeline" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-          }}
-        >
-          <LayoutGrid size={16} />
-          <span className="font-pixel text-xs">{t("ui.crm.tabs.pipeline")}</span>
-        </button>
 
-        {/* Spacer */}
+        <InteriorTabButton
+          active={activeView === "contacts"}
+          onClick={() => handleViewSwitch("contacts")}
+          className="flex items-center gap-2"
+        >
+          <Users size={14} />
+          <span>{t("ui.crm.tabs.contacts")}</span>
+        </InteriorTabButton>
+
+        <InteriorTabButton
+          active={activeView === "organizations"}
+          onClick={() => handleViewSwitch("organizations")}
+          className="flex items-center gap-2"
+        >
+          <Building2 size={14} />
+          <span>{t("ui.crm.tabs.organizations")}</span>
+        </InteriorTabButton>
+
+        <InteriorTabButton
+          active={activeView === "pipeline"}
+          onClick={() => handleViewSwitch("pipeline")}
+          className="flex items-center gap-2"
+        >
+          <LayoutGrid size={14} />
+          <span>{t("ui.crm.tabs.pipeline")}</span>
+        </InteriorTabButton>
+
         <div className="flex-1" />
 
-        {/* Open full screen link (window mode only) */}
         {!fullScreen && (
-          <Link
-            href="/crm"
-            className="retro-button px-3 py-2 flex items-center gap-2"
-            title="Open Full Screen"
-          >
-            <Maximize2 size={16} />
+          <Link href="/crm" className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs" title="Open Full Screen">
+            <Maximize2 size={14} />
           </Link>
         )}
-      </div>
+      </InteriorTabRow>
 
-      {/* Content Area */}
       {activeView === "pipeline" ? (
-        <div className="h-full flex flex-col">
-          {/* Pipeline Sub-Tabs */}
-          <div
-            className="flex gap-1 border-b-2 p-2"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
-            }}
-          >
-            <button
+        <div className="flex h-full flex-col">
+          <InteriorTabRow className="gap-2 px-2 py-2">
+            <InteriorTabButton
+              active={pipelineSubView === "active"}
               onClick={() => setPipelineSubView("active")}
-              className={`retro-button px-3 py-1.5 flex items-center gap-2 ${
-                pipelineSubView === "active" ? "shadow-inner" : ""
-              }`}
-              style={{
-                background: pipelineSubView === "active" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-                color: pipelineSubView === "active" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-              }}
+              className="flex items-center gap-2"
             >
               <TrendingUp size={14} />
-              <span className="font-pixel text-xs">{t("ui.crm.pipeline.tabs.active") || "Active Pipelines"}</span>
-            </button>
-            <button
+              <span>{t("ui.crm.pipeline.tabs.active") || "Active Pipelines"}</span>
+            </InteriorTabButton>
+
+            <InteriorTabButton
+              active={pipelineSubView === "templates"}
               onClick={() => setPipelineSubView("templates")}
-              className={`retro-button px-3 py-1.5 flex items-center gap-2 ${
-                pipelineSubView === "templates" ? "shadow-inner" : ""
-              }`}
-              style={{
-                background: pipelineSubView === "templates" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-                color: pipelineSubView === "templates" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-              }}
+              className="flex items-center gap-2"
             >
               <Library size={14} />
-              <span className="font-pixel text-xs">{t("ui.crm.pipeline.tabs.templates") || "Templates"}</span>
-            </button>
-            <button
+              <span>{t("ui.crm.pipeline.tabs.templates") || "Templates"}</span>
+            </InteriorTabButton>
+
+            <InteriorTabButton
+              active={pipelineSubView === "settings"}
               onClick={() => setPipelineSubView("settings")}
-              className={`retro-button px-3 py-1.5 flex items-center gap-2 ${
-                pipelineSubView === "settings" ? "shadow-inner" : ""
-              }`}
-              style={{
-                background: pipelineSubView === "settings" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-                color: pipelineSubView === "settings" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-              }}
+              className="flex items-center gap-2"
             >
               <Settings size={14} />
-              <span className="font-pixel text-xs">{t("ui.crm.pipeline.tabs.settings") || "Settings"}</span>
-            </button>
-          </div>
+              <span>{t("ui.crm.pipeline.tabs.settings") || "Settings"}</span>
+            </InteriorTabButton>
+          </InteriorTabRow>
 
-          {/* Pipeline Sub-View Content */}
           <div className="flex-1 overflow-hidden">
             {pipelineSubView === "active" && <ActivePipelinesTab initialPipelineId={newlyCreatedPipelineId} />}
             {pipelineSubView === "templates" && <PipelineTemplatesTab onTemplateCreated={handleTemplateCreated} />}
@@ -178,13 +129,9 @@ export function CRMWindow({ fullScreen = false }: CRMWindowProps) {
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: List View */}
           <div
-            className="w-1/2 border-r-2 overflow-y-auto"
-            style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
-            }}
+            className="w-1/2 overflow-y-auto border-r"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
           >
             {activeView === "contacts" ? (
               <ContactsList
@@ -207,35 +154,33 @@ export function CRMWindow({ fullScreen = false }: CRMWindowProps) {
             )}
           </div>
 
-          {/* Right: Detail View */}
-          <div
-            className="w-1/2 overflow-y-auto p-4"
-            style={{ background: 'var(--win95-bg)' }}
-          >
+          <div className="w-1/2 overflow-y-auto p-4" style={{ background: "var(--window-document-bg)" }}>
             {activeView === "contacts" ? (
               selectedContactId ? (
                 <ContactDetail contactId={selectedContactId} />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center" style={{ color: 'var(--neutral-gray)' }}>
+                <div className="flex h-full flex-col items-center justify-center text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   <Users size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">{t("ui.crm.contacts.select_contact")}</p>
-                  <p className="text-xs mt-2">{t("ui.crm.contacts.select_contact_hint")}</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                    {t("ui.crm.contacts.select_contact")}
+                  </p>
+                  <p className="mt-2 text-xs">{t("ui.crm.contacts.select_contact_hint")}</p>
                 </div>
               )
+            ) : selectedOrgId ? (
+              <OrganizationDetail organizationId={selectedOrgId} />
             ) : (
-              selectedOrgId ? (
-                <OrganizationDetail organizationId={selectedOrgId} />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center" style={{ color: 'var(--neutral-gray)' }}>
-                  <Building2 size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">{t("ui.crm.organizations.select_organization")}</p>
-                  <p className="text-xs mt-2">{t("ui.crm.organizations.select_organization_hint")}</p>
-                </div>
-              )
+              <div className="flex h-full flex-col items-center justify-center text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                <Building2 size={48} className="mb-4 opacity-30" />
+                <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                  {t("ui.crm.organizations.select_organization")}
+                </p>
+                <p className="mt-2 text-xs">{t("ui.crm.organizations.select_organization_hint")}</p>
+              </div>
             )}
           </div>
         </div>
       )}
-    </div>
-  )
+    </InteriorRoot>
+  );
 }

@@ -8,7 +8,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Eye } from "lucide-react";
+import { Check, ChevronDown, ClipboardList, CreditCard, Eye, Info } from "lucide-react";
 import { MultiStepCheckout } from "@/components/checkout/multi-step-checkout";
 import type { CheckoutProduct } from "@/templates/checkout/types";
 import type { Theme } from "@/templates/types";
@@ -279,8 +279,9 @@ function StaticStepPreview({
                   <p className="text-xs" style={{ color: theme?.colors.textLight }}>
                     {formatPrice(product.price, product.currency)}
                     {product.customProperties?.formId && (
-                      <span className="ml-2 text-xs font-bold" style={{ color: theme?.colors.primary }}>
-                        📋 Form Required
+                      <span className="ml-2 text-xs font-bold inline-flex items-center gap-1" style={{ color: theme?.colors.primary }}>
+                        <ClipboardList size={12} />
+                        Form Required
                       </span>
                     )}
                   </p>
@@ -331,7 +332,10 @@ function StaticStepPreview({
                   }}
                 >
                   <p className="text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                    📋 Multi-Ticket Form Flow
+                    <span className="inline-flex items-center gap-1">
+                      <ClipboardList size={14} />
+                      Multi-Ticket Form Flow
+                    </span>
                   </p>
                   <p className="text-xs mb-2" style={{ color: theme?.colors.textLight }}>
                     For products requiring registration, you&apos;ll fill out a form for each ticket purchased.
@@ -398,7 +402,10 @@ function StaticStepPreview({
                   }}
                 >
                   <p className="text-xs font-bold mb-1" style={{ color: theme?.colors.textDark }}>
-                    ℹ️ Static Preview - Example Only
+                    <span className="inline-flex items-center gap-1">
+                      <Info size={12} />
+                      Static Preview - Example Only
+                    </span>
                   </p>
                   <p className="text-xs" style={{ color: theme?.colors.textLight }}>
                     This shows example form fields. Switch to <strong>Interactive</strong> mode to see the actual form configured for your products.
@@ -470,7 +477,10 @@ function StaticStepPreview({
               }}
             >
               <p className="font-bold text-sm mb-1" style={{ color: theme?.colors.textDark }}>
-                💳 Credit/Debit Card
+                <span className="inline-flex items-center gap-1">
+                  <CreditCard size={14} />
+                  Credit/Debit Card
+                </span>
               </p>
               <p className="text-xs" style={{ color: theme?.colors.textLight }}>
                 Pay securely with Visa, Mastercard, or American Express
@@ -495,7 +505,7 @@ function StaticStepPreview({
               className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
               style={{ background: `${theme?.colors.success}20` }}
             >
-              <span className="text-3xl">✓</span>
+              <Check size={28} style={{ color: theme?.colors.success }} />
             </div>
             <h3 className="text-2xl font-bold mb-2" style={{ color: theme?.colors.success }}>
               Payment Successful!
@@ -549,7 +559,7 @@ function StaticStepPreview({
             {step.preview}
             {index < steps.length - 1 && (
               <div className="flex justify-center my-4">
-                <ChevronRight size={20} style={{ color: theme?.colors.textLight }} />
+                <ChevronDown size={20} style={{ color: theme?.colors.textLight }} />
               </div>
             )}
           </div>

@@ -6,9 +6,19 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import type { FunctionReference } from "convex/server";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { FolderPlus, FileText, Code, X, Trash2 } from "lucide-react";
+
+type MutationRef = FunctionReference<"mutation">;
+
+const finderApiRefs = api as unknown as {
+  projectFileSystem: {
+    createFolder: MutationRef;
+    createVirtualFile: MutationRef;
+  };
+};
 
 // ============================================================================
 // CREATE FOLDER MODAL
@@ -35,7 +45,7 @@ export function CreateFolderModal({
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createFolder = useMutation(api.projectFileSystem.createFolder);
+  const createFolder = useMutation(finderApiRefs.projectFileSystem.createFolder);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -55,7 +65,6 @@ export function CreateFolderModal({
       if (projectId) args.projectId = projectId as Id<"objects">;
       if (organizationId) args.organizationId = organizationId as Id<"organizations">;
 
-      // @ts-expect-error — dynamic args for dual-scope support
       await createFolder(args);
       onSuccess();
     } catch (err: unknown) {
@@ -86,12 +95,7 @@ export function CreateFolderModal({
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="My Folder"
             autoFocus
-            className="w-full px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full text-xs"
           />
         </div>
 
@@ -108,23 +112,15 @@ export function CreateFolderModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs border-2 rounded"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button px-4 py-2 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={isCreating || !name.trim()}
-            className="px-4 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--primary)",
-              color: "#fff",
               opacity: isCreating || !name.trim() ? 0.5 : 1,
             }}
           >
@@ -162,7 +158,7 @@ export function CreateNoteModal({
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createVirtualFile = useMutation(api.projectFileSystem.createVirtualFile);
+  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -187,7 +183,6 @@ export function CreateNoteModal({
       if (projectId) args.projectId = projectId as Id<"objects">;
       if (organizationId) args.organizationId = organizationId as Id<"organizations">;
 
-      // @ts-expect-error — dynamic args for dual-scope support
       await createVirtualFile(args);
       onSuccess();
     } catch (err: unknown) {
@@ -217,12 +212,7 @@ export function CreateNoteModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="my-note.md"
             autoFocus
-            className="w-full px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full text-xs"
           />
         </div>
 
@@ -235,12 +225,7 @@ export function CreateNoteModal({
             onChange={(e) => setContent(e.target.value)}
             placeholder="Start writing..."
             rows={6}
-            className="w-full px-3 py-2 text-xs border-2 resize-none font-mono"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-textarea w-full text-xs resize-none font-mono min-h-[9rem]"
           />
         </div>
 
@@ -257,23 +242,15 @@ export function CreateNoteModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs border-2 rounded"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button px-4 py-2 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={isCreating || !name.trim()}
-            className="px-4 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--primary)",
-              color: "#fff",
               opacity: isCreating || !name.trim() ? 0.5 : 1,
             }}
           >
@@ -310,7 +287,7 @@ export function CreatePlainTextModal({
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createVirtualFile = useMutation(api.projectFileSystem.createVirtualFile);
+  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -335,7 +312,6 @@ export function CreatePlainTextModal({
       if (projectId) args.projectId = projectId as Id<"objects">;
       if (organizationId) args.organizationId = organizationId as Id<"organizations">;
 
-      // @ts-expect-error — dynamic args for dual-scope support
       await createVirtualFile(args);
       onSuccess();
     } catch (err: unknown) {
@@ -366,12 +342,7 @@ export function CreatePlainTextModal({
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="document.txt"
             autoFocus
-            className="w-full px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full text-xs"
           />
         </div>
 
@@ -388,23 +359,15 @@ export function CreatePlainTextModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs border-2 rounded"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button px-4 py-2 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={isCreating || !name.trim()}
-            className="px-4 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--primary)",
-              color: "#fff",
               opacity: isCreating || !name.trim() ? 0.5 : 1,
             }}
           >
@@ -456,7 +419,7 @@ export function CreateCodeFileModal({
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createVirtualFile = useMutation(api.projectFileSystem.createVirtualFile);
+  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
 
   const selectedLang = CODE_LANGUAGES.find((l) => l.value === language)!;
 
@@ -501,7 +464,6 @@ export function CreateCodeFileModal({
       if (projectId) args.projectId = projectId as Id<"objects">;
       if (organizationId) args.organizationId = organizationId as Id<"organizations">;
 
-      // @ts-expect-error — dynamic args for dual-scope support
       await createVirtualFile(args);
       onSuccess();
     } catch (err: unknown) {
@@ -528,12 +490,7 @@ export function CreateCodeFileModal({
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-select w-full text-xs"
           >
             {CODE_LANGUAGES.map((lang) => (
               <option key={lang.value} value={lang.value}>
@@ -554,12 +511,7 @@ export function CreateCodeFileModal({
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder={`my-file${selectedLang.ext}`}
             autoFocus
-            className="w-full px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full text-xs"
           />
         </div>
 
@@ -576,23 +528,15 @@ export function CreateCodeFileModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs border-2 rounded"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button px-4 py-2 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={isCreating || !name.trim()}
-            className="px-4 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--primary)",
-              color: "#fff",
               opacity: isCreating || !name.trim() ? 0.5 : 1,
             }}
           >
@@ -650,7 +594,7 @@ export function DeleteConfirmationModal({
           className="text-xs px-3 py-2 rounded border"
           style={{
             color: "var(--neutral-gray)",
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--win95-bg-light)",
           }}
         >
@@ -683,19 +627,14 @@ export function DeleteConfirmationModal({
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs border-2 rounded"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button px-4 py-2 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={isDeleting}
-            className="px-4 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button px-4 py-2 text-xs font-bold"
             style={{
               borderColor: "var(--warning-amber)",
               background: "var(--warning-amber)",
@@ -726,15 +665,15 @@ function ModalOverlay({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative w-full max-w-md p-6 border-2 shadow-lg"
+        className="relative w-full max-w-md p-6 border rounded-2xl shadow-lg"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1"
+          className="absolute top-3 right-3 p-1 rounded-md"
           style={{ color: "var(--neutral-gray)" }}
         >
           <X size={14} />

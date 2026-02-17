@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowLeft, Cloud, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Cloud, ExternalLink, Check, CheckCircle2, AlertCircle, Sparkles, TriangleAlert } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -107,7 +107,10 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
             }}
           >
             <p className="text-xs font-bold mb-1" style={{ color: '#92400E' }}>
-              ⚠️ Prerequisites
+              <span className="inline-flex items-center gap-1">
+                <TriangleAlert size={12} />
+                Prerequisites
+              </span>
             </p>
             <p className="text-xs" style={{ color: '#92400E' }}>
               You must connect GitHub first before connecting Vercel. Vercel deploys from GitHub repositories.
@@ -129,23 +132,23 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
           >
             <ul className="space-y-2 text-xs" style={{ color: 'var(--win95-text)' }}>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>One-click deployment to Vercel</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Global CDN with edge network</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Automatic HTTPS certificates</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Environment variable management</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Real-time deployment monitoring</span>
               </li>
             </ul>
@@ -161,7 +164,10 @@ export function VercelSettings({ onBack }: VercelSettingsProps) {
           }}
         >
           <p className="text-xs font-bold mb-1" style={{ color: '#4338CA' }}>
-            ✨ Available on Free Tier
+            <span className="inline-flex items-center gap-1">
+              <Sparkles size={12} />
+              Available on Free Tier
+            </span>
           </p>
           <p className="text-xs" style={{ color: '#4338CA' }}>
             Vercel integration is included with all tiers, including Free. No upgrade required!

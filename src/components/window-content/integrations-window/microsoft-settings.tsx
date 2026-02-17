@@ -7,7 +7,7 @@ import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
-import { Loader2, CheckCircle2, RefreshCw, ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, FolderOpen, Loader2, Lock, Mail, RefreshCw } from "lucide-react";
 import { MicrosoftScopeSelector } from "../settings-window/microsoft-scope-selector";
 
 interface MicrosoftSettingsProps {
@@ -328,7 +328,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       background: "rgba(239, 68, 68, 0.05)",
                     }}
                   >
-                    <span className="text-base">⚠️</span>
+                    <AlertTriangle size={16} style={{ color: "#ef4444" }} />
                     <div className="flex-1">
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
                         Connection Error
@@ -539,19 +539,19 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-start gap-2">
-                    <span>📧</span>
+                    <Mail size={12} />
                     <span>Sync your emails automatically</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span>📅</span>
+                    <CalendarDays size={12} />
                     <span>Access your calendar events</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span>📁</span>
+                    <FolderOpen size={12} />
                     <span>Browse OneDrive files</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span>🔒</span>
+                    <Lock size={12} />
                     <span>Secure OAuth 2.0 authentication</span>
                   </div>
                 </div>

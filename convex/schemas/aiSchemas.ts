@@ -67,6 +67,13 @@ export const aiMessages = defineTable({
 
   // Track which model generated this message (for assistant messages only)
   modelId: v.optional(v.string()),              // "anthropic/claude-3-5-sonnet"
+  modelResolution: v.optional(v.object({
+    requestedModel: v.optional(v.string()),
+    selectedModel: v.string(),
+    selectionSource: v.string(),
+    fallbackUsed: v.boolean(),
+    fallbackReason: v.optional(v.string()),
+  })),
 
   // Tool calls (if assistant used tools)
   toolCalls: v.optional(v.array(v.object({
@@ -185,6 +192,17 @@ export const organizationAiSettings = defineTable({
     temperature: v.number(),
     maxTokens: v.number(),
     openrouterApiKey: v.optional(v.string()), // Encrypted, org's own key (for BYOK mode)
+    authProfiles: v.optional(v.array(v.object({
+      profileId: v.string(),
+      label: v.optional(v.string()),
+      openrouterApiKey: v.optional(v.string()),
+      enabled: v.boolean(),
+      priority: v.optional(v.number()),
+      cooldownUntil: v.optional(v.number()),
+      failureCount: v.optional(v.number()),
+      lastFailureAt: v.optional(v.number()),
+      lastFailureReason: v.optional(v.string()),
+    }))),
   }),
 
   // Embedding Settings (for email AI)
@@ -394,6 +412,7 @@ export const aiModels = defineTable({
     complexParams: v.boolean(),
     multiTurn: v.boolean(),
     edgeCases: v.boolean(),
+    contractChecks: v.boolean(),
     timestamp: v.number(),
   })),
   testedBy: v.optional(v.id("users")),

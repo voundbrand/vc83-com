@@ -105,7 +105,7 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
       {/* Header */}
       <div className="flex items-start gap-4">
         <div
-          className="p-3 rounded"
+          className="p-3 rounded-lg"
           style={{
             background: 'var(--win95-selected-bg)',
             color: 'var(--win95-selected-text)'
@@ -114,13 +114,13 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
           {getSubtypeIcon(commission.subtype || "sales")}
         </div>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="font-pixel text-lg" style={{ color: 'var(--win95-text)' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-pixel text-sm" style={{ color: 'var(--window-document-text)' }}>
               {commission.name}
             </h2>
             {props.commissionValue && (
               <span
-                className="px-2 py-1 text-sm font-bold rounded"
+                className="px-2 py-1 text-sm font-bold rounded-lg"
                 style={{
                   background: 'var(--win95-success-bg)',
                   color: 'var(--win95-success-text)'
@@ -128,17 +128,15 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
               >
                 {props.commissionType === "percentage"
                   ? `${props.commissionValue}%`
-                  : formatCurrency((props.commissionValue as number) * 100, props.currency as string || "EUR")
+                    : formatCurrency((props.commissionValue as number) * 100, props.currency as string || "EUR")
                 }
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-2 mt-1">
             <span
-              className="px-2 py-0.5 text-xs rounded"
+              className="px-2 py-0.5 text-xs rounded-lg"
               style={{
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)'
+                background: 'var(--desktop-shell-accent)',
+                color: 'var(--window-document-text)'
               }}
             >
               {getSubtypeLabel(commission.subtype || "")}
@@ -152,13 +150,13 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
 
       {/* Description */}
       <div
-        className="p-3 border-2 rounded"
+        className="p-3 border rounded-lg"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--desktop-shell-accent)'
         }}
       >
-        <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
+        <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
           {commission.description || "No description provided."}
         </p>
       </div>
@@ -166,10 +164,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
       {/* Target Description */}
       {props.targetDescription && (
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <h3 className="font-pixel text-xs mb-2 opacity-60">LOOKING FOR</h3>
@@ -180,16 +178,16 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
       {/* Offerer Info */}
       {commission.offerer && (
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <h3 className="font-pixel text-xs mb-2 opacity-60">OFFERED BY</h3>
           <div className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded flex items-center justify-center text-sm font-bold"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
               style={{
                 background: 'var(--win95-selected-bg)',
                 color: 'var(--win95-selected-text)'
@@ -210,10 +208,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -229,10 +227,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
         </div>
 
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -247,10 +245,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
 
       {/* Submit Referral Form */}
       <div
-        className="p-4 border-2 rounded"
+        className="p-4 border rounded-lg"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--desktop-shell-accent)'
         }}
       >
         <h3 className="font-pixel text-sm mb-3">Submit a Referral</h3>
@@ -262,10 +260,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
               value={referralDetails}
               onChange={(e) => setReferralDetails(e.target.value)}
               placeholder="Describe the referral..."
-              className="w-full px-2 py-1.5 border-2 text-sm resize-none"
+              className="w-full px-2 py-1.5 border text-sm resize-none"
               rows={3}
               style={{
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
                 background: 'var(--win95-input-bg)',
                 color: 'var(--win95-input-text)'
               }}
@@ -280,9 +278,9 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 value={referralCustomerName}
                 onChange={(e) => setReferralCustomerName(e.target.value)}
                 placeholder="Customer name"
-                className="w-full px-2 py-1.5 border-2 text-sm"
+                className="w-full px-2 py-1.5 border text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                   background: 'var(--win95-input-bg)',
                   color: 'var(--win95-input-text)'
                 }}
@@ -295,9 +293,9 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 value={referralCustomerEmail}
                 onChange={(e) => setReferralCustomerEmail(e.target.value)}
                 placeholder="customer@example.com"
-                className="w-full px-2 py-1.5 border-2 text-sm"
+                className="w-full px-2 py-1.5 border text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                   background: 'var(--win95-input-bg)',
                   color: 'var(--win95-input-text)'
                 }}
@@ -313,9 +311,9 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 value={referralValue}
                 onChange={(e) => setReferralValue(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-2 py-1.5 border-2 text-sm"
+                className="w-full px-2 py-1.5 border text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                   background: 'var(--win95-input-bg)',
                   color: 'var(--win95-input-text)'
                 }}

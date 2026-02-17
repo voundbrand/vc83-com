@@ -210,7 +210,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
             {/* Event Filters Section */}
             <div>
               <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-                📅 Event Display Rules
+                 Event Display Rules
               </h4>
 
               {/* Enable/Disable Events Toggle */}
@@ -399,7 +399,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
             {/* Checkout Selection */}
             <div>
               <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-                🛒 Primary Checkout
+                 Primary Checkout
               </h4>
               <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                 Checkout Instance (optional):
@@ -431,7 +431,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
             {/* Forms Selection */}
             <div>
               <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
-                📋 Available Forms
+                 Available Forms
               </h4>
               <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
                 Forms (optional):

@@ -2,43 +2,25 @@
 
 import { useLayoutMode } from "../layout-mode-context"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, LayoutGrid, Sparkles, Layers } from "lucide-react"
-import { useShoppingCart } from "@/contexts/shopping-cart-context"
+import { MessageSquare, LayoutGrid, Coins, Layers } from "lucide-react"
 import { useWindowManager } from "@/hooks/use-window-manager"
+import { ShellBotIcon } from "@/components/icons/shell-icons"
 import Link from "next/link"
 
 export function ChatHeader() {
   const { mode, switchToThreePane, switchToSinglePane } = useLayoutMode()
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { addItem } = useShoppingCart()
   const { openWindow } = useWindowManager()
 
-  // Handle adding AI subscription to cart
-  const handleSubscribe = () => {
-    // Add standard AI subscription to cart (€49/month)
-    addItem({
-      type: "ai-subscription",
-      name: "AI Assistant Subscription",
-      description: "Standard AI Assistant with Claude integration",
-      price: 4900, // €49.00 in cents
-      currency: "eur",
-      quantity: 1,
-      metadata: {
-        tier: "standard",
-        billingPeriod: "monthly",
-      },
-    })
-
-    // Open platform cart window immediately
-    // Import PlatformCartWindow component dynamically to avoid circular dependency
-    import("@/components/window-content/platform-cart-window").then(({ PlatformCartWindow }) => {
-      const cartX = typeof window !== 'undefined' ? window.innerWidth - 420 : 1000;
+  const handleOpenStore = () => {
+    import("@/components/window-content/store-window").then(({ StoreWindow }) => {
+      const storeX = typeof window !== "undefined" ? Math.max(120, window.innerWidth - 760) : 320
       openWindow(
-        "platform-cart",
-        "Cart",
-        <PlatformCartWindow />,
-        { x: cartX, y: 100 },
-        { width: 380, height: 500 }
+        "store",
+        "Store",
+        <StoreWindow />,
+        { x: storeX, y: 80 },
+        { width: 720, height: 640 }
       )
     })
   }
@@ -52,7 +34,9 @@ export function ChatHeader() {
       }}
     >
       <div className="flex items-center gap-2">
-        <span className="text-lg">🤖</span>
+        <span className="flex h-5 w-5 items-center justify-center">
+          <ShellBotIcon size={16} tone="active" />
+        </span>
         <span className="font-pixel text-xs" style={{ color: 'var(--win95-text)' }}>
           {t("ui.ai_assistant.header.title")}
         </span>
@@ -78,14 +62,14 @@ export function ChatHeader() {
           Builder
         </Link>
 
-        {/* Subscribe to AI Button */}
+        {/* Credits / Store Button */}
         <button
           className="retro-button-primary px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
-          onClick={handleSubscribe}
-          title="Subscribe to AI Assistant"
+          onClick={handleOpenStore}
+          title="Open Store to top up credits"
         >
-          <Sparkles className="w-3 h-3" />
-          Subscribe
+          <Coins className="w-3 h-3" />
+          Credits
         </button>
 
         {/* Mode Switcher Buttons */}

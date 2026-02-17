@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Check, Lock, AlertTriangle, Loader2, Building2, User } from "lucide-react";
+import { X, Check, Lock, AlertTriangle, Loader2, Building2, User, ShieldCheck, Ban, Globe2 } from "lucide-react";
 import { useState } from "react";
 import { EnterpriseContactModal } from "./enterprise-contact-modal";
 
@@ -228,15 +228,24 @@ export function SubscriptionModal({
                   </li>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
-                    <span>🇪🇺 EU providers prioritized</span>
+                    <span className="flex items-center gap-1">
+                      <Globe2 size={12} />
+                      EU providers prioritized
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
-                    <span>🛡️ Zero Data Retention</span>
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck size={12} />
+                      Zero Data Retention
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
-                    <span>🚫 No training on data</span>
+                    <span className="flex items-center gap-1">
+                      <Ban size={12} />
+                      No training on data
+                    </span>
                   </li>
                 </ul>
 
@@ -420,7 +429,10 @@ export function SubscriptionModal({
             {isB2B && selectedTier && (
               <div className="mb-6 p-4 border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--info)" }}>
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  🏢 Business Checkout Selected
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 size={12} />
+                    Business Checkout Selected
+                  </span>
                 </p>
                 <p className="text-xs" style={{ color: "var(--win95-text)" }}>
                   You'll be able to enter your VAT/Tax ID on the next page. If you provide a valid EU VAT number, the reverse charge mechanism applies and you'll pay €0 VAT.

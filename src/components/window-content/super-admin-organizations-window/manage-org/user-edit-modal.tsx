@@ -249,7 +249,7 @@ export function UserEditModal({
                 borderColor: "var(--success)",
               }}
             >
-              <p className="font-semibold text-lg mb-2">✓ Success!</p>
+              <p className="font-semibold text-lg mb-2"> Success!</p>
               <p className="text-sm">{t("ui.manage.edit_user.success_message")}</p>
             </div>
           ) : (
@@ -439,7 +439,7 @@ export function UserEditModal({
                           borderColor: "var(--warning)",
                         }}
                       >
-                        <p className="text-sm font-semibold mb-1">⚠️ Account Scheduled for Deletion</p>
+                        <p className="text-sm font-semibold mb-1"> Account Scheduled for Deletion</p>
                         <p className="text-xs">
                           Your account will be permanently deleted on{" "}
                           <strong>{new Date(currentUser.scheduledDeletionDate).toLocaleDateString()}</strong>.

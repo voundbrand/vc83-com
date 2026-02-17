@@ -170,7 +170,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <FileText size={64} style={{ color: "var(--neutral-gray)", opacity: 0.3 }} />
-        <h2 className="mt-4 text-lg font-bold" style={{ color: "var(--win95-text)" }}>
+        <h2 className="mt-4 text-lg font-bold" style={{ color: "var(--window-document-text)" }}>
           {t("ui.forms.empty_title")}
         </h2>
         <p className="mt-2 text-sm text-center max-w-md" style={{ color: "var(--neutral-gray)" }}>
@@ -180,9 +180,9 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
           onClick={onCreateForm}
           className="mt-6 px-6 py-3 text-sm font-bold flex items-center gap-2 border-2 transition-colors hover:brightness-95"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+            color: "var(--window-document-text)",
           }}
         >
           <Plus size={16} />
@@ -204,7 +204,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
       <div className="p-4">
         {/* Header */}
         <div className="mb-4">
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.forms.your_forms")}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -230,15 +230,15 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                 key={form._id}
                 className="border-2 p-3 transition-colors cursor-pointer"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--desktop-shell-accent)",
                 }}
                 onClick={() => onEditForm(form._id)}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--win95-hover-light)";
+                  e.currentTarget.style.background = "var(--desktop-menu-hover)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--win95-bg-light)";
+                  e.currentTarget.style.background = "var(--desktop-shell-accent)";
                 }}
               >
                 <div className="flex items-start justify-between">
@@ -246,7 +246,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-lg">{getFormTypeIcon(form.subtype || "other")}</span>
-                      <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+                      <h4 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                         {form.name}
                       </h4>
                       {/* Clickable status badge - toggles publish/unpublish */}
@@ -300,7 +300,7 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs hover:underline mt-1 flex items-center gap-1"
-                        style={{ color: "var(--win95-highlight)" }}
+                        style={{ color: "var(--tone-accent-strong)" }}
                       >
                         {publicUrl}
                         <ExternalLink size={10} />
@@ -314,19 +314,19 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
-                        color: "var(--win95-highlight)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
+                        color: "var(--tone-accent-strong)",
                       }}
                       title="Edit form"
                       disabled={isDeleting || isPublishing || isDuplicating}
                       onClick={() => onEditForm(form._id)}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isPublishing && !isDuplicating)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       <Edit size={12} />
@@ -337,8 +337,8 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       <button
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: "#10b981", // Green color for schema
                         }}
                         title="Edit form schema (JSON)"
@@ -346,10 +346,10 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         onClick={() => onEditSchema(form._id)}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isPublishing && !isDuplicating)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         <Code size={12} />
@@ -360,8 +360,8 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
                         color: "#8b5cf6", // Purple color
                       }}
                       title="Duplicate form"
@@ -369,10 +369,10 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       onClick={() => handleDuplicate(form._id, form.name)}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isPublishing && !isDuplicating)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       {isDuplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
@@ -384,17 +384,17 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       disabled={isDeleting || isPublishing || isDuplicating}
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
                         color: isPublished ? "var(--warning)" : "var(--success)",
                       }}
                       title={isPublished ? t("ui.forms.action_deactivate_tooltip") : t("ui.forms.action_activate_tooltip")}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isPublishing && !isDuplicating)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       {isPublishing ? (
@@ -414,17 +414,17 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         rel="noopener noreferrer"
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors no-underline"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: "var(--success)",
                         }}
                         title={t("ui.forms.tooltip_view_published")}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isPublishing && !isDuplicating)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         <ExternalLink size={12} />
@@ -434,9 +434,9 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                         disabled
                         className="px-2 py-1 text-xs border-2 opacity-50 cursor-not-allowed"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
+                          color: "var(--window-document-text)",
                         }}
                         title={isPublished ? t("ui.forms.tooltip_no_url") : t("ui.forms.tooltip_not_published")}
                       >
@@ -450,17 +450,17 @@ export function FormsList({ forms, onCreateForm, onEditForm, onEditSchema }: For
                       disabled={isDeleting || isPublishing || isDuplicating}
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
                         color: "var(--error)",
                       }}
                       title={t("ui.forms.tooltip_delete")}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isPublishing && !isDuplicating)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}

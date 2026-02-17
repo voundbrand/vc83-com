@@ -241,7 +241,7 @@ function ToolbarButton({
       className="p-1.5 rounded transition-colors"
       style={{ color: "var(--win95-text)" }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--win95-highlight-bg)";
+        e.currentTarget.style.background = "var(--finder-selection-bg)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";

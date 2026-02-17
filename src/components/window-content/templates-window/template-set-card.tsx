@@ -34,18 +34,18 @@ interface TemplateSetCardProps {
  * Visual Design:
  * ```
  * ┌─────────────────────────────────────────┐
- * │ 📦 VIP Premium Set                  ⭐  │
+ * │ [Package] VIP Premium Set          [*] │
  * │ #luxury #premium #vip                   │
  * │ ─────────────────────────────────────── │
  * │                                         │
  * │ ┌─────────┐  ┌─────────┐  ┌─────────┐ │
- * │ │  🎫     │  │  💰     │  │  📧     │ │
+ * │ │ Ticket  │  │Invoice  │  │ Email   │ │
  * │ │ Ticket  │  │ Invoice │  │ Email   │ │
  * │ └─────────┘  └─────────┘  └─────────┘ │
  * │                                         │
  * │ Luxury suite for premium customers      │
  * │                                         │
- * │ [👁️ Preview All 3]  [Use This Set]     │
+ * │ [Preview All 3]  [Use This Set]         │
  * └─────────────────────────────────────────┘
  * ```
  */
@@ -210,7 +210,7 @@ export function TemplateSetCard({
               <FileText size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
             <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
-              <span>🎫</span>
+              <FileText size={12} />
               <span>{t("ui.templates.template_set.label.ticket")}</span>
             </div>
             <div className="text-xs truncate w-full text-center" style={{ color: "var(--neutral-gray)" }}>
@@ -230,7 +230,7 @@ export function TemplateSetCard({
               <Receipt size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
             <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
-              <span>💰</span>
+              <DollarSign size={12} />
               <span>{t("ui.templates.template_set.label.invoice")}</span>
             </div>
             <div className="text-xs truncate w-full text-center" style={{ color: "var(--neutral-gray)" }}>
@@ -250,7 +250,7 @@ export function TemplateSetCard({
               <Mail size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
             <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
-              <span>📧</span>
+              <Mail size={12} />
               <span>{t("ui.templates.template_set.label.email")}</span>
             </div>
             <div className="text-xs truncate w-full text-center" style={{ color: "var(--neutral-gray)" }}>

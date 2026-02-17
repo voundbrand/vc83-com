@@ -102,7 +102,7 @@ export function AppAvailabilityTab() {
                 {apps.map((app) => (
                   <th key={app._id} className="px-3 py-2 text-center font-bold min-w-[100px]">
                     <div className="flex flex-col items-center gap-1">
-                      <span>{app.icon || "📦"}</span>
+                      <span>{app.icon || ""}</span>
                       <span>{app.name}</span>
                     </div>
                   </th>

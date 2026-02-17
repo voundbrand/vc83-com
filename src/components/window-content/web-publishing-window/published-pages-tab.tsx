@@ -155,7 +155,7 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
       <div className="flex-1 overflow-y-auto">
         {currentPages.length === 0 ? (
           <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-            <div className="text-4xl mb-4">{subTab === "drafts" ? "📝" : "🌐"}</div>
+            <div className="text-4xl mb-4">{subTab === "drafts" ? "" : ""}</div>
             <h3 className="text-sm font-semibold mb-2">
               {subTab === "drafts"
                 ? t("ui.web_publishing.empty_drafts_title")

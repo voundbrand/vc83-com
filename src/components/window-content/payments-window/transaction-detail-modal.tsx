@@ -16,6 +16,7 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
@@ -144,12 +145,13 @@ export function TransactionDetailModal({
   if (!transaction) {
     return (
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 flex items-center justify-center z-50 p-4"
+        style={{ background: "var(--modal-overlay-bg)" }}
         onClick={onClose}
       >
         <div
-          className="border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+          className="border rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", boxShadow: "var(--modal-shadow)" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-center p-12">
@@ -167,39 +169,44 @@ export function TransactionDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style={{ background: "var(--modal-overlay-bg)" }}
       onClick={onClose}
     >
       <div
-        className="border-4 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+        className="border rounded-xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", boxShadow: "var(--modal-shadow)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="px-4 py-3 border-b-2 flex items-center justify-between"
+          className="px-4 py-3 border-b flex items-center justify-between gap-3"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
-          <div className="flex items-center gap-3">
-            <Receipt size={20} style={{ color: "var(--win95-text)" }} />
-            <div>
-              <h2 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                Transaction Details
-              </h2>
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                {formatDate(transaction._creationTime)}
-              </p>
-            </div>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={onClose}
+              className="desktop-interior-button h-8 px-3 text-xs shrink-0"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to list</span>
+            </button>
+            <Receipt size={16} style={{ color: "var(--window-document-text)" }} />
+            <h2 className="text-sm font-bold truncate" style={{ color: "var(--window-document-text)" }}>
+              Transaction Details
+            </h2>
+            <p className="text-xs shrink-0" style={{ color: "var(--neutral-gray)" }}>
+              {formatDate(transaction._creationTime)}
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 transition-colors"
-            style={{ color: "var(--win95-text)" }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            className="desktop-interior-button h-9 w-9 p-0"
+            style={{ color: "var(--window-document-text)" }}
+            aria-label="Close"
           >
             <X size={20} />
           </button>
@@ -209,8 +216,8 @@ export function TransactionDetailModal({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Customer Info */}
           <div
-            className="border-2 p-4"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            className="border rounded-lg p-4"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
           >
             <div className="flex items-center gap-2 mb-3">
               {transaction.customProperties?.payerType === "organization" ? (
@@ -218,12 +225,12 @@ export function TransactionDetailModal({
               ) : (
                 <User size={16} style={{ color: "var(--primary)" }} />
               )}
-              <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 {transaction.customProperties?.payerType === "organization" ? "Business Customer" : "Customer Information"}
               </h3>
               {transaction.customProperties?.payerType === "organization" && (
                 <span
-                  className="px-2 py-0.5 text-[10px] font-bold rounded ml-auto"
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-lg ml-auto"
                   style={{
                     backgroundColor: "var(--primary-light)",
                     color: "var(--primary)",
@@ -239,20 +246,20 @@ export function TransactionDetailModal({
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                   Customer Name
                 </p>
-                <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.customerName as string}</p>
+                <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.customerName as string}</p>
               </div>
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                   Email
                 </p>
-                <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.customerEmail as string}</p>
+                <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.customerEmail as string}</p>
               </div>
               {transaction.customProperties?.customerPhone && (
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                     Phone
                   </p>
-                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties.customerPhone as string}</p>
+                  <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties.customerPhone as string}</p>
                 </div>
               )}
               {transaction.customProperties?.employerName && (
@@ -260,7 +267,7 @@ export function TransactionDetailModal({
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                     Employer
                   </p>
-                  <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties.employerName as string}</p>
+                  <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties.employerName as string}</p>
                 </div>
               )}
             </div>
@@ -268,17 +275,17 @@ export function TransactionDetailModal({
 
           {/* Product Info */}
           <div
-            className="border-2 p-4"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            className="border rounded-lg p-4"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
           >
             <div className="flex items-center gap-2 mb-3">
               <Package size={16} style={{ color: "var(--primary)" }} />
-              <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 {hasLineItems ? "Order Items" : "Product Details"}
               </h3>
               {hasLineItems && transaction?.customProperties?.lineItems && (
                 <span
-                  className="px-2 py-0.5 text-[10px] font-bold rounded ml-auto"
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-lg ml-auto"
                   style={{
                     backgroundColor: "var(--primary-light)",
                     color: "var(--primary)",
@@ -295,7 +302,7 @@ export function TransactionDetailModal({
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+                      <tr className="border-b" style={{ borderColor: "var(--window-document-border)" }}>
                         <th className="text-left pb-2 pr-2" style={{ color: "var(--neutral-gray)" }}>Product</th>
                         <th className="text-center pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Qty</th>
                         <th className="text-right pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Unit Price</th>
@@ -312,9 +319,9 @@ export function TransactionDetailModal({
                         unitPriceInCents: number;
                         totalPriceInCents: number;
                       }>).map((item, index) => (
-                        <tr key={index} className="border-b" style={{ borderColor: "var(--win95-border)" }}>
+                        <tr key={index} className="border-b" style={{ borderColor: "var(--window-document-border)" }}>
                           <td className="py-2 pr-2">
-                            <p className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                            <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>
                               {item.productName}
                             </p>
                             {item.description && (
@@ -324,17 +331,17 @@ export function TransactionDetailModal({
                             )}
                             {item.eventName && (
                               <p className="text-[10px] mt-0.5" style={{ color: "var(--neutral-gray)" }}>
-                                📍 {item.eventName}
+                                 {item.eventName}
                               </p>
                             )}
                           </td>
-                          <td className="py-2 px-2 text-center" style={{ color: "var(--win95-text)" }}>
+                          <td className="py-2 px-2 text-center" style={{ color: "var(--window-document-text)" }}>
                             {item.quantity}
                           </td>
-                          <td className="py-2 px-2 text-right" style={{ color: "var(--win95-text)" }}>
+                          <td className="py-2 px-2 text-right" style={{ color: "var(--window-document-text)" }}>
                             {formatCurrency(item.unitPriceInCents)}
                           </td>
-                          <td className="py-2 pl-2 text-right font-semibold" style={{ color: "var(--win95-text)" }}>
+                          <td className="py-2 pl-2 text-right font-semibold" style={{ color: "var(--window-document-text)" }}>
                             {formatCurrency(item.totalPriceInCents)}
                           </td>
                         </tr>
@@ -350,7 +357,7 @@ export function TransactionDetailModal({
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                     Product
                   </p>
-                  <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {transaction.customProperties?.productName as string}
                   </p>
                   {transaction.customProperties?.productDescription && (
@@ -365,7 +372,7 @@ export function TransactionDetailModal({
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                       Event
                     </p>
-                    <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                       {transaction.customProperties.eventName as string}
                     </p>
                     {transaction.customProperties?.eventLocation && (
@@ -381,13 +388,13 @@ export function TransactionDetailModal({
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                       Quantity
                     </p>
-                    <p style={{ color: "var(--win95-text)" }}>{transaction.customProperties?.quantity as number}</p>
+                    <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.quantity as number}</p>
                   </div>
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                       Unit Price
                     </p>
-                    <p style={{ color: "var(--win95-text)" }}>
+                    <p style={{ color: "var(--window-document-text)" }}>
                       {formatCurrency((transaction.customProperties?.unitPriceInCents as number) || 0)}
                     </p>
                   </div>
@@ -398,19 +405,19 @@ export function TransactionDetailModal({
 
           {/* Financial Summary */}
           <div
-            className="border-2 p-4"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            className="border rounded-lg p-4"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
           >
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={16} style={{ color: "var(--primary)" }} />
-              <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Payment Summary
               </h3>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span style={{ color: "var(--neutral-gray)" }}>Subtotal</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {formatCurrency(totals.subtotal)}
                 </span>
               </div>
@@ -419,31 +426,31 @@ export function TransactionDetailModal({
                 <span style={{ color: "var(--neutral-gray)" }}>
                   Tax {hasLineItems ? "" : `(${((transaction.customProperties?.taxRatePercent as number) || 0)}%)`}
                 </span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {formatCurrency(totals.tax)}
                 </span>
               </div>
 
               <div
-                className="flex justify-between text-base font-bold pt-2 border-t-2"
-                style={{ borderColor: "var(--win95-border)" }}
+                className="flex justify-between text-base font-bold pt-2 border-t"
+                style={{ borderColor: "var(--window-document-border)" }}
               >
-                <span style={{ color: "var(--win95-text)" }}>Total</span>
+                <span style={{ color: "var(--window-document-text)" }}>Total</span>
                 <span style={{ color: "var(--primary)" }}>
                   {formatCurrency(totals.total)}
                 </span>
               </div>
 
               {/* Payment Info */}
-              <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: "var(--neutral-gray)" }}>Payment Method</span>
-                  <span style={{ color: "var(--win95-text)" }}>{(transaction.customProperties?.paymentMethod as string) || "Unknown"}</span>
+                  <span style={{ color: "var(--window-document-text)" }}>{(transaction.customProperties?.paymentMethod as string) || "Unknown"}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-1">
                   <span style={{ color: "var(--neutral-gray)" }}>Payment Status</span>
                   <span
-                    className="px-2 py-0.5 text-xs font-bold rounded"
+                    className="px-2 py-0.5 text-xs font-bold rounded-lg"
                     style={{
                       backgroundColor:
                         transaction.customProperties?.paymentStatus === "paid"
@@ -469,7 +476,7 @@ export function TransactionDetailModal({
                 <div className="flex justify-between text-sm mt-1">
                   <span style={{ color: "var(--neutral-gray)" }}>Invoicing Status</span>
                   <span
-                    className="px-2 py-0.5 text-xs font-bold rounded"
+                    className="px-2 py-0.5 text-xs font-bold rounded-lg"
                     style={{
                       backgroundColor:
                         transaction.customProperties?.invoicingStatus === "invoiced"
@@ -492,7 +499,7 @@ export function TransactionDetailModal({
                 {/* Refund Information */}
                 {(transaction.customProperties?.paymentStatus === "refunded" ||
                   transaction.customProperties?.paymentStatus === "partially_refunded") && (
-                  <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                     <div className="flex justify-between text-sm">
                       <span style={{ color: "var(--neutral-gray)" }}>Refund Amount</span>
                       <span style={{ color: "var(--error)" }}>
@@ -502,7 +509,7 @@ export function TransactionDetailModal({
                     {transaction.customProperties?.refundDate && (
                       <div className="flex justify-between text-sm mt-1">
                         <span style={{ color: "var(--neutral-gray)" }}>Refund Date</span>
-                        <span style={{ color: "var(--win95-text)" }}>
+                        <span style={{ color: "var(--window-document-text)" }}>
                           {formatDate(transaction.customProperties.refundDate as number)}
                         </span>
                       </div>
@@ -510,7 +517,7 @@ export function TransactionDetailModal({
                     {transaction.customProperties?.refundId && (
                       <div className="flex justify-between text-sm mt-1">
                         <span style={{ color: "var(--neutral-gray)" }}>Refund ID</span>
-                        <span style={{ color: "var(--win95-text)", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                        <span style={{ color: "var(--window-document-text)", fontFamily: "monospace", fontSize: "0.75rem" }}>
                           {(transaction.customProperties.refundId as string).substring(0, 20)}...
                         </span>
                       </div>
@@ -525,7 +532,7 @@ export function TransactionDetailModal({
         {/* Refund Status Alert */}
         {refundError && (
           <div
-            className="mx-4 mb-4 border-2 p-3 flex items-start gap-2"
+            className="mx-4 mb-4 border rounded-lg p-3 flex items-start gap-2"
             style={{
               borderColor: "var(--error)",
               background: "var(--error-light)",
@@ -540,27 +547,27 @@ export function TransactionDetailModal({
         )}
         {refundSuccess && (
           <div
-            className="mx-4 mb-4 border-2 p-3"
+            className="mx-4 mb-4 border rounded-lg p-3"
             style={{
               borderColor: "var(--success)",
               background: "var(--success-light)",
             }}
           >
             <p className="text-xs font-bold" style={{ color: "var(--success)" }}>
-              ✓ Refund processed successfully!
+               Refund processed successfully!
             </p>
           </div>
         )}
 
         {/* Footer Actions */}
         <div
-          className="px-4 py-3 border-t-2 flex items-center justify-between"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          className="px-4 py-3 border-t flex items-center justify-between"
+          style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
         >
           <div className="flex items-center gap-2">
             {transaction.customProperties?.invoicingStatus === "invoiced" && (
               <p className="text-xs" style={{ color: "var(--success)" }}>
-                ✓ Invoiced
+                 Invoiced
               </p>
             )}
             {transaction.customProperties?.invoicingStatus === "on_draft_invoice" && (
@@ -570,12 +577,12 @@ export function TransactionDetailModal({
             )}
             {transaction.customProperties?.paymentStatus === "refunded" && (
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                ✓ Refunded
+                 Refunded
               </p>
             )}
             {transaction.customProperties?.paymentStatus === "partially_refunded" && (
               <p className="text-xs" style={{ color: "var(--warning)" }}>
-                ⚠ Partially Refunded
+                 Partially Refunded
               </p>
             )}
           </div>
@@ -588,7 +595,7 @@ export function TransactionDetailModal({
                 style={{
                   backgroundColor: "var(--error)",
                   color: "white",
-                  border: "2px solid",
+                  border: "1px solid",
                   borderTopColor: "rgba(255, 255, 255, 0.4)",
                   borderLeftColor: "rgba(255, 255, 255, 0.4)",
                   borderBottomColor: "rgba(0, 0, 0, 0.4)",
@@ -610,10 +617,10 @@ export function TransactionDetailModal({
             )}
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-semibold"
+              className="desktop-interior-button px-4 py-2 text-sm font-semibold"
               style={{
                 backgroundColor: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                color: "var(--window-document-text)",
               }}
             >
               Close

@@ -162,25 +162,25 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     // Extract single objects from settings queries (they return arrays when no subtype)
     const brandingSettings = useMemo(() => {
       const result = Array.isArray(brandingSettingsData) ? undefined : brandingSettingsData;
-      console.log("🟣 [FORM LOAD] brandingSettingsData:", brandingSettingsData);
-      console.log("🟣 [FORM LOAD] brandingSettings extracted:", result);
-      console.log("🟣 [FORM LOAD] brandingSettings.customProperties:", result?.customProperties);
+      console.log(" [FORM LOAD] brandingSettingsData:", brandingSettingsData);
+      console.log(" [FORM LOAD] brandingSettings extracted:", result);
+      console.log(" [FORM LOAD] brandingSettings.customProperties:", result?.customProperties);
       return result;
     }, [brandingSettingsData]);
 
     const localeSettings = useMemo(() => {
       const result = Array.isArray(localeSettingsData) ? undefined : localeSettingsData;
-      console.log("🟣 [FORM LOAD] localeSettingsData:", localeSettingsData);
-      console.log("🟣 [FORM LOAD] localeSettings extracted:", result);
-      console.log("🟣 [FORM LOAD] localeSettings.customProperties:", result?.customProperties);
+      console.log(" [FORM LOAD] localeSettingsData:", localeSettingsData);
+      console.log(" [FORM LOAD] localeSettings extracted:", result);
+      console.log(" [FORM LOAD] localeSettings.customProperties:", result?.customProperties);
       return result;
     }, [localeSettingsData]);
 
     const invoicingSettings = useMemo(() => {
       const result = Array.isArray(invoicingSettingsData) ? undefined : invoicingSettingsData;
-      console.log("🟣 [FORM LOAD] invoicingSettingsData:", invoicingSettingsData);
-      console.log("🟣 [FORM LOAD] invoicingSettings extracted:", result);
-      console.log("🟣 [FORM LOAD] invoicingSettings.customProperties:", result?.customProperties);
+      console.log(" [FORM LOAD] invoicingSettingsData:", invoicingSettingsData);
+      console.log(" [FORM LOAD] invoicingSettings extracted:", result);
+      console.log(" [FORM LOAD] invoicingSettings.customProperties:", result?.customProperties);
       return result;
     }, [invoicingSettingsData]);
 
@@ -246,15 +246,15 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
   // Update form data when organization or ontology data changes
   useEffect(() => {
-    console.log("🟣 [FORM LOAD] useEffect triggered");
-    console.log("🟣 [FORM LOAD] organization:", !!organization);
-    console.log("🟣 [FORM LOAD] isEditing:", isEditing);
-    console.log("🟣 [FORM LOAD] brandingSettings:", brandingSettings);
-    console.log("🟣 [FORM LOAD] localeSettings:", localeSettings);
-    console.log("🟣 [FORM LOAD] invoicingSettings:", invoicingSettings);
+    console.log(" [FORM LOAD] useEffect triggered");
+    console.log(" [FORM LOAD] organization:", !!organization);
+    console.log(" [FORM LOAD] isEditing:", isEditing);
+    console.log(" [FORM LOAD] brandingSettings:", brandingSettings);
+    console.log(" [FORM LOAD] localeSettings:", localeSettings);
+    console.log(" [FORM LOAD] invoicingSettings:", invoicingSettings);
 
     if (organization && !isEditing) {
-      console.log("🟣 [FORM LOAD] Updating form data from database...");
+      console.log(" [FORM LOAD] Updating form data from database...");
       setFormData({
         // Core fields - from organizations table
         name: organization.name || "",
@@ -332,10 +332,10 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
   }), [formData, organization]);
 
   const inputStyles = {
-    backgroundColor: isEditing && canEdit ? 'var(--win95-input-bg)' : 'var(--win95-bg)',
-    color: 'var(--win95-input-text)',
-    border: '2px inset',
-    borderColor: 'var(--win95-input-border-dark)',
+    backgroundColor: isEditing && canEdit ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+    color: 'var(--window-document-text)',
+    border: '1px solid var(--window-document-border)',
+    borderColor: 'var(--window-document-border)',
     opacity: canEdit ? 1 : 0.7
   };
 
@@ -350,7 +350,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.org.organization_name")} *
             </label>
             <input
@@ -365,7 +365,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.org.business_name")} *
             </label>
             <input
@@ -380,7 +380,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Hash className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.slug")}
             </label>
@@ -396,7 +396,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Briefcase className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.industry")}
             </label>
@@ -413,7 +413,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Calendar className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.founded_year")}
             </label>
@@ -431,7 +431,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <UsersIcon className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.employee_count")}
             </label>
@@ -454,7 +454,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         </div>
 
         <div className="mt-4">
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
             <FileText className="w-3 h-3 inline mr-1" />
             {t("ui.manage.org.bio")}
           </label>
@@ -480,7 +480,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Mail className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.primary_contact_email")}
             </label>
@@ -496,7 +496,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Receipt className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.billing_email")}
             </label>
@@ -512,7 +512,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Shield className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.support_email")}
             </label>
@@ -528,7 +528,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Phone className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.phone_number")}
             </label>
@@ -544,7 +544,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.org.fax_number")}
             </label>
             <input
@@ -559,7 +559,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               <Globe className="w-3 h-3 inline mr-1" />
               {t("ui.manage.org.website")}
             </label>
@@ -577,7 +577,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         </div>
 
         <div className="mt-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.manage.org.social_media")}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -669,12 +669,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       >
         {/* Legal Entity Information */}
         <div className="mb-6">
-          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--window-document-text)' }}>
             Legal Entity
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.org.tax_id")}
               </label>
               <input
@@ -689,7 +689,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.org.vat_number")}
               </label>
               <div className="flex gap-2">
@@ -734,17 +734,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               {/* VAT Validation Result */}
               {vatValidationResult && (
                 <div
-                  className="mt-2 p-2 border-2 text-xs"
+                  className="mt-2 p-2 border text-xs"
                   style={{
                     backgroundColor: vatValidationResult.valid ? 'var(--success-bg)' : 'var(--error-bg)',
                     borderColor: vatValidationResult.valid ? 'var(--success)' : 'var(--error)',
-                    color: 'var(--win95-text)',
+                    color: 'var(--window-document-text)',
                   }}
                 >
                   {vatValidationResult.valid ? (
                     <>
                       <p className="font-semibold" style={{ color: 'var(--success)' }}>
-                        ✅ VAT Number Valid
+                         VAT Number Valid
                       </p>
                       {vatValidationResult.name && (
                         <p className="mt-1"><strong>Company:</strong> {vatValidationResult.name}</p>
@@ -756,7 +756,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   ) : (
                     <>
                       <p className="font-semibold" style={{ color: 'var(--error)' }}>
-                        ❌ VAT Number Invalid
+                         VAT Number Invalid
                       </p>
                       {vatValidationResult.error && (
                         <p className="mt-1">{vatValidationResult.error}</p>
@@ -771,7 +771,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.org.company_registration_number")}
               </label>
               <input
@@ -786,18 +786,18 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.org.legal_entity_type")}
               </label>
 
               {/* Show warning if no tax origin address */}
               {!taxOriginAddress && (
-                <div className="mb-2 p-2 border-2 text-xs" style={{
+                <div className="mb-2 p-2 border text-xs" style={{
                   backgroundColor: 'var(--warning-bg)',
                   color: 'var(--warning)',
                   borderColor: 'var(--warning)'
                 }}>
-                  ⚠️ Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
+                   Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
                 </div>
               )}
 
@@ -830,9 +830,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
               {/* Show description for selected entity */}
               {formData.legalEntityType && availableLegalEntities && (
-                <div className="mt-2 p-2 text-xs border-2" style={{
-                  backgroundColor: 'var(--win95-bg-light)',
-                  borderColor: 'var(--win95-border)',
+                <div className="mt-2 p-2 text-xs border" style={{
+                  backgroundColor: 'var(--desktop-shell-accent)',
+                  borderColor: 'var(--window-document-border)',
                   color: 'var(--neutral-gray)'
                 }}>
                   {(() => {
@@ -858,8 +858,8 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         </div>
 
         {/* Tax Collection Settings */}
-        <div className="border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
-          <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <div className="border-t pt-4" style={{ borderColor: 'var(--window-document-border)' }}>
+          <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Receipt className="w-3.5 h-3.5" />
             Tax Collection Settings
           </p>
@@ -874,14 +874,14 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 disabled={!canEdit || !isEditing}
                 className="w-4 h-4"
               />
-              <label htmlFor="taxEnabled" className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <label htmlFor="taxEnabled" className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
                 Enable tax collection for this organization
               </label>
             </div>
 
             {/* Tax Behavior */}
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Default Tax Behavior
               </label>
               <select
@@ -902,7 +902,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
             {/* Default Tax Code */}
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Default Tax Code
               </label>
               {availableTaxCodes ? (
@@ -924,7 +924,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </select>
               ) : (
                 <div className="w-full px-2 py-1 text-sm" style={inputStyles}>
-                  <p className="text-red-600">⚠️ No tax origin address set</p>
+                  <p className="text-red-600"> No tax origin address set</p>
                 </div>
               )}
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -948,7 +948,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         <div className="space-y-6">
           {/* Branding */}
           <div>
-            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
               <Palette className="w-3.5 h-3.5" />
               {t("ui.manage.org.branding")}
             </p>
@@ -1074,9 +1074,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     disabled={!canEdit || !isEditing}
                     className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      background: 'var(--win95-highlight)',
-                      color: 'var(--win95-titlebar-text)',
-                      border: '2px solid var(--win95-border)',
+                      background: 'var(--tone-accent-strong)',
+                      color: 'var(--window-document-text)',
+                      border: '1px solid var(--window-document-border)',
                     }}
                   >
                     Browse
@@ -1088,8 +1088,8 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     <img
                       src={formData.settings.branding.logo}
                       alt="Logo preview"
-                      className="h-16 object-contain border-2"
-                      style={{ borderColor: 'var(--win95-border)' }}
+                      className="h-16 object-contain border"
+                      style={{ borderColor: 'var(--window-document-border)' }}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -1147,9 +1147,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     disabled={!canEdit || !isEditing}
                     className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      background: 'var(--win95-highlight)',
-                      color: 'var(--win95-titlebar-text)',
-                      border: '2px solid var(--win95-border)',
+                      background: 'var(--tone-accent-strong)',
+                      color: 'var(--window-document-text)',
+                      border: '1px solid var(--window-document-border)',
                     }}
                   >
                     Browse
@@ -1161,8 +1161,8 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     <img
                       src={formData.settings.branding.desktopBackground}
                       alt="Desktop background preview"
-                      className="h-24 w-32 object-cover border-2"
-                      style={{ borderColor: 'var(--win95-border)' }}
+                      className="h-24 w-32 object-cover border"
+                      style={{ borderColor: 'var(--window-document-border)' }}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -1175,7 +1175,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
           {/* Locale */}
           <div>
-            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
               <Languages className="w-3.5 h-3.5" />
               {t("ui.manage.org.locale_regional")}
             </p>
@@ -1310,7 +1310,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
           {/* Invoicing Settings Note - Settings moved to Payments window */}
           <div className="p-3 rounded" style={{ background: 'rgba(99, 91, 255, 0.05)', border: '1px solid rgba(99, 91, 255, 0.2)' }}>
-            <p className="text-xs flex items-center gap-2" style={{ color: 'var(--win95-highlight)' }}>
+            <p className="text-xs flex items-center gap-2" style={{ color: 'var(--tone-accent-strong)' }}>
               <Receipt className="w-3.5 h-3.5" />
               <span>
                 {t("ui.manage.org.invoicing_settings")}: Configure invoice numbering and payment terms in{" "}
@@ -1334,27 +1334,27 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             style={{
               backgroundColor: '#FFF9E5',
               color: '#7C6400',
-              border: '2px solid #FFEB99',
+              border: '1px solid #FFEB99',
               borderRadius: '4px'
             }}
           >
-            <p className="font-semibold mb-2">📊 Plan information available in header</p>
+            <p className="font-semibold mb-2"> Plan information available in header</p>
             <p className="text-xs">
               Your current plan tier is displayed in the organization badge at the top of this window.
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.org.workspace_type")}
             </label>
             <div
               className="px-2 py-1 text-sm"
               style={{
-                backgroundColor: 'var(--win95-bg)',
-                color: 'var(--win95-text)',
-                border: '2px inset',
-                borderColor: 'var(--win95-input-border-dark)'
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
+                border: '1px solid var(--window-document-border)',
+                borderColor: 'var(--window-document-border)'
               }}
             >
               {organization.isPersonalWorkspace ? t("ui.manage.org.workspace_personal") : t("ui.manage.org.workspace_team")}
@@ -1362,7 +1362,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
           </div>
 
           <div className="col-span-2">
-            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.org.enabled_features")}
             </label>
             <div className="flex flex-wrap gap-2">
@@ -1372,9 +1372,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'var(--win95-bg-light)',
+                    color: 'var(--desktop-shell-accent)',
                     border: '1px solid',
-                    borderColor: 'var(--win95-border)'
+                    borderColor: 'var(--window-document-border)'
                   }}
                 >
                   Custom Domain
@@ -1385,9 +1385,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'var(--win95-bg-light)',
+                    color: 'var(--desktop-shell-accent)',
                     border: '1px solid',
-                    borderColor: 'var(--win95-border)'
+                    borderColor: 'var(--window-document-border)'
                   }}
                 >
                   SSO
@@ -1398,9 +1398,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="px-2 py-1 text-xs font-semibold"
                   style={{
                     backgroundColor: 'var(--success)',
-                    color: 'var(--win95-bg-light)',
+                    color: 'var(--desktop-shell-accent)',
                     border: '1px solid',
-                    borderColor: 'var(--win95-border)'
+                    borderColor: 'var(--window-document-border)'
                   }}
                 >
                   API Access

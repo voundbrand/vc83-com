@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, Plus, FileText, Filter, X, ChevronDown, Tag, Shield, Layers } from "lucide-react";
+import { Loader2, Plus, FileText, Filter, X, ChevronDown, Tag, Shield, Layers, Check } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { TemplatesList } from "./templates-list";
 import { isValidEmailTemplateType, isValidPdfTemplateType } from "@/templates/template-types";
@@ -134,40 +134,40 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
   if (templates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent-strong)' }} />
       </div>
     );
   }
 
   const getTabButtonStyle = (tab: TabType) => ({
-    borderColor: 'var(--win95-border)',
+    borderColor: 'var(--window-document-border)',
     borderWidth: '2px',
     borderStyle: 'solid' as const,
-    background: activeTab === tab ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-    color: activeTab === tab ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+    background: activeTab === tab ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+    color: activeTab === tab ? 'var(--window-document-text)' : 'var(--window-document-text)',
   });
 
-  const categoryOptions: Array<{ value: CategoryFilter; label: string; icon?: string }> = [
+  const categoryOptions: Array<{ value: CategoryFilter; label: string }> = [
     { value: "all", label: "All Categories" },
-    { value: "ticket", label: "Ticket", icon: "🎫" },
-    { value: "invoice", label: "Invoice", icon: "📄" },
-    { value: "receipt", label: "Receipt", icon: "🧾" },
-    { value: "event", label: "Event", icon: "📅" },
-    { value: "newsletter", label: "Newsletter", icon: "📰" },
-    { value: "transactional", label: "Transactional", icon: "💼" },
-    { value: "marketing", label: "Marketing", icon: "📣" },
-    { value: "support", label: "Support", icon: "💬" },
-    { value: "registration", label: "Registration", icon: "📝" },
-    { value: "checkout", label: "Checkout", icon: "🛒" },
-    { value: "survey", label: "Survey", icon: "📊" },
-    { value: "leadmagnet", label: "Lead Magnet", icon: "🧲" },
-    { value: "quote", label: "Quote", icon: "💰" },
-    { value: "badge", label: "Badge", icon: "🏷️" },
-    { value: "certificate", label: "Certificate", icon: "🎓" },
-    { value: "eventdoc", label: "Event Document", icon: "📋" },
-    { value: "universal", label: "Universal", icon: "🌐" },
-    { value: "luxury", label: "Luxury", icon: "💎" },
-    { value: "product", label: "Product", icon: "📦" },
+    { value: "ticket", label: "Ticket" },
+    { value: "invoice", label: "Invoice" },
+    { value: "receipt", label: "Receipt" },
+    { value: "event", label: "Event" },
+    { value: "newsletter", label: "Newsletter" },
+    { value: "transactional", label: "Transactional" },
+    { value: "marketing", label: "Marketing" },
+    { value: "support", label: "Support" },
+    { value: "registration", label: "Registration" },
+    { value: "checkout", label: "Checkout" },
+    { value: "survey", label: "Survey" },
+    { value: "leadmagnet", label: "Lead Magnet" },
+    { value: "quote", label: "Quote" },
+    { value: "badge", label: "Badge" },
+    { value: "certificate", label: "Certificate" },
+    { value: "eventdoc", label: "Event Document" },
+    { value: "universal", label: "Universal" },
+    { value: "luxury", label: "Luxury" },
+    { value: "product", label: "Product" },
   ];
 
   const propertyOptions: Array<{ value: PropertyFilter; label: string; color: string; desc: string }> = [
@@ -187,7 +187,7 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
   return (
     <div className="flex flex-col h-full">
       {/* Filter Controls */}
-      <div className="p-4 border-b-2 space-y-3" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="p-4 border-b-2 space-y-3" style={{ borderColor: 'var(--window-document-border)' }}>
         {/* Row 1: Type and Status Filters */}
         <div className="flex items-center gap-2">
           {/* Template Type Filters */}
@@ -195,11 +195,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
             onClick={() => setFilterType("all")}
             className="px-4 py-2 text-xs font-bold transition-colors"
             style={{
-              borderColor: 'var(--win95-border)',
+              borderColor: 'var(--window-document-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-              color: filterType === "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+              background: filterType === "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+              color: filterType === "all" ? 'var(--window-document-text)' : 'var(--window-document-text)',
             }}
           >
             All
@@ -208,11 +208,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
             onClick={() => setFilterType("email")}
             className="px-4 py-2 text-xs font-bold transition-colors"
             style={{
-              borderColor: 'var(--win95-border)',
+              borderColor: 'var(--window-document-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "email" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-              color: filterType === "email" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+              background: filterType === "email" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+              color: filterType === "email" ? 'var(--window-document-text)' : 'var(--window-document-text)',
             }}
           >
             Email
@@ -221,18 +221,18 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
             onClick={() => setFilterType("pdf")}
             className="px-4 py-2 text-xs font-bold transition-colors"
             style={{
-              borderColor: 'var(--win95-border)',
+              borderColor: 'var(--window-document-border)',
               borderWidth: '2px',
               borderStyle: 'solid',
-              background: filterType === "pdf" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-              color: filterType === "pdf" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+              background: filterType === "pdf" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+              color: filterType === "pdf" ? 'var(--window-document-text)' : 'var(--window-document-text)',
             }}
           >
             PDF
           </button>
 
           {/* Separator */}
-          <div className="w-px h-8 mx-2" style={{ background: 'var(--win95-border)' }} />
+          <div className="w-px h-8 mx-2" style={{ background: 'var(--window-document-border)' }} />
 
           {/* Status Filters */}
           <button
@@ -269,11 +269,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               }}
               className="px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2"
               style={{
-                borderColor: categoryFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                borderColor: categoryFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-border)',
                 borderWidth: '2px',
                 borderStyle: 'solid',
-                background: categoryFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-                color: categoryFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+                background: categoryFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+                color: categoryFilter !== "all" ? 'var(--window-document-text)' : 'var(--window-document-text)',
               }}
             >
               <Tag size={12} />
@@ -285,8 +285,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               <div
                 className="absolute top-full left-0 mt-1 border-2 shadow-lg z-50 max-h-80 overflow-y-auto"
                 style={{
-                  background: 'var(--win95-bg)',
-                  borderColor: 'var(--win95-border)',
+                  background: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
                   minWidth: '200px',
                 }}
               >
@@ -300,11 +300,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                     className="w-full px-3 py-2 text-xs text-left hover:bg-opacity-20 transition-colors flex items-center gap-2"
                     style={{
                       background: categoryFilter === option.value ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
-                      color: 'var(--win95-text)',
+                      color: 'var(--window-document-text)',
                     }}
                     onMouseEnter={(e) => {
                       if (categoryFilter !== option.value) {
-                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -313,12 +313,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                       }
                     }}
                   >
-                    {option.icon && <span>{option.icon}</span>}
                     <span className={categoryFilter === option.value ? "font-bold" : ""}>
                       {option.label}
                     </span>
                     {categoryFilter === option.value && (
-                      <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                      <Check className="ml-auto h-3 w-3" style={{ color: "var(--tone-accent-strong)" }} />
                     )}
                   </button>
                 ))}
@@ -335,11 +334,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               }}
               className="px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2"
               style={{
-                borderColor: propertyFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                borderColor: propertyFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-border)',
                 borderWidth: '2px',
                 borderStyle: 'solid',
-                background: propertyFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-                color: propertyFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+                background: propertyFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+                color: propertyFilter !== "all" ? 'var(--window-document-text)' : 'var(--window-document-text)',
               }}
             >
               <Shield size={12} />
@@ -351,8 +350,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
               <div
                 className="absolute top-full left-0 mt-1 border-2 shadow-lg z-50"
                 style={{
-                  background: 'var(--win95-bg)',
-                  borderColor: 'var(--win95-border)',
+                  background: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
                   minWidth: '220px',
                 }}
               >
@@ -366,11 +365,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                     className="w-full px-3 py-2.5 text-xs text-left hover:bg-opacity-20 transition-colors"
                     style={{
                       background: propertyFilter === option.value ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
-                      color: 'var(--win95-text)',
+                      color: 'var(--window-document-text)',
                     }}
                     onMouseEnter={(e) => {
                       if (propertyFilter !== option.value) {
-                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -388,7 +387,7 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                         {option.label}
                       </span>
                       {propertyFilter === option.value && (
-                        <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                        <Check className="ml-auto h-3 w-3" style={{ color: "var(--tone-accent-strong)" }} />
                       )}
                     </div>
                     <div className="text-xs" style={{ color: 'var(--neutral-gray)', paddingLeft: '16px' }}>
@@ -411,11 +410,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                 }}
                 className="px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2"
                 style={{
-                  borderColor: templateSetFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-border)',
+                  borderColor: templateSetFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-border)',
                   borderWidth: '2px',
                   borderStyle: 'solid',
-                  background: templateSetFilter !== "all" ? 'var(--win95-highlight)' : 'var(--win95-button-face)',
-                  color: templateSetFilter !== "all" ? 'var(--win95-hover-text)' : 'var(--win95-text)',
+                  background: templateSetFilter !== "all" ? 'var(--tone-accent-strong)' : 'var(--window-document-bg)',
+                  color: templateSetFilter !== "all" ? 'var(--window-document-text)' : 'var(--window-document-text)',
                 }}
               >
                 <Layers size={12} />
@@ -429,8 +428,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                 <div
                   className="absolute top-full left-0 mt-1 border-2 shadow-lg z-50 max-h-96 overflow-y-auto"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg)',
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--window-document-bg)',
                     minWidth: '220px',
                   }}
                 >
@@ -443,11 +442,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                     className="w-full px-3 py-2.5 text-xs text-left hover:bg-opacity-20 transition-colors"
                     style={{
                       background: templateSetFilter === "all" ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
-                      color: 'var(--win95-text)',
+                      color: 'var(--window-document-text)',
                     }}
                     onMouseEnter={(e) => {
                       if (templateSetFilter !== "all") {
-                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -461,7 +460,7 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                         All Template Sets
                       </span>
                       {templateSetFilter === "all" && (
-                        <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                        <Check className="ml-auto h-3 w-3" style={{ color: "var(--tone-accent-strong)" }} />
                       )}
                     </div>
                   </button>
@@ -477,11 +476,11 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                       className="w-full px-3 py-2.5 text-xs text-left hover:bg-opacity-20 transition-colors"
                       style={{
                         background: templateSetFilter === set._id ? 'rgba(107, 70, 193, 0.1)' : 'transparent',
-                        color: 'var(--win95-text)',
+                        color: 'var(--window-document-text)',
                       }}
                       onMouseEnter={(e) => {
                         if (templateSetFilter !== set._id) {
-                          e.currentTarget.style.background = 'var(--win95-hover-light)';
+                          e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -491,12 +490,12 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <Layers size={12} style={{ color: 'var(--win95-highlight)' }} />
+                        <Layers size={12} style={{ color: 'var(--tone-accent-strong)' }} />
                         <span className={templateSetFilter === set._id ? "font-bold" : ""}>
                           {set.name}
                         </span>
                         {templateSetFilter === set._id && (
-                          <span className="ml-auto" style={{ color: 'var(--win95-highlight)' }}>✓</span>
+                          <Check className="ml-auto h-3 w-3" style={{ color: "var(--tone-accent-strong)" }} />
                         )}
                       </div>
                       {set.description && (
@@ -541,9 +540,9 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
       <div className="flex-1 overflow-y-auto">
         {filteredTemplates.length === 0 ? (
           <div className="p-4">
-            <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+            <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
               <FileText size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-              <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+              <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                 {activeTab === "all" && "No Custom Templates Yet"}
                 {activeTab === "active" && "No Active Templates"}
                 {activeTab === "inactive" && "No Inactive Templates"}
@@ -558,8 +557,8 @@ export function AllTemplatesTab({ onEditTemplate, onCreateTemplate, onViewSchema
                   onClick={onCreateTemplate}
                   className="px-4 py-2 text-xs font-bold border-2 transition-colors hover:brightness-95"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-highlight)',
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--tone-accent-strong)',
                     color: 'white',
                   }}
                 >

@@ -5,7 +5,6 @@ import { ClientOnly } from "@/components/client-only"
 import { SystemClock } from "@/components/system-clock"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
-import { StartMenu } from "@/components/start-menu"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
 import { ControlPanelWindow } from "@/components/window-content/control-panel-window"
 import { LoginWindow } from "@/components/window-content/login-window"
@@ -33,6 +32,7 @@ import { AIChatWindow } from "@/components/window-content/ai-chat-window"
 import { StoreWindow } from "@/components/window-content/store-window"
 import { ProjectsWindow } from "@/components/window-content/projects-window"
 import { WindowsMenu } from "@/components/windows-menu"
+import { TopNavMenu, type TopNavMenuItem } from "@/components/taskbar/top-nav-menu"
 import { TutorialWindow } from "@/components/window-content/tutorial-window"
 import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-window"
 import { IntegrationsWindow } from "@/components/window-content/integrations-window"
@@ -51,8 +51,28 @@ import { useIsMobile } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
-import { useTheme } from "@/contexts/theme-context"
-import { getThemeFamily, isLightTheme, getOppositeTheme } from "@/contexts/theme-context"
+import { useAppearance } from "@/contexts/appearance-context"
+import {
+  getWindowIconById,
+  ShellBotIcon,
+  ShellBriefcaseIcon,
+  ShellClockIcon,
+  ShellFinderIcon,
+  ShellGridIcon,
+  ShellBuilderIcon,
+  ShellLoginIcon,
+  ShellLogoutIcon,
+  ShellMoonIcon,
+  ShellPaymentsIcon,
+  ShellPeopleIcon,
+  ShellSepiaIcon,
+  ShellSettingsIcon,
+  ShellShieldIcon,
+  ShellStoreIcon,
+  ShellTerminalIcon,
+  ShellWarningIcon,
+  ShellWorkflowIcon,
+} from "@/components/icons/shell-icons"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
@@ -61,7 +81,6 @@ export default function HomePage() {
   // Load translations for start menu and app names
   const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows"])
   // Note: locale management is now handled via TranslationContext if needed
-  const [showStartMenu, setShowStartMenu] = useState(false)
   const { windows, openWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
   const isMobile = useIsMobile()
   const { isSignedIn, signOut, sessionId, user } = useAuth()
@@ -69,18 +88,13 @@ export default function HomePage() {
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
   const deletionStatus = useAccountDeletionStatus()
-  const { currentTheme, setTheme } = useTheme()
+  const { mode, toggleMode } = useAppearance()
 
-  // Check if current theme has a light/dark pair (is part of a theme family)
-  const hasThemeToggle = getThemeFamily(currentTheme.id) !== null
-  const isCurrentThemeLight = isLightTheme(currentTheme.id)
+  const isDarkAppearance = mode === "dark"
 
-  // Toggle between light and dark variant within the same theme family
-  const handleThemeToggle = () => {
-    const oppositeTheme = getOppositeTheme(currentTheme.id)
-    if (oppositeTheme) {
-      setTheme(oppositeTheme)
-    }
+  // Toggle top-level appearance between dark and sepia
+  const handleAppearanceToggle = () => {
+    toggleMode()
   }
 
   // Use the new hook for app availability
@@ -96,9 +110,17 @@ export default function HomePage() {
   )
 
   // Extract desktop background URL
-  const desktopBackground = brandingSettings && !Array.isArray(brandingSettings)
+  const orgDesktopBackground = brandingSettings && !Array.isArray(brandingSettings)
     ? (brandingSettings.customProperties as { desktopBackground?: string })?.desktopBackground
     : undefined
+
+  // Resolve default desktop background from env var storage ID
+  const defaultBgStorageId = process.env.NEXT_PUBLIC_DESKTOP_BG_STORAGE_ID;
+  const defaultBgUrl = useQuery(
+    api.files.getFileUrl,
+    defaultBgStorageId ? { storageId: defaultBgStorageId as Id<"_storage"> } : "skip"
+  );
+  const desktopBackground = orgDesktopBackground || defaultBgUrl || undefined;
 
   // Check if user has seen the welcome tutorial
   // IMPORTANT: Only query if BOTH isSignedIn AND currentOrg are ready
@@ -114,15 +136,15 @@ export default function HomePage() {
   )
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe', '🎂')
+    openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
   }
 
   const openSettingsWindow = () => {
-    openWindow("control-panel", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings', '⚙️')
+    openWindow("control-panel", "Settings", <ControlPanelWindow />, { x: 200, y: 100 }, { width: 700, height: 550 }, 'ui.start_menu.settings')
   }
 
   const openLoginWindow = () => {
-    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 60 }, { width: 450, height: 720 }, 'ui.app.user_account', '👤')
+    openWindow("login", "User Account", <LoginWindow />, { x: 250, y: 60 }, { width: 450, height: 720 }, 'ui.app.user_account')
   }
 
 
@@ -220,7 +242,7 @@ export default function HomePage() {
   }
 
   const openStoreWindow = () => {
-    openWindow("store", "l4yercak3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store', '🏪')
+    openWindow("store", "l4yercak3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store')
   }
 
   const openProjectsWindow = () => {
@@ -228,45 +250,45 @@ export default function HomePage() {
   }
 
   const openComplianceWindow = () => {
-    openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance', '⚖️')
+    openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance')
   }
 
   const openBenefitsWindow = () => {
-    openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits', '🎁')
+    openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits')
   }
 
   const openBookingWindow = () => {
-    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking', '📆')
+    openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking')
   }
 
   const openBrainWindow = () => {
-    openWindow("brain", "Brain", <BrainWindow />, { x: 120, y: 80 }, { width: 1000, height: 700 }, 'ui.windows.brain.title', '🧠')
+    openWindow("brain", "Brain", <BrainWindow />, { x: 120, y: 80 }, { width: 1000, height: 700 }, 'ui.windows.brain.title')
   }
 
   const openFinderWindow = () => {
-    openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title', '🔍')
+    openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title')
   }
 
   const openTerminalWindow = () => {
-    openWindow("terminal", "Terminal", <TerminalWindow />, { x: 120, y: 80 }, { width: 900, height: 550 }, undefined, '💻')
+    openWindow("terminal", "Terminal", <TerminalWindow />, { x: 120, y: 80 }, { width: 900, height: 550 })
   }
 
   const openBuilderBrowserWindow = () => {
-    openWindow("builder-browser", "AI Builder", <BuilderBrowserWindow />, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, '🏗️')
+    openWindow("builder-browser", "AI Builder", <BuilderBrowserWindow />, { x: 80, y: 40 }, { width: 1100, height: 750 })
   }
 
   const openAgentsBrowserWindow = () => {
-    openWindow("agents-browser", "AI Agents", <AgentsWindow />, { x: 100, y: 50 }, { width: 1100, height: 750 }, undefined, '🕵️')
+    openWindow("agents-browser", "AI Agents", <AgentsWindow />, { x: 100, y: 50 }, { width: 1100, height: 750 })
   }
 
   const openLayersBrowserWindow = () => {
-    openWindow("layers-browser", "Layers", <LayersBrowserWindow />, { x: 120, y: 60 }, { width: 1100, height: 750 }, undefined, '🔀')
+    openWindow("layers-browser", "Layers", <LayersBrowserWindow />, { x: 120, y: 60 }, { width: 1100, height: 750 })
   }
 
   const openOrganizationSwitcherWindow = () => {
     const centerX = typeof window !== 'undefined' ? (window.innerWidth - 400) / 2 : 300;
     const centerY = typeof window !== 'undefined' ? (window.innerHeight - 400) / 2 : 150;
-    openWindow("organization-switcher", "Switch Organization", <OrganizationSwitcherWindow />, { x: centerX, y: centerY }, { width: 400, height: 400 }, 'ui.start_menu.organizations', '🏢')
+    openWindow("organization-switcher", "Switch Organization", <OrganizationSwitcherWindow />, { x: centerX, y: centerY }, { width: 400, height: 400 }, 'ui.start_menu.organizations')
   }
 
   const openIntegrationsWindow = (initialPanel?: "api-keys" | "microsoft") => {
@@ -278,7 +300,7 @@ export default function HomePage() {
       { x: 150, y: 100 },
       { width: 900, height: 650 },
       'ui.windows.integrations.title',
-      '🔗'
+      "integrations"
     );
   };
 
@@ -320,7 +342,7 @@ export default function HomePage() {
       { x: 250, y: 80 },
       { width: 800, height: 650 },
       undefined,
-      "🎂",
+      "tutorial-welcome",
       {
         tutorialId,
         onAction: handleTutorialAction,
@@ -329,8 +351,7 @@ export default function HomePage() {
     );
   };
 
-  // Preserved for future tutorials/docs access from desktop icons
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Preserved for desktop docs navigation entry point
   const openTutorialsDocsWindow = (initialItem?: string) => {
     openWindow(
       "tutorials-docs",
@@ -339,7 +360,7 @@ export default function HomePage() {
       { x: 100, y: 60 },
       { width: 1000, height: 700 },
       'ui.windows.tutorials_docs.title',
-      "📚"
+      "tutorials-docs"
     );
   };
 
@@ -362,28 +383,17 @@ export default function HomePage() {
       return;
     }
 
-    // Not signed in: Show builder preview (and login window if redirected from builder)
+    // Not signed in: Show login window
     if (!isSignedIn) {
       const params = new URLSearchParams(window.location.search);
       const openLogin = params.get('openLogin');
 
       if (openLogin === 'builder') {
-        // User came from /builder — open the login window directly
-        openLoginWindow();
         // Clean up the URL
         window.history.replaceState({}, '', window.location.pathname);
-      } else {
-        // Default: show the builder browser preview
-        openWindow(
-          "builder-browser",
-          "AI Builder",
-          <BuilderBrowserWindow />,
-          { x: 80, y: 40 },
-          { width: 1100, height: 750 },
-          undefined,
-          "🏗️"
-        );
       }
+
+      openLoginWindow();
       setHasOpenedInitialWindow(true);
       return;
     }
@@ -602,7 +612,7 @@ export default function HomePage() {
     return name.slice(0, maxLength) + '...';
   };
 
-  // Filter to only show active organizations in the start menu
+  // Filter to only show active organizations in navigation menus
   const activeOrganizations = organizations.filter(org => org.isActive);
 
   // Helper to require authentication for actions
@@ -636,62 +646,38 @@ export default function HomePage() {
     }
   });
 
-  // Build Programs submenu - sorted alphabetically (English), unique icons per app
-  const programsSubmenu = [
-    { label: "AI Agents", icon: "🕵️", onClick: requireAuth(openAgentsBrowserWindow) },
-    { label: t('ui.app.ai_assistant'), icon: "🤖", onClick: requireAuth(openAIAssistantWindow) },
-    { label: "AI Builder", icon: "🏗️", onClick: requireAuth(openBuilderBrowserWindow) },
-    { label: t('ui.app.all_applications'), icon: "📱", onClick: requireAuth(openAllAppsWindow) },
-    { label: t('ui.app.benefits') || "Benefits", icon: "🎁", onClick: requireAuth(openBenefitsWindow) },
-    { label: t('ui.app.booking') || "Booking", icon: "📆", onClick: requireAuth(openBookingWindow) },
-    { label: t('ui.windows.brain.title') || "Brain", icon: "🧠", onClick: requireAuth(openBrainWindow) },
-    { label: t('ui.app.certificates'), icon: "🎓", onClick: requireAuth(openCertificatesWindow) },
-    { label: t('ui.app.checkout'), icon: "🛍️", onClick: requireAuth(openCheckoutAppWindow) },
-    { label: t('ui.app.compliance') || "Compliance", icon: "⚖️", onClick: requireAuth(openComplianceWindow) },
-    { label: t('ui.app.crm'), icon: "👥", onClick: requireAuth(openCRMWindow) },
-    { label: t('ui.app.events'), icon: "📅", onClick: requireAuth(openEventsWindow) },
-    { label: t('ui.windows.finder.title') || "Finder", icon: "🔍", onClick: requireAuth(openFinderWindow) },
-    { label: t('ui.app.forms'), icon: "📝", onClick: requireAuth(openFormsWindow) },
-    { label: t('ui.app.invoicing'), icon: "🧾", onClick: requireAuth(openInvoicingWindow) },
-    { label: "Layers", icon: "🔀", onClick: requireAuth(openLayersBrowserWindow) },
-    { label: t('ui.app.media_library'), icon: "🖼️", onClick: requireAuth(openMediaLibraryWindow) },
-    { label: t('ui.app.payments'), icon: "💳", onClick: requireAuth(openPaymentsWindow) },
-    { label: t('ui.app.products'), icon: "📦", onClick: requireAuth(openProductsWindow) },
-    { label: t('ui.app.projects') || "Projects", icon: "💼", onClick: requireAuth(openProjectsWindow) },
-    { label: t('ui.app.templates'), icon: "📑", onClick: requireAuth(openTemplatesWindow) },
-    { label: "Terminal", icon: "💻", onClick: requireAuth(openTerminalWindow) },
-    { label: t('ui.app.tickets'), icon: "🎫", onClick: requireAuth(openTicketsWindow) },
-    { label: t('ui.app.web_publishing'), icon: "🌐", onClick: requireAuth(openWebPublishingWindow) },
-    { label: t('ui.app.workflows'), icon: "⚡", onClick: requireAuth(openWorkflowsWindow) },
-  ]
+  const productMenuItems: TopNavMenuItem[] = [
+    { id: "browse-all-apps", label: t("ui.app.all_applications"), onSelect: requireAuth(openAllAppsWindow), icon: <ShellGridIcon size={16} tone="muted" /> },
+    { id: "divider-main", divider: true },
+    { id: "app-ai-assistant", label: t("ui.app.ai_assistant"), onSelect: requireAuth(openAIAssistantWindow), icon: <ShellBotIcon size={16} tone="muted" /> },
+    { id: "app-ai-agents", label: "AI Agents", onSelect: requireAuth(openAgentsBrowserWindow), icon: <ShellPeopleIcon size={16} tone="muted" /> },
+    { id: "app-ai-builder", label: "AI Builder", onSelect: requireAuth(openBuilderBrowserWindow), icon: <ShellBuilderIcon size={16} tone="muted" /> },
+    { id: "app-crm", label: t("ui.app.crm"), onSelect: requireAuth(openCRMWindow), icon: <ShellPeopleIcon size={16} tone="muted" /> },
+    { id: "app-projects", label: t("ui.app.projects"), onSelect: requireAuth(openProjectsWindow), icon: <ShellBriefcaseIcon size={16} tone="muted" /> },
+    { id: "app-payments", label: t("ui.app.payments"), onSelect: requireAuth(openPaymentsWindow), icon: <ShellPaymentsIcon size={16} tone="muted" /> },
+    { id: "app-workflows", label: t("ui.app.workflows"), onSelect: requireAuth(openWorkflowsWindow), icon: <ShellWorkflowIcon size={16} tone="muted" /> },
+    { id: "app-finder", label: t("ui.windows.finder.title"), onSelect: requireAuth(openFinderWindow), icon: <ShellFinderIcon size={16} tone="muted" /> },
+    { id: "app-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
+  ];
 
-  const startMenuItems = [
-    {
-      label: t('ui.start_menu.programs'),
-      icon: "📂",
-      submenu: programsSubmenu
-    },
-    //{ label: "Documents", icon: "📄", onClick: requireAuth(() => console.log("Documents - Coming soon")) },
-
-    // Organizations - opens window to show current org and switch
+  const moreMenuItems: TopNavMenuItem[] = [
     ...(isSignedIn && activeOrganizations.length > 0 ? [{
-      label: currentOrg ? `${truncateOrgName(currentOrg.name, 15)}` : t('ui.start_menu.organizations'),
-      icon: "🏢",
-      onClick: openOrganizationSwitcherWindow
+      id: "menu-org",
+      label: currentOrg ? truncateOrgName(currentOrg.name, 18) : t("ui.start_menu.organizations"),
+      onSelect: openOrganizationSwitcherWindow,
+      icon: <ShellPeopleIcon size={16} tone="muted" />,
     }] : []),
-
-    // Store menu item - platform services and subscriptions (allow browsing without login)
-    { label: t('ui.start_menu.store'), icon: "🏪", onClick: openStoreWindow },
-
-    { label: t('ui.start_menu.settings'), icon: "⚙️", onClick: requireAuth(openSettingsWindow) },
-    { label: "Terminal", icon: "💻", onClick: requireAuth(openTerminalWindow) },
-
+    { id: "menu-store", label: t("ui.start_menu.store"), onSelect: openStoreWindow, icon: <ShellStoreIcon size={16} tone="muted" /> },
+    { id: "menu-settings", label: t("ui.start_menu.settings"), onSelect: requireAuth(openSettingsWindow), icon: <ShellSettingsIcon size={16} tone="muted" /> },
+    { id: "menu-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
+    { id: "menu-divider-auth", divider: true },
     {
-      label: isSignedIn ? t('ui.start_menu.log_out') : t('ui.start_menu.log_in'),
-      icon: isSignedIn ? "🔒" : "🔓",
-      onClick: isSignedIn ? handleLogout : openLoginWindow
+      id: "menu-auth",
+      label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
+      onSelect: isSignedIn ? handleLogout : openLoginWindow,
+      icon: isSignedIn ? <ShellLogoutIcon size={16} tone="muted" /> : <ShellLoginIcon size={16} tone="muted" />,
     },
-  ]
+  ];
 
   // Check if user needs beta access approval (block entire app if pending/rejected/none)
   // Super admins bypass this check
@@ -729,9 +715,9 @@ export default function HomePage() {
       <ClientOnly>
 
       {/* Desktop Icons */}
-      <div className={isMobile ? "desktop-grid-mobile" : "absolute top-4 left-4 space-y-4 z-10 desktop-only"}>
-        {/* <DesktopIcon icon="💾" label="Episodes" onClick={openEpisodesWindow} /> */}
-        {/* <DesktopIcon icon="📁" label="About" onClick={openAboutWindow} /> */}
+      <div className={isMobile ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,48px)+12px)] space-y-4 z-10 desktop-only"}>
+        {/* <DesktopIcon icon="episodes" label="Episodes" onClick={openEpisodesWindow} /> */}
+        {/* <DesktopIcon icon="about" label="About" onClick={openAboutWindow} /> */}
       </div>
 
 
@@ -749,53 +735,117 @@ export default function HomePage() {
         ) : null,
       )}
 
-      {/* Footer Taskbar */}
-      <footer className={`fixed bottom-0 left-0 right-0 retro-window dark:retro-window-dark border-t border-gray-400 ${isMobile ? 'px-4 py-2' : 'px-1 py-0.5'}`} style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'visible' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="relative">
-              <button
-                className={`retro-button ${isMobile ? 'px-4 py-2 text-sm' : 'px-2 py-0.5 text-xs'}`}
-                onClick={() => setShowStartMenu(!showStartMenu)}
-                data-start-button
-              >
-                <span className="font-pixel" style={{ color: 'var(--win95-text)' }}>🍰 START</span>
+      {!isMobile ? (
+        <header
+          className="fixed top-0 left-0 right-0 retro-window desktop-taskbar px-2 py-1"
+          style={{ zIndex: 9999, borderTopLeftRadius: 0, borderTopRightRadius: 0, overflow: "visible" }}
+        >
+          <div className="flex min-w-0 items-center">
+            <div className="flex items-center gap-1 pr-2">
+              <TopNavMenu label="Product" items={productMenuItems} />
+              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={openStoreWindow}>
+                Pricing
               </button>
+              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={() => openTutorialsDocsWindow()}>
+                Docs
+              </button>
+              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={requireAuth(openBenefitsWindow)}>
+                Community
+              </button>
+              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={openWelcomeWindow}>
+                Company
+              </button>
+              <TopNavMenu label="More" items={moreMenuItems} />
             </div>
 
-            {/* Desktop: Taskbar Buttons for Open/Minimized Windows */}
-            {!isMobile && (
-              <div className="flex gap-1 flex-1 overflow-x-auto">
-                {windows.filter(w => w.isOpen).map((window) => {
-                  const displayTitle = window.titleKey ? t(window.titleKey) : window.title;
-                  return (
-                    <button
-                      key={window.id}
-                      className={`retro-button px-3 py-0.5 text-xs font-pixel truncate max-w-[150px] transition-all ${
-                        !window.isMinimized ? 'shadow-inner' : ''
-                      }`}
-                      style={{
-                        backgroundColor: !window.isMinimized ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                        color: 'var(--win95-text)'
-                      }}
-                      onClick={() => {
-                        if (window.isMinimized) {
-                          restoreWindow(window.id)
-                        } else {
-                          focusWindow(window.id)
-                        }
-                      }}
-                      title={displayTitle}
-                    >
-                      {window.icon || '📄'} {displayTitle}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <div className="mx-2 flex min-w-0 flex-1 gap-1 overflow-x-auto">
+              {windows.filter(w => w.isOpen).map((window) => {
+                const displayTitle = window.titleKey ? t(window.titleKey) : window.title;
+                return (
+                  <button
+                    key={window.id}
+                    className={`desktop-window-tab px-3 py-1 text-xs font-medium truncate max-w-[220px] transition-all ${
+                      !window.isMinimized ? 'desktop-window-tab-active' : ''
+                    }`}
+                    onClick={() => {
+                      if (window.isMinimized) {
+                        restoreWindow(window.id)
+                      } else {
+                        focusWindow(window.id)
+                      }
+                    }}
+                    title={displayTitle}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="flex h-4 w-4 items-center justify-center">
+                        {getWindowIconById(window.id, window.icon, 16)}
+                      </span>
+                      <span className="truncate">{displayTitle}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* Mobile: Compact Windows Menu */}
-            {isMobile && windows.filter(w => w.isOpen).length > 0 && (
+            <div className="flex items-center gap-1 pl-2">
+              {isSignedIn && (
+                <ShoppingCartButton onOpenCart={openPlatformCartWindow} />
+              )}
+
+              {isSignedIn && isAppAvailable("ai-assistant") && (
+                <button
+                  className="desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2 transition-colors"
+                  onClick={openAIAssistantWindow}
+                  title="Open AI Assistant"
+                >
+                  <ShellBotIcon size={18} tone="active" />
+                </button>
+              )}
+
+              {isSignedIn && deletionStatus.isScheduledForDeletion && (
+                <div
+                  className="desktop-taskbar-warning border-l-2 px-3 py-1 flex items-center gap-2 cursor-pointer transition-colors"
+                  onClick={openSettingsWindow}
+                  title={`Account scheduled for deletion on ${deletionStatus.deletionDate?.toLocaleDateString()}. Click to restore.`}
+                >
+                  <ShellWarningIcon size={18} tone="danger" className="animate-pulse" />
+                  <span className="text-[10px] font-pixel" style={{ color: 'var(--error-red)' }}>
+                    {deletionStatus.daysRemaining === 1
+                      ? '1 DAY'
+                      : `${deletionStatus.daysRemaining} DAYS`}
+                  </span>
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div className={`${!isSignedIn ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}>
+                  <ShellShieldIcon size={16} tone="active" />
+                  <span className="text-[10px] font-pixel">ADMIN</span>
+                </div>
+              )}
+
+              <button
+                className="desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2 transition-colors"
+                onClick={handleAppearanceToggle}
+                title={isDarkAppearance ? "Switch to Sepia Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkAppearance ? <ShellMoonIcon size={16} tone="active" /> : <ShellSepiaIcon size={16} tone="active" />}
+              </button>
+
+              <div className="retro-button-small px-3 py-1 flex items-center gap-2">
+                <ShellClockIcon size={14} tone="active" />
+                <SystemClock />
+              </div>
+            </div>
+          </div>
+        </header>
+      ) : (
+        <footer
+          className="fixed bottom-0 left-0 right-0 retro-window desktop-taskbar px-4 py-2"
+          style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'visible' }}
+        >
+          <div className="flex items-center gap-2">
+            {windows.filter(w => w.isOpen).length > 0 && (
               <WindowsMenu
                 windows={windows.filter(w => w.isOpen)}
                 onWindowClick={(id) => {
@@ -809,145 +859,32 @@ export default function HomePage() {
               />
             )}
 
-            {/* Desktop: Shopping Cart, Clock, Deletion Warning, and Super Admin Badge */}
-            {!isMobile && (
-              <>
-                {/* Shopping Cart Button - Platform services (AI subscriptions, etc.) */}
-                {isSignedIn && (
-                  <ShoppingCartButton onOpenCart={openPlatformCartWindow} />
-                )}
-
-                {/* AI Assistant Button - Quick access to AI chat */}
-                {isSignedIn && isAppAvailable("ai-assistant") && (
-                  <button
-                    className="border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
-                    onClick={openAIAssistantWindow}
-                    title="Open AI Assistant"
-                  >
-                    <span className="text-sm">🤖</span>
-                  </button>
-                )}
-
-                {/* Theme Toggle - Shows for any theme with a light/dark pair */}
-                {hasThemeToggle && (
-                  <button
-                    className="border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors"
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
-                    onClick={handleThemeToggle}
-                    title={isCurrentThemeLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
-                  >
-                    <span className="text-sm">
-                      {isCurrentThemeLight ? '☀️' : '🌙'}
-                    </span>
-                  </button>
-                )}
-
-                {/* Account Deletion Warning - Show if scheduled for deletion */}
-                {isSignedIn && deletionStatus.isScheduledForDeletion && (
-                  <div
-                    className={`${!isSuperAdmin && !hasThemeToggle ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors`}
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: '#ffcccc' // Light red warning background
-                    }}
-                    onClick={openSettingsWindow}
-                    title={`Account scheduled for deletion on ${deletionStatus.deletionDate?.toLocaleDateString()}. Click to restore.`}
-                  >
-                    <span className="text-sm animate-pulse">⚠️</span>
-                    <span className="text-[10px] font-pixel text-red-600">
-                      {deletionStatus.daysRemaining === 1
-                        ? '1 DAY'
-                        : `${deletionStatus.daysRemaining} DAYS`}
-                    </span>
-                  </div>
-                )}
-
-                {/* Super Admin Badge - Only if super admin */}
-                {isSuperAdmin && (
-                  <div
-                    className={`${!isSignedIn || (!deletionStatus.isScheduledForDeletion && !hasThemeToggle) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
-                  >
-                    <span className="text-sm" title="Super Admin">🔐</span>
-                    <span className="text-[10px] font-pixel">ADMIN</span>
-                  </div>
-                )}
-
-                {/* Clock */}
-                <div
-                  className={`${(!isSuperAdmin && (!isSignedIn || !deletionStatus.isScheduledForDeletion) && !hasThemeToggle) ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}
-                >
-                  <span className="text-[10px]">🕐</span>
-                  <SystemClock />
-                </div>
-              </>
+            {isSignedIn && isAppAvailable("ai-assistant") && (
+              <button
+                className="desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2 transition-colors"
+                onClick={openAIAssistantWindow}
+                title="Open AI Assistant"
+              >
+                <ShellBotIcon size={18} tone="active" />
+              </button>
             )}
 
-            {/* Mobile: AI Assistant, Theme Toggle and Super Admin Badge */}
-            {isMobile && (
-              <>
-                {/* AI Assistant Button - Quick access to AI chat */}
-                {isSignedIn && isAppAvailable("ai-assistant") && (
-                  <button
-                    className={`${!hasThemeToggle && !isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors`}
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
-                    onClick={openAIAssistantWindow}
-                    title="Open AI Assistant"
-                  >
-                    <span className="text-sm">🤖</span>
-                  </button>
-                )}
+            <button
+              className={`${!isSuperAdmin ? 'ml-auto' : ''} desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2 transition-colors`}
+              onClick={handleAppearanceToggle}
+              title={isDarkAppearance ? "Switch to Sepia Mode" : "Switch to Dark Mode"}
+            >
+              {isDarkAppearance ? <ShellMoonIcon size={16} tone="active" /> : <ShellSepiaIcon size={16} tone="active" />}
+            </button>
 
-                {/* Theme Toggle - Shows for any theme with a light/dark pair */}
-                {hasThemeToggle && (
-                  <button
-                    className={`${!isSuperAdmin ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2 hover:bg-opacity-80 transition-colors`}
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
-                    onClick={handleThemeToggle}
-                    title={isCurrentThemeLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
-                  >
-                    <span className="text-sm">
-                      {isCurrentThemeLight ? '☀️' : '🌙'}
-                    </span>
-                  </button>
-                )}
-
-                {/* Super Admin Badge */}
-                {isSuperAdmin && (
-                  <div
-                    className={`${!hasThemeToggle ? 'ml-auto' : ''} border-l-2 px-3 py-1 flex items-center gap-2`}
-                    style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)'
-                    }}
-                  >
-                    <span className="text-sm" title="Super Admin">🔐</span>
-                  </div>
-                )}
-              </>
+            {isSuperAdmin && (
+              <div className="desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2">
+                <ShellShieldIcon size={16} tone="active" />
+              </div>
             )}
           </div>
-        </div>
-      </footer>
-
-      {/* Start Menu - Rendered outside footer for proper z-index stacking */}
-      <StartMenu
-        items={startMenuItems}
-        isOpen={showStartMenu}
-        onClose={() => setShowStartMenu(false)}
-      />
+        </footer>
+      )}
       </ClientOnly>
     </div>
   )

@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2, CreditCard, ToggleLeft, ToggleRight, Check } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 /**
  * Available payment providers definition
@@ -110,44 +112,76 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
   const currentOrg = useCurrentOrganization();
   const organizationId = currentOrg?.id;
   const [togglingProvider, setTogglingProvider] = useState<string | null>(null);
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => unknown;
+  const useMutationUntyped = useMutation as (mutation: unknown) => (args: unknown) => Promise<unknown>;
+  const untypedApi = api;
 
   // Get organization data to check Stripe status
-  const organization = useQuery(
-    api.organizations.getById,
+  const organization = useQueryUntyped(
+    untypedApi.organizations.getById,
     organizationId && sessionId
       ? { organizationId: organizationId as Id<"organizations">, sessionId }
       : "skip"
-  );
+  ) as
+    | {
+        paymentProviders?: Array<{
+          providerCode?: string;
+          status?: string;
+          isTestMode?: boolean;
+        }>;
+      }
+    | null
+    | undefined;
 
   // Query payment provider configs from objects table (single source of truth!)
-  const availableProviders = useQuery(
-    api.paymentProviders.helpers.getAvailableProviders,
+  const availableProviders = useQueryUntyped(
+    untypedApi.paymentProviders.helpers.getAvailableProviders,
     organizationId
       ? { organizationId: organizationId as Id<"organizations"> }
       : "skip"
-  );
+  ) as
+    | Array<{
+        providerCode?: string;
+        status?: string;
+      }>
+    | undefined;
 
   // Get payment settings (enabled providers for checkouts)
-  const paymentSettings = useQuery(
-    api.organizationPaymentSettings.getPaymentSettings,
+  const paymentSettings = useQueryUntyped(
+    untypedApi.organizationPaymentSettings.getPaymentSettings,
     organizationId && sessionId
       ? { organizationId: organizationId as Id<"organizations">, sessionId }
       : "skip"
-  );
+  ) as
+    | {
+        enabledPaymentProviders?: string[];
+      }
+    | undefined;
 
   // Check if invoice payment is available
-  const invoiceAvailability = useQuery(
-    api.paymentProviders.invoiceAvailability.checkInvoicePaymentAvailability,
+  const invoiceAvailability = useQueryUntyped(
+    untypedApi.paymentProviders.invoiceAvailability.checkInvoicePaymentAvailability,
     sessionId && currentOrg
       ? {
           sessionId,
           organizationId: currentOrg.id as Id<"organizations">,
         }
       : "skip"
-  );
+  ) as
+    | {
+        available?: boolean;
+      }
+    | undefined;
 
   // Mutation to toggle provider
-  const toggleProvider = useMutation(api.organizationPaymentSettings.togglePaymentProvider);
+  const toggleProvider = useMutationUntyped(
+    untypedApi.organizationPaymentSettings.togglePaymentProvider,
+  ) as (args: {
+    sessionId: string;
+    organizationId: Id<"organizations">;
+    providerCode: string;
+    enabled: boolean;
+  }) => Promise<unknown>;
 
   // Loading state
   if (!organization) {
@@ -242,8 +276,8 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
       {/* Header */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
-          <CreditCard size={20} style={{ color: "var(--win95-highlight)" }} />
-          <h2 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <CreditCard size={20} style={{ color: "var(--tone-accent-strong)" }} />
+          <h2 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Payment Providers
           </h2>
         </div>
@@ -255,7 +289,7 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
             </span>
           )}
           {enabledCount > 0 && (
-            <span className="ml-2 font-bold" style={{ color: "var(--win95-highlight)" }}>
+            <span className="ml-2 font-bold" style={{ color: "var(--tone-accent-strong)" }}>
               {enabledCount} enabled for checkouts
             </span>
           )}
@@ -278,10 +312,10 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
             <div
               key={provider.id}
               onClick={() => isClickable && onSelectProvider(provider.configTab!)}
-              className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${isClickable ? "cursor-pointer hover:border-[var(--win95-highlight)]" : ""}`}
+              className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${isClickable ? "cursor-pointer hover:border-[var(--tone-accent-strong)]" : ""}`}
               style={{
-                borderColor: isEnabled ? "var(--success)" : isConnected ? "var(--win95-border)" : "var(--win95-border)",
-                background: isEnabled ? "rgba(16, 185, 129, 0.05)" : "var(--win95-bg-light)",
+                borderColor: isEnabled ? "var(--success)" : isConnected ? "var(--window-document-border)" : "var(--window-document-border)",
+                background: isEnabled ? "rgba(16, 185, 129, 0.05)" : "var(--desktop-shell-accent)",
                 opacity: isComingSoon ? 0.5 : 1,
               }}
             >
@@ -299,7 +333,7 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                  <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                     {provider.name}
                   </span>
                   {isConnected && (
@@ -321,7 +355,7 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
                   {isComingSoon && (
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: "var(--win95-border)", color: "var(--neutral-gray)" }}
+                      style={{ background: "var(--window-document-border)", color: "var(--neutral-gray)" }}
                     >
                       Coming Soon
                     </span>
@@ -364,7 +398,7 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
                   className="text-[10px] px-2 py-1 rounded font-semibold"
                   style={{
                     background: "rgba(99, 91, 255, 0.1)",
-                    color: "var(--win95-highlight)",
+                    color: "var(--tone-accent-strong)",
                   }}
                 >
                   {status === "needs_setup" ? "Setup →" : "Connect →"}
@@ -379,11 +413,11 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
       <div
         className="mt-4 p-3 rounded border-2"
         style={{
-          borderColor: "var(--win95-highlight)",
+          borderColor: "var(--tone-accent-strong)",
           background: "rgba(99, 91, 255, 0.05)",
         }}
       >
-        <h3 className="text-xs font-bold mb-1" style={{ color: "var(--win95-highlight)" }}>
+        <h3 className="text-xs font-bold mb-1" style={{ color: "var(--tone-accent-strong)" }}>
           How This Works
         </h3>
         <ul className="text-[11px] space-y-1" style={{ color: "var(--neutral-gray)" }}>
@@ -405,7 +439,7 @@ export function ProvidersTab({ onSelectProvider }: ProvidersTabProps) {
           <h3 className="text-xs font-bold mb-1 flex items-center gap-1" style={{ color: "var(--success)" }}>
             <Check size={14} /> Active in Checkouts
           </h3>
-          <p className="text-[11px]" style={{ color: "var(--win95-text)" }}>
+          <p className="text-[11px]" style={{ color: "var(--window-document-text)" }}>
             {paymentSettings?.enabledPaymentProviders?.map((p: string) => {
               const provider = PAYMENT_PROVIDERS.find(pp => pp.id === p);
               return provider?.name || p;

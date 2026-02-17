@@ -4,6 +4,11 @@
  * OpenRouter provides unified access to 200+ AI models through a single API.
  * This client handles chat completions, tool calling, cost tracking, and streaming.
  */
+import {
+  calculateCostFromUsage,
+  type ModelPricingRates,
+  resolveModelPricingFromRecord,
+} from "./modelPricing";
 
 // Type definitions for OpenRouter API
 interface ToolCall {
@@ -158,30 +163,23 @@ export class OpenRouterClient {
 
   /**
    * Calculate cost for a completion
-   *
-   * Real implementation should fetch rates from OpenRouter API
    */
   calculateCost(usage: {
     prompt_tokens: number;
     completion_tokens: number;
-  }, model: string): number {
-    // Simplified cost calculation
-    // Real implementation should fetch rates from OpenRouter
-    const COST_PER_MILLION: Record<string, { input: number; output: number }> = {
-      "anthropic/claude-3.5-sonnet": { input: 3, output: 15 },
-      "anthropic/claude-3-5-sonnet": { input: 3, output: 15 },
-      "anthropic/claude-3-sonnet": { input: 3, output: 15 },
-      "openai/gpt-4o": { input: 2.5, output: 10 },
-      "openai/gpt-4": { input: 30, output: 60 },
-      "openai/gpt-3.5-turbo": { input: 0.5, output: 1.5 },
-      "google/gemini-pro": { input: 0.125, output: 0.5 },
-    };
+  }, model: string, pricing?: ModelPricingRates): number {
+    const fallbackResolution = pricing
+      ? null
+      : resolveModelPricingFromRecord(model, null);
+    const resolvedPricing =
+      pricing ?? fallbackResolution ?? resolveModelPricingFromRecord(model, null);
 
-    const rates = COST_PER_MILLION[model] || { input: 1, output: 2 };
+    if (fallbackResolution?.usedFallback) {
+      console.warn(
+        `[OpenRouter] Missing resolved pricing for model ${model}; applying fallback rates`
+      );
+    }
 
-    const inputCost = (usage.prompt_tokens / 1_000_000) * rates.input;
-    const outputCost = (usage.completion_tokens / 1_000_000) * rates.output;
-
-    return inputCost + outputCost;
+    return calculateCostFromUsage(usage, resolvedPricing);
   }
 }

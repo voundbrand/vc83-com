@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { useTranslation } from "@/contexts/translation-context";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../convex/_generated/api");
 
 /**
  * USE NAMESPACE TRANSLATIONS HOOK
@@ -31,7 +32,7 @@ export function useNamespaceTranslations(namespace: string) {
   // Load translations for this namespace
   type TranslationMap = Record<string, string>;
   const translationsMap = useQuery(
-    api.ontologyTranslations.getTranslationsByNamespace as unknown as typeof api.ontologyTranslations.getTranslationsByNamespace,
+    generatedApi.api.ontologyTranslations.getTranslationsByNamespace,
     { locale, namespace }
   ) as TranslationMap | undefined;
 
@@ -101,10 +102,11 @@ export function useMultipleNamespaces(namespaces: string[]) {
   const { locale } = useTranslation();
 
   // Load translations for all namespaces
+  type TranslationMap = Record<string, string>;
   const translationsMap = useQuery(
-    api.ontologyTranslations.getMultipleNamespaces,
+    generatedApi.api.ontologyTranslations.getMultipleNamespaces,
     { locale, namespaces }
-  );
+  ) as TranslationMap | undefined;
 
   // Translation function
   const t = (key: string, params?: Record<string, string | number>): string => {

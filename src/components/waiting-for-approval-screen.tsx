@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
+import { Clock3, CircleX, Lock } from "lucide-react";
 
 interface WaitingForApprovalScreenProps {
   status: "none" | "pending" | "rejected";
@@ -37,7 +38,7 @@ export function WaitingForApprovalScreen({
             <div className="space-y-6">
               {/* Icon and main message */}
               <div className="flex items-start gap-4 mb-6">
-                <div className="text-6xl">⏳</div>
+                <Clock3 className="w-14 h-14 text-blue-700" />
                 <div>
                   <h1 className="text-2xl font-bold mb-2">
                     Thanks for signing up!
@@ -78,7 +79,7 @@ export function WaitingForApprovalScreen({
             <div className="space-y-6">
               {/* Icon and main message */}
               <div className="flex items-start gap-4 mb-6">
-                <div className="text-6xl">❌</div>
+                <CircleX className="w-14 h-14 text-red-700" />
                 <div>
                   <h1 className="text-2xl font-bold mb-2">
                     Beta Access Request Declined
@@ -120,7 +121,7 @@ export function WaitingForApprovalScreen({
             <div className="space-y-6">
               {/* Icon and main message */}
               <div className="flex items-start gap-4 mb-6">
-                <div className="text-6xl">🔒</div>
+                <Lock className="w-14 h-14 text-blue-700" />
                 <div>
                   <h1 className="text-2xl font-bold mb-2">
                     Thanks for signing up!

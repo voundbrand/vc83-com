@@ -13,6 +13,14 @@ import { FormBuilder } from "./form-builder";
 import { AllFormsTab } from "./all-forms-tab";
 import { TemplatesTab } from "./templates-tab";
 import { ResponsesTab } from "./responses-tab";
+import {
+  InteriorHeader,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 /**
  * Forms Window
@@ -64,21 +72,21 @@ export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
 
   if (!sessionId || !currentOrg) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <InteriorRoot className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
             {translationsLoading ? "Loading..." : t("ui.forms.sign_in_prompt")}
           </p>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (forms === undefined || translationsLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center">
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+      </InteriorRoot>
     );
   }
 
@@ -116,34 +124,29 @@ export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
             {fullScreen && (
               <Link
                 href="/"
-                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                }}
+                className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
                 title="Back to Desktop"
               >
                 <ArrowLeft size={14} />
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <InteriorTitle className="flex items-center gap-2 text-sm">
                 <FileText size={16} />
                 {t("ui.forms.title")}
-              </h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              </InteriorTitle>
+              <InteriorSubtitle className="mt-1 text-xs">
                 {t("ui.forms.subtitle")}
-              </p>
+              </InteriorSubtitle>
             </div>
           </div>
 
@@ -151,72 +154,35 @@ export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
           {!fullScreen && (
             <Link
               href="/forms"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Open Full Screen"
             >
               <Maximize2 size={14} />
             </Link>
           )}
         </div>
-      </div>
+      </InteriorHeader>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "forms" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "forms" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("forms")}
-        >
+      <InteriorTabRow className="border-b">
+        <InteriorTabButton active={activeTab === "forms"} className="flex items-center gap-2" onClick={() => setActiveTab("forms")}>
           <FileText size={14} />
           {t("ui.forms.tabs.all_forms")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("create")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "create"} className="flex items-center gap-2" onClick={() => setActiveTab("create")}>
           {/* Dynamic icon and title based on whether we're editing or creating */}
           {selectedFormId ? <Edit size={14} /> : <Plus size={14} />}
           {selectedFormId ? t("ui.forms.tabs.edit") : t("ui.forms.tabs.create")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "responses" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "responses" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("responses")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "responses"} className="flex items-center gap-2" onClick={() => setActiveTab("responses")}>
           <ClipboardList size={14} />
           {t("ui.forms.tabs.responses")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "templates" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("templates")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "templates"} className="flex items-center gap-2" onClick={() => setActiveTab("templates")}>
           <Palette size={14} />
           {t("ui.forms.tabs.templates")}
-        </button>
-      </div>
+        </InteriorTabButton>
+      </InteriorTabRow>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
@@ -249,11 +215,11 @@ export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
 
       {/* Footer - Status Bar */}
       <div
-        className="px-4 py-1 border-t-2 text-xs flex items-center justify-between"
+        className="border-t px-4 py-1 text-xs flex items-center justify-between"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--neutral-gray)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
+          color: "var(--desktop-menu-text-muted)",
         }}
       >
         <span>
@@ -266,6 +232,6 @@ export function FormsWindow({ fullScreen = false }: FormsWindowProps = {}) {
         </span>
         <span>{currentOrg?.name || ""}</span>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }

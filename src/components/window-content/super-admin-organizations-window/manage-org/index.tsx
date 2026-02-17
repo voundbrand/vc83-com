@@ -737,7 +737,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
       <div className="px-4 py-3 border-t-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <div className="flex justify-between items-center">
           <p className="text-xs font-semibold" style={{ color: 'var(--error)' }}>
-            ⚠️ System Admin Mode - Full access to organization settings
+             System Admin Mode - Full access to organization settings
           </p>
           <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
             Changes are saved automatically

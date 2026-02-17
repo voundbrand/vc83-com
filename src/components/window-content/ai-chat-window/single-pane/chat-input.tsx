@@ -5,7 +5,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
-import { StopCircle } from "lucide-react"
+import { StopCircle, SendHorizontal, Loader2 } from "lucide-react"
 
 export function ChatInput() {
   const [message, setMessage] = useState("")
@@ -20,7 +20,7 @@ export function ChatInput() {
     abortController,
     stopCurrentRequest,
   } = useAIChatContext()
-  const { isAIReady, settings, billing } = useAIConfig()
+  const { isAIReady, settings } = useAIConfig()
   const notification = useNotification()
 
   // Auto-expand textarea as user types
@@ -58,22 +58,6 @@ export function ChatInput() {
       return
     }
 
-    if (!billing?.hasSubscription) {
-      notification.error(
-        "No AI Subscription",
-        "Please subscribe to an AI plan in Organization Settings > AI to use the AI assistant."
-      )
-      return
-    }
-
-    if (billing.status !== "active" && billing.status !== "trialing") {
-      notification.error(
-        "Subscription Inactive",
-        "Your AI subscription is not active. Please check your billing settings."
-      )
-      return
-    }
-
     if (!isAIReady) {
       notification.error(
         "AI Not Ready",
@@ -99,7 +83,7 @@ export function ChatInput() {
     } catch (error) {
       // Check if request was aborted
       if (error instanceof Error && error.name === "AbortError") {
-        console.log("🛑 [AI Chat] Request was aborted by user")
+        console.log("[AI Chat] Request was aborted by user")
         return // Don't show error notification for user-initiated stops
       }
 
@@ -113,15 +97,18 @@ export function ChatInput() {
           "AI Features Not Enabled",
           "Please enable AI features in Organization Settings > AI."
         )
-      } else if (errorMessage.includes("subscription")) {
+      } else if (
+        errorMessage.includes("CREDITS_EXHAUSTED") ||
+        (errorMessage.toLowerCase().includes("not enough") && errorMessage.toLowerCase().includes("credit"))
+      ) {
         notification.error(
-          "Subscription Required",
-          "Please subscribe to an AI plan to use the assistant."
+          "No Credits Available",
+          "You are out of credits. Open the Store to top up credits and continue chatting."
         )
       } else if (errorMessage.includes("budget") || errorMessage.includes("limit")) {
         notification.error(
           "Usage Limit Reached",
-          "You've reached your token limit. Please upgrade your plan or wait for the next billing cycle."
+          "You've reached a usage limit. Add credits in the Store or increase your AI monthly budget."
         )
       } else {
         notification.error(
@@ -163,15 +150,7 @@ export function ChatInput() {
           onKeyDown={handleKeyDown}
           placeholder={t("ui.ai_assistant.input.placeholder")}
           disabled={isSending}
-          className="flex-1 px-3 py-2 border-2 resize-none overflow-hidden min-h-[40px] max-h-[120px] disabled:opacity-60"
-          style={{
-            borderColor: 'var(--win95-input-border-dark)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-input-text)',
-            borderStyle: 'inset',
-            fontSize: '13px',
-            fontFamily: 'system-ui, sans-serif'
-          }}
+          className="desktop-interior-input flex-1 min-w-0 resize-none overflow-hidden min-h-[44px] max-h-[120px] disabled:opacity-60"
           rows={1}
         />
         {isSending ? (
@@ -196,9 +175,10 @@ export function ChatInput() {
           <button
             type="submit"
             disabled={!message.trim()}
-            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            📤 {t("ui.ai_assistant.input.send_button")}
+            <SendHorizontal size={14} />
+            {t("ui.ai_assistant.input.send_button")}
           </button>
         )}
       </div>
@@ -206,7 +186,10 @@ export function ChatInput() {
       <div className="mt-2 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
         {isSending ? (
           <span className="flex items-center gap-1">
-            <span className="animate-pulse">⏳ Processing...</span>
+            <span className="flex items-center gap-1">
+              <Loader2 size={12} className="animate-spin" />
+              <span>Processing...</span>
+            </span>
             <span className="opacity-60">• Press ESC or click Stop to cancel</span>
           </span>
         ) : (

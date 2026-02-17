@@ -188,7 +188,7 @@ export function FinderSidebar({
             <button
               onClick={() => onTagFilter?.(null)}
               className="w-full text-left px-4 py-1 text-[10px] font-bold"
-              style={{ color: "var(--primary)" }}
+              style={{ color: "var(--finder-accent)" }}
             >
               Clear filter
             </button>
@@ -199,8 +199,8 @@ export function FinderSidebar({
               onClick={() => onTagFilter?.(tag.name)}
               className="w-full flex items-center gap-2 px-4 py-1.5 text-xs transition-colors"
               style={{
-                background: activeTagFilter === tag.name ? "var(--win95-highlight-bg)" : "transparent",
-                color: activeTagFilter === tag.name ? "var(--win95-highlight)" : "var(--win95-text)",
+                background: activeTagFilter === tag.name ? "var(--finder-selection-bg)" : "transparent",
+                color: activeTagFilter === tag.name ? "var(--finder-selection-text)" : "var(--win95-text)",
               }}
             >
               <div
@@ -225,12 +225,7 @@ export function FinderSidebar({
           <select
             value={selectedProjectId || ""}
             onChange={(e) => onProjectSelect(e.target.value)}
-            className="w-full px-2 py-1.5 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-select w-full py-1.5 pr-8 text-xs"
           >
             <option value="">Select a project...</option>
             {projects?.map((p) => (
@@ -344,8 +339,8 @@ function SidebarFileItem({
       className="w-full flex items-center gap-2 px-4 py-1.5 text-xs transition-colors"
       style={{ color: "var(--win95-text)" }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--win95-highlight-bg)";
-        e.currentTarget.style.color = "var(--win95-highlight)";
+        e.currentTarget.style.background = "var(--finder-selection-bg)";
+        e.currentTarget.style.color = "var(--finder-selection-text)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
@@ -379,8 +374,8 @@ function NavItem({ icon, label, active, onClick, badge }: {
       onClick={onClick}
       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
       style={{
-        background: active ? "var(--win95-highlight-bg)" : "transparent",
-        color: active ? "var(--win95-highlight)" : "var(--win95-text)",
+        background: active ? "var(--finder-selection-bg)" : "transparent",
+        color: active ? "var(--finder-selection-text)" : "var(--win95-text)",
       }}
     >
       {icon}
@@ -476,8 +471,8 @@ function FileTree({ files, currentPath, onNavigate, rootLabel }: {
         onClick={() => onNavigate("/")}
         className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
         style={{
-          background: currentPath === "/" ? "var(--win95-highlight-bg)" : "transparent",
-          color: currentPath === "/" ? "var(--win95-highlight)" : "var(--win95-text)",
+          background: currentPath === "/" ? "var(--finder-selection-bg)" : "transparent",
+          color: currentPath === "/" ? "var(--finder-selection-text)" : "var(--win95-text)",
         }}
       >
         <HardDrive size={14} />
@@ -517,8 +512,8 @@ function TreeNodeView({ node, currentPath, onNavigate, level }: {
         className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
         style={{
           paddingLeft: `${level * 12 + 8}px`,
-          background: isActive ? "var(--win95-highlight-bg)" : "transparent",
-          color: isActive ? "var(--win95-highlight)" : "var(--win95-text)",
+          background: isActive ? "var(--finder-selection-bg)" : "transparent",
+          color: isActive ? "var(--finder-selection-text)" : "var(--win95-text)",
         }}
       >
         {hasChildren ? (

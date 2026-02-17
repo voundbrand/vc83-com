@@ -82,15 +82,15 @@ export function FinderTagManager({ sessionId, organizationId, onClose }: FinderT
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative w-full max-w-md p-6 border-2 shadow-lg max-h-[80vh] flex flex-col"
+        className="relative w-full max-w-md p-6 border rounded-2xl shadow-lg max-h-[80vh] flex flex-col"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1"
+          className="absolute top-3 right-3 p-1 rounded-md"
           style={{ color: "var(--neutral-gray)" }}
         >
           <X size={14} />
@@ -127,21 +127,13 @@ export function FinderTagManager({ sessionId, organizationId, onClose }: FinderT
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="New tag name..."
-            className="flex-1 px-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input flex-1 text-xs"
           />
           <button
             onClick={handleCreate}
             disabled={!newName.trim()}
-            className="flex items-center gap-1 px-3 py-2 text-xs font-bold border-2 rounded"
+            className="desktop-interior-button desktop-interior-button-primary flex items-center gap-1 px-3 py-2 text-xs font-bold"
             style={{
-              background: "var(--primary)",
-              borderColor: "var(--win95-border)",
-              color: "#fff",
               opacity: !newName.trim() ? 0.5 : 1,
             }}
           >
@@ -159,8 +151,8 @@ export function FinderTagManager({ sessionId, organizationId, onClose }: FinderT
           {tags?.map((tag: any) => (
             <div
               key={tag._id}
-              className="flex items-center gap-2 px-3 py-2 rounded border"
-              style={{ borderColor: "var(--win95-border)" }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               {editingId === tag._id ? (
                 <>
@@ -182,18 +174,21 @@ export function FinderTagManager({ sessionId, organizationId, onClose }: FinderT
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleUpdate(tag._id)}
-                    className="flex-1 px-2 py-1 text-xs border"
-                    style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
-                    }}
+                    className="desktop-interior-input flex-1 px-2 py-1 text-xs"
                     autoFocus
                   />
-                  <button onClick={() => handleUpdate(tag._id)} style={{ color: "var(--success-green)" }}>
+                  <button
+                    onClick={() => handleUpdate(tag._id)}
+                    className="desktop-interior-button p-1"
+                    style={{ color: "var(--success-green)" }}
+                  >
                     <Check size={14} />
                   </button>
-                  <button onClick={() => setEditingId(null)} style={{ color: "var(--neutral-gray)" }}>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="desktop-interior-button p-1"
+                    style={{ color: "var(--neutral-gray)" }}
+                  >
                     <X size={14} />
                   </button>
                 </>
@@ -212,14 +207,14 @@ export function FinderTagManager({ sessionId, organizationId, onClose }: FinderT
                       setEditName(tag.name);
                       setEditColor(tag.color);
                     }}
-                    className="p-1"
+                    className="desktop-interior-button p-1"
                     style={{ color: "var(--neutral-gray)" }}
                   >
                     <Pencil size={12} />
                   </button>
                   <button
                     onClick={() => handleDelete(tag._id)}
-                    className="p-1"
+                    className="desktop-interior-button p-1"
                     style={{ color: "var(--error-red)" }}
                   >
                     <Trash2 size={12} />

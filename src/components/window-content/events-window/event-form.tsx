@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Loader2, Save, X, ChevronDown, ChevronUp, Building2, Trash2, Edit2, MapPin, CheckCircle, AlertCircle } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle, ChevronDown, ChevronUp, Edit2, Globe2, Lightbulb, Loader2, Map, MapPin, Navigation, Save, Sparkles, Trash2, X } from "lucide-react";
 import { OrganizationFormModal } from "../crm-window/organization-form-modal";
 import { EventDescriptionSection } from "./EventDescriptionSection";
 import { EventMediaSection } from "./EventMediaSection";
@@ -677,26 +677,28 @@ export function EventForm({
                       href={addressValidation.googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors"
+                      className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors inline-flex items-center gap-1"
                       style={{
                         borderColor: "var(--win95-border)",
                         color: "var(--primary)",
                       }}
                     >
-                      📍 {t("ui.events.form.open_google_maps")}
+                      <Navigation size={12} />
+                      {t("ui.events.form.open_google_maps")}
                     </a>
                     {addressValidation.directionsUrl && (
                       <a
                         href={addressValidation.directionsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors"
+                        className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors inline-flex items-center gap-1"
                         style={{
                           borderColor: "var(--win95-border)",
                           color: "var(--primary)",
                         }}
                       >
-                        🗺️ {t("ui.events.form.open_radar_maps")}
+                        <Map size={12} />
+                        {t("ui.events.form.open_radar_maps")}
                       </a>
                     )}
                   </div>
@@ -800,8 +802,9 @@ export function EventForm({
       </div>
 
       {/* Timezone Info */}
-      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-        🌍 {t("ui.events.form.timezone_note", { timezone: orgTimezone })}
+      <p className="text-xs flex items-center gap-1" style={{ color: "var(--neutral-gray)" }}>
+        <Globe2 size={12} />
+        {t("ui.events.form.timezone_note", { timezone: orgTimezone })}
       </p>
 
       {/* Capacity */}
@@ -871,7 +874,10 @@ export function EventForm({
             color: "var(--win95-text)",
           }}
         >
-          <span className="text-sm font-bold">🌟 {t("ui.events.form.sponsors")}</span>
+          <span className="text-sm font-bold flex items-center gap-1">
+            <Sparkles size={14} />
+            {t("ui.events.form.sponsors")}
+          </span>
           {showSponsors ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
@@ -1026,8 +1032,9 @@ export function EventForm({
           borderColor: "var(--win95-border)",
         }}
       >
-        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 {t("ui.events.form.info_draft")}
+        <p className="text-xs flex items-center gap-1" style={{ color: "var(--neutral-gray)" }}>
+          <Lightbulb size={12} />
+          {t("ui.events.form.info_draft")}
           {!eventId && " " + t("ui.events.form.info_new_event")}
         </p>
       </div>

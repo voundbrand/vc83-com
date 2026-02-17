@@ -56,7 +56,7 @@ export function AgentDetailPanel({
 
   if (!agent) {
     return (
-      <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>
+      <div className="p-4 text-xs" style={{ color: "var(--window-document-text)" }}>
         Loading agent...
       </div>
     );
@@ -68,8 +68,8 @@ export function AgentDetailPanel({
     <div className="flex flex-col h-full">
       {/* Agent header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b-2"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="flex items-center justify-between px-4 py-3 border-b"
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <div className="flex items-center gap-3">
           <div
@@ -82,7 +82,7 @@ export function AgentDetailPanel({
             }}
           />
           <div>
-            <h2 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <h2 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               {props.displayName || agent.name}
             </h2>
             <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -100,24 +100,24 @@ export function AgentDetailPanel({
           {agent.status === "active" ? (
             <button
               onClick={() => pauseAgent({ sessionId, agentId })}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] hover:bg-yellow-50"
-              style={{ borderColor: "var(--win95-border)" }}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               <Pause size={10} /> Pause
             </button>
           ) : (
             <button
               onClick={() => activateAgent({ sessionId, agentId })}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] hover:bg-green-50"
-              style={{ borderColor: "var(--win95-border)" }}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               <Play size={10} /> Activate
             </button>
           )}
           <button
             onClick={onEdit}
-            className="flex items-center gap-1 px-2 py-1 border text-[10px] hover:bg-blue-50"
-            style={{ borderColor: "var(--win95-border)" }}
+            className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
           >
             <Settings size={10} /> Edit
           </button>
@@ -129,14 +129,14 @@ export function AgentDetailPanel({
                   setConfirmDelete(false);
                 }}
                 className="p-1 border bg-red-100 hover:bg-red-200 text-red-600"
-                style={{ borderColor: "var(--win95-border)" }}
+                style={{ borderColor: "var(--window-document-border)" }}
               >
                 <CheckCircle size={10} />
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="p-1 border hover:bg-gray-50"
-                style={{ borderColor: "var(--win95-border)" }}
+                style={{ borderColor: "var(--window-document-border)" }}
               >
                 <XCircle size={10} />
               </button>
@@ -145,7 +145,7 @@ export function AgentDetailPanel({
             <button
               onClick={() => setConfirmDelete(true)}
               className="p-1 border text-[10px] hover:bg-red-50"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <Trash2 size={10} />
             </button>
@@ -155,8 +155,8 @@ export function AgentDetailPanel({
 
       {/* Tab bar */}
       <div
-        className="flex border-b-2"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="flex border-b"
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         {TABS.map((tab) => (
           <button
@@ -164,11 +164,12 @@ export function AgentDetailPanel({
             onClick={() => onTabChange(tab.id)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border-r transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: activeTab === tab.id ? "var(--win95-bg)" : "var(--win95-bg-dark, #c0c0c0)",
-              color: "var(--win95-text)",
-              borderBottom: activeTab === tab.id ? "2px solid var(--win95-bg)" : "none",
-              marginBottom: activeTab === tab.id ? "-2px" : "0",
+              borderColor: "var(--window-document-border)",
+              background: activeTab === tab.id ? "var(--desktop-shell-accent)" : "var(--desktop-shell-accent)",
+              color: "var(--window-document-text)",
+              borderBottom: activeTab === tab.id ? "1px solid var(--desktop-shell-accent)" : "none",
+              marginBottom: activeTab === tab.id ? "-1px" : "0",
+              boxShadow: activeTab === tab.id ? "inset 0 1px 0 var(--window-document-border)" : "none",
             }}
           >
             {tab.icon}

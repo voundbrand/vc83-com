@@ -317,7 +317,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
           }}
           onClick={() => setActiveTab("integrations")}
         >
-          🔗
+          
           {t("ui.manage.tab.integrations")}
         </button>
         <button
@@ -415,26 +415,26 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                       </button>
                       <button
                         onClick={async () => {
-                          console.log("🔵 [SAVE] Save button clicked");
-                          console.log("🔵 [SAVE] organizationFormRef.current:", !!organizationFormRef.current);
-                          console.log("🔵 [SAVE] sessionId:", sessionId);
-                          console.log("🔵 [SAVE] organizationId:", organizationId);
+                          console.log(" [SAVE] Save button clicked");
+                          console.log(" [SAVE] organizationFormRef.current:", !!organizationFormRef.current);
+                          console.log(" [SAVE] sessionId:", sessionId);
+                          console.log(" [SAVE] organizationId:", organizationId);
 
                           if (!organizationFormRef.current || !sessionId || !organizationId) {
-                            console.error("🔴 [SAVE] Missing required data - aborting save");
+                            console.error(" [SAVE] Missing required data - aborting save");
                             return;
                           }
 
                           const formData = organizationFormRef.current.getFormData();
-                          console.log("🔵 [SAVE] Form data retrieved:", formData);
-                          console.log("🔵 [SAVE] Settings.branding:", formData.settings.branding);
-                          console.log("🔵 [SAVE] Settings.locale:", formData.settings.locale);
-                          console.log("🔵 [SAVE] Settings.invoicing:", formData.settings.invoicing);
+                          console.log(" [SAVE] Form data retrieved:", formData);
+                          console.log(" [SAVE] Settings.branding:", formData.settings.branding);
+                          console.log(" [SAVE] Settings.locale:", formData.settings.locale);
+                          console.log(" [SAVE] Settings.invoicing:", formData.settings.invoicing);
 
                           setIsSavingOrg(true);
                           try {
                             // Update core organization fields
-                            console.log("🔵 [SAVE] Updating core organization fields...");
+                            console.log(" [SAVE] Updating core organization fields...");
                             await updateOrganization({
                               sessionId,
                               organizationId: organizationId as Id<"organizations">,
@@ -444,10 +444,10 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                                 slug: formData.slug,
                               },
                             });
-                            console.log("✅ [SAVE] Core organization updated");
+                            console.log(" [SAVE] Core organization updated");
 
                             // Update ontology data in parallel
-                            console.log("🔵 [SAVE] Updating ontology data in parallel...");
+                            console.log(" [SAVE] Updating ontology data in parallel...");
                             await Promise.all([
                               // Profile
                               updateProfile({
@@ -457,7 +457,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                                 foundedYear: formData.foundedYear,
                                 employeeCount: formData.employeeCount,
                                 bio: formData.bio,
-                              }).then(() => console.log("✅ [SAVE] Profile updated")),
+                              }).then(() => console.log(" [SAVE] Profile updated")),
                               // Contact
                               updateContact({
                                 sessionId,
@@ -468,7 +468,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                                 contactPhone: formData.contactPhone,
                                 faxNumber: formData.faxNumber,
                                 website: formData.website,
-                              }).then(() => console.log("✅ [SAVE] Contact updated")),
+                              }).then(() => console.log(" [SAVE] Contact updated")),
                               // Social
                               updateSocial({
                                 sessionId,
@@ -477,7 +477,7 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                                 twitter: formData.socialMedia.twitter,
                                 facebook: formData.socialMedia.facebook,
                                 instagram: formData.socialMedia.instagram,
-                              }).then(() => console.log("✅ [SAVE] Social updated")),
+                              }).then(() => console.log(" [SAVE] Social updated")),
                               // Legal (including tax collection settings)
                               updateLegal({
                                 sessionId,
@@ -489,34 +489,34 @@ export function ManageWindow({ initialTab = "organization" }: ManageWindowProps)
                                 taxEnabled: formData.taxEnabled,
                                 defaultTaxBehavior: formData.defaultTaxBehavior,
                                 defaultTaxCode: formData.defaultTaxCode,
-                              }).then(() => console.log("✅ [SAVE] Legal updated")),
+                              }).then(() => console.log(" [SAVE] Legal updated")),
                               // Settings (branding)
                               updateSettings({
                                 sessionId,
                                 organizationId: organizationId as Id<"organizations">,
                                 subtype: "branding",
                                 settings: formData.settings.branding,
-                              }).then(() => console.log("✅ [SAVE] Branding settings updated with:", formData.settings.branding)),
+                              }).then(() => console.log(" [SAVE] Branding settings updated with:", formData.settings.branding)),
                               // Settings (locale)
                               updateSettings({
                                 sessionId,
                                 organizationId: organizationId as Id<"organizations">,
                                 subtype: "locale",
                                 settings: formData.settings.locale,
-                              }).then(() => console.log("✅ [SAVE] Locale settings updated with:", formData.settings.locale)),
+                              }).then(() => console.log(" [SAVE] Locale settings updated with:", formData.settings.locale)),
                               // Settings (invoicing)
                               updateSettings({
                                 sessionId,
                                 organizationId: organizationId as Id<"organizations">,
                                 subtype: "invoicing",
                                 settings: formData.settings.invoicing,
-                              }).then(() => console.log("✅ [SAVE] Invoicing settings updated with:", formData.settings.invoicing)),
+                              }).then(() => console.log(" [SAVE] Invoicing settings updated with:", formData.settings.invoicing)),
                             ]);
 
-                            console.log("✅ [SAVE] All updates completed successfully!");
+                            console.log(" [SAVE] All updates completed successfully!");
                             setIsEditingOrg(false);
                           } catch (error) {
-                            console.error("🔴 [SAVE] Failed to update organization:", error);
+                            console.error(" [SAVE] Failed to update organization:", error);
                             alert("Failed to update organization. " + (error instanceof Error ? error.message : ""));
                           } finally {
                             setIsSavingOrg(false);

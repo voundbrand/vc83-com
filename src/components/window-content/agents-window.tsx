@@ -109,7 +109,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             AI Agents
           </span>
           {agents && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--win95-bg-dark, #c0c0c0)", color: "var(--neutral-gray)" }}>
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--win95-bg-dark)", color: "var(--neutral-gray)" }}>
               {agents.length} agent{agents.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -148,6 +148,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
         <CreditWall
           currentTier={creditBalance?.planTier || "free"}
           creditsAvailable={0}
+          variant="notification"
         />
       )}
 
@@ -209,14 +210,14 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               </p>
               <button
                 onClick={() => setShowCreate(true)}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-medium border-2 hover:brightness-110 transition-all"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-medium border-2 transition-colors"
                 style={{
-                  background: "var(--win95-highlight)",
-                  borderColor: "var(--win95-border)",
-                  color: "white",
+                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--win95-border-light)",
+                  color: "var(--win95-text)",
                 }}
               >
-                <Sparkles size={14} />
+                <Sparkles size={14} style={{ color: "var(--warning)" }} />
                 Create Agent
               </button>
             </div>

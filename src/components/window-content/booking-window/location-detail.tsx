@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import { useAuth } from "@/hooks/use-auth"
-import { MapPin, Clock, Mail, Phone, Globe, Building2, Monitor, Edit, Trash2 } from "lucide-react"
+import { MapPin, Clock, Mail, Phone, Globe, Building2, Monitor, Trash2 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNotification } from "@/hooks/use-notification"
 import { useState } from "react"
@@ -91,7 +91,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       await archiveLocation({ sessionId, locationId })
       notification.success("Location archived", "The location has been archived.")
       setShowDeleteDialog(false)
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to archive location.")
     }
   }
@@ -101,7 +101,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       case "active": return "var(--win95-success-bg)"
       case "inactive": return "var(--win95-warning-bg)"
       case "archived": return "var(--win95-error-bg)"
-      default: return "var(--win95-bg-light)"
+      default: return "var(--desktop-shell-accent)"
     }
   }
 
@@ -111,10 +111,10 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="p-3 rounded"
+            className="p-3 rounded-lg"
             style={{
               background: 'var(--win95-selected-bg)',
               color: 'var(--win95-selected-text)'
@@ -122,13 +122,11 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           >
             {getSubtypeIcon(location.subtype || "venue")}
           </div>
-          <div>
-            <h2 className="font-pixel text-lg">{location.name}</h2>
-            <p className="text-sm opacity-70 mt-1 capitalize">{location.subtype?.replace("_", " ") || "Location"}</p>
-          </div>
+          <h2 className="font-pixel text-sm truncate">{location.name}</h2>
+          <span className="text-xs opacity-70 capitalize shrink-0">{location.subtype?.replace("_", " ") || "Location"}</span>
         </div>
         <span
-          className="px-3 py-1 text-xs font-medium rounded capitalize"
+          className="px-3 py-1 text-xs font-medium rounded-lg capitalize"
           style={{
             background: getStatusColor(location.status || "active"),
             color: 'white'
@@ -141,10 +139,10 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {/* Address */}
       {formattedAddress && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -160,10 +158,10 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {/* Timezone */}
       {typeof props.timezone === "string" && props.timezone ? (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <div className="flex items-center gap-2">
@@ -176,10 +174,10 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {/* Operating Hours */}
       {formattedHours && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -200,10 +198,10 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {/* Contact Info */}
       {(typeof props.contactEmail === "string" || typeof props.contactPhone === "string") ? (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -225,7 +223,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
 
       {/* Actions */}
       {location.status !== "archived" && (
-        <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={() => setShowDeleteDialog(true)}
             className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
@@ -239,14 +237,15 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {/* Delete Dialog */}
       {showDeleteDialog && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "var(--modal-overlay-bg)" }}
           onClick={() => setShowDeleteDialog(false)}
         >
           <div
-            className="p-4 rounded border-2 max-w-md w-full mx-4"
+            className="p-4 rounded-xl border max-w-md w-full"
             style={{
-              background: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)'
             }}
             onClick={(e) => e.stopPropagation()}
           >

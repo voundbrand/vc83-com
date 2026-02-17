@@ -87,43 +87,39 @@ export default function ProjectDetailView({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="p-4 border-b-2"
+        className="p-4 border-b"
         style={{
-          border: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg-light)",
+          border: "var(--window-document-border)",
+          backgroundColor: "var(--desktop-shell-accent)",
         }}
       >
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm hover:text-purple-700"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Projects</span>
-          </button>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onBack}
+              className="desktop-interior-button h-8 px-3 text-xs flex items-center gap-1 shrink-0"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to list</span>
+            </button>
+            <h2 className="text-sm font-bold text-gray-900 truncate">{project.name}</h2>
+            <span className="text-xs font-mono text-gray-500 shrink-0">
+              {project.customProperties?.projectCode}
+            </span>
+          </div>
           <button
             onClick={() => onEdit(project)}
-            className="px-3 py-1.5 text-xs font-bold border-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1"
-            style={{ border: "var(--win95-border)" }}
+            className="px-3 py-1.5 text-xs font-bold border rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1 shrink-0"
+            style={{ border: "var(--window-document-border)" }}
           >
             <Edit size={14} />
             Edit Project
           </button>
         </div>
 
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-lg font-bold text-gray-900">{project.name}</h2>
-              <span className="text-xs font-mono text-gray-500">
-                {project.customProperties?.projectCode}
-              </span>
-            </div>
-            {project.description && (
-              <p className="text-sm text-gray-600 mb-2">{project.description}</p>
-            )}
-          </div>
-        </div>
+        {project.description && (
+          <p className="text-xs text-gray-600 mb-2">{project.description}</p>
+        )}
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
           {/* Status */}
@@ -190,22 +186,22 @@ export default function ProjectDetailView({
 
       {/* Tabs */}
       <div
-        className="flex border-b-2"
+        className="flex border-b"
         style={{
-          border: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg)",
+          border: "var(--window-document-border)",
+          backgroundColor: "var(--window-document-bg)",
         }}
       >
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-bold border-r-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-bold border-r transition-colors ${
               activeTab === tab.id
                 ? "bg-white text-purple-700"
                 : "text-gray-700 hover:bg-gray-100"
             }`}
-            style={{ borderRight: "var(--win95-border)" }}
+            style={{ borderRight: "var(--window-document-border)" }}
           >
             {tab.label}
           </button>
@@ -217,10 +213,10 @@ export default function ProjectDetailView({
         {activeTab === "overview" && (
           <div className="p-4 space-y-4">
             <div
-              className="p-4 border-2 rounded"
+              className="p-4 border rounded"
               style={{
-                border: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                border: "var(--window-document-border)",
+                backgroundColor: "var(--desktop-shell-accent)",
               }}
             >
               <h3 className="font-bold text-sm mb-2">Project Overview</h3>
@@ -256,10 +252,10 @@ export default function ProjectDetailView({
             {/* Detailed Description */}
             {project.customProperties?.detailedDescription && (
               <div
-                className="p-4 border-2 rounded"
+                className="p-4 border rounded"
                 style={{
-                  border: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  border: "var(--window-document-border)",
+                  backgroundColor: "var(--desktop-shell-accent)",
                 }}
               >
                 <h3 className="font-bold text-sm mb-2">Detailed Description</h3>

@@ -28,6 +28,9 @@ const TIER_ORDER: Record<string, number> = {
   enterprise: 3,
 };
 
+const ACCENT_BACKGROUND = "var(--tone-accent)";
+const ACCENT_FOREGROUND = "#0f0f0f";
+
 interface Plan {
   id: string;
   name: string;
@@ -175,10 +178,10 @@ export function StorePlanCards({
     <div className="space-y-4">
       {/* Header */}
       <div className="text-center mb-6">
-        <h3 className="font-pixel text-sm mb-2" style={{ color: "var(--win95-highlight)" }}>
+        <h3 className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
           Choose Your Plan
         </h3>
-        <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+        <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           Scale your business with the right tools
         </p>
 
@@ -186,7 +189,7 @@ export function StorePlanCards({
         <div className="flex items-center justify-center gap-3 mt-4">
           <span
             className="text-xs font-medium cursor-pointer transition-colors"
-            style={{ color: !isAnnual ? "var(--win95-highlight)" : "var(--win95-text-secondary)" }}
+            style={{ color: !isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
             onClick={() => setIsAnnual(false)}
           >
             Monthly
@@ -195,25 +198,27 @@ export function StorePlanCards({
             onClick={() => setIsAnnual(!isAnnual)}
             className="relative w-12 h-6 rounded-full transition-colors focus:outline-none"
             style={{
-              background: isAnnual
-                ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-                : "var(--win95-border)",
+              background: isAnnual ? ACCENT_BACKGROUND : "var(--window-document-border)",
             }}
           >
             <span
-              className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200 ease-in-out"
-              style={{ left: isAnnual ? "calc(100% - 22px)" : "2px" }}
+              className="absolute top-0.5 h-5 w-5 rounded-full shadow-md transition-all duration-200 ease-in-out"
+              style={{
+                left: isAnnual ? "calc(100% - 22px)" : "2px",
+                background: "var(--window-document-bg)",
+                border: "1px solid var(--window-document-border)",
+              }}
             />
           </button>
           <span
             className="text-xs font-medium cursor-pointer transition-colors flex items-center gap-1"
-            style={{ color: isAnnual ? "var(--win95-highlight)" : "var(--win95-text-secondary)" }}
+            style={{ color: isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
             onClick={() => setIsAnnual(true)}
           >
             Annual
             <span
               className="px-1.5 py-0.5 text-[10px] font-bold rounded"
-              style={{ background: "var(--success)", color: "white" }}
+              style={{ background: "var(--success-bg)", color: "var(--success)" }}
             >
               Save ~17%
             </span>
@@ -256,7 +261,7 @@ export function StorePlanCards({
         ))}
       </div>
 
-      <p className="text-center text-[10px] mt-6" style={{ color: "var(--win95-text-secondary)" }}>
+      <p className="text-center text-[10px] mt-6" style={{ color: "var(--desktop-menu-text-muted)" }}>
         All prices in EUR excl. VAT. Cancel anytime.
       </p>
     </div>
@@ -298,8 +303,8 @@ function PlanCard({
     <div
       className="relative rounded-lg overflow-hidden transition-all hover:shadow-lg"
       style={{
-        background: plan.highlight ? "var(--win95-bg-light)" : "var(--win95-bg)",
-        border: plan.highlight ? "2px solid var(--win95-highlight)" : "1px solid var(--win95-border)",
+        background: plan.highlight ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+        border: plan.highlight ? "2px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
       }}
     >
       {/* Current Plan Badge */}
@@ -325,9 +330,10 @@ function PlanCard({
       {/* Popular Badge */}
       {plan.badge && !isCurrentPlan && (
         <div
-          className="absolute top-0 right-0 px-2 py-1 text-[10px] font-bold text-white rounded-bl"
+          className="absolute top-0 right-0 px-2 py-1 text-[10px] font-bold rounded-bl"
           style={{
-            background: "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
+            background: ACCENT_BACKGROUND,
+            color: ACCENT_FOREGROUND,
           }}
         >
           {plan.badge}
@@ -340,20 +346,18 @@ function PlanCard({
           <div
             className="p-2 rounded"
             style={{
-              background: plan.highlight
-                ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-                : "var(--win95-bg-light)",
+              background: plan.highlight ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
             }}
           >
-            <div style={{ color: plan.highlight ? "white" : "var(--win95-highlight)" }}>
+            <div style={{ color: plan.highlight ? ACCENT_FOREGROUND : "var(--tone-accent-strong)" }}>
               {plan.icon}
             </div>
           </div>
           <div>
-            <h4 className="font-pixel text-xs" style={{ color: "var(--win95-highlight)" }}>
+            <h4 className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
               {plan.name}
             </h4>
-            <p className="text-[10px]" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-[10px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
               {plan.description}
             </p>
           </div>
@@ -362,23 +366,23 @@ function PlanCard({
         {/* Price */}
         <div className="my-4">
           <div className="flex items-baseline gap-1">
-            <span className="font-pixel text-2xl" style={{ color: "var(--win95-text)" }}>
+            <span className="font-pixel text-2xl" style={{ color: "var(--window-document-text)" }}>
               {displayPrice}
             </span>
             {displayPrice !== "\u20AC0" && displayPrice !== "Custom" && (
-              <span className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>/mo</span>
+              <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>/mo</span>
             )}
           </div>
           {savingsText && (
             <p
               className="text-[10px] mt-0.5"
-              style={{ color: isAnnual ? "var(--success)" : "var(--win95-text-secondary)" }}
+              style={{ color: isAnnual ? "var(--success)" : "var(--desktop-menu-text-muted)" }}
             >
               {savingsText}
             </p>
           )}
           {plan.subtext && (
-            <p className="text-[10px] mt-0.5" style={{ color: "var(--win95-highlight)" }}>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--tone-accent-strong)" }}>
               {plan.subtext}
             </p>
           )}
@@ -387,7 +391,7 @@ function PlanCard({
         {/* Features */}
         <ul className="space-y-2 mb-4">
           {plan.features.map((feature, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-[11px]" style={{ color: "var(--win95-text)" }}>
+            <li key={idx} className="flex items-start gap-2 text-[11px]" style={{ color: "var(--window-document-text)" }}>
               <Check className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
               <span>{feature}</span>
             </li>
@@ -438,9 +442,9 @@ function PlanCTAButton({
         disabled
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
         style={{
-          background: "var(--win95-bg-light)",
-          color: "var(--neutral-gray)",
-          border: "1px solid var(--win95-border)",
+          background: "var(--desktop-shell-accent)",
+          color: "var(--desktop-menu-text-muted)",
+          border: "1px solid var(--window-document-border)",
         }}
       >
         <Check className="w-3.5 h-3.5" />
@@ -455,9 +459,9 @@ function PlanCTAButton({
         onClick={onContactSales}
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors"
         style={{
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-highlight)",
-          border: "1px solid var(--win95-highlight)",
+          background: "var(--window-document-bg)",
+          color: "var(--window-document-text)",
+          border: "1px solid var(--tone-accent-strong)",
         }}
       >
         <Phone className="w-3.5 h-3.5" />
@@ -474,9 +478,9 @@ function PlanCTAButton({
         disabled={isManagingSubscription}
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors hover:opacity-80"
         style={{
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
-          border: "1px solid var(--win95-border)",
+          background: "var(--window-document-bg)",
+          color: "var(--window-document-text)",
+          border: "1px solid var(--window-document-border)",
         }}
       >
         {isManagingSubscription ? (
@@ -496,14 +500,12 @@ function PlanCTAButton({
         onClick={() => onSubscriptionChange(plan.id)}
         disabled={isManagingSubscription}
         className={`w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
-          isManagingSubscription ? "cursor-wait opacity-80" : plan.highlight ? "text-white hover:opacity-90" : "hover:opacity-80"
+          isManagingSubscription ? "cursor-wait opacity-80" : "hover:opacity-80"
         }`}
         style={{
-          background: plan.highlight
-            ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-            : "var(--win95-bg-light)",
-          color: plan.highlight ? "white" : "var(--win95-text)",
-          border: plan.highlight ? "none" : "1px solid var(--win95-border)",
+          background: plan.highlight ? ACCENT_BACKGROUND : "var(--window-document-bg)",
+          color: plan.highlight ? ACCENT_FOREGROUND : "var(--window-document-text)",
+          border: plan.highlight ? "1px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
         }}
       >
         {isManagingSubscription ? (
@@ -523,14 +525,12 @@ function PlanCTAButton({
     <button
       onClick={onCheckout}
       className={`w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
-        plan.highlight ? "text-white hover:opacity-90" : "hover:opacity-80"
+        "hover:opacity-80"
       }`}
       style={{
-        background: plan.highlight
-          ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-          : "var(--win95-bg-light)",
-        color: plan.highlight ? "white" : "var(--win95-text)",
-        border: plan.highlight ? "none" : "1px solid var(--win95-border)",
+        background: plan.highlight ? ACCENT_BACKGROUND : "var(--window-document-bg)",
+        color: plan.highlight ? ACCENT_FOREGROUND : "var(--window-document-text)",
+        border: plan.highlight ? "1px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
       }}
     >
       {plan.cta}
@@ -554,10 +554,10 @@ function SubscriptionStatusBanner({
     return (
       <div
         className="mb-4 p-3 rounded-lg flex items-center justify-center gap-2"
-        style={{ background: "var(--win95-bg-light)", border: "1px solid var(--win95-border)" }}
+        style={{ background: "var(--desktop-shell-accent)", border: "1px solid var(--window-document-border)" }}
       >
-        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--win95-highlight)" }} />
-        <span className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+        <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           Loading subscription status...
         </span>
       </div>
@@ -579,7 +579,7 @@ function SubscriptionStatusBanner({
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--error, #dc2626)" }}>
               Subscription Canceling
             </h4>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--window-document-text)" }}>
               Your {tierLabel(subscriptionStatus.currentTier)} subscription will be canceled on{" "}
               <strong>{formatDate(subscriptionStatus.currentPeriodEnd)}</strong>.
             </p>
@@ -587,7 +587,7 @@ function SubscriptionStatusBanner({
               onClick={onCancelPendingChange}
               disabled={isCancelingPending}
               className="mt-2 px-3 py-1.5 rounded text-xs font-medium flex items-center gap-2 transition-colors hover:opacity-80"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-highlight)", border: "1px solid var(--win95-highlight)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)", border: "1px solid var(--window-document-border)" }}
             >
               {isCancelingPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
               {isCancelingPending ? "Processing..." : "Keep My Subscription"}
@@ -608,7 +608,7 @@ function SubscriptionStatusBanner({
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--warning, #ca8a04)" }}>
               Plan Change Scheduled
             </h4>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--window-document-text)" }}>
               Changing from <strong>{tierLabel(subscriptionStatus.currentTier)}</strong> to{" "}
               <strong>{tierLabel(subscriptionStatus.pendingDowngrade.newTier)}</strong> on{" "}
               <strong>{formatDate(subscriptionStatus.pendingDowngrade.effectiveDate)}</strong>.
@@ -617,7 +617,7 @@ function SubscriptionStatusBanner({
               onClick={onCancelPendingChange}
               disabled={isCancelingPending}
               className="mt-2 px-3 py-1.5 rounded text-xs font-medium flex items-center gap-2 transition-colors hover:opacity-80"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-highlight)", border: "1px solid var(--win95-highlight)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)", border: "1px solid var(--window-document-border)" }}
             >
               {isCancelingPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
               {isCancelingPending ? "Processing..." : "Cancel Scheduled Change"}
@@ -638,13 +638,13 @@ function SubscriptionStatusBanner({
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--success, #16a34a)" }}>
               Active Subscription
             </h4>
-            <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
               <strong>{tierLabel(subscriptionStatus.currentTier)}</strong> plan
               {subscriptionStatus.billingPeriod && (
                 <> &bull; Billed {subscriptionStatus.billingPeriod === "annual" ? "annually" : "monthly"}</>
               )}
             </p>
-            <p className="text-[10px] mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-[10px] mt-1" style={{ color: "var(--desktop-menu-text-muted)" }}>
               Next billing date: {formatDate(subscriptionStatus.currentPeriodEnd)}
             </p>
           </div>

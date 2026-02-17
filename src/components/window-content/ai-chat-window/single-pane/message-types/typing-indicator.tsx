@@ -1,5 +1,7 @@
 "use client"
 
+import { ShellBotIcon } from "@/components/icons/shell-icons"
+
 export function TypingIndicator() {
   return (
     <div className="flex justify-start">
@@ -12,7 +14,9 @@ export function TypingIndicator() {
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
+          <span className="flex h-5 w-5 items-center justify-center">
+            <ShellBotIcon size={16} tone="active" />
+          </span>
           <div className="flex gap-1">
             <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--neutral-gray)', animationDelay: '0ms' }} />
             <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--neutral-gray)', animationDelay: '150ms' }} />

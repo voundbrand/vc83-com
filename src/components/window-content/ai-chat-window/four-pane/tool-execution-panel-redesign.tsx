@@ -62,21 +62,21 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
       color: 'var(--warning)',
       bgColor: 'var(--warning-bg)',
       animate: false,
-      label: "⏳ Pending Approval"
+      label: "Pending Approval"
     },
     approved: {
       icon: CheckCircle2,
       color: 'var(--success)',
       bgColor: 'var(--success-bg)',
       animate: false,
-      label: "✅ Approved"
+      label: "Approved"
     },
     executing: {
       icon: Loader2,
       color: 'var(--info)',
       bgColor: 'var(--info-bg)',
       animate: true,
-      label: "⚡ Executing..."
+      label: "Executing..."
     },
     running: {
       icon: Loader2,
@@ -90,28 +90,28 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
       color: 'var(--success)',
       bgColor: 'var(--success-bg)',
       animate: false,
-      label: "✅ Success"
+      label: "Success"
     },
     error: {
       icon: XCircle,
       color: 'var(--error)',
       bgColor: 'var(--error-bg)',
       animate: false,
-      label: "❌ Failed"
+      label: "Failed"
     },
     rejected: {
       icon: XCircle,
       color: 'var(--win95-text-muted)',
       bgColor: 'var(--win95-bg-light)',
       animate: false,
-      label: "🚫 Rejected"
+      label: "Rejected"
     },
     cancelled: {
       icon: X,
       color: 'var(--win95-text-muted)',
       bgColor: 'var(--win95-bg-light)',
       animate: false,
-      label: "❌ Cancelled"
+      label: "Cancelled"
     }
   }
 

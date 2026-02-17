@@ -23,7 +23,17 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
-import { internal } from "./_generated/api";
+// Lazy-load generated API refs to avoid deep type instantiation in deploy typecheck.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _apiCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getInternal(): any {
+  if (!_apiCache) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _apiCache = require("./_generated/api");
+  }
+  return _apiCache.internal;
+}
 
 // ============================================================================
 // CHECKOUT_INSTANCE OPERATIONS
@@ -892,9 +902,9 @@ export const getPublicCheckoutProducts = query({
 
         // Use shared validation function from productOntology
         const availability = await ctx.runQuery(
-          internal.productOntology.checkProductAvailability,
+          getInternal().productOntology.checkProductAvailability,
           { productId: p._id }
-        );
+        ) as { available: boolean; reason?: string };
 
         if (!availability.available) {
           console.log(`⏸️ [getPublicCheckoutProducts] Product ${p._id} not available: ${availability.reason}`);

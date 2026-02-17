@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, Lock } from "lucide-react";
+import { CheckCircle2, Edit, FileText, Lock } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { FormsList } from "./forms-list";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { InteriorButton, InteriorTabButton, InteriorTabRow } from "@/components/window-content/shared/interior-primitives";
 
 interface Form {
   _id: Id<"objects">;
@@ -44,44 +45,24 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
   return (
     <div className="flex flex-col h-full">
       {/* Sub-tabs for Active/Inactive */}
-      <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-        <button
-          onClick={() => setSubTab("published")}
-          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
-            subTab === "published" ? "-mb-0.5" : ""
-          }`}
-          style={{
-            backgroundColor: subTab === "published" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: subTab === "published" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            borderColor: subTab === "published" ? "var(--win95-border)" : "transparent",
-          }}
-        >
+      <InteriorTabRow className="border-b px-4 pt-4">
+        <InteriorTabButton active={subTab === "published"} className="flex items-center gap-2" onClick={() => setSubTab("published")}>
           <Lock size={12} />
           {t("ui.forms.subtabs.active")} ({publishedForms.length})
-        </button>
-        <button
-          onClick={() => setSubTab("draft")}
-          className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
-            subTab === "draft" ? "-mb-0.5" : ""
-          }`}
-          style={{
-            backgroundColor: subTab === "draft" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: subTab === "draft" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            borderColor: subTab === "draft" ? "var(--win95-border)" : "transparent",
-          }}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={subTab === "draft"} className="flex items-center gap-2" onClick={() => setSubTab("draft")}>
           <Edit size={12} />
           {t("ui.forms.subtabs.inactive")} ({draftForms.length})
-        </button>
-      </div>
+        </InteriorTabButton>
+      </InteriorTabRow>
 
       {/* Form Lists */}
       <div className="flex-1 overflow-y-auto">
         {subTab === "published" && (
           <div>
             {publishedForms.length === 0 ? (
-              <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-                <div className="text-4xl mb-4">✓</div>
+              <div className="py-12 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                <CheckCircle2 className="mx-auto mb-4 h-9 w-9" style={{ color: "var(--success)" }} />
                 <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_active_title")}</h3>
                 <p className="text-xs">
                   {t("ui.forms.empty_active_description")}
@@ -101,23 +82,15 @@ export function AllFormsTab({ forms, onCreateForm, onEditForm, onEditSchema }: A
         {subTab === "draft" && (
           <div>
             {draftForms.length === 0 ? (
-              <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-                <div className="text-4xl mb-4">📝</div>
+              <div className="py-12 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                <FileText className="mx-auto mb-4 h-9 w-9" style={{ color: "var(--window-document-text)" }} />
                 <h3 className="text-sm font-semibold mb-2">{t("ui.forms.empty_inactive_title")}</h3>
                 <p className="text-xs mb-4">
                   {t("ui.forms.empty_inactive_description")}
                 </p>
-                <button
-                  onClick={onCreateForm}
-                  className="px-4 py-2 text-xs font-bold border-2 transition-colors hover:brightness-95"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
-                >
+                <InteriorButton onClick={onCreateForm} className="px-4 py-2 text-xs">
                   {t("ui.forms.button_create_first")}
-                </button>
+                </InteriorButton>
               </div>
             ) : (
               <FormsList

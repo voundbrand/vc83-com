@@ -121,7 +121,7 @@ export function WorkflowTemplates({
                   border: "2px solid var(--win95-border)",
                 }}
               >
-                {template.customProperties?.icon || "⚡"}
+                {template.customProperties?.icon || ""}
               </div>
             </div>
 

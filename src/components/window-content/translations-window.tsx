@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, Save, X, Download, Upload, Settings } from "lucide-react";
+import { Globe, Save, X, Download, Upload, Settings, KeyRound, CheckCircle2, Search, Hourglass } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useTranslation } from "@/contexts/translation-context";
 import { useQuery } from "convex/react";
@@ -115,7 +115,10 @@ export function TranslationsWindow() {
       >
         <div className="flex justify-between items-center">
           <div className="flex gap-4">
-            <span>🌍 Translation Management System</span>
+            <span className="flex items-center gap-1">
+              <Globe className="w-3.5 h-3.5" />
+              Translation Management System
+            </span>
           </div>
           {isLoading && (
             <span
@@ -311,8 +314,14 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
               className="text-xs space-y-1"
               style={{ color: 'var(--win95-text)' }}
             >
-              <div>🔑 Keys: <strong>{totalKeys}</strong></div>
-              <div>🌍 Translations: <strong>{totalTranslations}</strong></div>
+              <div className="flex items-center gap-1">
+                <KeyRound className="w-3.5 h-3.5" />
+                Keys: <strong>{totalKeys}</strong>
+              </div>
+              <div className="flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" />
+                Translations: <strong>{totalTranslations}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -850,7 +859,7 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
               color: 'var(--win95-text)'
             }}
           >
-            💡 Edit translations for all languages below. Empty fields will be skipped.
+            Tip: Edit translations for all languages below. Empty fields will be skipped.
           </div>
 
           {availableLocales.map((locale) => {
@@ -875,9 +884,24 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
                         color: '#ffffff',
                       }}
                     >
-                      {translation.status === "approved" && "✓ Approved"}
-                      {translation.status === "pending" && "⏳ Pending"}
-                      {translation.status === "needs_review" && "🔍 Review"}
+                      {translation.status === "approved" && (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Approved
+                        </span>
+                      )}
+                      {translation.status === "pending" && (
+                        <span className="inline-flex items-center gap-1">
+                          <Hourglass className="w-3 h-3" />
+                          Pending
+                        </span>
+                      )}
+                      {translation.status === "needs_review" && (
+                        <span className="inline-flex items-center gap-1">
+                          <Search className="w-3 h-3" />
+                          Review
+                        </span>
+                      )}
                     </span>
                   )}
                 </label>

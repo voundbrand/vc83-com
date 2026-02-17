@@ -5,7 +5,11 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation } from "../_generated/server";
+
+function normalizeAuthProfileId(value: string): string {
+  return value.trim();
+}
 
 /**
  * Get AI settings for an organization
@@ -112,6 +116,17 @@ export const upsertAISettings = mutation({
       temperature: v.number(),
       maxTokens: v.number(),
       openrouterApiKey: v.optional(v.string()),
+      authProfiles: v.optional(v.array(v.object({
+        profileId: v.string(),
+        label: v.optional(v.string()),
+        openrouterApiKey: v.optional(v.string()),
+        enabled: v.boolean(),
+        priority: v.optional(v.number()),
+        cooldownUntil: v.optional(v.number()),
+        failureCount: v.optional(v.number()),
+        lastFailureAt: v.optional(v.number()),
+        lastFailureReason: v.optional(v.string()),
+      }))),
     }),
     embedding: v.object({
       provider: v.union(
@@ -176,6 +191,20 @@ export const upsertAISettings = mutation({
       }
     }
 
+    if (llmConfig.authProfiles && llmConfig.authProfiles.length > 0) {
+      const seenProfileIds = new Set<string>();
+      for (const profile of llmConfig.authProfiles) {
+        const profileId = normalizeAuthProfileId(profile.profileId);
+        if (!profileId) {
+          throw new Error("authProfiles.profileId cannot be empty");
+        }
+        if (seenProfileIds.has(profileId)) {
+          throw new Error(`Duplicate auth profile id: ${profileId}`);
+        }
+        seenProfileIds.add(profileId);
+      }
+    }
+
     const existing = await ctx.db
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -208,6 +237,103 @@ export const upsertAISettings = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * Record an auth profile failure and apply cooldown.
+ * Internal-only: called by runtime failover flow.
+ */
+export const recordAuthProfileFailure = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    profileId: v.string(),
+    reason: v.string(),
+    cooldownUntil: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (!settings?.llm?.authProfiles?.length) {
+      return { updated: false };
+    }
+
+    const normalizedProfileId = normalizeAuthProfileId(args.profileId);
+    const now = Date.now();
+    const updatedProfiles = settings.llm.authProfiles.map((profile) => {
+      if (normalizeAuthProfileId(profile.profileId) !== normalizedProfileId) {
+        return profile;
+      }
+
+      const nextFailureCount = (profile.failureCount ?? 0) + 1;
+      return {
+        ...profile,
+        failureCount: nextFailureCount,
+        cooldownUntil: args.cooldownUntil,
+        lastFailureAt: now,
+        lastFailureReason: args.reason,
+      };
+    });
+
+    await ctx.db.patch(settings._id, {
+      llm: {
+        ...settings.llm,
+        authProfiles: updatedProfiles,
+      },
+      updatedAt: now,
+    });
+
+    return { updated: true };
+  },
+});
+
+/**
+ * Clear auth profile cooldown/failure counters after successful usage.
+ * Internal-only: called by runtime failover flow.
+ */
+export const recordAuthProfileSuccess = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    profileId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+
+    if (!settings?.llm?.authProfiles?.length) {
+      return { updated: false };
+    }
+
+    const normalizedProfileId = normalizeAuthProfileId(args.profileId);
+    const now = Date.now();
+    const updatedProfiles = settings.llm.authProfiles.map((profile) => {
+      if (normalizeAuthProfileId(profile.profileId) !== normalizedProfileId) {
+        return profile;
+      }
+
+      return {
+        ...profile,
+        cooldownUntil: undefined,
+        failureCount: 0,
+        lastFailureAt: undefined,
+        lastFailureReason: undefined,
+      };
+    });
+
+    await ctx.db.patch(settings._id, {
+      llm: {
+        ...settings.llm,
+        authProfiles: updatedProfiles,
+      },
+      updatedAt: now,
+    });
+
+    return { updated: true };
   },
 });
 

@@ -4,7 +4,7 @@ import React from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { FileText, Loader2, AlertCircle } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Sprout } from "lucide-react";
 
 type PdfCategory = "invoice" | "ticket" | "certificate" | "receipt" | "badge" | "all"; // Added "all" for no filter
 type EmailCategory = "luxury" | "minimal" | "internal" | "transactional" | "marketing" | "event" | "support" | "newsletter" | "all"; // Added "all" for no filter
@@ -189,7 +189,7 @@ export function TemplateSelector({
             {template.name}
             {template.isDefault && " (Default)"}
             {template.isSystemTemplate ? "" : " (Custom)"}
-            {(template as { isSchemaTemplate?: boolean }).isSchemaTemplate ? " 🌱" : ""}
+            {(template as { isSchemaTemplate?: boolean }).isSchemaTemplate ? " (Schema)" : ""}
           </option>
         ))}
       </select>
@@ -212,7 +212,7 @@ export function TemplateSelector({
                 <div className="font-bold">
                   {selected.name}
                   {selected.isSchemaTemplate && (
-                    <span className="ml-1" title="Schema-driven template">🌱</span>
+                    <Sprout size={12} className="inline ml-1" aria-label="Schema-driven template" />
                   )}
                 </div>
                 {selected.description && (

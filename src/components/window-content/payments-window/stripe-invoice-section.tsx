@@ -144,11 +144,11 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
               </p>
               <ul className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
                 <li className="flex items-center gap-2">
-                  <span style={{ color: "var(--success)" }}>✓</span>
+                  <span style={{ color: "var(--success)" }}></span>
                   {t("ui.payments.invoicing.requirements.stripe_connected")}
                 </li>
                 <li className="flex items-center gap-2">
-                  <span style={{ color: "var(--success)" }}>✓</span>
+                  <span style={{ color: "var(--success)" }}></span>
                   {t("ui.payments.invoicing.requirements.business_profile")}
                 </li>
               </ul>

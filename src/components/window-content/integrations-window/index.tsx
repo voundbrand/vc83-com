@@ -17,6 +17,7 @@ import { GoogleSettings } from "./google-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useAppearance } from "@/contexts/appearance-context";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 // Built-in integration definitions
@@ -32,127 +33,169 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 //   - Professional+: Unlimited
 // - Custom OAuth Apps (user-created for external websites) are SEPARATE via maxCustomOAuthApps
 //   - Free: 0, Starter: 2, Professional: 3
-const BUILT_IN_INTEGRATIONS = [
+type IntegrationAccessCheck = {
+  type: "feature" | "limit";
+  key: string;
+};
+
+type IntegrationLogoVariants = {
+  light: string;
+  dark: string;
+};
+
+interface BuiltInIntegrationDefinition {
+  id: string;
+  name: string;
+  description: string;
+  logo: IntegrationLogoVariants;
+  status: "available" | "coming_soon";
+  type: "builtin" | "verified" | "special";
+  accessCheck: IntegrationAccessCheck;
+}
+
+const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
   {
     id: "github",
     name: "GitHub",
     description: "Code hosting and deployment source",
-    icon: "fab fa-github",
-    iconColor: "#181717",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/github-light.svg",
+      dark: "/integrations-logos/github-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
-    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
+    accessCheck: { type: "feature", key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "vercel",
     name: "Vercel",
     description: "Deploy and host web applications",
-    icon: "fas fa-cloud",
-    iconColor: "#000000",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/vercel-light.svg",
+      dark: "/integrations-logos/vercel-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
-    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
+    accessCheck: { type: "feature", key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "microsoft",
     name: "Microsoft 365",
     description: "Email, Calendar, OneDrive integration",
-    icon: "fab fa-microsoft",
-    iconColor: "#00a4ef",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/microsoft-light.svg",
+      dark: "/integrations-logos/microsoft-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "google",
     name: "Google Workspace",
     description: "Gmail, Calendar, Drive integration",
-    icon: "fab fa-google",
-    iconColor: "#4285f4",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/google-light.svg",
+      dark: "/integrations-logos/google-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "slack",
     name: "Slack",
     description: "Team notifications and commands",
-    icon: "fab fa-slack",
-    iconColor: "#4a154b",
-    status: "coming_soon" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/slack-light.svg",
+      dark: "/integrations-logos/slack-dark.svg",
+    },
+    status: "coming_soon",
+    type: "builtin",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "zapier",
     name: "Zapier",
     description: "Connect to 5,000+ apps",
-    icon: "fas fa-bolt",
-    iconColor: "#ff4a00",
-    status: "coming_soon" as const,
-    type: "verified" as const,
+    logo: {
+      light: "/integrations-logos/zapier-light.svg",
+      dark: "/integrations-logos/zapier-dark.svg",
+    },
+    status: "coming_soon",
+    type: "verified",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "make",
     name: "Make (Integromat)",
     description: "Advanced workflow automation",
-    icon: "fas fa-cogs",
-    iconColor: "#6f42c1",
-    status: "coming_soon" as const,
-    type: "verified" as const,
+    logo: {
+      light: "/integrations-logos/make-light.svg",
+      dark: "/integrations-logos/make-dark.svg",
+    },
+    status: "coming_soon",
+    type: "verified",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "n8n",
     name: "n8n",
     description: "Open-source workflow automation",
-    icon: "fas fa-project-diagram",
-    iconColor: "#ea4b71",
-    status: "coming_soon" as const,
-    type: "verified" as const,
+    logo: {
+      light: "/integrations-logos/n8n-light.svg",
+      dark: "/integrations-logos/n8n-dark.svg",
+    },
+    status: "coming_soon",
+    type: "verified",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "activecampaign",
     name: "ActiveCampaign",
     description: "Email marketing & CRM automation",
-    icon: "fas fa-envelope-open-text",
-    iconColor: "#356ae6",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/activecampaign-light.svg",
+      dark: "/integrations-logos/activecampaign-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
-    accessCheck: { type: "limit" as const, key: "maxThirdPartyIntegrations" },
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
     id: "telegram",
     name: "Telegram",
     description: "Bot messaging & team group chat",
-    icon: "fab fa-telegram-plane",
-    iconColor: "#0088cc",
-    status: "available" as const,
-    type: "builtin" as const,
+    logo: {
+      light: "/integrations-logos/telegram-light.svg",
+      dark: "/integrations-logos/telegram-dark.svg",
+    },
+    status: "available",
+    type: "builtin",
     // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
-    accessCheck: { type: "feature" as const, key: "deploymentIntegrationsEnabled" },
+    accessCheck: { type: "feature", key: "deploymentIntegrationsEnabled" },
   },
   {
     id: "api-keys",
     name: "API Keys",
     description: "Direct API access credentials",
-    icon: "fas fa-key",
-    iconColor: "#f59e0b",
-    status: "available" as const,
-    type: "special" as const,
+    logo: {
+      light: "/integrations-logos/apiKeys-light.svg",
+      dark: "/integrations-logos/apiKeys-dark.svg",
+    },
+    status: "available",
+    type: "special",
     // API Keys always available (apiKeysEnabled: true for all tiers)
-    accessCheck: { type: "feature" as const, key: "apiKeysEnabled" },
+    accessCheck: { type: "feature", key: "apiKeysEnabled" },
   },
 ];
 
@@ -160,6 +203,14 @@ type SelectedIntegration =
   | { type: "builtin" | "verified" | "special"; id: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | { type: "custom"; id: Id<"oauthApplications">; app: any };
+
+interface CustomOAuthApplication {
+  id: Id<"oauthApplications">;
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  icon?: string;
+}
 
 interface UpgradeModalProps {
   feature: string;
@@ -676,6 +727,7 @@ interface IntegrationsWindowProps {
 
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
+  const { mode } = useAppearance();
   const currentOrg = useCurrentOrganization();
   const [selectedIntegration, setSelectedIntegration] = useState<SelectedIntegration | null>(
     initialPanel === "api-keys" ? { type: "special", id: "api-keys" } :
@@ -711,7 +763,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   const customApps = useQuery(
     api.oauth.applications.listOAuthApplications,
     currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
-  );
+  ) as CustomOAuthApplication[] | undefined;
 
   // Query Microsoft connection status
   const microsoftConnection = useQuery(
@@ -737,9 +789,12 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   // Determine if user can take action (authenticated + has org)
   const canTakeAction = isSignedIn && currentOrg;
 
+  const getIntegrationLogoSrc = (integration: BuiltInIntegrationDefinition) =>
+    mode === "dark" ? integration.logo.dark : integration.logo.light;
+
   // Helper: Check if an integration is locked based on license data
   // Uses single source of truth from convex/licensing/tierConfigs.ts
-  const isIntegrationLocked = (integration: typeof BUILT_IN_INTEGRATIONS[0]): boolean => {
+  const isIntegrationLocked = (integration: BuiltInIntegrationDefinition): boolean => {
     // No license means we're loading or no org - show as locked
     if (!license) return true;
 
@@ -747,14 +802,16 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
 
     if (accessCheck.type === "feature") {
       // Check feature flag from license.features
-      const featureEnabled = license.features?.[accessCheck.key as keyof typeof license.features];
+      const features = license.features as unknown as Record<string, unknown> | undefined;
+      const featureEnabled = features?.[accessCheck.key] === true;
       return !featureEnabled;
     }
 
     if (accessCheck.type === "limit") {
       // Check limit from license.limits - locked if limit is 0 or undefined
-      const limitValue = license.limits?.[accessCheck.key as keyof typeof license.limits];
-      return !limitValue || limitValue === 0;
+      const limits = license.limits as unknown as Record<string, unknown> | undefined;
+      const limitValue = limits?.[accessCheck.key];
+      return typeof limitValue !== "number" || limitValue === 0;
     }
 
     return false;
@@ -763,7 +820,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   // Helper: Get the required tier name for upgrade prompts
   // This maps license keys to their tier requirements from tierConfigs.ts
   // Reference: .kiro/platform_pricing_v2/LICENSING-ENFORCEMENT-MATRIX.md Section 16
-  const getRequiredTierForAccess = (accessCheck: typeof BUILT_IN_INTEGRATIONS[0]["accessCheck"]): string => {
+  const getRequiredTierForAccess = (accessCheck: IntegrationAccessCheck): string => {
     // Map feature/limit keys to their required tiers (from tierConfigs.ts)
     // Platform integrations (maxThirdPartyIntegrations): Free: 0, Starter: 5, Pro+: Unlimited
     // Custom OAuth apps (maxCustomOAuthApps): Free: 1, Starter: 2, Pro: 3
@@ -793,7 +850,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   };
 
   // Handle integration click - allows read-only browsing for all authenticated users
-  const handleIntegrationClick = (integration: typeof BUILT_IN_INTEGRATIONS[0]) => {
+  const handleIntegrationClick = (integration: BuiltInIntegrationDefinition) => {
     if (integration.status === "coming_soon") return;
 
     // Not signed in - show sign in modal
@@ -938,8 +995,17 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           </div>
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center space-y-4 max-w-md">
-              <div className="text-5xl">
-                <i className={integration?.icon} style={{ color: integration?.iconColor }} />
+              <div className="flex items-center justify-center">
+                {integration ? (
+                  <img
+                    src={getIntegrationLogoSrc(integration)}
+                    alt={`${integration.name} logo`}
+                    draggable={false}
+                    className="h-16 w-16 object-contain pointer-events-none select-none"
+                  />
+                ) : (
+                  <i className="fas fa-plug text-5xl" style={{ color: "var(--win95-text)" }} aria-hidden="true" />
+                )}
               </div>
               <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
                 {integration?.name} Integration
@@ -1092,8 +1158,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                       key={integration.id}
                       name={integration.name}
                       description={integration.description}
-                      icon={integration.icon}
-                      iconColor={integration.iconColor}
+                      logoSrc={getIntegrationLogoSrc(integration)}
+                      logoAlt={`${integration.name} logo`}
                       status={
                         isLocked
                           ? "locked"

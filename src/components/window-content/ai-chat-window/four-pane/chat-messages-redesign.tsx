@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
-import type { Id } from "../../../../../convex/_generated/dataModel"
 import { SystemMessage } from "../single-pane/message-types/system-message"
 import { Sparkles, Wrench, CheckCircle2, XCircle } from "lucide-react"
 
@@ -136,17 +135,7 @@ export function ChatMessages() {
 
   // Get messages from the current conversation
   const messages = chat.messages || []
-
-  // Show welcome message if no messages yet
-  const displayMessages = messages.length === 0
-    ? [{
-        _id: "welcome",
-        role: "system" as const,
-        content: t("ui.ai_assistant.welcome.message"),
-        timestamp: Date.now(),
-        conversationId: "" as unknown as Id<"aiConversations">,
-      }]
-    : messages
+  const displayMessages = messages
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -175,6 +164,19 @@ export function ChatMessages() {
         color: 'var(--win95-text)'
       }}
     >
+      {displayMessages.length === 0 && (
+        <div
+          className="text-xs px-3 py-2 border rounded"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: "var(--win95-bg-light)",
+            color: "var(--neutral-gray)"
+          }}
+        >
+          Start a chat to run the platform agent runtime. Daily free credits apply automatically.
+        </div>
+      )}
+
       {displayMessages.map((message) => {
         if (message.role === "system") {
           return <SystemMessage key={message._id} content={message.content} />

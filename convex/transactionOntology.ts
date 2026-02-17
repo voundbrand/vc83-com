@@ -1344,6 +1344,8 @@ export const createBookingTransactionInternal = internalMutation({
     console.log(`   Amount: €${(args.amountInCents / 100).toFixed(2)}`);
     console.log(`   Customer: ${args.customerName}`);
 
+    const now = Date.now();
+
     const transactionId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "transaction",
@@ -1394,10 +1396,47 @@ export const createBookingTransactionInternal = internalMutation({
 
         // Invoicing
         invoicingStatus: "pending" as const,
-        transactionDate: Date.now(),
+        transactionDate: now,
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Double-write booking transactions to strict table.
+    const isRefundTransaction = args.subtype === "booking_refund";
+    const signedSubtotalInCents = isRefundTransaction ? -Math.abs(args.amountInCents) : args.amountInCents;
+    const signedTaxAmountInCents = isRefundTransaction ? -Math.abs(taxAmountInCents) : taxAmountInCents;
+    const signedTotalInCents = signedSubtotalInCents + signedTaxAmountInCents;
+
+    await ctx.db.insert("transactionsStrict", {
+      organizationId: args.organizationId,
+      legacyTransactionId: transactionId,
+      legacySubtype: args.subtype,
+      lineItems: [{
+        productId: args.resourceId,
+        productName: args.resourceName,
+        quantity: 1,
+        unitPriceInCents: signedSubtotalInCents,
+        totalPriceInCents: signedSubtotalInCents,
+        taxAmountInCents: signedTaxAmountInCents,
+        taxRatePercent,
+      }],
+      subtotalInCents: signedSubtotalInCents,
+      taxAmountInCents: signedTaxAmountInCents,
+      totalInCents: signedTotalInCents,
+      currency: args.currency,
+      paymentMethod: args.paymentMethod || "pending",
+      paymentStatus: isRefundTransaction ? "refunded" : (args.paymentStatus || "pending"),
+      payerType: "individual",
+      payerId: args.customerId,
+      originalTransactionId: args.originalTransactionId,
+      refundAmount: isRefundTransaction ? Math.abs(args.amountInCents) : undefined,
+      refundDate: isRefundTransaction ? now : undefined,
+      refundReason: args.refundReason,
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      customerPhone: args.customerPhone,
+      createdAt: now,
     });
 
     // Link transaction to booking
@@ -1407,19 +1446,40 @@ export const createBookingTransactionInternal = internalMutation({
       toObjectId: args.bookingId,
       linkType: "payment_for_booking",
       createdBy: systemUser._id,
-      createdAt: Date.now(),
+      createdAt: now,
     });
 
     // Link to original transaction if this is a refund
     if (args.originalTransactionId) {
+      const originalTransactionId = args.originalTransactionId;
+
       await ctx.db.insert("objectLinks", {
         organizationId: args.organizationId,
         fromObjectId: transactionId,
-        toObjectId: args.originalTransactionId,
+        toObjectId: originalTransactionId,
         linkType: "refunds_transaction",
         createdBy: systemUser._id,
-        createdAt: Date.now(),
+        createdAt: now,
       });
+
+      const strictOriginalTransaction = await ctx.db
+        .query("transactionsStrict")
+        .withIndex("by_legacy", (q) => q.eq("legacyTransactionId", originalTransactionId))
+        .first();
+
+      if (strictOriginalTransaction) {
+        const nextRefundAmount =
+          (strictOriginalTransaction.refundAmount ?? 0) + Math.abs(args.amountInCents);
+        const isFullyRefunded =
+          Math.abs(nextRefundAmount) >= Math.abs(strictOriginalTransaction.totalInCents);
+
+        await ctx.db.patch(strictOriginalTransaction._id, {
+          paymentStatus: isFullyRefunded ? "refunded" : "partially_refunded",
+          refundAmount: nextRefundAmount,
+          refundDate: now,
+          refundReason: args.refundReason ?? "booking_refund",
+        });
+      }
     }
 
     console.log(`✅ [createBookingTransactionInternal] Created transaction ${transactionId}`);

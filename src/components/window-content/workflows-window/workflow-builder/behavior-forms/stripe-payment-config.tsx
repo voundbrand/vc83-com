@@ -37,7 +37,7 @@ export function StripePaymentConfigForm({
       {/* Stripe Elements Styling */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          💳 Stripe Elements Styling
+           Stripe Elements Styling
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
           Customize the appearance of Stripe payment form
@@ -106,7 +106,7 @@ export function StripePaymentConfigForm({
       {/* Payment Intent Options */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          ⚙️ Payment Intent Options
+           Payment Intent Options
         </label>
 
         <div className="space-y-2">
@@ -156,7 +156,7 @@ export function StripePaymentConfigForm({
       {/* Billing Details Collection */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          📋 Billing Details to Collect
+           Billing Details to Collect
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
           Which fields should users fill in during payment
@@ -208,7 +208,7 @@ export function StripePaymentConfigForm({
       {/* Error Handling */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          🔄 Error Handling
+           Error Handling
         </label>
 
         <div className="space-y-2">
@@ -244,7 +244,7 @@ export function StripePaymentConfigForm({
       {/* Custom Metadata */}
       <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
         <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
-          🏷️ Custom Metadata (Optional)
+           Custom Metadata (Optional)
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
           Additional data to attach to Stripe PaymentIntent (JSON key-value pairs)

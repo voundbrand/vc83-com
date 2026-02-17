@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode, Suspense } from "react"
 import { getWindowFactory } from "./window-registry"
+import { SHELL_MOTION } from "@/lib/motion"
 
 interface Window {
   id: string
@@ -15,6 +16,7 @@ interface Window {
   zIndex: number
   isMaximized?: boolean
   isMinimized?: boolean
+  isClosing?: boolean
   savedPosition?: { x: number; y: number }
   savedSize?: { width: number; height: number }
   props?: Record<string, unknown> // Store props for restoration
@@ -32,6 +34,7 @@ interface SerializableWindowState {
   zIndex: number
   isMaximized?: boolean
   isMinimized?: boolean
+  isClosing?: boolean
   savedPosition?: { x: number; y: number }
   savedSize?: { width: number; height: number }
   props?: Record<string, unknown>
@@ -55,6 +58,7 @@ interface WindowManagerContextType {
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | undefined>(undefined)
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
 
 // Maximum z-index for windows to ensure Start Menu (z-index: 50000) stays on top
 const MAX_WINDOW_Z_INDEX = 10000
@@ -67,6 +71,36 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const nextZIndexRef = useRef(100)
   const [cascadeOffset, setCascadeOffset] = useState({ x: 100, y: 100 })
   const [isRestored, setIsRestored] = useState(false)
+  const closeTimersRef = useRef<Record<string, number>>({})
+
+  const clearCloseTimer = (id: string) => {
+    const timer = closeTimersRef.current[id]
+    if (!timer) {
+      return
+    }
+
+    window.clearTimeout(timer)
+    delete closeTimersRef.current[id]
+  }
+
+  const getCloseDurationMs = () => {
+    if (typeof window === "undefined") {
+      return 0
+    }
+
+    if (window.matchMedia(REDUCED_MOTION_QUERY).matches) {
+      return 0
+    }
+
+    return SHELL_MOTION.durationMs.base
+  }
+
+  useEffect(() => {
+    return () => {
+      Object.values(closeTimersRef.current).forEach((timer) => window.clearTimeout(timer))
+      closeTimersRef.current = {}
+    }
+  }, [])
 
   // Restore windows from sessionStorage on mount
   useEffect(() => {
@@ -136,6 +170,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       // Filter out tutorial windows (they have callbacks that can't be serialized)
       const serializableWindows: SerializableWindowState[] = windows
         .filter(w => !w.id.startsWith('tutorial-')) // Tutorial windows have non-serializable callbacks
+        .filter(w => w.id !== 'builder-browser') // Builder should not persist across refreshes
         .map(w => ({
           id: w.id,
           title: w.title,
@@ -173,9 +208,11 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
         // Focus existing window, update titleKey/icon if provided (heals stale session data)
+        clearCloseTimer(id)
         return prev.map((w) => (w.id === id ? {
           ...w,
           isOpen: true,
+          isClosing: false,
           zIndex: currentZIndex,
           ...(titleKey && { titleKey }),
           ...(icon && { icon }),
@@ -216,6 +253,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           zIndex: currentZIndex,
           isMaximized: false,
           isMinimized: false,
+          isClosing: false,
           props, // Store props for restoration
         },
       ]
@@ -224,11 +262,39 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const closeWindow = (id: string) => {
-    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isOpen: false } : w)))
+    const closeDurationMs = getCloseDurationMs()
+    clearCloseTimer(id)
+
+    if (closeDurationMs <= 0) {
+      setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isOpen: false, isClosing: false } : w)))
+      return
+    }
+
+    setWindows((prev) => prev.map((w) => (
+      w.id === id
+        ? { ...w, isClosing: true, isMinimized: false }
+        : w
+    )))
+
+    closeTimersRef.current[id] = window.setTimeout(() => {
+      setWindows((prev) => prev.map((w) => {
+        if (w.id !== id) {
+          return w
+        }
+
+        if (!w.isClosing) {
+          return w
+        }
+
+        return { ...w, isOpen: false, isClosing: false }
+      }))
+      delete closeTimersRef.current[id]
+    }, closeDurationMs)
   }
 
   const closeAllWindows = () => {
-    setWindows((prev) => prev.map((w) => ({ ...w, isOpen: false })))
+    Object.keys(closeTimersRef.current).forEach(clearCloseTimer)
+    setWindows((prev) => prev.map((w) => ({ ...w, isOpen: false, isClosing: false })))
     // Reset cascade offset when all windows are closed
     setCascadeOffset({ x: 100, y: 100 })
   }
@@ -284,11 +350,13 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const minimizeWindow = (id: string) => {
+    clearCloseTimer(id)
     setWindows((prev) => prev.map((w) => {
       if (w.id === id) {
         return { 
           ...w, 
           isMinimized: true,
+          isClosing: false,
           savedPosition: w.position,
           savedSize: w.size
         }
@@ -304,10 +372,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
 
     setWindows((prev) => prev.map((w) => {
       if (w.id === id) {
+        clearCloseTimer(id)
         return {
           ...w,
           isMaximized: false,
           isMinimized: false,
+          isClosing: false,
           position: w.savedPosition || w.position || { x: 100, y: 100 },
           size: w.savedSize || w.size || { width: 800, height: 500 },
           zIndex: currentZIndex

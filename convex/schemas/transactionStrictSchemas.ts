@@ -5,6 +5,7 @@ import { v } from "convex/values";
 export const transactionsStrict = defineTable({
   organizationId: v.id("organizations"),
   legacyTransactionId: v.id("objects"),
+  legacySubtype: v.optional(v.string()),
   checkoutSessionId: v.optional(v.id("objects")),
   lineItems: v.array(v.object({
     productId: v.id("objects"),
@@ -26,6 +27,11 @@ export const transactionsStrict = defineTable({
   paymentStatus: v.string(),
   payerType: v.union(v.literal("individual"), v.literal("organization")),
   payerId: v.optional(v.id("objects")),
+  originalTransactionId: v.optional(v.id("objects")),
+  refundId: v.optional(v.string()),
+  refundAmount: v.optional(v.number()),
+  refundDate: v.optional(v.number()),
+  refundReason: v.optional(v.string()),
   customerName: v.string(),
   customerEmail: v.string(),
   customerPhone: v.optional(v.string()),

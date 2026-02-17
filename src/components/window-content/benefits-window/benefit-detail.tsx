@@ -95,7 +95,7 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
       {/* Header */}
       <div className="flex items-start gap-4">
         <div
-          className="p-3 rounded"
+          className="p-3 rounded-lg"
           style={{
             background: 'var(--win95-selected-bg)',
             color: 'var(--win95-selected-text)'
@@ -104,13 +104,13 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
           {getSubtypeIcon(benefit.subtype || "discount")}
         </div>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="font-pixel text-lg" style={{ color: 'var(--win95-text)' }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-pixel text-sm" style={{ color: 'var(--window-document-text)' }}>
               {benefit.name}
             </h2>
             {props.discountValue && (
               <span
-                className="px-2 py-1 text-sm font-bold rounded"
+                className="px-2 py-1 text-sm font-bold rounded-lg"
                 style={{
                   background: 'var(--win95-success-bg)',
                   color: 'var(--win95-success-text)'
@@ -119,13 +119,11 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
                 {props.discountValue}% OFF
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-2 mt-1">
             <span
-              className="px-2 py-0.5 text-xs rounded"
+              className="px-2 py-0.5 text-xs rounded-lg"
               style={{
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)'
+                background: 'var(--desktop-shell-accent)',
+                color: 'var(--window-document-text)'
               }}
             >
               {getSubtypeLabel(benefit.subtype || "")}
@@ -139,13 +137,13 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
 
       {/* Description */}
       <div
-        className="p-3 border-2 rounded"
+        className="p-3 border rounded-lg"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--desktop-shell-accent)'
         }}
       >
-        <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
+        <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
           {benefit.description || "No description provided."}
         </p>
       </div>
@@ -153,16 +151,16 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
       {/* Offerer Info */}
       {benefit.offerer && (
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <h3 className="font-pixel text-xs mb-2 opacity-60">OFFERED BY</h3>
           <div className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded flex items-center justify-center text-sm font-bold"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
               style={{
                 background: 'var(--win95-selected-bg)',
                 color: 'var(--win95-selected-text)'
@@ -185,10 +183,10 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
         {/* Contact */}
         {props.contactEmail && (
           <div
-            className="p-3 border-2 rounded"
+            className="p-3 border rounded-lg"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg)'
             }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -205,10 +203,10 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
         {/* Validity */}
         {(props.validFrom || props.validUntil) && (
           <div
-            className="p-3 border-2 rounded"
+            className="p-3 border rounded-lg"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg)'
             }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -226,10 +224,10 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
 
         {/* Claims */}
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -248,10 +246,10 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
       {/* Requirements */}
       {props.requirements && (
         <div
-          className="p-3 border-2 rounded"
+          className="p-3 border rounded-lg"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)'
           }}
         >
           <h3 className="font-pixel text-xs mb-2 opacity-60">REQUIREMENTS</h3>

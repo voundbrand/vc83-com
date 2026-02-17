@@ -61,8 +61,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
     executionLogs.logs.forEach((log) => {
       const message = log.message;
 
-      // Detect behavior start: "▶️ Executing behavior: behavior-type"
-      const startMatch = message.match(/▶️ Executing behavior: (.+)/);
+      // Detect behavior start: "▶ Executing behavior: behavior-type"
+      const startMatch = message.match(/▶ Executing behavior: (.+)/);
       if (startMatch) {
         const behaviorType = startMatch[1];
         behaviorMap.set(behaviorType, {
@@ -72,8 +72,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
         });
       }
 
-      // Detect behavior completion: "✅ Behavior behavior-type completed successfully"
-      const successMatch = message.match(/✅ Behavior (.+) completed successfully/);
+      // Detect behavior completion: " Behavior behavior-type completed successfully"
+      const successMatch = message.match(/ Behavior (.+) completed successfully/);
       if (successMatch) {
         const behaviorType = successMatch[1];
         const existing = behaviorMap.get(behaviorType) || {
@@ -88,8 +88,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
         });
       }
 
-      // Detect behavior failure: "❌ Behavior behavior-type failed"
-      const failMatch = message.match(/❌ Behavior (.+) failed/);
+      // Detect behavior failure: " Behavior behavior-type failed"
+      const failMatch = message.match(/ Behavior (.+) failed/);
       if (failMatch) {
         const behaviorType = failMatch[1];
         const existing = behaviorMap.get(behaviorType) || {
@@ -104,8 +104,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
         });
       }
 
-      // Detect skipped: "⏭️ Skipping behavior"
-      const skipMatch = message.match(/⏭️ Skipping behavior (.+)/);
+      // Detect skipped: "⏭ Skipping behavior"
+      const skipMatch = message.match(/⏭ Skipping behavior (.+)/);
       if (skipMatch) {
         const behaviorType = skipMatch[1];
         behaviorMap.set(behaviorType, {
@@ -204,7 +204,7 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
           className="border-2 px-2 py-0.5 text-xs font-bold text-white hover:bg-white hover:text-black transition-colors"
           style={{ borderColor: "white" }}
         >
-          ✕
+          
         </button>
       </div>
 

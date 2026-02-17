@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { Loader2 } from "lucide-react";
+import { Loader2, Target, Rocket, BriefcaseBusiness, Building2, Crown, Circle, BarChart3, Zap } from "lucide-react";
 import { LicenseHeader } from "./license-header";
 import { LimitCategory } from "./limit-category";
 import { FeatureCategory } from "./feature-category";
@@ -821,11 +821,23 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
             className="text-sm font-bold mb-3"
             style={{ color: "var(--win95-text)" }}
           >
-            🎯 Plan Tier Selector
+            <span className="inline-flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Plan Tier Selector
+            </span>
           </h3>
           <div className="grid grid-cols-5 gap-3">
             {(["free", "starter", "professional", "agency", "enterprise"] as const).map((tier) => {
               const isActive = license.planTier === tier;
+              const TierIcon = tier === "free"
+                ? Circle
+                : tier === "starter"
+                ? Rocket
+                : tier === "professional"
+                ? BriefcaseBusiness
+                : tier === "agency"
+                ? Building2
+                : Crown;
               return (
                 <button
                   key={tier}
@@ -838,12 +850,8 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
                     fontWeight: "bold",
                   }}
                 >
-                  <div className="text-xs mb-1">
-                    {tier === "free" && "🆓"}
-                    {tier === "starter" && "🚀"}
-                    {tier === "professional" && "💼"}
-                    {tier === "agency" && "🏢"}
-                    {tier === "enterprise" && "👑"}
+                  <div className="text-xs mb-1 flex justify-center">
+                    <TierIcon className="w-4 h-4" />
                   </div>
                   <div className="text-xs uppercase">{tier}</div>
                   {isActive && (
@@ -865,7 +873,8 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
           className="text-sm font-bold mb-3 flex items-center gap-2"
           style={{ color: "var(--win95-text)" }}
         >
-          📊 Resource Limits
+          <BarChart3 className="w-4 h-4" />
+          Resource Limits
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{
@@ -897,7 +906,8 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
           className="text-sm font-bold mb-3 flex items-center gap-2"
           style={{ color: "var(--win95-text)" }}
         >
-          ⚡ Feature Access
+          <Zap className="w-4 h-4" />
+          Feature Access
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{

@@ -20,6 +20,7 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ScopeSelector } from "./scope-selector";
 import { Id } from "../../../convex/_generated/dataModel";
+import { CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 
 interface CreateApiKeyDialogProps {
   organizationId: Id<"organizations">;
@@ -96,7 +97,7 @@ export function CreateApiKeyDialog({
           <div className="space-y-4">
             {/* Success Header */}
             <div className="flex items-center gap-3" style={{ color: 'var(--success)' }}>
-              <div className="text-3xl">✓</div>
+              <CheckCircle2 className="w-8 h-8" />
               <div>
                 <h2 className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
                   API Key Created!
@@ -113,7 +114,7 @@ export function CreateApiKeyDialog({
               borderColor: 'var(--error)'
             }}>
               <div className="flex items-start gap-3">
-                <div className="text-xl" style={{ color: 'var(--error)' }}>⚠️</div>
+                <AlertTriangle className="w-5 h-5 mt-0.5" style={{ color: 'var(--error)' }} />
                 <div className="flex-1">
                   <h3 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
                     Save Your API Key Now
@@ -238,8 +239,9 @@ export function CreateApiKeyDialog({
             background: 'var(--win95-bg-light)',
             borderColor: 'var(--win95-border)'
           }}>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
-              🔒 Security Best Practices
+            <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <ShieldCheck className="w-4 h-4" />
+              Security Best Practices
             </h4>
             <ul className="text-sm space-y-1" style={{ color: 'var(--neutral-gray)' }}>
               <li>• Use the minimum required permissions (principle of least privilege)</li>

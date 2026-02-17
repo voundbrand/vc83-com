@@ -13,6 +13,14 @@ import { EmailTemplatesTab } from "./email-templates-tab";
 import { PdfTemplatesTab } from "./pdf-templates-tab";
 import { TemplateSetsTab } from "./template-sets-tab";
 import { WebAppsTab } from "./web-apps-tab";
+import {
+  InteriorHeader,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 /**
  * Templates Window
@@ -56,21 +64,21 @@ export function TemplatesWindow({ fullScreen = false }: TemplatesWindowProps = {
 
   if (!sessionId || !currentOrg) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <InteriorRoot className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
             {translationsLoading ? "Loading..." : (t("ui.templates.sign_in_prompt") || "Please sign in to access templates")}
           </p>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (translationsLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center">
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+      </InteriorRoot>
     );
   }
 
@@ -100,34 +108,29 @@ export function TemplatesWindow({ fullScreen = false }: TemplatesWindowProps = {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
             {fullScreen && (
               <Link
                 href="/"
-                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                }}
+                className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
                 title="Back to Desktop"
               >
                 <ArrowLeft size={14} />
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <InteriorTitle className="flex items-center gap-2 text-sm">
                 <FileText size={16} />
                 {t("ui.templates.title") || "Templates"}
-              </h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              </InteriorTitle>
+              <InteriorSubtitle className="mt-1 text-xs">
                 {t("ui.templates.subtitle") || "Manage email and PDF templates"}
-              </p>
+              </InteriorSubtitle>
             </div>
           </div>
 
@@ -135,83 +138,38 @@ export function TemplatesWindow({ fullScreen = false }: TemplatesWindowProps = {
           {!fullScreen && (
             <Link
               href="/templates"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Open Full Screen"
             >
               <Maximize2 size={14} />
             </Link>
           )}
         </div>
-      </div>
+      </InteriorHeader>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "all" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "all" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("all")}
-        >
+      <InteriorTabRow className="border-b">
+        <InteriorTabButton active={activeTab === "all"} className="flex items-center gap-2" onClick={() => setActiveTab("all")}>
           <FileText size={14} />
           All Templates
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "email" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "email" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("email")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "email"} className="flex items-center gap-2" onClick={() => setActiveTab("email")}>
           <Mail size={14} />
           Email Library
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "pdf" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "pdf" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("pdf")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "pdf"} className="flex items-center gap-2" onClick={() => setActiveTab("pdf")}>
           <File size={14} />
           PDF Library
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "web" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "web" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("web")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "web"} className="flex items-center gap-2" onClick={() => setActiveTab("web")}>
           <Globe size={14} />
           Web Apps
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "sets" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "sets" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("sets")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "sets"} className="flex items-center gap-2" onClick={() => setActiveTab("sets")}>
           <FileText size={14} />
-          📦 Template Sets
-        </button>
-      </div>
+          Template Sets
+        </InteriorTabButton>
+      </InteriorTabRow>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
@@ -251,11 +209,11 @@ export function TemplatesWindow({ fullScreen = false }: TemplatesWindowProps = {
 
       {/* Footer - Status Bar */}
       <div
-        className="px-4 py-1 border-t-2 text-xs flex items-center justify-between"
+        className="border-t px-4 py-1 text-xs flex items-center justify-between"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--neutral-gray)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
+          color: "var(--desktop-menu-text-muted)",
         }}
       >
         <span>
@@ -267,6 +225,6 @@ export function TemplatesWindow({ fullScreen = false }: TemplatesWindowProps = {
         </span>
         <span>{currentOrg?.name || ""}</span>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }

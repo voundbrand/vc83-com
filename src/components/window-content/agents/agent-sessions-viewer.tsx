@@ -73,8 +73,9 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
               className="w-full text-left px-3 py-2 border-b transition-colors"
               style={{
                 borderColor: "var(--win95-border)",
-                background: selectedSession === session._id ? "var(--win95-highlight)" : "transparent",
-                color: selectedSession === session._id ? "#fff" : "var(--win95-text)",
+                background: selectedSession === session._id ? "var(--win95-bg-light)" : "transparent",
+                color: "var(--win95-text)",
+                boxShadow: selectedSession === session._id ? "inset 2px 0 0 var(--win95-border-light)" : "none",
               }}
             >
               <div className="flex items-center gap-2">
@@ -84,7 +85,7 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
               </div>
               <div
                 className="flex items-center gap-2 mt-0.5 text-[10px]"
-                style={{ color: selectedSession === session._id ? "rgba(255,255,255,0.7)" : "var(--neutral-gray)" }}
+                style={{ color: selectedSession === session._id ? "var(--win95-text-secondary)" : "var(--neutral-gray)" }}
               >
                 <span>{session.channel}</span>
                 <span>·</span>
@@ -94,7 +95,7 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
               </div>
               <div
                 className="text-[9px] mt-0.5"
-                style={{ color: selectedSession === session._id ? "rgba(255,255,255,0.5)" : "var(--neutral-gray)" }}
+                style={{ color: selectedSession === session._id ? "var(--win95-text-secondary)" : "var(--neutral-gray)" }}
               >
                 {new Date(session.lastMessageAt).toLocaleString()}
               </div>
@@ -146,7 +147,7 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
                 >
                   {msg.role === "assistant" && (
                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: "var(--win95-highlight)" }}>
+                      style={{ background: "var(--win95-bg-dark)" }}>
                       <Bot size={12} className="text-white" />
                     </div>
                   )}
@@ -156,14 +157,15 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
                     }`}
                     style={{
                       background: msg.role === "assistant" ? "var(--win95-bg-light, #fff)"
-                        : msg.role === "user" ? "var(--win95-highlight)"
+                        : msg.role === "user" ? "var(--win95-bg-dark)"
                         : "var(--win95-bg-dark, #e0e0e0)",
-                      color: msg.role === "user" ? "#fff" : "var(--win95-text)",
+                      color: "var(--win95-text)",
                       border: "1px solid var(--win95-border)",
+                      boxShadow: msg.role === "user" ? "inset -2px 0 0 var(--win95-border-light)" : "none",
                     }}
                   >
                     {msg.agentName && msg.role === "assistant" && (
-                      <div className="text-[10px] font-medium mb-0.5" style={{ color: "var(--win95-highlight)" }}>
+                      <div className="text-[10px] font-medium mb-0.5" style={{ color: "var(--win95-text-secondary)" }}>
                         {msg.agentName}
                       </div>
                     )}

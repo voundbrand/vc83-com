@@ -94,7 +94,7 @@ export function AISettingsTab() {
       provider: model.provider,
       location: model.provider === "mistral" ? "🇪🇺" :
                 model.provider === "anthropic" || model.provider === "openai" || model.provider === "google" ? "🇺🇸" :
-                model.provider === "cohere" ? "🇨🇦" : "🌍",
+                model.provider === "cohere" ? "🇨🇦" : "",
       zdr: model.provider === "mistral" || model.provider === "meta-llama",
       noTraining: model.provider === "mistral" || model.provider === "anthropic" || model.provider === "meta-llama",
       toolCalling: model.capabilities.toolCalling,
@@ -581,9 +581,9 @@ export function AISettingsTab() {
                     {t("ui.manage.ai.tier.standard.description")}
                   </p>
                   <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>✓ {t("ui.manage.ai.tier.feature.all_models")}</li>
-                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
-                    <li>✓ {t("ui.manage.ai.tier.feature.global_routing")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.all_models")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.tokens_included")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.global_routing")}</li>
                   </ul>
                 </div>
               </label>
@@ -632,9 +632,9 @@ export function AISettingsTab() {
                     {t("ui.manage.ai.tier.privacy_enhanced.description")}
                   </p>
                   <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-                    <li>✓ {t("ui.manage.ai.tier.feature.gdpr_optimized")}</li>
-                    <li>✓ {t("ui.manage.ai.tier.feature.no_training")}</li>
-                    <li>✓ {t("ui.manage.ai.tier.feature.tokens_included")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.gdpr_optimized")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.no_training")}</li>
+                    <li> {t("ui.manage.ai.tier.feature.tokens_included")}</li>
                   </ul>
                 </div>
               </label>
@@ -994,8 +994,8 @@ export function AISettingsTab() {
                           {/* Inline Privacy Indicators */}
                           <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                             {model.location}
-                            {model.zdr && " 🛡️"}
-                            {model.noTraining && " 🚫"}
+                            {model.zdr && " "}
+                            {model.noTraining && " "}
                           </span>
 
                           {model.recommended && (
@@ -1072,18 +1072,18 @@ export function AISettingsTab() {
                       privacyStats.hasEU && "🇪🇺 EU",
                       privacyStats.hasUS && "🇺🇸 US",
                       privacyStats.hasCA && "🇨🇦 Canada",
-                      privacyStats.hasGlobal && "🌍 Global"
+                      privacyStats.hasGlobal && " Global"
                     ].filter(Boolean).join(" • ") || t("ui.manage.ai.location_none")
                   }
                 </li>
                 {privacyStats.zdrCount > 0 && (
                   <li>
-                    <strong>🛡️ {t("ui.manage.ai.zero_data_retention")}:</strong> {t("ui.manage.ai.zero_data_retention_desc", { count: privacyStats.zdrCount })}
+                    <strong> {t("ui.manage.ai.zero_data_retention")}:</strong> {t("ui.manage.ai.zero_data_retention_desc", { count: privacyStats.zdrCount })}
                   </li>
                 )}
                 {privacyStats.noTrainingCount > 0 && (
                   <li>
-                    <strong>🚫 {t("ui.manage.ai.no_training")}:</strong> {t("ui.manage.ai.no_training_desc", { count: privacyStats.noTrainingCount })}
+                    <strong> {t("ui.manage.ai.no_training")}:</strong> {t("ui.manage.ai.no_training_desc", { count: privacyStats.noTrainingCount })}
                   </li>
                 )}
               </ul>
@@ -1161,7 +1161,7 @@ export function AISettingsTab() {
               color: 'white'
             }}
           >
-            ✓ Settings saved successfully
+             Settings saved successfully
           </div>
         )}
         <button

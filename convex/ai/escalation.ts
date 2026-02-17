@@ -11,7 +11,7 @@
  *
  * Lifecycle: pending → taken_over → resolved (or dismissed / timed_out)
  *
- * See: docs/agentic_system/implementation_plans/P2_HUMAN_IN_THE_LOOP.md
+ * See: docs/platform/implementation_plans/P2_HUMAN_IN_THE_LOOP.md
  */
 
 import { action, query, mutation, internalAction, internalMutation, internalQuery } from "../_generated/server";
@@ -95,6 +95,30 @@ export interface EscalationPolicy {
   };
   holdMessage?: string;
   resumeMessage?: string;
+}
+
+export type ToolApprovalAutonomyLevel =
+  | "supervised"
+  | "autonomous"
+  | "draft_only";
+
+/**
+ * Shared tool-approval decision helper used by chat + agent runtimes.
+ */
+export function shouldRequireToolApproval(args: {
+  autonomyLevel: ToolApprovalAutonomyLevel;
+  toolName: string;
+  requireApprovalFor?: string[];
+}): boolean {
+  if (args.autonomyLevel === "supervised") {
+    return true;
+  }
+
+  if (args.autonomyLevel === "draft_only") {
+    return false;
+  }
+
+  return args.requireApprovalFor?.includes(args.toolName) ?? false;
 }
 
 /** Merge agent's policy with hardcoded defaults. */

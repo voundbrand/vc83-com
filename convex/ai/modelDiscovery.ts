@@ -16,6 +16,9 @@ import { action, internalMutation, query, internalQuery, internalAction } from "
 import { v } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+import {
+  normalizeOpenRouterPricingToPerMillion,
+} from "./modelPricing";
 
 /**
  * OpenRouter Model Information
@@ -199,9 +202,12 @@ export const cacheModels = internalMutation({
                                   !model.id.includes("base") &&
                                   !model.id.includes("embed");
 
-      // Parse pricing (OpenRouter returns strings like "0.000003")
-      const promptPerMToken = parseFloat(model.pricing.prompt) * 1_000_000;
-      const completionPerMToken = parseFloat(model.pricing.completion) * 1_000_000;
+      // Normalize OpenRouter pricing payload to dollars per million tokens.
+      const normalizedPricing = normalizeOpenRouterPricingToPerMillion(
+        model.pricing
+      );
+      const promptPerMToken = normalizedPricing.promptPerMToken;
+      const completionPerMToken = normalizedPricing.completionPerMToken;
 
       if (existing) {
         // Update existing model
@@ -408,9 +414,12 @@ export function formatModelForDisplay(model: OpenRouterModel): {
   cost: string;
   contextLength: number;
 } {
-  // Calculate cost per 1M tokens (average of input and output)
-  const promptCost = parseFloat(model.pricing.prompt) * 1000000;
-  const completionCost = parseFloat(model.pricing.completion) * 1000000;
+  // Calculate cost per 1M tokens (average of input and output).
+  const normalizedPricing = normalizeOpenRouterPricingToPerMillion(
+    model.pricing
+  );
+  const promptCost = normalizedPricing.promptPerMToken;
+  const completionCost = normalizedPricing.completionPerMToken;
   const avgCost = (promptCost + completionCost) / 2;
 
   // Format cost

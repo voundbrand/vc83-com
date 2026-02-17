@@ -367,6 +367,9 @@ export const rolePermissions = defineTable({
 export const userPreferences = defineTable({
   userId: v.id("users"),
 
+  // Canonical appearance mode (migration-safe, dark/sepia only)
+  appearanceMode: v.optional(v.union(v.literal("dark"), v.literal("sepia"))),
+
   // UI Preferences
   themeId: v.string(), // "win95-light", "win95-dark", etc.
   windowStyle: v.string(), // "windows" or "mac"

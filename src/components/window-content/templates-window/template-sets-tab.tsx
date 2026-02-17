@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, AlertCircle, Package, Star, CheckCircle, Plus, X, Trash2, Edit, Check, Copy } from "lucide-react";
+import { AlertCircle, Check, CheckCircle, CircleDollarSign, ClipboardList, Copy, CreditCard, Edit, FileText, Loader2, Mail, MessageSquare, Package, Plus, ScrollText, Star, Tag, Ticket, Trash2, X } from "lucide-react";
+
+const getTemplateTypeIcon = (type: string, size = 12) => {
+  const iconMap: Record<string, ReactElement> = {
+    email: <Mail size={size} />,
+    pdf: <FileText size={size} />,
+    ticket: <Ticket size={size} />,
+    invoice: <CircleDollarSign size={size} />,
+    receipt: <CreditCard size={size} />,
+    badge: <Tag size={size} />,
+    certificate: <ScrollText size={size} />,
+    program: <ClipboardList size={size} />,
+    quote: <MessageSquare size={size} />,
+  };
+  return iconMap[type] || <Package size={size} />;
+};
 
 /** Template interface for audit data templates */
 interface AuditTemplate {
@@ -59,7 +74,7 @@ export function TemplateSetsTab() {
   const templateSets = useQuery(
     api.templateSetOntology.getTemplateSets,
     sessionId && organizationId
-      ? { sessionId, organizationId, includeSystem: false } // 🔒 SECURITY: No system sets!
+      ? { sessionId, organizationId, includeSystem: false } // Security: no system sets
       : "skip"
   );
 
@@ -297,21 +312,6 @@ function TemplateSetCard({
     return template.subtype || template.category || "other";
   };
 
-  const getTemplateIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      email: "📧",
-      pdf: "📄",
-      ticket: "🎫",
-      invoice: "💰",
-      receipt: "💳",
-      badge: "🏷️",
-      certificate: "📜",
-      program: "📋",
-      quote: "💬",
-    };
-    return icons[type] || "📦";
-  };
-
   return (
     <div
       className="border-2 p-4 rounded-lg transition-shadow"
@@ -420,7 +420,7 @@ function TemplateSetCard({
           <div className="space-y-1">
             {templatesList.map((item: TemplateSetItem, idx: number) => {
               const type = item.templateType || getTemplateType(item.templateId);
-              const icon = getTemplateIcon(type);
+              const icon = getTemplateTypeIcon(type);
               const name = getTemplateName(item.templateId);
 
               return (
@@ -735,19 +735,6 @@ function CreateTemplateSetModal({
                   {allTemplates.map((template) => {
                     const isSelected = selectedTemplates.includes(template._id);
                     const type = template.subtype || template.category || "other";
-                    const getIcon = (t: string) => {
-                      const icons: Record<string, string> = {
-                        email: "📧",
-                        pdf: "📄",
-                        ticket: "🎫",
-                        invoice: "💰",
-                        receipt: "💳",
-                        badge: "🏷️",
-                        certificate: "📜",
-                        program: "📋",
-                      };
-                      return icons[t] || "📦";
-                    };
 
                     return (
                       <button
@@ -768,7 +755,7 @@ function CreateTemplateSetModal({
                         >
                           {isSelected && <Check size={14} style={{ color: "white" }} />}
                         </div>
-                        <span className="text-xs">{getIcon(type)}</span>
+                        <span className="text-xs inline-flex">{getTemplateTypeIcon(type)}</span>
                         <div className="flex-1">
                           <div className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
                             {template.name}
@@ -777,9 +764,7 @@ function CreateTemplateSetModal({
                             {template.code} • {type}
                           </div>
                         </div>
-                        <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                          ✅
-                        </span>
+                        <CheckCircle size={12} style={{ color: "#10b981" }} />
                       </button>
                     );
                   })}
@@ -995,19 +980,6 @@ function EditTemplateSetModal({
                 {allTemplates.map((template) => {
                   const isSelected = selectedTemplates.includes(template._id);
                   const type = template.subtype || template.category || "other";
-                  const getIcon = (t: string) => {
-                    const icons: Record<string, string> = {
-                      email: "📧",
-                      pdf: "📄",
-                      ticket: "🎫",
-                      invoice: "💰",
-                      receipt: "💳",
-                      badge: "🏷️",
-                      certificate: "📜",
-                      program: "📋",
-                    };
-                    return icons[t] || "📦";
-                  };
 
                   return (
                     <button
@@ -1028,7 +1000,7 @@ function EditTemplateSetModal({
                       >
                         {isSelected && <Check size={14} style={{ color: "white" }} />}
                       </div>
-                      <span className="text-xs">{getIcon(type)}</span>
+                      <span className="text-xs inline-flex">{getTemplateTypeIcon(type)}</span>
                       <div className="flex-1">
                         <div className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
                           {template.name}
@@ -1037,9 +1009,7 @@ function EditTemplateSetModal({
                           {template.code} • {type}
                         </div>
                       </div>
-                      <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                        ✅
-                      </span>
+                      <CheckCircle size={12} style={{ color: "#10b981" }} />
                     </button>
                   );
                 })}

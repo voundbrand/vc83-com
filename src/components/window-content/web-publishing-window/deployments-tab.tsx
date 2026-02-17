@@ -168,13 +168,13 @@ export function DeploymentsTab({
                   <div className="space-y-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
                     {dep.githubRepo && (
                       <div className="flex items-center gap-2">
-                        <span>📂 GitHub:</span>
+                        <span> GitHub:</span>
                         <span className="font-mono">{dep.githubRepo}</span>
                       </div>
                     )}
                     {dep.deployedUrl && (
                       <div className="flex items-center gap-2">
-                        <span>🌐 URL:</span>
+                        <span> URL:</span>
                         <a
                           href={dep.deployedUrl}
                           target="_blank"

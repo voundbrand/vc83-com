@@ -151,20 +151,20 @@ export const seed = internalMutation({
         ja: "AI無効"
       },
       "ui.ai_assistant.footer.no_subscription": {
-        en: "No Subscription",
-        de: "Kein Abonnement",
-        pl: "Brak subskrypcji",
-        es: "Sin suscripción",
-        fr: "Aucun abonnement",
-        ja: "サブスクリプションなし"
+        en: "No Credits",
+        de: "Keine Credits",
+        pl: "Brak kredytów",
+        es: "Sin créditos",
+        fr: "Aucun crédit",
+        ja: "クレジットがありません"
       },
       "ui.ai_assistant.footer.subscription_inactive": {
-        en: "Subscription Inactive",
-        de: "Abonnement inaktiv",
-        pl: "Subskrypcja nieaktywna",
-        es: "Suscripción inactiva",
-        fr: "Abonnement inactif",
-        ja: "サブスクリプション無効"
+        en: "Credits Inactive",
+        de: "Credits inaktiv",
+        pl: "Kredyty nieaktywne",
+        es: "Créditos inactivos",
+        fr: "Crédits inactifs",
+        ja: "クレジットが無効です"
       },
       "ui.ai_assistant.footer.no_models": {
         en: "No Models Configured",

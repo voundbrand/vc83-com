@@ -10,7 +10,7 @@
  * Each layer can only REMOVE tools, never re-add them once filtered.
  * The only exception: `query_org_data` is always injected at the end.
  *
- * See: docs/agentic_system/implementation_plans/P1_LAYERED_TOOL_SCOPING.md
+ * See: docs/platform/implementation_plans/P1_LAYERED_TOOL_SCOPING.md
  */
 
 import { internalQuery } from "../_generated/server";
@@ -109,6 +109,10 @@ const GENERAL_PROFILE = [
   "search_media",
   // Settings
   "update_organization_settings",
+  // Soul evolution (owner-approved proposals + self-review)
+  "propose_soul_update",
+  "review_own_soul",
+  "view_pending_proposals",
 ];
 
 /**
@@ -136,6 +140,10 @@ const SUPPORT_PROFILE = [
   "list_products",
   // Media (read)
   "search_media",
+  // Soul evolution
+  "propose_soul_update",
+  "review_own_soul",
+  "view_pending_proposals",
 ];
 
 /**
@@ -169,6 +177,10 @@ const SALES_PROFILE = [
   "send_email_from_template",
   // Events
   "list_events",
+  // Soul evolution
+  "propose_soul_update",
+  "review_own_soul",
+  "view_pending_proposals",
 ];
 
 /**
@@ -195,6 +207,10 @@ const BOOKING_PROFILE = [
   "get_form_responses",
   // Products (read)
   "list_products",
+  // Soul evolution
+  "propose_soul_update",
+  "review_own_soul",
+  "view_pending_proposals",
 ];
 
 /**
@@ -216,6 +232,8 @@ const READONLY_PROFILE = [
   "search_unsplash_images",
   "get_interview_progress",
   "get_extracted_data",
+  "review_own_soul",
+  "view_pending_proposals",
 ];
 
 export const TOOL_PROFILES: Record<string, string[]> = {
@@ -287,6 +305,8 @@ export const READ_ONLY_TOOLS = new Set([
   "get_interview_progress",
   "get_extracted_data",
   "request_feature",
+  "review_own_soul",
+  "view_pending_proposals",
 ]);
 
 // ============================================================================

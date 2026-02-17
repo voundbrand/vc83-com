@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Smartphone, Loader2 } from "lucide-react";
+import { Smartphone, Loader2, PartyPopper, Check } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useNotification } from "@/hooks/use-notification";
 
@@ -61,7 +61,7 @@ export function FirstLoginPasskeyModal({
 
       // Success!
       notification.success(
-        "✅ Account Created!",
+        "Account Created!",
         "Your passkey has been set up. You can now sign in with Face ID or Touch ID."
       );
 
@@ -108,7 +108,8 @@ export function FirstLoginPasskeyModal({
           }}
         >
           <span className="text-sm font-bold flex items-center gap-2">
-            🎉 Welcome{userName ? `, ${userName}` : ""}!
+            <PartyPopper size={14} />
+            Welcome{userName ? `, ${userName}` : ""}!
           </span>
         </div>
 
@@ -129,15 +130,15 @@ export function FirstLoginPasskeyModal({
           {/* Benefits List */}
           <div className="mb-6 space-y-2">
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span style={{ color: 'var(--success)' }}>✓</span>
+              <Check size={12} style={{ color: 'var(--success)' }} />
               <span>Instant login with fingerprint or face</span>
             </div>
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span style={{ color: 'var(--success)' }}>✓</span>
+              <Check size={12} style={{ color: 'var(--success)' }} />
               <span>No more typing passwords</span>
             </div>
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span style={{ color: 'var(--success)' }}>✓</span>
+              <Check size={12} style={{ color: 'var(--success)' }} />
               <span>Phishing-proof security</span>
             </div>
           </div>

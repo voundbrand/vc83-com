@@ -8,7 +8,7 @@
  *
  * Feature-flagged per org (off by default).
  *
- * See: docs/agentic_system/implementation_plans/P2_TOOL_BROKER.md
+ * See: docs/platform/implementation_plans/P2_TOOL_BROKER.md
  */
 
 // ============================================================================

@@ -33,6 +33,9 @@ import {
   ChevronUp,
   Layers,
   Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowLeft,
 } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useState } from "react";
@@ -82,19 +85,20 @@ export function TemplateDetailPanel({
   if (!template || !usageData) {
     return (
       <div
-        className="fixed inset-0 flex items-center justify-center z-[9000]"
+        className="fixed inset-0 flex items-center justify-center z-[9000] p-4"
         style={{ backgroundColor: "var(--modal-overlay-bg)" }}
       >
         <div
-          className="w-full max-w-3xl max-h-[90vh] overflow-hidden border-2"
+          className="w-full max-w-3xl max-h-[90vh] overflow-hidden border rounded-xl"
           style={{
-            background: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+            boxShadow: "var(--modal-shadow)",
           }}
         >
           <div className="flex items-center justify-center p-8">
-            <Loader2 className="animate-spin" size={32} style={{ color: "var(--win95-text-secondary)" }} />
-            <span className="ml-3 text-sm" style={{ color: "var(--win95-text)" }}>
+            <Loader2 className="animate-spin" size={32} style={{ color: "var(--desktop-menu-text-muted)" }} />
+            <span className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
               Loading template details...
             </span>
           </div>
@@ -147,30 +151,30 @@ export function TemplateDetailPanel({
 
     return (
       <div
-        className="border-2 mb-3"
+        className="border rounded-lg mb-3"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         <button
           className="w-full flex items-center justify-between p-3 hover:bg-opacity-80 transition-colors"
           onClick={() => toggleSection(id)}
           style={{
-            background: "var(--win95-bg)",
-            borderBottom: isExpanded ? "2px solid var(--win95-border)" : "none",
+            background: "var(--window-document-bg)",
+            borderBottom: isExpanded ? "1px solid var(--window-document-border)" : "none",
           }}
         >
           <div className="flex items-center gap-2">
-            <Icon size={16} style={{ color: "var(--win95-highlight)" }} />
-            <span className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+            <Icon size={16} style={{ color: "var(--tone-accent-strong)" }} />
+            <span className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
               {title}
             </span>
           </div>
           {isExpanded ? (
-            <ChevronUp size={16} style={{ color: "var(--win95-text-secondary)" }} />
+            <ChevronUp size={16} style={{ color: "var(--desktop-menu-text-muted)" }} />
           ) : (
-            <ChevronDown size={16} style={{ color: "var(--win95-text-secondary)" }} />
+            <ChevronDown size={16} style={{ color: "var(--desktop-menu-text-muted)" }} />
           )}
         </button>
         {isExpanded && <div className="p-3">{children}</div>}
@@ -180,10 +184,10 @@ export function TemplateDetailPanel({
 
   const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start mb-2 text-xs">
-      <span className="font-bold w-32 flex-shrink-0" style={{ color: "var(--win95-text-secondary)" }}>
+      <span className="font-bold w-32 flex-shrink-0" style={{ color: "var(--desktop-menu-text-muted)" }}>
         {label}:
       </span>
-      <span style={{ color: "var(--win95-text)" }}>{value}</span>
+      <span style={{ color: "var(--window-document-text)" }}>{value}</span>
     </div>
   );
 
@@ -194,39 +198,47 @@ export function TemplateDetailPanel({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl max-h-[90vh] overflow-hidden border-2"
+        className="w-full max-w-3xl max-h-[92vh] overflow-hidden border rounded-xl"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
           boxShadow: "var(--modal-shadow)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Title bar */}
         <div
-          className="flex items-center justify-between px-3 py-2 border-b-2"
+          className="flex items-center justify-between px-4 py-3 border-b gap-3"
           style={{
-            background: "var(--win95-titlebar)",
-            borderColor: "var(--win95-border)",
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
           }}
         >
-          <div className="flex items-center gap-2">
-            {getTemplateIcon()}
-            <span className="font-bold text-sm text-white">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              className="desktop-interior-button h-8 px-3 text-xs shrink-0"
+              onClick={onClose}
+              title="Back to list"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to list</span>
+            </button>
+            <span style={{ color: "var(--tone-accent-strong)" }}>{getTemplateIcon()}</span>
+            <span className="font-bold text-sm truncate" style={{ color: "var(--window-document-text)" }}>
               {template.name} - Template Details
             </span>
           </div>
           <button
-            className="p-1 hover:bg-red-600 transition-colors"
+            className="desktop-interior-button h-9 w-9 p-0"
             onClick={onClose}
             title="Close"
           >
-            <X size={16} className="text-white" />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-4 retro-scrollbar">
+        <div className="overflow-y-auto max-h-[calc(92vh-116px)] p-4 retro-scrollbar">
           {/* BASIC INFO */}
           <Section id="basicInfo" title="Basic Information" icon={FileText}>
             <InfoRow label="Name" value={template.name} />
@@ -246,7 +258,7 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold capitalize"
-                    style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
+                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
                   >
                     {category}
                   </span>
@@ -274,7 +286,7 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold flex items-center gap-1 inline-flex"
-                    style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
+                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
                   >
                     <Star size={10} fill="currentColor" />
                     Default for "{category}" category
@@ -295,8 +307,9 @@ export function TemplateDetailPanel({
                     Used in {usage.templateSets.length} set{usage.templateSets.length !== 1 ? "s" : ""}
                   </span>
                 ) : (
-                  <span className="font-bold" style={{ color: "var(--error)" }}>
-                    ⚠️ Not used in any template sets
+                  <span className="font-bold inline-flex items-center gap-1" style={{ color: "var(--error)" }}>
+                    <AlertTriangle size={12} />
+                    Not used in any template sets
                   </span>
                 )
               }
@@ -309,7 +322,7 @@ export function TemplateDetailPanel({
                     {usage.products.length} product{usage.products.length !== 1 ? "s" : ""} reference this template
                   </span>
                 ) : (
-                  <span style={{ color: "var(--win95-text-secondary)" }}>No products using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No products using this template</span>
                 )
               }
             />
@@ -321,7 +334,7 @@ export function TemplateDetailPanel({
                     {usage.checkouts.length} checkout{usage.checkouts.length !== 1 ? "s" : ""} use this template
                   </span>
                 ) : (
-                  <span style={{ color: "var(--win95-text-secondary)" }}>No checkouts using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No checkouts using this template</span>
                 )
               }
             />
@@ -333,7 +346,7 @@ export function TemplateDetailPanel({
                     {usage.domains.length} domain{usage.domains.length !== 1 ? "s" : ""} use this template
                   </span>
                 ) : (
-                  <span style={{ color: "var(--win95-text-secondary)" }}>No domains using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No domains using this template</span>
                 )
               }
             />
@@ -345,8 +358,8 @@ export function TemplateDetailPanel({
             {usage.templateSets.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Package size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="font-bold text-xs" style={{ color: "var(--win95-text)" }}>
+                  <Package size={14} style={{ color: "var(--tone-accent-strong)" }} />
+                  <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
                     Template Sets ({usage.templateSets.length})
                   </span>
                 </div>
@@ -355,14 +368,14 @@ export function TemplateDetailPanel({
                     <div
                       key={set.setId}
                       className="text-xs flex items-center gap-2"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       <span>•</span>
                       <span>{set.setName}</span>
                       {set.isDefault && (
                         <span
                           className="px-1 py-0.5 text-[10px] font-bold"
-                          style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
+                          style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
                         >
                           DEFAULT
                         </span>
@@ -377,8 +390,8 @@ export function TemplateDetailPanel({
             {usage.products.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="font-bold text-xs" style={{ color: "var(--win95-text)" }}>
+                  <ShoppingCart size={14} style={{ color: "var(--tone-accent-strong)" }} />
+                  <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
                     Products ({usage.products.length})
                   </span>
                 </div>
@@ -387,17 +400,17 @@ export function TemplateDetailPanel({
                     <div
                       key={product.productId}
                       className="text-xs flex items-center gap-2"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       <span>•</span>
                       <span>{product.productName}</span>
-                      <span style={{ color: "var(--win95-text-secondary)" }}>
+                      <span style={{ color: "var(--desktop-menu-text-muted)" }}>
                         (via {product.templateSetName})
                       </span>
                     </div>
                   ))}
                   {usage.products.length > 5 && (
-                    <div className="text-xs pl-3" style={{ color: "var(--win95-text-secondary)" }}>
+                    <div className="text-xs pl-3" style={{ color: "var(--desktop-menu-text-muted)" }}>
                       ... and {usage.products.length - 5} more
                     </div>
                   )}
@@ -409,8 +422,8 @@ export function TemplateDetailPanel({
             {usage.checkouts.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="font-bold text-xs" style={{ color: "var(--win95-text)" }}>
+                  <ShoppingCart size={14} style={{ color: "var(--tone-accent-strong)" }} />
+                  <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
                     Checkouts ({usage.checkouts.length})
                   </span>
                 </div>
@@ -419,11 +432,11 @@ export function TemplateDetailPanel({
                     <div
                       key={checkout.checkoutId}
                       className="text-xs flex items-center gap-2"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       <span>•</span>
                       <span>{checkout.checkoutName}</span>
-                      <span style={{ color: "var(--win95-text-secondary)" }}>
+                      <span style={{ color: "var(--desktop-menu-text-muted)" }}>
                         (via {checkout.templateSetName})
                       </span>
                     </div>
@@ -436,8 +449,8 @@ export function TemplateDetailPanel({
             {usage.domains.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Globe size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="font-bold text-xs" style={{ color: "var(--win95-text)" }}>
+                  <Globe size={14} style={{ color: "var(--tone-accent-strong)" }} />
+                  <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
                     Domains ({usage.domains.length})
                   </span>
                 </div>
@@ -446,11 +459,11 @@ export function TemplateDetailPanel({
                     <div
                       key={domain.domainId}
                       className="text-xs flex items-center gap-2"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       <span>•</span>
                       <span>{domain.domainName}</span>
-                      <span style={{ color: "var(--win95-text-secondary)" }}>
+                      <span style={{ color: "var(--desktop-menu-text-muted)" }}>
                         (via {domain.templateSetName})
                       </span>
                     </div>
@@ -465,16 +478,19 @@ export function TemplateDetailPanel({
               usage.checkouts.length === 0 &&
               usage.domains.length === 0 && (
                 <div
-                  className="text-xs p-4 text-center border-2"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "rgba(239, 68, 68, 0.05)",
-                    color: "var(--error)",
-                  }}
-                >
-                  ⚠️ This template is not currently being used anywhere.
+                  className="text-xs p-4 text-center border"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "rgba(239, 68, 68, 0.05)",
+                  color: "var(--error)",
+                }}
+              >
+                  <span className="inline-flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    This template is not currently being used anywhere.
+                  </span>
                   <br />
-                  <span className="text-[10px]" style={{ color: "var(--win95-text-secondary)" }}>
+                  <span className="text-[10px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     Consider adding it to a template set or archiving it.
                   </span>
                 </div>
@@ -487,14 +503,17 @@ export function TemplateDetailPanel({
               <>
                 <div className="mb-3">
                   <div
-                    className="text-xs p-2 border-2"
+                    className="text-xs p-2 border"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: "rgba(16, 185, 129, 0.05)",
                       color: "#10B981",
                     }}
                   >
-                    ✓ This template has a defined schema for data validation
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle2 size={12} />
+                      This template has a defined schema for data validation
+                    </span>
                   </div>
                 </div>
                 <button
@@ -517,11 +536,11 @@ export function TemplateDetailPanel({
               </>
             ) : (
               <div
-                className="text-xs p-4 text-center border-2"
+                className="text-xs p-4 text-center border"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
-                  color: "var(--win95-text-secondary)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--desktop-menu-text-muted)",
                 }}
               >
                 No schema defined for this template
@@ -574,10 +593,10 @@ export function TemplateDetailPanel({
 
         {/* Footer */}
         <div
-          className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
+          className="flex items-center justify-end gap-2 px-4 py-3 border-t"
           style={{
-            background: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
           }}
         >
           <button className="retro-button text-xs" onClick={onClose}>

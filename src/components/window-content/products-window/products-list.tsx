@@ -107,9 +107,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
 
   const getSubtypeLabel = (subtype: string) => {
     const labels: Record<string, string> = {
-      ticket: "🎟️ Ticket",
-      physical: "📦 Physical",
-      digital: "💾 Digital",
+      ticket: "Ticket",
+      physical: "Physical",
+      digital: "Digital",
     };
     return labels[subtype] || subtype;
   };

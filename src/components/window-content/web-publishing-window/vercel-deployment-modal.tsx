@@ -149,7 +149,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
 
         githubCheck.status = result.valid ? "passed" : "failed";
         githubCheck.message = result.valid
-          ? `✓ ${result.repoInfo?.owner}/${result.repoInfo?.repo} verified`
+          ? ` ${result.repoInfo?.owner}/${result.repoInfo?.repo} verified`
           : result.error || "Repository validation failed";
         githubCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
       } catch (error) {
@@ -183,7 +183,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
 
         vercelUrlCheck.status = result.valid ? "passed" : "failed";
         vercelUrlCheck.message = result.valid
-          ? `✓ Vercel deploy URL ready (${result.deployInfo?.envVars?.length || 0} env vars configured)`
+          ? ` Vercel deploy URL ready (${result.deployInfo?.envVars?.length || 0} env vars configured)`
           : result.error || "Vercel URL validation failed";
         vercelUrlCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
       } catch (error) {
@@ -206,7 +206,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       message: githubIntegration === undefined
         ? "Checking GitHub OAuth connection..."
         : (githubIntegration.connected
-          ? `✓ Connected: ${githubIntegration.integration?.name}`
+          ? ` Connected: ${githubIntegration.integration?.name}`
           : "GitHub integration not connected - required for deployment"),
     };
 
@@ -221,7 +221,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
             undefined,
             undefined,
             "ui.windows.integrations.title",
-            "🔗"
+            undefined
           );
         });
         notification.info("Opening Integrations", "Opening Integrations window - select GitHub from the list");
@@ -238,7 +238,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       message: vercelIntegration === undefined
         ? "Checking Vercel OAuth connection..."
         : (vercelIntegration.connected
-          ? `✓ Connected: ${vercelIntegration.integration?.name}`
+          ? ` Connected: ${vercelIntegration.integration?.name}`
           : "Vercel integration not connected - required for deployment"),
     };
 
@@ -253,7 +253,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
             undefined,
             undefined,
             "ui.windows.integrations.title",
-            "🔗"
+            undefined
           );
         });
         notification.info("Opening Integrations", "Opening Integrations window - select Vercel from the list");
@@ -270,7 +270,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       message: apiKeyStatus === undefined
         ? "Checking for active API keys..."
         : (apiKeyStatus.hasApiKey
-          ? `✓ ${apiKeyStatus.count || 0} active API key${(apiKeyStatus.count || 0) > 1 ? "s" : ""} available`
+          ? ` ${apiKeyStatus.count || 0} active API key${(apiKeyStatus.count || 0) > 1 ? "s" : ""} available`
           : "No active API keys found - required for deployment"),
     };
 
@@ -285,7 +285,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
             undefined,
             undefined,
             "ui.windows.integrations.title",
-            "🔗",
+            undefined,
             { initialPanel: "api-keys" }
           );
         });
@@ -303,7 +303,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       message: envVars === undefined
         ? "Loading environment variables configuration..."
         : (envVars && Array.isArray(envVars) && envVars.length > 0
-          ? `✓ ${envVars.length} environment variable${envVars.length > 1 ? "s" : ""} documented (${Array.isArray(envVars) ? envVars.filter((v: { required?: boolean }) => v.required).length : 0} required)`
+          ? ` ${envVars.length} environment variable${envVars.length > 1 ? "s" : ""} documented (${Array.isArray(envVars) ? envVars.filter((v: { required?: boolean }) => v.required).length : 0} required)`
           : "No environment variables configured - using defaults"),
       fixAction: () => setShowEnvVarsModal(true),
     };
@@ -690,7 +690,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   </p>
                   {checks.some(c => c.status === "warning") && (
                     <p className="text-xs" style={{ color: '#D97706' }}>
-                      ⚠️ Some optional checks have warnings. Deployment will work, but consider addressing them for better experience.
+                       Some optional checks have warnings. Deployment will work, but consider addressing them for better experience.
                     </p>
                   )}
                 </div>

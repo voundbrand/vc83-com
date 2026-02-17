@@ -90,7 +90,7 @@ function Step({ number, title, description, command, icon, note }: StepProps) {
         <CopyableCommand command={command} />
         {note && (
           <p className="text-xs mt-1.5 italic" style={{ color: "var(--neutral-gray)" }}>
-            💡 {note}
+             {note}
           </p>
         )}
       </div>
@@ -190,11 +190,11 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
         <div className="flex flex-wrap gap-2">
           {[
             { name: "Next.js", icon: "▲" },
-            { name: "Remix", icon: "💿" },
-            { name: "Astro", icon: "🚀" },
-            { name: "Vite", icon: "⚡" },
-            { name: "Nuxt", icon: "💚" },
-            { name: "SvelteKit", icon: "🔥" },
+            { name: "Remix", icon: "R" },
+            { name: "Astro", icon: "A" },
+            { name: "Vite", icon: "V" },
+            { name: "Nuxt", icon: "N" },
+            { name: "SvelteKit", icon: "S" },
           ].map((fw) => (
             <span
               key={fw.name}

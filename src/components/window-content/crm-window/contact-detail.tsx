@@ -59,13 +59,13 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--win95-text)' }}>{fullName}</h2>
+      <div className="pb-4 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+        <h2 className="text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>{fullName}</h2>
         <div className="space-y-1">
           {email && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--neutral-gray)' }}>
               <Mail size={14} />
-              <a href={`mailto:${email}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>
+              <a href={`mailto:${email}`} className="hover:underline" style={{ color: 'var(--tone-accent-strong)' }}>
                 {email}
               </a>
             </div>
@@ -73,7 +73,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
           {phone && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--neutral-gray)' }}>
               <Phone size={14} />
-              <a href={`tel:${phone}`} className="hover:underline" style={{ color: 'var(--win95-highlight)' }}>
+              <a href={`tel:${phone}`} className="hover:underline" style={{ color: 'var(--tone-accent-strong)' }}>
                 {phone}
               </a>
             </div>
@@ -88,24 +88,24 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
 
       {/* Linked Organization */}
       {organizations && organizations.length > 0 && (
-        <div className="border-2 rounded p-3" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
+        <div className="border rounded-lg p-3" style={{ background: 'var(--desktop-shell-accent)', borderColor: 'var(--window-document-border)' }}>
           <div className="flex items-center gap-2 mb-2">
-            <Building2 size={16} style={{ color: 'var(--win95-highlight)' }} />
-            <span className="text-xs font-pixel" style={{ color: 'var(--win95-highlight)' }}>ORGANIZATION</span>
+            <Building2 size={16} style={{ color: 'var(--tone-accent-strong)' }} />
+            <span className="text-xs font-pixel" style={{ color: 'var(--tone-accent-strong)' }}>ORGANIZATION</span>
           </div>
           {organizations.map((org) => {
             const relationship = org.relationship || {}
             return (
               <div key={org._id} className="space-y-1">
-                <div className="font-bold" style={{ color: 'var(--win95-text)' }}>{org.name}</div>
+                <div className="font-bold" style={{ color: 'var(--window-document-text)' }}>{org.name}</div>
                 {relationship.jobTitle && (
-                  <div className="text-sm" style={{ color: 'var(--win95-text)' }}>{relationship.jobTitle}</div>
+                  <div className="text-sm" style={{ color: 'var(--window-document-text)' }}>{relationship.jobTitle}</div>
                 )}
                 {relationship.department && (
                   <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{relationship.department}</div>
                 )}
                 {relationship.isPrimaryContact && (
-                  <div className="text-xs font-semibold" style={{ color: 'var(--win95-highlight)' }}>Primary Contact</div>
+                  <div className="text-xs font-semibold" style={{ color: 'var(--tone-accent-strong)' }}>Primary Contact</div>
                 )}
               </div>
             )
@@ -119,7 +119,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
       {/* Purchase Stats */}
       {totalSpent > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="border-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+          <div className="border p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
             <div className="flex items-center gap-2 mb-1">
               <DollarSign size={14} style={{ color: 'var(--success)' }} />
               <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>TOTAL SPENT</span>
@@ -128,31 +128,31 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
               ${(totalSpent / 100).toFixed(2)}
             </div>
           </div>
-          <div className="border-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+          <div className="border p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
             <div className="flex items-center gap-2 mb-1">
-              <ShoppingCart size={14} style={{ color: 'var(--win95-highlight)' }} />
+              <ShoppingCart size={14} style={{ color: 'var(--tone-accent-strong)' }} />
               <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>PURCHASES</span>
             </div>
-            <div className="text-lg font-bold" style={{ color: 'var(--win95-highlight)' }}>{purchaseCount}</div>
+            <div className="text-lg font-bold" style={{ color: 'var(--tone-accent-strong)' }}>{purchaseCount}</div>
           </div>
         </div>
       )}
 
       {/* Status & Source */}
       <div>
-        <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>STATUS</div>
+        <div className="text-xs font-pixel mb-2" style={{ color: 'var(--window-document-text)' }}>STATUS</div>
         <div className="flex gap-2 flex-wrap">
           <span
-            className="px-2 py-1 text-xs font-pixel border-2"
+            className="px-2 py-1 text-xs font-pixel border"
             style={{
-              background: stage === "customer" ? 'var(--win95-bg-light)' : stage === "prospect" ? 'var(--win95-bg-light)' : stage === "lead" ? 'var(--win95-bg-light)' : 'var(--win95-bg-light)',
-              borderColor: stage === "customer" ? 'var(--success)' : stage === "prospect" ? 'var(--win95-highlight)' : stage === "lead" ? 'var(--neutral-gray)' : 'var(--win95-border)',
-              color: stage === "customer" ? 'var(--success)' : stage === "prospect" ? 'var(--win95-highlight)' : stage === "lead" ? 'var(--neutral-gray)' : 'var(--win95-text)'
+              background: stage === "customer" ? 'var(--desktop-shell-accent)' : stage === "prospect" ? 'var(--desktop-shell-accent)' : stage === "lead" ? 'var(--desktop-shell-accent)' : 'var(--desktop-shell-accent)',
+              borderColor: stage === "customer" ? 'var(--success)' : stage === "prospect" ? 'var(--tone-accent-strong)' : stage === "lead" ? 'var(--neutral-gray)' : 'var(--window-document-border)',
+              color: stage === "customer" ? 'var(--success)' : stage === "prospect" ? 'var(--tone-accent-strong)' : stage === "lead" ? 'var(--neutral-gray)' : 'var(--window-document-text)'
             }}
           >
             {stage.toUpperCase()}
           </span>
-          <span className="px-2 py-1 text-xs border-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
+          <span className="px-2 py-1 text-xs border" style={{ background: 'var(--desktop-shell-accent)', borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}>
             SOURCE: {source.toUpperCase()}
           </span>
         </div>
@@ -162,8 +162,8 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
       {tags.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Tag size={14} style={{ color: 'var(--win95-text)' }} />
-            <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>
+            <Tag size={14} style={{ color: 'var(--window-document-text)' }} />
+            <span className="text-xs font-pixel" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.crm.contact_detail.tags_label")}
             </span>
           </div>
@@ -171,11 +171,11 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
             {tags.map((tag: unknown, index: number) => (
               <span
                 key={index}
-                className="px-2 py-1 text-xs border-2"
+                className="px-2 py-1 text-xs border"
                 style={{
-                  background: 'var(--win95-bg-light)',
-                  borderColor: 'var(--win95-highlight)',
-                  color: 'var(--win95-highlight)'
+                  background: 'var(--desktop-shell-accent)',
+                  borderColor: 'var(--tone-accent-strong)',
+                  color: 'var(--tone-accent-strong)'
                 }}
               >
                 {String(tag)}
@@ -188,20 +188,20 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
       {/* Notes */}
       {notes && (
         <div>
-          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-text)' }}>
+          <div className="text-xs font-pixel mb-2" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.crm.contact_detail.notes_label")}
           </div>
-          <div className="border-2 p-3 text-sm whitespace-pre-wrap" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}>
+          <div className="border p-3 text-sm whitespace-pre-wrap" style={{ background: 'var(--desktop-shell-accent)', borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}>
             {notes}
           </div>
         </div>
       )}
 
       {/* Activity Timeline */}
-      <div className="pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="pt-4 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
         <div className="flex items-center gap-2 mb-3">
-          <Calendar size={14} style={{ color: 'var(--win95-text)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--win95-text)' }}>
+          <Calendar size={14} style={{ color: 'var(--window-document-text)' }} />
+          <span className="text-xs font-pixel" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.crm.contact_detail.activity_label")}
           </span>
         </div>

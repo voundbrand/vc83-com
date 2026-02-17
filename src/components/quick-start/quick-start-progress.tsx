@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { AlertTriangle, Check, X, CircleCheckBig } from "lucide-react";
 import type { QuickStartProgress } from "./types";
 
 interface QuickStartProgressProps {
@@ -65,8 +66,9 @@ export function QuickStartProgressComponent({
           {/* Error Message */}
           {hasError && (
             <div className="bg-red-100 border-4 border-red-600 p-4">
-              <p className="text-red-800 font-bold text-sm mb-2">
-                ⚠️ Setup Failed
+              <p className="text-red-800 font-bold text-sm mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Setup Failed
               </p>
               <p className="text-red-700 text-xs">{progress.error}</p>
             </div>
@@ -95,7 +97,7 @@ export function QuickStartProgressComponent({
                 <div className="flex-shrink-0 mt-0.5">
                   {step.status === "completed" ? (
                     <div className="w-5 h-5 bg-green-600 border-2 border-green-800 flex items-center justify-center text-white text-xs font-bold">
-                      ✓
+                      <Check className="w-3 h-3" />
                     </div>
                   ) : step.status === "in_progress" ? (
                     <div className="w-5 h-5 bg-purple-600 border-2 border-purple-800 flex items-center justify-center">
@@ -103,7 +105,7 @@ export function QuickStartProgressComponent({
                     </div>
                   ) : step.status === "error" ? (
                     <div className="w-5 h-5 bg-red-600 border-2 border-red-800 flex items-center justify-center text-white text-xs font-bold">
-                      ✕
+                      <X className="w-3 h-3" />
                     </div>
                   ) : (
                     <div className="w-5 h-5 bg-gray-300 border-2 border-gray-400" />
@@ -126,8 +128,9 @@ export function QuickStartProgressComponent({
           {/* Completion Message */}
           {isComplete && (
             <div className="bg-green-100 border-4 border-green-600 p-4">
-              <p className="text-green-800 font-bold text-sm mb-2">
-                ✓ Setup Complete!
+              <p className="text-green-800 font-bold text-sm mb-2 flex items-center gap-2">
+                <CircleCheckBig className="w-4 h-4" />
+                Setup Complete!
               </p>
               <p className="text-green-700 text-xs">
                 Your workspace is ready. All apps and templates have been

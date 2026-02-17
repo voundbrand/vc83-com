@@ -315,7 +315,7 @@ export function WorkflowCanvas({
             <span style={{ color: 'var(--neutral-gray)' }}>Execution flow (by priority)</span>
           </div>
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
-            💡 Drag nodes to reorder • Click + on arrows to insert
+             Drag nodes to reorder • Click + on arrows to insert
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, AlertCircle } from "lucide-react";
+import { Clock, AlertCircle, ScrollText } from "lucide-react";
 
 interface LicenseHeaderProps {
   license: {
@@ -78,7 +78,8 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
             className="text-sm font-bold flex items-center gap-2"
             style={{ color: "var(--win95-text)" }}
           >
-            📜 Current License Configuration
+            <ScrollText className="w-4 h-4" />
+            Current License Configuration
           </h3>
         </div>
 
@@ -182,7 +183,8 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
                 className="text-xs font-bold mb-1 flex items-center gap-2"
                 style={{ color: "var(--error)" }}
               >
-                ⚠️ MANUAL OVERRIDE ACTIVE
+                <AlertCircle className="w-4 h-4" />
+                MANUAL OVERRIDE ACTIVE
               </h4>
               <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
                 This license has custom limits set by a super admin.

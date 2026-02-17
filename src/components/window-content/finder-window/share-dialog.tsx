@@ -54,15 +54,15 @@ export function ShareProjectDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative w-full max-w-lg p-6 border-2 shadow-lg"
+        className="relative w-full max-w-lg p-6 border rounded-2xl shadow-lg"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1"
+          className="absolute top-3 right-3 p-1 rounded-md"
           style={{ color: "var(--neutral-gray)" }}
         >
           <X size={14} />
@@ -77,7 +77,7 @@ export function ShareProjectDialog({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="flex gap-1 mb-4 border-b pb-2" style={{ borderColor: "var(--window-document-border)" }}>
           <TabButton
             label="New Share"
             active={activeTab === "new"}
@@ -121,13 +121,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className="px-3 py-1.5 text-xs font-bold border-2 border-b-0 rounded-t"
-      style={{
-        borderColor: active ? "var(--win95-border)" : "transparent",
-        background: active ? "var(--win95-bg)" : "transparent",
-        color: active ? "var(--win95-text)" : "var(--neutral-gray)",
-        marginBottom: active ? "-2px" : "0",
-      }}
+      className={`desktop-interior-tab px-3 py-1.5 text-xs font-bold ${active ? "desktop-interior-tab-active" : ""}`}
     >
       {label}
     </button>
@@ -206,12 +200,7 @@ function NewShareTab({
           value={targetOrgId}
           onChange={(e) => setTargetOrgId(e.target.value)}
           placeholder="Paste organization ID..."
-          className="w-full px-3 py-2 text-xs border-2 font-mono"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
-            color: "var(--win95-text)",
-          }}
+          className="desktop-interior-input w-full text-xs font-mono"
         />
       </div>
 
@@ -225,12 +214,7 @@ function NewShareTab({
           <select
             value={permission}
             onChange={(e) => setPermission(e.target.value as Permission)}
-            className="w-full px-3 py-2 text-xs border-2 appearance-none pr-8"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-select w-full text-xs pr-8"
           >
             <option value="viewer">Viewer - Read only</option>
             <option value="editor">Editor - Read & write</option>
@@ -282,12 +266,7 @@ function NewShareTab({
             value={sharedPath}
             onChange={(e) => setSharedPath(e.target.value)}
             placeholder="/src/components"
-            className="w-full px-3 py-2 text-xs border-2 font-mono"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full text-xs font-mono"
           />
           <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
             Only this path and its children will be shared.
@@ -312,11 +291,8 @@ function NewShareTab({
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !targetOrgId.trim()}
-          className="px-4 py-2 text-xs font-bold border-2 rounded"
+          className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--primary)",
-            color: "#fff",
             opacity: isSubmitting || !targetOrgId.trim() ? 0.5 : 1,
           }}
         >
@@ -404,10 +380,10 @@ function ActiveSharesTab({
       {activeShares.map((share) => (
         <div
           key={share._id}
-          className="flex items-center justify-between gap-2 px-3 py-2 border-2"
+          className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
           <div className="flex-1 min-w-0">
@@ -447,12 +423,7 @@ function ActiveSharesTab({
                       e.target.value as Permission
                     )
                   }
-                  className="text-[10px] px-1 py-0.5 border appearance-none pr-4"
-                  style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
+                  className="desktop-interior-select text-[10px] py-0.5 pl-1 pr-5"
                 >
                   <option value="viewer">Viewer</option>
                   <option value="editor">Editor</option>
@@ -470,10 +441,8 @@ function ActiveSharesTab({
             <button
               onClick={() => handleRevoke(share._id as Id<"projectShares">)}
               disabled={revoking === share._id}
-              className="p-1 border rounded"
+              className="desktop-interior-button p-1"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
                 color: "var(--error-red)",
                 opacity: revoking === share._id ? 0.5 : 1,
               }}
@@ -527,7 +496,7 @@ function PendingInvitesSection({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <div className="mt-4 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+    <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--window-document-border)" }}>
       <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
         <Users size={12} className="inline mr-1" />
         Pending Invitations ({pending.length})
@@ -543,10 +512,10 @@ function PendingInvitesSection({ sessionId }: { sessionId: string }) {
         {pending.map((invite) => (
           <div
             key={invite._id}
-            className="flex items-center justify-between gap-2 px-3 py-2 border-2"
+            className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
             }}
           >
             <div className="flex-1 min-w-0">
@@ -571,9 +540,8 @@ function PendingInvitesSection({ sessionId }: { sessionId: string }) {
               <button
                 onClick={() => handleAccept(invite._id as Id<"projectShares">)}
                 disabled={processing === invite._id}
-                className="p-1 border-2 rounded"
+                className="desktop-interior-button p-1"
                 style={{
-                  borderColor: "var(--win95-border)",
                   background: "var(--success-green)",
                   color: "#fff",
                   opacity: processing === invite._id ? 0.5 : 1,
@@ -585,10 +553,8 @@ function PendingInvitesSection({ sessionId }: { sessionId: string }) {
               <button
                 onClick={() => handleDecline(invite._id as Id<"projectShares">)}
                 disabled={processing === invite._id}
-                className="p-1 border-2 rounded"
+                className="desktop-interior-button p-1"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
                   color: "var(--error-red)",
                   opacity: processing === invite._id ? 0.5 : 1,
                 }}

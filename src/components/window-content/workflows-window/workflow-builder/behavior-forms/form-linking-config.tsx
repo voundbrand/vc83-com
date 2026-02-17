@@ -78,7 +78,7 @@ export function FormLinkingConfigForm({
               className="h-3 w-3"
             />
             <span className="text-xs">
-              🛒 <strong>During Checkout</strong> - Show before payment
+               <strong>During Checkout</strong> - Show before payment
             </span>
           </label>
           <label className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function FormLinkingConfigForm({
               className="h-3 w-3"
             />
             <span className="text-xs">
-              ✉️ <strong>After Purchase</strong> - Send via email
+               <strong>After Purchase</strong> - Send via email
             </span>
           </label>
           <label className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function FormLinkingConfigForm({
               className="h-3 w-3"
             />
             <span className="text-xs">
-              🔗 <strong>Standalone</strong> - Separate link only
+               <strong>Standalone</strong> - Separate link only
             </span>
           </label>
         </div>

@@ -11,14 +11,32 @@ import { v } from "convex/values";
 const generatedApi: any = require("../_generated/api");
 import { OpenRouterClient } from "./openrouter";
 import { getToolSchemas, executeTool } from "./tools/registry";
+import { calculateCostFromUsage } from "./modelPricing";
+import { getAgentMessageCost } from "../credits/index";
 import {
   detectProvider,
   formatToolResult,
   formatToolError,
   getProviderConfig,
 } from "./modelAdapters";
+import {
+  SAFE_FALLBACK_MODEL_ID,
+  determineModelSelectionSource,
+  resolveOrgDefaultModel,
+  resolveRequestedModel,
+  selectFirstPlatformEnabledModel,
+} from "./modelPolicy";
+import {
+  getAuthProfileCooldownMs,
+  isAuthProfileRotatableError,
+  orderAuthProfilesForSession,
+  resolveOpenRouterAuthProfiles,
+} from "./authProfilePolicy";
+import { buildModelFailoverCandidates } from "./modelFailoverPolicy";
+import { LLM_RETRY_POLICY, withRetry } from "./retryPolicy";
+import { shouldRequireToolApproval, type ToolApprovalAutonomyLevel } from "./escalation";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
-import { PAGE_BUILDER_SYSTEM_PROMPT, getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
+import { getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
 import { getKnowledgeContent } from "./systemKnowledge";
 
 // Type definitions for OpenRouter API
@@ -127,6 +145,100 @@ interface ConversationMessage {
   }>;
 }
 
+interface ModelResolutionPayload {
+  requestedModel?: string;
+  selectedModel: string;
+  selectionSource: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+}
+
+export function buildModelResolutionPayload(args: {
+  requestedModel?: string;
+  selectedModel: string;
+  selectionSource: string;
+  usedModel?: string;
+  selectedAuthProfileId?: string | null;
+  usedAuthProfileId?: string | null;
+}): ModelResolutionPayload {
+  const modelFallbackUsed =
+    typeof args.usedModel === "string" && args.usedModel !== args.selectedModel;
+  const authProfileFallbackUsed =
+    typeof args.selectedAuthProfileId === "string" &&
+    typeof args.usedAuthProfileId === "string" &&
+    args.selectedAuthProfileId !== args.usedAuthProfileId;
+  const selectionFallbackUsed =
+    args.selectionSource !== "preferred" && args.selectionSource !== "session_pinned";
+  const fallbackUsed =
+    selectionFallbackUsed || modelFallbackUsed || authProfileFallbackUsed;
+  return {
+    requestedModel: args.requestedModel,
+    selectedModel: args.usedModel ?? args.selectedModel,
+    selectionSource: args.selectionSource,
+    fallbackUsed,
+    fallbackReason: modelFallbackUsed
+      ? "retry_chain"
+      : authProfileFallbackUsed
+      ? "auth_profile_rotation"
+      : selectionFallbackUsed
+      ? args.selectionSource
+      : undefined,
+  };
+}
+
+interface ChatCompletionFailoverResult {
+  response: ChatResponse;
+  usedModel: string;
+  selectedAuthProfileId: string | null;
+  usedAuthProfileId: string | null;
+  authProfileFallbackUsed: boolean;
+  modelFallbackUsed: boolean;
+}
+
+const CHAT_DANGEROUS_TOOL_ALLOWLIST = [
+  "process_payment",
+  "send_bulk_crm_email",
+  "send_email_from_template",
+  "create_invoice",
+  "publish_checkout",
+  "publish_all",
+  "update_organization_settings",
+  "configure_ai_models",
+  "propose_soul_update",
+];
+
+interface ChatToolApprovalPolicy {
+  autonomyLevel: ToolApprovalAutonomyLevel;
+  requireApprovalFor: string[];
+}
+
+export function resolveChatToolApprovalPolicy(settings: {
+  humanInLoopEnabled?: boolean;
+  toolApprovalMode?: "all" | "dangerous" | "none";
+}): ChatToolApprovalPolicy {
+  const approvalMode = settings.toolApprovalMode ?? "all";
+  const humanInLoopEnabled = settings.humanInLoopEnabled !== false;
+
+  if (!humanInLoopEnabled || approvalMode === "none") {
+    return {
+      autonomyLevel: "autonomous",
+      requireApprovalFor: [],
+    };
+  }
+
+  if (approvalMode === "dangerous") {
+    return {
+      autonomyLevel: "autonomous",
+      requireApprovalFor: CHAT_DANGEROUS_TOOL_ALLOWLIST,
+    };
+  }
+
+  return {
+    autonomyLevel: "supervised",
+    requireApprovalFor: [],
+  };
+}
+
 export const sendMessage = action({
   args: {
     conversationId: v.optional(v.id("aiConversations")),
@@ -146,6 +258,7 @@ export const sendMessage = action({
     toolCalls: ToolCallResult[];
     usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
     cost: number;
+    modelResolution: ModelResolutionPayload;
   }> => {
     // 1. Get or create conversation
     let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
@@ -180,11 +293,97 @@ export const sendMessage = action({
     // 3. Get conversation history
     const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
-    }) as { messages: ConversationMessage[]; slug?: string };
+    }) as { messages: ConversationMessage[]; slug?: string; modelId?: string | null };
 
     // Capture slug for new conversations (to return for URL update)
     if (isNewConversation && conversation.slug) {
       conversationSlug = conversation.slug;
+    }
+
+    const useLegacyPageBuilderFlow = args.context === "page_builder";
+    if (!useLegacyPageBuilderFlow) {
+      const externalContactIdentifier = `desktop:${args.userId}:${conversationId}`;
+      const agentResult = await (ctx as any).runAction(
+        generatedApi.api.ai.agentExecution.processInboundMessage,
+        {
+          organizationId: args.organizationId,
+          channel: "desktop",
+          externalContactIdentifier,
+          message: args.message,
+          metadata: {
+            skipOutbound: true,
+            source: "desktop_chat",
+            conversationId,
+            userId: args.userId,
+            selectedModel: args.selectedModel,
+          },
+        }
+      ) as {
+        status: string;
+        message?: string;
+        response?: string;
+        toolResults?: Array<{ tool: string; status: string; result?: unknown; error?: string }>;
+      };
+
+      if (agentResult.status === "credits_exhausted") {
+        throw new Error("CREDITS_EXHAUSTED: Not enough credits for this request.");
+      }
+      if (agentResult.status === "rate_limited") {
+        throw new Error(agentResult.message || "Rate limit exceeded. Please try again later.");
+      }
+      if (agentResult.status === "error") {
+        throw new Error(agentResult.message || "Failed to process message via agent runtime.");
+      }
+
+      const toolCalls: ToolCallResult[] = (agentResult.toolResults || []).map((toolResult, index) => ({
+        id: `agent_tool_${Date.now()}_${index}`,
+        name: toolResult.tool,
+        arguments: {},
+        result: toolResult.result,
+        status:
+          toolResult.status === "success"
+            ? "success"
+            : toolResult.status === "pending_approval"
+              ? "pending_approval"
+              : "failed",
+        error: toolResult.error,
+      }));
+
+      const assistantMessage = (agentResult.response || agentResult.message || "").trim();
+      if (assistantMessage.length > 0) {
+        const executedToolCalls = toolCalls.filter(
+          (toolCall): toolCall is ToolCallResult & { status: "success" | "failed" } =>
+            toolCall.status === "success" || toolCall.status === "failed"
+        );
+        await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
+          conversationId,
+          role: "assistant",
+          content: assistantMessage,
+          timestamp: Date.now(),
+          toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
+          modelResolution: {
+            requestedModel: args.selectedModel,
+            selectedModel: args.selectedModel || "agent_execution",
+            selectionSource: "agent_execution",
+            fallbackUsed: false,
+          },
+        });
+      }
+
+      return {
+        conversationId: conversationId!,
+        slug: conversationSlug,
+        message: assistantMessage,
+        toolCalls,
+        usage: null,
+        cost: 0,
+        modelResolution: {
+          requestedModel: args.selectedModel,
+          selectedModel: args.selectedModel || "agent_execution",
+          selectionSource: "agent_execution",
+          fallbackUsed: false,
+        },
+      };
     }
 
     // 4. Get AI settings for model selection
@@ -210,281 +409,168 @@ export const sendMessage = action({
       throw new Error("Monthly AI budget exceeded. Please increase your budget or wait until next month.");
     }
 
-    // 5. Get OpenRouter API key
-    const apiKey = settings.llm.openrouterApiKey || process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenRouter API key not configured");
+    const chatApprovalPolicy = resolveChatToolApprovalPolicy({
+      humanInLoopEnabled: settings.humanInLoopEnabled,
+      toolApprovalMode: settings.toolApprovalMode,
+    });
+
+    // 5. Resolve auth profiles for two-stage failover
+    const authProfiles = resolveOpenRouterAuthProfiles({
+      llmSettings: settings.llm,
+      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+    });
+    if (authProfiles.length === 0) {
+      throw new Error("No OpenRouter auth profiles are currently configured");
+    }
+    const authProfileFailureCounts = new Map<string, number>();
+    for (const profile of settings.llm.authProfiles ?? []) {
+      if (!profile || typeof profile.profileId !== "string") {
+        continue;
+      }
+      authProfileFailureCounts.set(profile.profileId.trim(), profile.failureCount ?? 0);
     }
 
-    const client: OpenRouterClient = new OpenRouterClient(apiKey);
-    // Use selectedModel if provided, otherwise fall back to settings
-    const model: string = args.selectedModel || settings.llm.model || "anthropic/claude-3-5-sonnet";
+    const platformEnabledModels = await (ctx as any).runQuery(
+      generatedApi.api.ai.platformModels.getEnabledModels,
+      {}
+    ) as Array<{ id: string }>;
 
-    // Detect provider and get configuration
-    const provider = detectProvider(model);
-    const providerConfig = getProviderConfig(provider);
+    if (platformEnabledModels.length === 0) {
+      throw new Error("No platform-enabled AI models are currently configured");
+    }
 
-    console.log(`[AI Chat] Using model: ${model}, provider: ${provider}, selectedModel: ${args.selectedModel}, context: ${args.context || 'normal'}`);
+    const conversationPinnedModel =
+      typeof conversation.modelId === "string" && conversation.modelId.trim().length > 0
+        ? conversation.modelId.trim()
+        : null;
+    const preferredModel = resolveRequestedModel(settings, args.selectedModel);
+    const orgDefaultModel = resolveOrgDefaultModel(settings);
+    const orgEnabledModelIds = Array.isArray(settings.llm.enabledModels)
+      ? settings.llm.enabledModels.map(
+          (enabled: { modelId?: string }) => enabled.modelId
+        )
+      : [];
+    const firstPlatformEnabledModel = platformEnabledModels[0]?.id ?? null;
+    const model = selectFirstPlatformEnabledModel(
+      [
+        !args.selectedModel ? conversationPinnedModel : null,
+        preferredModel,
+        orgDefaultModel,
+        SAFE_FALLBACK_MODEL_ID,
+        firstPlatformEnabledModel,
+      ],
+      platformEnabledModels.map((platformModel) => platformModel.id)
+    );
 
-    // 6. Prepare messages for AI with enhanced reasoning capabilities
-    // Select system prompt based on context
+    if (!model) {
+      throw new Error("Unable to resolve a platform-enabled model for this organization");
+    }
+
+    const selectionSource =
+      !args.selectedModel && conversationPinnedModel && model === conversationPinnedModel
+        ? "session_pinned"
+        : determineModelSelectionSource({
+            selectedModel: model,
+            preferredModel,
+            orgDefaultModel,
+            safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+            platformFirstEnabledModelId: firstPlatformEnabledModel,
+          });
+    const messageCreditCost = getAgentMessageCost(model);
+
+    // Ensure users receive daily credits (idempotent) before pre-flight checks.
+    try {
+      await (ctx as any).runMutation(
+        generatedApi.internal.credits.index.grantDailyCreditsInternalMutation,
+        { organizationId: args.organizationId }
+      );
+    } catch (error) {
+      console.warn("[AI Chat] Failed to grant daily credits (non-blocking):", error);
+    }
+
+    const creditCheck = await (ctx as any).runQuery(
+      generatedApi.internal.credits.index.checkCreditsInternalQuery,
+      {
+        organizationId: args.organizationId,
+        requiredAmount: messageCreditCost,
+      }
+    ) as { hasCredits: boolean; totalCredits: number };
+
+    if (!creditCheck.hasCredits) {
+      try {
+        await (ctx as any).scheduler.runAfter(
+          0,
+          generatedApi.internal.credits.notifications.notifyCreditExhausted,
+          { organizationId: args.organizationId }
+        );
+      } catch (error) {
+        console.warn("[AI Chat] Failed to schedule exhausted-credit notification:", error);
+      }
+
+      throw new Error(
+        `CREDITS_EXHAUSTED: Not enough credits (have ${creditCheck.totalCredits}, need ${messageCreditCost}).`
+      );
+    }
+
+    const modelPricingCache = new Map<string, {
+      promptPerMToken: number;
+      completionPerMToken: number;
+      source: "aiModels" | "fallback";
+      usedFallback: boolean;
+      warning?: string;
+    }>();
+    const getModelPricing = async (modelId: string) => {
+      const cached = modelPricingCache.get(modelId);
+      if (cached) {
+        return cached;
+      }
+
+      const resolvedModelPricing = await (ctx as any).runQuery(
+        generatedApi.api.ai.modelPricing.getModelPricing,
+        { modelId }
+      ) as {
+        promptPerMToken: number;
+        completionPerMToken: number;
+        source: "aiModels" | "fallback";
+        usedFallback: boolean;
+        warning?: string;
+      };
+
+      if (resolvedModelPricing.usedFallback) {
+        console.warn("[AI Chat][PricingFallback]", {
+          modelId,
+          source: resolvedModelPricing.source,
+          warning: resolvedModelPricing.warning,
+        });
+      }
+
+      modelPricingCache.set(modelId, resolvedModelPricing);
+      return resolvedModelPricing;
+    };
+    await getModelPricing(model);
+
+    const calculateUsageCost = (
+      usage: { prompt_tokens: number; completion_tokens: number } | null | undefined,
+      modelId: string
+    ) => {
+      const pricing = modelPricingCache.get(modelId);
+      if (!pricing) {
+        throw new Error(`Missing pricing for model ${modelId}`);
+      }
+      return calculateCostFromUsage(
+        usage ?? { prompt_tokens: 0, completion_tokens: 0 },
+        pricing
+      );
+    };
+
+    // 6. Prepare messages for AI (legacy page builder path only).
+    // Normal desktop chat now routes through ai.agentExecution.processInboundMessage.
     const isPageBuilderContext = args.context === "page_builder";
+    if (!isPageBuilderContext) {
+      throw new Error("Deprecated ai.chat non-page_builder path invoked unexpectedly.");
+    }
 
-    // Page builder uses its specialized prompt that includes tool usage patterns
-    // Normal chat uses the comprehensive assistant prompt
-    const normalChatPrompt = `You are an AI assistant for l4yercak3, a comprehensive platform for managing events, forms, contacts, products, payments, and more. You are the PRIMARY INTERFACE for users - help them accomplish tasks through conversation.
-
-**CRITICAL: When Tools Fail**
-If a tool execution fails:
-1. READ THE ERROR MESSAGE CAREFULLY - it tells you exactly what went wrong
-2. LEARN from the error - don't repeat the same mistake
-3. PROPOSE A DIFFERENT APPROACH - use different tools or parameters
-4. EXPLAIN your reasoning - tell the user what you learned and what you'll try next
-
-**Example Error Recovery:**
-❌ Failed: "contactId is a platform user ID, not a CRM contact ID"
-✅ Correct response: "I see the issue - I used a user ID instead of a contact ID. Let me search for the contact in the CRM first, then link them using the correct ID."
-
-## Your Core Capabilities
-
-**Reasoning Approach**:
-For every request, follow this mental framework:
-1. **Understand**: What does the user want to accomplish?
-2. **Analyze**: What information do I have? What's missing?
-3. **Plan**: What's the best approach? (Use tool, provide tutorial, ask clarification)
-4. **Execute**: Take action or guide the user
-5. **Verify**: Did I solve their problem? What are the next steps?
-
-## Available Tools & Their Status
-
-**IMPORTANT**: Each tool has a status that tells you if it's ready to use:
-- **[Status: READY]**: Fully implemented - use it directly!
-- **[Status: PLACEHOLDER]**: Not yet automated - when you call this tool, it will return tutorial steps for you to share with the user
-- **[Status: BETA]**: Implemented but may have limitations
-
-**How to Handle Tool Status**:
-
-1. **READY Tools** - Use immediately when requested:
-   - sync_contacts: Intelligently sync Microsoft/Google contacts to CRM
-   - send_bulk_crm_email: Send personalized emails to multiple contacts
-
-2. **PLACEHOLDER Tools** - Call the tool and it will give you tutorial steps to share:
-   - When you call a PLACEHOLDER tool, the response will include:
-     - success: false
-     - status: "placeholder"
-     - message: A friendly acknowledgment
-     - tutorialSteps: Array of steps to share with the user
-
-   **Example workflow**:
-   User: "Create a contact named John Doe"
-   You: [Call create_contact tool with firstName="John", lastName="Doe"]
-   Tool returns: { success: false, status: "placeholder", tutorialSteps: [...] }
-   You respond to user: "I can help you create a contact for John Doe! This feature isn't fully automated yet, but here's how to do it: [share the tutorial steps from the tool response]"
-
-3. **Look for [Status: X] in tool descriptions** - Each tool description includes its status
-
-**CRITICAL: Missing Features**:
-- If a user asks for something and you don't have ANY tool for it (not even a placeholder):
-  - **DO NOT automatically send a feature request**
-  - Instead, follow this 3-step workflow:
-
-  **Step 1 - Ask if they want to send request:**
-    User: "set a reminder for tomorrow at 10am"
-    You: "I don't have a reminder feature yet, but I can send a feature request to the dev team so they know you need this. Would you like me to do that?"
-
-  **Step 2 - Ask for elaboration:**
-    User: "yes" (or "sure" or "please do")
-    You: "Great! To help the dev team build exactly what you need, can you tell me more about how you'd like reminders to work? For example, what types of reminders would be most useful?"
-
-  **Step 3 - Send the feature request:**
-    User: "I want to set reminders for specific times and dates, and get notifications on my desktop and phone"
-    You: [Call request_feature tool with BOTH the original message AND the elaboration]
-    Response: "✅ Feature request sent! The team has been notified about your reminder needs and will prioritize based on user demand."
-
-  - Only call request_feature AFTER getting the user's elaboration
-  - When calling request_feature, include:
-    - featureDescription: Summary of what they want (e.g., "Set time-based reminders with notifications")
-    - userMessage: Their ORIGINAL request (e.g., "set a reminder for tomorrow at 10am")
-    - userElaboration: Their DETAILED explanation (e.g., "I want to set reminders for specific times and dates...")
-    - suggestedToolName: What the tool should be called (e.g., "create_reminder")
-    - category: Feature category (e.g., "reminders")
-
-## OAuth & Integration Requirements (CRITICAL!)
-
-**Some tools require Microsoft OAuth connection and specific scopes:**
-
-1. **sync_contacts**: Requires Microsoft account with Contacts.Read or Contacts.ReadWrite scope
-2. **send_bulk_crm_email**: Requires Microsoft account with Mail.Send scope
-
-**How to Handle OAuth Requirements:**
-
-**CRITICAL: ALWAYS check_oauth_connection FIRST before suggesting OAuth actions!**
-
-**Step 1 - Check Connection Status FIRST:**
-- **BEFORE** suggesting any OAuth-related actions (sync contacts, send emails, etc.)
-- **IMMEDIATELY** call check_oauth_connection with provider='microsoft'
-- This tool returns:
-  - isConnected: true/false
-  - connectedEmail: user's connected email (if connected)
-  - availableFeatures: what they can do (canSyncContacts, canSendEmail, etc.)
-- **DO NOT** suggest connecting Microsoft if they're already connected!
-
-**Example correct workflow:**
-User: "Sync my Microsoft contacts to CRM"
-You: [Call check_oauth_connection with provider='microsoft']
-Tool returns: { isConnected: true, connectedEmail: "user@company.com", availableFeatures: { canSyncContacts: true } }
-You: "Great! I can see your Microsoft account (user@company.com) is connected and has contact sync permissions. Let me preview what contacts will be synced..." [Call sync_contacts with mode='preview']
-
-**Step 2 - Call the Tool Immediately:**
-- After confirming connection status, call the actual tool with mode='preview'
-- **DO NOT** give manual instructions about connecting Microsoft account if already connected
-- **ALWAYS** let the tool check prerequisites and return the appropriate error
-
-**Step 3 - Let the Action Item Handle Missing Connection:**
-- If check_oauth_connection shows isConnected=false, explain they need to connect
-- The tool will provide an action button in the response
-- **The action button will appear in the work items list** - the user can click it to open Settings
-- Example: "You need to connect your Microsoft account first. I've added an action item to your work items - just click the button to open Settings!"
-
-**Step 4 - Verify Success After Connection:**
-- After user connects OAuth, call check_oauth_connection again to verify
-- Then call the actual tool (sync_contacts, send_bulk_crm_email) with mode='preview'
-- The tool will now work since prerequisites are met
-
-## Preview-First Workflow (MANDATORY!)
-
-**CRITICAL RULE**: For ANY operation that syncs data or sends emails, you MUST show a preview first:
-
-1. **sync_contacts**: ALWAYS use mode='preview' first
-   - Shows what contacts will be synced BEFORE syncing
-   - User must explicitly approve with "approve" or "sync now"
-   - NEVER use mode='execute' until user approves preview
-
-2. **send_bulk_crm_email**: ALWAYS use mode='preview' first
-   - Shows personalized email samples BEFORE sending
-   - User must explicitly approve with "approve" or "send now"
-   - NEVER use mode='execute' until user approves preview
-
-**Example Workflow (With OAuth):**
-
-User: "Sync my Microsoft contacts"
-You: [Call sync_contacts with mode='preview']
-Tool returns: { success: false, error: "NO_OAUTH_CONNECTION", message: "❌ No Microsoft account connected...", actionButton: {...} }
-You: "You need to connect your Microsoft account first. I've added an action item to your work items - just click the button to open Settings!"
-[Action item appears in work items list with Settings button]
-User: [Connects Microsoft account via Settings]
-User: "Okay, I connected it"
-You: [Call sync_contacts with mode='preview']
-Tool returns: { success: true, totalContacts: 20, toCreate: 15, toUpdate: 3, toSkip: 2 }
-You: "📋 Great! I found 20 contacts in your Microsoft account. Here's what will happen:
-  • 15 new contacts will be created
-  • 3 existing contacts will be updated
-  • 2 contacts will be skipped (duplicates)
-
-Does this look good? Say 'approve' or 'sync now' to proceed, or 'cancel' to stop."
-
-User: "approve"
-You: [Call sync_contacts with mode='execute']
-Tool returns: { success: true, synced: 18 }
-You: "✅ Contact sync complete! Added 15 new contacts and updated 3 existing ones."
-
-**NEVER skip calling the tool first - always let the tool check OAuth and return errors with action buttons!**
-
-## Response Patterns by Question Type
-
-**Simple Questions** (greetings, what/why):
-- Respond conversationally, NO tools needed
-- Be warm and helpful
-- Example: "Hello!" → "Hi! I'm here to help you manage your events, forms, contacts, and more. What would you like to do today?"
-
-**Complex Questions** (how-to, multi-step):
-- Break down into steps
-- Show your reasoning
-- Example: "How do I set up an event registration?" → Think through: event → form → payment → confirmation email
-
-**Action Requests** (create, send, update):
-- If tool available: Use it immediately
-- If not: Provide tutorial with numbered steps
-- Always confirm before destructive actions
-
-**Ambiguous Requests**:
-- Ask clarifying questions
-- Suggest options
-- Example: "I need help with contacts" → "I can help you with contacts! Would you like to: 1) Search for a contact, 2) Create a new contact, 3) Sync contacts from Microsoft/Google, or 4) Send emails to contacts?"
-
-## Examples
-
-**Example 1 - Simple Greeting**:
-User: "Hey there"
-You: "Hello! 👋 I'm your l4yercak3 assistant. I can help you create events, manage contacts, build forms, process payments, and much more. What would you like to do today?"
-
-**Example 2 - Fully Automated Action**:
-User: "Sync my Google contacts to CRM"
-You: [Use sync_contacts tool immediately]
-Response: "✅ I've started syncing your Google contacts! I'll intelligently match and merge contacts, avoiding duplicates. I'll let you know when it's done."
-
-**Example 3 - Tutorial Mode Action**:
-User: "Create an event called Summer Gala on July 15th"
-You: "I can help you create the Summer Gala event! Here's how:
-
-1. Click the **Events** icon in your taskbar (it looks like a calendar 📅)
-2. Click the green **+ New Event** button
-3. Fill in these details:
-   - Event Name: **Summer Gala**
-   - Start Date: **July 15, 2024**
-   - Location: [Add your venue]
-   - Description: [Add event details]
-4. Click **Save Event**
-
-Would you like help with any of these steps, or would you like to set up event registration too?"
-
-**Example 4 - Complex Multi-Step**:
-User: "How do I set up an event with registration and payment?"
-You: "Great question! Setting up an event with registration and payment involves a few steps. Here's the complete process:
-
-**Step 1: Create Your Event**
-- Open the Events window and create your event with date, location, and details
-
-**Step 2: Create Registration Form**
-- Open the Forms window and create a registration form
-- Add fields like: name, email, phone, ticket type
-
-**Step 3: Create Products/Tickets**
-- Open the Products window
-- Create ticket products with prices (e.g., "Early Bird $50", "General $75")
-
-**Step 4: Create Checkout**
-- Open the Checkout window
-- Link your registration form and ticket products
-- Configure payment methods (Stripe, PayPal)
-
-**Step 5: Link Everything**
-- In your event, add the registration form link and checkout link
-
-Would you like me to walk you through any of these steps in detail?"
-
-## Critical Guidelines
-
-1. **Be Proactive**: Don't just answer - suggest next steps and related actions
-2. **Show Your Thinking**: For complex requests, briefly explain your reasoning
-3. **Confirm Destructive Actions**: Always ask before sending emails, deleting data, or charging payments
-4. **Track Progress**: If guiding through steps, remember where the user is
-5. **Admit Limitations**: If unsure, say so and suggest alternatives
-6. **Provide Context**: Explain WHY something works a certain way when helpful
-7. **Use Tools Sparingly**: Only use tools for explicit actions, not for conversation
-
-## Current Context
-- Organization ID: ${args.organizationId}
-- User ID: ${args.userId}
-- Platform: l4yercak3 (pronounced "layer cake")
-
-Remember: You're not just answering questions - you're helping users accomplish their goals. Be their guide, their tutor, and their automation assistant all in one.`;
-
-    // Select the appropriate system prompt based on context
-    // For page builder, use mode-aware prompt (prototype mode gets special instructions)
-    let systemPrompt = isPageBuilderContext
-      ? getPageBuilderPrompt(args.builderMode)
-      : normalChatPrompt;
+    let systemPrompt = getPageBuilderPrompt(args.builderMode);
 
     // For setup mode (agent creation wizard), inject ALL system knowledge (~78KB)
     // This includes: meta-context, hero-definition, guide-positioning, plan-and-cta,
@@ -594,41 +680,150 @@ ${knowledgeBlock}`;
 
     console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
 
-    // 7. Call OpenRouter with tools
+    // 7. Call OpenRouter with two-stage failover
     // In prototype mode (page_builder context), only provide read-only tools
     const builderMode = isPageBuilderContext ? args.builderMode : undefined;
     const availableTools = getToolSchemas(builderMode);
 
     console.log(`[AI Chat] Builder mode: ${builderMode || 'none'}, available tools: ${availableTools.length}`);
 
-    let response: ChatResponse;
-    try {
-      response = await client.chatCompletion({
-        model,
-        messages,
-        tools: availableTools,
-        temperature: settings.llm.temperature,
-        max_tokens: settings.llm.maxTokens,
-      }) as ChatResponse;
-    } catch (apiError) {
-      // Handle OpenRouter API errors gracefully
-      const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
-      console.error("[AI Chat] OpenRouter API error:", errorMessage);
+    const executeChatCompletionWithFailover = async (params: {
+      primaryModelId: string;
+      messages: ChatMessage[];
+      tools?: typeof availableTools;
+      preferredAuthProfileId?: string | null;
+      includeSessionPin: boolean;
+    }): Promise<ChatCompletionFailoverResult> => {
+      const modelsToTry = buildModelFailoverCandidates({
+        primaryModelId: params.primaryModelId,
+        orgEnabledModelIds,
+        orgDefaultModelId: orgDefaultModel,
+        platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
+        safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+        sessionPinnedModelId:
+          params.includeSessionPin && !args.selectedModel
+            ? conversationPinnedModel
+            : null,
+      });
+      const authProfilesToTry = orderAuthProfilesForSession(
+        authProfiles,
+        params.preferredAuthProfileId
+      );
+      const selectedAuthProfileId = authProfilesToTry[0]?.profileId ?? null;
+      let lastErrorMessage = "OpenRouter request failed";
 
-      // Re-throw with a cleaner error message for the client
-      // The client-side error parser will categorize this appropriately
-      throw new Error(errorMessage);
-    }
+      for (const tryModel of modelsToTry) {
+        for (const authProfile of authProfilesToTry) {
+          const client = new OpenRouterClient(authProfile.apiKey);
+          try {
+            const retryResult = await withRetry(
+              () =>
+                client.chatCompletion({
+                  model: tryModel,
+                  messages: params.messages,
+                  tools: params.tools,
+                  temperature: settings.llm.temperature,
+                  max_tokens: settings.llm.maxTokens,
+                }),
+              LLM_RETRY_POLICY
+            );
+            const response = retryResult.result as ChatResponse;
+            if (!response.choices || response.choices.length === 0) {
+              throw new Error("Invalid response from OpenRouter: no choices returned");
+            }
 
-    // Validate response structure
-    if (!response.choices || response.choices.length === 0) {
-      throw new Error("Invalid response from OpenRouter: no choices returned");
-    }
+            const usedAuthProfileId = authProfile.profileId;
+            if (authProfile.source === "profile") {
+              await (ctx as any).runMutation(
+                generatedApi.internal.ai.settings.recordAuthProfileSuccess,
+                {
+                  organizationId: args.organizationId,
+                  profileId: authProfile.profileId,
+                }
+              );
+            }
+
+            const modelFallbackUsed = tryModel !== params.primaryModelId;
+            const authProfileFallbackUsed =
+              Boolean(selectedAuthProfileId) &&
+              selectedAuthProfileId !== usedAuthProfileId;
+            const failoverStage = modelFallbackUsed
+              ? "model_failover"
+              : authProfileFallbackUsed
+                ? "auth_profile_rotation"
+                : "none";
+            console.log("[AI Chat][FailoverStage]", {
+              primaryModelId: params.primaryModelId,
+              usedModel: tryModel,
+              selectedAuthProfileId,
+              usedAuthProfileId,
+              failoverStage,
+              attempts: retryResult.attempts,
+            });
+
+            return {
+              response,
+              usedModel: tryModel,
+              selectedAuthProfileId,
+              usedAuthProfileId,
+              authProfileFallbackUsed,
+              modelFallbackUsed,
+            };
+          } catch (apiError) {
+            const errorMessage =
+              apiError instanceof Error ? apiError.message : String(apiError);
+            lastErrorMessage = errorMessage;
+            console.error(
+              `[AI Chat] Model ${tryModel} failed with auth profile ${authProfile.profileId}:`,
+              errorMessage
+            );
+
+            if (
+              authProfile.source === "profile" &&
+              isAuthProfileRotatableError(apiError)
+            ) {
+              const previousFailureCount =
+                authProfileFailureCounts.get(authProfile.profileId) ?? 0;
+              const nextFailureCount = previousFailureCount + 1;
+              authProfileFailureCounts.set(authProfile.profileId, nextFailureCount);
+              const cooldownUntil = Date.now() + getAuthProfileCooldownMs(nextFailureCount);
+              await (ctx as any).runMutation(
+                generatedApi.internal.ai.settings.recordAuthProfileFailure,
+                {
+                  organizationId: args.organizationId,
+                  profileId: authProfile.profileId,
+                  reason: errorMessage.slice(0, 300),
+                  cooldownUntil,
+                }
+              );
+            }
+          }
+        }
+      }
+
+      throw new Error(lastErrorMessage);
+    };
+
+    const initialCompletion = await executeChatCompletionWithFailover({
+      primaryModelId: model,
+      messages,
+      tools: availableTools,
+      includeSessionPin: true,
+    });
+    let response: ChatResponse = initialCompletion.response;
+    let usedModel = initialCompletion.usedModel;
+    let selectedAuthProfileId = initialCompletion.selectedAuthProfileId;
+    let usedAuthProfileId = initialCompletion.usedAuthProfileId;
+    let authProfileFailoverCount = initialCompletion.authProfileFallbackUsed ? 1 : 0;
+    let modelFailoverCount = initialCompletion.modelFallbackUsed ? 1 : 0;
+    await getModelPricing(usedModel);
+    let provider = detectProvider(usedModel);
+    let providerConfig = getProviderConfig(provider);
 
     // 8. Handle tool calls (with provider-specific max rounds to prevent infinite loops)
     const toolCalls: ToolCallResult[] = [];
     let toolCallRounds = 0;
-    const maxToolCallRounds = providerConfig.maxToolCallRounds;
+    let maxToolCallRounds = providerConfig.maxToolCallRounds;
     let hasProposedTools = false; // Track if any tools were proposed (not executed)
 
     while (response.choices[0].message.tool_calls && toolCallRounds < maxToolCallRounds) {
@@ -673,9 +868,13 @@ ${knowledgeBlock}`;
         }
 
         // CRITICAL DECISION: Should this tool be proposed or executed immediately?
-        // For MVP Phase 2, ALL tools require approval
-        // EXCEPT for auto-recovery attempts (which bypass approval)
-        const shouldPropose = !args.isAutoRecovery; // Auto-recovery executes immediately
+        const needsApproval = shouldRequireToolApproval({
+          autonomyLevel: chatApprovalPolicy.autonomyLevel,
+          toolName: toolCall.function.name,
+          requireApprovalFor: chatApprovalPolicy.requireApprovalFor,
+        });
+        // Auto-recovery bypasses approval so retries can execute immediately.
+        const shouldPropose = !args.isAutoRecovery && needsApproval;
 
         try {
 
@@ -735,7 +934,7 @@ ${knowledgeBlock}`;
               result,
               status: executionStatus,
               tokensUsed: response.usage?.total_tokens || 0,
-              costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
+              costUsd: calculateUsageCost(response.usage, usedModel),
               executedAt: Date.now(),
               durationMs,
             });
@@ -774,7 +973,7 @@ ${knowledgeBlock}`;
             error: errorMessage,
             status: "failed",
             tokensUsed: response.usage?.total_tokens || 0,
-            costUsd: client.calculateCost(response.usage || { prompt_tokens: 0, completion_tokens: 0 }, model),
+            costUsd: calculateUsageCost(response.usage, usedModel),
             executedAt: Date.now(),
             durationMs: Date.now() - startTime,
           });
@@ -857,23 +1056,33 @@ ${knowledgeBlock}`;
 
       // Get next response after tool execution (without tools to force final answer)
       try {
-        response = await client.chatCompletion({
-          model,
+        const followUpCompletion = await executeChatCompletionWithFailover({
+          primaryModelId: usedModel,
           messages,
-          temperature: settings.llm.temperature,
-          max_tokens: settings.llm.maxTokens,
-          // Don't pass tools on subsequent calls to encourage final answer
+          includeSessionPin: false,
+          preferredAuthProfileId: usedAuthProfileId ?? selectedAuthProfileId,
         });
+        response = followUpCompletion.response;
+        usedModel = followUpCompletion.usedModel;
+        selectedAuthProfileId = followUpCompletion.selectedAuthProfileId;
+        usedAuthProfileId = followUpCompletion.usedAuthProfileId;
+        if (followUpCompletion.authProfileFallbackUsed) {
+          authProfileFailoverCount += 1;
+        }
+        if (followUpCompletion.modelFallbackUsed) {
+          modelFailoverCount += 1;
+        }
+        await getModelPricing(usedModel);
+        provider = detectProvider(usedModel);
+        providerConfig = getProviderConfig(provider);
+        maxToolCallRounds = Math.max(
+          maxToolCallRounds,
+          providerConfig.maxToolCallRounds
+        );
       } catch (apiError) {
-        // Handle OpenRouter API errors gracefully
         const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
         console.error("[AI Chat] OpenRouter API error (after tool execution):", errorMessage);
         throw new Error(errorMessage);
-      }
-
-      // Validate response structure
-      if (!response.choices || response.choices.length === 0) {
-        throw new Error("Invalid response from OpenRouter after tool execution");
       }
     }
 
@@ -887,6 +1096,47 @@ ${knowledgeBlock}`;
     if (!finalMessage) {
       throw new Error("No message in final response from OpenRouter");
     }
+    const modelResolution = buildModelResolutionPayload({
+      requestedModel: args.selectedModel ?? undefined,
+      selectedModel: model,
+      selectionSource,
+      usedModel,
+      selectedAuthProfileId,
+      usedAuthProfileId,
+    });
+    const failoverStage =
+      modelFailoverCount > 0
+        ? "model_failover"
+        : authProfileFailoverCount > 0
+          ? "auth_profile_rotation"
+          : "none";
+
+    await (ctx as any).runMutation(generatedApi.api.ai.conversations.setConversationModel, {
+      conversationId,
+      modelId: usedModel,
+    });
+
+    console.log("[AI Chat][ModelResolution]", {
+      selectedModel: model,
+      usedModel,
+      requestedModel: args.selectedModel ?? null,
+      preferredModel,
+      orgDefaultModel,
+      fallbackModel:
+        modelResolution.fallbackUsed
+          ? usedModel
+          : null,
+      selectionSource,
+      fallbackReason: modelResolution.fallbackReason ?? null,
+      selectedAuthProfileId,
+      usedAuthProfileId,
+      failoverStage,
+      authProfileFailoverCount,
+      modelFailoverCount,
+      platformEnabledModelCount: platformEnabledModels.length,
+      provider,
+      context: args.context || "normal",
+    });
 
     // CRITICAL: If tools were proposed (not executed), create a user-friendly message
     // but DON'T include toolCalls in the saved message (they'll break future conversations)
@@ -917,21 +1167,36 @@ ${knowledgeBlock}`;
         // ONLY save toolCalls if they were actually executed (not just proposed)
         // This prevents breaking the conversation when loading history
         toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
+        modelResolution,
       });
     }
     // If proposedToolCount > 0, don't add any chat message - the proposals are in the Tool Execution panel
 
     // 10. Update monthly spend
-    const cost = client.calculateCost(
-      response.usage || { prompt_tokens: 0, completion_tokens: 0 },
-      model
-    );
+    const cost = calculateUsageCost(response.usage, usedModel);
     await (ctx as any).runMutation(generatedApi.api.ai.settings.updateMonthlySpend, {
       organizationId: args.organizationId,
       costUsd: cost,
     });
 
-    // 11. Collect training data (silent, non-blocking)
+    // 11. Deduct credits for the successful chat turn.
+    try {
+      await (ctx as any).runMutation(
+        generatedApi.internal.credits.index.deductCreditsInternalMutation,
+        {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          amount: messageCreditCost,
+          action: "agent_message",
+          relatedEntityType: "ai_conversation",
+          relatedEntityId: String(conversationId),
+        }
+      );
+    } catch (error) {
+      console.error("[AI Chat] Credit deduction failed after successful response:", error);
+    }
+
+    // 12. Collect training data (silent, non-blocking)
     try {
       const exampleType = args.context === "page_builder" ? "page_generation" : "tool_invocation";
 
@@ -961,7 +1226,7 @@ ${knowledgeBlock}`;
           generatedJson,
           toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
         },
-        modelUsed: model,
+        modelUsed: usedModel,
       });
     } catch (error) {
       // Don't fail the main request if training data collection fails
@@ -980,6 +1245,7 @@ ${knowledgeBlock}`;
       toolCalls,
       usage: response.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       cost,
+      modelResolution,
     };
   },
 });

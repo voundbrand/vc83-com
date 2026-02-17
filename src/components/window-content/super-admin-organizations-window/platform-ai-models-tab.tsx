@@ -3,9 +3,10 @@
 import { useState, useMemo } from "react";
 import { Cpu, Filter, CheckCircle, XCircle, AlertCircle, RefreshCw, Star } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { ProviderLogo, getProviderColor } from "@/components/ai/provider-logo";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../../../convex/_generated/api");
 
 /**
  * Platform AI Models Tab - Super Admin Model Management
@@ -25,23 +26,50 @@ type FilterCapability = "all" | "tool_calling" | "multimodal" | "vision";
 type FilterDefaults = "all" | "defaults_only" | "non_defaults";
 type FilterValidation = "all" | "validated" | "not_tested" | "failed";
 
+type PlatformModelRecord = {
+  modelId: string;
+  name: string;
+  provider: string;
+  pricing: {
+    promptPerMToken: number;
+    completionPerMToken: number;
+  };
+  contextLength: number;
+  capabilities: {
+    toolCalling: boolean;
+    multimodal: boolean;
+    vision: boolean;
+  };
+  isNew: boolean;
+  isPlatformEnabled: boolean;
+  isSystemDefault: boolean;
+  validationStatus?: "not_tested" | "validated" | "failed";
+  testedAt?: number;
+  notes?: string;
+};
+
+type PlatformModelsResponse = {
+  models: PlatformModelRecord[];
+};
+
 export function PlatformAiModelsTab() {
   const { sessionId } = useAuth();
+  const platformModelManagementApi = generatedApi.api.ai.platformModelManagement;
 
   // Data fetching
   const platformModels = useQuery(
-    api.ai.platformModelManagement.getPlatformModels,
+    platformModelManagementApi.getPlatformModels,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as PlatformModelsResponse | undefined;
 
   // Mutations
-  const enableModel = useMutation(api.ai.platformModelManagement.enablePlatformModel);
-  const disableModel = useMutation(api.ai.platformModelManagement.disablePlatformModel);
-  const batchEnable = useMutation(api.ai.platformModelManagement.batchEnableModels);
-  const toggleSystemDefault = useMutation(api.ai.platformModelManagement.toggleSystemDefault);
+  const enableModel = useMutation(platformModelManagementApi.enablePlatformModel);
+  const disableModel = useMutation(platformModelManagementApi.disablePlatformModel);
+  const batchEnable = useMutation(platformModelManagementApi.batchEnableModels);
+  const toggleSystemDefault = useMutation(platformModelManagementApi.toggleSystemDefault);
 
   // Actions
-  const refreshModels = useAction(api.ai.platformModelManagement.manualRefreshModels);
+  const refreshModels = useAction(platformModelManagementApi.manualRefreshModels);
 
   // UI state
   const [filterProvider, setFilterProvider] = useState<FilterProvider>("all");
@@ -63,6 +91,16 @@ export function PlatformAiModelsTab() {
       setStatusMessage("");
       setMessageType("");
     }, 5000);
+  };
+
+  const requestOperationalReviewAcknowledgement = (scopeLabel: string): boolean => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.confirm(
+      `Operational review acknowledgement required for ${scopeLabel}.\n\nConfirm you reviewed recent fallback and tool-failure telemetry and approve this enablement.`
+    );
   };
 
   // Get unique providers for filter
@@ -123,7 +161,17 @@ export function PlatformAiModelsTab() {
         const result = await disableModel({ sessionId, modelId });
         showMessage(result.message, "success");
       } else {
-        const result = await enableModel({ sessionId, modelId });
+        const acknowledged = requestOperationalReviewAcknowledgement(modelId);
+        if (!acknowledged) {
+          showMessage("Enablement cancelled. Operational review acknowledgement is required.", "error");
+          return;
+        }
+
+        const result = await enableModel({
+          sessionId,
+          modelId,
+          operationalReviewAcknowledged: true,
+        });
         showMessage(result.message, "success");
       }
     } catch (error) {
@@ -138,9 +186,18 @@ export function PlatformAiModelsTab() {
     if (!sessionId || selectedModels.size === 0) return;
 
     try {
+      const acknowledged = requestOperationalReviewAcknowledgement(
+        `${selectedModels.size} selected model${selectedModels.size === 1 ? "" : "s"}`
+      );
+      if (!acknowledged) {
+        showMessage("Batch enable cancelled. Operational review acknowledgement is required.", "error");
+        return;
+      }
+
       const result = await batchEnable({
         sessionId,
         modelIds: Array.from(selectedModels),
+        operationalReviewAcknowledged: true,
       });
       showMessage(result.message, "success");
       setSelectedModels(new Set());
@@ -227,9 +284,9 @@ export function PlatformAiModelsTab() {
       if (model.provider === "mistral") locations.add("🇪🇺 EU");
       else if (["anthropic", "openai", "google"].includes(model.provider)) locations.add("🇺🇸 US");
       else if (model.provider === "cohere") locations.add("🇨🇦 Canada");
-      else if (model.provider === "meta-llama") locations.add("🌍 Global");
+      else if (model.provider === "meta-llama") locations.add(" Global");
       else if (model.provider.includes("amazon")) locations.add("🇺🇸 US");
-      else locations.add("🌍 Global");
+      else locations.add(" Global");
     }
 
     const zdr = enabled.filter(m => ["mistral", "anthropic", "meta-llama"].includes(m.provider)).length;
@@ -263,10 +320,10 @@ export function PlatformAiModelsTab() {
                 <strong>Location:</strong> {privacyStats.locations.join(" • ") || "None"}
               </div>
               {privacyStats.zdr > 0 && (
-                <div>🛡️ <strong>Zero Data Retention:</strong> {privacyStats.zdr} model{privacyStats.zdr !== 1 ? "s" : ""}</div>
+                <div> <strong>Zero Data Retention:</strong> {privacyStats.zdr} model{privacyStats.zdr !== 1 ? "s" : ""}</div>
               )}
               {privacyStats.noTraining > 0 && (
-                <div>🚫 <strong>No Training:</strong> {privacyStats.noTraining} model{privacyStats.noTraining !== 1 ? "s" : ""}</div>
+                <div> <strong>No Training:</strong> {privacyStats.noTraining} model{privacyStats.noTraining !== 1 ? "s" : ""}</div>
               )}
               {systemDefaultsCount > 0 && (
                 <div className="mt-2">
@@ -502,9 +559,9 @@ export function PlatformAiModelsTab() {
               }}
             >
               <option value="all">All Status</option>
-              <option value="validated">✓ Validated</option>
-              <option value="not_tested">⚠ Not Tested</option>
-              <option value="failed">✗ Failed</option>
+              <option value="validated"> Validated</option>
+              <option value="not_tested"> Not Tested</option>
+              <option value="failed"> Failed</option>
             </select>
           </div>
         </div>
@@ -604,17 +661,17 @@ export function PlatformAiModelsTab() {
                     {/* Validation Badge */}
                     {model.validationStatus === "validated" && (
                       <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: "var(--success)", color: "white" }}>
-                        ✓ Tested
+                         Tested
                       </span>
                     )}
                     {model.validationStatus === "failed" && (
                       <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: "var(--error)", color: "white" }}>
-                        ✗ Failed
+                         Failed
                       </span>
                     )}
                     {(!model.validationStatus || model.validationStatus === "not_tested") && model.capabilities.toolCalling && (
                       <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: "var(--warning)", color: "white" }}>
-                        ⚠ Not Tested
+                         Not Tested
                       </span>
                     )}
                   </div>
@@ -674,7 +731,7 @@ export function PlatformAiModelsTab() {
                       }}
                     >
                       <Star size={14} fill={model.isSystemDefault ? "white" : "none"} />
-                      {model.isSystemDefault ? "★ System Default" : "☆ Set as Default"}
+                      {model.isSystemDefault ? " System Default" : " Set as Default"}
                     </button>
                   )}
                 </div>

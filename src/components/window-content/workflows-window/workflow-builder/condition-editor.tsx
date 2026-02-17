@@ -117,7 +117,7 @@ export function ConditionEditor({
               Edit Conditions
             </h3>
             <button onClick={onCancel} className="retro-button p-1 text-xs">
-              ✕
+              
             </button>
           </div>
           <p className="mt-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>

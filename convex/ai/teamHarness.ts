@@ -6,8 +6,8 @@
  *
  * Called by: tag_in_specialist tool (teamTools.ts) and agentExecution.ts pipeline.
  *
- * See: docs/agentic_system/TEAM_COORDINATION.md
- * See: docs/agentic_system/implementation_plans/P2_TEAM_HARNESS.md
+ * See: docs/platform/TEAM_COORDINATION.md
+ * See: docs/platform/implementation_plans/P2_TEAM_HARNESS.md
  */
 
 import { internalMutation, internalQuery } from "../_generated/server";

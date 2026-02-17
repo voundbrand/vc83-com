@@ -436,7 +436,7 @@ function CreateApiKeyModal({
             <>
               <div className="mb-4 p-3 border-2" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--win95-border)' }}>
                 <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                  ⚠️ Important: Copy this key now!
+                   Important: Copy this key now!
                 </p>
                 <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
                   This is the only time you&apos;ll be able to see the full API key. Store it securely in your application or environment variables.

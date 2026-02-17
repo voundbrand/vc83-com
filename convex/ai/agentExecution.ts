@@ -17,13 +17,37 @@ import { OpenRouterClient } from "./openrouter";
 import { TOOL_REGISTRY, getToolSchemas } from "./tools/registry";
 import type { ToolExecutionContext } from "./tools/registry";
 import type { Id } from "../_generated/dataModel";
-import { getAgentMessageCost, getToolCreditCost } from "../credits/index";
+import { getToolCreditCost } from "../credits/index";
 import { getKnowledgeContent } from "./systemKnowledge/index";
 import { buildInterviewPromptContext } from "./interviewRunner";
-import { withRetry, LLM_RETRY_POLICY, MODEL_FALLBACK_CHAIN } from "./retryPolicy";
+import { withRetry, LLM_RETRY_POLICY } from "./retryPolicy";
 import { getUserErrorMessage, classifyError } from "./errorMessages";
 import { resolveActiveTools, getPlatformBlockedTools, SUBTYPE_DEFAULT_PROFILES } from "./toolScoping";
 import { getAllToolDefinitions } from "./tools/registry";
+import {
+  composeKnowledgeContext,
+  getUtf8ByteLength,
+  type KnowledgeContextDocument,
+} from "./memoryComposer";
+import {
+  getAuthProfileCooldownMs,
+  isAuthProfileRotatableError,
+  orderAuthProfilesForSession,
+  resolveOpenRouterAuthProfiles,
+} from "./authProfilePolicy";
+import { buildModelFailoverCandidates } from "./modelFailoverPolicy";
+import {
+  calculateCostFromUsage,
+  convertUsdToCredits,
+  estimateCreditsFromPricing,
+} from "./modelPricing";
+import {
+  determineModelSelectionSource,
+  SAFE_FALLBACK_MODEL_ID,
+  resolveOrgDefaultModel,
+  resolveRequestedModel,
+  selectFirstPlatformEnabledModel,
+} from "./modelPolicy";
 import {
   checkPreLLMEscalation,
   checkPostLLMEscalation,
@@ -31,10 +55,13 @@ import {
   DEFAULT_HOLD_MESSAGE,
   UNCERTAINTY_PHRASES,
   resolvePolicy,
+  shouldRequireToolApproval,
   type EscalationCounters,
   type EscalationPolicy,
 } from "./escalation";
 import { brokerTools, extractRecentToolNames, type BrokerMetrics } from "./toolBroker";
+import { deliverAssistantResponseWithFallback } from "./outboundDelivery";
+import { evaluateSessionRoutingPinUpdate } from "./sessionRoutingPolicy";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,6 +271,24 @@ export const processInboundMessage = action({
       };
     }
 
+    const sessionRoutingPin = (session as Record<string, unknown>).routingPin as
+      | {
+          modelId?: string;
+          authProfileId?: string;
+          pinReason?: string;
+        }
+      | undefined;
+    const pinnedSessionModelId =
+      typeof sessionRoutingPin?.modelId === "string" &&
+      sessionRoutingPin.modelId.trim().length > 0
+        ? sessionRoutingPin.modelId.trim()
+        : null;
+    const pinnedAuthProfileId =
+      typeof sessionRoutingPin?.authProfileId === "string" &&
+      sessionRoutingPin.authProfileId.trim().length > 0
+        ? sessionRoutingPin.authProfileId.trim()
+        : null;
+
     // 4. Auto-resolve CRM contact
     if (!(session as any).crmContactId) {
       const contact = await ctx.runQuery(getInternal().ai.agentSessions.resolveContact, {
@@ -261,8 +306,25 @@ export const processInboundMessage = action({
 
     // 4.5. Fetch org's knowledge base documents from media library
     // If agent has knowledgeBaseTags configured, only fetch matching docs
-    // TODO: Wire up getKnowledgeBaseDocsInternal once organizationMedia exports it
-    const knowledgeBaseDocs: Array<{ filename: string; content: string; description?: string; tags?: string[] }> = [];
+    let knowledgeBaseDocs: KnowledgeContextDocument[] = [];
+    try {
+      const retrievedDocs = await ctx.runQuery(
+        getInternal().organizationMedia.getKnowledgeBaseDocsInternal,
+        {
+          organizationId: args.organizationId,
+          tags: config.knowledgeBaseTags?.length ? config.knowledgeBaseTags : undefined,
+        }
+      ) as KnowledgeContextDocument[] | null;
+
+      knowledgeBaseDocs = (retrievedDocs || []).filter(
+        (doc) => typeof doc.content === "string" && doc.content.trim().length > 0
+      );
+    } catch (error) {
+      console.error(
+        `[AgentExecution] Failed to load organization knowledge docs for ${args.organizationId}:`,
+        error
+      );
+    }
 
     // 4.6. Check for guided interview mode
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -375,6 +437,105 @@ export const processInboundMessage = action({
       return { status: "escalated", response: holdMessage, sessionId: session._id };
     }
 
+    const aiSettings = await ctx.runQuery(getApi().api.ai.settings.getAISettings, {
+      organizationId: args.organizationId,
+    });
+    const platformEnabledModels = await ctx.runQuery(
+      getApi().api.ai.platformModels.getEnabledModels,
+      {}
+    ) as Array<{ id: string; contextLength?: number }>;
+
+    if (platformEnabledModels.length === 0) {
+      return { status: "error", message: "No platform-enabled AI models are currently configured" };
+    }
+
+    const metadata = (args.metadata as Record<string, unknown>) || {};
+    const metadataSelectedModel =
+      typeof metadata.selectedModel === "string" && metadata.selectedModel.trim().length > 0
+        ? metadata.selectedModel.trim()
+        : undefined;
+    const configuredModelOverride =
+      typeof config.modelId === "string" && config.modelId.trim().length > 0
+        ? config.modelId.trim()
+        : undefined;
+    const explicitModelOverride = metadataSelectedModel ?? configuredModelOverride;
+    const hasExplicitModelOverride = typeof explicitModelOverride === "string";
+    const preferredModel = resolveRequestedModel(aiSettings, explicitModelOverride);
+    const orgDefaultModel = resolveOrgDefaultModel(aiSettings);
+    const orgEnabledModelIds = Array.isArray(aiSettings?.llm?.enabledModels)
+      ? aiSettings.llm.enabledModels
+          .map((modelSetting: { modelId?: string }) =>
+            typeof modelSetting.modelId === "string" ? modelSetting.modelId : null
+          )
+          .filter((modelId: string | null): modelId is string => Boolean(modelId))
+      : [];
+    const firstPlatformEnabledModel = platformEnabledModels[0]?.id ?? null;
+    const model = selectFirstPlatformEnabledModel(
+      [
+        !hasExplicitModelOverride ? pinnedSessionModelId : null,
+        preferredModel,
+        orgDefaultModel,
+        SAFE_FALLBACK_MODEL_ID,
+        firstPlatformEnabledModel,
+      ],
+      platformEnabledModels.map((platformModel) => platformModel.id)
+    );
+    const selectionSource =
+      !hasExplicitModelOverride &&
+      pinnedSessionModelId &&
+      model === pinnedSessionModelId
+        ? "session_pinned"
+        : determineModelSelectionSource({
+            selectedModel: model ?? SAFE_FALLBACK_MODEL_ID,
+            preferredModel,
+            orgDefaultModel,
+            safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+            platformFirstEnabledModelId: firstPlatformEnabledModel,
+          });
+
+    if (!model) {
+      return { status: "error", message: "Unable to resolve a platform-enabled model for this organization" };
+    }
+
+    const selectedModelContextLength = platformEnabledModels.find(
+      (platformModel) => platformModel.id === model
+    )?.contextLength;
+    const docsRetrievedCount = knowledgeBaseDocs.length;
+    const bytesRetrieved = knowledgeBaseDocs.reduce(
+      (sum, doc) => sum + (typeof doc.sizeBytes === "number" ? doc.sizeBytes : getUtf8ByteLength(doc.content)),
+      0
+    );
+    const boundedKnowledgeContext = composeKnowledgeContext({
+      documents: knowledgeBaseDocs,
+      modelContextLength: selectedModelContextLength,
+    });
+    knowledgeBaseDocs = boundedKnowledgeContext.documents;
+    const retrievalTelemetry = {
+      docsRetrieved: docsRetrievedCount,
+      docsInjected: boundedKnowledgeContext.documents.length,
+      bytesRetrieved,
+      bytesInjected: boundedKnowledgeContext.bytesUsed,
+      sourceTags: boundedKnowledgeContext.sourceTags,
+      requestedTags: (config.knowledgeBaseTags || [])
+        .map((tag) => tag.trim().toLowerCase())
+        .filter((tag) => tag.length > 0),
+    };
+
+    if (
+      boundedKnowledgeContext.truncatedDocumentCount > 0
+      || boundedKnowledgeContext.droppedDocumentCount > 0
+    ) {
+      console.log("[AgentExecution][KnowledgeContextBudget]", {
+        organizationId: args.organizationId,
+        model,
+        tokenBudget: boundedKnowledgeContext.tokenBudget,
+        estimatedTokensUsed: boundedKnowledgeContext.estimatedTokensUsed,
+        docsIncluded: retrievalTelemetry.docsInjected,
+        docsDropped: boundedKnowledgeContext.droppedDocumentCount,
+        docsTruncated: boundedKnowledgeContext.truncatedDocumentCount,
+      });
+    }
+
     // 5. Build system prompt (with previous session context if resuming)
     const previousSessionSummary = (session as Record<string, unknown>).previousSessionSummary as string | undefined;
 
@@ -473,9 +634,36 @@ export const processInboundMessage = action({
       brokerMetrics = brokerResult.metrics;
     }
 
+    const resolvedModelPricing = await ctx.runQuery(
+      getApi().api.ai.modelPricing.getModelPricing,
+      { modelId: model }
+    ) as {
+      modelId: string;
+      promptPerMToken: number;
+      completionPerMToken: number;
+      source: "aiModels" | "fallback";
+      usedFallback: boolean;
+      warning?: string;
+    };
+
+    if (resolvedModelPricing.usedFallback) {
+      console.warn("[AgentExecution][PricingFallback]", {
+        modelId: resolvedModelPricing.modelId,
+        source: resolvedModelPricing.source,
+        warning: resolvedModelPricing.warning,
+      });
+    }
+
     // 7.5. Pre-flight credit check
-    const model = config.modelId || "anthropic/claude-sonnet-4-20250514";
-    const estimatedCost = getAgentMessageCost(model);
+    const estimatedCost = estimateCreditsFromPricing(resolvedModelPricing);
+
+    try {
+      await ctx.runMutation(getInternal().credits.index.grantDailyCreditsInternalMutation, {
+        organizationId: args.organizationId,
+      });
+    } catch (error) {
+      console.warn("[AgentExecution] Failed to grant daily credits (non-blocking):", error);
+    }
 
     const creditCheck = await ctx.runQuery(
       getInternal().credits.index.checkCreditsInternalQuery,
@@ -498,49 +686,93 @@ export const processInboundMessage = action({
       };
     }
 
-    // 8. Call LLM with retry + model failover
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return { status: "error", message: "OpenRouter API key not configured" };
+    // 8. Call LLM with retry + model/auth-profile failover
+    const authProfiles = resolveOpenRouterAuthProfiles({
+      llmSettings: aiSettings?.llm,
+      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+    });
+    if (authProfiles.length === 0) {
+      return { status: "error", message: "No OpenRouter auth profiles are currently configured" };
     }
 
-    const client = new OpenRouterClient(apiKey);
+    const authProfilesToTry = orderAuthProfilesForSession(authProfiles, pinnedAuthProfileId);
+    const primaryAuthProfileId = authProfilesToTry[0]?.profileId ?? null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any = null;
     let usedModel = model;
+    let usedAuthProfileId = primaryAuthProfileId;
 
-    // Try primary model with retry
-    const modelsToTry = [model, ...(MODEL_FALLBACK_CHAIN[model] || [])];
+    const modelsToTry = buildModelFailoverCandidates({
+      primaryModelId: model,
+      orgEnabledModelIds,
+      orgDefaultModelId: orgDefaultModel,
+      platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
+      safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+      sessionPinnedModelId: !hasExplicitModelOverride ? pinnedSessionModelId : null,
+    });
 
     for (const tryModel of modelsToTry) {
-      try {
-        const retryResult = await withRetry(
-          () =>
-            client.chatCompletion({
-              model: tryModel,
-              messages,
-              tools: toolSchemas.length > 0 ? toolSchemas : undefined,
-              temperature: config.temperature ?? 0.7,
-              max_tokens: config.maxTokens || 4096,
-            }),
-          LLM_RETRY_POLICY
-        );
-        response = retryResult.result;
-        usedModel = tryModel;
+      let succeededOnThisModel = false;
 
-        if (retryResult.attempts > 1) {
-          console.warn(
-            `[AgentExecution] LLM call succeeded on attempt ${retryResult.attempts} with model ${tryModel}`
+      for (const authProfile of authProfilesToTry) {
+        const client = new OpenRouterClient(authProfile.apiKey);
+        try {
+          const retryResult = await withRetry(
+            () =>
+              client.chatCompletion({
+                model: tryModel,
+                messages,
+                tools: toolSchemas.length > 0 ? toolSchemas : undefined,
+                temperature: config.temperature ?? 0.7,
+                max_tokens: config.maxTokens || 4096,
+              }),
+            LLM_RETRY_POLICY
           );
+          response = retryResult.result;
+          usedModel = tryModel;
+          usedAuthProfileId = authProfile.profileId;
+          succeededOnThisModel = true;
+
+          if (authProfile.source === "profile") {
+            await ctx.runMutation(getInternal().ai.settings.recordAuthProfileSuccess, {
+              organizationId: args.organizationId,
+              profileId: authProfile.profileId,
+            });
+          }
+
+          if (retryResult.attempts > 1) {
+            console.warn(
+              `[AgentExecution] LLM call succeeded on attempt ${retryResult.attempts} with model ${tryModel} using auth profile ${authProfile.profileId}`
+            );
+          }
+          break;
+        } catch (e) {
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          console.error(
+            `[AgentExecution] Model ${tryModel} failed with auth profile ${authProfile.profileId}:`,
+            errorMessage
+          );
+
+          if (authProfile.source === "profile" && isAuthProfileRotatableError(e)) {
+            const previousFailureCount = aiSettings?.llm?.authProfiles?.find(
+              (profile: { profileId?: string; failureCount?: number }) =>
+                profile.profileId === authProfile.profileId
+            )?.failureCount ?? 0;
+            const cooldownUntil =
+              Date.now() + getAuthProfileCooldownMs(previousFailureCount + 1);
+            await ctx.runMutation(getInternal().ai.settings.recordAuthProfileFailure, {
+              organizationId: args.organizationId,
+              profileId: authProfile.profileId,
+              reason: errorMessage.slice(0, 300),
+              cooldownUntil,
+            });
+          }
         }
+      }
+
+      if (succeededOnThisModel) {
         break;
-      } catch (e) {
-        console.error(
-          `[AgentExecution] Model ${tryModel} failed all retries:`,
-          e instanceof Error ? e.message : String(e)
-        );
-        // Continue to next fallback model
       }
     }
 
@@ -859,8 +1091,26 @@ export const processInboundMessage = action({
       }
     }
 
+    let usageModelPricing = resolvedModelPricing;
+    if (usedModel !== model) {
+      usageModelPricing = await ctx.runQuery(
+        getApi().api.ai.modelPricing.getModelPricing,
+        { modelId: usedModel }
+      ) as typeof resolvedModelPricing;
+
+      if (usageModelPricing.usedFallback) {
+        console.warn("[AgentExecution][PricingFallback]", {
+          modelId: usageModelPricing.modelId,
+          source: usageModelPricing.source,
+          warning: usageModelPricing.warning,
+        });
+      }
+    }
+
+    const costUsd = calculateCostFromUsage(response.usage, usageModelPricing);
+
     // 10.5. Deduct credits for LLM call
-    const llmCreditCost = getAgentMessageCost(model);
+    const llmCreditCost = convertUsdToCredits(costUsd);
     try {
       await ctx.runMutation(
         getInternal().credits.index.deductCreditsInternalMutation,
@@ -900,9 +1150,29 @@ export const processInboundMessage = action({
       }
     }
 
+    const routingPinDecision = evaluateSessionRoutingPinUpdate({
+      pinnedModelId: pinnedSessionModelId,
+      pinnedAuthProfileId,
+      selectedModelId: model,
+      usedModelId: usedModel,
+      selectedAuthProfileId: primaryAuthProfileId,
+      usedAuthProfileId,
+      hasExplicitModelOverride,
+    });
+    const usedAuthProfileFallback = routingPinDecision.usedAuthProfileFallback;
+
+    if (routingPinDecision.shouldUpdateRoutingPin) {
+      await ctx.runMutation(getInternal().ai.agentSessions.upsertSessionRoutingPin, {
+        sessionId: session._id,
+        modelId: usedModel,
+        authProfileId: usedAuthProfileId ?? undefined,
+        pinReason: routingPinDecision.pinReason!,
+        unlockReason: routingPinDecision.unlockReason,
+      });
+    }
+
     // 11. Update stats
     const tokensUsed = response.usage?.total_tokens || 0;
-    const costUsd = calculateCost(response.usage, model);
 
     await ctx.runMutation(getInternal().ai.agentSessions.updateSessionStats, {
       sessionId: session._id,
@@ -919,8 +1189,41 @@ export const processInboundMessage = action({
         channel: args.channel,
         sessionId: session._id,
         toolsUsed: toolResults.map((t) => t.tool),
+        toolResults: toolResults.map((result) => ({
+          tool: result.tool,
+          status: result.status,
+        })),
         tokensUsed,
         costUsd,
+        modelResolution: {
+          requestedModel: explicitModelOverride,
+          preferredModel,
+          orgDefaultModel,
+          selectedModel: model,
+          usedModel,
+          selectedAuthProfileId: primaryAuthProfileId,
+          usedAuthProfileId,
+          selectionSource,
+          fallbackUsed:
+            (selectionSource !== "preferred" && selectionSource !== "session_pinned")
+            || usedModel !== model
+            || usedAuthProfileFallback,
+          fallbackReason:
+            usedModel !== model
+              ? "retry_chain"
+              : usedAuthProfileFallback
+                ? "auth_profile_rotation"
+                : selectionSource !== "preferred" && selectionSource !== "session_pinned"
+                ? selectionSource
+                : undefined,
+        },
+        retrieval: {
+          ...retrievalTelemetry,
+          docsDropped: boundedKnowledgeContext.droppedDocumentCount,
+          docsTruncated: boundedKnowledgeContext.truncatedDocumentCount,
+          estimatedTokensInjected: boundedKnowledgeContext.estimatedTokensUsed,
+          tokenBudget: boundedKnowledgeContext.tokenBudget,
+        },
         ...(brokerMetrics ? {
           broker: {
             brokered: brokerMetrics.brokered,
@@ -940,38 +1243,21 @@ export const processInboundMessage = action({
     // Skip if: metadata.skipOutbound is true (webhook handler sends reply itself),
     // or channel is "api_test" (testing via API, no delivery needed),
     // or there's no response content.
-    const meta = (args.metadata as Record<string, unknown>) || {};
-    if (assistantContent && !meta.skipOutbound && args.channel !== "api_test") {
-      try {
-        await ctx.runAction(getInternal().channels.router.sendMessage, {
-          organizationId: args.organizationId,
-          channel: args.channel,
-          recipientIdentifier: args.externalContactIdentifier,
-          content: assistantContent,
-          providerConversationId: meta.providerConversationId as string | undefined,
-        });
-      } catch (e) {
-        // Outbound delivery failed — add to dead letter queue for retry.
-        // The response is still saved in the session.
-        const errorStr = e instanceof Error ? e.message : String(e);
-        console.error("[AgentExecution] Outbound delivery failed, adding to DLQ:", errorStr);
-
-        try {
-          await ctx.runMutation(getInternal().ai.deadLetterQueue.addToDeadLetterQueue, {
-            organizationId: args.organizationId,
-            channel: args.channel,
-            recipientIdentifier: args.externalContactIdentifier,
-            content: assistantContent,
-            error: errorStr,
-            sessionId: session._id,
-            providerConversationId: meta.providerConversationId as string | undefined,
-          });
-        } catch (dlqError) {
-          // Last resort — if even DLQ fails, just log
-          console.error("[AgentExecution] Failed to add to dead letter queue:", dlqError);
-        }
-      }
-    }
+    await deliverAssistantResponseWithFallback(
+      ctx,
+      {
+        sendMessage: getInternal().channels.router.sendMessage,
+        addToDeadLetterQueue: getInternal().ai.deadLetterQueue.addToDeadLetterQueue,
+      },
+      {
+        organizationId: args.organizationId,
+        channel: args.channel,
+        recipientIdentifier: args.externalContactIdentifier,
+        assistantContent,
+        sessionId: session._id,
+        metadata: (args.metadata as Record<string, unknown>) || {},
+      },
+    );
 
     return {
       status: "success",
@@ -988,7 +1274,7 @@ export const processInboundMessage = action({
 
 function buildAgentSystemPrompt(
   config: AgentConfig,
-  knowledgeBaseDocs?: Array<{ filename: string; description?: string; content: string; tags?: string[] }>,
+  knowledgeBaseDocs?: KnowledgeContextDocument[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   interviewContext?: any,
   previousSessionSummary?: string,
@@ -1115,36 +1401,11 @@ function buildAgentSystemPrompt(
 // which implements 4-layer scoping: platform → org → agent → session
 
 function checkNeedsApproval(config: AgentConfig, toolName: string): boolean {
-  // Supervised mode: everything needs approval
-  if (config.autonomyLevel === "supervised") return true;
-
-  // Draft-only mode: nothing executes (tools already filtered to read-only)
-  if (config.autonomyLevel === "draft_only") return false;
-
-  // Autonomous mode: check requireApprovalFor list
-  if (config.requireApprovalFor?.includes(toolName)) return true;
-
-  return false;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function calculateCost(usage: any, model: string): number {
-  if (!usage) return 0;
-
-  // Approximate costs per 1M tokens (from OpenRouter pricing)
-  const pricing: Record<string, { input: number; output: number }> = {
-    "anthropic/claude-sonnet-4-20250514": { input: 3, output: 15 },
-    "anthropic/claude-3-5-sonnet": { input: 3, output: 15 },
-    "openai/gpt-4o": { input: 2.5, output: 10 },
-    "openai/gpt-4o-mini": { input: 0.15, output: 0.6 },
-    "google/gemini-pro-1.5": { input: 1.25, output: 5 },
-  };
-
-  const rates = pricing[model] || { input: 3, output: 15 };
-  const inputCost = (usage.prompt_tokens || 0) * rates.input / 1_000_000;
-  const outputCost = (usage.completion_tokens || 0) * rates.output / 1_000_000;
-
-  return inputCost + outputCost;
+  return shouldRequireToolApproval({
+    autonomyLevel: config.autonomyLevel,
+    toolName,
+    requireApprovalFor: config.requireApprovalFor,
+  });
 }
 
 /**

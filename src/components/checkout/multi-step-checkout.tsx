@@ -28,6 +28,7 @@ import { evaluatePaymentRules, type PaymentRulesResult } from "../../../convex/p
 import styles from "./styles/multi-step.module.css";
 import { usePostHog } from "posthog-js/react";
 import { useTranslation } from "@/contexts/translation-context";
+import { Check } from "lucide-react";
 
 /**
  * Step data flow through checkout process
@@ -793,7 +794,7 @@ function CheckoutProgressBar({
                   disabled={!isCompleted}
                   title={isCompleted ? `Go back to ${step.label}` : step.label}
                 >
-                  {isCompleted ? "✓" : index + 1}
+                  {isCompleted ? <Check size={14} /> : index + 1}
                 </button>
 
                 {/* Step Label */}

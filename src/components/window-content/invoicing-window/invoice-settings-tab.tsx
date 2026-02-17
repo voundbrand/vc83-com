@@ -363,7 +363,7 @@ export function InvoiceSettingsTab() {
                 Company Logo
               </label>
               <button
-                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", "🎨", { activeTab: "branding" })}
+                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "branding" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--win95-highlight)", color: "white" }}
               >
@@ -417,7 +417,7 @@ export function InvoiceSettingsTab() {
                 VAT & Tax ID
               </label>
               <button
-                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", "🎨", { activeTab: "legal_info" })}
+                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "legal_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--win95-highlight)", color: "white" }}
               >
@@ -445,7 +445,7 @@ export function InvoiceSettingsTab() {
                 Contact Information
               </label>
               <button
-                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", "🎨", { activeTab: "contact_info" })}
+                onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "contact_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--win95-highlight)", color: "white" }}
               >
@@ -537,7 +537,7 @@ export function InvoiceSettingsTab() {
                     undefined,
                     undefined,
                     "ui.windows.manage.title",
-                    "🎨",
+                    undefined,
                     { activeTab: "addresses" }
                   );
                 }}
@@ -573,7 +573,7 @@ export function InvoiceSettingsTab() {
                   undefined,
                   undefined,
                   "ui.windows.manage.title",
-                  "🎨",
+                  undefined,
                   { activeTab: "addresses" }
                 );
               }}

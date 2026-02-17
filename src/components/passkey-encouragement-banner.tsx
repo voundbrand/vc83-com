@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Smartphone, X } from "lucide-react";
+import { Smartphone, X, Lock } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useNotification } from "@/hooks/use-notification";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -57,7 +57,7 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
 
       // Success!
       notification.success(
-        `✅ ${t("ui.login.passkey_notification.success_title")}`,
+        t("ui.login.passkey_notification.success_title"),
         t("ui.login.passkey_notification.success_message")
       );
 
@@ -100,8 +100,9 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
         <Smartphone size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'white' }} />
 
         <div className="flex-1">
-          <h3 className="text-sm font-bold mb-1" style={{ color: 'white' }}>
-            🔐 {t("ui.login.passkey_banner.title")}
+          <h3 className="text-sm font-bold mb-1 flex items-center gap-1" style={{ color: 'white' }}>
+            <Lock size={14} />
+            {t("ui.login.passkey_banner.title")}
           </h3>
           <p className="text-xs mb-3" style={{ color: 'white', opacity: 0.9 }}>
             {t("ui.login.passkey_banner.description")}

@@ -203,7 +203,7 @@ export function EmployerDetectionConfigForm({
             />
 
             <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-              💡 Map form values to CRM organizations. When matched, billing address is auto-filled from organization data.
+               Map form values to CRM organizations. When matched, billing address is auto-filled from organization data.
             </p>
             {crmOrganizations && crmOrganizations.length === 0 && (
               <p
@@ -214,7 +214,7 @@ export function EmployerDetectionConfigForm({
                   background: "var(--win95-bg-light)",
                 }}
               >
-                ⚠️ No CRM organizations found. Create organizations in the CRM app first to enable mapping.
+                 No CRM organizations found. Create organizations in the CRM app first to enable mapping.
               </p>
             )}
           </div>
@@ -281,7 +281,7 @@ export function EmployerDetectionConfigForm({
             >
               <div>
                 <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                  🎫 Skip Payment & Create Tickets Immediately
+                   Skip Payment & Create Tickets Immediately
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   For employer billing: Skip payment step and create tickets right after customer info
@@ -341,7 +341,7 @@ export function EmployerDetectionConfigForm({
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 <strong>How it works:</strong> When a form is submitted, the employer field value is extracted and
+           <strong>How it works:</strong> When a form is submitted, the employer field value is extracted and
           matched against your mapping. If found, the corresponding CRM organization&apos;s billing address is
           automatically filled in the checkout form.
         </p>

@@ -237,7 +237,7 @@ export function MappingList({
             color: "var(--neutral-gray)",
           }}
         >
-          💡 Available field options: {fieldOptions.map((opt) => opt.label).join(", ")}
+           Available field options: {fieldOptions.map((opt) => opt.label).join(", ")}
         </div>
       )}
     </div>

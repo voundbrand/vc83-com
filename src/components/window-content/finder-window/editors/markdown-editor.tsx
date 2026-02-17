@@ -327,11 +327,11 @@ function ToolbarButton({
       title={title}
       className="p-1.5 rounded transition-colors"
       style={{
-        background: active ? "var(--win95-highlight-bg)" : "transparent",
+        background: active ? "var(--finder-selection-bg)" : "transparent",
         color: disabled
           ? "var(--neutral-gray)"
           : active
-            ? "var(--win95-highlight)"
+            ? "var(--finder-selection-text)"
             : "var(--win95-text)",
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? "not-allowed" : "pointer",

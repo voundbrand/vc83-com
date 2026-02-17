@@ -1,6 +1,10 @@
 "use client";
 
 import { Filter, X } from "lucide-react";
+import {
+  InteriorButton,
+  InteriorSelect,
+} from "@/components/window-content/shared/interior-primitives";
 
 interface ProjectFiltersProps {
   filters: {
@@ -51,103 +55,72 @@ export function ProjectFilters({ filters, onFilterChange }: ProjectFiltersProps)
 
   return (
     <div
-      className="flex flex-wrap items-center gap-3 px-4 py-3 border-b-2"
-      style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
-      }}
+      className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
+      style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
     >
-      {/* Filter Icon */}
       <div className="flex items-center gap-2">
-        <Filter size={14} style={{ color: "var(--neutral-gray)" }} />
-        <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+        <Filter size={14} style={{ color: "var(--desktop-menu-text-muted)" }} />
+        <span className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
           Filters:
         </span>
       </div>
 
-      {/* Type Filter */}
-      <select
+      <InteriorSelect
         value={filters.subtype || ""}
-        onChange={(e) =>
+        onChange={(event) =>
           onFilterChange({
             ...filters,
-            subtype: e.target.value || undefined,
+            subtype: event.target.value || undefined,
           })
         }
-        className="px-2 py-1 text-xs border-2 focus:outline-none focus:border-black"
-        style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
-          color: "var(--win95-text)",
-        }}
+        className="w-auto min-w-[132px] px-2 py-1 text-xs"
       >
         {subtypes.map((type) => (
           <option key={type.value} value={type.value}>
             {type.label}
           </option>
         ))}
-      </select>
+      </InteriorSelect>
 
-      {/* Status Filter */}
-      <select
+      <InteriorSelect
         value={filters.status || ""}
-        onChange={(e) =>
+        onChange={(event) =>
           onFilterChange({
             ...filters,
-            status: e.target.value || undefined,
+            status: event.target.value || undefined,
           })
         }
-        className="px-2 py-1 text-xs border-2 focus:outline-none focus:border-black"
-        style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
-          color: "var(--win95-text)",
-        }}
+        className="w-auto min-w-[132px] px-2 py-1 text-xs"
       >
         {statuses.map((status) => (
           <option key={status.value} value={status.value}>
             {status.label}
           </option>
         ))}
-      </select>
+      </InteriorSelect>
 
-      {/* Priority Filter */}
-      <select
+      <InteriorSelect
         value={filters.priority || ""}
-        onChange={(e) =>
+        onChange={(event) =>
           onFilterChange({
             ...filters,
-            priority: e.target.value || undefined,
+            priority: event.target.value || undefined,
           })
         }
-        className="px-2 py-1 text-xs border-2 focus:outline-none focus:border-black"
-        style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
-          color: "var(--win95-text)",
-        }}
+        className="w-auto min-w-[132px] px-2 py-1 text-xs"
       >
         {priorities.map((priority) => (
           <option key={priority.value} value={priority.value}>
             {priority.label}
           </option>
         ))}
-      </select>
+      </InteriorSelect>
 
-      {/* Clear Filters Button */}
       {hasActiveFilters && (
-        <button
-          onClick={clearFilters}
-          className="px-2 py-1 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:opacity-80"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--error)",
-          }}
-        >
+        <InteriorButton variant="danger" size="sm" onClick={clearFilters} className="gap-1">
           <X size={12} />
           Clear
-        </button>
+        </InteriorButton>
       )}
     </div>
   );

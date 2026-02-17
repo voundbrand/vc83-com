@@ -102,11 +102,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
       //   quotas: quotaOverrides,
       // });
 
-      setSaveStatus("✓ Quota limits saved successfully");
+      setSaveStatus(" Quota limits saved successfully");
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (error) {
       console.error("Failed to save quotas:", error);
-      setSaveStatus("✗ Failed to save quota limits");
+      setSaveStatus(" Failed to save quota limits");
     } finally {
       setIsSaving(false);
     }
@@ -133,14 +133,14 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         resetPlan: resetPlanToFree,
       });
 
-      setClearSubscriptionStatus(`✓ ${result.message}`);
+      setClearSubscriptionStatus(` ${result.message}`);
       // Reset checkboxes
       setClearCustomerId(false);
       setResetPlanToFree(false);
       setTimeout(() => setClearSubscriptionStatus(null), 5000);
     } catch (error) {
       console.error("Failed to clear subscription:", error);
-      setClearSubscriptionStatus(`✗ Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setClearSubscriptionStatus(` Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsClearingSubscription(false);
     }
@@ -316,7 +316,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
             border: '2px solid #FFEB99',
             borderRadius: '4px'
           }}>
-            <p className="text-xs font-semibold mb-1">📊 Plan tier managed in License Overview below</p>
+            <p className="text-xs font-semibold mb-1"> Plan tier managed in License Overview below</p>
             <p className="text-xs">
               Use the License Overview section to view and change the organization's plan tier.
             </p>
@@ -359,11 +359,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           <div
             className="mb-4 p-2 text-xs flex items-center gap-2"
             style={{
-              background: clearSubscriptionStatus.startsWith("✓") ? "var(--success)" : "var(--error)",
+              background: clearSubscriptionStatus.startsWith("") ? "var(--success)" : "var(--error)",
               color: "white",
             }}
           >
-            {clearSubscriptionStatus.startsWith("✓") ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+            {clearSubscriptionStatus.startsWith("") ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
             {clearSubscriptionStatus}
           </div>
         )}
@@ -441,11 +441,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           <div
             className="mb-4 p-2 text-xs flex items-center gap-2"
             style={{
-              background: saveStatus.startsWith("✓") ? "var(--success)" : "var(--error)",
+              background: saveStatus.startsWith("") ? "var(--success)" : "var(--error)",
               color: "white",
             }}
           >
-            {saveStatus.startsWith("✓") ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+            {saveStatus.startsWith("") ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
             {saveStatus}
           </div>
         )}

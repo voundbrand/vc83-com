@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { CheckCircle2, Package, Settings, Rocket, AlertTriangle, Check } from "lucide-react";
 
 /**
  * Simple Quick Start Component
@@ -81,8 +82,9 @@ export function QuickStartSimple() {
       <div className="p-6 space-y-6">
         {/* Success Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-          <h2 className="text-white font-bold text-xl mb-2">
-            ✅ Setup Complete!
+          <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" />
+            Setup Complete!
           </h2>
           <p className="text-green-100 text-sm">
             Your workspace has been configured successfully.
@@ -91,8 +93,9 @@ export function QuickStartSimple() {
 
         {/* Results */}
         <div className="bg-white border-4 border-gray-400 p-4 space-y-3">
-          <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2">
-            📦 What was added:
+          <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2 flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            What was added:
           </p>
 
           {results.appsProvisioned.length > 0 && (
@@ -145,8 +148,9 @@ export function QuickStartSimple() {
       <div className="p-6 space-y-6">
         {/* Progress Header */}
         <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-          <h2 className="text-white font-bold text-xl mb-2">
-            ⚙️ Setting Up Your Workspace
+          <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Setting Up Your Workspace
           </h2>
           <p className="text-purple-100 text-sm">
             Please wait while we configure your account...
@@ -175,8 +179,9 @@ export function QuickStartSimple() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-        <h2 className="text-white font-bold text-xl mb-2">
-          🚀 Quick Start Setup
+        <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
+          <Rocket className="w-5 h-5" />
+          Quick Start Setup
         </h2>
         <p className="text-purple-100 text-sm">
           Configure your workspace with pre-configured apps and templates
@@ -185,8 +190,9 @@ export function QuickStartSimple() {
 
       {/* What You'll Get */}
       <div className="bg-white border-4 border-gray-400 p-4 space-y-3">
-        <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2">
-          📦 What you'll get:
+        <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2 flex items-center gap-2">
+          <Package className="w-4 h-4" />
+          What you'll get:
         </p>
 
         <div>
@@ -211,8 +217,9 @@ export function QuickStartSimple() {
       {/* Error */}
       {error && (
         <div className="bg-red-50 border-4 border-red-400 p-3">
-          <p className="text-red-800 text-xs">
-            ⚠️ <strong>Error:</strong> {error}
+          <p className="text-red-800 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <strong>Error:</strong> {error}
           </p>
         </div>
       )}
@@ -221,15 +228,17 @@ export function QuickStartSimple() {
       <button
         onClick={handleStart}
         disabled={isRunning}
-        className="w-full px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
-        ✓ START QUICK SETUP
+        <Check className="w-4 h-4" />
+        START QUICK SETUP
       </button>
 
       {/* Safety Notice */}
       <div className="bg-yellow-50 border-4 border-yellow-400 p-3">
-        <p className="text-yellow-800 text-xs">
-          ⚠️ <strong>Note:</strong> This will ADD apps and templates to your
+        <p className="text-yellow-800 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <strong>Note:</strong> This will ADD apps and templates to your
           workspace. Your existing data will not be affected.
         </p>
       </div>

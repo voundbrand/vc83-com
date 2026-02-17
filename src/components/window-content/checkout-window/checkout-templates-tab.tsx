@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { ShoppingCart, FileText, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { AlertCircle, Check, Clock3, ExternalLink, FileText, Lightbulb, Loader2, Package, PlugZap, Settings, ShoppingCart, Ticket, X } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
@@ -66,16 +66,16 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
   }
 
   // Get icon for template category
-  const getTemplateIcon = (category: string) => {
-    switch (category) {
+  const getTemplateIcon = (categoryOrIcon: string) => {
+    switch (categoryOrIcon) {
       case "ticket":
-        return "🎫";
+        return <Ticket size={28} />;
       case "product":
-        return "📦";
+        return <Package size={28} />;
       case "service":
-        return "⚙️";
+        return <Settings size={28} />;
       default:
-        return "📄";
+        return <FileText size={28} />;
     }
   };
 
@@ -126,8 +126,9 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
               : t("ui.checkout_window.templates.empty.description")
             }
           </p>
-          <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-            💡 {translationsLoading
+          <p className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--neutral-gray)' }}>
+            <Lightbulb size={12} />
+            {translationsLoading
               ? "Contact your administrator to enable checkout templates for your organization."
               : t("ui.checkout_window.templates.empty.help")
             }
@@ -138,7 +139,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {availableTemplates.map((template) => {
             const props = template.customProperties as Record<string, unknown>;
-            const icon = props.icon as string || getTemplateIcon(template.subtype || "");
+            const icon = getTemplateIcon((props.icon as string) || template.subtype || "");
             const features = props.features as string[] || [];
             const useCases = props.useCases as string[] || [];
             const complexity = props.complexity as string || "intermediate";
@@ -147,7 +148,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
             const comingSoon = props.comingSoon as boolean;
             const complexityColor = getComplexityColor(complexity);
 
-            // ✅ READ FORM SUPPORT FROM DATABASE (source of truth)
+            // Read form support from database (source of truth)
             const supportsFormIntegration = props.supportsFormIntegration as boolean || false;
 
             // Get translated complexity label
@@ -195,7 +196,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                         }}
                         title={translationsLoading ? (supportsFormIntegration ? "This template supports form integration during checkout" : "This template does not support form integration") : t(supportsFormIntegration ? "ui.checkout_window.templates.tooltip.form_supports" : "ui.checkout_window.templates.tooltip.form_not_supports")}
                       >
-                        {supportsFormIntegration ? "✓" : "✕"} {translationsLoading
+                        {supportsFormIntegration ? <Check size={12} /> : <X size={12} />} {translationsLoading
                           ? (supportsFormIntegration ? "Form Compatible" : "Form Incompatible")
                           : t(supportsFormIntegration ? "ui.checkout_window.templates.badge.form_compatible" : "ui.checkout_window.templates.badge.form_incompatible")
                         }
@@ -228,12 +229,14 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                   <div className="flex flex-wrap gap-2 mb-3 text-xs" style={{ color: 'var(--neutral-gray)' }}>
                     {estimatedSetupTime && (
                       <span className="flex items-center gap-1">
-                        ⏱️ {estimatedSetupTime}
+                        <Clock3 size={12} />
+                        {estimatedSetupTime}
                       </span>
                     )}
                     {requiredIntegrations.length > 0 && (
                       <span className="flex items-center gap-1">
-                        🔌 {requiredIntegrations.join(", ")}
+                        <PlugZap size={12} />
+                        {requiredIntegrations.join(", ")}
                       </span>
                     )}
                   </div>
@@ -242,8 +245,9 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 {/* Features (collapsible) */}
                 {features.length > 0 && (
                   <details className="mb-3">
-                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80" style={{ color: 'var(--win95-text)' }}>
-                      📋 {translationsLoading ? `Features (${features.length})` : t("ui.checkout_window.templates.sections.features", { count: features.length })}
+                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--win95-text)' }}>
+                      <FileText size={12} />
+                      {translationsLoading ? `Features (${features.length})` : t("ui.checkout_window.templates.sections.features", { count: features.length })}
                     </summary>
                     <ul className="mt-2 space-y-1 text-xs ml-4" style={{ color: 'var(--neutral-gray)' }}>
                       {features.slice(0, 5).map((feature, idx) => (
@@ -263,8 +267,9 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 {/* Use Cases (collapsible) */}
                 {useCases.length > 0 && (
                   <details className="mb-3">
-                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80" style={{ color: 'var(--win95-text)' }}>
-                      💡 {translationsLoading ? `Use Cases (${useCases.length})` : t("ui.checkout_window.templates.sections.use_cases", { count: useCases.length })}
+                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--win95-text)' }}>
+                      <Lightbulb size={12} />
+                      {translationsLoading ? `Use Cases (${useCases.length})` : t("ui.checkout_window.templates.sections.use_cases", { count: useCases.length })}
                     </summary>
                     <ul className="mt-2 space-y-1 text-xs ml-4" style={{ color: 'var(--neutral-gray)' }}>
                       {useCases.slice(0, 4).map((useCase, idx) => (

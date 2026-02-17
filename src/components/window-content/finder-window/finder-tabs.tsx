@@ -69,25 +69,17 @@ export function FinderTabs({
 
   return (
     <div
-      className="flex items-center border-b-2 overflow-hidden flex-shrink-0"
+      className="flex items-center gap-1 border-b overflow-hidden flex-shrink-0 px-2 py-1"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg)",
-        minHeight: 32,
+        borderColor: "var(--window-document-border)",
+        background: "var(--desktop-shell-accent)",
+        minHeight: 40,
       }}
     >
       {/* Browse tab */}
       <button
         onClick={onBrowse}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs border-r-2 flex-shrink-0 transition-colors"
-        style={{
-          borderColor: "var(--win95-border)",
-          background: isBrowsing ? "var(--win95-bg)" : "var(--win95-button-face)",
-          color: isBrowsing ? "var(--primary)" : "var(--win95-text)",
-          fontWeight: isBrowsing ? 700 : 400,
-          borderBottom: isBrowsing ? "2px solid var(--win95-bg)" : "none",
-          marginBottom: isBrowsing ? -2 : 0,
-        }}
+        className={`desktop-interior-tab flex items-center gap-1.5 px-3 py-1.5 text-xs flex-shrink-0 ${isBrowsing ? "desktop-interior-tab-active" : ""}`}
       >
         <FolderOpen size={12} />
         Browse
@@ -106,16 +98,8 @@ export function FinderTabs({
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
               onMouseDown={(e) => handleMiddleClick(e, tab.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border-r flex-shrink-0 group transition-colors"
+              className={`desktop-interior-tab flex items-center gap-1.5 px-3 py-1.5 text-xs flex-shrink-0 group ${isActive ? "desktop-interior-tab-active" : ""}`}
               style={{
-                borderColor: "var(--win95-border)",
-                background: isActive
-                  ? "var(--win95-bg)"
-                  : "var(--win95-button-face)",
-                color: isActive ? "var(--win95-text)" : "var(--neutral-gray)",
-                fontWeight: isActive ? 700 : 400,
-                borderBottom: isActive ? "2px solid var(--win95-bg)" : "none",
-                marginBottom: isActive ? -2 : 0,
                 maxWidth: 180,
               }}
             >

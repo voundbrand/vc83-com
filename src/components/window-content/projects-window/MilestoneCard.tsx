@@ -6,7 +6,7 @@
 "use client";
 
 import React from "react";
-import { Calendar, Edit, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { AlertTriangle, Calendar, Edit, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { format } from "date-fns";
 
 interface Milestone {
@@ -91,7 +91,12 @@ export default function MilestoneCard({
                   <span>
                     Due: {format(new Date(dueDate), "MMM d, yyyy")}
                   </span>
-                  {isOverdue && <span className="text-red-600 font-bold">⚠️ Overdue</span>}
+                  {isOverdue && (
+                    <span className="text-red-600 font-bold inline-flex items-center gap-1">
+                      <AlertTriangle size={12} />
+                      Overdue
+                    </span>
+                  )}
                 </div>
               )}
             </div>

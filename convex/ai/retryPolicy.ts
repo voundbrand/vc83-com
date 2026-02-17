@@ -83,15 +83,6 @@ export const CHANNEL_RETRY_POLICIES: Record<string, RetryPolicy> = {
   },
 };
 
-/** Fallback model chain for LLM failover */
-export const MODEL_FALLBACK_CHAIN: Record<string, string[]> = {
-  "anthropic/claude-sonnet-4-20250514": ["openai/gpt-4o", "openai/gpt-4o-mini"],
-  "anthropic/claude-3-5-sonnet": ["openai/gpt-4o", "openai/gpt-4o-mini"],
-  "openai/gpt-4o": ["anthropic/claude-sonnet-4-20250514", "openai/gpt-4o-mini"],
-  "openai/gpt-4o-mini": ["anthropic/claude-sonnet-4-20250514"],
-  "google/gemini-pro-1.5": ["anthropic/claude-sonnet-4-20250514", "openai/gpt-4o"],
-};
-
 // ============================================================================
 // RETRY WRAPPER
 // ============================================================================

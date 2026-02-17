@@ -7,6 +7,7 @@
 
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import { RetroButton } from "./retro-button";
 
 interface RetroConfirmDialogProps {
@@ -67,7 +68,7 @@ export function RetroConfirmDialog({
                 background: "var(--warning-light)",
               }}
             >
-              <div className="text-2xl">⚠️</div>
+              <TriangleAlert size={24} style={{ color: "var(--warning)" }} />
             </div>
 
             {/* Message */}

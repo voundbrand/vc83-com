@@ -202,7 +202,7 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
         if (result.taxSyncResult?.settingsFound) {
           notification.success(
             'Settings Refreshed',
-            `✅ Stripe Tax is active and synced. Tax calculations are enabled for checkout.`,
+            ` Stripe Tax is active and synced. Tax calculations are enabled for checkout.`,
             true
           );
         } else {

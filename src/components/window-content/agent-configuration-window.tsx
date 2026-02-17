@@ -141,10 +141,11 @@ export function AgentConfigurationWindow() {
               className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-r transition-colors"
               style={{
                 borderColor: "var(--win95-border)",
-                background: activeTab === tab.id ? "var(--win95-bg)" : "var(--win95-bg-dark, #c0c0c0)",
+                background: activeTab === tab.id ? "var(--win95-bg-light)" : "var(--win95-bg-dark)",
                 color: "var(--win95-text)",
-                borderBottom: activeTab === tab.id ? "2px solid var(--win95-bg)" : "none",
+                borderBottom: activeTab === tab.id ? "2px solid var(--win95-bg-light)" : "none",
                 marginBottom: activeTab === tab.id ? "-2px" : "0",
+                boxShadow: activeTab === tab.id ? "inset 0 1px 0 var(--win95-border-light)" : "none",
               }}
             >
               {tab.icon}
@@ -172,6 +173,7 @@ export function AgentConfigurationWindow() {
         <CreditWall
           currentTier={creditBalance?.planTier || "free"}
           creditsAvailable={0}
+          variant="notification"
         />
       )}
       {hasLowCredits && creditBalance && (
@@ -179,8 +181,9 @@ export function AgentConfigurationWindow() {
           className="flex items-center gap-2 px-4 py-2 text-xs border-b-2"
           style={{
             borderColor: "var(--win95-border)",
-            background: "var(--warning-bg, #fff3cd)",
-            color: "var(--warning, #856404)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text-secondary)",
+            boxShadow: "inset 3px 0 0 var(--warning)",
           }}
         >
           <span>Credits running low ({creditBalance.totalCredits} remaining of {creditBalance.monthlyCreditsTotal} monthly). Agents may stop responding when credits run out.</span>
@@ -253,7 +256,7 @@ function AgentsListTab({
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const openAgentBuilder = () => { openWindow("builder-browser", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, "🤖", { initialSetupMode: true }); };
+  const openAgentBuilder = () => { openWindow("builder-browser", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, undefined, { initialSetupMode: true }); };
   if (!agents) {
     return <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>Loading agents...</div>;
   }

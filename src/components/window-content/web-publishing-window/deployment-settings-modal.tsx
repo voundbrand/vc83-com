@@ -273,7 +273,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
               title="This URL is auto-generated from your GitHub repository"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              ✨ Automatically generated from GitHub repo with environment variables
+               Automatically generated from GitHub repo with environment variables
             </p>
           </div>
 

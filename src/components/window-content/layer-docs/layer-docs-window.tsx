@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Plus, FileText, Folder, Palette, NotebookText, X } from "lucide-react";
 
 export function LayerDocsWindow() {
   const [showComingSoon, setShowComingSoon] = useState(true);
@@ -24,7 +25,7 @@ export function LayerDocsWindow() {
               color: 'var(--win95-text)'
             }}
           >
-            <span>➕</span>
+            <Plus className="h-3.5 w-3.5" />
             <span>New</span>
           </button>
         </div>
@@ -34,23 +35,23 @@ export function LayerDocsWindow() {
           <div className="space-y-1">
             {/* Mock document items */}
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span>📄</span>
+              <FileText className="h-3.5 w-3.5" />
               <span className="font-pixel">Welcome</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span>📂</span>
+              <Folder className="h-3.5 w-3.5" />
               <span className="font-pixel">Guides</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span>📄</span>
+              <FileText className="h-3.5 w-3.5" />
               <span className="font-pixel">Setup</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span>📄</span>
+              <FileText className="h-3.5 w-3.5" />
               <span className="font-pixel">Usage</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
-              <span>📄</span>
+              <FileText className="h-3.5 w-3.5" />
               <span className="font-pixel">Notes</span>
             </div>
           </div>
@@ -89,8 +90,9 @@ export function LayerDocsWindow() {
         <div className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
-              <h1 className="text-3xl font-pixel mb-4" style={{ color: 'var(--win95-highlight)' }}>
-                🎨 Welcome to L4YER.docs
+              <h1 className="text-3xl font-pixel mb-4 flex items-center gap-2" style={{ color: 'var(--win95-highlight)' }}>
+                <Palette className="h-8 w-8" />
+                Welcome to L4YER.docs
               </h1>
             </div>
 
@@ -158,14 +160,14 @@ export function LayerDocsWindow() {
                   onClick={() => setShowComingSoon(false)}
                   title="Close"
                 >
-                  <span>×</span>
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             </div>
 
           {/* Content */}
           <div className="space-y-4">
-            <div className="text-6xl mb-4">📝</div>
+            <NotebookText className="h-14 w-14 mx-auto" />
 
             <h2 className="text-2xl font-pixel mb-4" style={{ color: 'var(--win95-highlight)' }}>
               Coming Soon
@@ -187,12 +189,12 @@ export function LayerDocsWindow() {
                 Planned Features:
               </p>
               <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
-                <li>✓ Rich text block editor</li>
-                <li>✓ Hierarchical document tree</li>
-                <li>✓ Image & file uploads</li>
-                <li>✓ Full-text search (Cmd+K)</li>
-                <li>✓ Organization permissions</li>
-                <li>✓ Real-time collaboration</li>
+                <li>Rich text block editor</li>
+                <li>Hierarchical document tree</li>
+                <li>Image and file uploads</li>
+                <li>Full-text search (Cmd+K)</li>
+                <li>Organization permissions</li>
+                <li>Real-time collaboration</li>
               </ul>
             </div>
 

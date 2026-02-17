@@ -17,6 +17,15 @@ import { TemplatesTab } from "./templates-tab";
 import { TransactionsSection } from "../payments-window/transactions-section";
 import { CreateInvoiceTab } from "./create-invoice-tab";
 import { InvoiceSettingsTab } from "./invoice-settings-tab";
+import {
+  InteriorHeader,
+  InteriorPanel,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 /**
  * Invoicing Window
@@ -59,16 +68,19 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
     description: "Comprehensive invoicing system with B2B consolidation, payment tracking, and automated billing workflows"
   });
 
-  // Fetch invoices for current organization
-  const invoices = useQuery(
-    api.invoicingOntology.listInvoices,
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => unknown;
+  // @ts-ignore TS2589: Convex generated type may exceed instantiation depth in this component.
+  const listInvoices = (api as unknown as { invoicingOntology: { listInvoices: unknown } }).invoicingOntology.listInvoices;
+  // TS2589 workaround: preserve runtime behavior while avoiding deep generic expansion in this large component.
+  const invoices = useQueryUntyped(
+    listInvoices,
     sessionId && currentOrg
       ? {
           sessionId,
           organizationId: currentOrg.id as Id<"organizations">,
         }
-      : "skip"
-  );
+      : "skip",
+  ) as Doc<"objects">[] | null | undefined;
 
   // Separate draft and sealed invoices
   const draftInvoices = invoices?.filter(inv => inv.customProperties?.isDraft === true) || [];
@@ -92,69 +104,64 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
 
   if (translationsLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center">
+        <p style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
+      </InteriorRoot>
     );
   }
 
   // Check if user has access to invoicing for this organization
   if (invoices === null && sessionId && currentOrg) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="flex h-full flex-col">
         <div className="flex items-center justify-center h-full">
           <div className="max-w-md mx-auto p-6">
-            <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
+            <InteriorPanel className="p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
               <div className="flex items-start gap-3">
                 <AlertCircle size={24} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
                     {t("ui.invoicing_window.access_denied") || "Access Denied"}
                   </h4>
-                  <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs mb-2" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.invoicing_window.no_permission") || "You don't have permission to view invoicing for this organization."}
                   </p>
-                  <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                  <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     {t("ui.invoicing_window.contact_admin") || "Please contact your organization administrator if you need access to invoicing management."}
                   </p>
                 </div>
               </div>
-            </div>
+            </InteriorPanel>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
             {fullScreen && (
               <Link
                 href="/"
-                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                }}
+                className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
                 title="Back to Desktop"
               >
                 <ArrowLeft size={14} />
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <InteriorTitle className="text-sm font-bold flex items-center gap-2">
                 <CreditCard size={16} />
                 {t("ui.invoicing_window.header.title")}
-              </h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              </InteriorTitle>
+              <InteriorSubtitle className="text-xs mt-1">
                 {t("ui.invoicing_window.header.description")}
-              </p>
+              </InteriorSubtitle>
             </div>
           </div>
 
@@ -162,83 +169,38 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
           {!fullScreen && (
             <Link
               href="/invoicing"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Open Full Screen"
             >
               <Maximize2 size={14} />
             </Link>
           )}
         </div>
-      </div>
+      </InteriorHeader>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("create")}
-        >
+      <InteriorTabRow className="gap-2 px-3 py-2">
+        <InteriorTabButton active={activeTab === "create"} onClick={() => setActiveTab("create")} className="flex items-center gap-2">
           <Plus size={14} />
           {t("ui.invoicing_window.tabs.create")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "invoices" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "invoices" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("invoices")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "invoices"} onClick={() => setActiveTab("invoices")} className="flex items-center gap-2">
           <FileText size={14} />
           {t("ui.invoicing_window.tabs.invoices")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "transactions" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "transactions" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("transactions")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "transactions"} onClick={() => setActiveTab("transactions")} className="flex items-center gap-2">
           <History size={14} />
           {t("ui.invoicing_window.tabs.transactions")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "templates" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("templates")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "templates"} onClick={() => setActiveTab("templates")} className="flex items-center gap-2">
           <Palette size={14} />
           {t("ui.invoicing_window.tabs.templates")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("settings")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "settings"} onClick={() => setActiveTab("settings")} className="flex items-center gap-2">
           <Settings size={14} />
           Settings
-        </button>
-      </div>
+        </InteriorTabButton>
+      </InteriorTabRow>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
@@ -247,36 +209,24 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
         {activeTab === "invoices" && (
           <div className="flex flex-col h-full">
             {/* Sub-tabs for Draft/Sealed */}
-            <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-              <button
+            <InteriorTabRow className="gap-2 px-4 py-3">
+              <InteriorTabButton
+                active={invoiceSubTab === "draft"}
                 onClick={() => setInvoiceSubTab("draft")}
-                className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
-                  invoiceSubTab === "draft" ? "-mb-0.5" : ""
-                }`}
-                style={{
-                  backgroundColor: invoiceSubTab === "draft" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-                  color: invoiceSubTab === "draft" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-                  borderColor: invoiceSubTab === "draft" ? "var(--win95-border)" : "transparent",
-                }}
+                className="flex items-center gap-2"
               >
                 <Edit size={12} />
                 {t("ui.invoicing_window.subtabs.draft")} ({draftInvoices.length})
-              </button>
-              <button
+              </InteriorTabButton>
+              <InteriorTabButton
+                active={invoiceSubTab === "sealed"}
                 onClick={() => setInvoiceSubTab("sealed")}
-                className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
-                  invoiceSubTab === "sealed" ? "-mb-0.5" : ""
-                }`}
-                style={{
-                  backgroundColor: invoiceSubTab === "sealed" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-                  color: invoiceSubTab === "sealed" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-                  borderColor: invoiceSubTab === "sealed" ? "var(--win95-border)" : "transparent",
-                }}
+                className="flex items-center gap-2"
               >
                 <Lock size={12} />
                 {t("ui.invoicing_window.subtabs.sealed")} ({sealedInvoices.length})
-              </button>
-            </div>
+              </InteriorTabButton>
+            </InteriorTabRow>
 
             {/* Invoice Lists */}
             <div className="flex-1 overflow-y-auto p-4">
@@ -284,7 +234,7 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                 <div>
                   {draftInvoices.length === 0 ? (
                     <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-                      <div className="text-4xl mb-4">📝</div>
+                      <FileText size={36} className="mx-auto mb-4" style={{ color: "var(--desktop-menu-text-muted)" }} />
                       <h3 className="text-sm font-semibold mb-2">{t("ui.invoicing_window.empty.draft.title")}</h3>
                       <p className="text-xs">
                         {t("ui.invoicing_window.empty.draft.description")}
@@ -356,7 +306,7 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                 <div>
                   {sealedInvoices.length === 0 ? (
                     <div className="text-center py-12" style={{ color: "var(--neutral-gray)" }}>
-                      <div className="text-4xl mb-4">🔒</div>
+                      <Lock size={36} className="mx-auto mb-4" style={{ color: "var(--desktop-menu-text-muted)" }} />
                       <h3 className="text-sm font-semibold mb-2">{t("ui.invoicing_window.empty.sealed.title")}</h3>
                       <p className="text-xs">
                         {t("ui.invoicing_window.empty.sealed.description")}
@@ -475,7 +425,7 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
           formatCurrency={formatCurrency}
         />
       )}
-    </div>
+    </InteriorRoot>
   );
 }
 
@@ -569,7 +519,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             invoiceId: invoice._id,
             pdfUrl: pdfAttachment.downloadUrl,
           });
-          console.log("✅ PDF URL saved to invoice:", pdfAttachment.downloadUrl);
+          console.log(" PDF URL saved to invoice:", pdfAttachment.downloadUrl);
         }
 
         // Show success notification - keep modal open so user can download
@@ -806,7 +756,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
         )}
         {pdfSuccess && (
           <div className="mx-4 mt-4 border-2 border-green-500 bg-green-50 p-3">
-            <p className="text-xs font-bold text-green-700">✓ Invoice PDF generated successfully!</p>
+            <p className="text-xs font-bold text-green-700"> Invoice PDF generated successfully!</p>
           </div>
         )}
         {refundError && (
@@ -820,7 +770,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
         )}
         {refundSuccess && (
           <div className="mx-4 mt-4 border-2 border-green-500 bg-green-50 p-3">
-            <p className="text-xs font-bold text-green-700">✓ Refund processed successfully!</p>
+            <p className="text-xs font-bold text-green-700"> Refund processed successfully!</p>
           </div>
         )}
 
@@ -1058,7 +1008,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           }}
           translations={{
             title: "Send Invoice Email",
-            pdfTemplateLabel: "📄 PDF Invoice Template",
+            pdfTemplateLabel: " PDF Invoice Template",
             pdfAttachmentLabel: "Include PDF Invoice",
             confirmSend: `Send invoice to ${billTo.email || billTo.billingEmail}?`,
           }}

@@ -99,17 +99,17 @@ export function FinderToolbar({
 
   return (
     <div
-      className="border-b-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+      className="border-b"
+      style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
     >
       {/* Scope Indicator (non-project modes) */}
       {scopeLabel && (
         <div
           className="flex items-center gap-2 px-4 py-2 border-b"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
-          {mode === "org" && <HardDrive size={14} style={{ color: "var(--primary)" }} />}
-          {mode === "shared" && <Share2 size={14} style={{ color: "var(--primary)" }} />}
+          {mode === "org" && <HardDrive size={14} style={{ color: "var(--finder-accent)" }} />}
+          {mode === "shared" && <Share2 size={14} style={{ color: "var(--finder-accent)" }} />}
           <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
             {scopeLabel}
           </span>
@@ -120,9 +120,9 @@ export function FinderToolbar({
       {projectId && breadcrumbs && (
         <div
           className="flex items-center gap-1 px-4 py-2 border-b"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
-          <FolderTree size={12} style={{ color: "var(--primary)" }} />
+          <FolderTree size={12} style={{ color: "var(--finder-accent)" }} />
           {breadcrumbs.map((crumb: { path: string; name: string }, i: number) => (
             <span key={crumb.path} className="flex items-center gap-1">
               {i > 0 && (
@@ -138,7 +138,7 @@ export function FinderToolbar({
                   color:
                     i === breadcrumbs.length - 1
                       ? "var(--win95-text)"
-                      : "var(--primary)",
+                      : "var(--finder-accent)",
                   fontWeight: i === breadcrumbs.length - 1 ? "bold" : "normal",
                 }}
               >
@@ -156,12 +156,7 @@ export function FinderToolbar({
           <div className="relative">
             <button
               onClick={() => setShowNewMenu(!showNewMenu)}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold border-2 rounded transition-colors"
-              style={{
-                background: "var(--win95-button-face)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button flex items-center gap-2 px-4 py-2 text-xs font-bold"
             >
               <Plus size={14} />
               New
@@ -211,12 +206,7 @@ export function FinderToolbar({
         {projectId && onShareProject && (
           <button
             onClick={onShareProject}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold border-2 rounded transition-colors"
-            style={{
-              background: "var(--win95-button-face)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button flex items-center gap-2 px-4 py-2 text-xs font-bold"
           >
             <Share2 size={14} />
             Share
@@ -227,12 +217,7 @@ export function FinderToolbar({
         {onOpenTagManager && (
           <button
             onClick={onOpenTagManager}
-            className="flex items-center gap-2 px-3 py-2 text-xs border-2 rounded transition-colors"
-            style={{
-              background: "var(--win95-button-face)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-button flex items-center gap-2 px-3 py-2 text-xs"
           >
             <Tag size={14} />
             Tags
@@ -252,50 +237,27 @@ export function FinderToolbar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search files..."
-            className="w-full pl-9 pr-3 py-2 text-xs border-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
-            }}
+            className="desktop-interior-input w-full pl-9 pr-3 py-2 text-xs"
           />
         </div>
 
         {/* View Toggle */}
         <div
-          className="flex border-2"
-          style={{ borderColor: "var(--win95-border)" }}
+          className="flex items-center gap-1 p-0.5 border rounded-lg"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+          }}
         >
           <button
             onClick={() => onViewModeChange("grid")}
-            className="px-3 py-2 border-r-2"
-            style={{
-              borderColor: "var(--win95-border)",
-              background:
-                viewMode === "grid"
-                  ? "var(--win95-highlight-bg)"
-                  : "transparent",
-              color:
-                viewMode === "grid"
-                  ? "var(--win95-highlight)"
-                  : "var(--win95-text)",
-            }}
+            className={`desktop-interior-tab px-3 py-2 ${viewMode === "grid" ? "desktop-interior-tab-active" : ""}`}
           >
             <Grid3x3 size={14} />
           </button>
           <button
             onClick={() => onViewModeChange("list")}
-            className="px-3 py-2"
-            style={{
-              background:
-                viewMode === "list"
-                  ? "var(--win95-highlight-bg)"
-                  : "transparent",
-              color:
-                viewMode === "list"
-                  ? "var(--win95-highlight)"
-                  : "var(--win95-text)",
-            }}
+            className={`desktop-interior-tab px-3 py-2 ${viewMode === "list" ? "desktop-interior-tab-active" : ""}`}
           >
             <List size={14} />
           </button>
@@ -305,12 +267,7 @@ export function FinderToolbar({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as SortOption)}
-          className="px-3 py-2 text-xs border-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
-            color: "var(--win95-text)",
-          }}
+          className="desktop-interior-select min-w-[110px] py-2 pr-8 text-xs"
         >
           <option value="name">Name</option>
           <option value="date">Date</option>
@@ -346,10 +303,10 @@ function NewMenu({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="absolute top-full left-0 mt-1 w-56 border-2 shadow-lg z-50"
+        className="absolute top-full left-0 mt-1 w-56 border rounded-xl shadow-lg z-50"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <div className="p-2">
@@ -391,7 +348,7 @@ function NewMenu({
           <>
             <div
               className="mx-2 h-px"
-              style={{ background: "var(--win95-border)" }}
+              style={{ background: "var(--window-document-border)" }}
             />
             <div className="p-2">
               <MenuButton
@@ -424,8 +381,8 @@ function MenuButton({
       className="w-full flex items-center gap-3 px-3 py-2 text-xs text-left rounded transition-colors"
       style={{ background: "transparent", color: "var(--win95-text)" }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--win95-highlight-bg)";
-        e.currentTarget.style.color = "var(--win95-highlight)";
+        e.currentTarget.style.background = "var(--finder-selection-bg)";
+        e.currentTarget.style.color = "var(--finder-selection-text)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { X, Send, Eye, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, FileText, Info, Loader2, Mail, Paperclip, Send, X, XCircle } from "lucide-react";
 import { TemplateSelector } from "./template-selector";
 
 /**
@@ -243,10 +243,10 @@ export function EmailSendModal({
 
   // Language options
   const languageOptions = [
-    { value: "de", label: "🇩🇪 Deutsch (German)", emoji: "🇩🇪" },
-    { value: "en", label: "🇬🇧 English", emoji: "🇬🇧" },
-    { value: "es", label: "🇪🇸 Español (Spanish)", emoji: "🇪🇸" },
-    { value: "fr", label: "🇫🇷 Français (French)", emoji: "🇫🇷" },
+    { value: "de", label: "Deutsch (German)" },
+    { value: "en", label: "English" },
+    { value: "es", label: "Español (Spanish)" },
+    { value: "fr", label: "Français (French)" },
   ];
 
   return (
@@ -284,8 +284,9 @@ export function EmailSendModal({
 
         {/* Recipient Info */}
         <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-          <p className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
-            📧 Recipient
+          <p className="text-sm font-bold mb-1 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+            <Mail size={14} />
+            Recipient
           </p>
           <p className="text-sm" style={{ color: "var(--win95-text)" }}>
             {recipientName} ({recipientEmail})
@@ -295,7 +296,7 @@ export function EmailSendModal({
         {/* Domain Config Selector */}
         <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
           <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-            {translations.domainLabel || "📮 Email Domain Configuration"}
+            {translations.domainLabel || "Email Domain Configuration"}
           </label>
           <select
             value={selectedDomainId || ""}
@@ -308,7 +309,7 @@ export function EmailSendModal({
             }}
           >
             <option value="">
-              {translations.systemDefaultsLabel || "🏠 System Defaults (tickets@mail.l4yercak3.com)"}
+              {translations.systemDefaultsLabel || "System Defaults (tickets@mail.l4yercak3.com)"}
             </option>
             {domainConfigs && domainConfigs.length > 0 && (
               <>
@@ -325,8 +326,9 @@ export function EmailSendModal({
             )}
           </select>
           {!selectedDomainId && (
-            <p className="text-xs mt-2" style={{ color: "var(--win95-text-secondary)" }}>
-              ℹ️ Using platform defaults: Gold branding, luxury template
+            <p className="text-xs mt-2 flex items-center gap-1" style={{ color: "var(--win95-text-secondary)" }}>
+              <Info size={12} />
+              Using platform defaults: Gold branding, luxury template
             </p>
           )}
         </div>
@@ -338,7 +340,7 @@ export function EmailSendModal({
           value={selectedEmailTemplateId}
           onChange={(templateId) => setSelectedEmailTemplateId(templateId || null)}
           organizationId={organizationId}
-          label={translations.emailTemplateLabel || "📧 Email Template"}
+          label={translations.emailTemplateLabel || "Email Template"}
           description="Select which email template to use for this email. System default will be used if not selected."
           allowNull={true}
           nullLabel="Use system default email template"
@@ -352,7 +354,7 @@ export function EmailSendModal({
             value={selectedPdfTemplateId}
             onChange={(templateId) => setSelectedPdfTemplateId(templateId || null)}
             organizationId={organizationId}
-            label={translations.pdfTemplateLabel || `📄 PDF ${documentType} Template`}
+            label={translations.pdfTemplateLabel || `PDF ${documentType} Template`}
             description={`Select which PDF template to use for the ${documentType} attachment. System default will be used if not selected.`}
             allowNull={true}
             nullLabel={`Use system default ${documentType} template`}
@@ -363,7 +365,7 @@ export function EmailSendModal({
         {(allowPdfAttachment || allowIcsAttachment) && (
           <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
             <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-              {translations.attachmentsLabel || "📎 Email Attachments"}
+              {translations.attachmentsLabel || "Email Attachments"}
             </label>
             <div className="space-y-2">
               {allowPdfAttachment && (
@@ -402,7 +404,7 @@ export function EmailSendModal({
         {/* Language Selector */}
         <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
           <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-            {translations.languageLabel || "🌐 Email Language"}
+            {translations.languageLabel || "Email Language"}
           </label>
           <select
             value={selectedLanguage}
@@ -428,8 +430,9 @@ export function EmailSendModal({
         {/* Email Preview */}
         {emailAction === "preview" && emailPreviewHtml && (
           <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
-              📧 Email Preview
+            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+              <Mail size={12} />
+              Email Preview
             </div>
             <iframe
               srcDoc={emailPreviewHtml}
@@ -448,8 +451,9 @@ export function EmailSendModal({
         {/* PDF Preview */}
         {emailAction === "previewPdf" && pdfPreviewUrl && (
           <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "500px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
-              📄 PDF Preview
+            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+              <FileText size={12} />
+              PDF Preview
             </div>
             <iframe
               src={pdfPreviewUrl}
@@ -468,7 +472,7 @@ export function EmailSendModal({
         {emailAction === "test" && (
           <div className="mb-4">
             <label className="block text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-              {translations.testEmailLabel || "📧 Test Email Address"}
+              {translations.testEmailLabel || "Test Email Address"}
             </label>
             <input
               type="email"
@@ -497,10 +501,17 @@ export function EmailSendModal({
           >
             <p className="text-sm font-bold">{emailResult.message}</p>
             {emailResult.attachments && (
-              <p className="text-xs mt-2">
-                📎 Attachments:
-                {emailResult.attachments.pdf ? " ✅ PDF" : " ❌ PDF"}
-                {emailResult.attachments.ics ? " ✅ ICS" : " ❌ ICS"}
+              <p className="text-xs mt-2 flex items-center gap-2">
+                <Paperclip size={12} />
+                <span>Attachments:</span>
+                <span className="inline-flex items-center gap-1">
+                  {emailResult.attachments.pdf ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                  PDF
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  {emailResult.attachments.ics ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                  ICS
+                </span>
               </p>
             )}
           </div>
@@ -523,7 +534,7 @@ export function EmailSendModal({
             ) : (
               <Eye size={16} />
             )}
-            <span className="text-sm">📧 {translations.previewButton || "Preview Email"}</span>
+            <span className="text-sm">{translations.previewButton || "Preview Email"}</span>
           </button>
 
           <button
@@ -542,7 +553,7 @@ export function EmailSendModal({
             ) : (
               <Eye size={16} />
             )}
-            <span className="text-sm">📄 Preview PDF</span>
+            <span className="text-sm">Preview PDF</span>
           </button>
         </div>
 

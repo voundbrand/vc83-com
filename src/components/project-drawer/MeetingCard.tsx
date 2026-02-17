@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Paperclip, Video, MessageSquare, ChevronRight } from "lucide-react";
+import { Paperclip, Video, MessageSquare, ChevronRight, Calendar } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useProjectDrawer } from "./ProjectDrawerProvider";
 
@@ -43,10 +43,11 @@ export function MeetingCard({ meeting, isFirst }: MeetingCardProps) {
         borderColor: themeColors.border,
       }}
     >
-      {/* Date and status */}
+        {/* Date and status */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-gray-600">
-          📅 {formattedDate}
+          <Calendar className="inline w-4 h-4 mr-1" />
+          {formattedDate}
           {meeting.time && (
             <span className="ml-2 text-gray-400">
               {meeting.time} Uhr

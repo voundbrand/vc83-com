@@ -294,7 +294,7 @@ export function RolesPermissionsEditTab() {
                   </p>
                   {isSuperAdmin && (
                     <p className="text-xs mt-1" style={{ color: 'var(--warning)' }}>
-                      ⚠️ Super Admin permissions cannot be modified
+                       Super Admin permissions cannot be modified
                     </p>
                   )}
                 </div>

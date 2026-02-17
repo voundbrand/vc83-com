@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Mail, Phone, Send, User, Building2, MessageSquare } from "lucide-react";
+import { Building2, Calendar, Mail, MessageSquare, Phone, Send, User, X } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -103,7 +103,7 @@ export function EnterpriseContactModal({
             className="retro-control-button retro-close-btn"
             title="Close"
           >
-            <span className="select-none window-btn-icon">✕</span>
+            <X size={12} className="select-none window-btn-icon" />
           </button>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
-import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
+import { useAuth } from "@/hooks/use-auth"
 import { Calendar, Clock, User, MapPin, DollarSign, CheckCircle, XCircle, AlertCircle, Users, Mail, Phone } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNotification } from "@/hooks/use-notification"
@@ -14,7 +14,6 @@ interface BookingDetailProps {
 
 export function BookingDetail({ bookingId }: BookingDetailProps) {
   const { sessionId } = useAuth()
-  const currentOrganization = useCurrentOrganization()
   const notification = useNotification()
   const [cancellationReason, setCancellationReason] = useState("")
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -79,7 +78,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       case "completed": return "var(--win95-success-bg)"
       case "cancelled": return "var(--win95-error-bg)"
       case "no_show": return "var(--win95-error-bg)"
-      default: return "var(--win95-bg-light)"
+      default: return "var(--desktop-shell-accent)"
     }
   }
 
@@ -99,7 +98,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
     try {
       await confirmBooking({ sessionId, bookingId })
       notification.success("Booking confirmed", "The booking has been confirmed.")
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to confirm booking.")
     }
   }
@@ -108,7 +107,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
     try {
       await checkInBooking({ sessionId, bookingId })
       notification.success("Checked in", "The customer has been checked in.")
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to check in.")
     }
   }
@@ -117,7 +116,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
     try {
       await completeBooking({ sessionId, bookingId })
       notification.success("Completed", "The booking has been marked as completed.")
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to complete booking.")
     }
   }
@@ -132,7 +131,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       notification.success("Cancelled", "The booking has been cancelled.")
       setShowCancelDialog(false)
       setCancellationReason("")
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to cancel booking.")
     }
   }
@@ -141,7 +140,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
     try {
       await markNoShow({ sessionId, bookingId })
       notification.success("Marked as No Show", "The booking has been marked as no show.")
-    } catch (error) {
+    } catch {
       notification.error("Error", "Failed to mark as no show.")
     }
   }
@@ -149,13 +148,13 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="font-pixel text-lg">{booking.customerName}</h2>
-          <p className="text-sm opacity-70 mt-1 capitalize">{booking.subtype.replace("_", " ")}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="font-pixel text-sm truncate">{booking.customerName}</h2>
+          <span className="text-xs opacity-70 capitalize shrink-0">{booking.subtype.replace("_", " ")}</span>
         </div>
         <span
-          className="px-3 py-1 text-xs font-medium rounded"
+          className="px-3 py-1 text-xs font-medium rounded-lg"
           style={{
             background: getStatusColor(booking.status),
             color: 'white'
@@ -167,10 +166,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
 
       {/* Time Info */}
       <div
-        className="p-3 rounded border-2"
+        className="p-3 rounded-lg border"
         style={{
-          background: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--desktop-shell-accent)',
+          borderColor: 'var(--window-document-border)'
         }}
       >
         <div className="flex items-center gap-2 mb-2">
@@ -186,10 +185,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
 
       {/* Customer Info */}
       <div
-        className="p-3 rounded border-2"
+        className="p-3 rounded-lg border"
         style={{
-          background: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--desktop-shell-accent)',
+          borderColor: 'var(--window-document-border)'
         }}
       >
         <div className="flex items-center gap-2 mb-2">
@@ -213,7 +212,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           )}
         </div>
         {booking.guestDetails && booking.guestDetails.length > 0 && (
-          <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
             <p className="text-xs font-medium mb-1">Additional Guests:</p>
             {booking.guestDetails.map((guest, i) => (
               <p key={i} className="text-xs opacity-70">
@@ -227,10 +226,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       {/* Resource & Location */}
       {(booking.resourceName || booking.locationName) && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           {booking.resourceName && (
@@ -251,10 +250,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       {/* Payment Info */}
       {booking.totalAmountCents > 0 && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -283,10 +282,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       {/* Notes */}
       {booking.notes && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--desktop-shell-accent)',
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <p className="text-xs font-medium mb-1">Notes</p>
@@ -297,10 +296,10 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       {/* Internal Notes (admin only) */}
       {booking.internalNotes && (
         <div
-          className="p-3 rounded border-2"
+          className="p-3 rounded-lg border"
           style={{
             background: 'var(--win95-warning-bg)',
-            borderColor: 'var(--win95-border)'
+            borderColor: 'var(--window-document-border)'
           }}
         >
           <p className="text-xs font-medium mb-1 text-white">Internal Notes</p>
@@ -309,7 +308,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       )}
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
         {booking.status === "pending_confirmation" && (
           <>
             <button
@@ -369,23 +368,24 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
       {/* Cancel Dialog */}
       {showCancelDialog && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "var(--modal-overlay-bg)" }}
           onClick={() => setShowCancelDialog(false)}
         >
           <div
-            className="p-4 rounded border-2 max-w-md w-full mx-4"
+            className="p-4 rounded-xl border max-w-md w-full"
             style={{
-              background: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-pixel text-sm mb-3">Cancel Booking</h3>
             <textarea
               placeholder="Reason for cancellation (optional)"
-              className="w-full p-2 border-2 text-sm resize-none h-24"
+              className="w-full p-2 border text-sm resize-none h-24"
               style={{
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
                 background: 'var(--win95-input-bg)',
                 color: 'var(--win95-input-text)'
               }}

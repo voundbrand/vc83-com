@@ -6,7 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, Eye, Download, Search } from "lucide-react";
+import { Loader2, Eye, Download, Search, FileText, X } from "lucide-react";
 
 interface ResponsesTabProps {
   forms: Array<{
@@ -69,7 +69,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
 
         {formsWithResponses.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-4xl mb-4">📝</div>
+            <div className="mb-4 flex justify-center">
+              <FileText size={36} style={{ color: "var(--neutral-gray)" }} />
+            </div>
             <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
               {t("ui.forms.responses.no_responses")}
             </p>
@@ -330,7 +332,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                 className="text-sm font-bold px-2 hover:bg-black/20"
                 style={{ color: "var(--win95-titlebar-text)" }}
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
 

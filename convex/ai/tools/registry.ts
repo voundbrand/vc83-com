@@ -24,6 +24,16 @@ import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
 import { INTERVIEW_TOOLS } from "./interviewTools";
 import { tagInSpecialistTool, listTeamAgentsTool } from "./teamTools";
+import {
+  proposeSoulUpdateTool,
+  reviewOwnSoulTool,
+  viewPendingProposalsTool,
+} from "./soulEvolutionTools";
+import {
+  CRITICAL_TOOL_CONTRACTS,
+  type CriticalToolName,
+  type ToolContractMetadata,
+} from "./contracts";
 import type { Id } from "../../_generated/dataModel";
 import type { ActionCtx } from "../../_generated/server";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -55,6 +65,7 @@ export interface AITool {
   name: string;
   description: string;
   status: ToolStatus;
+  contract?: ToolContractMetadata;
   parameters: {
     type: "object";
     properties: Record<string, unknown>;
@@ -66,6 +77,16 @@ export interface AITool {
   readOnly?: boolean; // True for tools that only read data (used by draft_only autonomy)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   execute: (ctx: ToolExecutionContext, args: any) => Promise<unknown>;
+}
+
+function withCriticalToolContract(
+  toolName: CriticalToolName,
+  tool: AITool
+): AITool {
+  return {
+    ...tool,
+    contract: CRITICAL_TOOL_CONTRACTS[toolName],
+  };
 }
 
 /**
@@ -3313,16 +3334,19 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   check_oauth_connection: checkOAuthConnectionTool,
 
   // CRM
-  manage_crm: manageCRMTool,
+  manage_crm: withCriticalToolContract("manage_crm", manageCRMTool),
   sync_contacts: syncContactsTool,
   send_bulk_crm_email: sendBulkCRMEmailTool,
   create_contact: createContactTool,
-  search_contacts: searchContactsTool,
+  search_contacts: withCriticalToolContract(
+    "search_contacts",
+    searchContactsTool
+  ),
   update_contact: updateContactTool,
   tag_contacts: tagContactsTool,
 
   // Events
-  create_event: createEventTool,
+  create_event: withCriticalToolContract("create_event", createEventTool),
   list_events: listEventsTool,
   update_event: updateEventTool,
   register_attendee: registerAttendeeTool,
@@ -3343,14 +3367,14 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   manage_sequences: manageSequencesTool,
 
   // Forms
-  create_form: createFormTool,
-  list_forms: listFormsTool,
+  create_form: withCriticalToolContract("create_form", createFormTool),
+  list_forms: withCriticalToolContract("list_forms", listFormsTool),
   publish_form: publishFormTool,
   get_form_responses: getFormResponsesTool,
   manage_forms: manageFormsTool,
 
   // Products
-  create_product: createProductTool,
+  create_product: withCriticalToolContract("create_product", createProductTool),
   list_products: listProductsTool,
   set_product_price: updateProductPriceTool,
   set_product_form: setProductFormTool,
@@ -3358,9 +3382,12 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   deactivate_product: deactivateProductTool,
 
   // Payments/Invoicing
-  create_invoice: createInvoiceTool,
+  create_invoice: withCriticalToolContract("create_invoice", createInvoiceTool),
   send_invoice: sendInvoiceTool,
-  process_payment: processPaymentTool,
+  process_payment: withCriticalToolContract(
+    "process_payment",
+    processPaymentTool
+  ),
 
   // Tickets
   create_ticket: createTicketTool,
@@ -3368,7 +3395,10 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   list_tickets: listTicketsTool,
 
   // Workflows
-  create_workflow: createWorkflowTool,
+  create_workflow: withCriticalToolContract(
+    "create_workflow",
+    createWorkflowTool
+  ),
   enable_workflow: enableWorkflowTool,
   list_workflows: listWorkflowsTool,
   add_behavior_to_workflow: addBehaviorToWorkflowTool,
@@ -3387,7 +3417,10 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   publish_page: publishPageTool,
 
   // Checkout
-  create_checkout_page: createCheckoutPageTool,
+  create_checkout_page: withCriticalToolContract(
+    "create_checkout_page",
+    createCheckoutPageTool
+  ),
   publish_checkout: publishCheckoutTool,
 
   // Batch Operations
@@ -3563,6 +3596,11 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   tag_in_specialist: tagInSpecialistTool,
   list_team_agents: listTeamAgentsTool,
 
+  // Soul Evolution Tools (owner-approved self-tuning)
+  propose_soul_update: proposeSoulUpdateTool,
+  review_own_soul: reviewOwnSoulTool,
+  view_pending_proposals: viewPendingProposalsTool,
+
   // Interview Tools (Guided Session Mode)
   ...INTERVIEW_TOOLS,
 };
@@ -3684,6 +3722,7 @@ export const DATABASE_WRITE_TOOLS = [
   "manage_webinars",
   "activecampaign",
   "configure_booking_workflow",
+  "propose_soul_update",
 ];
 
 export type BuilderMode = "prototype" | "connect";

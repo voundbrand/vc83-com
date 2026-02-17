@@ -32,6 +32,210 @@ function getInternalRef(): any {
   return _internalRef;
 }
 
+interface AgentModelResolutionTelemetry {
+  selectedModel: string;
+  usedModel?: string;
+  selectionSource?: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+}
+
+interface AgentActionTelemetryRecord {
+  performedAt: number;
+  modelResolution?: AgentModelResolutionTelemetry;
+}
+
+export interface AgentModelFallbackAggregation {
+  windowHours: number;
+  since: number;
+  actionsScanned: number;
+  actionsWithModelResolution: number;
+  fallbackCount: number;
+  fallbackRate: number;
+  selectionSources: Array<{ source: string; count: number }>;
+  fallbackReasons: Array<{ reason: string; count: number }>;
+}
+
+interface AgentToolResultRecord {
+  tool?: string;
+  status?: string;
+}
+
+export interface AgentToolSuccessFailureAggregation {
+  windowHours: number;
+  since: number;
+  toolResultsScanned: number;
+  successCount: number;
+  failureCount: number;
+  pendingCount: number;
+  ignoredCount: number;
+  successRate: number;
+  failureRate: number;
+  statusBreakdown: Array<{ status: string; count: number }>;
+}
+
+function normalizeAgentModelResolution(
+  value: unknown
+): AgentModelResolutionTelemetry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.selectedModel !== "string") {
+    return null;
+  }
+  if (typeof record.fallbackUsed !== "boolean") {
+    return null;
+  }
+
+  return {
+    selectedModel: record.selectedModel,
+    usedModel: typeof record.usedModel === "string" ? record.usedModel : undefined,
+    selectionSource:
+      typeof record.selectionSource === "string"
+        ? record.selectionSource
+        : undefined,
+    fallbackUsed: record.fallbackUsed,
+    fallbackReason:
+      typeof record.fallbackReason === "string" ? record.fallbackReason : undefined,
+  };
+}
+
+export function aggregateAgentModelFallback(
+  records: AgentActionTelemetryRecord[],
+  options: { windowHours: number; since: number }
+): AgentModelFallbackAggregation {
+  let actionsWithModelResolution = 0;
+  let fallbackCount = 0;
+  const selectionSourceCounts = new Map<string, number>();
+  const fallbackReasonCounts = new Map<string, number>();
+
+  for (const record of records) {
+    const modelResolution = normalizeAgentModelResolution(record.modelResolution);
+    if (!modelResolution) {
+      continue;
+    }
+
+    actionsWithModelResolution += 1;
+    const selectionSource = modelResolution.selectionSource?.trim().toLowerCase();
+    if (selectionSource) {
+      selectionSourceCounts.set(
+        selectionSource,
+        (selectionSourceCounts.get(selectionSource) ?? 0) + 1
+      );
+    }
+
+    if (!modelResolution.fallbackUsed) {
+      continue;
+    }
+
+    fallbackCount += 1;
+    const fallbackReason = (modelResolution.fallbackReason ?? selectionSource ?? "")
+      .trim()
+      .toLowerCase();
+    if (!fallbackReason) {
+      continue;
+    }
+
+    fallbackReasonCounts.set(
+      fallbackReason,
+      (fallbackReasonCounts.get(fallbackReason) ?? 0) + 1
+    );
+  }
+
+  const fallbackRate =
+    actionsWithModelResolution > 0
+      ? Number((fallbackCount / actionsWithModelResolution).toFixed(4))
+      : 0;
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    actionsScanned: records.length,
+    actionsWithModelResolution,
+    fallbackCount,
+    fallbackRate,
+    selectionSources: Array.from(selectionSourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count })),
+    fallbackReasons: Array.from(fallbackReasonCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, count]) => ({ reason, count })),
+  };
+}
+
+function normalizeToolStatus(statusRaw: unknown): string | null {
+  if (typeof statusRaw !== "string") {
+    return null;
+  }
+  const normalized = statusRaw.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function aggregateAgentToolSuccessFailure(
+  records: AgentToolResultRecord[],
+  options: { windowHours: number; since: number }
+): AgentToolSuccessFailureAggregation {
+  let successCount = 0;
+  let failureCount = 0;
+  let pendingCount = 0;
+  let ignoredCount = 0;
+  const statusCounts = new Map<string, number>();
+
+  for (const record of records) {
+    const status = normalizeToolStatus(record.status);
+    if (!status) {
+      ignoredCount += 1;
+      continue;
+    }
+
+    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+
+    if (status === "success") {
+      successCount += 1;
+      continue;
+    }
+
+    if (status === "failed" || status === "error" || status === "disabled") {
+      failureCount += 1;
+      continue;
+    }
+
+    if (status === "pending_approval" || status === "pending" || status === "proposed") {
+      pendingCount += 1;
+      continue;
+    }
+
+    ignoredCount += 1;
+  }
+
+  const consideredTotal = successCount + failureCount;
+  const successRate =
+    consideredTotal > 0
+      ? Number((successCount / consideredTotal).toFixed(4))
+      : 0;
+  const failureRate =
+    consideredTotal > 0
+      ? Number((failureCount / consideredTotal).toFixed(4))
+      : 0;
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    toolResultsScanned: records.length,
+    successCount,
+    failureCount,
+    pendingCount,
+    ignoredCount,
+    successRate,
+    failureRate,
+    statusBreakdown: Array.from(statusCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([status, count]) => ({ status, count })),
+  };
+}
+
 // ============================================================================
 // SESSION RESOLUTION (Internal — called by execution pipeline)
 // ============================================================================
@@ -188,6 +392,49 @@ export const linkContactToSession = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.sessionId, {
       crmContactId: args.crmContactId,
+    });
+  },
+});
+
+/**
+ * Upsert session-level routing pin metadata (model + auth profile).
+ * Used by failover/stickiness flow to keep routing stable across turns.
+ */
+export const upsertSessionRoutingPin = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    modelId: v.optional(v.string()),
+    authProfileId: v.optional(v.string()),
+    pinReason: v.string(),
+    unlockReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+
+    const now = Date.now();
+    const existingPin = (session as Record<string, unknown>).routingPin as
+      | {
+          modelId?: string;
+          authProfileId?: string;
+          pinReason: string;
+          pinnedAt: number;
+          updatedAt: number;
+          unlockReason?: string;
+          unlockedAt?: number;
+        }
+      | undefined;
+
+    await ctx.db.patch(args.sessionId, {
+      routingPin: {
+        modelId: args.modelId ?? existingPin?.modelId,
+        authProfileId: args.authProfileId ?? existingPin?.authProfileId,
+        pinReason: args.pinReason,
+        pinnedAt: existingPin?.pinnedAt ?? now,
+        updatedAt: now,
+        unlockReason: args.unlockReason,
+        unlockedAt: args.unlockReason ? now : undefined,
+      },
     });
   },
 });
@@ -695,6 +942,192 @@ export const getAgentStats = query({
     }
 
     return Array.from(statsMap.values());
+  },
+});
+
+/**
+ * Aggregate retrieval telemetry emitted by agentExecution message_processed logs.
+ * Used by Lane C/WS4 quality checks and later SLO dashboards.
+ */
+export const getRetrievalTelemetry = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const actions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "message_processed")
+      )
+      .collect();
+
+    const toNumber = (value: unknown) => {
+      if (typeof value !== "number" || Number.isNaN(value)) return 0;
+      return value;
+    };
+
+    let messagesScanned = 0;
+    let messagesWithRetrieval = 0;
+    let docsRetrieved = 0;
+    let docsInjected = 0;
+    let bytesRetrieved = 0;
+    let bytesInjected = 0;
+    const sourceTagCounts = new Map<string, number>();
+
+    for (const action of actions) {
+      if (action.performedAt < since) continue;
+      if (args.agentId && action.objectId !== args.agentId) continue;
+
+      messagesScanned += 1;
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      const retrieval = (actionData.retrieval || null) as Record<string, unknown> | null;
+      if (!retrieval) continue;
+
+      messagesWithRetrieval += 1;
+      docsRetrieved += toNumber(retrieval.docsRetrieved);
+      docsInjected += toNumber(retrieval.docsInjected);
+      bytesRetrieved += toNumber(retrieval.bytesRetrieved);
+      bytesInjected += toNumber(retrieval.bytesInjected);
+
+      const sourceTags = Array.isArray(retrieval.sourceTags) ? retrieval.sourceTags : [];
+      for (const tag of sourceTags) {
+        if (typeof tag !== "string") continue;
+        const normalizedTag = tag.trim().toLowerCase();
+        if (!normalizedTag) continue;
+        sourceTagCounts.set(normalizedTag, (sourceTagCounts.get(normalizedTag) ?? 0) + 1);
+      }
+    }
+
+    return {
+      windowHours: clampedHours,
+      since,
+      messagesScanned,
+      messagesWithRetrieval,
+      docsRetrieved,
+      docsInjected,
+      bytesRetrieved,
+      bytesInjected,
+      avgDocsInjectedPerMessage: messagesWithRetrieval > 0
+        ? Number((docsInjected / messagesWithRetrieval).toFixed(2))
+        : 0,
+      sourceTags: Array.from(sourceTagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([tag, count]) => ({ tag, count })),
+    };
+  },
+});
+
+/**
+ * Aggregate model fallback rate from agent message_processed audit logs.
+ */
+export const getModelFallbackRate = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const actions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "message_processed")
+      )
+      .collect();
+
+    const records: AgentActionTelemetryRecord[] = [];
+    for (const action of actions) {
+      if (action.performedAt < since) {
+        continue;
+      }
+      if (args.agentId && action.objectId !== args.agentId) {
+        continue;
+      }
+
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      records.push({
+        performedAt: action.performedAt,
+        modelResolution: actionData.modelResolution as
+          | AgentModelResolutionTelemetry
+          | undefined,
+      });
+    }
+
+    return {
+      source: "agent_message_processed",
+      ...aggregateAgentModelFallback(records, { windowHours: clampedHours, since }),
+    };
+  },
+});
+
+/**
+ * Aggregate tool success/failure ratio from agent message_processed audit logs.
+ */
+export const getToolSuccessFailureRatio = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const actions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "message_processed")
+      )
+      .collect();
+
+    const records: AgentToolResultRecord[] = [];
+    for (const action of actions) {
+      if (action.performedAt < since) {
+        continue;
+      }
+      if (args.agentId && action.objectId !== args.agentId) {
+        continue;
+      }
+
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      const toolResults = Array.isArray(actionData.toolResults)
+        ? actionData.toolResults
+        : [];
+
+      for (const result of toolResults) {
+        if (!result || typeof result !== "object") {
+          records.push({});
+          continue;
+        }
+        const resultRecord = result as Record<string, unknown>;
+        records.push({
+          tool: typeof resultRecord.tool === "string" ? resultRecord.tool : undefined,
+          status:
+            typeof resultRecord.status === "string" ? resultRecord.status : undefined,
+        });
+      }
+    }
+
+    return {
+      source: "agent_message_processed",
+      ...aggregateAgentToolSuccessFailure(records, { windowHours: clampedHours, since }),
+    };
   },
 });
 

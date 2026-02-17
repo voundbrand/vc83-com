@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { WindowManagerProvider } from "@/hooks/use-window-manager";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { AppearanceProvider } from "@/contexts/appearance-context";
 import { AuthProvider } from "@/hooks/use-auth";
 import { PermissionProvider } from "@/contexts/permission-context";
 import { TranslationProvider } from "@/contexts/translation-context";
@@ -58,15 +59,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AuthProvider>
             <PermissionProvider>
               <TranslationProvider>
-                <ThemeProvider>
-                  <UpgradeModalProvider>
-                    <MediaSelectionProvider>
-                      <ShoppingCartProvider>
-                        {children}
-                      </ShoppingCartProvider>
-                    </MediaSelectionProvider>
-                  </UpgradeModalProvider>
-                </ThemeProvider>
+                <AppearanceProvider>
+                  <ThemeProvider>
+                    <UpgradeModalProvider>
+                      <MediaSelectionProvider>
+                        <ShoppingCartProvider>
+                          {children}
+                        </ShoppingCartProvider>
+                      </MediaSelectionProvider>
+                    </UpgradeModalProvider>
+                  </ThemeProvider>
+                </AppearanceProvider>
               </TranslationProvider>
             </PermissionProvider>
           </AuthProvider>

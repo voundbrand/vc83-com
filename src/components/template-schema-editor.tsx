@@ -201,7 +201,7 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
       }
 
       setError(null);
-      setSuccess(`✓ ${isEmailSchema ? "Email" : "PDF"} schema is valid!`);
+      setSuccess(`${isEmailSchema ? "Email" : "PDF"} schema is valid!`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Validation failed");

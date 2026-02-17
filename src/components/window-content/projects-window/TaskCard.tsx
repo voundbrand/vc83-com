@@ -6,7 +6,7 @@
 "use client";
 
 import React from "react";
-import { Calendar, Edit, Trash2, User } from "lucide-react";
+import { AlertTriangle, Calendar, Edit, Trash2, User } from "lucide-react";
 import { format } from "date-fns";
 
 interface Task {
@@ -113,7 +113,7 @@ export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               >
                 <Calendar size={12} />
                 <span>{format(new Date(dueDate), "MMM d")}</span>
-                {isOverdue && <span>⚠️</span>}
+                {isOverdue && <AlertTriangle size={12} />}
               </div>
             )}
           </div>

@@ -290,17 +290,17 @@ function TemplateSetCard({
 
   const getTemplateIcon = (type: string) => {
     const icons: Record<string, string> = {
-      email: "📧",
-      pdf: "📄",
-      ticket: "🎫",
-      invoice: "💰",
-      receipt: "💳",
-      badge: "🏷️",
-      certificate: "📜",
-      program: "📋",
-      quote: "💬",
+      email: "EM",
+      pdf: "PDF",
+      ticket: "TIX",
+      invoice: "INV",
+      receipt: "RCT",
+      badge: "BDG",
+      certificate: "CRT",
+      program: "PRG",
+      quote: "QTE",
     };
-    return icons[type] || "📦";
+    return icons[type] || "TPL";
   };
 
   return (
@@ -728,16 +728,16 @@ function CreateTemplateSetModal({
                     const type = template.subtype || template.category || "other";
                     const getIcon = (t: string) => {
                       const icons: Record<string, string> = {
-                        email: "📧",
-                        pdf: "📄",
-                        ticket: "🎫",
-                        invoice: "💰",
-                        receipt: "💳",
-                        badge: "🏷️",
-                        certificate: "📜",
-                        program: "📋",
+                        email: "EM",
+                        pdf: "PDF",
+                        ticket: "TIX",
+                        invoice: "INV",
+                        receipt: "RCT",
+                        badge: "BDG",
+                        certificate: "CRT",
+                        program: "PRG",
                       };
-                      return icons[t] || "📦";
+                      return icons[t] || "TPL";
                     };
 
                     return (
@@ -769,7 +769,7 @@ function CreateTemplateSetModal({
                           </div>
                         </div>
                         <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                          ✅
+                          
                         </span>
                       </button>
                     );
@@ -988,16 +988,16 @@ function EditTemplateSetModal({
                   const type = template.subtype || template.category || "other";
                   const getIcon = (t: string) => {
                     const icons: Record<string, string> = {
-                      email: "📧",
-                      pdf: "📄",
-                      ticket: "🎫",
-                      invoice: "💰",
-                      receipt: "💳",
-                      badge: "🏷️",
-                      certificate: "📜",
-                      program: "📋",
+                      email: "EM",
+                      pdf: "PDF",
+                      ticket: "TIX",
+                      invoice: "INV",
+                      receipt: "RCT",
+                      badge: "BDG",
+                      certificate: "CRT",
+                      program: "PRG",
                     };
-                    return icons[t] || "📦";
+                    return icons[t] || "TPL";
                   };
 
                   return (
@@ -1029,7 +1029,7 @@ function EditTemplateSetModal({
                         </div>
                       </div>
                       <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                        ✅
+                        
                       </span>
                     </button>
                   );

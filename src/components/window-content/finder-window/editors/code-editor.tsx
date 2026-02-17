@@ -180,8 +180,8 @@ export function CodeEditor({
         <span
           className="text-[10px] px-2 py-0.5 rounded"
           style={{
-            background: "var(--win95-highlight-bg)",
-            color: "var(--win95-highlight)",
+            background: "var(--finder-selection-bg)",
+            color: "var(--finder-selection-text)",
           }}
         >
           {langLabel}
@@ -194,8 +194,8 @@ export function CodeEditor({
           title="Toggle word wrap"
           className="p-1.5 rounded transition-colors"
           style={{
-            background: wordWrap ? "var(--win95-highlight-bg)" : "transparent",
-            color: wordWrap ? "var(--win95-highlight)" : "var(--win95-text)",
+            background: wordWrap ? "var(--finder-selection-bg)" : "transparent",
+            color: wordWrap ? "var(--finder-selection-text)" : "var(--win95-text)",
           }}
         >
           <WrapText size={14} />
@@ -206,8 +206,8 @@ export function CodeEditor({
           title="Find (Cmd+F)"
           className="p-1.5 rounded transition-colors"
           style={{
-            background: showFind ? "var(--win95-highlight-bg)" : "transparent",
-            color: showFind ? "var(--win95-highlight)" : "var(--win95-text)",
+            background: showFind ? "var(--finder-selection-bg)" : "transparent",
+            color: showFind ? "var(--finder-selection-text)" : "var(--win95-text)",
           }}
         >
           <Search size={14} />
@@ -272,8 +272,8 @@ export function CodeEditor({
             title="Case sensitive"
             className="p-1 rounded"
             style={{
-              background: caseSensitive ? "var(--win95-highlight-bg)" : "transparent",
-              color: caseSensitive ? "var(--win95-highlight)" : "var(--neutral-gray)",
+              background: caseSensitive ? "var(--finder-selection-bg)" : "transparent",
+              color: caseSensitive ? "var(--finder-selection-text)" : "var(--neutral-gray)",
             }}
           >
             <CaseSensitive size={12} />

@@ -23,6 +23,11 @@ import {
 import type { ViewMode, SortOption } from "./finder-toolbar";
 import type { FinderMode } from "./finder-types";
 import type { ProjectFile } from "./finder-types";
+import {
+  SHELL_MOTION,
+  buildShellTransition,
+  useReducedMotionPreference,
+} from "@/lib/motion";
 
 // ============================================================================
 // PROPS
@@ -309,6 +314,8 @@ function FileGridItem({
   onDragLeave,
   onDrop,
 }: FileItemProps) {
+  const prefersReducedMotion = useReducedMotionPreference();
+
   return (
     <button
       onClick={onSelect}
@@ -320,19 +327,24 @@ function FileGridItem({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className="flex flex-col items-center gap-2 p-4 rounded border-2 transition-colors text-center"
+      className="flex flex-col items-center gap-2 p-4 rounded-lg border text-center"
       style={{
         borderColor: isDropTargetFile
-          ? "var(--primary)"
+          ? "var(--finder-selection-border)"
           : isSelected
-            ? "var(--primary)"
+            ? "var(--finder-selection-border)"
             : "var(--win95-border)",
         background: isDropTargetFile
-          ? "var(--win95-highlight-bg)"
+          ? "var(--finder-selection-bg)"
           : isSelected
-            ? "var(--win95-highlight-bg)"
+            ? "var(--finder-selection-bg)"
             : "var(--win95-bg)",
         opacity: isCutFile ? 0.4 : 1,
+        transition: buildShellTransition(
+          "background-color, border-color, color, opacity",
+          SHELL_MOTION.durationMs.fast,
+          prefersReducedMotion,
+        ),
       }}
     >
       {KIND_ICON[file.fileKind] || <FileText size={32} />}
@@ -346,7 +358,7 @@ function FileGridItem({
         <span
           className="text-xs truncate w-full"
           style={{
-            color: isSelected ? "var(--win95-highlight)" : "var(--win95-text)",
+            color: isSelected ? "var(--finder-selection-text)" : "var(--win95-text)",
           }}
         >
           {file.name}
@@ -377,6 +389,8 @@ function FileListRow({
   onDragLeave,
   onDrop,
 }: FileItemProps) {
+  const prefersReducedMotion = useReducedMotionPreference();
+
   const icon = file.fileKind === "folder" ? (
     <Folder size={14} style={{ color: "var(--primary)" }} />
   ) : file.fileKind === "virtual" ? (
@@ -400,16 +414,21 @@ function FileListRow({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className="cursor-pointer border-b transition-colors"
+      className="cursor-pointer border-b"
       style={{
         borderColor: "var(--win95-border)",
         background: isDropTargetFile
-          ? "var(--win95-highlight-bg)"
+          ? "var(--finder-selection-bg)"
           : isSelected
-            ? "var(--win95-highlight-bg)"
+            ? "var(--finder-selection-bg)"
             : "transparent",
-        color: isSelected ? "var(--win95-highlight)" : "var(--win95-text)",
+        color: isSelected ? "var(--finder-selection-text)" : "var(--win95-text)",
         opacity: isCutFile ? 0.4 : 1,
+        transition: buildShellTransition(
+          "background-color, color",
+          SHELL_MOTION.durationMs.fast,
+          prefersReducedMotion,
+        ),
       }}
     >
       <td className="py-2 px-3">
@@ -497,11 +516,9 @@ function InlineRenameInput({
         e.stopPropagation();
       }}
       onClick={(e) => e.stopPropagation()}
-      className="text-xs px-1 py-0.5 border w-full min-w-0"
+      className="desktop-interior-input text-xs px-2 py-1 w-full min-w-0"
       style={{
-        borderColor: "var(--primary)",
-        background: "var(--win95-bg)",
-        color: "var(--win95-text)",
+        borderColor: "var(--finder-selection-border)",
         outline: "none",
       }}
     />
@@ -529,13 +546,20 @@ function SharedProjectCard({
   sharedPath,
   onClick,
 }: SharedProjectCardProps) {
+  const prefersReducedMotion = useReducedMotionPreference();
+
   return (
     <button
       onClick={onClick}
-      className="flex flex-col gap-2 p-4 rounded border-2 text-left transition-colors"
+      className="flex flex-col gap-2 p-4 rounded-lg border text-left"
       style={{
         borderColor: "var(--win95-border)",
         background: "var(--win95-bg)",
+        transition: buildShellTransition(
+          "border-color",
+          SHELL_MOTION.durationMs.fast,
+          prefersReducedMotion,
+        ),
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = "var(--primary)";
@@ -557,8 +581,8 @@ function SharedProjectCard({
         <span
           className="text-[10px] px-1.5 py-0.5 rounded"
           style={{
-            background: "var(--win95-highlight-bg)",
-            color: "var(--win95-highlight)",
+            background: "var(--finder-selection-bg)",
+            color: "var(--finder-selection-text)",
           }}
         >
           {permission}
@@ -581,10 +605,16 @@ function SharedProjectCard({
 // ============================================================================
 
 function LoadingState() {
+  const prefersReducedMotion = useReducedMotionPreference();
+
   return (
     <div className="flex items-center justify-center h-full">
       <div className="flex items-center gap-2">
-        <Clock size={16} className="animate-spin" style={{ color: "var(--neutral-gray)" }} />
+        <Clock
+          size={16}
+          className={prefersReducedMotion ? "" : "animate-spin"}
+          style={{ color: "var(--neutral-gray)" }}
+        />
         <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           Loading...
         </span>

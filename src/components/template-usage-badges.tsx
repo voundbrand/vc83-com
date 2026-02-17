@@ -12,6 +12,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
+import { FileText, Package, Ticket, TriangleAlert } from "lucide-react";
 
 export interface TemplateUsageData {
   inSetCount: number;
@@ -43,7 +44,10 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
           }}
           title={`Included in ${inSetCount} template ${inSetCount === 1 ? "set" : "sets"}`}
         >
-          📦 In {inSetCount} {inSetCount === 1 ? "set" : "sets"}
+          <span className="inline-flex items-center gap-1">
+            <Package size={11} />
+            In {inSetCount} {inSetCount === 1 ? "set" : "sets"}
+          </span>
         </span>
       )}
 
@@ -57,7 +61,10 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
           }}
           title="Used for ticket generation"
         >
-          🎫 Tickets
+          <span className="inline-flex items-center gap-1">
+            <Ticket size={11} />
+            Tickets
+          </span>
         </span>
       )}
 
@@ -70,7 +77,10 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
           }}
           title="Used for invoice generation"
         >
-          📄 Invoices
+          <span className="inline-flex items-center gap-1">
+            <FileText size={11} />
+            Invoices
+          </span>
         </span>
       )}
 
@@ -94,7 +104,10 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
           }}
           title="This template is not used in any template sets and has no usage history"
         >
-          ⚠️ Not used
+          <span className="inline-flex items-center gap-1">
+            <TriangleAlert size={11} />
+            Not used
+          </span>
         </span>
       )}
     </div>

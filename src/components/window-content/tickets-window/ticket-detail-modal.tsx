@@ -1,7 +1,7 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, RefreshCw, UserCheck, Tag } from "lucide-react";
+import { X, Download, Printer, User, Mail, Phone, Calendar, Loader2, Send, RefreshCw, UserCheck, Tag, ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
@@ -161,14 +161,14 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   const getStatusBadge = (status: string) => {
     const badges = {
       issued: { label: t("ui.tickets.status.issued"), color: "var(--success)" },
-      redeemed: { label: t("ui.tickets.status.redeemed"), color: "var(--win95-highlight)" },
+      redeemed: { label: t("ui.tickets.status.redeemed"), color: "var(--tone-accent-strong)" },
       cancelled: { label: t("ui.tickets.status.cancelled"), color: "var(--error)" },
-      transferred: { label: t("ui.tickets.status.transferred"), color: "var(--win95-highlight)" },
+      transferred: { label: t("ui.tickets.status.transferred"), color: "var(--tone-accent-strong)" },
     };
     const badge = badges[status as keyof typeof badges] || badges.issued;
     return (
       <span
-        className="px-3 py-1 text-sm font-bold rounded"
+        className="px-3 py-1 text-sm font-bold rounded-lg"
         style={{ background: badge.color, color: "var(--win95-titlebar-text)" }}
       >
         {badge.label}
@@ -371,27 +371,35 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0, 0, 0, 0.5)" }}
+      style={{ background: "var(--modal-overlay-bg)" }}
       onClick={onClose}
     >
       <div
-        className="border-4 p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-xl border"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          boxShadow: "4px 4px 0 rgba(0,0,0,0.2)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
+          boxShadow: "var(--modal-shadow)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--win95-highlight)" }}>
+        <div className="flex items-center justify-between border-b px-4 py-3 gap-3" style={{ borderColor: "var(--window-document-border)" }}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={onClose}
+              className="desktop-interior-button h-8 px-3 text-xs shrink-0"
+              title={t("ui.tickets.button.back_to_list")}
+            >
+              <ArrowLeft size={14} />
+              <span>{t("ui.tickets.button.back_to_list")}</span>
+            </button>
+            <h2 className="text-base font-bold truncate" style={{ color: "var(--tone-accent-strong)" }}>
               {ticket.name}
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               {getStatusBadge(ticket.status || "issued")}
-              <span className="text-sm" style={{ color: "var(--neutral-gray)" }}>
+              <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 {customProps.ticketNumber
                   ? `${t("ui.tickets.detail.field.ticket_id")} #${customProps.ticketNumber}`
                   : t("ui.tickets.detail.field.ticket_number_na")}
@@ -401,26 +409,24 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
           <button
             onClick={onClose}
-            className="p-2 border-2 hover:bg-opacity-50 transition-colors"
-            style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-            }}
+            className="desktop-interior-button h-9 w-9 p-0 shrink-0"
+            aria-label="Close"
           >
-            <X size={20} style={{ color: "var(--win95-text)" }} />
+            <X size={20} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
+        <div className="overflow-y-auto max-h-[calc(92vh-112px)] px-6 py-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* First Column - QR Code and Actions */}
           <div className="space-y-4">
             {/* QR Code */}
             {qrCode && (
               <div
-                className="border-2 p-4 flex flex-col items-center"
+                className="border rounded-lg p-4 flex flex-col items-center"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--desktop-shell-accent)",
                 }}
               >
                 <Image
@@ -438,16 +444,14 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
             {/* Actions */}
             <div className="space-y-2">
-              <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                }}
-              >
+                <button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="desktop-interior-button w-full h-9"
+                  style={{
+                    color: "var(--window-document-text)",
+                  }}
+                >
                 {isDownloading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
@@ -462,11 +466,9 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               </button>
               <button
                 onClick={handlePrint}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
+                className="desktop-interior-button w-full h-9"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <Printer size={16} />
@@ -474,9 +476,8 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               </button>
               <button
                 onClick={() => setShowEmailModal(true)}
-                className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 transition-colors"
+                className="desktop-interior-button w-full h-9"
                 style={{
-                  borderColor: "var(--win95-border)",
                   background: "var(--success)",
                   color: "white",
                 }}
@@ -486,7 +487,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               </button>
 
               {/* PDF Regeneration */}
-              <div className="pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pt-4 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="checkbox"
@@ -498,7 +499,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <label
                     htmlFor="change-template"
                     className="text-xs cursor-pointer"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     Change Template
                   </label>
@@ -508,11 +509,11 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <select
                     value={selectedTemplate}
                     onChange={(e) => setSelectedTemplate(e.target.value)}
-                    className="w-full px-2 py-2 border-2 text-sm mb-2"
+                    className="w-full px-2 py-2 border rounded-lg text-sm mb-2"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: "var(--win95-input-bg)",
-                      color: "var(--win95-text)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     <option value="">Use Previous Template</option>
@@ -527,10 +528,9 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                 <button
                   onClick={() => handleRegeneratePDF()}
                   disabled={isRegenerating}
-                  className="w-full px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="desktop-interior-button w-full h-9"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-highlight)",
+                    background: "var(--tone-accent-strong)",
                     color: "var(--win95-titlebar-text)",
                   }}
                   title="Regenerate ticket PDF with current branding and settings"
@@ -556,19 +556,19 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             {/* Product Info */}
             {ticketProduct && (
               <div
-                className="border-2 p-4"
+                className="border rounded-lg p-4"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--desktop-shell-accent)",
                 }}
               >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                   Product
                 </h3>
                 <div className="flex items-start gap-2">
-                  <Tag size={16} className="mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+                  <Tag size={16} className="mt-0.5" style={{ color: "var(--tone-accent-strong)" }} />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                       {ticketProduct.name}
                     </p>
                     {ticketProduct.description && (
@@ -582,13 +582,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             )}
 
             <div
-              className="border-2 p-4"
+              className="border rounded-lg p-4"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--desktop-shell-accent)",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                 {t("ui.tickets.detail.section.holder")}
               </h3>
 
@@ -600,7 +600,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {t("ui.tickets.detail.field.name")}
                     </p>
-                    <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                       {customProps.holderName || t("ui.tickets.detail.field.not_provided")}
                     </p>
                   </div>
@@ -614,7 +614,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {t("ui.tickets.detail.field.email")}
                       </p>
-                      <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                         {customProps.holderEmail}
                       </p>
                     </div>
@@ -629,7 +629,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {t("ui.tickets.detail.field.phone")}
                       </p>
-                      <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                         {formResponses.phone}
                       </p>
                     </div>
@@ -648,7 +648,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {t("ui.tickets.detail.field.purchased")}
                       </p>
-                      <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                         {formatDate(customProps.purchaseDate)}
                       </p>
                     </div>
@@ -657,7 +657,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
                 {/* Linked CRM Contact */}
                 {linkedContact && (
-                  <div className="flex items-start gap-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="flex items-start gap-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                     <UserCheck
                       size={16}
                       className="mt-0.5"
@@ -667,7 +667,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         CRM Contact
                       </p>
-                      <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                         {linkedContact.name}
                       </p>
                       {(() => {
@@ -686,13 +686,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
             {/* Pricing Information */}
             <div
-              className="border-2 p-4"
+              className="border rounded-lg p-4"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--desktop-shell-accent)",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                 {t("ui.tickets.detail.section.pricing")}
               </h3>
 
@@ -702,7 +702,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {t("ui.tickets.detail.field.base_price")}
                     </span>
-                    <span className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                       {formatCurrency(customProps.pricePaid)}
                     </span>
                   </div>
@@ -718,7 +718,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       style={{
                         color:
                           customProps.paymentStatus === "awaiting_employer_payment"
-                            ? "var(--win95-highlight)"
+                            ? "var(--tone-accent-strong)"
                             : "var(--success)",
                       }}
                     >
@@ -737,13 +737,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             {/* Form Responses */}
             {Object.keys(formResponses).length > 0 && (
               <div
-                className="border-2 p-4"
+                className="border rounded-lg p-4"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--desktop-shell-accent)",
                 }}
               >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                   {t("ui.tickets.detail.section.registration")}
                 </h3>
 
@@ -764,7 +764,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                         <p className="text-xs capitalize" style={{ color: "var(--neutral-gray)" }}>
                           {key.replace(/([A-Z])/g, " $1").trim()}
                         </p>
-                        <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                           {String(value)}
                         </p>
                       </div>
@@ -777,13 +777,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
             {/* Checkout Session Info */}
             {customProps.checkoutSessionId && (
               <div
-                className="border-2 p-4"
+                className="border rounded-lg p-4"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--desktop-shell-accent)",
                 }}
               >
-                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+                <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                   {t("ui.tickets.detail.section.transaction")}
                 </h3>
 
@@ -794,7 +794,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     </p>
                     <p
                       className="text-xs font-mono break-all"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       {customProps.checkoutSessionId}
                     </p>
@@ -817,7 +817,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                       </p>
                       <p
                         className="text-xs font-mono break-all"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         {customProps.purchaseItemId}
                       </p>
@@ -829,13 +829,13 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
 
             {/* System Information */}
             <div
-              className="border-2 p-4"
+              className="border rounded-lg p-4"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--desktop-shell-accent)",
               }}
             >
-              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-highlight)" }}>
+              <h3 className="font-bold text-sm mb-3" style={{ color: "var(--tone-accent-strong)" }}>
                 {t("ui.tickets.detail.section.system")}
               </h3>
 
@@ -844,7 +844,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                     {t("ui.tickets.detail.field.ticket_id")}
                   </p>
-                  <p className="text-xs font-mono break-all" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-mono break-all" style={{ color: "var(--window-document-text)" }}>
                     {ticket._id}
                   </p>
                 </div>
@@ -853,7 +853,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                     {t("ui.tickets.detail.field.created_at")}
                   </p>
-                  <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                     {formatDate(ticket.createdAt)}
                   </p>
                 </div>
@@ -863,7 +863,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {t("ui.tickets.detail.field.last_updated")}
                     </p>
-                    <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                       {formatDate(ticket.updatedAt)}
                     </p>
                   </div>
@@ -871,6 +871,7 @@ export function TicketDetailModal({ ticket, onClose }: TicketDetailModalProps) {
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* Email Send Modal */}

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 import { Id } from '../../../../convex/_generated/dataModel';
-import { ChevronDown, ChevronUp, Plus, X, Video, Copy, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Copy, ExternalLink, Images, Play, Plus, Repeat, Scan, Video, X } from 'lucide-react';
 import Image from 'next/image';
 import { useWindowManager } from '@/hooks/use-window-manager';
 import MediaLibraryWindow from '@/components/window-content/media-library-window';
@@ -166,7 +166,10 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
           }}
         >
           <div className="flex-1">
-            <span className="text-sm font-bold">🖼️ {t('ui.events.form.images_video')}</span>
+            <span className="text-sm font-bold flex items-center gap-1">
+              <Images size={14} />
+              {t('ui.events.form.images_video')}
+            </span>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
               {totalMediaCount > 0
                 ? `${totalMediaCount} ${totalMediaCount === 1 ? 'media item' : 'media items'} (${linkedMedia.length} ${imagePlural}, ${videos.length} ${videoPlural})`
@@ -191,8 +194,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
           color: "var(--win95-text)",
         }}
       >
-        <span className="text-sm font-bold">
-          🖼️ {t('ui.events.form.images_video')}{' '}
+        <span className="text-sm font-bold flex items-center gap-1">
+          <Images size={14} />
+          {t('ui.events.form.images_video')}{' '}
           <span style={{ color: "var(--primary)" }}>({linkedMedia.length})</span>
         </span>
         <ChevronUp size={16} />
@@ -239,12 +243,13 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                         <Video size={48} style={{ color: "var(--primary)" }} />
                       </div>
                     )}
-                    <div className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold border-2" style={{
+                    <div className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold border-2 flex items-center gap-1" style={{
                       background: "var(--primary)",
                       borderColor: "var(--win95-border)",
                       color: "white"
                     }}>
-                      📹 {currentVideo.videoProvider.toUpperCase()}
+                      <Video size={12} />
+                      {currentVideo.videoProvider.toUpperCase()}
                     </div>
                   </div>
                 );
@@ -383,7 +388,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                         color: "var(--win95-text)",
                         fontSize: "10px"
                       }}>
-                        🔁
+                        <Repeat size={10} />
                       </div>
                     )}
                     {video.autostart && (
@@ -392,7 +397,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                         color: "var(--win95-text)",
                         fontSize: "10px"
                       }}>
-                        ▶️
+                        <Play size={10} />
                       </div>
                     )}
                     {(video.videoFit === 'contain') && (
@@ -401,7 +406,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                         color: "var(--win95-text)",
                         fontSize: "10px"
                       }} title="Contain (letterbox)">
-                        📐
+                        <Scan size={10} />
                       </div>
                     )}
                   </div>
@@ -472,7 +477,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     title={video.videoFit === 'contain' ? 'Show video cropped (fill container)' : 'Show full video (letterbox)'}
                   >
-                    {video.videoFit === 'contain' ? (t('ui.events.form.fit_cover') || '📐 Cover') : (t('ui.events.form.fit_contain') || '📐 Contain')}
+                    {video.videoFit === 'contain' ? (t('ui.events.form.fit_cover') || 'Cover') : (t('ui.events.form.fit_contain') || 'Contain')}
                   </button>
                   {/* Remove Button */}
                   <button
@@ -497,8 +502,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         {/* Video URL Display - Shows URL for selected video with copy/open buttons */}
         {videos.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-              📹 {t('ui.events.form.existing_videos') || 'Existing Videos'}
+            <h4 className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+              <Video size={12} />
+              {t('ui.events.form.existing_videos') || 'Existing Videos'}
             </h4>
             {videos.map((video) => (
               <div
@@ -553,10 +559,10 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 >
                   <ExternalLink size={14} style={{ color: "var(--win95-text)" }} />
                 </a>
-                <div className="flex gap-1 text-xs">
-                  {video.loop && <span title="Loop">🔁</span>}
-                  {video.autostart && <span title="Autostart">▶️</span>}
-                  {video.videoFit === 'contain' && <span title="Contain (letterbox)">📐</span>}
+                <div className="flex gap-1 text-xs items-center">
+                  {video.loop && <Repeat size={12} aria-label="Loop" />}
+                  {video.autostart && <Play size={12} aria-label="Autostart" />}
+                  {video.videoFit === 'contain' && <Scan size={12} aria-label="Contain (letterbox)" />}
                 </div>
               </div>
             ))}
@@ -638,8 +644,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
 
             {/* Error Message */}
             {videoError && (
-              <p className="text-xs" style={{ color: "var(--error)" }}>
-                ⚠️ {videoError}
+              <p className="text-xs flex items-center gap-1" style={{ color: "var(--error)" }}>
+                <AlertTriangle size={12} />
+                {videoError}
               </p>
             )}
 

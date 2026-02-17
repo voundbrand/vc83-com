@@ -13,8 +13,12 @@ import {
   AlertCircle,
   Key,
   Lock,
-  Globe
+  Globe,
+  Info,
+  ShieldCheck,
+  Zap
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface OAuthTutorialWindowProps {
@@ -61,22 +65,22 @@ export function OAuthTutorialWindow({
   // Tutorial steps
   const steps = [
     {
-      title: "Why OAuth? 🔐",
+      title: "Why OAuth?",
       subtitle: "Secure authentication for your portal",
       icon: <Lock className="h-8 w-8" />,
     },
     {
-      title: "Create OAuth App 🔑",
+      title: "Create OAuth App",
       subtitle: "Generate your credentials",
       icon: <Key className="h-8 w-8" />,
     },
     {
-      title: "Save Credentials 💾",
+      title: "Save Credentials",
       subtitle: "Copy your client ID and secret",
       icon: <Copy className="h-8 w-8" />,
     },
     {
-      title: "All Set! ✅",
+      title: "All Set!",
       subtitle: "Your portal is ready for OAuth",
       icon: <CheckCircle className="h-8 w-8" />,
     },
@@ -291,7 +295,10 @@ export function OAuthTutorialWindow({
           background: 'var(--win95-bg-light)'
         }}
       >
-        💡 OAuth provides secure, industry-standard authentication for your portal
+        <span className="inline-flex items-center gap-1">
+          <Info className="h-3 w-3" />
+          OAuth provides secure, industry-standard authentication for your portal
+        </span>
       </div>
     </div>
   );
@@ -322,17 +329,17 @@ function Step0Introduction() {
 
       <div className="grid gap-3">
         <BenefitCard
-          icon="✅"
+          icon={CheckCircle}
           title="No Password Management"
           description="Contacts log in with Google/Microsoft - no passwords to remember"
         />
         <BenefitCard
-          icon="🔐"
+          icon={ShieldCheck}
           title="Enhanced Security"
           description="Industry-standard authentication with automatic security updates"
         />
         <BenefitCard
-          icon="⚡"
+          icon={Zap}
           title="Quick Setup"
           description="Takes just 2 minutes to configure, then you're done"
         />
@@ -437,7 +444,7 @@ function Step1CreateApp({
         className="w-full"
         size="lg"
       >
-        {isCreating ? "Creating OAuth App..." : "🔑 Create OAuth Application"}
+        {isCreating ? "Creating OAuth App..." : "Create OAuth Application"}
       </RetroButton>
 
       <p className="text-xs text-center" style={{ color: 'var(--neutral-gray)' }}>
@@ -471,7 +478,7 @@ function Step2SaveCredentials({
         <div className="flex items-start gap-2">
           <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-red-600" />
           <div className="text-sm text-red-800">
-            <strong className="block mb-1">⚠️ IMPORTANT: Save These Credentials Now!</strong>
+            <strong className="block mb-1">IMPORTANT: Save These Credentials Now!</strong>
             Your <strong>Client Secret</strong> will only be shown once.
             Copy both values before continuing.
           </div>
@@ -536,7 +543,7 @@ function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
 
       <div className="space-y-2">
         <h4 className="text-lg font-bold" style={{ color: 'var(--win95-text)' }}>
-          OAuth Setup Complete! 🎉
+          OAuth Setup Complete!
         </h4>
         <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
           Your portal is now configured for secure OAuth authentication.
@@ -555,15 +562,15 @@ function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
         </h5>
         <ul className="space-y-1 text-xs" style={{ color: 'var(--win95-text)' }}>
           <li className="flex items-start gap-2">
-            <span>✅</span>
+            <CheckCircle className="h-4 w-4 mt-0.5" />
             <span>Your portal will be deployed with OAuth credentials</span>
           </li>
           <li className="flex items-start gap-2">
-            <span>✅</span>
+            <CheckCircle className="h-4 w-4 mt-0.5" />
             <span>Contacts can log in with Google or Microsoft</span>
           </li>
           <li className="flex items-start gap-2">
-            <span>✅</span>
+            <CheckCircle className="h-4 w-4 mt-0.5" />
             <span>Authentication is handled securely and automatically</span>
           </li>
         </ul>
@@ -586,10 +593,11 @@ function BenefitCard({
   title,
   description,
 }: {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   description: string;
 }) {
+  const Icon = icon;
   return (
     <div
       className="p-3 border-2 rounded flex items-start gap-3"
@@ -598,7 +606,7 @@ function BenefitCard({
         background: 'var(--win95-bg)'
       }}
     >
-      <div className="text-2xl">{icon}</div>
+      <Icon className="h-6 w-6" style={{ color: "var(--win95-highlight)" }} />
       <div className="flex-1">
         <h5 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
           {title}
@@ -663,8 +671,9 @@ function CredentialField({
         </RetroButton>
       </div>
       {isSecret && (
-        <p className="text-xs mt-1 text-red-600">
-          ⚠️ This secret will not be shown again
+        <p className="text-xs mt-1 text-red-600 inline-flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          This secret will not be shown again
         </p>
       )}
     </div>

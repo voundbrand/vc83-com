@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Package, CheckCircle, FileText, Mail, Loader2 } from "lucide-react";
+import { X, Package, CheckCircle, FileText, Mail, Loader2, CircleCheckBig } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -128,7 +128,8 @@ export function TemplateSetPreviewModal({
                     </span>
                     {counts && counts.required > 0 && (
                       <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: "var(--notification-success-bg)", color: "var(--notification-success-text)" }}>
-                        ✓ {counts.required} Required
+                        <CircleCheckBig size={12} className="inline mr-1" />
+                        {counts.required} Required
                       </span>
                     )}
                     {counts && counts.optional > 0 && (

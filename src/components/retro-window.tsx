@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { ShellPackageIcon } from "@/components/icons/shell-icons"
 
 interface RetroWindowProps {
   title: string
@@ -22,7 +23,7 @@ export function RetroWindow({
 }: RetroWindowProps) {
   return (
     <div
-      className={cn("retro-window window-corners dark:retro-window-dark", draggable && "cursor-move", className)}
+      className={cn("retro-window window-corners", draggable && "cursor-move", className)}
     >
       {/* Window Title Bar */}
       <div
@@ -35,7 +36,9 @@ export function RetroWindow({
               background: 'var(--win95-window-icon-bg)',
               borderColor: 'var(--win95-window-icon-border)'
             }}
-          >📁</div>
+          >
+            <ShellPackageIcon size={12} tone="active" />
+          </div>
           <span className="font-pixel" style={{ color: 'var(--win95-titlebar-text)' }}>{title}</span>
         </div>
         <div className="flex gap-[2px]">

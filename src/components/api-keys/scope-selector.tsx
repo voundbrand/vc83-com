@@ -16,6 +16,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { AlertTriangle, Check } from "lucide-react";
 import {
   WILDCARD_SCOPE,
   SCOPE_CATEGORIES,
@@ -127,7 +128,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
       {hasWildcard && (
         <div className="bg-red-50 border border-red-300 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="text-red-600 text-xl">⚠️</div>
+            <AlertTriangle className="w-5 h-5 mt-0.5 text-red-600" />
             <div className="flex-1">
               <h4 className="font-semibold text-red-900 mb-1">
                 Full Access Enabled
@@ -271,7 +272,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
               {Object.entries(scopeSummary.byCategory).map(([category, count]) => (
                 <div key={category} className="flex items-center gap-2 text-purple-700">
                   <span className="w-4 h-4 flex items-center justify-center text-purple-600">
-                    ✓
+                    <Check className="w-3 h-3" />
                   </span>
                   <span>
                     {category}: {count} permission{count !== 1 ? "s" : ""}
@@ -287,7 +288,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
       {!hasWildcard && selectedScopes.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="text-yellow-600 text-xl">⚠️</div>
+            <AlertTriangle className="w-5 h-5 mt-0.5 text-yellow-600" />
             <div className="flex-1">
               <h4 className="font-semibold text-yellow-900 mb-1">
                 No Permissions Selected

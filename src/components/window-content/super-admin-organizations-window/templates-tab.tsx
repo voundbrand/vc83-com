@@ -383,9 +383,9 @@ function TemplateCRUDRow({
       {/* Schema */}
       <td className="px-3 py-2 text-center">
         {template.hasSchema ? (
-          <span className="font-bold" style={{ color: "#10b981" }}>✅</span>
+          <span className="font-bold" style={{ color: "#10b981" }}></span>
         ) : (
-          <span className="font-bold" style={{ color: "#ef4444" }}>❌</span>
+          <span className="font-bold" style={{ color: "#ef4444" }}></span>
         )}
       </td>
 
@@ -694,7 +694,7 @@ function TemplateAvailabilitySection({
                         </code>
                         {template.hasSchema && (
                           <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                            ✅ Schema
+                             Schema
                           </span>
                         )}
                       </div>
@@ -738,19 +738,19 @@ function getTemplateType(template: AuditTemplate): string {
 function getTypeIcon(type: string): React.ReactNode {
   switch (type) {
     case "email":
-      return "📧";
+      return "EM";
     case "pdf":
-      return "📄";
+      return "PDF";
     case "form":
-      return "📝";
+      return "FORM";
     case "checkout":
-      return "🛒";
+      return "CHK";
     case "workflow":
-      return "⚡";
+      return "WF";
     case "page":
-      return "🌐";
+      return "WEB";
     default:
-      return "📦";
+      return "TPL";
   }
 }
 

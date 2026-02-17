@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Loader2, Save, X, ChevronDown } from "lucide-react";
+import { Loader2, Save, X, ChevronDown, CalendarDays } from "lucide-react";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import { AppUnavailableInline } from "@/components/app-unavailable";
 import { getTaxCodesForCountry } from "@/lib/tax-calculator";
@@ -495,7 +495,7 @@ export function ProductForm({
           name: formData.name,
           description: formData.description,
           price: priceInCents,
-          currency: formData.currency, // ✅ Include currency in update
+          currency: formData.currency, // Include currency in update
           inventory: inventory || undefined,
           eventId: formData.eventId ? (formData.eventId as Id<"objects">) : null,
           customProperties,
@@ -634,17 +634,17 @@ export function ProductForm({
             <option value="digital">{t("ui.products.form.type.digital")}</option>
           </optgroup>
           <optgroup label="Bookable Resources">
-            <option value="room">🏠 Room / Meeting Space</option>
-            <option value="staff">👤 Staff / Service Provider</option>
-            <option value="equipment">🔧 Equipment</option>
-            <option value="space">🪑 Workspace / Desk</option>
-            <option value="vehicle">🚗 Vehicle</option>
-            <option value="accommodation">🏨 Accommodation</option>
+            <option value="room">Room / Meeting Space</option>
+            <option value="staff">Staff / Service Provider</option>
+            <option value="equipment">Equipment</option>
+            <option value="space">Workspace / Desk</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="accommodation">Accommodation</option>
           </optgroup>
           <optgroup label="Bookable Services">
-            <option value="appointment">📅 Appointment Service</option>
-            <option value="class">👥 Class / Group Session</option>
-            <option value="treatment">💆 Treatment / Spa Service</option>
+            <option value="appointment">Appointment Service</option>
+            <option value="class">Class / Group Session</option>
+            <option value="treatment">Treatment / Spa Service</option>
           </optgroup>
         </select>
         {productId && (
@@ -657,7 +657,7 @@ export function ProductForm({
       {/* Category Label */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-          🏷️ Category Label
+          Category Label
         </label>
         <input
           type="text"
@@ -672,7 +672,7 @@ export function ProductForm({
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          💡 Human-readable category name for external APIs. Auto-derived from product type, but can be customized.
+          Tip: Human-readable category name for external APIs. Auto-derived from product type, but can be customized.
         </p>
       </div>
 
@@ -796,7 +796,7 @@ export function ProductForm({
       {/* TAX SETTINGS - Applies to all product types */}
       <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          💰 {t("ui.products.form.tax.title")}
+          {t("ui.products.form.tax.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {t("ui.products.form.tax.description")}
@@ -809,7 +809,7 @@ export function ProductForm({
               {t("ui.products.form.tax.taxable")}
             </label>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              {formData.taxable ? `✅ ${t("ui.products.form.tax.taxableYes")}` : `⚠️ ${t("ui.products.form.tax.taxableNo")}`}
+              {formData.taxable ? `${t("ui.products.form.tax.taxableYes")}` : `${t("ui.products.form.tax.taxableNo")}`}
             </p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -864,7 +864,7 @@ export function ProductForm({
                 )}
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                💡 Showing tax codes for {availableTaxCodes?.flag} {originCountry}.
+                Tip: Showing tax codes for {originCountry}.
                 {orgDefaultTaxCode
                   ? ` Org default: ${defaultTaxCodeLabel}`
                   : ` No org default - configure in tax settings.`
@@ -887,9 +887,9 @@ export function ProductForm({
                   color: "var(--win95-input-text)",
                 }}
               >
-                <option value="exclusive">💵 {t("ui.products.form.tax.behavior.exclusive")}</option>
-                <option value="inclusive">💶 {t("ui.products.form.tax.behavior.inclusive")}</option>
-                <option value="automatic">🔄 {t("ui.products.form.tax.behavior.automatic")}</option>
+                <option value="exclusive">{t("ui.products.form.tax.behavior.exclusive")}</option>
+                <option value="inclusive">{t("ui.products.form.tax.behavior.inclusive")}</option>
+                <option value="automatic">{t("ui.products.form.tax.behavior.automatic")}</option>
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {formData.taxBehavior === "exclusive" && "Price: $100 → Total: $100 + $8.50 tax = $108.50"}
@@ -904,7 +904,7 @@ export function ProductForm({
       {/* FORM LINKING - Generalized for all product types */}
       <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          📋 {t("ui.products.form.formLink.title")}
+          {t("ui.products.form.formLink.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {t("ui.products.form.formLink.description")}
@@ -933,7 +933,7 @@ export function ProductForm({
             ))}
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            💡 Forms must be published to appear here. Create forms in the Forms app.
+            Tip: Forms must be published to appear here. Create forms in the Forms app.
           </p>
         </div>
 
@@ -955,9 +955,9 @@ export function ProductForm({
                   color: "var(--win95-input-text)",
                 }}
               >
-                <option value="duringCheckout">🛒 {t("ui.products.form.formLink.timing.duringCheckout")}</option>
-                <option value="afterPurchase">✉️ {t("ui.products.form.formLink.timing.afterPurchase")}</option>
-                <option value="standalone">🔗 {t("ui.products.form.formLink.timing.standalone")}</option>
+                <option value="duringCheckout">{t("ui.products.form.formLink.timing.duringCheckout")}</option>
+                <option value="afterPurchase">{t("ui.products.form.formLink.timing.afterPurchase")}</option>
+                <option value="standalone">{t("ui.products.form.formLink.timing.standalone")}</option>
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {formData.formTiming === "duringCheckout" && "Form appears in checkout flow before payment"}
@@ -973,7 +973,7 @@ export function ProductForm({
                   {t("ui.products.form.formLink.required.label")}
                 </label>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  {formData.formRequired ? `✅ ${t("ui.products.form.formLink.required.yes")}` : `⚠️ ${t("ui.products.form.formLink.required.no")}`}
+                  {formData.formRequired ? `${t("ui.products.form.formLink.required.yes")}` : `${t("ui.products.form.formLink.required.no")}`}
                 </p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1024,14 +1024,14 @@ export function ProductForm({
       {formData.subtype === "ticket" && (
         <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
           <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-            🎫 Ticket Settings
+            Ticket Settings
           </h3>
 
           {/* Event Association - Only if Events app is available */}
           {isEventsAppAvailable ? (
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                📅 Associated Event (Optional)
+                Associated Event (Optional)
               </label>
               <select
                 value={formData.eventId}
@@ -1057,7 +1057,7 @@ export function ProductForm({
           ) : (
             <div className="p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
               <div className="flex items-start gap-3">
-                <div className="text-2xl">📅</div>
+                <CalendarDays className="h-6 w-6 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
                     Event Linking Unavailable
@@ -1079,7 +1079,7 @@ export function ProductForm({
           {/* Template Set Selector (NEW - Unified Branding) */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
-              🎨 Branding Templates (Optional Override)
+              Branding Templates (Optional Override)
             </h4>
             <TemplateSetSelector
               organizationId={organizationId}
@@ -1094,7 +1094,7 @@ export function ProductForm({
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--win95-highlight)' }}>
-              <div className="font-bold mb-1">💡 Template Precedence:</div>
+              <div className="font-bold mb-1">Template Precedence:</div>
               <ul className="space-y-1 ml-4">
                 <li>• <strong>Product Template Set</strong>: Highest priority (if set)</li>
                 <li>• <strong>Checkout Template Set</strong>: Mid priority (fallback)</li>
@@ -1133,7 +1133,7 @@ export function ProductForm({
                 Ticket Status
               </label>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                {formData.isActive ? "✅ Active - Ticket sales are enabled" : "⏸️ Paused - Ticket sales are temporarily suspended"}
+                {formData.isActive ? "Active - Ticket sales are enabled" : "Paused - Ticket sales are temporarily suspended"}
               </p>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1172,9 +1172,9 @@ export function ProductForm({
                 color: "var(--win95-input-text)",
               }}
             >
-              <option value="paid">💳 Paid - Standard ticket with price</option>
-              <option value="free">⚡ Free - No charge required</option>
-              <option value="donation">❤️ Donation - Pay what you want</option>
+              <option value="paid">Paid - Standard ticket with price</option>
+              <option value="free">Free - No charge required</option>
+              <option value="donation">Donation - Pay what you want</option>
             </select>
           </div>
 
@@ -1253,7 +1253,7 @@ export function ProductForm({
           </div>
 
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            💡 Sales schedule and order limits help manage ticket availability and prevent bulk purchases.
+            Tip: Sales schedule and order limits help manage ticket availability and prevent bulk purchases.
           </p>
 
           {/* Advanced Settings - Collapsible Section */}
@@ -1264,7 +1264,7 @@ export function ProductForm({
               className="flex items-center justify-between w-full text-left mb-3"
             >
               <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                ⚙️ Advanced Settings
+                Advanced Settings
               </h4>
               <ChevronDown
                 size={16}
@@ -1293,10 +1293,10 @@ export function ProductForm({
                       color: "var(--win95-input-text)",
                     }}
                   >
-                    <option value="visible">👁️ Visible - Show on event page</option>
-                    <option value="invisible">🔗 Invisible - Hidden, direct link only</option>
-                    <option value="invisibleNotForSale">🚫 Invisible & Not For Sale</option>
-                    <option value="customSchedule">📅 Custom Schedule - Show/hide by date</option>
+                    <option value="visible">Visible - Show on event page</option>
+                    <option value="invisible">Invisible - Hidden, direct link only</option>
+                    <option value="invisibleNotForSale">Invisible & Not For Sale</option>
+                    <option value="customSchedule">Custom Schedule - Show/hide by date</option>
                   </select>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                     Control when and how this ticket appears to buyers
@@ -1359,9 +1359,9 @@ export function ProductForm({
                     }}
                     disabled={formData.ticketType === "donation"}
                   >
-                    <option value="onlineOnly">🌐 Online Only</option>
-                    <option value="atVenueOnly">🏢 At Venue Only</option>
-                    <option value="onlineAndVenue">🌐+🏢 Online & Venue</option>
+                    <option value="onlineOnly">Online Only</option>
+                    <option value="atVenueOnly">At Venue Only</option>
+                    <option value="onlineAndVenue">Online & Venue</option>
                   </select>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                     {formData.ticketType === "donation" ? "Donations are online only" : "Where tickets can be purchased"}
@@ -1382,7 +1382,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      📧 E-Ticket (Email/Mobile)
+                      E-Ticket (Email/Mobile)
                     </span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1394,7 +1394,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      🎟️ Will Call Pickup (At Venue)
+                      Will Call Pickup (At Venue)
                     </span>
                   </label>
                 </div>
@@ -1412,7 +1412,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      ⏰ Show &quot;Sales end in X hours&quot; countdown
+                      Show &quot;Sales end in X hours&quot; countdown
                     </span>
                   </label>
                   {formData.ticketType === "donation" && (
@@ -1424,7 +1424,7 @@ export function ProductForm({
                         className="w-4 h-4"
                       />
                       <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                        💰 Deduct fees from donation amount
+                        Deduct fees from donation amount
                       </span>
                     </label>
                   )}
@@ -1433,7 +1433,7 @@ export function ProductForm({
                 {/* NEW: Logistics Settings */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                    🏨 Event Logistics
+                    Event Logistics
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1444,7 +1444,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      🛏️ Accommodation Required
+                      Accommodation Required
                     </span>
                   </label>
 
@@ -1456,7 +1456,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      📝 Collect Accommodation Notes/Requests
+                      Collect Accommodation Notes/Requests
                     </span>
                   </label>
 
@@ -1468,7 +1468,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      🍽️ Meal Included
+                      Meal Included
                     </span>
                   </label>
 
@@ -1480,7 +1480,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      🥗 Collect Dietary Requirements/Allergies
+                      Collect Dietary Requirements/Allergies
                     </span>
                   </label>
 
@@ -1492,7 +1492,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      ⏰ Collect Planned Arrival Time
+                      Collect Planned Arrival Time
                     </span>
                   </label>
                 </div>
@@ -1500,7 +1500,7 @@ export function ProductForm({
                 {/* NEW: Companion/Guest Settings */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                    👥 Companion/Guest Settings
+                    Companion/Guest Settings
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1557,7 +1557,7 @@ export function ProductForm({
                         </div>
                       </div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        💡 Additional cost per companion (e.g., 30.00 for boat excursion)
+                        Tip: Additional cost per companion (e.g., 30.00 for boat excursion)
                       </p>
                     </div>
                   )}
@@ -1566,7 +1566,7 @@ export function ProductForm({
                 {/* NEW: Activity/Workshop Selection */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                    🎯 Activity/Workshop Selection
+                    Activity/Workshop Selection
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1618,7 +1618,7 @@ export function ProductForm({
                 {/* NEW: Billing Address */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-                    💳 Billing & Invoicing
+                    Billing and Invoicing
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1629,11 +1629,11 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      📍 Require Full Billing Address
+                      Require Full Billing Address
                     </span>
                   </label>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    💡 Useful for invoice generation and tax compliance
+                    Tip: Useful for invoice generation and tax compliance
                   </p>
                 </div>
               </div>
@@ -1722,7 +1722,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      📅 Use event dates for ticket sales schedule
+                      Use event dates for ticket sales schedule
                     </span>
                   </label>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -1753,7 +1753,7 @@ export function ProductForm({
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 Products start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them available for sale.
+          Tip: Products start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them available for sale.
         </p>
       </div>
 

@@ -173,12 +173,12 @@ const MenuContainer = forwardRef<HTMLDivElement, MenuContainerProps>(
     return (
       <div
         ref={ref}
-        className="fixed z-[999] min-w-[200px] py-1 border-2 shadow-lg"
+        className="fixed z-[999] min-w-[200px] py-1 border rounded-xl shadow-lg"
         style={{
           top: position.top,
           left: position.left,
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {children}
@@ -375,26 +375,26 @@ function MenuItem({
   return (
     <button
       onClick={disabled ? undefined : onClick}
-      className="w-full flex items-center gap-3 px-3 py-1.5 text-xs text-left transition-colors"
+      className="w-full flex items-center gap-3 px-3 py-1.5 text-xs text-left rounded-md transition-colors"
       style={{
         color: disabled
           ? "var(--neutral-gray)"
           : danger
             ? "var(--error-red)"
             : "var(--win95-text)",
-        background: active ? "var(--win95-highlight-bg)" : "transparent",
+        background: active ? "var(--finder-selection-bg)" : "transparent",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.background = "var(--win95-highlight-bg)";
-          e.currentTarget.style.color = danger ? "var(--error-red)" : "var(--win95-highlight)";
+          e.currentTarget.style.background = "var(--finder-selection-bg)";
+          e.currentTarget.style.color = danger ? "var(--error-red)" : "var(--finder-selection-text)";
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled) {
-          e.currentTarget.style.background = active ? "var(--win95-highlight-bg)" : "transparent";
+          e.currentTarget.style.background = active ? "var(--finder-selection-bg)" : "transparent";
           e.currentTarget.style.color = danger ? "var(--error-red)" : "var(--win95-text)";
         }
       }}
@@ -415,7 +415,7 @@ function MenuSeparator() {
   return (
     <div
       className="my-1 mx-2 h-px"
-      style={{ background: "var(--win95-border)" }}
+      style={{ background: "var(--window-document-border)" }}
     />
   );
 }

@@ -235,7 +235,7 @@ export function InvoiceMappingConfigForm({
                       }}
                     >
                       <p className="text-xs font-bold" style={{ color: "var(--primary)" }}>
-                        ✨ Recommended for hospital billing (AMEOS use case)
+                         Recommended for hospital billing (AMEOS use case)
                       </p>
                     </div>
                   )}

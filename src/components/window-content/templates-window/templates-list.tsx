@@ -278,7 +278,7 @@ export function TemplatesList({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <Layers size={64} style={{ color: "var(--neutral-gray)", opacity: 0.3 }} />
-        <h2 className="mt-4 text-lg font-bold" style={{ color: "var(--win95-text)" }}>
+        <h2 className="mt-4 text-lg font-bold" style={{ color: "var(--window-document-text)" }}>
           No Templates Found
         </h2>
         <p className="mt-2 text-sm text-center max-w-md" style={{ color: "var(--neutral-gray)" }}>
@@ -295,7 +295,7 @@ export function TemplatesList({
       <div className="p-4">
         {/* Header */}
         <div className="mb-4">
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {templateType === "email" && "Email Templates"}
             {templateType === "pdf" && "PDF Templates"}
             {templateType === "all" && "All Templates"}
@@ -325,18 +325,18 @@ export function TemplatesList({
                 key={template._id}
                 className="border-2 p-3 transition-colors cursor-pointer"
                 style={{
-                  borderColor: isDefault ? "var(--win95-highlight)" : "var(--win95-border)",
-                  background: isDefault ? "rgba(107, 70, 193, 0.05)" : "var(--win95-bg-light)",
+                  borderColor: isDefault ? "var(--tone-accent-strong)" : "var(--window-document-border)",
+                  background: isDefault ? "rgba(107, 70, 193, 0.05)" : "var(--desktop-shell-accent)",
                 }}
                 onClick={() => onEditTemplate(template._id)}
                 onMouseEnter={(e) => {
                   if (!isDefault) {
-                    e.currentTarget.style.background = "var(--win95-hover-light)";
+                    e.currentTarget.style.background = "var(--desktop-menu-hover)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isDefault) {
-                    e.currentTarget.style.background = "var(--win95-bg-light)";
+                    e.currentTarget.style.background = "var(--desktop-shell-accent)";
                   }
                 }}
               >
@@ -345,7 +345,7 @@ export function TemplatesList({
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       {getTemplateIcon(template)}
-                      <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+                      <h4 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                         {template.name}
                       </h4>
 
@@ -367,7 +367,7 @@ export function TemplatesList({
                       {isDefault && (
                         <span
                           className="px-2 py-0.5 text-xs font-bold flex items-center gap-1"
-                          style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}
+                          style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                           title="Default template for this category"
                         >
                           <Star size={10} fill="white" />
@@ -456,8 +456,8 @@ export function TemplatesList({
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
                         color: "#3b82f6",
                       }}
                       title="View template details and usage"
@@ -465,10 +465,10 @@ export function TemplatesList({
                       onClick={() => setDetailPanelTemplateId(template._id)}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isDuplicating && !isSettingDefault && !isTogglingStatus)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       <Info size={12} />
@@ -478,19 +478,19 @@ export function TemplatesList({
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
-                        color: "var(--win95-highlight)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
+                        color: "var(--tone-accent-strong)",
                       }}
                       title="Edit template"
                       disabled={isDeleting || isDuplicating || isSettingDefault}
                       onClick={() => onEditTemplate(template._id)}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isDuplicating && !isSettingDefault)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       <Edit size={12} />
@@ -501,8 +501,8 @@ export function TemplatesList({
                       <button
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: "#10b981",
                         }}
                         title="View template schema (JSON)"
@@ -510,10 +510,10 @@ export function TemplatesList({
                         onClick={() => onViewSchema(template._id)}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isDuplicating && !isSettingDefault)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         <Code size={12} />
@@ -524,8 +524,8 @@ export function TemplatesList({
                     <button
                       className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--desktop-shell-accent)",
                         color: "#8b5cf6",
                       }}
                       title="Duplicate template"
@@ -533,10 +533,10 @@ export function TemplatesList({
                       onClick={() => handleDuplicate(template._id, template.name)}
                       onMouseEnter={(e) => {
                         if (!isDeleting && !isDuplicating && !isSettingDefault)
-                          e.currentTarget.style.background = "var(--win95-hover-light)";
+                          e.currentTarget.style.background = "var(--desktop-menu-hover)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "var(--win95-bg-light)";
+                        e.currentTarget.style.background = "var(--desktop-shell-accent)";
                       }}
                     >
                       {isDuplicating ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
@@ -549,17 +549,17 @@ export function TemplatesList({
                         disabled={isDeleting || isDuplicating || isSettingDefault || isTogglingStatus}
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: isDefault ? "#6B7280" : "#F59E0B",
                         }}
                         title={isDefault ? "Remove default status" : "Set as default template for this category"}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isDuplicating && !isSettingDefault && !isTogglingStatus)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         {isSettingDefault ? <Loader2 size={12} className="animate-spin" /> : <Star size={12} fill={isDefault ? "#6B7280" : "none"} />}
@@ -573,17 +573,17 @@ export function TemplatesList({
                         disabled={isDeleting || isDuplicating || isSettingDefault || isTogglingStatus}
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: isActive ? "#6B7280" : "#10B981",
                         }}
                         title={isActive ? "Deactivate template" : "Activate template"}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isDuplicating && !isSettingDefault && !isTogglingStatus)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         {isTogglingStatus ? (
@@ -603,17 +603,17 @@ export function TemplatesList({
                         disabled={isDeleting || isDuplicating || isSettingDefault || isTogglingStatus || isDefault}
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--desktop-shell-accent)",
                           color: isDefault ? "var(--neutral-gray)" : "var(--error)",
                         }}
                         title={isDefault ? "Remove default status before deleting" : "Delete template"}
                         onMouseEnter={(e) => {
                           if (!isDeleting && !isDuplicating && !isSettingDefault && !isTogglingStatus && !isDefault)
-                            e.currentTarget.style.background = "var(--win95-hover-light)";
+                            e.currentTarget.style.background = "var(--desktop-menu-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--win95-bg-light)";
+                          e.currentTarget.style.background = "var(--desktop-shell-accent)";
                         }}
                       >
                         {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}

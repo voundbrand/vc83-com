@@ -4,11 +4,12 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useMemo } from "react"
+import { MessageSquareText, Coins } from "lucide-react"
 
 export function ChatFooter() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { chat } = useAIChatContext()
-  const { isAIReady, settings, billing } = useAIConfig()
+  const { isAIReady, settings, credits } = useAIConfig()
 
   // Calculate total tokens and cost from conversation messages
   const { totalTokens, estimatedCost } = useMemo(() => {
@@ -54,14 +55,14 @@ export function ChatFooter() {
     if (!settings?.enabled) {
       return { isOnline: false, text: t("ui.ai_assistant.footer.ai_disabled") }
     }
-    if (!billing?.hasSubscription) {
-      return { isOnline: false, text: t("ui.ai_assistant.footer.no_subscription") }
-    }
-    if (billing.status !== "active" && billing.status !== "trialing") {
-      return { isOnline: false, text: t("ui.ai_assistant.footer.subscription_inactive") }
-    }
     if (!isAIReady) {
       return { isOnline: false, text: t("ui.ai_assistant.footer.no_models") }
+    }
+    if (!credits) {
+      return { isOnline: false, text: t("ui.ai_assistant.footer.loading") }
+    }
+    if (credits.monthlyCreditsTotal !== -1 && credits.totalCredits <= 0) {
+      return { isOnline: false, text: "Out of credits" }
     }
 
     // All good!
@@ -80,11 +81,13 @@ export function ChatFooter() {
       }}
     >
       <div className="flex items-center gap-3">
-        <span title={t("ui.ai_assistant.footer.tokens_tooltip")}>
-          💬 {totalTokens.toLocaleString()} {t("ui.ai_assistant.footer.tokens")}
+        <span className="flex items-center gap-1" title={t("ui.ai_assistant.footer.tokens_tooltip")}>
+          <MessageSquareText className="w-3 h-3" />
+          {totalTokens.toLocaleString()} {t("ui.ai_assistant.footer.tokens")}
         </span>
-        <span title={t("ui.ai_assistant.footer.cost_tooltip")}>
-          💰 €{estimatedCost}
+        <span className="flex items-center gap-1" title={t("ui.ai_assistant.footer.cost_tooltip")}>
+          <Coins className="w-3 h-3" />
+          €{estimatedCost}
         </span>
       </div>
 

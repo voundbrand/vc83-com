@@ -126,7 +126,7 @@ export function BuilderHeader({
                   { x: 150, y: 100 },
                   { width: 1100, height: 700 },
                   "ui.app.booking",
-                  "📅"
+                  undefined
                 );
               }}
               className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"

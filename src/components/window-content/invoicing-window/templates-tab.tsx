@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, FileText, Building2, Users, FileStack } from "lucide-react";
+import { Eye, FileText, Building2, Users, FileStack, Check, Lightbulb } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplatePreviewModal } from "@/components/template-preview-modal";
 
@@ -176,7 +176,7 @@ export function TemplatesTab() {
             <div className="space-y-1 mb-4">
               {template.featureKeys.map((featureKey, idx) => (
                 <div key={idx} className="flex items-start gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <span className="text-[10px] mt-0.5">✓</span>
+                  <Check size={12} className="mt-0.5" />
                   <span>{t(featureKey)}</span>
                 </div>
               ))}
@@ -220,9 +220,10 @@ export function TemplatesTab() {
           backgroundColor: "var(--win95-bg-light)",
           borderColor: "var(--win95-border)",
         }}
-      >
-        <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-          💡 {t("ui.invoicing_window.templates.usage.title")}
+        >
+        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+          <Lightbulb size={12} />
+          {t("ui.invoicing_window.templates.usage.title")}
         </h4>
         <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
           <p>• {t("ui.invoicing_window.templates.usage.b2c_receipt")}</p>

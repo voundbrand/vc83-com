@@ -113,8 +113,8 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b-2"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="flex items-center justify-between px-4 py-3 border-b"
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <div className="flex items-center gap-2">
           <Trash2 size={16} style={{ color: "var(--error-red)" }} />
@@ -124,7 +124,7 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
         </div>
         <button
           onClick={() => setConfirmEmptyTrash(true)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold border-2 rounded"
+          className="desktop-interior-button flex items-center gap-2 px-3 py-1.5 text-xs font-bold"
           style={{
             borderColor: "var(--error-red)",
             background: "transparent",
@@ -142,7 +142,7 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
           <thead>
             <tr
               className="text-left text-[10px] font-bold border-b"
-              style={{ color: "var(--neutral-gray)", borderColor: "var(--win95-border)" }}
+              style={{ color: "var(--neutral-gray)", borderColor: "var(--window-document-border)" }}
             >
               <th className="px-4 py-2">Name</th>
               <th className="px-4 py-2">Original Location</th>
@@ -155,7 +155,7 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
               <tr
                 key={file._id}
                 className="border-b hover:bg-black/5 transition-colors"
-                style={{ borderColor: "var(--win95-border)" }}
+                style={{ borderColor: "var(--window-document-border)" }}
               >
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
@@ -203,8 +203,8 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
 
       {/* Auto-purge notice */}
       <div
-        className="px-4 py-2 border-t-2 flex items-center gap-2"
-        style={{ borderColor: "var(--win95-border)" }}
+        className="px-4 py-2 border-t flex items-center gap-2"
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <AlertTriangle size={12} style={{ color: "var(--warning-amber)" }} />
         <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -217,10 +217,10 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmEmptyTrash(false)} />
           <div
-            className="relative w-full max-w-sm p-6 border-2 shadow-lg"
+            className="relative w-full max-w-sm p-6 border rounded-2xl shadow-lg"
             style={{
-              background: "var(--win95-bg)",
-              borderColor: "var(--win95-border)",
+              background: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <div className="flex items-center gap-2 mb-4">
@@ -236,19 +236,14 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirmEmptyTrash(false)}
-                className="px-4 py-2 text-xs border-2 rounded"
-                style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                }}
+                className="desktop-interior-button px-4 py-2 text-xs"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmptyTrash}
                 disabled={isEmptying}
-                className="px-4 py-2 text-xs font-bold border-2 rounded"
+                className="desktop-interior-button px-4 py-2 text-xs font-bold"
                 style={{
                   borderColor: "var(--error-red)",
                   background: "var(--error-red)",

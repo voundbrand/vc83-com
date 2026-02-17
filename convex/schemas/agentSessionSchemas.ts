@@ -107,6 +107,18 @@ export const agentSessions = defineTable({
   // Self-improvement tracking
   metricsRecorded: v.optional(v.boolean()),
 
+  // Session-level routing pin (Plan 08):
+  // Keeps model/auth routing sticky across turns unless failover criteria repin it.
+  routingPin: v.optional(v.object({
+    modelId: v.optional(v.string()),
+    authProfileId: v.optional(v.string()),
+    pinReason: v.string(),
+    pinnedAt: v.number(),
+    updatedAt: v.number(),
+    unlockReason: v.optional(v.string()),
+    unlockedAt: v.optional(v.number()),
+  })),
+
   // Stats
   messageCount: v.number(),
   tokensUsed: v.number(),

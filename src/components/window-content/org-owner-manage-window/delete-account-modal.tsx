@@ -55,7 +55,7 @@ export function DeleteAccountModal({
       { x: 150, y: 100 },
       { width: 900, height: 600 },
       'ui.app.compliance',
-      '⚖️'
+      ''
     );
   };
 

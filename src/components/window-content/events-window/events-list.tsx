@@ -154,16 +154,33 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
     );
   }
 
+  if (selectedEvent) {
+    return (
+      <>
+        <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+
+        <ConfirmationModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal({ isOpen: false, action: null, eventId: null, title: "", message: "" })}
+          onConfirm={handleConfirm}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          variant={confirmModal.action === "delete" ? "danger" : confirmModal.action === "publish" ? "info" : "warning"}
+          confirmText={
+            confirmModal.action === "delete"
+              ? t("ui.events.action.delete")
+              : confirmModal.action === "publish"
+              ? t("ui.events.action.publish")
+              : t("ui.events.action.cancel")
+          }
+          isLoading={isProcessing}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      {/* Event Detail Modal */}
-      {selectedEvent && (
-        <EventDetailModal
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
-      )}
-
       <div className="p-4">
         {/* Filters */}
       <div className="flex gap-2 mb-4">
@@ -342,11 +359,6 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
           </div>
         ))}
       </div>
-
-      {/* Event Detail Modal */}
-      {selectedEvent && (
-        <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
-      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

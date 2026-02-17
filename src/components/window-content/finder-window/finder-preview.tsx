@@ -88,8 +88,8 @@ export function FinderPreview({
         <span
           className="text-[10px] px-2 py-0.5 rounded"
           style={{
-            background: "var(--win95-highlight-bg)",
-            color: "var(--win95-highlight)",
+            background: "var(--finder-selection-bg)",
+            color: "var(--finder-selection-text)",
           }}
         >
           {kindLabel[file.fileKind] || file.fileKind}
@@ -148,9 +148,9 @@ export function FinderPreview({
       {/* Content Preview (virtual files) */}
       {file.fileKind === "virtual" && file.content && (
         <div
-          className="mx-4 mb-4 p-3 border-2 rounded overflow-y-auto"
+          className="mx-4 mb-4 p-3 border rounded-lg overflow-y-auto"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--win95-bg-light)",
             maxHeight: "200px",
           }}
@@ -228,12 +228,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold border-2 rounded transition-colors"
-      style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-button-face)",
-        color: "var(--win95-text)",
-      }}
+      className="desktop-interior-button w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold"
     >
       {icon}
       {label}

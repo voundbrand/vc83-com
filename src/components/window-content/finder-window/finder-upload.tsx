@@ -151,15 +151,15 @@ export function UploadProgressOverlay({
 
   return (
     <div
-      className="absolute bottom-4 right-4 w-72 border-2 shadow-lg z-40"
+      className="absolute bottom-4 right-4 w-72 border rounded-2xl shadow-lg z-40"
       style={{
-        background: "var(--win95-bg)",
-        borderColor: "var(--win95-border)",
+        background: "var(--window-document-bg-elevated)",
+        borderColor: "var(--window-document-border)",
       }}
     >
       <div
         className="flex items-center justify-between px-3 py-2 border-b"
-        style={{ borderColor: "var(--win95-border)" }}
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
           Uploads ({uploads.length})
@@ -170,7 +170,7 @@ export function UploadProgressOverlay({
           <div
             key={upload.filename}
             className="flex items-center gap-2 px-3 py-2 border-b"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
             {upload.status === "done" ? (
               <CheckCircle2 size={14} style={{ color: "var(--success-green)" }} />
@@ -189,7 +189,7 @@ export function UploadProgressOverlay({
                 </p>
               )}
               {(upload.status === "uploading" || upload.status === "saving") && (
-                <div className="w-full h-1 mt-1 rounded" style={{ background: "var(--win95-border)" }}>
+                <div className="w-full h-1 mt-1 rounded" style={{ background: "var(--window-document-border)" }}>
                   <div
                     className="h-full rounded transition-all"
                     style={{

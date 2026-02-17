@@ -7,7 +7,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, requirePermission, checkPermission } from "./rbacHelpers";
@@ -703,5 +703,61 @@ export const getLayerCakeDocuments = query({
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     }));
+  },
+});
+
+/**
+ * Internal knowledge-base retrieval for AI runtimes.
+ * Returns Layer Cake markdown documents with optional tag filtering.
+ */
+export const getKnowledgeBaseDocsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    tags: v.optional(v.array(v.string())),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { organizationId, tags, limit }) => {
+    const normalizedTagSet = new Set(
+      (tags || [])
+        .map((tag) => tag.trim().toLowerCase())
+        .filter((tag) => tag.length > 0)
+    );
+    const maxDocs = Math.min(Math.max(limit ?? 20, 1), 50);
+
+    const docs = await ctx.db
+      .query("organizationMedia")
+      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+      .filter((q) => q.eq(q.field("itemType"), "layercake_document"))
+      .collect();
+
+    const matchesTags = (docTags?: string[]) => {
+      if (normalizedTagSet.size === 0) return true;
+      if (!docTags?.length) return false;
+      const normalizedDocTags = new Set(
+        docTags
+          .map((tag) => tag.trim().toLowerCase())
+          .filter((tag) => tag.length > 0)
+      );
+      for (const tag of normalizedTagSet) {
+        if (normalizedDocTags.has(tag)) return true;
+      }
+      return false;
+    };
+
+    return docs
+      .filter((doc) => matchesTags(doc.tags))
+      .filter((doc) => typeof doc.documentContent === "string" && doc.documentContent.trim().length > 0)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, maxDocs)
+      .map((doc) => ({
+        mediaId: doc._id,
+        filename: doc.filename,
+        description: doc.description,
+        content: doc.documentContent as string,
+        tags: doc.tags ?? [],
+        sizeBytes: doc.sizeBytes,
+        source: "layercake_document" as const,
+        updatedAt: doc.updatedAt,
+      }));
   },
 });

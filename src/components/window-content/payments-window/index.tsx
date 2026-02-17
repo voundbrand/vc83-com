@@ -12,6 +12,14 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { CreditCard, Loader2, AlertCircle, Building2, FileText, LayoutGrid, ArrowLeft, Maximize2 } from "lucide-react";
 import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
+import {
+  InteriorHeader,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 type TabType = "providers" | "stripe" | "invoicing";
 
@@ -26,7 +34,17 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
   const { t } = useNamespaceTranslations("ui.payments");
-  const handleOAuthCallback = useMutation(api.stripeConnect.handleOAuthCallback);
+  const useMutationUntyped = useMutation as (mutation: unknown) => (args: unknown) => Promise<unknown>;
+  // @ts-ignore TS2589: Convex generated mutation type may exceed instantiation depth in this component.
+  const handleOAuthCallback = useMutationUntyped((api as unknown as {
+    stripeConnect: { handleOAuthCallback: unknown };
+  }).stripeConnect.handleOAuthCallback) as (args: {
+    sessionId: string;
+    organizationId: Id<"organizations">;
+    code: string;
+    state: string;
+    isTestMode: boolean;
+  }) => Promise<unknown>;
 
   // Handle Stripe OAuth callback immediately when component mounts
   useEffect(() => {
@@ -77,52 +95,52 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="flex h-full flex-col">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>{t("ui.payments.loading")}</p>
+            <p style={{ color: "var(--window-document-text)" }}>{t("ui.payments.loading")}</p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="flex h-full flex-col">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>{t("ui.payments.please_login")}</p>
+            <p style={{ color: "var(--window-document-text)" }}>{t("ui.payments.please_login")}</p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (!organizationId) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="flex h-full flex-col">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }} className="font-semibold">
+            <p style={{ color: "var(--window-document-text)" }} className="font-semibold">
               {t("ui.payments.no_org_selected")}
             </p>
-            <p style={{ color: "var(--win95-text-secondary)" }} className="text-sm mt-2">
+            <p style={{ color: "var(--desktop-menu-text-muted)" }} className="text-sm mt-2">
               {t("ui.payments.select_org_prompt")}
             </p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   // Check if user has access to the organization
   if (organization === null && organizationId && sessionId) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="flex h-full flex-col">
         <div className="flex items-center justify-center h-full">
           <div className="max-w-md mx-auto p-6">
             <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
@@ -132,10 +150,10 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
                   <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
                     {t("ui.payments.access_denied") || "Access Denied"}
                   </h4>
-                  <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs mb-2" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.payments.no_permission") || "You don't have permission to view payment settings for this organization."}
                   </p>
-                  <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                  <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     {t("ui.payments.contact_admin") || "Please contact your organization administrator if you need access to payment management."}
                   </p>
                 </div>
@@ -143,47 +161,42 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
             </div>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Back to desktop link (full-screen mode only) */}
           {fullScreen && (
             <Link
               href="/"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button mr-3 inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Back to Desktop"
             >
               <ArrowLeft size={14} />
             </Link>
           )}
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <InteriorTitle className="flex items-center gap-2 text-sm">
               <CreditCard size={16} />
               {t("ui.payments.title")}
-            </h2>
-            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+            </InteriorTitle>
+            <InteriorSubtitle className="mt-1 text-xs">
               {t("ui.payments.subtitle")}
-            </p>
+            </InteriorSubtitle>
           </div>
 
           {/* Organization Info */}
           <div className="text-right">
-            <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
               {currentOrganization?.name}
             </p>
             {organization?.paymentProviders?.find((p) => p.providerCode === "stripe-connect") && (
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                 {t("ui.payments.status")}: {organization.paymentProviders.find((p) => p.providerCode === "stripe-connect")?.status}
               </p>
             )}
@@ -193,62 +206,30 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
           {!fullScreen && (
             <Link
               href="/payments"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Open Full Screen"
             >
               <Maximize2 size={14} />
             </Link>
           )}
         </div>
-      </div>
+      </InteriorHeader>
 
       {/* Tabs */}
-      <div
-        className="flex border-b-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
-      >
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "providers" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "providers" ? "var(--win95-text)" : "var(--neutral-gray)",
-          }}
-          onClick={() => setActiveTab("providers")}
-        >
+      <InteriorTabRow className="gap-2 border-b">
+        <InteriorTabButton active={activeTab === "providers"} className="flex items-center gap-2" onClick={() => setActiveTab("providers")}>
           <LayoutGrid size={14} />
           Providers
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "stripe" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "stripe" ? "var(--win95-text)" : "var(--neutral-gray)",
-          }}
-          onClick={() => setActiveTab("stripe")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "stripe"} className="flex items-center gap-2" onClick={() => setActiveTab("stripe")}>
           <CreditCard size={14} />
           {t("ui.payments.tab_stripe")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
-          style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "invoicing" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "invoicing" ? "var(--win95-text)" : "var(--neutral-gray)",
-          }}
-          onClick={() => setActiveTab("invoicing")}
-        >
+        </InteriorTabButton>
+        <InteriorTabButton active={activeTab === "invoicing"} className="flex items-center gap-2" onClick={() => setActiveTab("invoicing")}>
           <FileText size={14} />
           Invoicing (+Stripe)
-        </button>
-      </div>
+        </InteriorTabButton>
+      </InteriorTabRow>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
@@ -267,11 +248,11 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
 
       {/* Footer */}
       <div
-        className="px-4 py-3 border-t-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        className="border-t px-4 py-3"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <div className="flex justify-between items-center">
-          <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
             {t("ui.payments.powered_by_stripe")}
           </p>
           <p className="text-xs font-semibold" style={{
@@ -283,6 +264,6 @@ export function PaymentsWindow({ fullScreen = false }: PaymentsWindowProps = {})
           </p>
         </div>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }

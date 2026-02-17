@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { CreditCard, ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleDollarSign, CreditCard, FileText, Square, Wallet } from "lucide-react";
 import styles from "../styles/multi-step.module.css";
 
 interface PaymentMethodStepProps {
@@ -80,37 +80,37 @@ export function PaymentMethodStep({
       case "stripe-connect":
         return {
           name: "Credit/Debit Card",
-          icon: "💳",
+          icon: <CreditCard size={20} />,
           description: "Pay securely with Visa, Mastercard, or American Express",
         };
       case "paypal":
         return {
           name: "PayPal",
-          icon: "🅿️",
+          icon: <Wallet size={20} />,
           description: "Pay with your PayPal account",
         };
       case "square":
         return {
           name: "Square",
-          icon: "◼️",
+          icon: <Square size={18} />,
           description: "Pay with Square payment processing",
         };
       case "manual":
         return {
           name: "Manual Payment",
-          icon: "📄",
+          icon: <FileText size={20} />,
           description: "Pay via wire transfer or invoice",
         };
       case "invoice":
         return {
           name: "Invoice (Pay Later)",
-          icon: "📄",
+          icon: <FileText size={20} />,
           description: "An invoice will be sent to your employer for payment",
         };
       default:
         return {
           name: code,
-          icon: "💰",
+          icon: <CircleDollarSign size={20} />,
           description: "Secure payment processing",
         };
     }

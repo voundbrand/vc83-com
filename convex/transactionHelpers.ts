@@ -608,6 +608,7 @@ export async function createTransactionsForPurchase(
     {
       organizationId: params.organizationId,
       legacyTransactionId: transactionId,
+      legacySubtype: subtype,
       checkoutSessionId: params.checkoutSessionId,
       lineItems: validLineItems.map((item) => ({
         productId: item.productId,

@@ -8,7 +8,7 @@
  * - tag_in_specialist: Delegate to a specialist agent (validated via teamHarness)
  * - list_team_agents: List all active agents on the team
  *
- * See: docs/agentic_system/TEAM_COORDINATION.md
+ * See: docs/platform/TEAM_COORDINATION.md
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";

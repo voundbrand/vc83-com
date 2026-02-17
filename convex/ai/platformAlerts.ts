@@ -12,18 +12,150 @@ import { Resend } from "resend";
 // Admin email for platform alerts
 const ADMIN_EMAIL = "service@l4yercak3.com";
 
+export type SloMetricKey =
+  | "tool_success_rate"
+  | "model_fallback_rate"
+  | "p95_response_latency_ms"
+  | "cost_per_successful_task_usd"
+  | "escalation_rate";
+
+export interface SloThresholdDefinition {
+  displayName: string;
+  unit: "ratio" | "ms" | "usd";
+  direction: "min" | "max";
+  target: number;
+  warningThreshold: number;
+  criticalThreshold: number;
+  windowHours: number;
+}
+
+export type SloAlertSeverity = "ok" | "warning" | "critical";
+
+export const SLO_ALERT_THRESHOLDS: Record<SloMetricKey, SloThresholdDefinition> = {
+  tool_success_rate: {
+    displayName: "Tool success rate",
+    unit: "ratio",
+    direction: "min",
+    target: 0.98,
+    warningThreshold: 0.97,
+    criticalThreshold: 0.95,
+    windowHours: 24,
+  },
+  model_fallback_rate: {
+    displayName: "Model fallback rate",
+    unit: "ratio",
+    direction: "max",
+    target: 0.03,
+    warningThreshold: 0.05,
+    criticalThreshold: 0.08,
+    windowHours: 24,
+  },
+  p95_response_latency_ms: {
+    displayName: "P95 response latency",
+    unit: "ms",
+    direction: "max",
+    target: 8000,
+    warningThreshold: 10000,
+    criticalThreshold: 15000,
+    windowHours: 24,
+  },
+  cost_per_successful_task_usd: {
+    displayName: "Cost per successful task",
+    unit: "usd",
+    direction: "max",
+    target: 0.08,
+    warningThreshold: 0.12,
+    criticalThreshold: 0.2,
+    windowHours: 24,
+  },
+  escalation_rate: {
+    displayName: "Escalation rate",
+    unit: "ratio",
+    direction: "max",
+    target: 0.04,
+    warningThreshold: 0.06,
+    criticalThreshold: 0.1,
+    windowHours: 24,
+  },
+};
+
+export interface SloEvaluation {
+  metric: SloMetricKey;
+  observedValue: number;
+  severity: SloAlertSeverity;
+  thresholdValue?: number;
+}
+
+export function evaluateSloMetric(
+  metric: SloMetricKey,
+  observedValue: number
+): SloEvaluation {
+  const threshold = SLO_ALERT_THRESHOLDS[metric];
+  const safeObserved = Number.isFinite(observedValue) ? observedValue : 0;
+
+  if (threshold.direction === "min") {
+    if (safeObserved < threshold.criticalThreshold) {
+      return {
+        metric,
+        observedValue: safeObserved,
+        severity: "critical",
+        thresholdValue: threshold.criticalThreshold,
+      };
+    }
+    if (safeObserved < threshold.warningThreshold) {
+      return {
+        metric,
+        observedValue: safeObserved,
+        severity: "warning",
+        thresholdValue: threshold.warningThreshold,
+      };
+    }
+    return { metric, observedValue: safeObserved, severity: "ok" };
+  }
+
+  if (safeObserved > threshold.criticalThreshold) {
+    return {
+      metric,
+      observedValue: safeObserved,
+      severity: "critical",
+      thresholdValue: threshold.criticalThreshold,
+    };
+  }
+  if (safeObserved > threshold.warningThreshold) {
+    return {
+      metric,
+      observedValue: safeObserved,
+      severity: "warning",
+      thresholdValue: threshold.warningThreshold,
+    };
+  }
+  return { metric, observedValue: safeObserved, severity: "ok" };
+}
+
 export const sendPlatformAlert = action({
   args: {
     alertType: v.union(
       v.literal("openrouter_payment"),
       v.literal("openrouter_error"),
       v.literal("rate_limit"),
-      v.literal("service_outage")
+      v.literal("service_outage"),
+      v.literal("slo_breach")
     ),
     errorMessage: v.string(),
     organizationId: v.optional(v.id("organizations")),
     userId: v.optional(v.id("users")),
     context: v.optional(v.string()), // e.g., "page_builder", "chat"
+    sloMetric: v.optional(v.union(
+      v.literal("tool_success_rate"),
+      v.literal("model_fallback_rate"),
+      v.literal("p95_response_latency_ms"),
+      v.literal("cost_per_successful_task_usd"),
+      v.literal("escalation_rate")
+    )),
+    observedValue: v.optional(v.number()),
+    thresholdValue: v.optional(v.number()),
+    windowHours: v.optional(v.number()),
+    severity: v.optional(v.union(v.literal("warning"), v.literal("critical"))),
   },
   handler: async (ctx, args) => {
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -34,6 +166,21 @@ export const sendPlatformAlert = action({
     }
 
     const resend = new Resend(resendApiKey);
+
+    const computedSloEvaluation =
+      args.alertType === "slo_breach"
+      && args.sloMetric
+      && typeof args.observedValue === "number"
+        ? evaluateSloMetric(args.sloMetric, args.observedValue)
+        : null;
+
+    const derivedSloSeverity =
+      args.severity
+      ?? (computedSloEvaluation?.severity === "critical" ? "critical" : undefined)
+      ?? (computedSloEvaluation?.severity === "warning" ? "warning" : undefined);
+
+    const effectiveThresholdValue =
+      args.thresholdValue ?? computedSloEvaluation?.thresholdValue;
 
     // Build alert subject and body based on type
     let subject: string;
@@ -55,6 +202,15 @@ export const sendPlatformAlert = action({
       case "service_outage":
         subject = "🚨 URGENT: AI Service Outage";
         urgency = "HIGH";
+        break;
+      case "slo_breach":
+        if (derivedSloSeverity === "critical") {
+          subject = "🚨 URGENT: AI SLO Critical Breach";
+          urgency = "HIGH";
+        } else {
+          subject = "⚠️ AI SLO Warning Breach";
+          urgency = "MEDIUM";
+        }
         break;
       default:
         subject = "⚠️ Platform Alert";
@@ -105,6 +261,41 @@ export const sendPlatformAlert = action({
       </div>
       ` : ""}
 
+      ${args.alertType === "slo_breach" && args.sloMetric ? `
+      <div class="field">
+        <div class="label">SLO Metric</div>
+        <div class="value">${args.sloMetric}</div>
+      </div>
+      ` : ""}
+
+      ${args.alertType === "slo_breach" && typeof args.observedValue === "number" ? `
+      <div class="field">
+        <div class="label">Observed Value</div>
+        <div class="value">${args.observedValue}</div>
+      </div>
+      ` : ""}
+
+      ${args.alertType === "slo_breach" && typeof effectiveThresholdValue === "number" ? `
+      <div class="field">
+        <div class="label">Threshold Value</div>
+        <div class="value">${effectiveThresholdValue}</div>
+      </div>
+      ` : ""}
+
+      ${args.alertType === "slo_breach" && typeof args.windowHours === "number" ? `
+      <div class="field">
+        <div class="label">Window (Hours)</div>
+        <div class="value">${args.windowHours}</div>
+      </div>
+      ` : ""}
+
+      ${args.alertType === "slo_breach" && derivedSloSeverity ? `
+      <div class="field">
+        <div class="label">Severity</div>
+        <div class="value">${derivedSloSeverity}</div>
+      </div>
+      ` : ""}
+
       ${args.organizationId ? `
       <div class="field">
         <div class="label">Organization ID</div>
@@ -130,6 +321,11 @@ export const sendPlatformAlert = action({
         <p style="margin: 0;">OpenRouter API credits may be depleted. Please check and top up the account.</p>
         <a href="https://openrouter.ai/credits" class="action-link">Go to OpenRouter Credits →</a>
       </div>
+      ` : args.alertType === "slo_breach" ? `
+      <div class="action">
+        <div class="action-title">Recommended Action</div>
+        <p style="margin: 0;">Check SLO dashboard trends, identify the regression source, and pause broad model rollout until this metric recovers.</p>
+      </div>
       ` : ""}
     </div>
   </div>
@@ -143,6 +339,11 @@ ${subject}
 Alert Type: ${args.alertType}
 Error Message: ${args.errorMessage}
 ${args.context ? `Context: ${args.context}` : ""}
+${args.alertType === "slo_breach" && args.sloMetric ? `SLO Metric: ${args.sloMetric}` : ""}
+${args.alertType === "slo_breach" && typeof args.observedValue === "number" ? `Observed Value: ${args.observedValue}` : ""}
+${args.alertType === "slo_breach" && typeof effectiveThresholdValue === "number" ? `Threshold Value: ${effectiveThresholdValue}` : ""}
+${args.alertType === "slo_breach" && typeof args.windowHours === "number" ? `Window Hours: ${args.windowHours}` : ""}
+${args.alertType === "slo_breach" && derivedSloSeverity ? `Severity: ${derivedSloSeverity}` : ""}
 ${args.organizationId ? `Organization ID: ${args.organizationId}` : ""}
 ${args.userId ? `User ID: ${args.userId}` : ""}
 Timestamp: ${timestamp}
@@ -151,6 +352,9 @@ ${args.alertType === "openrouter_payment" ? `
 RECOMMENDED ACTION:
 OpenRouter API credits may be depleted. Please check and top up the account.
 https://openrouter.ai/credits
+` : args.alertType === "slo_breach" ? `
+RECOMMENDED ACTION:
+Review SLO dashboards, identify the regression source, and pause broad model rollout until metrics recover.
 ` : ""}
     `.trim();
 

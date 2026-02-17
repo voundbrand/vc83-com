@@ -43,6 +43,117 @@ function generateSlug(title: string): string {
   return baseSlug ? `${baseSlug}-${suffix}` : suffix;
 }
 
+interface ConversationModelResolution {
+  requestedModel?: string;
+  selectedModel: string;
+  selectionSource: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+}
+
+interface ConversationModelResolutionRecord {
+  timestamp: number;
+  modelResolution?: ConversationModelResolution;
+}
+
+export interface ModelFallbackAggregation {
+  windowHours: number;
+  since: number;
+  messagesScanned: number;
+  messagesWithModelResolution: number;
+  fallbackCount: number;
+  fallbackRate: number;
+  selectionSources: Array<{ source: string; count: number }>;
+  fallbackReasons: Array<{ reason: string; count: number }>;
+}
+
+function normalizeModelResolution(
+  value: unknown
+): ConversationModelResolution | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.selectedModel !== "string") {
+    return null;
+  }
+  if (typeof record.selectionSource !== "string") {
+    return null;
+  }
+  if (typeof record.fallbackUsed !== "boolean") {
+    return null;
+  }
+
+  return {
+    requestedModel:
+      typeof record.requestedModel === "string" ? record.requestedModel : undefined,
+    selectedModel: record.selectedModel,
+    selectionSource: record.selectionSource,
+    fallbackUsed: record.fallbackUsed,
+    fallbackReason:
+      typeof record.fallbackReason === "string" ? record.fallbackReason : undefined,
+  };
+}
+
+export function aggregateConversationModelFallback(
+  records: ConversationModelResolutionRecord[],
+  options: { windowHours: number; since: number }
+): ModelFallbackAggregation {
+  let messagesWithModelResolution = 0;
+  let fallbackCount = 0;
+  const selectionSourceCounts = new Map<string, number>();
+  const fallbackReasonCounts = new Map<string, number>();
+
+  for (const record of records) {
+    const normalized = normalizeModelResolution(record.modelResolution);
+    if (!normalized) {
+      continue;
+    }
+
+    messagesWithModelResolution += 1;
+    const normalizedSource = normalized.selectionSource.trim().toLowerCase();
+    if (normalizedSource) {
+      selectionSourceCounts.set(
+        normalizedSource,
+        (selectionSourceCounts.get(normalizedSource) ?? 0) + 1
+      );
+    }
+
+    if (!normalized.fallbackUsed) {
+      continue;
+    }
+
+    fallbackCount += 1;
+    const reasonRaw = normalized.fallbackReason ?? normalized.selectionSource;
+    const reason = reasonRaw.trim().toLowerCase();
+    if (!reason) {
+      continue;
+    }
+    fallbackReasonCounts.set(reason, (fallbackReasonCounts.get(reason) ?? 0) + 1);
+  }
+
+  const fallbackRate =
+    messagesWithModelResolution > 0
+      ? Number((fallbackCount / messagesWithModelResolution).toFixed(4))
+      : 0;
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    messagesScanned: records.length,
+    messagesWithModelResolution,
+    fallbackCount,
+    fallbackRate,
+    selectionSources: Array.from(selectionSourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count })),
+    fallbackReasons: Array.from(fallbackReasonCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, count]) => ({ reason, count })),
+  };
+}
+
 /**
  * Create a new conversation
  */
@@ -168,6 +279,13 @@ export const addMessage = mutation({
       status: v.union(v.literal("success"), v.literal("failed")),
       error: v.optional(v.string()),
     }))),
+    modelResolution: v.optional(v.object({
+      requestedModel: v.optional(v.string()),
+      selectedModel: v.string(),
+      selectionSource: v.string(),
+      fallbackUsed: v.boolean(),
+      fallbackReason: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     // Add message
@@ -177,12 +295,15 @@ export const addMessage = mutation({
       content: args.content,
       timestamp: args.timestamp,
       toolCalls: args.toolCalls,
+      modelResolution: args.modelResolution,
+      modelId: args.modelResolution?.selectedModel,
     });
 
     // Update conversation timestamp
     const conversation = await ctx.db.get(args.conversationId);
     if (conversation) {
       await ctx.db.patch(args.conversationId, {
+        modelId: args.modelResolution?.selectedModel ?? conversation.modelId,
         updatedAt: Date.now(),
       });
     }
@@ -198,10 +319,28 @@ export const updateConversation = mutation({
   args: {
     conversationId: v.id("aiConversations"),
     title: v.optional(v.string()),
+    modelId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.conversationId, {
       title: args.title,
+      modelId: args.modelId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Persist conversation model pin for sticky multi-turn routing.
+ */
+export const setConversationModel = mutation({
+  args: {
+    conversationId: v.id("aiConversations"),
+    modelId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      modelId: args.modelId,
       updatedAt: Date.now(),
     });
   },
@@ -544,5 +683,69 @@ export const updateToolExecutionParameters = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Aggregate chat model fallback rate for an organization.
+ * Uses assistant aiMessages.modelResolution payloads.
+ */
+export const getModelFallbackRate = query({
+  args: {
+    organizationId: v.id("organizations"),
+    hours: v.optional(v.number()),
+    maxConversations: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+    const clampedConversationLimit = Math.min(
+      Math.max(Math.floor(args.maxConversations ?? 250), 1),
+      500
+    );
+
+    const conversations = await ctx.db
+      .query("aiConversations")
+      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+
+    const recentConversations = conversations
+      .filter((conversation) => conversation.updatedAt >= since)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, clampedConversationLimit);
+
+    const records: ConversationModelResolutionRecord[] = [];
+    for (const conversation of recentConversations) {
+      const messages = await ctx.db
+        .query("aiMessages")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+        .collect();
+
+      for (const message of messages) {
+        if (message.role !== "assistant") {
+          continue;
+        }
+        if (message.timestamp < since) {
+          continue;
+        }
+        records.push({
+          timestamp: message.timestamp,
+          modelResolution: (message as Record<string, unknown>).modelResolution as
+            | ConversationModelResolution
+            | undefined,
+        });
+      }
+    }
+
+    const aggregation = aggregateConversationModelFallback(records, {
+      windowHours: clampedHours,
+      since,
+    });
+
+    return {
+      source: "chat_conversations",
+      scannedConversations: recentConversations.length,
+      ...aggregation,
+    };
   },
 });

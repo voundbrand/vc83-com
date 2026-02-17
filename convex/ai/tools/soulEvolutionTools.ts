@@ -141,6 +141,7 @@ export const reviewOwnSoulTool: AITool = {
   name: "review_own_soul",
   description: "Read your current soul/personality configuration. Use this when the owner asks about your personality, or when you want to check your current rules before proposing a change.",
   status: "ready",
+  readOnly: true,
   parameters: {
     type: "object",
     properties: {
@@ -188,6 +189,7 @@ export const viewPendingProposalsTool: AITool = {
   name: "view_pending_proposals",
   description: "Check if you have any pending soul/personality update proposals waiting for owner approval.",
   status: "ready",
+  readOnly: true,
   parameters: {
     type: "object",
     properties: {},

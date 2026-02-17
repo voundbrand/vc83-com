@@ -335,7 +335,7 @@ export function AddonCalculationConfigForm({
                                 icon: e.target.value,
                               })
                             }
-                            placeholder="🎟️"
+                            placeholder=""
                             className="retro-input w-full px-2 py-1 text-xs"
                           />
                         </div>
@@ -628,7 +628,7 @@ export function AddonCalculationConfigForm({
                             className="mt-1 text-[10px]"
                             style={{ color: "var(--neutral-gray)" }}
                           >
-                            💡 Tip: Click Auto to regenerate mappings from field options
+                             Tip: Click Auto to regenerate mappings from field options
                           </p>
                         )}
                       </div>

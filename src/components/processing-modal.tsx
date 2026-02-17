@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, CreditCard, UserRound, Ticket, ChartColumn, Mail, PartyPopper } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import type { LucideIcon } from "lucide-react";
 
 interface ProcessingModalProps {
   isOpen: boolean;
@@ -16,18 +17,18 @@ interface ProcessingModalProps {
 
 interface Step {
   id: number;
-  icon: string;
+  icon: LucideIcon;
   messageKey: string;
 }
 
 // Steps for real progress tracking (maps to fulfillmentStep values 0-5)
 const PROGRESS_STEPS: Step[] = [
-  { id: 0, icon: "💳", messageKey: "ui.processing_modal.steps.real.0" },
-  { id: 1, icon: "👤", messageKey: "ui.processing_modal.steps.real.1" },
-  { id: 2, icon: "🎫", messageKey: "ui.processing_modal.steps.real.2" },
-  { id: 3, icon: "📊", messageKey: "ui.processing_modal.steps.real.3" },
-  { id: 4, icon: "📧", messageKey: "ui.processing_modal.steps.real.4" },
-  { id: 5, icon: "🎉", messageKey: "ui.processing_modal.steps.real.5" },
+  { id: 0, icon: CreditCard, messageKey: "ui.processing_modal.steps.real.0" },
+  { id: 1, icon: UserRound, messageKey: "ui.processing_modal.steps.real.1" },
+  { id: 2, icon: Ticket, messageKey: "ui.processing_modal.steps.real.2" },
+  { id: 3, icon: ChartColumn, messageKey: "ui.processing_modal.steps.real.3" },
+  { id: 4, icon: Mail, messageKey: "ui.processing_modal.steps.real.4" },
+  { id: 5, icon: PartyPopper, messageKey: "ui.processing_modal.steps.real.5" },
 ];
 
 export function ProcessingModal({
@@ -122,6 +123,7 @@ export function ProcessingModal({
             </div>
           ) : (
             PROGRESS_STEPS.map((step) => {
+              const StepIcon = step.icon;
               const isStepCompleted = completedSteps.includes(step.id);
               const isCurrent = currentStep === step.id && !isComplete;
 
@@ -150,7 +152,7 @@ export function ProcessingModal({
                   {/* Message */}
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">{step.icon}</span>
+                      <StepIcon className="w-5 h-5" />
                       <p
                         className={`font-medium ${
                           isStepCompleted

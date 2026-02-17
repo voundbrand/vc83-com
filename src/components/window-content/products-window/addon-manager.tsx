@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { Plus, Trash2, Edit2, Save, X } from "lucide-react";
+import { Check, Edit2, Lightbulb, Plus, Puzzle, Save, Sparkles, Trash2, X } from "lucide-react";
 import { ProductAddon } from "@/types/product-addons";
 import { getTaxCodesForCountry } from "@/lib/tax-calculator";
 import { useNotification } from "@/hooks/use-notification";
@@ -192,7 +192,7 @@ export function AddonManager({
     if (!deleteConfirmModal) return;
 
     const updated = addons.filter((_, i) => i !== deleteConfirmModal.index);
-    console.log("🗑️ Deleting addon. Before:", addons.length, "After:", updated.length);
+    console.log("[AddonManager] Deleting addon. Before:", addons.length, "After:", updated.length);
     console.log("Updated addons array:", updated);
     onChange(updated);
     notification.success("Addon Deleted", `"${deleteConfirmModal.addonName}" has been removed. Remember to save the product!`);
@@ -224,7 +224,10 @@ export function AddonManager({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-            🧩 {t("ui.products.addons.title")}
+            <span className="inline-flex items-center gap-1">
+              <Puzzle size={14} />
+              {t("ui.products.addons.title")}
+            </span>
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
             {t("ui.products.addons.description")}
@@ -285,7 +288,10 @@ export function AddonManager({
                       Linked to form field: <code className="text-xs">{addon.formFieldId}</code>
                     </>
                   ) : (
-                    <span style={{ color: "var(--neutral-gray)" }}>💡 Standalone addon (no form field trigger)</span>
+                    <span className="inline-flex items-center gap-1" style={{ color: "var(--neutral-gray)" }}>
+                      <Lightbulb size={12} />
+                      Standalone addon (no form field trigger)
+                    </span>
                   )}
                   {addon.taxable && addon.taxCode && ` • Tax: ${addon.taxCode}`}
                   {!addon.taxable && " • Not taxable"}
@@ -341,13 +347,13 @@ export function AddonManager({
           {/* Icon (Optional) */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
-              Icon (Emoji)
+              Icon
             </label>
             <input
               type="text"
               value={currentAddon.icon || ""}
               onChange={(e) => setCurrentAddon({ ...currentAddon, icon: e.target.value })}
-              placeholder="⛵ 🎓 🍽️"
+              placeholder="Optional icon"
               maxLength={2}
               className="w-20 px-2 py-1 text-sm border-2"
               style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
@@ -521,8 +527,9 @@ export function AddonManager({
 
             {/* Show selected fields count */}
             {currentAddon.formFieldIds && currentAddon.formFieldIds.length > 0 && (
-              <p className="text-xs mt-1" style={{ color: "var(--success, green)" }}>
-                ✓ {currentAddon.formFieldIds.length} field{currentAddon.formFieldIds.length > 1 ? "s" : ""} selected
+              <p className="text-xs mt-1 inline-flex items-center gap-1" style={{ color: "var(--success, green)" }}>
+                <Check size={12} />
+                {currentAddon.formFieldIds.length} field{currentAddon.formFieldIds.length > 1 ? "s" : ""} selected
               </p>
             )}
           </div>
@@ -546,7 +553,10 @@ export function AddonManager({
                   }}
                   title="Auto-generate mapping from selected field options"
                 >
-                  ✨ Auto-Fill
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles size={12} />
+                    Auto-Fill
+                  </span>
                 </button>
               )}
             </div>

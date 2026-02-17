@@ -14,6 +14,11 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { WorkflowCard } from "./workflow-card";
 import { Search, Filter, Zap, Loader2 } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  InteriorButton,
+  InteriorInput,
+  InteriorSelect,
+} from "@/components/window-content/shared/interior-primitives";
 
 interface WorkflowListProps {
   organizationId: string;
@@ -57,7 +62,7 @@ export function WorkflowList({
   if (workflows === undefined || translationsLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
       </div>
     );
   }
@@ -74,10 +79,10 @@ export function WorkflowList({
                 <h4 className="font-bold text-sm mb-2" style={{ color: "var(--error)" }}>
                   {t("ui.workflows.access_denied") || "Access Denied"}
                 </h4>
-                <p className="text-xs mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs mb-2" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.workflows.no_permission") || "You don't have permission to view workflows for this organization."}
                 </p>
-                <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   {t("ui.workflows.contact_admin") || "Please contact your organization administrator if you need access to workflow management."}
                 </p>
               </div>
@@ -93,17 +98,14 @@ export function WorkflowList({
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-md text-center">
           <Zap className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-          <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.empty.title")}</h3>
+          <h3 className="mt-4 text-sm font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.workflows.empty.title")}</h3>
           <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.workflows.empty.description")}
           </p>
-          <button
-            onClick={onCreateNew}
-            className="retro-button mt-6 inline-flex items-center gap-2 px-3 py-2 text-xs font-bold"
-          >
+          <InteriorButton onClick={onCreateNew} className="mt-6 inline-flex h-9 items-center gap-2 px-3 text-xs">
             <Zap className="h-3 w-3" />
             {t("ui.workflows.empty.action")}
-          </button>
+          </InteriorButton>
         </div>
       </div>
     );
@@ -112,58 +114,58 @@ export function WorkflowList({
   return (
     <div className="flex h-full flex-col">
       {/* Search and Filters */}
-      <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="border-b p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}>
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
-            <input
+            <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: "var(--desktop-menu-text-muted)" }} />
+            <InteriorInput
               type="text"
               placeholder={t("ui.workflows.list.search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="retro-input w-full py-1 pl-7 pr-2 text-xs"
+              className="h-8 py-1 pl-7 pr-2 text-xs"
             />
           </div>
 
           {/* Status Filter */}
           <div className="flex items-center gap-1">
-            <Filter className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
-            <select
+            <Filter className="h-3 w-3" style={{ color: "var(--desktop-menu-text-muted)" }} />
+            <InteriorSelect
               value={statusFilter || "all"}
               onChange={(e) => setStatusFilter(e.target.value === "all" ? undefined : e.target.value)}
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="h-8 py-1 pl-2 pr-6 text-xs"
             >
               <option value="all">{t("ui.workflows.list.filters.status.all")}</option>
               <option value="active">{t("ui.workflows.list.filters.status.active")}</option>
               <option value="draft">{t("ui.workflows.list.filters.status.draft")}</option>
               <option value="archived">{t("ui.workflows.list.filters.status.archived")}</option>
-            </select>
+            </InteriorSelect>
           </div>
 
           {/* Subtype Filter */}
-          <select
+          <InteriorSelect
             value={subtypeFilter || "all"}
             onChange={(e) => setSubtypeFilter(e.target.value === "all" ? undefined : e.target.value)}
-            className="retro-input py-1 pl-2 pr-6 text-xs"
+            className="h-8 py-1 pl-2 pr-6 text-xs"
           >
             <option value="all">{t("ui.workflows.list.filters.type.all")}</option>
             <option value="checkout-flow">{t("ui.workflows.list.filters.type.checkout")}</option>
             <option value="form-processing">{t("ui.workflows.list.filters.type.form")}</option>
             <option value="event-registration">{t("ui.workflows.list.filters.type.event")}</option>
-          </select>
+          </InteriorSelect>
         </div>
 
         {/* Stats */}
-        <div className="mt-3 flex items-center gap-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+        <div className="mt-3 flex items-center gap-4 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           <span>
-            <strong style={{ color: 'var(--win95-text)' }}>{activeWorkflows.length}</strong> {t("ui.workflows.list.stats.active")}
+            <strong style={{ color: "var(--window-document-text)" }}>{activeWorkflows.length}</strong> {t("ui.workflows.list.stats.active")}
           </span>
           <span>
-            <strong style={{ color: 'var(--win95-text)' }}>{draftWorkflows.length}</strong> {t("ui.workflows.list.stats.draft")}
+            <strong style={{ color: "var(--window-document-text)" }}>{draftWorkflows.length}</strong> {t("ui.workflows.list.stats.draft")}
           </span>
           <span>
-            <strong style={{ color: 'var(--win95-text)' }}>{archivedWorkflows.length}</strong> {t("ui.workflows.list.stats.archived")}
+            <strong style={{ color: "var(--window-document-text)" }}>{archivedWorkflows.length}</strong> {t("ui.workflows.list.stats.archived")}
           </span>
         </div>
       </div>

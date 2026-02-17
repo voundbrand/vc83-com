@@ -44,6 +44,21 @@ export const updateTransactionRefundInfo = mutation({
       updatedAt: Date.now(),
     });
 
+    const strictTransaction = await ctx.db
+      .query("transactionsStrict")
+      .withIndex("by_legacy", (q) => q.eq("legacyTransactionId", args.transactionId))
+      .first();
+
+    if (strictTransaction) {
+      await ctx.db.patch(strictTransaction._id, {
+        paymentStatus: args.isFullRefund ? "refunded" : "partially_refunded",
+        refundId: args.refundId,
+        refundAmount: args.refundAmount,
+        refundDate: args.refundDate,
+        refundReason: args.refundReason,
+      });
+    }
+
     console.log(`✅ [updateTransactionRefundInfo] Updated transaction ${args.transactionId} with refund info`);
 
     return args.transactionId;

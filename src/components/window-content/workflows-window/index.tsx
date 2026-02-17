@@ -18,6 +18,16 @@ import { WorkflowBuilder } from "./workflow-builder";
 import { WorkflowTemplates } from "./workflow-templates";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  InteriorButton,
+  InteriorHeader,
+  InteriorPanel,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 type TabType = "list" | "builder" | "templates" | "settings";
 
@@ -45,28 +55,28 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
   // Show loading state while translations load
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center p-8" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className="flex h-full items-center justify-center p-8">
         <div className="text-center" style={{ color: 'var(--neutral-gray)' }}>
           Loading...
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   // Show message if not authenticated
   if (!sessionId) {
     return (
-      <div className="flex h-full items-center justify-center p-8" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className="flex h-full items-center justify-center p-8">
         <div className="text-center">
           <Zap className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)' }} />
-          <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.workflows.auth_required.title")}
           </h3>
           <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.workflows.auth_required.message")}
           </p>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
@@ -87,14 +97,14 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
   };
 
   const handleCreateFromTemplate = async (templateId: string) => {
-    console.log("🔵 [Frontend] handleCreateFromTemplate called", {
+    console.log("[Frontend] handleCreateFromTemplate called", {
       templateId,
       sessionId,
       organizationId,
     });
 
     if (!sessionId || !organizationId) {
-      console.error("❌ [Frontend] Missing sessionId or organizationId", {
+      console.error("[Frontend] Missing sessionId or organizationId", {
         sessionId,
         organizationId,
       });
@@ -103,7 +113,7 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
 
     try {
       setIsCreatingFromTemplate(true);
-      console.log("🔵 [Frontend] Calling createFromTemplate mutation...");
+      console.log("[Frontend] Calling createFromTemplate mutation...");
 
       // Create workflow directly from template - no object mappings needed!
       const result = await createFromTemplate({
@@ -112,20 +122,20 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
         templateId: templateId as Id<"objects">,
       });
 
-      console.log("✅ [Frontend] Mutation result:", result);
+      console.log("[Frontend] Mutation result:", result);
 
       if (result.success && result.workflowId) {
-        console.log("🔵 [Frontend] Setting workflowId and switching to builder", {
+        console.log("[Frontend] Setting workflowId and switching to builder", {
           workflowId: result.workflowId,
         });
         // Set the new workflow ID and switch to builder
         setEditingWorkflowId(result.workflowId);
         setActiveTab("builder");
       } else {
-        console.warn("⚠️ [Frontend] Result missing success or workflowId", result);
+        console.warn("[Frontend] Result missing success or workflowId", result);
       }
     } catch (error) {
-      console.error("❌ [Frontend] Failed to create workflow from template:", error);
+      console.error("[Frontend] Failed to create workflow from template:", error);
       alert("Failed to create workflow from template. Please try again.");
     } finally {
       setIsCreatingFromTemplate(false);
@@ -133,50 +143,47 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
   };
 
   return (
-    <div className="flex h-full flex-col" style={{ background: 'var(--win95-bg)' }}>
+    <InteriorRoot className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b-2 px-4 py-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Back to desktop link (full-screen mode only) */}
           {fullScreen && (
             <Link
               href="/"
-              className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold mr-3"
+              className="desktop-interior-button mr-3 inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Back to Desktop"
             >
               <ArrowLeft className="h-3 w-3" />
             </Link>
           )}
           <div>
-            <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.title")}</h2>
-            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            <InteriorTitle className="text-sm">{t("ui.workflows.title")}</InteriorTitle>
+            <InteriorSubtitle className="mt-1 text-xs">
               {t("ui.workflows.subtitle")}
-            </p>
+            </InteriorSubtitle>
           </div>
-          <button
-            onClick={handleCreateNew}
-            className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold"
-          >
+          <InteriorButton onClick={handleCreateNew} className="h-9 gap-2 px-3 text-xs">
             <Zap className="h-3 w-3" />
             {t("ui.workflows.button.create")}
-          </button>
+          </InteriorButton>
 
           {/* Open full screen link (window mode only) */}
           {!fullScreen && (
             <Link
               href="/workflows"
-              className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold ml-2"
+              className="desktop-interior-button ml-2 inline-flex h-9 items-center gap-2 px-3 text-xs"
               title="Open Full Screen"
             >
               <Maximize2 className="h-3 w-3" />
             </Link>
           )}
         </div>
-      </div>
+      </InteriorHeader>
 
       {/* Tabs */}
-      <div className="border-b-2 px-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <nav className="flex gap-1">
+      <InteriorTabRow className="border-b px-4">
+        <nav className="flex gap-2">
           <TabButton
             icon={<List className="h-4 w-4" />}
             label={t("ui.workflows.tab.all")}
@@ -202,7 +209,7 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
             onClick={() => setActiveTab("settings")}
           />
         </nav>
-      </div>
+      </InteriorTabRow>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
@@ -240,23 +247,17 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
               zIndex: 9999,
             }}
           >
-            <div
-              className="border-2 p-8"
-              style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
-              }}
-            >
+            <InteriorPanel className="p-8">
               <div className="flex items-center gap-3">
                 <div
                   className="h-6 w-6 animate-spin rounded-full border-4 border-purple-600"
                   style={{ borderTopColor: "transparent" }}
                 />
-                <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                   Creating workflow from template...
                 </p>
               </div>
-            </div>
+            </InteriorPanel>
           </div>
         )}
 
@@ -264,7 +265,7 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
           <div className="flex h-full items-center justify-center p-8">
             <div className="text-center">
               <Settings className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-              <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+              <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.workflows.settings.title")}
               </h3>
               <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -274,7 +275,7 @@ export function WorkflowsWindow({ fullScreen = false }: WorkflowsWindowProps) {
           </div>
         )}
       </div>
-    </div>
+    </InteriorRoot>
   );
 }
 
@@ -287,16 +288,9 @@ interface TabButtonProps {
 
 function TabButton({ icon, label, active, onClick }: TabButtonProps) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-bold transition-colors"
-      style={{
-        borderColor: active ? 'var(--win95-text)' : 'transparent',
-        color: active ? 'var(--win95-text)' : 'var(--neutral-gray)'
-      }}
-    >
+    <InteriorTabButton active={active} className="flex items-center gap-2 px-3 py-2 text-xs" onClick={onClick}>
       {icon}
       {label}
-    </button>
+    </InteriorTabButton>
   );
 }

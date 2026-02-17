@@ -113,7 +113,7 @@ function ActionButtons({
   }
 
   return (
-    <div className="p-3 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
+    <div className="p-3 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
       {error && (
         <div
           className="retro-error mb-2"
@@ -164,7 +164,7 @@ function ActionButtons({
         </RetroButton>
       </div>
 
-      <p className="text-xs mt-2 text-center" style={{ color: 'var(--win95-text-muted)' }}>
+      <p className="text-xs mt-2 text-center" style={{ color: 'var(--window-document-text-muted)' }}>
         {itemType === "contact_sync"
           ? "Approve to create/update contacts in CRM"
           : "Approve to send emails to all recipients"}
@@ -187,7 +187,7 @@ function ContactSyncDetail({
   if (!sync) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+        <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
           Loading sync details...
         </p>
       </div>
@@ -198,18 +198,18 @@ function ContactSyncDetail({
   const actionConfig: Record<string, { color: string; bgColor: string; icon: typeof CheckCircle2; label: string }> = {
     create: { color: 'var(--success)', bgColor: 'var(--success-bg)', icon: CheckCircle2, label: 'Create' },
     update: { color: 'var(--info)', bgColor: 'var(--info-bg)', icon: AlertCircle, label: 'Update' },
-    skip: { color: 'var(--win95-text-muted)', bgColor: 'var(--win95-border-light)', icon: XCircle, label: 'Skip' },
+    skip: { color: 'var(--window-document-text-muted)', bgColor: 'var(--window-document-border)', icon: XCircle, label: 'Skip' },
     merge: { color: 'var(--warning)', bgColor: 'var(--warning-bg)', icon: AlertCircle, label: 'Merge' },
   };
 
   return (
     <div className="flex flex-col h-full">
       {/* Sync Info */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
-        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           {sync.provider === "microsoft" ? "Microsoft" : "Google"} Contact Sync
         </p>
-        <div className="space-y-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
           <p>Initiated by: {sync.userName}</p>
           <p>Started: {new Date(sync.startedAt).toLocaleString()}</p>
           {sync.completedAt && (
@@ -219,30 +219,30 @@ function ContactSyncDetail({
       </div>
 
       {/* Statistics */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
-        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           Statistics
         </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Total:</p>
-            <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{sync.totalContacts}</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Total:</p>
+            <p className="font-semibold" style={{ color: 'var(--window-document-text)' }}>{sync.totalContacts}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Created:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Created:</p>
             <p className="font-semibold" style={{ color: 'var(--success)' }}>{sync.created}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Updated:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Updated:</p>
             <p className="font-semibold" style={{ color: 'var(--info)' }}>{sync.updated}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Skipped:</p>
-            <p className="font-semibold" style={{ color: 'var(--win95-text-muted)' }}>{sync.skipped}</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Skipped:</p>
+            <p className="font-semibold" style={{ color: 'var(--window-document-text-muted)' }}>{sync.skipped}</p>
           </div>
           {sync.failed > 0 && (
             <div>
-              <p style={{ color: 'var(--win95-text-muted)' }}>Failed:</p>
+              <p style={{ color: 'var(--window-document-text-muted)' }}>Failed:</p>
               <p className="font-semibold" style={{ color: 'var(--error)' }}>{sync.failed}</p>
             </div>
           )}
@@ -260,11 +260,11 @@ function ContactSyncDetail({
       {/* Contact Items */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
-          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--window-document-text)' }}>
             Contacts ({items?.length || 0})
           </p>
           {!items || items.length === 0 ? (
-            <p className="text-xs text-center py-4" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs text-center py-4" style={{ color: 'var(--window-document-text-muted)' }}>
               No preview data available
             </p>
           ) : (
@@ -278,18 +278,18 @@ function ContactSyncDetail({
                     key={contact.id}
                     className="p-2 border rounded"
                     style={{
-                      borderColor: 'var(--win95-border-light)',
-                      background: 'var(--win95-bg)'
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg)'
                     }}
                   >
                     {/* Contact Header */}
                     <div className="flex items-start gap-2 mb-2">
-                      <User className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-text)' }} />
+                      <User className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--window-document-text)' }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                        <p className="text-xs font-medium truncate" style={{ color: 'var(--window-document-text)' }}>
                           {contact.sourceName}
                         </p>
-                        <p className="text-xs truncate" style={{ color: 'var(--win95-text-muted)' }}>
+                        <p className="text-xs truncate" style={{ color: 'var(--window-document-text-muted)' }}>
                           {contact.sourceEmail}
                         </p>
                       </div>
@@ -308,29 +308,29 @@ function ContactSyncDetail({
                     </div>
 
                     {/* Match Reason */}
-                    <p className="text-xs mt-1" style={{ color: 'var(--win95-text-muted)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--window-document-text-muted)' }}>
                       {contact.match.reason}
                     </p>
 
                     {/* Contact Details */}
                     {contact.data && (
-                      <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: 'var(--win95-border-light)' }}>
+                      <div className="mt-2 pt-2 border-t space-y-1" style={{ borderColor: 'var(--window-document-border)' }}>
                         {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).companyName && (
                           <div className="flex items-center gap-1 text-xs">
-                            <Building2 className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { companyName?: string }).companyName}</span>
+                            <Building2 className="w-3 h-3" style={{ color: 'var(--window-document-text-muted)' }} />
+                            <span style={{ color: 'var(--window-document-text)' }}>{(contact.data as { companyName?: string }).companyName}</span>
                           </div>
                         )}
                         {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).jobTitle && (
                           <div className="flex items-center gap-1 text-xs">
-                            <Briefcase className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { jobTitle?: string }).jobTitle}</span>
+                            <Briefcase className="w-3 h-3" style={{ color: 'var(--window-document-text-muted)' }} />
+                            <span style={{ color: 'var(--window-document-text)' }}>{(contact.data as { jobTitle?: string }).jobTitle}</span>
                           </div>
                         )}
                         {(contact.data as { companyName?: string; jobTitle?: string; mobilePhone?: string }).mobilePhone && (
                           <div className="flex items-center gap-1 text-xs">
-                            <Phone className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
-                            <span style={{ color: 'var(--win95-text)' }}>{(contact.data as { mobilePhone?: string }).mobilePhone}</span>
+                            <Phone className="w-3 h-3" style={{ color: 'var(--window-document-text-muted)' }} />
+                            <span style={{ color: 'var(--window-document-text)' }}>{(contact.data as { mobilePhone?: string }).mobilePhone}</span>
                           </div>
                         )}
                       </div>
@@ -360,7 +360,7 @@ function EmailCampaignDetail({
   if (!campaign) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+        <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
           Loading campaign details...
         </p>
       </div>
@@ -370,11 +370,11 @@ function EmailCampaignDetail({
   return (
     <div className="flex flex-col h-full">
       {/* Campaign Info */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
-        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           {campaign.name}
         </p>
-        <div className="space-y-1 text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
           <p>Created by: {campaign.userName}</p>
           <p>Created: {new Date(campaign.createdAt).toLocaleString()}</p>
           {campaign.sentAt && (
@@ -387,26 +387,26 @@ function EmailCampaignDetail({
       </div>
 
       {/* Statistics */}
-      <div className="p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
-        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           Statistics
         </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Recipients:</p>
-            <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{campaign.totalRecipients}</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Recipients:</p>
+            <p className="font-semibold" style={{ color: 'var(--window-document-text)' }}>{campaign.totalRecipients}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Sent:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Sent:</p>
             <p className="font-semibold" style={{ color: 'var(--success)' }}>{campaign.sent}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--win95-text-muted)' }}>Queued:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>Queued:</p>
             <p className="font-semibold" style={{ color: 'var(--info)' }}>{campaign.queued || 0}</p>
           </div>
           {campaign.failed > 0 && (
             <div>
-              <p style={{ color: 'var(--win95-text-muted)' }}>Failed:</p>
+              <p style={{ color: 'var(--window-document-text-muted)' }}>Failed:</p>
               <p className="font-semibold" style={{ color: 'var(--error)' }}>{campaign.failed}</p>
             </div>
           )}
@@ -424,11 +424,11 @@ function EmailCampaignDetail({
       {/* Email Items */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
-          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--window-document-text)' }}>
             Emails ({items?.length || 0})
           </p>
           {!items || items.length === 0 ? (
-            <p className="text-xs text-center py-4" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs text-center py-4" style={{ color: 'var(--window-document-text-muted)' }}>
               No preview data available
             </p>
           ) : (
@@ -438,18 +438,18 @@ function EmailCampaignDetail({
                   key={`${email.recipientId}-${index}`}
                   className="p-2 border rounded"
                   style={{
-                    borderColor: 'var(--win95-border-light)',
-                    background: 'var(--win95-bg)'
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--window-document-bg)'
                   }}
                 >
                   {/* Recipient Header */}
                   <div className="flex items-start gap-2 mb-2">
-                    <Mail className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-text)' }} />
+                    <Mail className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--window-document-text)' }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--window-document-text)' }}>
                         {email.recipientName}
                       </p>
-                      <p className="text-xs truncate" style={{ color: 'var(--win95-text-muted)' }}>
+                      <p className="text-xs truncate" style={{ color: 'var(--window-document-text-muted)' }}>
                         {email.recipientEmail}
                       </p>
                     </div>
@@ -457,22 +457,22 @@ function EmailCampaignDetail({
 
                   {/* Subject */}
                   <div className="mb-2">
-                    <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
                       Subject:
                     </p>
-                    <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                    <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
                       {email.subject}
                     </p>
                   </div>
 
                   {/* Body Preview */}
                   <div>
-                    <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
                       Preview:
                     </p>
                     <p
                       className="text-xs line-clamp-3"
-                      style={{ color: 'var(--win95-text-muted)' }}
+                      style={{ color: 'var(--window-document-text-muted)' }}
                     >
                       {email.body}
                     </p>
@@ -480,8 +480,8 @@ function EmailCampaignDetail({
 
                   {/* Personalization */}
                   {Object.keys(email.personalization).length > 0 && (
-                    <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
-                      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
+                      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                         Personalization:
                       </p>
                       <div className="flex flex-wrap gap-1">
@@ -490,8 +490,8 @@ function EmailCampaignDetail({
                             key={key}
                             className="inline-block px-1.5 py-0.5 rounded text-xs"
                             style={{
-                              background: 'var(--win95-border-light)',
-                              color: 'var(--win95-text-muted)'
+                              background: 'var(--window-document-border)',
+                              color: 'var(--window-document-text-muted)'
                             }}
                           >
                             {key}: {value}
@@ -530,14 +530,14 @@ export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps):
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="flex items-center gap-2 p-3 border-b-2"
+        className="flex items-center gap-2 p-3 border-b"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--desktop-shell-accent)'
         }}
       >
-        <Icon className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+        <Icon className="w-4 h-4" style={{ color: 'var(--window-document-text)' }} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
           Details
         </span>
       </div>

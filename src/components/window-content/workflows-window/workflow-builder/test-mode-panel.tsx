@@ -344,11 +344,11 @@ export function TestModePanel({
           </div>
 
           {typedResult.status === "success" && (
-            <p className="text-xs" style={{ color: "var(--success)" }}>✓ Completed successfully</p>
+            <p className="text-xs" style={{ color: "var(--success)" }}> Completed successfully</p>
           )}
 
           {typedResult.status === "error" && typedResult.error && (
-            <p className="text-xs" style={{ color: "var(--error)" }}>✗ {typedResult.error}</p>
+            <p className="text-xs" style={{ color: "var(--error)" }}> {typedResult.error}</p>
           )}
 
           {resultOutput && (
@@ -394,7 +394,7 @@ export function TestModePanel({
                 color: "white"
               }}
             >
-              {executionResults.success ? "✓ Success" : "✗ Failed"}
+              {executionResults.success ? " Success" : " Failed"}
             </span>
           )}
         </div>
@@ -425,7 +425,7 @@ export function TestModePanel({
             }}
             className="text-white hover:bg-white/20 p-1 rounded ml-1"
           >
-            ✕
+            
           </button>
         </div>
       </div>
@@ -599,7 +599,7 @@ export function TestModePanel({
                           className="retro-button text-xs px-2 py-1 hover:bg-red-100"
                           title="Remove product"
                         >
-                          ✕
+                          
                         </button>
                       </div>
                     ))}
@@ -677,7 +677,7 @@ export function TestModePanel({
                     }}
                   >
                     <p className="text-xs font-bold mb-1" style={{ color: executionResults.success ? "var(--success)" : "var(--error)" }}>
-                      {executionResults.success ? "✓ Execution Successful" : "✗ Execution Failed"}
+                      {executionResults.success ? " Execution Successful" : " Execution Failed"}
                     </p>
                     {executionResults.message && (
                       <p className="text-xs opacity-80" style={{ color: "var(--win95-text)" }}>{executionResults.message}</p>

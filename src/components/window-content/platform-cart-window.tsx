@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useShoppingCart, CartItem } from "@/contexts/shopping-cart-context";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Trash2, Plus, Minus, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -148,7 +148,9 @@ export function PlatformCartWindow() {
   if (items.length === 0) {
     return (
       <div className="p-8 text-center" style={{ background: 'var(--win95-bg)' }}>
-        <div className="text-6xl mb-4">🛒</div>
+        <div className="mb-4 flex justify-center">
+          <ShoppingCart size={56} style={{ color: "var(--neutral-gray)" }} />
+        </div>
         <h3 className="font-pixel text-lg mb-2" style={{ color: 'var(--win95-text)' }}>
           {t("ui.cart.empty.title")}
         </h3>

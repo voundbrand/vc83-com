@@ -27,9 +27,9 @@ interface PaymentProviderSelectionConfigFormProps {
 }
 
 const PROVIDER_OPTIONS = [
-  { value: "stripe", label: "💳 Stripe" },
-  { value: "paypal", label: "🅿️ PayPal" },
-  { value: "invoice", label: "📄 Invoice (Pay Later)" },
+  { value: "stripe", label: " Stripe" },
+  { value: "paypal", label: "🅿 PayPal" },
+  { value: "invoice", label: " Invoice (Pay Later)" },
 ];
 
 const PAYMENT_TERMS = [

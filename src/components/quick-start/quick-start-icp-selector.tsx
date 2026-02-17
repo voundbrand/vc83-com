@@ -8,6 +8,7 @@ import { ICPCard } from "./icp-card";
 import { QuickStartProgressComponent } from "./quick-start-progress";
 import { ICP_DEFINITIONS } from "./icp-definitions";
 import type { ICPId, QuickStartProgress } from "./types";
+import { Bot, Rocket, CalendarDays, BriefcaseBusiness, Building2, Package, AlertTriangle, Check } from "lucide-react";
 
 interface QuickStartICPSelectorProps {
   onComplete?: (icpId: ICPId) => void;
@@ -122,7 +123,7 @@ export function QuickStartICPSelector({
         })),
       });
 
-      console.log("[Quick Start] ✅ Provisioning complete:", {
+      console.log("[Quick Start] Provisioning complete:", {
         appsProvisioned: result.appsProvisioned,
         templatesProvisioned: result.templatesProvisioned,
         alreadyInstalled: result.alreadyInstalled,
@@ -130,7 +131,7 @@ export function QuickStartICPSelector({
 
       onComplete?.(selectedICP);
     } catch (error) {
-      console.error("[Quick Start] ❌ Provisioning failed:", error);
+      console.error("[Quick Start] Provisioning failed:", error);
       setProgress({
         icpId: selectedICP,
         status: "error",
@@ -157,13 +158,22 @@ export function QuickStartICPSelector({
   const selectedICPDefinition = selectedICP
     ? ICP_DEFINITIONS.find((icp) => icp.id === selectedICP)
     : null;
+  const selectedIcpIconMap = {
+    "ai-agency": Bot,
+    "founder-builder": Rocket,
+    "event-manager": CalendarDays,
+    freelancer: BriefcaseBusiness,
+    enterprise: Building2,
+  } as const;
+  const SelectedIcpIcon = selectedICP ? selectedIcpIconMap[selectedICP] : null;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-        <h2 className="text-white font-bold text-xl mb-2">
-          🚀 Quick Start Setup
+        <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
+          <Rocket className="w-5 h-5" />
+          Quick Start Setup
         </h2>
         <p className="text-purple-100 text-sm">
           Choose your profile to get started with pre-configured apps,
@@ -207,7 +217,7 @@ export function QuickStartICPSelector({
             <div className="p-6 space-y-4">
               {/* Selected ICP Info */}
               <div className="flex items-center gap-4">
-                <div className="text-5xl">{selectedICPDefinition.icon}</div>
+                {SelectedIcpIcon && <SelectedIcpIcon className="w-12 h-12 text-purple-700" />}
                 <div>
                   <h3 className="font-bold text-lg text-gray-900">
                     {selectedICPDefinition.name}
@@ -220,8 +230,9 @@ export function QuickStartICPSelector({
 
               {/* What Will Be Provisioned */}
               <div className="bg-white border-4 border-gray-400 p-4 space-y-3">
-                <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2">
-                  📦 What will be added:
+                <p className="font-bold text-sm text-gray-800 border-b-2 border-gray-300 pb-2 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  What will be added:
                 </p>
 
                 {/* Apps */}
@@ -257,8 +268,9 @@ export function QuickStartICPSelector({
 
               {/* Safety Notice */}
               <div className="bg-yellow-50 border-4 border-yellow-400 p-3">
-                <p className="text-yellow-800 text-xs">
-                  ⚠️ <strong>Note:</strong> This will ADD apps and templates to
+                <p className="text-yellow-800 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <strong>Note:</strong> This will ADD apps and templates to
                   your workspace. Your existing data will not be affected.
                 </p>
               </div>
@@ -267,9 +279,10 @@ export function QuickStartICPSelector({
               <div className="flex gap-3">
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
+                  className="flex-1 px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
                 >
-                  ✓ CONFIRM & START SETUP
+                  <Check className="w-4 h-4" />
+                  CONFIRM & START SETUP
                 </button>
                 <button
                   onClick={handleCancel}
@@ -293,4 +306,3 @@ export function QuickStartICPSelector({
     </div>
   );
 }
-

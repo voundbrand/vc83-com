@@ -123,12 +123,12 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
   const getFrameworkIcon = (framework?: string) => {
     switch (framework?.toLowerCase()) {
       case 'nextjs': return '▲';
-      case 'remix': return '💿';
-      case 'astro': return '🚀';
-      case 'vite': return '⚡';
-      case 'nuxt': return '💚';
-      case 'sveltekit': return '🔥';
-      default: return '📦';
+      case 'remix': return 'R';
+      case 'astro': return 'A';
+      case 'vite': return 'V';
+      case 'nuxt': return 'N';
+      case 'sveltekit': return 'S';
+      default: return 'App';
     }
   };
 
@@ -313,7 +313,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                       {/* Generated Files */}
                       {cli.generatedFiles && cli.generatedFiles.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <span>📄 {cli.generatedFiles.length} generated file(s)</span>
+                          <span> {cli.generatedFiles.length} generated file(s)</span>
                         </div>
                       )}
                     </div>

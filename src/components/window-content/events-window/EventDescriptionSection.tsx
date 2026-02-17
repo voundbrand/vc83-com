@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Zap } from 'lucide-react';
 import SimpleTiptapEditor from '@/components/ui/tiptap-editor-simple';
 import { useNamespaceTranslations } from '@/hooks/use-namespace-translations';
 
@@ -45,7 +45,10 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
           }}
         >
           <div className="flex-1">
-            <span className="text-sm font-bold">📝 {t('ui.events.form.description')}</span>
+            <span className="text-sm font-bold flex items-center gap-1">
+              <FileText size={14} />
+              {t('ui.events.form.description')}
+            </span>
             {description && (
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {plainText.substring(0, 80) + (plainText.length > 80 ? '...' : '')}
@@ -70,7 +73,10 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
           color: "var(--win95-text)",
         }}
       >
-        <span className="text-sm font-bold">📝 {t('ui.events.form.description')}</span>
+        <span className="text-sm font-bold flex items-center gap-1">
+          <FileText size={14} />
+          {t('ui.events.form.description')}
+        </span>
         <ChevronUp size={16} />
       </button>
 

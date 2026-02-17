@@ -1,20 +1,4 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans } from "next/font/google";
-
-// Playfair Display for headings
-const playfairDisplay = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-  display: "swap",
-});
-
-// DM Sans as a substitute for Twentieth Century (similar geometric sans-serif)
-// If you have Twentieth Century from Adobe Fonts, we can switch to that
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "l4yercak3 Builder | AI-Powered Design Builder",
@@ -28,10 +12,9 @@ export default function BuilderLayout({
 }) {
   return (
     <div
-      className={`h-screen w-screen overflow-auto ${playfairDisplay.variable} ${dmSans.variable}`}
+      className="h-screen w-screen overflow-auto"
       style={{
-        backgroundColor: '#18181b', // zinc-900 (neutral gray, no blue)
-        fontFamily: 'var(--font-body), system-ui, sans-serif',
+        backgroundColor: "#18181b", // zinc-900 (neutral gray, no blue)
       }}
     >
       {children}

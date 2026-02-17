@@ -195,24 +195,24 @@ export function FinderPickerDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative w-full max-w-3xl h-[500px] flex flex-col border-2 shadow-lg"
+        className="relative w-full max-w-3xl h-[500px] flex flex-col border rounded-2xl shadow-lg"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {/* Title Bar */}
         <div
-          className="flex items-center justify-between px-4 py-2 border-b-2"
+          className="flex items-center justify-between px-4 py-2 border-b"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--desktop-shell-accent)",
           }}
         >
           <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
             {title}
           </h3>
-          <button onClick={onClose} className="p-1">
+          <button onClick={onClose} className="p-1 rounded-md">
             <X size={14} style={{ color: "var(--neutral-gray)" }} />
           </button>
         </div>
@@ -220,29 +220,23 @@ export function FinderPickerDialog({
         {/* Scope + Search Bar */}
         <div
           className="flex items-center gap-3 px-4 py-2 border-b"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           {/* Scope Toggle */}
-          <div className="flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div
+            className="flex items-center gap-1 p-0.5 border rounded-lg"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
+          >
             <button
               onClick={() => { setScope("org"); setCurrentPath("/"); setSelectedFileId(null); }}
-              className="px-3 py-1 text-xs"
-              style={{
-                background: scope === "org" ? "var(--win95-highlight-bg)" : "transparent",
-                color: scope === "org" ? "var(--win95-highlight)" : "var(--win95-text)",
-              }}
+              className={`desktop-interior-tab px-3 py-1 text-xs ${scope === "org" ? "desktop-interior-tab-active" : ""}`}
             >
               <HardDrive size={12} className="inline mr-1" />
               Org
             </button>
             <button
               onClick={() => { setScope("project"); setCurrentPath("/"); setSelectedFileId(null); }}
-              className="px-3 py-1 text-xs border-l-2"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: scope === "project" ? "var(--win95-highlight-bg)" : "transparent",
-                color: scope === "project" ? "var(--win95-highlight)" : "var(--win95-text)",
-              }}
+              className={`desktop-interior-tab px-3 py-1 text-xs ${scope === "project" ? "desktop-interior-tab-active" : ""}`}
             >
               <FolderTree size={12} className="inline mr-1" />
               Project
@@ -258,12 +252,7 @@ export function FinderPickerDialog({
                 setCurrentPath("/");
                 setSelectedFileId(null);
               }}
-              className="px-2 py-1 text-xs border-2"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-select py-1 text-xs min-w-[160px]"
             >
               <option value="">Select project...</option>
               {projects?.map((p) => (
@@ -286,12 +275,7 @@ export function FinderPickerDialog({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-7 pr-2 py-1 text-xs border-2"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-input w-full pl-7 pr-2 py-1 text-xs"
             />
           </div>
         </div>
@@ -299,7 +283,7 @@ export function FinderPickerDialog({
         {/* Breadcrumbs */}
         <div
           className="flex items-center gap-1 px-4 py-1.5 border-b"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           {pathSegments.map((seg, i) => (
             <span key={seg.path} className="flex items-center gap-1">
@@ -308,7 +292,7 @@ export function FinderPickerDialog({
                 onClick={() => handleNavigate(seg.path)}
                 className="text-[11px] px-1"
                 style={{
-                  color: i === pathSegments.length - 1 ? "var(--win95-text)" : "var(--primary)",
+                  color: i === pathSegments.length - 1 ? "var(--win95-text)" : "var(--finder-accent)",
                   fontWeight: i === pathSegments.length - 1 ? "bold" : "normal",
                 }}
               >
@@ -364,8 +348,8 @@ export function FinderPickerDialog({
 
         {/* Footer */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-t-2"
-          style={{ borderColor: "var(--win95-border)" }}
+          className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             {selectedFile ? selectedFile.name : "No file selected"}
@@ -373,23 +357,15 @@ export function FinderPickerDialog({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs border-2 rounded"
-              style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-              }}
+              className="desktop-interior-button px-4 py-2 text-xs"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirm}
               disabled={!selectedFile || selectedFile.fileKind === "folder"}
-              className="px-4 py-2 text-xs font-bold border-2 rounded"
+              className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--primary)",
-                color: "#fff",
                 opacity: !selectedFile || selectedFile.fileKind === "folder" ? 0.5 : 1,
               }}
             >
@@ -432,8 +408,8 @@ function PickerFileItem({
       onDoubleClick={onDoubleClick}
       className="flex flex-col items-center gap-1 p-3 rounded text-center transition-colors"
       style={{
-        background: isSelected ? "var(--win95-highlight-bg)" : "transparent",
-        color: isSelected ? "var(--win95-highlight)" : "var(--win95-text)",
+        background: isSelected ? "var(--finder-selection-bg)" : "transparent",
+        color: isSelected ? "var(--finder-selection-text)" : "var(--win95-text)",
       }}
     >
       <div className="relative">

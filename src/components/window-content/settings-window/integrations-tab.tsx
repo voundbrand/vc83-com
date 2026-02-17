@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Loader2, CheckCircle2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Blocks, CalendarDays, CheckCircle2, Circle, FolderOpen, Link2, Loader2, Lock, Mail, MessageCircle, RefreshCw } from "lucide-react";
 import { MicrosoftScopeSelector } from "./microsoft-scope-selector";
 
 export function IntegrationsTab() {
@@ -235,7 +235,7 @@ export function IntegrationsTab() {
       {/* Microsoft Integration Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <div className="text-3xl">🔷</div>
+          <Blocks size={24} style={{ color: "var(--win95-highlight)" }} />
           <div>
             <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
               {t("ui.manage.integrations.microsoft.title")}
@@ -286,7 +286,7 @@ export function IntegrationsTab() {
                   background: "rgba(255, 0, 0, 0.05)",
                 }}
               >
-                <span className="text-base">⚠️</span>
+                <AlertTriangle size={16} style={{ color: "var(--retro-red)" }} />
                 <div className="flex-1">
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--retro-red)" }}>
                     {t("ui.manage.integrations.errors.connection_error")}
@@ -437,7 +437,9 @@ export function IntegrationsTab() {
             }}
           >
             <div className="text-center space-y-2">
-              <div className="text-5xl">🔷</div>
+              <div className="flex justify-center">
+                <Blocks size={40} style={{ color: "var(--win95-highlight)" }} />
+              </div>
               <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
                 {t("ui.manage.integrations.status.not_connected")}
               </p>
@@ -449,19 +451,19 @@ export function IntegrationsTab() {
             {/* Features List */}
             <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
               <div className="flex items-start gap-2">
-                <span>📧</span>
+                <Mail size={12} />
                 <span>{t("ui.manage.integrations.features.sync_emails")}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span>📅</span>
+                <CalendarDays size={12} />
                 <span>{t("ui.manage.integrations.features.access_calendar")}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span>📁</span>
+                <FolderOpen size={12} />
                 <span>{t("ui.manage.integrations.features.browse_onedrive")}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span>🔒</span>
+                <Lock size={12} />
                 <span>{t("ui.manage.integrations.features.secure_oauth")}</span>
               </div>
             </div>
@@ -500,7 +502,7 @@ export function IntegrationsTab() {
       {/* Other Integrations (Coming Soon) */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <div className="text-3xl">🔗</div>
+          <Link2 size={24} style={{ color: "var(--win95-highlight)" }} />
           <div>
             <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
               {t("ui.manage.integrations.other.title")}
@@ -520,7 +522,7 @@ export function IntegrationsTab() {
               background: "var(--win95-bg-light)",
             }}
           >
-            <div className="text-2xl">🔴</div>
+            <Circle size={18} style={{ color: "var(--error-red)" }} />
             <div className="flex-1">
               <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
                 {t("ui.manage.integrations.google.title")}
@@ -539,7 +541,7 @@ export function IntegrationsTab() {
               background: "var(--win95-bg-light)",
             }}
           >
-            <div className="text-2xl">💬</div>
+            <MessageCircle size={18} style={{ color: "var(--win95-highlight)" }} />
             <div className="flex-1">
               <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
                 {t("ui.manage.integrations.slack.title")}

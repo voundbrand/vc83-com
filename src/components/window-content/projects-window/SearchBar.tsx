@@ -5,8 +5,9 @@
 
 "use client";
 
-import React from "react";
+import type React from "react";
 import { Search, X } from "lucide-react";
+import { InteriorButton, InteriorInput } from "@/components/window-content/shared/interior-primitives";
 
 interface SearchBarProps {
   value: string;
@@ -21,8 +22,8 @@ export default function SearchBar({
   onSearch,
   placeholder = "Search projects...",
 }: SearchBarProps) {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     onSearch(value);
   };
 
@@ -33,32 +34,30 @@ export default function SearchBar({
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          size={18}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-          style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
-          }}
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
-        )}
-      </div>
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        size={16}
+        style={{ color: "var(--desktop-menu-text-muted)" }}
+      />
+      <InteriorInput
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="py-2 pl-9 pr-9 text-sm"
+      />
+      {value && (
+        <InteriorButton
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={handleClear}
+          className="absolute right-1 top-1/2 -translate-y-1/2 px-2"
+          aria-label="Clear search"
+        >
+          <X size={14} />
+        </InteriorButton>
+      )}
     </form>
   );
 }

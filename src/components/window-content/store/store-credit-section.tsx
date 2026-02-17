@@ -4,6 +4,9 @@ import { Coins, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { calculateCreditsFromAmount, PRESET_AMOUNTS } from "@/lib/credit-pricing";
 
+const ACCENT_BACKGROUND = "var(--tone-accent)";
+const ACCENT_FOREGROUND = "#0f0f0f";
+
 interface StoreCreditSectionProps {
   onPurchase: (amountEur: number, credits: number) => void;
   isProcessing: boolean;
@@ -37,14 +40,14 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
     <div className="space-y-4">
       {/* Section Header */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="p-1.5 rounded" style={{ background: "var(--win95-bg-light)" }}>
-          <Coins className="w-4 h-4" style={{ color: "var(--win95-highlight)" }} />
+        <div className="p-1.5 rounded" style={{ background: "var(--desktop-shell-accent)" }}>
+          <Coins className="w-4 h-4" style={{ color: "var(--tone-accent-strong)" }} />
         </div>
         <div>
-          <h3 className="font-pixel text-xs" style={{ color: "var(--win95-highlight)" }}>
+          <h3 className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
             Buy Credits
           </h3>
-          <p className="text-[10px]" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-[10px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
             One-time purchase, never expire
           </p>
         </div>
@@ -52,7 +55,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
 
       <div
         className="rounded-lg p-4"
-        style={{ background: "var(--win95-bg)", border: "1px solid var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg)", border: "1px solid var(--window-document-border)" }}
       >
         {/* Preset Amounts */}
         <div className="grid grid-cols-5 gap-2 mb-4">
@@ -66,11 +69,9 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
                 onClick={() => handlePresetClick(amount)}
                 className="rounded-lg p-3 text-center transition-all hover:shadow-md"
                 style={{
-                  background: isSelected
-                    ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-                    : "var(--win95-bg-light)",
-                  border: isSelected ? "2px solid var(--win95-highlight)" : "1px solid var(--win95-border)",
-                  color: isSelected ? "white" : "var(--win95-text)",
+                  background: isSelected ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
+                  border: isSelected ? "2px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
+                  color: isSelected ? ACCENT_FOREGROUND : "var(--window-document-text)",
                 }}
               >
                 <div className="font-pixel text-sm">{"\u20AC"}{amount}</div>
@@ -85,13 +86,13 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
         {/* Custom Amount */}
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-1">
-            <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--win95-text-secondary)" }}>
+            <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--desktop-menu-text-muted)" }}>
               Or enter custom amount
             </label>
             <div className="relative">
               <span
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium"
-                style={{ color: "var(--win95-text-secondary)" }}
+                style={{ color: "var(--desktop-menu-text-muted)" }}
               >
                 {"\u20AC"}
               </span>
@@ -102,9 +103,9 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
                 placeholder="1 - 10,000"
                 className="w-full pl-7 pr-3 py-2 rounded text-xs focus:outline-none"
                 style={{
-                  background: "var(--win95-bg-light)",
-                  border: `1px solid ${customAmount ? "var(--win95-highlight)" : "var(--win95-border)"}`,
-                  color: "var(--win95-text)",
+                  background: "var(--desktop-shell-accent)",
+                  border: `1px solid ${customAmount ? "var(--tone-accent-strong)" : "var(--window-document-border)"}`,
+                  color: "var(--window-document-text)",
                 }}
               />
             </div>
@@ -116,10 +117,11 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
           <div
             className="rounded-lg p-3 mb-4"
             style={{
-              background: "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
+              background: ACCENT_BACKGROUND,
+              border: "1px solid var(--tone-accent-strong)",
             }}
           >
-            <div className="flex items-center justify-between text-white">
+            <div className="flex items-center justify-between" style={{ color: ACCENT_FOREGROUND }}>
               <div>
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
@@ -130,7 +132,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
                 <div className="text-[10px] mt-1 opacity-80">
                   {calculation.creditsPerEur} credits/EUR
                   {calculation.bonus > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded bg-white/20 font-bold">
+                    <span className="ml-2 px-1.5 py-0.5 rounded font-bold" style={{ background: "rgba(15, 15, 15, 0.14)" }}>
                       +{calculation.bonus.toLocaleString()} bonus
                     </span>
                   )}
@@ -150,11 +152,9 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
           disabled={!calculation || activeAmount < 1 || isProcessing}
           className="w-full py-2.5 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            background: calculation && activeAmount > 0
-              ? "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)"
-              : "var(--win95-bg-light)",
-            color: calculation && activeAmount > 0 ? "white" : "var(--win95-text-secondary)",
-            border: calculation && activeAmount > 0 ? "none" : "1px solid var(--win95-border)",
+            background: calculation && activeAmount > 0 ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
+            color: calculation && activeAmount > 0 ? ACCENT_FOREGROUND : "var(--desktop-menu-text-muted)",
+            border: `1px solid ${calculation && activeAmount > 0 ? "var(--tone-accent-strong)" : "var(--window-document-border)"}`,
           }}
         >
           {isProcessing ? (
@@ -171,8 +171,8 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
         </button>
 
         {/* Tier table */}
-        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--win95-border)" }}>
-          <p className="text-[10px] font-medium mb-2" style={{ color: "var(--win95-text-secondary)" }}>
+        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--window-document-border)" }}>
+          <p className="text-[10px] font-medium mb-2" style={{ color: "var(--desktop-menu-text-muted)" }}>
             Volume pricing
           </p>
           <div className="grid grid-cols-5 gap-1 text-center">
@@ -186,12 +186,12 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
               <div
                 key={tier.range}
                 className="rounded p-1.5"
-                style={{ background: "var(--win95-bg-light)" }}
+                style={{ background: "var(--desktop-shell-accent)" }}
               >
-                <div className="text-[9px] font-bold" style={{ color: "var(--win95-highlight)" }}>
+                <div className="text-[9px] font-bold" style={{ color: "var(--window-document-text)" }}>
                   {tier.range}
                 </div>
-                <div className="text-[9px]" style={{ color: "var(--win95-text-secondary)" }}>
+                <div className="text-[9px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   {tier.rate}
                 </div>
               </div>

@@ -7,7 +7,9 @@
 
 import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+import { evaluateModelEnablementReleaseGates } from "./modelEnablementGates";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -66,6 +68,7 @@ export const enablePlatformModel = mutation({
   args: {
     sessionId: v.string(),
     modelId: v.string(), // e.g., "anthropic/claude-3-5-sonnet"
+    operationalReviewAcknowledged: v.boolean(),
   },
   handler: async (ctx, args) => {
     // Authenticate user
@@ -87,6 +90,21 @@ export const enablePlatformModel = mutation({
 
     if (!model) {
       throw new Error(`Model ${args.modelId} not found`);
+    }
+
+    const releaseGateResult = evaluateModelEnablementReleaseGates({
+      model: {
+        modelId: model.modelId,
+        validationStatus: model.validationStatus,
+        testResults: model.testResults,
+      },
+      operationalReviewAcknowledged: args.operationalReviewAcknowledged,
+    });
+
+    if (!releaseGateResult.passed) {
+      throw new Error(
+        `Release gate check failed for ${args.modelId}: ${releaseGateResult.reasons.join(" ")}`
+      );
     }
 
     // Enable the model
@@ -150,6 +168,7 @@ export const batchEnableModels = mutation({
   args: {
     sessionId: v.string(),
     modelIds: v.array(v.string()),
+    operationalReviewAcknowledged: v.boolean(),
   },
   handler: async (ctx, args) => {
     // Authenticate user
@@ -164,6 +183,9 @@ export const batchEnableModels = mutation({
     }
 
     let enabledCount = 0;
+    const missingModels: string[] = [];
+    const blockedModels: Array<{ modelId: string; reasons: string[] }> = [];
+    const modelsToEnable: Array<{ _id: Id<"aiModels">; modelId: string }> = [];
 
     for (const modelId of args.modelIds) {
       const model = await ctx.db
@@ -171,12 +193,54 @@ export const batchEnableModels = mutation({
         .withIndex("by_model_id", (q) => q.eq("modelId", modelId))
         .first();
 
-      if (model) {
-        await ctx.db.patch(model._id, {
-          isPlatformEnabled: true,
-        });
-        enabledCount++;
+      if (!model) {
+        missingModels.push(modelId);
+        continue;
       }
+
+      const releaseGateResult = evaluateModelEnablementReleaseGates({
+        model: {
+          modelId: model.modelId,
+          validationStatus: model.validationStatus,
+          testResults: model.testResults,
+        },
+        operationalReviewAcknowledged: args.operationalReviewAcknowledged,
+      });
+
+      if (!releaseGateResult.passed) {
+        blockedModels.push({
+          modelId: model.modelId,
+          reasons: releaseGateResult.reasons,
+        });
+        continue;
+      }
+
+      modelsToEnable.push({
+        _id: model._id,
+        modelId: model.modelId,
+      });
+    }
+
+    if (missingModels.length > 0) {
+      throw new Error(
+        `Batch enable aborted; unknown model IDs: ${missingModels.join(", ")}`
+      );
+    }
+
+    if (blockedModels.length > 0) {
+      const summary = blockedModels
+        .map(({ modelId, reasons }) => `${modelId} (${reasons.join(" ")})`)
+        .join("; ");
+      throw new Error(
+        `Batch enable blocked by release gates for ${blockedModels.length} model(s): ${summary}`
+      );
+    }
+
+    for (const model of modelsToEnable) {
+      await ctx.db.patch(model._id, {
+        isPlatformEnabled: true,
+      });
+      enabledCount++;
     }
 
     return {
@@ -326,6 +390,7 @@ export const updateModelValidation = mutation({
       complexParams: v.boolean(),
       multiTurn: v.boolean(),
       edgeCases: v.boolean(),
+      contractChecks: v.boolean(),
       timestamp: v.number(),
     }),
     notes: v.optional(v.string()),

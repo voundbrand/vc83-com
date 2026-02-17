@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RetroButton } from "@/components/retro-button";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckSquare, FileText, FolderOpen, Globe2, Info, Mail, MessageSquare, UserRound } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Helper function to convert scope name to translation key
@@ -17,14 +17,14 @@ function getScopeTranslationKey(scope: string, field: 'name' | 'description'): s
 
 // Import scope data from backend (names will be translated in component)
 const SCOPE_CATEGORIES = [
-  { id: "mail", translationKey: "integrations.scopes.categories.mail.name", icon: "📧" },
-  { id: "calendar", translationKey: "integrations.scopes.categories.calendar.name", icon: "📅" },
-  { id: "contacts", translationKey: "integrations.scopes.categories.contacts.name", icon: "👤" },
-  { id: "files", translationKey: "integrations.scopes.categories.files.name", icon: "📁" },
-  { id: "teams", translationKey: "integrations.scopes.categories.teams.name", icon: "💬" },
-  { id: "sites", translationKey: "integrations.scopes.categories.sites.name", icon: "🌐" },
-  { id: "tasks", translationKey: "integrations.scopes.categories.tasks.name", icon: "✅" },
-  { id: "notes", translationKey: "integrations.scopes.categories.notes.name", icon: "📝" },
+  { id: "mail", translationKey: "integrations.scopes.categories.mail.name", icon: Mail },
+  { id: "calendar", translationKey: "integrations.scopes.categories.calendar.name", icon: CalendarDays },
+  { id: "contacts", translationKey: "integrations.scopes.categories.contacts.name", icon: UserRound },
+  { id: "files", translationKey: "integrations.scopes.categories.files.name", icon: FolderOpen },
+  { id: "teams", translationKey: "integrations.scopes.categories.teams.name", icon: MessageSquare },
+  { id: "sites", translationKey: "integrations.scopes.categories.sites.name", icon: Globe2 },
+  { id: "tasks", translationKey: "integrations.scopes.categories.tasks.name", icon: CheckSquare },
+  { id: "notes", translationKey: "integrations.scopes.categories.notes.name", icon: FileText },
 ] as const;
 
 const SCOPE_PRESETS = {
@@ -47,41 +47,41 @@ const SCOPE_PRESETS = {
     nameKey: "integrations.scopes.presets.productivity.name",
     descriptionKey: "integrations.scopes.presets.productivity.description",
     scopes: [
-      // 📧 Email & Messages (5 scopes)
+      // Email & Messages (5 scopes)
       "Mail.Read",
       "Mail.ReadWrite",
       "Mail.Send",
       "MailboxSettings.Read",
       "MailboxSettings.ReadWrite",
-      // 📅 Calendar & Events (4 scopes)
+      // Calendar & Events (4 scopes)
       "Calendars.Read",
       "Calendars.ReadWrite",
       "Calendars.Read.Shared",
       "Calendars.ReadWrite.Shared",
-      // 👤 Contacts & People (4 scopes)
+      // Contacts & People (4 scopes)
       "Contacts.Read",
       "Contacts.ReadWrite",
       "Contacts.Read.Shared",
       "Contacts.ReadWrite.Shared",
-      // 📁 Files & OneDrive (4 scopes)
+      // Files & OneDrive (4 scopes)
       "Files.Read",
       "Files.ReadWrite",
       "Files.Read.All",
       "Files.ReadWrite.All",
-      // 💬 Teams & Chat (4 scopes)
+      // Teams & Chat (4 scopes)
       "Chat.Read",
       "Chat.ReadWrite",
       "ChatMessage.Send",
       "Team.ReadBasic.All",
-      // 🌐 SharePoint Sites (2 scopes)
+      // SharePoint Sites (2 scopes)
       "Sites.Read.All",
       "Sites.ReadWrite.All",
-      // ✅ Tasks & To-Do (4 scopes)
+      // Tasks & To-Do (4 scopes)
       "Tasks.Read",
       "Tasks.ReadWrite",
       "Tasks.Read.Shared",
       "Tasks.ReadWrite.Shared",
-      // 📝 OneNote (3 scopes)
+      // OneNote (3 scopes)
       "Notes.Read",
       "Notes.Create",
       "Notes.ReadWrite",
@@ -321,7 +321,7 @@ export function MicrosoftScopeSelector({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{category.icon}</span>
+                    <category.icon className="w-5 h-5" />
                     <div>
                       <div className="font-bold">{t(`ui.manage.${category.translationKey}`)}</div>
                       <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>

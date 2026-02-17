@@ -6,7 +6,9 @@ import { Lock, Check } from "lucide-react";
 interface IntegrationCardProps {
   name: string;
   description: string;
-  icon: string; // Font Awesome class (e.g., "fab fa-microsoft")
+  logoSrc?: string;
+  logoAlt?: string;
+  icon?: string; // Font Awesome class (e.g., "fab fa-microsoft")
   iconColor?: string;
   status: "connected" | "available" | "coming_soon" | "locked";
   onClick?: () => void;
@@ -16,6 +18,8 @@ interface IntegrationCardProps {
 export function IntegrationCard({
   name,
   description,
+  logoSrc,
+  logoAlt,
   icon,
   iconColor = "var(--win95-highlight)",
   status,
@@ -23,6 +27,7 @@ export function IntegrationCard({
   requiredTier,
 }: IntegrationCardProps) {
   const isDisabled = status === "coming_soon";
+  const isComingSoon = status === "coming_soon";
   const isLocked = status === "locked";
   const isConnected = status === "connected";
 
@@ -41,18 +46,6 @@ export function IntegrationCard({
             title="Connected"
           >
             <Check size={12} color="white" strokeWidth={3} />
-          </div>
-        );
-      case "coming_soon":
-        return (
-          <div
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded"
-            style={{
-              background: 'var(--win95-border)',
-              color: 'var(--neutral-gray)',
-            }}
-          >
-            Coming Soon
           </div>
         );
       case "locked":
@@ -96,7 +89,7 @@ export function IntegrationCard({
       className={`
         relative flex flex-col items-center justify-center gap-2 p-4 rounded border-2
         transition-all group min-h-[120px]
-        ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+        ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}
       `}
       style={{
         background: getCardBackground(),
@@ -128,11 +121,22 @@ export function IntegrationCard({
       <div
         className={`text-3xl ${isDisabled ? '' : 'group-hover:scale-110'} transition-transform`}
         style={{
-          color: isLocked ? 'var(--neutral-gray)' : iconColor,
+          color: logoSrc ? undefined : (isLocked ? 'var(--neutral-gray)' : iconColor),
           filter: isLocked ? 'grayscale(50%)' : 'none',
+          opacity: isComingSoon ? 0.95 : 1,
         }}
       >
-        <i className={icon} />
+        {logoSrc ? (
+          <img
+            src={logoSrc}
+            alt={logoAlt || ""}
+            aria-hidden="true"
+            draggable={false}
+            className="h-10 w-10 object-contain pointer-events-none select-none"
+          />
+        ) : icon ? (
+          <i className={icon} aria-hidden="true" />
+        ) : null}
       </div>
 
       {/* Name */}
@@ -142,6 +146,18 @@ export function IntegrationCard({
       >
         {name}
       </div>
+
+      {isComingSoon && (
+        <div
+          className="text-[10px] px-2 py-0.5 rounded"
+          style={{
+            background: 'var(--win95-border)',
+            color: 'var(--neutral-gray)',
+          }}
+        >
+          Coming Soon
+        </div>
+      )}
     </button>
   );
 }

@@ -15,9 +15,11 @@
  */
 
 import { useQuery, useMutation, useAction } from "convex/react"
-import { api } from "../../convex/_generated/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Id } from "../../convex/_generated/dataModel"
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const apiAny = (require("../../convex/_generated/api") as { api: any }).api
 
 export interface AISettings {
   _id: Id<"organizationAiSettings">
@@ -100,29 +102,46 @@ export interface ModelsByProvider {
   isStale: boolean
 }
 
+export interface AICreditBalance {
+  exists: boolean
+  dailyCredits: number
+  monthlyCredits: number
+  monthlyCreditsTotal: number
+  purchasedCredits: number
+  totalCredits: number
+}
+
 /**
  * Main AI Configuration Hook
  */
 export function useAIConfig() {
   const { user } = useAuth()
   const organization = user?.currentOrganization
+  const useQueryAny = useQuery as any
+  const useMutationAny = useMutation as any
+  const useActionAny = useAction as any
 
   // Queries
-  const settings = useQuery(
-    api.ai.settings.getAISettings,
+  const settings = useQueryAny(
+    apiAny.ai.settings.getAISettings,
     organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
   ) as AISettings | undefined
 
-  const billing = useQuery(
-    api.ai.billing.getSubscriptionStatus,
+  const billing = useQueryAny(
+    apiAny.ai.billing.getSubscriptionStatus,
     organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
   ) as AIBillingStatus | undefined
 
-  const models = useQuery(api.ai.modelDiscovery.getModelsByProvider) as ModelsByProvider | undefined
+  const models = useQueryAny(apiAny.ai.modelDiscovery.getModelsByProvider) as ModelsByProvider | undefined
+
+  const credits = useQueryAny(
+    apiAny.credits.index.getCreditBalance,
+    organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
+  ) as AICreditBalance | undefined
 
   // Mutations
-  const upsertSettingsMutation = useMutation(api.ai.settings.upsertAISettings)
-  const refreshModelsAction = useAction(api.ai.modelDiscovery.refreshModels)
+  const upsertSettingsMutation = useMutationAny(apiAny.ai.settings.upsertAISettings)
+  const refreshModelsAction = useActionAny(apiAny.ai.modelDiscovery.refreshModels)
 
   /**
    * Update AI settings for the organization
@@ -247,10 +266,13 @@ export function useAIConfig() {
    */
   const isAIReady = Boolean(
     settings?.enabled &&
-    billing?.hasSubscription &&
-    (billing?.status === "active" || billing?.status === "trialing") &&
     settings?.llm.enabledModels &&
     settings.llm.enabledModels.length > 0
+  )
+
+  const hasCredits = Boolean(
+    credits &&
+    (credits.monthlyCreditsTotal === -1 || credits.totalCredits > 0)
   )
 
   /**
@@ -264,10 +286,12 @@ export function useAIConfig() {
     // Data
     settings,
     billing,
+    credits,
     models,
     enabledModelIds,
     defaultModelId,
     isAIReady,
+    hasCredits,
     usagePercentage,
 
     // Actions
@@ -278,7 +302,7 @@ export function useAIConfig() {
     refreshModels,
 
     // Status flags
-    isLoading: !settings || !billing || !models,
+    isLoading: !settings || !models || credits === undefined,
     hasSubscription: billing?.hasSubscription ?? false,
     isActive: billing?.status === "active" || billing?.status === "trialing",
   }

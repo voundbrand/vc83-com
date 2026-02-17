@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { Trash2, Plus, CreditCard } from "lucide-react";
+import { AlertTriangle, CreditCard, Info, Lightbulb, Plus, Trash2 } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export interface InvoiceConfig {
@@ -181,7 +181,10 @@ export function InvoicingConfigSection({
                   color: "var(--neutral-gray)",
                 }}
               >
-                💡 Available options: {selectedFieldOptions.map((opt) => opt.label).join(", ")}
+                <span className="inline-flex items-center gap-1">
+                  <Lightbulb size={12} />
+                  Available options: {selectedFieldOptions.map((opt) => opt.label).join(", ")}
+                </span>
               </div>
             )}
 
@@ -292,12 +295,14 @@ export function InvoicingConfigSection({
               </button>
             </div>
 
-            <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-              💡 Map form values to CRM organizations. Select an organization from your CRM to enable invoice payment, or leave empty to disable invoicing for that value.
+            <p className="text-xs mt-2 inline-flex items-center gap-1" style={{ color: "var(--neutral-gray)" }}>
+              <Lightbulb size={12} />
+              Map form values to CRM organizations. Select an organization from your CRM to enable invoice payment, or leave empty to disable invoicing for that value.
             </p>
             {crmOrganizations && crmOrganizations.length === 0 && (
-              <p className="text-xs mt-1 p-2 border-2 rounded" style={{ color: "#f59e0b", borderColor: "#f59e0b", background: "var(--win95-bg-light)" }}>
-                ⚠️ No CRM organizations found. Create organizations in the CRM app first to enable invoice mapping.
+              <p className="text-xs mt-1 p-2 border-2 rounded inline-flex items-center gap-1" style={{ color: "#f59e0b", borderColor: "#f59e0b", background: "var(--win95-bg-light)" }}>
+                <AlertTriangle size={12} />
+                No CRM organizations found. Create organizations in the CRM app first to enable invoice mapping.
               </p>
             )}
           </div>
@@ -341,10 +346,11 @@ export function InvoicingConfigSection({
           borderColor: "var(--win95-border)",
         }}
       >
-        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          💡 <strong>How it works:</strong> When invoice payment is enabled at checkout and a customer selects
+        <p className="text-xs inline-flex items-start gap-1" style={{ color: "var(--neutral-gray)" }}>
+          <Info size={12} className="mt-0.5" />
+          <span><strong>How it works:</strong> When invoice payment is enabled at checkout and a customer selects
           &quot;Invoice (Pay Later)&quot;, the system extracts the employer info from the selected form field,
-          matches it to a CRM organization using your mapping above, and creates an invoice to that organization.
+          matches it to a CRM organization using your mapping above, and creates an invoice to that organization.</span>
         </p>
       </div>
     </div>

@@ -28,6 +28,12 @@ interface CreditWallProps {
    * Callback when user clicks "Upgrade Plan"
    */
   onUpgrade?: () => void;
+  /**
+   * Display style.
+   * - full: legacy conversion panel
+   * - notification: compact inline alert for dense views
+   */
+  variant?: "full" | "notification";
 }
 
 /**
@@ -46,6 +52,7 @@ export function CreditWall({
   creditsAvailable = 0,
   onBuyCredits,
   onUpgrade,
+  variant = "full",
 }: CreditWallProps) {
   const { openWindow } = useWindowManager();
 
@@ -68,6 +75,75 @@ export function CreditWall({
   };
 
   const upgrade = tierUpgrade[currentTier];
+  const statusDetails: string[] = [];
+
+  if (creditsRequired !== undefined) {
+    statusDetails.push(`${creditsRequired} needed, ${creditsAvailable} available`);
+  }
+  if (queuedTasks > 0) {
+    statusDetails.push(`${queuedTasks} queued task${queuedTasks !== 1 ? "s" : ""}`);
+  }
+
+  if (variant === "notification") {
+    return (
+      <div
+        className="px-4 py-2 border-b-2 flex flex-wrap items-center gap-3"
+        style={{
+          borderColor: "var(--win95-border)",
+          background: "var(--win95-bg-light)",
+          boxShadow: "inset 3px 0 0 var(--warning)",
+        }}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: "var(--warning-bg)" }}
+          >
+            <Zap size={14} style={{ color: "var(--warning)" }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold leading-tight" style={{ color: "var(--win95-text)" }}>
+              Credits exhausted
+            </p>
+            <p className="text-[11px] leading-tight truncate" style={{ color: "var(--win95-text-secondary)" }}>
+              Your agents are paused
+              {statusDetails.length > 0 ? ` • ${statusDetails.join(" • ")}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button
+            onClick={onBuyCredits || handleOpenStore}
+            className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
+            style={{
+              borderColor: "var(--win95-border-light)",
+              background: "var(--tone-surface-elevated)",
+              color: "var(--win95-text)",
+            }}
+          >
+            <ShoppingBag size={12} style={{ color: "var(--warning)" }} />
+            Buy Credits
+          </button>
+
+          {upgrade && (
+            <button
+              onClick={onUpgrade || handleOpenStore}
+              className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
+              style={{
+                borderColor: "var(--win95-border-light)",
+                background: "var(--tone-surface-elevated)",
+                color: "var(--win95-text)",
+              }}
+            >
+              <ArrowUpCircle size={12} style={{ color: "var(--win95-text-secondary)" }} />
+              Upgrade
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

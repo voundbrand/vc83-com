@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Eye, FileText, ClipboardCheck, FileQuestion, Users, MessageSquare } from "lucide-react";
+import { Eye, FileText, ClipboardCheck, FileQuestion, Users, MessageSquare, Check, Lightbulb } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Loader2 } from "lucide-react";
@@ -167,7 +167,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                 <div className="space-y-1 mb-4">
                   {templateFeatures.slice(0, 5).map((feature, idx) => (
                     <div key={idx} className="flex items-start gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      <span className="text-[10px] mt-0.5 shrink-0">✓</span>
+                      <Check size={12} className="mt-0.5 shrink-0" />
                       <span className="line-clamp-1">{feature}</span>
                     </div>
                   ))}
@@ -221,9 +221,10 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
           backgroundColor: "var(--win95-bg-light)",
           borderColor: "var(--win95-border)",
         }}
-      >
-        <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-          💡 {t("ui.forms.templates.usage.title")}
+        >
+        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+          <Lightbulb size={12} />
+          {t("ui.forms.templates.usage.title")}
         </h4>
         <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
           <p>• {t("ui.forms.templates.usage.registration")}</p>

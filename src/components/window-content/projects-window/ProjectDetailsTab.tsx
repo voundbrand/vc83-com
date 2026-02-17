@@ -31,16 +31,16 @@ export function ProjectDetailsTab({
     <div className="space-y-6">
       {/* Basic Info Section */}
       <div
-        className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        className="p-4 border"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Basic Information
         </h3>
 
         {/* Project Name */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Project Name <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <input
@@ -49,11 +49,11 @@ export function ProjectDetailsTab({
             onChange={(e) => onChange({ name: e.target.value })}
             required
             maxLength={100}
-            className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+            className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Enter project name"
             disabled={disabled}
@@ -62,7 +62,7 @@ export function ProjectDetailsTab({
 
         {/* Short Description */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Short Description
           </label>
           <input
@@ -70,11 +70,11 @@ export function ProjectDetailsTab({
             value={formData.description}
             onChange={(e) => onChange({ description: e.target.value })}
             maxLength={200}
-            className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+            className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Brief project summary"
             disabled={disabled}
@@ -85,18 +85,18 @@ export function ProjectDetailsTab({
         <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Project Type */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Project Type <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.subtype}
               onChange={(e) => onChange({ subtype: e.target.value })}
               required
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             >
@@ -110,18 +110,18 @@ export function ProjectDetailsTab({
 
           {/* Priority */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Priority <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.priority}
               onChange={(e) => onChange({ priority: e.target.value })}
               required
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             >
@@ -136,18 +136,18 @@ export function ProjectDetailsTab({
         {/* Status (only for edit mode) */}
         {mode === "edit" && (
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Status <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.status}
               onChange={(e) => onChange({ status: e.target.value })}
               required
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             >
@@ -164,7 +164,7 @@ export function ProjectDetailsTab({
         {/* Progress (only for edit mode) */}
         {mode === "edit" && (
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               Progress: {formData.progress}%
             </label>
             <input
@@ -183,16 +183,16 @@ export function ProjectDetailsTab({
 
       {/* Client & Dates Section */}
       <div
-        className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        className="p-4 border"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Client & Timeline
         </h3>
 
         {/* Client Selector */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Client (CRM)
           </label>
           <ClientSelector
@@ -208,18 +208,18 @@ export function ProjectDetailsTab({
         <div className="grid grid-cols-2 gap-4">
           {/* Start Date */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Start Date
             </label>
             <input
               type="date"
               value={formData.startDate}
               onChange={(e) => onChange({ startDate: e.target.value })}
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             />
@@ -227,18 +227,18 @@ export function ProjectDetailsTab({
 
           {/* Target End Date */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Target End Date
             </label>
             <input
               type="date"
               value={formData.targetEndDate}
               onChange={(e) => onChange({ targetEndDate: e.target.value })}
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             />
@@ -248,17 +248,17 @@ export function ProjectDetailsTab({
 
       {/* Budget Section */}
       <div
-        className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        className="p-4 border"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Budget
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Budget Amount */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Amount
             </label>
             <input
@@ -267,11 +267,11 @@ export function ProjectDetailsTab({
               step="0.01"
               value={formData.budgetAmount}
               onChange={(e) => onChange({ budgetAmount: e.target.value })}
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="0.00"
               disabled={disabled}
@@ -280,17 +280,17 @@ export function ProjectDetailsTab({
 
           {/* Currency */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Currency
             </label>
             <select
               value={formData.budgetCurrency}
               onChange={(e) => onChange({ budgetCurrency: e.target.value })}
-              className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
+              className="w-full px-3 py-2 text-sm border focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={disabled}
             >
@@ -306,10 +306,10 @@ export function ProjectDetailsTab({
 
       {/* Detailed Description Section */}
       <div
-        className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        className="p-4 border"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Detailed Description
         </h3>
         <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>

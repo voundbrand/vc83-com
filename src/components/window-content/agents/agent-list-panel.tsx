@@ -58,14 +58,14 @@ export function AgentListPanel({
         </span>
         <button
           onClick={onCreateNew}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium border hover:brightness-110 transition-all"
+          className="retro-button flex items-center gap-1 px-2 py-1 text-[10px] font-medium transition-colors"
           style={{
-            background: "var(--win95-highlight)",
-            borderColor: "var(--win95-border)",
-            color: "white",
+            borderColor: "var(--win95-border-light)",
+            background: "var(--win95-bg-light)",
+            color: "var(--win95-text)",
           }}
         >
-          <Sparkles size={10} />
+          <Sparkles size={10} style={{ color: "var(--warning)" }} />
           New
         </button>
       </div>
@@ -95,8 +95,9 @@ export function AgentListPanel({
               className="w-full text-left px-3 py-2.5 border-b transition-colors cursor-pointer"
               style={{
                 borderColor: "var(--win95-border)",
-                background: isSelected ? "var(--win95-highlight, #000080)" : "transparent",
-                color: isSelected ? "#fff" : "var(--win95-text)",
+                background: isSelected ? "var(--win95-bg-light)" : "transparent",
+                color: "var(--win95-text)",
+                boxShadow: isSelected ? "inset 2px 0 0 var(--win95-border-light)" : "none",
               }}
             >
               <div className="flex items-center gap-2">
@@ -117,7 +118,7 @@ export function AgentListPanel({
 
               <div
                 className="flex items-center gap-2 mt-1 text-[10px]"
-                style={{ color: isSelected ? "rgba(255,255,255,0.7)" : "var(--neutral-gray)" }}
+                style={{ color: isSelected ? "var(--win95-text-secondary)" : "var(--neutral-gray)" }}
               >
                 <span>{agent.subtype?.replace(/_/g, " ")}</span>
                 <span>·</span>
@@ -135,7 +136,7 @@ export function AgentListPanel({
                     className="p-0.5 rounded hover:bg-yellow-100 hover:bg-opacity-20"
                     title="Pause"
                   >
-                    <Pause size={10} style={{ color: isSelected ? "#fff" : "#eab308" }} />
+                    <Pause size={10} style={{ color: "#eab308" }} />
                   </button>
                 ) : (
                   <button
@@ -146,14 +147,14 @@ export function AgentListPanel({
                     className="p-0.5 rounded hover:bg-green-100 hover:bg-opacity-20"
                     title="Activate"
                   >
-                    <Play size={10} style={{ color: isSelected ? "#fff" : "#22c55e" }} />
+                    <Play size={10} style={{ color: "#22c55e" }} />
                   </button>
                 )}
                 <span
                   className="text-[9px] px-1 py-0.5 rounded"
                   style={{
-                    background: isSelected ? "rgba(255,255,255,0.15)" : "var(--win95-bg-dark, #e0e0e0)",
-                    color: isSelected ? "rgba(255,255,255,0.8)" : "var(--neutral-gray)",
+                    background: isSelected ? "var(--win95-bg)" : "var(--win95-bg-dark)",
+                    color: isSelected ? "var(--win95-text-secondary)" : "var(--neutral-gray)",
                   }}
                 >
                   {props.autonomyLevel || "supervised"}

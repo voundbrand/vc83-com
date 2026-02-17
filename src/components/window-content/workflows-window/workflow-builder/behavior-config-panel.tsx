@@ -317,7 +317,7 @@ export function BehaviorConfigPanel({
                   onClick={() => setShowAddMenu(false)}
                   className="retro-button p-1 text-xs"
                 >
-                  ✕
+                  
                 </button>
               </div>
               <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>

@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { Check, Lock, Shield } from 'lucide-react';
+import { Check, Info, Lock, Shield } from 'lucide-react';
 
 type TierType = 'standard' | 'privacy-enhanced' | 'private-llm';
 
@@ -50,12 +50,12 @@ const tierData = {
     icon: Lock,
     description: 'Zero Data Retention. EU providers prioritized.',
     features: [
-      '🇪🇺 GDPR-optimized',
+      'GDPR-optimized',
       'No training on your data',
       'Zero Data Retention',
       '500K tokens/month included',
     ],
-    badges: ['🇪🇺 EU', 'ZDR', 'No Training'],
+    badges: ['EU', 'ZDR', 'No Training'],
     available: true,
     recommended: true,
   },
@@ -169,7 +169,7 @@ export function PrivacyTierSelector({
                   <ul className="space-y-1.5">
                     {data.features.map((feature, index) => (
                       <li key={index} className="flex items-start gap-2 text-xs text-gray-700">
-                        <span className="text-green-600 mt-0.5">✓</span>
+                        <Check size={12} className="text-green-600 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -199,8 +199,9 @@ export function PrivacyTierSelector({
       </div>
 
       {/* Helper text */}
-      <p className="text-xs text-gray-500 mt-4">
-        ℹ️ Changing between Standard and Privacy-Enhanced is instant. Your token balance will be preserved.
+      <p className="text-xs text-gray-500 mt-4 inline-flex items-center gap-1">
+        <Info size={12} />
+        Changing between Standard and Privacy-Enhanced is instant. Your token balance will be preserved.
       </p>
     </div>
   );

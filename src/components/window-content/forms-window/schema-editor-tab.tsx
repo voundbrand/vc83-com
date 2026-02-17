@@ -95,7 +95,7 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
       });
 
       setError(null);
-      setSuccess("✓ Schema is valid!");
+      setSuccess("Schema is valid!");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(`Validation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -149,7 +149,7 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(schemaJson);
-      setSuccess("✓ Copied to clipboard!");
+      setSuccess("Copied to clipboard!");
       setTimeout(() => setSuccess(null), 2000);
     } catch (err) {
       setError(`Failed to copy: ${err instanceof Error ? err.message : "Unknown error"}`);

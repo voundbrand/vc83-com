@@ -91,7 +91,10 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           }}
         >
           <div className="flex-1">
-            <span className="text-sm font-bold">📅 {t('ui.events.form.agenda')}</span>
+            <span className="text-sm font-bold flex items-center gap-1">
+              <Calendar size={14} />
+              {t('ui.events.form.agenda')}
+            </span>
             {agenda.length > 0 && (
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                 {agenda.length} session{sessionPlural} scheduled
@@ -116,7 +119,10 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           color: "var(--win95-text)",
         }}
       >
-        <span className="text-sm font-bold">📅 {t('ui.events.form.agenda')}</span>
+        <span className="text-sm font-bold flex items-center gap-1">
+          <Calendar size={14} />
+          {t('ui.events.form.agenda')}
+        </span>
         <ChevronUp size={16} />
       </button>
 

@@ -148,7 +148,7 @@ export function AgentCreateForm({
         <button
           onClick={onCancel}
           className="flex items-center gap-1 text-xs mb-3 hover:underline"
-          style={{ color: "var(--win95-highlight, #000080)" }}
+          style={{ color: "var(--win95-text-secondary)" }}
         >
           <ArrowLeft size={12} /> Back
         </button>
@@ -156,10 +156,10 @@ export function AgentCreateForm({
         {!editingAgentId && (
           <button
             onClick={openAgentBuilder}
-            className="flex items-center gap-1 w-full px-2 py-1.5 mb-3 text-[10px] font-medium border hover:brightness-110"
-            style={{ background: "var(--win95-highlight)", borderColor: "var(--win95-border)", color: "white" }}
+            className="retro-button flex items-center gap-1 w-full px-2 py-1.5 mb-3 text-[10px] font-medium"
+            style={{ borderColor: "var(--win95-border-light)", background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
           >
-            <Sparkles size={10} />
+            <Sparkles size={10} style={{ color: "var(--warning)" }} />
             AI Setup Wizard
           </button>
         )}
@@ -170,8 +170,9 @@ export function AgentCreateForm({
             onClick={() => setFormSection(s.id)}
             className="w-full text-left text-xs px-2 py-1.5 flex items-center gap-1"
             style={{
-              background: formSection === s.id ? "var(--win95-highlight, #000080)" : "transparent",
-              color: formSection === s.id ? "#fff" : "var(--win95-text)",
+              background: formSection === s.id ? "var(--win95-bg-light)" : "transparent",
+              color: "var(--win95-text)",
+              boxShadow: formSection === s.id ? "inset 2px 0 0 var(--win95-border-light)" : "none",
             }}
           >
             <ChevronRight size={10} />

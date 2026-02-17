@@ -1,11 +1,20 @@
 "use client";
 
 import React from "react";
+import { Loader2 } from "lucide-react";
 import { useAvailableApps } from "@/hooks/use-app-availability";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { getWindowIconById, ShellLoginIcon, ShellPackageIcon } from "@/components/icons/shell-icons";
+import {
+  InteriorHeader,
+  InteriorHelperText,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTileButton,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 import { PaymentsWindow } from "@/components/window-content/payments-window";
 import { WebPublishingWindow } from "@/components/window-content/web-publishing-window";
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
@@ -24,11 +33,42 @@ import { BookingWindow } from "@/components/window-content/booking-window";
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window";
 import { LayersBrowserWindow } from "@/components/window-content/layers-browser-window";
 
+const APP_TRANSLATION_KEY_MAP: Record<string, string> = {
+  payments: "ui.app.payments",
+  "web-publishing": "ui.app.web_publishing",
+  "media-library": "ui.app.media_library",
+  products: "ui.app.products",
+  tickets: "ui.app.tickets",
+  certificates: "ui.app.certificates",
+  events: "ui.app.events",
+  checkout: "ui.app.checkout",
+  forms: "ui.app.forms",
+  crm: "ui.app.crm",
+  app_invoicing: "ui.app.invoicing",
+  workflows: "ui.app.workflows",
+  projects: "ui.app.projects",
+  benefits: "ui.app.benefits",
+  booking: "ui.app.booking",
+};
+
+const SYSTEM_TOOLS = [
+  {
+    code: "builder-browser",
+    name: "AI Builder",
+    description: "Visual website builder powered by AI",
+  },
+  {
+    code: "layers-browser",
+    name: "Layers",
+    description: "Visual automation canvas",
+  },
+] as const;
+
 /**
  * All Apps Window
  *
  * Displays all installed/available apps for the current organization
- * in a grid layout with icons, similar to a classic "All Programs" view.
+ * in a grid layout with icons.
  */
 export function AllAppsWindow() {
   const { isSignedIn } = useAuth();
@@ -37,308 +77,256 @@ export function AllAppsWindow() {
   const { t: tStartMenu } = useNamespaceTranslations("ui.start_menu");
   const { t: tApp } = useNamespaceTranslations("ui.app");
 
-  // Map app codes to translation keys
-  const translationKeyMap: Record<string, string> = React.useMemo(() => ({
-    'payments': 'ui.app.payments',
-    'web-publishing': 'ui.app.web_publishing',
-    'media-library': 'ui.app.media_library',
-    'products': 'ui.app.products',
-    'tickets': 'ui.app.tickets',
-    'certificates': 'ui.app.certificates',
-    'events': 'ui.app.events',
-    'checkout': 'ui.app.checkout',
-    'forms': 'ui.app.forms',
-    'crm': 'ui.app.crm',
-    'app_invoicing': 'ui.app.invoicing',
-    'workflows': 'ui.app.workflows',
-    'projects': 'ui.app.projects',
-    'benefits': 'ui.app.benefits',
-    'booking': 'ui.app.booking',
-  }), []);
+  const getTranslatedAppName = React.useCallback(
+    (appCode: string) => {
+      const translationKey = APP_TRANSLATION_KEY_MAP[appCode];
+      return translationKey ? tApp(translationKey) : appCode;
+    },
+    [tApp],
+  );
 
-  // Helper function to get translated app name
-  const getTranslatedAppName = React.useCallback((appCode: string) => {
-    const translationKey = translationKeyMap[appCode];
-    return translationKey ? tApp(translationKey) : appCode;
-  }, [tApp, translationKeyMap]);
+  const handleAppClick = React.useCallback(
+    (appCode: string) => {
+      const appName = getTranslatedAppName(appCode);
 
-  // App click handler - opens the app window (must be defined before any returns)
-  const handleAppClick = React.useCallback((appCode: string) => {
-    const appName = getTranslatedAppName(appCode);
-    // Map app codes to their window components and sizes
-    const appWindowMap: Record<string, { component: React.ReactNode; width: number; height: number }> = {
-      'payments': {
-        component: <PaymentsWindow />,
-        width: 900,
-        height: 650
-      },
-      'web-publishing': {
-        component: <WebPublishingWindow />,
-        width: 1000,
-        height: 700
-      },
-      'media-library': {
-        component: <MediaLibraryWindow />,
-        width: 900,
-        height: 650
-      },
-      'products': {
-        component: <ProductsWindow />,
-        width: 950,
-        height: 650
-      },
-      'tickets': {
-        component: <TicketsWindow />,
-        width: 950,
-        height: 650
-      },
-      'certificates': {
-        component: <CertificatesWindow />,
-        width: 1100,
-        height: 700
-      },
-      'events': {
-        component: <EventsWindow />,
-        width: 950,
-        height: 650
-      },
-      'checkout': {
-        component: <CheckoutWindow />,
-        width: 950,
-        height: 650
-      },
-      'forms': {
-        component: <FormsWindow />,
-        width: 950,
-        height: 650
-      },
-      'crm': {
-        component: <CRMWindow />,
-        width: 1100,
-        height: 700
-      },
-      'app_invoicing': {
-        component: <InvoicingWindow />,
-        width: 950,
-        height: 650
-      },
-      'workflows': {
-        component: <WorkflowsWindow />,
-        width: 1200,
-        height: 750
-      },
-      'projects': {
-        component: <ProjectsWindow />,
-        width: 1000,
-        height: 700
-      },
-      'benefits': {
-        component: <BenefitsWindow />,
-        width: 1100,
-        height: 700
-      },
-      'booking': {
-        component: <BookingWindow />,
-        width: 1100,
-        height: 700
-      },
-      'builder-browser': {
-        component: <BuilderBrowserWindow />,
-        width: 1100,
-        height: 750
-      },
-      'layers-browser': {
-        component: <LayersBrowserWindow />,
-        width: 1100,
-        height: 750
-      },
-    };
+      const appWindowMap: Record<string, { component: React.ReactNode; width: number; height: number }> = {
+        payments: {
+          component: <PaymentsWindow />,
+          width: 900,
+          height: 650,
+        },
+        "web-publishing": {
+          component: <WebPublishingWindow />,
+          width: 1000,
+          height: 700,
+        },
+        "media-library": {
+          component: <MediaLibraryWindow />,
+          width: 900,
+          height: 650,
+        },
+        products: {
+          component: <ProductsWindow />,
+          width: 950,
+          height: 650,
+        },
+        tickets: {
+          component: <TicketsWindow />,
+          width: 950,
+          height: 650,
+        },
+        certificates: {
+          component: <CertificatesWindow />,
+          width: 1100,
+          height: 700,
+        },
+        events: {
+          component: <EventsWindow />,
+          width: 950,
+          height: 650,
+        },
+        checkout: {
+          component: <CheckoutWindow />,
+          width: 950,
+          height: 650,
+        },
+        forms: {
+          component: <FormsWindow />,
+          width: 950,
+          height: 650,
+        },
+        crm: {
+          component: <CRMWindow />,
+          width: 1100,
+          height: 700,
+        },
+        app_invoicing: {
+          component: <InvoicingWindow />,
+          width: 950,
+          height: 650,
+        },
+        workflows: {
+          component: <WorkflowsWindow />,
+          width: 1200,
+          height: 750,
+        },
+        projects: {
+          component: <ProjectsWindow />,
+          width: 1000,
+          height: 700,
+        },
+        benefits: {
+          component: <BenefitsWindow />,
+          width: 1100,
+          height: 700,
+        },
+        booking: {
+          component: <BookingWindow />,
+          width: 1100,
+          height: 700,
+        },
+        "builder-browser": {
+          component: <BuilderBrowserWindow />,
+          width: 1100,
+          height: 750,
+        },
+        "layers-browser": {
+          component: <LayersBrowserWindow />,
+          width: 1100,
+          height: 750,
+        },
+      };
 
-    console.log('[AllAppsWindow] Attempting to open app:', appCode, 'Available in map:', appCode in appWindowMap);
+      const appWindow = appWindowMap[appCode];
+      if (appWindow) {
+        const titleKey = APP_TRANSLATION_KEY_MAP[appCode];
+        openWindow(
+          appCode,
+          appName,
+          appWindow.component,
+          undefined,
+          { width: appWindow.width, height: appWindow.height },
+          titleKey,
+        );
+        return;
+      }
 
-    const appWindow = appWindowMap[appCode];
-    if (appWindow) {
-      // Open the actual app window with titleKey for dynamic translation
-      const titleKey = translationKeyMap[appCode];
-      openWindow(
-        appCode,
-        appName,
-        appWindow.component,
-        undefined,
-        { width: appWindow.width, height: appWindow.height },
-        titleKey
-      );
-    } else {
-      // Fallback for apps without dedicated windows yet
       openWindow(
         `app-${appCode}`,
         appName,
-        <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
-          <div className="text-center space-y-3">
-            <div className="text-5xl">{availableApps?.find(a => a.code === appCode)?.icon || "📦"}</div>
-            <h3 className="font-bold" style={{ color: 'var(--win95-text)' }}>{appName}</h3>
-            <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              {tStartMenu("ui.start_menu.app_coming_soon")}
-            </p>
+        <InteriorRoot className="flex h-full items-center justify-center">
+          <div className="space-y-3 text-center">
+            <div
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-md border"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+            >
+              {getWindowIconById(appCode, availableApps?.find((app) => app.code === appCode)?.icon, 20)}
+            </div>
+            <h3 className="text-base font-semibold" style={{ color: "var(--window-document-text)" }}>
+              {appName}
+            </h3>
+            <InteriorHelperText>{tStartMenu("ui.start_menu.app_coming_soon")}</InteriorHelperText>
           </div>
-        </div>,
+        </InteriorRoot>,
         undefined,
-        { width: 600, height: 400 }
+        { width: 600, height: 400 },
       );
-    }
-  }, [openWindow, availableApps, tStartMenu, getTranslatedAppName]);
+    },
+    [availableApps, getTranslatedAppName, openWindow, tStartMenu],
+  );
 
-  // Not signed in
   if (!isSignedIn) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
-        <div className="text-center space-y-4">
-          <div className="text-4xl">🔒</div>
-          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            {tStartMenu("ui.start_menu.sign_in_required")}
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            {tStartMenu("ui.start_menu.sign_in_to_view_apps")}
-          </p>
+      <InteriorRoot className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-md border" style={{ borderColor: "var(--window-document-border)" }}>
+          <ShellLoginIcon size={20} />
         </div>
-      </div>
+        <h3 className="text-lg font-semibold" style={{ color: "var(--window-document-text)" }}>
+          {tStartMenu("ui.start_menu.sign_in_required")}
+        </h3>
+        <InteriorHelperText className="mt-2">{tStartMenu("ui.start_menu.sign_in_to_view_apps")}</InteriorHelperText>
+      </InteriorRoot>
     );
   }
 
-  // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            {tStartMenu("ui.start_menu.loading_applications")}
-          </p>
+          <Loader2 size={30} className="animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+          <InteriorHelperText>{tStartMenu("ui.start_menu.loading_applications")}</InteriorHelperText>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
-  // No apps available
   if (!availableApps || availableApps.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
-        <div className="text-center space-y-4">
-          <div className="text-4xl">📦</div>
-          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-            {tStartMenu("ui.start_menu.no_apps_installed")}
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            {tStartMenu("ui.start_menu.org_no_apps", { orgName: organizationName })}
-          </p>
-          <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
-            {tStartMenu("ui.start_menu.contact_admin")}
-          </p>
+      <InteriorRoot className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-md border" style={{ borderColor: "var(--window-document-border)" }}>
+          <ShellPackageIcon size={20} />
         </div>
-      </div>
+        <h3 className="text-lg font-semibold" style={{ color: "var(--window-document-text)" }}>
+          {tStartMenu("ui.start_menu.no_apps_installed")}
+        </h3>
+        <InteriorHelperText className="mt-2">
+          {tStartMenu("ui.start_menu.org_no_apps", { orgName: organizationName })}
+        </InteriorHelperText>
+        <InteriorHelperText className="mt-1">{tStartMenu("ui.start_menu.contact_admin")}</InteriorHelperText>
+      </InteriorRoot>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-        <h2 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
-          {tApp("ui.app.all_applications")}
-        </h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          {tStartMenu("ui.start_menu.apps_installed_for", { count: availableApps.length, orgName: organizationName })}
-        </p>
-      </div>
+    <InteriorRoot className="flex h-full flex-col">
+      <InteriorHeader className="px-4 py-3">
+        <InteriorTitle className="text-lg">{tApp("ui.app.all_applications")}</InteriorTitle>
+        <InteriorSubtitle className="mt-1">
+          {tStartMenu("ui.start_menu.apps_installed_for", {
+            count: availableApps.length,
+            orgName: organizationName,
+          })}
+        </InteriorSubtitle>
+      </InteriorHeader>
 
-      {/* Apps Grid */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {/* System tools - always visible */}
-          {[
-            { code: "builder-browser", icon: "🏗️", name: "AI Builder", description: "Visual website builder powered by AI" },
-            { code: "layers-browser", icon: "🔀", name: "Layers", description: "Visual automation canvas" },
-          ].map((tool) => (
-            <button
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {SYSTEM_TOOLS.map((tool) => (
+            <InteriorTileButton
               key={tool.code}
               onClick={() => handleAppClick(tool.code)}
-              className="flex flex-col items-center gap-2 p-4 rounded border-2 transition-colors group"
-              style={{
-                background: 'var(--win95-bg-light)',
-                borderColor: 'var(--win95-border)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--win95-border)';
-              }}
               title={tool.description}
+              className="min-h-[118px]"
             >
-              <div className="text-4xl group-hover:scale-110 transition-transform">
-                {tool.icon}
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-md border"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              >
+                {getWindowIconById(tool.code, undefined, 20)}
               </div>
-              <div className="text-xs font-semibold text-center break-words w-full" style={{ color: 'var(--win95-text)' }}>
+              <div className="w-full break-words text-center text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 {tool.name}
               </div>
-            </button>
+            </InteriorTileButton>
           ))}
-          {/* Organization apps */}
+
           {availableApps.map((app) => {
             const translatedName = getTranslatedAppName(app.code);
-            return (<button
-              key={app._id}
-              onClick={() => handleAppClick(app.code)}
-              className="flex flex-col items-center gap-2 p-4 rounded border-2 transition-colors group"
-              style={{
-                background: 'var(--win95-bg-light)',
-                borderColor: 'var(--win95-border)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--win95-border)';
-              }}
-              title={app.description}
-            >
-              {/* App Icon */}
-              <div className="text-4xl group-hover:scale-110 transition-transform">
-                {app.icon}
-              </div>
-
-              {/* App Name */}
-              <div className="text-xs font-semibold text-center break-words w-full" style={{ color: 'var(--win95-text)' }}>
-                {translatedName}
-              </div>
-
-              {/* App Category Badge */}
-              {app.category && (
+            return (
+              <InteriorTileButton
+                key={app._id}
+                onClick={() => handleAppClick(app.code)}
+                title={app.description}
+                className="min-h-[118px]"
+              >
                 <div
-                  className="text-[10px] px-2 py-0.5 rounded"
-                  style={{
-                    background: 'var(--win95-highlight)',
-                    color: 'white'
-                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-md border"
+                  style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
                 >
-                  {app.category}
+                  {getWindowIconById(app.code, app.icon, 20)}
                 </div>
-              )}
-            </button>);
+
+                <div className="w-full break-words text-center text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                  {translatedName}
+                </div>
+
+                {app.category && (
+                  <span
+                    className="rounded px-2 py-0.5 text-[10px]"
+                    style={{ background: "var(--desktop-shell-accent)", color: "var(--desktop-menu-text-muted)" }}
+                  >
+                    {app.category}
+                  </span>
+                )}
+              </InteriorTileButton>
+            );
           })}
         </div>
       </div>
 
-      {/* Footer */}
-      <div
-        className="px-4 py-2 border-t-2 text-xs"
-        style={{
-          borderColor: 'var(--win95-border)',
-          color: 'var(--neutral-gray)'
-        }}
-      >
+      <div className="border-t px-4 py-2 text-xs" style={{ borderColor: "var(--window-document-border)", color: "var(--desktop-menu-text-muted)" }}>
         {tStartMenu("ui.start_menu.click_app_to_open")}
       </div>
-    </div>
+    </InteriorRoot>
   );
 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { ShellProfileIcon } from "@/components/icons/shell-icons"
+
 interface UserMessageProps {
   content: string
 }
@@ -20,7 +22,9 @@ export function UserMessage({ content }: UserMessageProps) {
           <div className="flex-1 leading-relaxed whitespace-pre-wrap break-words">
             {content}
           </div>
-          <span className="text-base">👤</span>
+          <span className="flex h-5 w-5 items-center justify-center">
+            <ShellProfileIcon size={16} tone="active" />
+          </span>
         </div>
       </div>
     </div>

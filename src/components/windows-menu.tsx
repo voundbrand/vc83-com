@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getWindowIconById, ShellWindowIcon } from "@/components/icons/shell-icons";
+import { InteriorButton, InteriorPanel } from "@/components/window-content/shared/interior-primitives";
 
 interface Window {
   id: string;
   title: string;
   isOpen: boolean;
   isMinimized?: boolean;
+  icon?: string;
 }
 
 interface WindowsMenuProps {
@@ -25,50 +28,44 @@ export function WindowsMenu({ windows, onWindowClick }: WindowsMenuProps) {
       }
     };
 
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+    if (!isOpen) {
+      return;
     }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   return (
     <div className="relative" ref={menuRef}>
-      <button
-        className="retro-button px-3 py-1 text-xs font-pixel"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          backgroundColor: 'var(--win95-bg)',
-          color: 'var(--win95-text)'
-        }}
-      >
-        📄 Windows ({windows.length})
-      </button>
+      <InteriorButton className="gap-2" size="md" onClick={() => setIsOpen((open) => !open)}>
+        <ShellWindowIcon size={16} tone="active" />
+        <span>Windows ({windows.length})</span>
+      </InteriorButton>
 
       {isOpen && (
-        <div
-          className="absolute bottom-full left-0 mb-1 retro-window window-corners shadow-lg min-w-[200px]"
-          style={{
-            background: 'var(--win95-bg)',
-            zIndex: 10001
-          }}
+        <InteriorPanel
+          className="absolute bottom-full left-0 mb-1 min-w-[220px] p-1"
+          style={{ zIndex: 10001, boxShadow: "var(--desktop-menu-shadow)" }}
         >
           <div className="py-1">
             {windows.map((window) => (
-              <button
+              <InteriorButton
                 key={window.id}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start rounded-md px-2"
                 onClick={() => {
                   onWindowClick(window.id);
                   setIsOpen(false);
                 }}
-                className="w-full px-3 py-1 text-left flex items-center gap-2 transition-colors font-pixel hover-menu-item"
-                style={{ color: 'var(--win95-text)' }}
               >
-                <span className="text-base">📄</span>
-                <span className="text-xs truncate">{window.title}</span>
-              </button>
+                <span className="flex h-4 w-4 items-center justify-center">{getWindowIconById(window.id, window.icon, 16)}</span>
+                <span className="truncate text-xs">{window.title}</span>
+              </InteriorButton>
             ))}
           </div>
-        </div>
+        </InteriorPanel>
       )}
     </div>
   );

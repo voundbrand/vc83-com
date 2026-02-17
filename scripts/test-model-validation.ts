@@ -10,15 +10,29 @@
  *   npm run test:model -- --untested-only
  */
 
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { CRITICAL_TOOL_NAMES } from "../convex/ai/tools/contracts";
+import {
+  parseToolCallArguments,
+  validateToolCallAgainstContract,
+} from "./model-validation-contracts";
+import {
+  formatModelMismatchMessage,
+  getLatestAssistantModelResolution,
+  resolveEffectiveValidationModel,
+} from "./model-validation-runtime";
+
+loadEnv({ path: ".env.local" });
+loadEnv();
 
 const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const TEST_ORG_ID = process.env.TEST_ORG_ID!;
 const TEST_USER_ID = process.env.TEST_USER_ID!;
 const TEST_SESSION_ID = process.env.TEST_SESSION_ID!;
+const TEST_MODEL_ID = process.env.TEST_MODEL_ID;
 
 interface ValidationResult {
   basicChat: boolean;
@@ -26,6 +40,7 @@ interface ValidationResult {
   complexParams: boolean;
   multiTurn: boolean;
   edgeCases: boolean;
+  contractChecks: boolean;
 }
 
 interface TestResult {
@@ -33,6 +48,109 @@ interface TestResult {
   message: string;
   duration: number;
   error?: string;
+}
+
+async function loadConversationModelResolution(
+  conversationId: string,
+  retries = 5,
+  delayMs = 400
+) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const conversation: any = await client.query(api.ai.conversations.getConversation, {
+      conversationId: conversationId as any,
+    });
+    const resolution = getLatestAssistantModelResolution(conversation.messages || []);
+    if (resolution) {
+      return resolution;
+    }
+    if (typeof conversation.modelId === "string" && conversation.modelId.trim().length > 0) {
+      return {
+        selectedModel: conversation.modelId.trim(),
+        selectionSource: "conversation_model_pin",
+        fallbackUsed: false,
+      };
+    }
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return null;
+}
+
+async function ensureExpectedModelWasUsed(
+  response: {
+    conversationId?: string;
+    modelResolution?: {
+      requestedModel?: string;
+      selectedModel: string;
+      selectionSource: string;
+      fallbackUsed: boolean;
+      fallbackReason?: string;
+    };
+  },
+  expectedModel: string,
+  startTime: number
+): Promise<TestResult | null> {
+  let resolution = response.modelResolution;
+
+  if (
+    !resolution &&
+    response.conversationId &&
+    response.conversationId.trim().length > 0
+  ) {
+    resolution = await loadConversationModelResolution(response.conversationId);
+  }
+
+  if (!resolution) {
+    console.log(
+      "     ⚠️  WARN: modelResolution metadata unavailable; skipping strict model assertion"
+    );
+    return null;
+  }
+
+  if (resolution.selectedModel !== expectedModel) {
+    const duration = Date.now() - startTime;
+    const message = formatModelMismatchMessage({
+      expectedModel,
+      resolution,
+    });
+    console.log(`     ❌ FAIL: ${message}`);
+    return {
+      passed: false,
+      message,
+      duration,
+    };
+  }
+
+  return null;
+}
+
+async function resolveDefaultModelId(): Promise<string> {
+  if (TEST_MODEL_ID && TEST_MODEL_ID.trim().length > 0) {
+    return TEST_MODEL_ID.trim();
+  }
+
+  const settings: any = await client.query(api.ai.settings.getAISettings, {
+    organizationId: TEST_ORG_ID as any,
+  });
+  const platformEnabledModels: Array<{ id: string }> = await client.query(
+    api.ai.platformModels.getEnabledModels,
+    {}
+  );
+
+  const resolved = resolveEffectiveValidationModel({
+    settings,
+    platformEnabledModelIds: platformEnabledModels.map((model) => model.id),
+  });
+
+  if (!resolved) {
+    throw new Error("Unable to resolve a default validation model from org/platform policy");
+  }
+
+  console.log(
+    `ℹ️  TEST_MODEL_ID not set; resolved effective default model ${resolved.modelId} (${resolved.selectionSource})`
+  );
+  return resolved.modelId;
 }
 
 // Test 1: Basic Chat
@@ -47,6 +165,11 @@ async function testBasicChat(modelId: string): Promise<TestResult> {
       userId: TEST_USER_ID as any,
       selectedModel: modelId,
     });
+
+    const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+    if (modelCheck) {
+      return modelCheck;
+    }
 
     const duration = Date.now() - startTime;
 
@@ -77,6 +200,11 @@ async function testToolCalling(modelId: string): Promise<TestResult> {
       userId: TEST_USER_ID as any,
       selectedModel: modelId,
     });
+
+    const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+    if (modelCheck) {
+      return modelCheck;
+    }
 
     const duration = Date.now() - startTime;
     const toolCalls = response.toolCalls || [];
@@ -109,23 +237,67 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
       selectedModel: modelId,
     });
 
+    const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+    if (modelCheck) {
+      return modelCheck;
+    }
+
     const duration = Date.now() - startTime;
     const toolCalls = response.toolCalls || [];
 
-    if (toolCalls.length > 0 && toolCalls[0].name === "search_contacts") {
-      const args = toolCalls[0].arguments;
-      const hasQuery = args && (args.query || args.name || args.search);
+    if (toolCalls.length > 0) {
+      const firstTool = toolCalls[0];
+      const parsedArgs = parseToolCallArguments(firstTool.arguments);
+      const hasQuery =
+        parsedArgs.query ||
+        parsedArgs.searchQuery ||
+        parsedArgs.name ||
+        parsedArgs.search;
 
-      if (hasQuery) {
-        console.log(`     ✅ PASS: Parsed complex parameters (${duration}ms)`);
-        console.log(`     Arguments: ${JSON.stringify(args).substring(0, 80)}...`);
-        return { passed: true, message: "Complex params work", duration };
-      } else {
-        console.log(`     ⚠️  PARTIAL: Called correct tool but missing parameters`);
+      if (firstTool.name === "search_contacts") {
+        if (hasQuery) {
+          console.log(`     ✅ PASS: Parsed complex parameters (${duration}ms)`);
+          console.log(
+            `     Arguments: ${JSON.stringify(parsedArgs).substring(0, 80)}...`
+          );
+          return { passed: true, message: "Complex params work", duration };
+        }
+
+        console.log(`     ⚠️  PARTIAL: Called search_contacts but missing query`);
         return { passed: false, message: "Missing parameters", duration };
       }
+
+      if (firstTool.name === "manage_crm") {
+        const hasSearchAction =
+          typeof parsedArgs.action === "string" &&
+          parsedArgs.action.toLowerCase().includes("search");
+        const hasSearchInput =
+          Boolean(hasQuery) ||
+          Boolean(parsedArgs.firstName) ||
+          Boolean(parsedArgs.lastName) ||
+          Boolean(parsedArgs.email) ||
+          Boolean(parsedArgs.organizationName);
+
+        if (hasSearchAction && hasSearchInput) {
+          console.log(
+            `     ✅ PASS: Parsed complex parameters via manage_crm (${duration}ms)`
+          );
+          console.log(
+            `     Arguments: ${JSON.stringify(parsedArgs).substring(0, 80)}...`
+          );
+          return { passed: true, message: "Complex params work", duration };
+        }
+
+        console.log(
+          `     ⚠️  PARTIAL: Called manage_crm but missing required search signal fields`
+        );
+        return { passed: false, message: "Missing parameters", duration };
+      }
+
+      console.log(`     ❌ FAIL: Unexpected tool ${firstTool.name}`);
+      return { passed: false, message: `Wrong tool: ${firstTool.name}`, duration };
     } else {
-      console.log(`     ❌ FAIL: Expected search_contacts tool`);
+      console.log(`     ❌ FAIL: Expected search_contacts or manage_crm tool`);
       return { passed: false, message: "Wrong tool or no tool", duration };
     }
   } catch (error: any) {
@@ -166,11 +338,28 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
       selectedModel: modelId,
     });
 
+    const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+    if (modelCheck) {
+      return modelCheck;
+    }
+
     const duration = Date.now() - startTime;
 
-    if (response.message && response.message.length > 0) {
+    const secondTurnToolCalls = response.toolCalls || [];
+    const maintainedViaMessage = Boolean(response.message && response.message.length > 0);
+    const maintainedViaFollowupTool =
+      secondTurnToolCalls.length > 0 &&
+      ["list_forms", "manage_crm"].includes(secondTurnToolCalls[0].name);
+
+    if (maintainedViaMessage || maintainedViaFollowupTool) {
       console.log(`     ✅ PASS: Maintained context (${duration}ms)`);
-      console.log(`     Response: ${response.message.substring(0, 80)}...`);
+      if (maintainedViaMessage) {
+        console.log(`     Response: ${response.message.substring(0, 80)}...`);
+      } else {
+        console.log(
+          `     Follow-up tool call: ${secondTurnToolCalls[0].name} (approval-gated flow)`
+        );
+      }
       return { passed: true, message: "Multi-turn works", duration };
     } else {
       console.log(`     ❌ FAIL: Lost context`);
@@ -197,6 +386,11 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
       selectedModel: modelId,
     });
 
+    const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+    if (modelCheck) {
+      return modelCheck;
+    }
+
     const duration = Date.now() - startTime;
     const toolCalls = response.toolCalls || [];
 
@@ -215,6 +409,116 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
   }
 }
 
+// Test 6: Tool Contract Checks
+async function testToolContracts(modelId: string): Promise<TestResult> {
+  console.log("\n  🧪 Test 6: Tool Contract Checks");
+  const startTime = Date.now();
+
+  try {
+    if (CRITICAL_TOOL_NAMES.length !== 10) {
+      const duration = Date.now() - startTime;
+      console.log(
+        `     ❌ FAIL: Expected 10 critical tool contracts, found ${CRITICAL_TOOL_NAMES.length}`
+      );
+      return {
+        passed: false,
+        message: `Critical contract set size mismatch (${CRITICAL_TOOL_NAMES.length})`,
+        duration,
+      };
+    }
+
+    const scenarios = [
+      {
+        prompt: "List my forms",
+        expectedTools: ["list_forms"],
+      },
+      {
+        prompt: "Search for contacts named Alice Smith in the sales department",
+        expectedTools: ["search_contacts", "manage_crm"],
+      },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      const response: any = await client.action(api.ai.chat.sendMessage, {
+        message: scenario.prompt,
+        organizationId: TEST_ORG_ID as any,
+        userId: TEST_USER_ID as any,
+        selectedModel: modelId,
+      });
+
+      const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+      if (modelCheck) {
+        return modelCheck;
+      }
+
+      const toolCalls = response.toolCalls || [];
+      const firstToolCall = toolCalls[0];
+
+      if (!firstToolCall) {
+        const duration = Date.now() - startTime;
+        console.log(
+          `     ❌ FAIL: No tool call returned for contract scenario "${scenario.expectedTools.join("|")}"`
+        );
+        return {
+          passed: false,
+          message: `No tool call for ${scenario.expectedTools.join("|")}`,
+          duration,
+        };
+      }
+
+      if (!(scenario.expectedTools as readonly string[]).includes(firstToolCall.name)) {
+        const duration = Date.now() - startTime;
+        console.log(
+          `     ❌ FAIL: Expected ${scenario.expectedTools.join("|")}, got ${firstToolCall.name}`
+        );
+        return {
+          passed: false,
+          message: `Wrong tool for contract check: ${firstToolCall.name}`,
+          duration,
+        };
+      }
+
+      const contractResult = validateToolCallAgainstContract({
+        name: firstToolCall.name,
+        arguments: firstToolCall.arguments,
+      });
+
+      if (!contractResult.passed) {
+        const duration = Date.now() - startTime;
+        console.log(`     ❌ FAIL: ${contractResult.message}`);
+        return {
+          passed: false,
+          message: contractResult.message,
+          duration,
+        };
+      }
+
+      console.log(
+        `     ✅ ${firstToolCall.name} matched contract ${contractResult.contractVersion}`
+      );
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(
+      `     ✅ PASS: Contract checks passed (${duration}ms)`
+    );
+    return {
+      passed: true,
+      message: "Tool contract checks passed",
+      duration,
+    };
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.log(`     ❌ ERROR: ${error.message}`);
+    return {
+      passed: false,
+      message: error.message,
+      duration,
+      error: error.message,
+    };
+  }
+}
+
 // Run all validation tests for a model
 async function validateModel(modelId: string): Promise<ValidationResult> {
   console.log(`\n${"=".repeat(70)}`);
@@ -227,6 +531,7 @@ async function validateModel(modelId: string): Promise<ValidationResult> {
     complexParams: false,
     multiTurn: false,
     edgeCases: false,
+    contractChecks: false,
   };
 
   // Run all tests sequentially
@@ -245,6 +550,9 @@ async function validateModel(modelId: string): Promise<ValidationResult> {
   const edgeCasesResult = await testEdgeCases(modelId);
   results.edgeCases = edgeCasesResult.passed;
 
+  const contractChecksResult = await testToolContracts(modelId);
+  results.contractChecks = contractChecksResult.passed;
+
   // Summary
   const passedTests = Object.values(results).filter(Boolean).length;
   const totalTests = Object.keys(results).length;
@@ -262,6 +570,13 @@ async function saveValidationResults(
   results: ValidationResult,
   status: "validated" | "failed"
 ) {
+  if (!TEST_SESSION_ID) {
+    console.log(
+      "\n⚠️  TEST_SESSION_ID not set; skipping database persistence of validation results."
+    );
+    return;
+  }
+
   console.log(`\n💾 Saving validation results to database...`);
 
   try {
@@ -291,9 +606,9 @@ async function main() {
   const providerArg = args.find((arg) => arg.startsWith("--provider="));
   const untestedOnly = args.includes("--untested-only");
 
-  if (!TEST_ORG_ID || !TEST_USER_ID || !TEST_SESSION_ID) {
+  if (!TEST_ORG_ID || !TEST_USER_ID) {
     console.error("❌ Missing environment variables:");
-    console.error("   TEST_ORG_ID, TEST_USER_ID, TEST_SESSION_ID");
+    console.error("   TEST_ORG_ID, TEST_USER_ID");
     console.error("   Please set these in your .env.local file");
     process.exit(1);
   }
@@ -311,6 +626,12 @@ async function main() {
 
       process.exit(allPassed ? 0 : 1);
     } else if (providerArg || untestedOnly) {
+      if (!TEST_SESSION_ID) {
+        console.error("❌ TEST_SESSION_ID is required for provider/batch model queries.");
+        console.error("   Use --model=<modelId> or set TEST_SESSION_ID in .env.local.");
+        process.exit(1);
+      }
+
       console.log("🔄 Fetching models to test...");
 
       // Fetch models from database
@@ -347,11 +668,18 @@ async function main() {
 
       console.log("\n✅ Batch testing complete!");
     } else {
-      console.log("❌ Missing arguments. Usage:");
-      console.log('   npm run test:model -- --model="anthropic/claude-3.5-sonnet"');
-      console.log('   npm run test:model -- --provider="anthropic"');
-      console.log('   npm run test:model -- --untested-only');
-      process.exit(1);
+      const defaultModelId = await resolveDefaultModelId();
+      console.log(
+        `ℹ️  No arguments provided; running default model validation for ${defaultModelId}`
+      );
+      const results = await validateModel(defaultModelId);
+
+      const allPassed = Object.values(results).every(Boolean);
+      const status = allPassed ? "validated" : "failed";
+
+      await saveValidationResults(defaultModelId, results, status);
+
+      process.exit(allPassed ? 0 : 1);
     }
   } catch (error: any) {
     console.error(`❌ Fatal error: ${error.message}`);

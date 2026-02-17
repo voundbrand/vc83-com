@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { ShoppingCart, ArrowLeft, Loader2, AlertCircle, Eye, FileText, Check, Palette, ChevronDown, ChevronUp, CreditCard, Building2 } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Loader2, AlertCircle, Eye, FileText, Check, Palette, ChevronDown, ChevronUp, CreditCard, Building2, X } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { CheckoutPreview } from "./checkout-preview";
 import { getCheckoutSchema } from "@/templates/checkout/registry";
@@ -539,7 +539,6 @@ export function CreateCheckoutTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {availableTemplates.map((template) => {
               const props = template.customProperties as Record<string, unknown>;
-              const icon = props.icon as string || "📄";
               const features = props.features as string[] || [];
               const complexity = props.complexity as string || "intermediate";
               const comingSoon = props.comingSoon as boolean;
@@ -570,7 +569,7 @@ export function CreateCheckoutTab({
                 >
                   {/* Header */}
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="text-3xl">{icon}</div>
+                    <FileText size={28} style={{ color: "var(--win95-highlight)" }} />
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-bold text-sm leading-tight" style={{ color: 'var(--win95-text)' }}>{template.name}</h4>
@@ -597,7 +596,8 @@ export function CreateCheckoutTab({
                           }}
                           title={translationsLoading ? (supportsFormIntegration ? "This template supports form integration during checkout" : "This template does not support form integration") : t(supportsFormIntegration ? "ui.checkout_window.templates.tooltip.form_supports" : "ui.checkout_window.templates.tooltip.form_not_supports")}
                         >
-                          {supportsFormIntegration ? "✓" : "✕"} {translationsLoading ? (supportsFormIntegration ? "Form Compatible" : "Form Incompatible") : t(supportsFormIntegration ? "ui.checkout_window.templates.badge.form_compatible" : "ui.checkout_window.templates.badge.form_incompatible")}
+                          {supportsFormIntegration ? <Check size={12} /> : <X size={12} />}
+                          {translationsLoading ? (supportsFormIntegration ? "Form Compatible" : "Form Incompatible") : t(supportsFormIntegration ? "ui.checkout_window.templates.badge.form_compatible" : "ui.checkout_window.templates.badge.form_incompatible")}
                         </span>
 
                         {/* Coming Soon Badge */}
@@ -795,7 +795,7 @@ export function CreateCheckoutTab({
                 {forceB2B && (
                   <div className="mt-2 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                     <p className="text-xs font-bold" style={{ color: 'var(--win95-highlight)' }}>
-                      ✓ Organization info will be required for all purchases
+                      Organization info will be required for all purchases
                     </p>
                   </div>
                 )}
@@ -806,7 +806,7 @@ export function CreateCheckoutTab({
           {/* Default Language Selection */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-              {translationsLoading ? "🌐 Default Language" : t("ui.checkout_window.create.language_label")}
+              {translationsLoading ? "Default Language" : t("ui.checkout_window.create.language_label")}
             </label>
             <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
               {translationsLoading ? "Set the default language for this checkout. Customers will see the checkout in this language initially." : t("ui.checkout_window.create.language_description")}
@@ -816,19 +816,19 @@ export function CreateCheckoutTab({
               onChange={(e) => setDefaultLanguage(e.target.value)}
               className="retro-input w-full px-2 py-1.5 text-sm"
             >
-              <option value="en">🇬🇧 English</option>
-              <option value="de">🇩🇪 German (Deutsch)</option>
-              <option value="pl">🇵🇱 Polish (Polski)</option>
-              <option value="es">🇪🇸 Spanish (Español)</option>
-              <option value="fr">🇫🇷 French (Français)</option>
-              <option value="ja">🇯🇵 Japanese (日本語)</option>
+              <option value="en">English</option>
+              <option value="de">German (Deutsch)</option>
+              <option value="pl">Polish (Polski)</option>
+              <option value="es">Spanish (Espanol)</option>
+              <option value="fr">French (Francais)</option>
+              <option value="ja">Japanese</option>
             </select>
           </div>
 
           {/* Template Set Selection */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
-              🎨 Branding Templates
+              Branding Templates
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
               Choose a template set for consistent branding across tickets, invoices, and emails.
@@ -848,7 +848,7 @@ export function CreateCheckoutTab({
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
-              <div className="font-bold mb-1">💡 How Template Sets Work:</div>
+              <div className="font-bold mb-1">How Template Sets Work:</div>
               <ul className="space-y-1 ml-4">
                 <li>• <strong>Unified Branding</strong>: One set = consistent look across all customer touchpoints</li>
                 <li>• <strong>Precedence</strong>: Product templates can override checkout-level settings</li>
@@ -860,7 +860,7 @@ export function CreateCheckoutTab({
           {/* Email Template Selection - Internal Only */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
-              📧 Internal Notifications
+              Internal Notifications
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
               Configure internal email notifications for your team (separate from customer emails).
@@ -892,7 +892,7 @@ export function CreateCheckoutTab({
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
-              <div className="font-bold mb-1">💡 Email Configuration:</div>
+              <div className="font-bold mb-1">Email Configuration:</div>
               <ul className="space-y-1 ml-4">
                 <li>• <strong>Customer Templates</strong>: Choose Luxury/Minimal/VIP styles for order confirmations</li>
                 <li>• <strong>Sales Notifications</strong>: Internal alerts sent to your team</li>
@@ -915,7 +915,7 @@ export function CreateCheckoutTab({
             {!editingInstanceId && orgPaymentSettings?.enabledPaymentProviders && orgPaymentSettings.enabledPaymentProviders.length > 0 && (
               <div className="mb-3 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                 <span className="font-bold" style={{ color: 'var(--success)' }}>
-                  ✓ Defaulting to organization settings
+                  Defaulting to organization settings
                 </span>
                 <span className="ml-1" style={{ color: 'var(--neutral-gray)' }}>
                   (configured in Payments → Providers)
@@ -1036,13 +1036,13 @@ export function CreateCheckoutTab({
                 {/* Selected Count Summary */}
                 {selectedPaymentProviders.length > 0 && (
                   <p className="text-xs font-bold mt-2" style={{ color: "var(--success)" }}>
-                    ✓ {selectedPaymentProviders.length} payment provider{selectedPaymentProviders.length !== 1 ? "s" : ""} selected
+                    {selectedPaymentProviders.length} payment provider{selectedPaymentProviders.length !== 1 ? "s" : ""} selected
                   </p>
                 )}
 
                 {selectedPaymentProviders.length > 1 && (
                   <p className="text-xs mt-1 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
-                    💡 Customers will choose their preferred payment method during checkout
+                    Customers will choose their preferred payment method during checkout
                   </p>
                 )}
               </>
@@ -1222,7 +1222,7 @@ export function CreateCheckoutTab({
                                       }}
                                       title={`Linked to event: ${eventName}`}
                                     >
-                                      🎉 {eventName}
+                                      {eventName}
                                     </span>
                                   );
                                 } else {
@@ -1236,7 +1236,7 @@ export function CreateCheckoutTab({
                                       }}
                                       title="This product is not linked to any event"
                                     >
-                                      ⚠️ No Event
+                                      No Event
                                     </span>
                                   );
                                 }
@@ -1253,7 +1253,7 @@ export function CreateCheckoutTab({
                                       border: "1px solid #BFDBFE",
                                     }}
                                   >
-                                    📋 Form {formRequired ? "Required" : "Optional"}
+                                    Form {formRequired ? "Required" : "Optional"}
                                   </span>
                                   {formTiming === "duringCheckout" && (
                                     <span
@@ -1265,7 +1265,7 @@ export function CreateCheckoutTab({
                                       }}
                                       title={translationsLoading ? "Form will be collected during checkout" : t("ui.checkout_window.create.form_timing.in_checkout_tooltip")}
                                     >
-                                      {translationsLoading ? "🛒 In Checkout" : t("ui.checkout_window.create.form_timing.in_checkout_badge")}
+                                      {translationsLoading ? "In Checkout" : t("ui.checkout_window.create.form_timing.in_checkout_badge")}
                                     </span>
                                   )}
                                   {formTiming === "afterPurchase" && (
@@ -1278,7 +1278,7 @@ export function CreateCheckoutTab({
                                       }}
                                       title={translationsLoading ? "Form link sent via email after purchase" : t("ui.checkout_window.create.form_timing.after_purchase_tooltip")}
                                     >
-                                      {translationsLoading ? "✉️ After Purchase" : t("ui.checkout_window.create.form_timing.after_purchase_badge")}
+                                      {translationsLoading ? "After Purchase" : t("ui.checkout_window.create.form_timing.after_purchase_badge")}
                                     </span>
                                   )}
                                 </>
@@ -1351,7 +1351,7 @@ export function CreateCheckoutTab({
 
             {selectedProducts.length > 0 && (
               <p className="text-xs font-bold mt-2" style={{ color: 'var(--success)' }}>
-                ✓ {selectedProducts.length} product{selectedProducts.length !== 1 ? "s" : ""}{" "}
+                {selectedProducts.length} product{selectedProducts.length !== 1 ? "s" : ""}{" "}
                 linked
               </p>
             )}

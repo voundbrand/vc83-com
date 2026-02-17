@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import { ProviderLogo, ProviderBadge } from "@/components/ai/provider-logo";
 import { useAuth } from "@/hooks/use-auth";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -224,7 +224,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
                         </div>
                       </div>
                       {isSelected && (
-                        <div style={{ color: 'var(--win95-hover-text)' }}>✓</div>
+                        <Check className="w-4 h-4" style={{ color: 'var(--win95-hover-text)' }} />
                       )}
                     </button>
                   );

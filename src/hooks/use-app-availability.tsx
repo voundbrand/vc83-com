@@ -37,14 +37,27 @@ export function useAvailableApps() {
   const { sessionId, isSignedIn } = useAuth();
   const currentOrg = useCurrentOrganization();
   const organizationId = currentOrg?.id;
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => unknown;
+  // @ts-ignore TS2589: Convex generated API type can exceed instantiation depth in compatibility hooks.
+  const apiUntyped: unknown = api;
+  const appAvailabilityApi = (apiUntyped as Record<string, unknown>)["appAvailability"] as Record<string, unknown> | undefined;
+  const getAvailableApps = appAvailabilityApi?.["getAvailableApps"];
+  type AvailableApp = {
+    _id: string;
+    code: string;
+    icon?: string;
+    description?: string;
+    category?: string;
+    [key: string]: unknown;
+  };
 
   // Query apps for the catalog display (AllAppsWindow, etc.)
-  const availableApps = useQuery(
-    api.appAvailability.getAvailableApps,
+  const availableApps = useQueryUntyped(
+    getAvailableApps,
     sessionId && organizationId && isSignedIn
       ? { sessionId, organizationId: organizationId as Id<"organizations"> }
       : "skip"
-  );
+  ) as AvailableApp[] | undefined;
 
   // All apps are available - tier system handles feature limits
   const isAppAvailable = (_appCode: string): boolean => true;

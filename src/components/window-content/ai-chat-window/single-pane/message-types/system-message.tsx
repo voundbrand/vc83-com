@@ -1,5 +1,7 @@
 "use client"
 
+import { ShellAboutIcon } from "@/components/icons/shell-icons"
+
 interface SystemMessageProps {
   content: string
 }
@@ -16,7 +18,9 @@ export function SystemMessage({ content }: SystemMessageProps) {
         }}
       >
         <div className="flex items-start gap-2">
-          <span className="text-lg">ℹ️</span>
+          <span className="flex h-5 w-5 items-center justify-center">
+            <ShellAboutIcon size={16} tone="active" />
+          </span>
           <div className="flex-1 leading-relaxed">{content}</div>
         </div>
       </div>

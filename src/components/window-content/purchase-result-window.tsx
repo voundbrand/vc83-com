@@ -578,7 +578,7 @@ export function PurchaseResultWindow({
                   { x: 150, y: 80 },
                   { width: 900, height: 650 },
                   "ui.start_menu.store",
-                  "🏪"
+                  undefined
                 );
               });
             }}

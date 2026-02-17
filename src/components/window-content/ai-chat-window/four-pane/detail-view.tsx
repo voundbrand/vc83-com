@@ -127,15 +127,15 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       return (
         <div className="flex flex-col h-full">
           <div
-            className="flex items-center justify-between gap-2 p-3 border-b-2"
+            className="flex items-center justify-between gap-2 p-3 border-b"
             style={{
-              borderColor: 'var(--win95-border-dark)',
-              background: 'var(--win95-title-bg)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--desktop-shell-accent)'
             }}
           >
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-              <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <AlertTriangle className="w-4 h-4" style={{ color: 'var(--window-document-text)' }} />
+              <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
                 Tool Execution Details
               </span>
             </div>
@@ -143,23 +143,23 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
               onClick={onClearToolExecution}
               className="p-1 hover:bg-gray-200 rounded transition-colors"
             >
-              <X className="w-4 h-4" style={{ color: 'var(--win95-text-muted)' }} />
+              <X className="w-4 h-4" style={{ color: 'var(--window-document-text-muted)' }} />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   Tool Name
                 </p>
-                <p className="text-sm font-mono" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-sm font-mono" style={{ color: 'var(--window-document-text-muted)' }}>
                   {selectedToolExecution.toolName}
                 </p>
               </div>
 
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   Status
                 </p>
                 <span
@@ -182,25 +182,25 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
 
               {selectedToolExecution.proposalMessage && (
                 <div>
-                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Proposal Message
                   </p>
-                  <p className="text-sm" style={{ color: 'var(--win95-text-muted)' }}>
+                  <p className="text-sm" style={{ color: 'var(--window-document-text-muted)' }}>
                     {selectedToolExecution.proposalMessage}
                   </p>
                 </div>
               )}
 
               <div>
-                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Parameters
                 </p>
                 <pre
                   className="text-xs p-3 rounded overflow-x-auto font-mono"
                   style={{
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)',
-                    border: '2px solid var(--win95-border)'
+                    background: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)',
+                    border: '1px solid var(--window-document-border)'
                   }}
                 >
                   {JSON.stringify(selectedToolExecution.parameters || selectedToolExecution.input || {}, null, 2)}
@@ -209,11 +209,11 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
 
               {selectedToolExecution.output !== undefined && selectedToolExecution.output !== null && (
                 <div>
-                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
                     Result
                   </p>
                   <div
-                    className="p-3 rounded border-2"
+                    className="p-3 rounded border"
                     style={{
                       background: 'var(--success-bg)',
                       borderColor: 'var(--success)',
@@ -222,7 +222,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
                     <pre
                       className="text-xs overflow-x-auto font-mono whitespace-pre-wrap break-words"
                       style={{
-                        color: 'var(--win95-text)',
+                        color: 'var(--window-document-text)',
                       }}
                     >
                       {typeof selectedToolExecution.output === 'string'
@@ -239,13 +239,13 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
                     Error Details
                   </p>
                   <div
-                    className="p-3 rounded border-2"
+                    className="p-3 rounded border"
                     style={{
                       background: 'var(--error-bg)',
                       borderColor: 'var(--error)',
                     }}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--win95-text)' }}>
+                    <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--window-document-text)' }}>
                       {selectedToolExecution.error}
                     </p>
                   </div>
@@ -257,11 +257,11 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
           <div
             className="p-3 border-t"
             style={{
-              borderColor: 'var(--win95-border-light)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--desktop-shell-accent)'
             }}
           >
-            <p className="text-xs text-center" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs text-center" style={{ color: 'var(--window-document-text-muted)' }}>
               This execution has already been {selectedToolExecution.status === "success" ? "completed" : selectedToolExecution.status}.
               {selectedToolExecution.status === "success" && " Check the Work Items section for created items."}
             </p>
@@ -297,15 +297,15 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       <div className="flex flex-col h-full">
         {/* Header with Close Button */}
         <div
-          className="flex items-center justify-between gap-2 p-3 border-b-2"
+          className="flex items-center justify-between gap-2 p-3 border-b"
           style={{
-            borderColor: 'var(--win95-border-dark)',
-            background: 'var(--win95-title-bg)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--desktop-shell-accent)'
           }}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <FileQuestion className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--win95-text)' }} />
-            <span className="text-sm font-semibold truncate" style={{ color: 'var(--win95-text)' }}>
+            <FileQuestion className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--window-document-text)' }} />
+            <span className="text-sm font-semibold truncate" style={{ color: 'var(--window-document-text)' }}>
               {selectedWorkItem.name}
             </span>
           </div>
@@ -314,7 +314,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
             className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors"
             title="Close detail view"
           >
-            <X className="w-4 h-4" style={{ color: 'var(--win95-text-muted)' }} />
+            <X className="w-4 h-4" style={{ color: 'var(--window-document-text-muted)' }} />
           </button>
         </div>
 
@@ -334,15 +334,15 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="flex items-center justify-between gap-2 p-3 border-b-2"
+        className="flex items-center justify-between gap-2 p-3 border-b"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--desktop-shell-accent)'
         }}
       >
         <div className="flex items-center gap-2">
-          <FileQuestion className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <FileQuestion className="w-4 h-4" style={{ color: 'var(--window-document-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
             Detail View
           </span>
         </div>
@@ -352,12 +352,12 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
         <FileQuestion
           className="w-16 h-16 mb-4"
-          style={{ color: 'var(--win95-text-muted)' }}
+          style={{ color: 'var(--window-document-text-muted)' }}
         />
-        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+        <p className="text-sm font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           No Item Selected
         </p>
-        <p className="text-xs max-w-[250px]" style={{ color: 'var(--win95-text-muted)' }}>
+        <p className="text-xs max-w-[250px]" style={{ color: 'var(--window-document-text-muted)' }}>
           Select a work item from the list or wait for AI actions to approve
         </p>
       </div>

@@ -1,360 +1,80 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  APPEARANCE_EXPLICIT_STORAGE_KEY,
+  DEFAULT_APPEARANCE_MODE,
+  mapLegacyThemeToAppearanceMode,
+  useAppearance,
+  type AppearanceMode,
+} from "@/contexts/appearance-context";
 
 export type WindowStyle = "mac" | "windows" | "shadcn";
 
 export interface Theme {
   id: string;
   name: string;
-  comingSoon?: boolean; // Mark themes as coming soon
   colors: {
-    // Desktop background
     background: string;
-    // Win95 window colors
     win95Bg: string;
     win95BgLight: string;
     win95Border: string;
     win95BorderLight: string;
     win95Text: string;
     win95Highlight: string;
-    win95GradientEnd: string; // Secondary color for gradients (titlebar, buttons)
-    // Hover colors for menus and interactive elements
+    win95GradientEnd: string;
     win95HoverBg: string;
     win95HoverText: string;
-    // Text colors
     foreground: string;
   };
 }
 
-export const themes: Theme[] = [
-  {
-    id: "win95-light",
-    name: "Windows 95",
-    colors: {
-      background: "#008080", // Teal wallpaper
-      win95Bg: "#f0f0f0", // Lighter gray (was #c0c0c0)
-      win95BgLight: "#ffffff",
-      win95Border: "#d0d0d0",
-      win95BorderLight: "#e8e8e8",
-      win95Text: "#1f2937", // gray-800
-      win95Highlight: "#000080",
-      win95GradientEnd: "#4169e1", // Royal blue gradient end
-      win95HoverBg: "#000080", // Classic Windows 95 blue
-      win95HoverText: "#ffffff", // White text on blue
-      foreground: "#1f2937",
-    },
-  },
-  {
-    id: "win95-dark",
-    name: "Windows 95 Dark",
-    colors: {
-      background: "#2d2d2d", // Dark desktop
-      win95Bg: "#3d3d3d",
-      win95BgLight: "#4d4d4d",
-      win95Border: "#1d1d1d",
-      win95BorderLight: "#5d5d5d",
-      win95Text: "#ffffff", // Pure white for better contrast
-      win95Highlight: "#4169e1",
-      win95GradientEnd: "#6366f1", // Indigo gradient end
-      win95HoverBg: "#4169e1", // Royal blue hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#ffffff", // Pure white for better contrast
-    },
-  },
-  {
-    id: "win95-purple",
-    name: "Windows 95 Purple",
-    colors: {
-      background: "#6B46C1", // Purple wallpaper
-      win95Bg: "#f0f0f0", // Updated to lighter gray
-      win95BgLight: "#ffffff",
-      win95Border: "#d0d0d0",
-      win95BorderLight: "#e8e8e8",
-      win95Text: "#1f2937",
-      win95Highlight: "#6B46C1",
-      win95GradientEnd: "#9333EA", // Vivid purple gradient end
-      win95HoverBg: "#6B46C1", // Purple hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#1f2937",
-    },
-  },
-  {
-    id: "win95-blue",
-    name: "Windows 95 Blue",
-    colors: {
-      background: "#0000AA", // Classic Windows blue
-      win95Bg: "#f0f0f0", // Updated to lighter gray
-      win95BgLight: "#ffffff",
-      win95Border: "#d0d0d0",
-      win95BorderLight: "#e8e8e8",
-      win95Text: "#1f2937",
-      win95Highlight: "#0000AA",
-      win95GradientEnd: "#3B82F6", // Bright blue gradient end
-      win95HoverBg: "#0000AA", // Blue hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#1f2937",
-    },
-  },
-  {
-    id: "win95-purple-dark",
-    name: "Windows 95 Purple Dark",
-    colors: {
-      background: "#2d2d2d", // Dark desktop
-      win95Bg: "#3d3d3d",
-      win95BgLight: "#4d4d4d",
-      win95Border: "#1d1d1d",
-      win95BorderLight: "#5d5d5d",
-      win95Text: "#ffffff", // White text for dark mode
-      win95Highlight: "#9F7AEA", // Lighter purple for dark mode (better visibility)
-      win95GradientEnd: "#C084FC", // Fuchsia gradient end
-      win95HoverBg: "#9F7AEA", // Light purple hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#ffffff",
-    },
-  },
-  {
-    id: "win95-green",
-    name: "Windows 95 Green",
-    colors: {
-      background: "#059669", // Emerald green wallpaper
-      win95Bg: "#f0f0f0",
-      win95BgLight: "#ffffff",
-      win95Border: "#d0d0d0",
-      win95BorderLight: "#e8e8e8",
-      win95Text: "#1f2937",
-      win95Highlight: "#059669", // Emerald green accent
-      win95GradientEnd: "#10B981", // Lighter emerald gradient end
-      win95HoverBg: "#059669", // Green hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#1f2937",
-    },
-  },
-  {
-    id: "win95-green-dark",
-    name: "Windows 95 Green Dark",
-    colors: {
-      background: "#2d2d2d", // Dark desktop
-      win95Bg: "#3d3d3d",
-      win95BgLight: "#4d4d4d",
-      win95Border: "#1d1d1d",
-      win95BorderLight: "#5d5d5d",
-      win95Text: "#ffffff", // White text for dark mode
-      win95Highlight: "#10b981", // Lighter green for dark mode (better visibility)
-      win95GradientEnd: "#34D399", // Light emerald gradient end
-      win95HoverBg: "#10b981", // Light green hover
-      win95HoverText: "#ffffff", // White text
-      foreground: "#ffffff",
-    },
-  },
-  {
-    id: "glass-light",
-    name: "Modern Glass",
-    colors: {
-      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", // Purple gradient wallpaper
-      win95Bg: "rgba(255, 255, 255, 0.7)", // Translucent white with blur
-      win95BgLight: "rgba(255, 255, 255, 0.85)",
-      win95Border: "rgba(255, 255, 255, 0.2)",
-      win95BorderLight: "rgba(255, 255, 255, 0.3)",
-      win95Text: "#1f2937", // Dark text for light backgrounds
-      win95Highlight: "#667eea", // Purple accent
-      win95GradientEnd: "#764ba2", // Deep purple gradient end
-      win95HoverBg: "rgba(102, 126, 234, 0.2)", // Purple tint hover (handled by CSS for glass)
-      win95HoverText: "#1f2937", // Dark text
-      foreground: "#1f2937",
-    },
-  },
-  {
-    id: "glass-dark",
-    name: "Modern Glass Dark",
-    colors: {
-      background: "linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)", // Deep blue gradient wallpaper
-      win95Bg: "rgba(30, 30, 30, 0.95)", // Less transparent dark with blur
-      win95BgLight: "rgba(45, 45, 45, 0.9)",
-      win95Border: "rgba(255, 255, 255, 0.15)",
-      win95BorderLight: "rgba(255, 255, 255, 0.2)",
-      win95Text: "#ffffff", // White text for dark mode
-      win95Highlight: "#60a5fa", // Light blue accent
-      win95GradientEnd: "#818cf8", // Indigo gradient end
-      win95HoverBg: "rgba(96, 165, 250, 0.2)", // Blue tint hover (handled by CSS for glass)
-      win95HoverText: "#ffffff", // White text
-      foreground: "#ffffff",
-    },
-  },
-  {
-    id: "clean-light",
-    name: "Clean Light",
-    colors: {
-      background: "#f8f9fa", // Light gray background
-      win95Bg: "#ffffff", // Pure white windows
-      win95BgLight: "#f8f9fa", // Very light gray for sections
-      win95Border: "#e2e8f0", // Subtle border
-      win95BorderLight: "#f1f5f9", // Even lighter border
-      win95Text: "#0f172a", // Slate 900 for text
-      win95Highlight: "#0f172a", // Slate 900 for accents
-      win95GradientEnd: "#334155", // Slate 700 gradient end
-      win95HoverBg: "#f1f5f9", // Very subtle light gray hover
-      win95HoverText: "#ffffff", // White text on dark highlight background
-      foreground: "#0f172a",
-    },
-  },
-  {
+const COMPAT_THEME_BY_MODE: Record<AppearanceMode, Theme> = {
+  dark: {
     id: "clean-dark",
-    name: "Clean Dark",
+    name: "Dark",
     colors: {
-      background: "#0a0a0a", // Near-black background (original)
-      win95Bg: "#171717", // Neutral 900 windows (original)
-      win95BgLight: "#262626", // Neutral 800 for sections (original)
-      win95Border: "#2a2a2a", // Border (original)
-      win95BorderLight: "#333333", // Lighter border (original)
-      win95Text: "#fafafa", // Bright white text
-      win95Highlight: "#2a3f5f", // Muted dark blue (fixes bright header issue)
-      win95GradientEnd: "#3d4f6f", // Subtle blue-gray gradient end
-      win95HoverBg: "#262626", // Subtle dark gray hover (original)
-      win95HoverText: "#ffffff", // White text on hover
-      foreground: "#fafafa", // Bright white text
+      background: "var(--background)",
+      win95Bg: "var(--win95-bg)",
+      win95BgLight: "var(--win95-bg-light)",
+      win95Border: "var(--win95-border)",
+      win95BorderLight: "var(--win95-border-light)",
+      win95Text: "var(--win95-text)",
+      win95Highlight: "var(--win95-highlight)",
+      win95GradientEnd: "var(--win95-gradient-end)",
+      win95HoverBg: "var(--win95-hover-bg)",
+      win95HoverText: "var(--win95-hover-text)",
+      foreground: "var(--foreground)",
     },
   },
-  // Coming Soon Themes
-  {
-    id: "ocean-blue",
-    name: "Ocean Blue",
-    comingSoon: true,
+  sepia: {
+    id: "clean-light",
+    name: "Sepia",
     colors: {
-      background: "#3B82F6",
-      win95Bg: "#EFF6FF",
-      win95BgLight: "#DBEAFE",
-      win95Border: "#93C5FD",
-      win95BorderLight: "#BFDBFE",
-      win95Text: "#1E3A8A",
-      win95Highlight: "#2563EB",
-      win95GradientEnd: "#3B82F6",
-      win95HoverBg: "#2563EB",
-      win95HoverText: "#ffffff",
-      foreground: "#1E3A8A",
+      background: "var(--background)",
+      win95Bg: "var(--win95-bg)",
+      win95BgLight: "var(--win95-bg-light)",
+      win95Border: "var(--win95-border)",
+      win95BorderLight: "var(--win95-border-light)",
+      win95Text: "var(--win95-text)",
+      win95Highlight: "var(--win95-highlight)",
+      win95GradientEnd: "var(--win95-gradient-end)",
+      win95HoverBg: "var(--win95-hover-bg)",
+      win95HoverText: "var(--win95-hover-text)",
+      foreground: "var(--foreground)",
     },
   },
-  {
-    id: "forest-green",
-    name: "Forest Green",
-    comingSoon: true,
-    colors: {
-      background: "#10B981",
-      win95Bg: "#ECFDF5",
-      win95BgLight: "#D1FAE5",
-      win95Border: "#6EE7B7",
-      win95BorderLight: "#A7F3D0",
-      win95Text: "#064E3B",
-      win95Highlight: "#059669",
-      win95GradientEnd: "#10B981",
-      win95HoverBg: "#059669",
-      win95HoverText: "#ffffff",
-      foreground: "#064E3B",
-    },
-  },
-  {
-    id: "sunset-orange",
-    name: "Sunset Orange",
-    comingSoon: true,
-    colors: {
-      background: "#F97316",
-      win95Bg: "#FFF7ED",
-      win95BgLight: "#FFEDD5",
-      win95Border: "#FDBA74",
-      win95BorderLight: "#FED7AA",
-      win95Text: "#7C2D12",
-      win95Highlight: "#EA580C",
-      win95GradientEnd: "#F97316",
-      win95HoverBg: "#EA580C",
-      win95HoverText: "#ffffff",
-      foreground: "#7C2D12",
-    },
-  },
-  {
-    id: "rose-pink",
-    name: "Rose Pink",
-    comingSoon: true,
-    colors: {
-      background: "#EC4899",
-      win95Bg: "#FDF2F8",
-      win95BgLight: "#FCE7F3",
-      win95Border: "#F9A8D4",
-      win95BorderLight: "#FBCFE8",
-      win95Text: "#831843",
-      win95Highlight: "#DB2777",
-      win95GradientEnd: "#EC4899",
-      win95HoverBg: "#DB2777",
-      win95HoverText: "#ffffff",
-      foreground: "#831843",
-    },
-  },
-];
-
-/**
- * Theme Families - Light/Dark pairs for theme toggling
- * Each family has a light and dark variant that users can toggle between
- */
-export const themeFamilies = {
-  "win95": {
-    light: "win95-light",
-    dark: "win95-dark",
-    name: "Windows 95"
-  },
-  "win95-purple": {
-    light: "win95-purple",
-    dark: "win95-purple-dark",
-    name: "Windows 95 Purple"
-  },
-  "win95-green": {
-    light: "win95-green",
-    dark: "win95-green-dark",
-    name: "Windows 95 Green"
-  },
-  "glass": {
-    light: "glass-light",
-    dark: "glass-dark",
-    name: "Modern Glass"
-  },
-  "clean": {
-    light: "clean-light",
-    dark: "clean-dark",
-    name: "Clean"
-  }
 };
-
-/**
- * Get the theme family for a given theme ID
- * Returns the family key or null if theme has no family
- */
-export function getThemeFamily(themeId: string): string | null {
-  for (const [familyKey, family] of Object.entries(themeFamilies)) {
-    if (family.light === themeId || family.dark === themeId) {
-      return familyKey;
-    }
-  }
-  return null;
-}
-
-/**
- * Check if a theme is a light variant
- */
-export function isLightTheme(themeId: string): boolean {
-  return Object.values(themeFamilies).some(family => family.light === themeId);
-}
-
-/**
- * Get the opposite theme (light ↔ dark) within the same family
- */
-export function getOppositeTheme(themeId: string): string | null {
-  const familyKey = getThemeFamily(themeId);
-  if (!familyKey) return null;
-
-  const family = themeFamilies[familyKey as keyof typeof themeFamilies];
-  return isLightTheme(themeId) ? family.dark : family.light;
-}
 
 interface ThemeContextValue {
   currentTheme: Theme;
@@ -364,172 +84,82 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+const CANONICAL_WINDOW_STYLE: WindowStyle = "windows";
 
-const THEME_STORAGE_KEY = "l4yercak3-theme";
-const WINDOW_STYLE_STORAGE_KEY = "l4yercak3-window-style";
-
-/**
- * Adjust color brightness for titlebar gradient
- * Preserved for future theme customization features
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function adjustBrightness(color: string, factor: number): string {
-  // Convert hex to RGB
-  const hex = color.replace("#", "");
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-
-  // Adjust brightness
-  const newR = Math.min(255, Math.floor(r * factor));
-  const newG = Math.min(255, Math.floor(g * factor));
-  const newB = Math.min(255, Math.floor(b * factor));
-
-  // Convert back to hex
-  const toHex = (n: number) => n.toString(16).padStart(2, "0");
-  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+function isAppearanceMode(value: unknown): value is AppearanceMode {
+  return value === "dark" || value === "sepia";
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { sessionId } = useAuth();
-  const [isHydrated, setIsHydrated] = useState(false);
+  const { mode, setMode } = useAppearance();
+  const hydratedFromPrefsRef = useRef(false);
 
-  // Default to Clean Dark (shadcn) theme and shadcn window style
-  const defaultTheme = themes.find(t => t.id === "clean-dark") || themes[0];
-  const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
-  const [windowStyle, setWindowStyleState] = useState<WindowStyle>("shadcn");
-
-  // Load preferences from Convex (only if signed in)
-  const userPrefs = useQuery(
-    api.userPreferences.get,
-    sessionId ? { sessionId } : "skip"
-  );
-
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => unknown;
+  const getUserPreferences = (api as unknown as { userPreferences: { get: unknown } }).userPreferences.get;
+  const userPrefs = useQueryUntyped(
+    getUserPreferences,
+    sessionId ? { sessionId } : "skip",
+  ) as { appearanceMode?: unknown } | null | undefined;
   const updatePrefs = useMutation(api.userPreferences.update);
 
-  // Load from Convex when available (signed-in users)
   useEffect(() => {
-    if (userPrefs && !isHydrated) {
-      const theme = themes.find(t => t.id === userPrefs.themeId);
-      if (theme) setCurrentTheme(theme);
-      if (userPrefs.windowStyle) setWindowStyleState(userPrefs.windowStyle as WindowStyle);
-      setIsHydrated(true);
+    if (!sessionId || userPrefs === undefined || hydratedFromPrefsRef.current) {
+      return;
     }
-  }, [userPrefs, isHydrated]);
 
-  // Fallback to localStorage if not signed in
+    if (isAppearanceMode(userPrefs?.appearanceMode)) {
+      const hasExplicitSelection =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem(APPEARANCE_EXPLICIT_STORAGE_KEY) === "1";
+      const resolvedMode =
+        userPrefs.appearanceMode === "sepia" && !hasExplicitSelection
+          ? DEFAULT_APPEARANCE_MODE
+          : userPrefs.appearanceMode;
+
+      if (resolvedMode !== mode) {
+        setMode(resolvedMode);
+      }
+    }
+
+    hydratedFromPrefsRef.current = true;
+  }, [mode, sessionId, setMode, userPrefs]);
+
   useEffect(() => {
-    if (!sessionId && typeof window !== "undefined" && !isHydrated) {
-      const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
-      if (savedThemeId) {
-        const savedTheme = themes.find((t) => t.id === savedThemeId);
-        if (savedTheme) {
-          setCurrentTheme(savedTheme);
-        }
-      }
-
-      const savedWindowStyle = localStorage.getItem(WINDOW_STYLE_STORAGE_KEY) as WindowStyle;
-      if (savedWindowStyle) {
-        setWindowStyleState(savedWindowStyle);
-      }
-      setIsHydrated(true);
-    }
-  }, [sessionId, isHydrated]);
-
-  // Apply theme CSS variables and window style
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    const root = document.documentElement;
-
-    // Apply theme colors as CSS custom properties
-    root.style.setProperty("--background", currentTheme.colors.background);
-    root.style.setProperty("--foreground", currentTheme.colors.foreground);
-    root.style.setProperty("--win95-bg", currentTheme.colors.win95Bg);
-    root.style.setProperty("--win95-bg-light", currentTheme.colors.win95BgLight);
-    root.style.setProperty("--win95-border", currentTheme.colors.win95Border);
-    root.style.setProperty("--win95-border-light", currentTheme.colors.win95BorderLight);
-    root.style.setProperty("--win95-text", currentTheme.colors.win95Text);
-    root.style.setProperty("--win95-highlight", currentTheme.colors.win95Highlight);
-    root.style.setProperty("--win95-gradient-end", currentTheme.colors.win95GradientEnd);
-    root.style.setProperty("--win95-hover-bg", currentTheme.colors.win95HoverBg);
-    root.style.setProperty("--win95-hover-text", currentTheme.colors.win95HoverText);
-
-    // Update titlebar gradient to match theme highlight and gradient end colors
-    // BUT: For glass themes, keep titlebar transparent (handled by CSS)
-    const glassThemes = ["glass-light", "glass-dark"];
-    if (!glassThemes.includes(currentTheme.id)) {
-      const highlightColor = currentTheme.colors.win95Highlight;
-      const gradientEndColor = currentTheme.colors.win95GradientEnd;
-      const titlebarGradient = `linear-gradient(90deg, ${highlightColor} 0%, ${gradientEndColor} 100%)`;
-      root.style.setProperty("--win95-titlebar", titlebarGradient);
-      root.style.setProperty("--modal-header-bg", titlebarGradient);
-    } else {
-      // Glass themes use transparent titlebar (set by CSS)
-      root.style.setProperty("--win95-titlebar", "var(--glass-bg)");
-      root.style.setProperty("--modal-header-bg", "var(--glass-bg)");
+    if (!sessionId || !hydratedFromPrefsRef.current || userPrefs === undefined) {
+      return;
     }
 
-    // Update dark class for dark themes
-    const darkThemes = ["win95-dark", "win95-purple-dark", "win95-green-dark", "glass-dark", "clean-dark"];
-    if (darkThemes.includes(currentTheme.id)) {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
+    if (userPrefs?.appearanceMode === mode) {
+      return;
     }
 
-    // Add glass theme class for special styling
-    if (glassThemes.includes(currentTheme.id)) {
-      root.classList.add("glass-theme");
-    } else {
-      root.classList.remove("glass-theme");
-    }
+    void updatePrefs({ sessionId, appearanceMode: mode });
+  }, [mode, sessionId, updatePrefs, userPrefs]);
 
-    // Apply window style data attribute
-    root.setAttribute("data-window-style", windowStyle);
-  }, [currentTheme, windowStyle]);
+  const setTheme = useCallback((themeId: string) => {
+    const nextMode = mapLegacyThemeToAppearanceMode(themeId);
+    setMode(nextMode);
+  }, [setMode]);
 
-  const setTheme = async (themeId: string) => {
-    const theme = themes.find((t) => t.id === themeId);
-    if (!theme) return;
+  const setWindowStyle = useCallback(() => {
+    // Canonical shell styling is fixed to Windows semantics.
+  }, []);
 
-    setCurrentTheme(theme);
+  const currentTheme = useMemo(() => COMPAT_THEME_BY_MODE[mode], [mode]);
 
-    if (sessionId) {
-      // Save to Convex if signed in
-      try {
-        await updatePrefs({ sessionId, themeId });
-      } catch (error) {
-        console.error("Failed to save theme preference:", error);
-        // Fallback to localStorage on error
-        localStorage.setItem(THEME_STORAGE_KEY, themeId);
-      }
-    } else {
-      // Fallback to localStorage if not signed in
-      localStorage.setItem(THEME_STORAGE_KEY, themeId);
-    }
-  };
-
-  const setWindowStyle = async (style: WindowStyle) => {
-    setWindowStyleState(style);
-
-    if (sessionId) {
-      // Save to Convex if signed in
-      try {
-        await updatePrefs({ sessionId, windowStyle: style });
-      } catch (error) {
-        console.error("Failed to save window style preference:", error);
-        // Fallback to localStorage on error
-        localStorage.setItem(WINDOW_STYLE_STORAGE_KEY, style);
-      }
-    } else {
-      // Fallback to localStorage if not signed in
-      localStorage.setItem(WINDOW_STYLE_STORAGE_KEY, style);
-    }
-  };
+  const contextValue = useMemo(
+    () => ({
+      currentTheme,
+      setTheme,
+      windowStyle: CANONICAL_WINDOW_STYLE,
+      setWindowStyle,
+    }),
+    [currentTheme, setTheme, setWindowStyle],
+  );
 
   return (
-    <ThemeContext.Provider value={{ currentTheme, setTheme, windowStyle, setWindowStyle }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
@@ -543,12 +173,12 @@ export function useTheme() {
   return context;
 }
 
-// Backward compatibility: export useWindowStyle hook
 export function useWindowStyle() {
   const context = useContext(ThemeContext);
   if (!context) {
     throw new Error("useWindowStyle must be used within a ThemeProvider");
   }
+
   return {
     windowStyle: context.windowStyle,
     setWindowStyle: context.setWindowStyle,

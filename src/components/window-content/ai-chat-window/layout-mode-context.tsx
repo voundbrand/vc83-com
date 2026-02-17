@@ -15,7 +15,7 @@ interface LayoutModeContextType {
 const LayoutModeContext = createContext<LayoutModeContextType | undefined>(undefined)
 
 export function LayoutModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<LayoutMode>("four-pane") // Default to four-pane
+  const [mode, setMode] = useState<LayoutMode>("single") // Default to simple Codex-like view
 
   const switchToSinglePane = () => setMode("single")
   const switchToThreePane = () => setMode("three-pane")

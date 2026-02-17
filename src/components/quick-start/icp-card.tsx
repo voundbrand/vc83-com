@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Bot, Rocket, CalendarDays, BriefcaseBusiness, Building2 } from "lucide-react";
 import type { ICPDefinition } from "./types";
 
 interface ICPCardProps {
@@ -13,6 +14,15 @@ interface ICPCardProps {
  * Individual ICP card with retro Win95 styling
  */
 export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
+  const icpIconMap = {
+    "ai-agency": Bot,
+    "founder-builder": Rocket,
+    "event-manager": CalendarDays,
+    freelancer: BriefcaseBusiness,
+    enterprise: Building2,
+  } as const;
+  const IcpIcon = icpIconMap[icp.id] ?? Bot;
+
   const handleClick = () => {
     if (!icp.comingSoon && !isCompleted) {
       onSelect(icp.id);
@@ -51,12 +61,14 @@ export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
       {/* Completed Badge */}
       {isCompleted && (
         <div className="absolute top-2 right-2 bg-green-600 text-white px-3 py-1 border-2 border-green-800 font-bold text-xs">
-          ✓ COMPLETED
+          COMPLETED
         </div>
       )}
 
       {/* Icon */}
-      <div className="text-6xl mb-4 text-center">{icp.icon}</div>
+      <div className="mb-4 text-center flex items-center justify-center">
+        <IcpIcon className="w-12 h-12 text-purple-700" />
+      </div>
 
       {/* Name */}
       <h3 className="font-bold text-lg mb-2 text-center text-gray-900 border-b-2 border-gray-400 pb-2">
@@ -109,7 +121,7 @@ export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
         {icp.comingSoon
           ? "COMING SOON"
           : isCompleted
-          ? "✓ COMPLETED"
+          ? "COMPLETED"
           : "GET STARTED"}
       </button>
     </div>

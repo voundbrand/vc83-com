@@ -263,19 +263,19 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
       icon: <CheckCircle2 className="h-3 w-3" />,
       label: t("ui.workflows.card.status.active"),
       bg: 'var(--success)',
-      text: 'var(--win95-bg-light)',
+      text: "#ffffff",
     },
     draft: {
       icon: <Clock className="h-3 w-3" />,
       label: t("ui.workflows.card.status.draft"),
       bg: 'var(--warning)',
-      text: 'var(--win95-text)',
+      text: 'var(--window-document-text)',
     },
     archived: {
       icon: <ArchiveX className="h-3 w-3" />,
       label: t("ui.workflows.card.status.archived"),
       bg: 'var(--neutral-gray)',
-      text: 'var(--win95-bg-light)',
+      text: "#ffffff",
     },
   };
 
@@ -284,15 +284,15 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="group relative border-2 p-3 transition-shadow" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="group relative border-2 p-3 transition-shadow" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
       {/* Header */}
       <div className="mb-2 flex items-start justify-between">
         <div className="flex items-start gap-2">
-          <div className="border-2 p-1" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-            <Zap className="h-4 w-4" style={{ color: 'var(--win95-highlight)' }} />
+          <div className="border-2 p-1" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
+            <Zap className="h-4 w-4" style={{ color: 'var(--tone-accent-strong)' }} />
           </div>
           <div className="flex-1">
-            <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{workflow.name}</h4>
+            <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{workflow.name}</h4>
             <p className="mt-0.5 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>{workflow.subtype}</p>
           </div>
         </div>
@@ -301,7 +301,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="retro-button p-1 opacity-0 group-hover:opacity-100"
+            className="desktop-interior-button p-1 opacity-0 group-hover:opacity-100"
           >
             <MoreVertical className="h-3 w-3" />
           </button>
@@ -312,11 +312,11 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                 className="fixed inset-0 z-10"
                 onClick={() => setMenuOpen(false)}
               />
-              <div className="absolute right-0 top-8 z-20 w-40 border-2 py-1 shadow-lg" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+              <div className="absolute right-0 top-8 z-20 w-40 border-2 py-1 shadow-lg" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
                 <button
                   onClick={onEdit}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
-                  style={{ color: 'var(--win95-text)' }}
+                  style={{ color: 'var(--window-document-text)' }}
                 >
                   <Edit2 className="h-3 w-3" />
                   {t("ui.workflows.card.menu.edit")}
@@ -324,7 +324,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                 <button
                   onClick={handleToggleStatus}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
-                  style={{ color: 'var(--win95-text)' }}
+                  style={{ color: 'var(--window-document-text)' }}
                 >
                   <Play className="h-3 w-3" />
                   {workflow.status === "active" ? t("ui.workflows.card.menu.setDraft") : t("ui.workflows.card.menu.activate")}
@@ -332,12 +332,12 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                 <button
                   onClick={handleDuplicate}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-opacity-50 transition-colors"
-                  style={{ color: 'var(--win95-text)' }}
+                  style={{ color: 'var(--window-document-text)' }}
                 >
                   <Copy className="h-3 w-3" />
                   {t("ui.workflows.card.menu.duplicate")}
                 </button>
-                <div className="my-1 border-t" style={{ borderColor: 'var(--win95-border)' }} />
+                <div className="my-1 border-t" style={{ borderColor: 'var(--window-document-border)' }} />
                 {workflow.status !== "archived" && (
                   <button
                     onClick={handleArchive}
@@ -385,14 +385,14 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
 
       {/* Trigger */}
       <div className="mb-3">
-        <div className="inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
+        <div className="inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)', color: 'var(--window-document-text)' }}>
           {t("ui.workflows.card.trigger.label")}: {triggerOn.replace(/_/g, " ")}
         </div>
       </div>
 
       {/* Status Badge and Actions */}
       <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: 'var(--win95-border)', background: status.bg, color: status.text }}>
+        <div className="inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: 'var(--window-document-border)', background: status.bg, color: status.text }}>
           {status.icon}
           {status.label}
         </div>
@@ -402,7 +402,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
             <button
               onClick={handleRunNow}
               disabled={isRunning}
-              className="retro-button inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="desktop-interior-button inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               title={t("ui.workflows.card.actions.runNow.tooltip")}
             >
               {isRunning ? (
@@ -431,7 +431,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
           <button
             onClick={onEdit}
             className="text-xs font-bold hover:underline"
-            style={{ color: 'var(--win95-highlight)' }}
+            style={{ color: 'var(--tone-accent-strong)' }}
           >
             {t("ui.workflows.card.actions.edit")} →
           </button>
@@ -443,16 +443,16 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
         <div className="fixed inset-0 z-50 flex items-center justify-end p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
           <div className="h-full flex gap-4" style={{ maxWidth: 'calc(100% - 32px)' }}>
             {/* Left: Summary Panel */}
-            <div className="w-96 border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] flex flex-col" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+            <div className="w-96 border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] flex flex-col" style={{ borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
               {/* Title Bar */}
-              <div className="flex items-center justify-between border-b-4 px-4 py-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-highlight)' }}>
+              <div className="flex items-center justify-between border-b-4 px-4 py-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--tone-accent-strong)' }}>
                 <h3 className="text-sm font-bold text-white">{t("ui.workflows.card.modal.title")}</h3>
                 <button
                   onClick={() => setShowProgressModal(false)}
                   className="border-2 px-2 py-0.5 text-xs font-bold text-white hover:bg-white hover:text-black transition-colors"
                   style={{ borderColor: 'white' }}
                 >
-                  ✕
+                  
                 </button>
               </div>
 
@@ -470,7 +470,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                       <div
                         className="border-2 p-3"
                         style={{
-                          borderColor: 'var(--win95-border)',
+                          borderColor: 'var(--window-document-border)',
                           background: executionLogs.status === 'success' ? 'var(--success-light)' : 'var(--error-light)'
                         }}
                       >
@@ -484,7 +484,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                             </>
                           ) : (
                             <>
-                              <div className="h-5 w-5 rounded-full border-2 flex items-center justify-center text-sm font-bold" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>✕</div>
+                              <div className="h-5 w-5 rounded-full border-2 flex items-center justify-center text-sm font-bold" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}></div>
                               <span className="font-bold text-sm" style={{ color: 'var(--error)' }}>
                                 {t("ui.workflows.card.modal.failed")}
                               </span>
@@ -495,8 +495,8 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                     )}
 
                     {/* Workflow Info */}
-                    <div className="border-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-                      <div className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                    <div className="border-2 p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
+                      <div className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                         Workflow: {workflow.name}
                       </div>
                       <div className="text-[10px] space-y-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -527,7 +527,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
               </div>
 
               {/* Footer */}
-              <div className="border-t-4 px-4 py-3 flex flex-col gap-2" style={{ borderColor: 'var(--win95-border)' }}>
+              <div className="border-t-4 px-4 py-3 flex flex-col gap-2" style={{ borderColor: 'var(--window-document-border)' }}>
                 {createdInvoiceId && (
                   <button
                     onClick={() => {
@@ -536,7 +536,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                         t("ui.workflows.card.modal.viewInvoice.message", { invoiceNumber: createdInvoiceNumber || '' })
                       );
                     }}
-                    className="retro-button inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-bold w-full"
+                    className="desktop-interior-button inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-bold w-full"
                     style={{ background: 'var(--success)', color: 'white' }}
                   >
                     <ExternalLink className="h-3 w-3" />
@@ -546,7 +546,7 @@ export function WorkflowCard({ workflow, sessionId, onEdit }: WorkflowCardProps)
                 {executionLogs && executionLogs.logs.length > 0 && (
                   <button
                     onClick={handleExportLogs}
-                    className="retro-button inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-bold w-full"
+                    className="desktop-interior-button inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-bold w-full"
                   >
                     <Download className="h-3 w-3" />
                     {t("ui.workflows.card.modal.exportLogs")}

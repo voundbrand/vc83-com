@@ -11,7 +11,21 @@ import {
   ChevronDown,
   PlayCircle,
   CheckCircle,
-  SkipForward
+  SkipForward,
+  BookOpen,
+  Sparkles,
+  Shield,
+  Users,
+  Rocket,
+  Library,
+  Zap,
+  Monitor,
+  Star,
+  Globe,
+  Plug,
+  KeyRound,
+  LockOpen,
+  LogIn
 } from "lucide-react";
 
 interface TutorialsDocsWindowProps {
@@ -24,7 +38,7 @@ type ContentType = "tutorial" | "doc";
 interface TreeNode {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   type: ContentType;
   children?: TreeNode[];
   content?: {
@@ -87,18 +101,18 @@ export function TutorialsDocsWindow({
     {
       id: "tutorials",
       label: "Tutorials",
-      icon: "📚",
+      icon: <BookOpen className="h-4 w-4" />,
       type: "tutorial",
       children: [
         {
           id: "tutorial-welcome",
           label: "Welcome to l4yercak3",
-          icon: "🎂",
+          icon: <Sparkles className="h-4 w-4" />,
           type: "tutorial",
           content: {
             title: "Welcome to l4yercak3",
             description: "Get started with your retro workflow platform",
-            body: `Welcome to l4yercak3! 🎂
+            body: `Welcome to l4yercak3! 
 
 Let's get you set up with l4yercak3 in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.
 
@@ -125,12 +139,12 @@ Click "Start Interactive Tutorial" below to begin!`
         {
           id: "tutorial-oauth-setup",
           label: "OAuth Setup for Portals",
-          icon: "🔐",
+          icon: <Shield className="h-4 w-4" />,
           type: "tutorial",
           content: {
             title: "OAuth Setup for Portals",
             description: "Secure authentication for your deployed portals",
-            body: `OAuth Setup Tutorial 🔐
+            body: `OAuth Setup Tutorial 
 
 Learn how to set up OAuth 2.0 authentication for your freelancer portal in just a few minutes.
 
@@ -140,13 +154,13 @@ OAuth 2.0 is an industry-standard protocol that allows your contacts to securely
 
 BENEFITS
 
-  ✅ No Password Management
+   No Password Management
      Contacts log in with Google/Microsoft
 
-  🔐 Enhanced Security
+   Enhanced Security
      Industry-standard authentication
 
-  ⚡ Quick Setup
+   Quick Setup
      Takes just 2 minutes to configure
 
 TUTORIAL STEPS
@@ -185,12 +199,12 @@ Click "Start Interactive Tutorial" below to configure OAuth for your next portal
         {
           id: "tutorial-crm-basics",
           label: "CRM Basics",
-          icon: "👥",
+          icon: <Users className="h-4 w-4" />,
           type: "tutorial",
           content: {
             title: "CRM Basics",
             description: "Manage contacts and client relationships",
-            body: `CRM Basics Tutorial 👥
+            body: `CRM Basics Tutorial 
 
 Learn how to use the l4yercak3 CRM to manage your contacts and client relationships.
 
@@ -208,12 +222,12 @@ Click "Start Interactive Tutorial" below to begin learning CRM fundamentals!`
         {
           id: "tutorial-portal-deployment",
           label: "Deploying Your First Portal",
-          icon: "🚀",
+          icon: <Rocket className="h-4 w-4" />,
           type: "tutorial",
           content: {
             title: "Deploying Your First Portal",
             description: "Deploy a client-facing freelancer portal",
-            body: `Deploying Your First Portal 🚀
+            body: `Deploying Your First Portal 
 
 Learn how to deploy a professional client portal for your freelance business.
 
@@ -238,16 +252,16 @@ PORTAL FEATURES
 
 Your deployed portal includes:
 
-  📊 Dashboard
+   Dashboard
      Overview of projects and invoices
 
-  💼 Projects
+   Projects
      View assigned projects and milestones
 
-  🧾 Invoices
+   Invoices
      See billing and payment status
 
-  👤 Profile
+   Profile
      Update contact information
 
 Click "Start Interactive Tutorial" below to deploy your first portal!`
@@ -258,23 +272,23 @@ Click "Start Interactive Tutorial" below to deploy your first portal!`
     {
       id: "docs",
       label: "Documentation",
-      icon: "📖",
+      icon: <Library className="h-4 w-4" />,
       type: "doc",
       children: [
         {
           id: "docs-getting-started",
           label: "Getting Started",
-          icon: "🚀",
+          icon: <Rocket className="h-4 w-4" />,
           type: "doc",
           children: [
             {
               id: "doc-quick-start",
               label: "Quick Start Guide",
-              icon: "⚡",
+              icon: <Zap className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "Quick Start Guide",
-                body: `Quick Start Guide ⚡
+                body: `Quick Start Guide 
 
 Get up and running with l4yercak3 in 5 minutes.
 
@@ -310,27 +324,27 @@ STEP 5: INVITE YOUR CONTACT
   3. Your contact receives an email invitation
   4. They can now log in and see their projects/invoices
 
-That's it! You're ready to start using l4yercak3. 🎉`
+That's it! You're ready to start using l4yercak3. `
               }
             },
             {
               id: "doc-system-requirements",
               label: "System Requirements",
-              icon: "💻",
+              icon: <Monitor className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "System Requirements",
                 body: `
-## System Requirements 💻
+## System Requirements 
 
 ### Browser Support
 
 l4yercak3 works best on modern browsers:
 
-- ✅ **Chrome** 90+ (recommended)
-- ✅ **Firefox** 88+
-- ✅ **Safari** 14+
-- ✅ **Edge** 90+
+-  **Chrome** 90+ (recommended)
+-  **Firefox** 88+
+-  **Safari** 14+
+-  **Edge** 90+
 
 ### Screen Resolution
 
@@ -361,18 +375,18 @@ No special requirements - if you can browse the web, you can use l4yercak3!
         {
           id: "docs-features",
           label: "Features",
-          icon: "✨",
+          icon: <Star className="h-4 w-4" />,
           type: "doc",
           children: [
             {
               id: "doc-crm",
               label: "CRM System",
-              icon: "👥",
+              icon: <Users className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "CRM System",
                 body: `
-## CRM System 👥
+## CRM System 
 
 Manage your contacts and client relationships with the built-in CRM.
 
@@ -408,12 +422,12 @@ Open the **CRM** window from your desktop or app menu.
             {
               id: "doc-oauth",
               label: "OAuth Authentication",
-              icon: "🔐",
+              icon: <Shield className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "OAuth Authentication",
                 body: `
-## OAuth Authentication 🔐
+## OAuth Authentication 
 
 Secure, industry-standard authentication for your deployed portals.
 
@@ -432,10 +446,10 @@ OAuth 2.0 is a protocol that allows users to log in using their existing Google 
 
 ### Benefits
 
-- ✅ No passwords to manage
-- ✅ Industry-standard security
-- ✅ Automatic security updates
-- ✅ Familiar login experience
+-  No passwords to manage
+-  Industry-standard security
+-  Automatic security updates
+-  Familiar login experience
 
 ### Supported Providers
 
@@ -461,12 +475,12 @@ Follow the **OAuth Setup Tutorial** to configure OAuth for your portal.
             {
               id: "doc-portals",
               label: "Client Portals",
-              icon: "🌐",
+              icon: <Globe className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "Client Portals",
                 body: `
-## Client Portals 🌐
+## Client Portals 
 
 Deploy professional client-facing portals for your freelance business.
 
@@ -527,18 +541,18 @@ All data is scoped to each contact - they only see their own information.
         {
           id: "docs-api",
           label: "API Reference",
-          icon: "🔌",
+          icon: <Plug className="h-4 w-4" />,
           type: "doc",
           children: [
             {
               id: "doc-api-keys",
               label: "API Keys",
-              icon: "🔑",
+              icon: <KeyRound className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "API Keys",
                 body: `
-## API Keys 🔑
+## API Keys 
 
 Authenticate API requests and connect templates to your l4yercak3 backend.
 
@@ -567,10 +581,10 @@ Example: \`sk_live_abc123def456ghi789...\`
 
 ### Security Best Practices
 
-- ✅ **Never commit keys to Git** - Use environment variables
-- ✅ **Regenerate if compromised** - Create new key, delete old one
-- ✅ **Use different keys per environment** - Dev, staging, production
-- ✅ **Rotate keys periodically** - Regenerate every 90 days
+-  **Never commit keys to Git** - Use environment variables
+-  **Regenerate if compromised** - Create new key, delete old one
+-  **Use different keys per environment** - Dev, staging, production
+-  **Rotate keys periodically** - Regenerate every 90 days
 
 ### Usage
 
@@ -611,12 +625,12 @@ Any requests using the old key will fail.
             {
               id: "doc-oauth-scopes",
               label: "OAuth Scopes",
-              icon: "🔓",
+              icon: <LockOpen className="h-4 w-4" />,
               type: "doc",
               content: {
                 title: "OAuth Scopes",
                 body: `
-## OAuth Scopes 🔓
+## OAuth Scopes 
 
 Control granular access to different parts of your API.
 
@@ -650,7 +664,7 @@ Scopes define what data an OAuth application can access. For example:
 
 **Organization**
 - \`org:read\` - View org settings
-- \`org:write\` - Update org settings ⚠️
+- \`org:write\` - Update org settings 
 
 **Workflows**
 - \`workflows:read\` - View workflows
@@ -670,14 +684,14 @@ Space-separated list.
 ### Dangerous Scopes
 
 Some scopes require extra confirmation:
-- ⚠️ \`org:write\` - Can modify organization settings
-- ⚠️ \`sub_org:manage\` - Can manage sub-organizations
+-  \`org:write\` - Can modify organization settings
+-  \`sub_org:manage\` - Can manage sub-organizations
 
 ### Best Practices
 
-- ✅ Request minimum scopes needed
-- ✅ Explain why you need each scope
-- ✅ Never request \`org:write\` unless absolutely necessary
+-  Request minimum scopes needed
+-  Explain why you need each scope
+-  Never request \`org:write\` unless absolutely necessary
                 `.trim()
               }
             }
@@ -794,7 +808,10 @@ Some scopes require extra confirmation:
                     }}
                   >
                     <p className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
-                      🔐 Sign In Required
+                      <span className="inline-flex items-center gap-1">
+                        <LogIn className="h-4 w-4" />
+                        Sign In Required
+                      </span>
                     </p>
                     <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
                       Please sign in to start interactive tutorials and track your progress.
@@ -811,7 +828,7 @@ Some scopes require extra confirmation:
                             { x: 250, y: 100 },
                             { width: 450, height: 680 },
                             'ui.app.user_account',
-                            '👤'
+                            undefined
                           );
                         });
                       }}
@@ -854,7 +871,7 @@ Some scopes require extra confirmation:
                               { x: 150, y: 100 },
                               { width: 900, height: 650 },
                               'ui.windows.integrations.title',
-                              '🔗'
+                              undefined
                             );
                             // Bring the integrations window to front
                             setTimeout(() => focusWindow("integrations"), 50);
@@ -886,7 +903,7 @@ Some scopes require extra confirmation:
                           { x: 250, y: 80 },
                           { width: 800, height: 650 },
                           undefined,
-                          "🎂"
+                          undefined
                         );
                       });
                     }}
@@ -903,7 +920,9 @@ Some scopes require extra confirmation:
           /* Empty State */
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center space-y-4">
-              <div className="text-6xl">📚</div>
+              <div className="flex justify-center">
+                <BookOpen className="h-12 w-12" style={{ color: 'var(--win95-highlight)' }} />
+              </div>
               <div>
                 <h3 className="font-bold text-lg mb-2" style={{ color: 'var(--win95-text)' }}>
                   Welcome to Tutorials & Docs

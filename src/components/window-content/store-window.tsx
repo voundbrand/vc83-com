@@ -4,7 +4,6 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useQuery, useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import {
   ShoppingCart,
@@ -16,6 +15,12 @@ import { useState, useEffect, lazy } from "react";
 import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
 import { StorePlanCards } from "./store/store-plan-cards";
 import { StoreCreditSection } from "./store/store-credit-section";
+import {
+  InteriorHeader,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 const PurchaseResultWindow = lazy(() =>
   import("@/components/window-content/purchase-result-window").then(m => ({ default: m.PurchaseResultWindow }))
@@ -36,6 +41,17 @@ interface StoreWindowProps {
   fullScreen?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { api: apiRefs } = require("../../../convex/_generated/api") as { api: any };
+
+const getOrganizationByIdQuery = apiRefs.organizations.getById;
+const getLicenseQuery = apiRefs.licensing.helpers.getLicense;
+const managePlatformSubscriptionAction = apiRefs.stripe.platformCheckout.managePlatformSubscription;
+const getSubscriptionStatusAction = apiRefs.stripe.platformCheckout.getSubscriptionStatus;
+const cancelPendingDowngradeAction = apiRefs.stripe.platformCheckout.cancelPendingDowngrade;
+const createPlatformCheckoutAction = apiRefs.stripe.platformCheckout.createPlatformCheckoutSession;
+const createCreditCheckoutAction = apiRefs.stripe.creditCheckout.createCreditCheckoutSession;
+
 export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
   const { t } = useNamespaceTranslations("ui.store");
   const { openWindow } = useWindowManager();
@@ -45,28 +61,31 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
   // Organization context
   const { sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
+  const organizationId = currentOrganization?.id as Id<"organizations"> | undefined;
+  const organizationQueryArgs =
+    organizationId && sessionId
+      ? { organizationId, sessionId }
+      : "skip";
   const organization = useQuery(
-    api.organizations.getById,
-    currentOrganization?.id && sessionId
-      ? { organizationId: currentOrganization.id as Id<"organizations">, sessionId }
-      : "skip"
+    getOrganizationByIdQuery,
+    organizationQueryArgs
   );
 
   // License for plan tier
   const license = useQuery(
-    api.licensing.helpers.getLicense,
-    currentOrganization?.id ? { organizationId: currentOrganization.id as Id<"organizations"> } : "skip"
+    getLicenseQuery,
+    organizationId ? { organizationId } : "skip"
   );
 
   const currentPlan = license?.planTier || "free";
   const hasActiveSubscription = !!organization?.stripeSubscriptionId;
 
   // Subscription management actions
-  const managePlatformSubscription = useAction(api.stripe.platformCheckout.managePlatformSubscription);
-  const getSubscriptionStatus = useAction(api.stripe.platformCheckout.getSubscriptionStatus);
-  const cancelPendingDowngrade = useAction(api.stripe.platformCheckout.cancelPendingDowngrade);
-  const createPlatformCheckout = useAction(api.stripe.platformCheckout.createPlatformCheckoutSession);
-  const createCreditCheckout = useAction(api.stripe.creditCheckout.createCreditCheckoutSession);
+  const managePlatformSubscription = useAction(managePlatformSubscriptionAction);
+  const getSubscriptionStatus = useAction(getSubscriptionStatusAction);
+  const cancelPendingDowngrade = useAction(cancelPendingDowngradeAction);
+  const createPlatformCheckout = useAction(createPlatformCheckoutAction);
+  const createCreditCheckout = useAction(createCreditCheckoutAction);
 
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
   const [isCreditProcessing, setIsCreditProcessing] = useState(false);
@@ -112,7 +131,7 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
       { x: 300, y: 80 },
       { width: 600, height: 650 },
       undefined,
-      "🏷️"
+      undefined
     );
   };
 
@@ -260,45 +279,39 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
 
   return (
     <>
-      <div className="h-full flex flex-col" style={{ background: "var(--win95-bg)" }}>
+      <InteriorRoot className="h-full flex flex-col">
         {/* Header */}
-        <div
-          className="px-4 py-3 border-b"
-          style={{
-            background: "linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
-            borderColor: "var(--win95-border)",
-          }}
-        >
+        <InteriorHeader className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {fullScreen && (
                 <Link
                   href="/"
-                  className="p-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  className="desktop-interior-button inline-flex h-9 w-9 items-center justify-center p-0"
                   title="Back to Desktop"
                 >
-                  <ArrowLeft className="w-4 h-4 text-white" />
+                  <ArrowLeft className="w-4 h-4" />
                 </Link>
               )}
               <div>
-                <h2 className="font-pixel text-sm text-white flex items-center gap-2">
+                <InteriorTitle className="text-sm flex items-center gap-2">
                   <ShoppingCart className="w-4 h-4" />
                   {t("ui.store.title")}
-                </h2>
-                <p className="text-xs mt-1 text-white/80">{t("ui.store.subtitle")}</p>
+                </InteriorTitle>
+                <InteriorSubtitle className="mt-1 text-xs">{t("ui.store.subtitle")}</InteriorSubtitle>
               </div>
             </div>
             {!fullScreen && (
               <Link
                 href="/store"
-                className="p-1.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                className="desktop-interior-button inline-flex h-9 w-9 items-center justify-center p-0"
                 title="Open Full Screen"
               >
-                <Maximize2 className="w-4 h-4 text-white" />
+                <Maximize2 className="w-4 h-4" />
               </Link>
             )}
           </div>
-        </div>
+        </InteriorHeader>
 
         {/* Subscription Message */}
         {subscriptionMessage && (
@@ -315,7 +328,7 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-8">
+        <div className="flex-1 overflow-y-auto p-4 space-y-8" style={{ background: "var(--window-document-bg)" }}>
           {/* Plan Cards */}
           <StorePlanCards
             currentPlan={currentPlan}
@@ -339,7 +352,7 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
             isProcessing={isCreditProcessing}
           />
         </div>
-      </div>
+      </InteriorRoot>
 
       {/* Enterprise Contact Modal */}
       <EnterpriseContactModal

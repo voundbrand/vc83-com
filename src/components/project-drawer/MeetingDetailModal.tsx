@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { X, ArrowLeft, Calendar, Clock, Loader2 } from "lucide-react";
+import { X, ArrowLeft, Calendar, Clock, Loader2, FileText, ClipboardList, Clapperboard, Paperclip } from "lucide-react";
 import { useProjectDrawer } from "./ProjectDrawerProvider";
 import { useMeetingDetails } from "./hooks/useMeetingDetails";
 import { MeetingNotes } from "./MeetingNotes";
@@ -136,7 +136,8 @@ export function MeetingDetailModal() {
                 {meeting.customProperties.summary && (
                   <section>
                     <h3 className="flex items-center gap-2 mb-2 text-sm font-semibold text-gray-700">
-                      📝 Zusammenfassung
+                      <FileText className="w-4 h-4" />
+                      Zusammenfassung
                     </h3>
                     <p className="text-gray-600">
                       {meeting.customProperties.summary}
@@ -150,7 +151,8 @@ export function MeetingDetailModal() {
                     <hr style={{ borderColor: themeColors.border }} />
                     <section>
                       <h3 className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
-                        📋 Meeting-Notizen
+                        <ClipboardList className="w-4 h-4" />
+                        Meeting-Notizen
                       </h3>
                       <MeetingNotes notes={meeting.customProperties.notes} />
                     </section>
@@ -163,7 +165,8 @@ export function MeetingDetailModal() {
                     <hr style={{ borderColor: themeColors.border }} />
                     <section>
                       <h3 className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
-                        🎬 Videos
+                        <Clapperboard className="w-4 h-4" />
+                        Videos
                       </h3>
                       <MeetingVideos videos={meeting.videos} />
                     </section>
@@ -176,7 +179,8 @@ export function MeetingDetailModal() {
                     <hr style={{ borderColor: themeColors.border }} />
                     <section>
                       <h3 className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
-                        📎 Dateien
+                        <Paperclip className="w-4 h-4" />
+                        Dateien
                       </h3>
                       <MeetingFiles files={meeting.files} />
                     </section>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ArrowLeft, Github, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Github, ExternalLink, Check, CheckCircle2, AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -136,19 +136,19 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
           >
             <ul className="space-y-2 text-xs" style={{ color: 'var(--win95-text)' }}>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Create and manage deployment repositories</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Sync your published web apps to GitHub</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Enable one-click deployment to Vercel</span>
               </li>
               <li className="flex items-start gap-2">
-                <span>✓</span>
+                <Check size={12} />
                 <span>Version control for your projects</span>
               </li>
             </ul>
@@ -164,7 +164,10 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
           }}
         >
           <p className="text-xs font-bold mb-1" style={{ color: '#4338CA' }}>
-            ✨ Available on Free Tier
+            <span className="inline-flex items-center gap-1">
+              <Sparkles size={12} />
+              Available on Free Tier
+            </span>
           </p>
           <p className="text-xs" style={{ color: '#4338CA' }}>
             GitHub integration is included with all tiers, including Free. No upgrade required!

@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { RetroButton } from "@/components/retro-button";
 import { useAuth } from "@/hooks/use-auth";
-import { ChevronLeft, ChevronRight, Check, SkipForward } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, SkipForward, BookOpen } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface TutorialStep {
@@ -46,37 +46,37 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
       name: "Welcome to l4yercak3",
       steps: [
         {
-          title: "Welcome! 🎂",
+          title: "Welcome",
           description: "Let's get you set up with l4yercak3 in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.",
           action: null,
         },
         {
-          title: "Your API Key 🔑",
+          title: "Your API Key",
           description: "Your API key connects your templates to the l4yercak3 backend. You can find it anytime in Settings > API Keys. When you download a template, you'll add this key to your .env.local file.",
           action: "view_api_keys",
         },
         {
-          title: "Download a Template 📄",
+          title: "Download a Template",
           description: "Templates are pre-built websites that connect to your backend instantly. Start with the Freelancer Portal template - it includes a client dashboard, invoicing, and project management. Deploy it to Vercel for free!",
           action: "view_templates",
         },
         {
-          title: "Add Your First Contact 👤",
+          title: "Add Your First Contact",
           description: "The CRM helps you manage clients and prospects. Add contact information, track interactions, and organize your relationships. Let's add your first contact now.",
           action: "open_crm",
         },
         {
-          title: "Create a Project 💼",
+          title: "Create a Project",
           description: "Projects help you organize work for your clients. Track deliverables, deadlines, and budgets all in one place. Create your first project to get started.",
           action: "open_projects",
         },
         {
-          title: "Send an Invoice 🧾",
+          title: "Send an Invoice",
           description: "The invoicing system lets you bill clients directly from the platform. Create professional invoices with line items, taxes, and payment tracking. Try creating your first invoice!",
           action: "open_invoicing",
         },
         {
-          title: "You're All Set! 🎉",
+          title: "You're All Set",
           description: "Great job! You now know the basics of l4yercak3. Explore the platform and remember - you can always access tutorials from Settings > Tutorials. Happy building!",
           action: null,
         },
@@ -232,7 +232,7 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
         style={{ borderColor: 'var(--win95-border)' }}
       >
         <div className="flex items-center gap-3">
-          <div className="text-2xl">🎂</div>
+          <BookOpen className="h-6 w-6" style={{ color: "var(--win95-highlight)" }} />
           <div>
             <h2 className="font-pixel text-sm" style={{ color: 'var(--win95-text)' }}>
               {tutorial.name}
@@ -354,7 +354,7 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
           background: 'var(--win95-bg-light)'
         }}
       >
-        💡 You can restart this tutorial anytime from Settings → Tutorials
+        Tip: You can restart this tutorial anytime from Settings -&gt; Tutorials
       </div>
     </div>
   );
@@ -365,11 +365,11 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
  */
 function getActionButtonText(action: string): string {
   const actionTexts: Record<string, string> = {
-    view_api_keys: "📋 View My API Keys",
-    view_templates: "📄 Browse Templates",
-    open_crm: "👥 Open CRM",
-    open_projects: "💼 Open Projects",
-    open_invoicing: "🧾 Open Invoicing",
+    view_api_keys: "View My API Keys",
+    view_templates: "Browse Templates",
+    open_crm: "Open CRM",
+    open_projects: "Open Projects",
+    open_invoicing: "Open Invoicing",
   };
 
   return actionTexts[action] || "Continue";
