@@ -111,6 +111,182 @@ export const seed = internalMutation({
           ja: "ログアウト",
         }
       },
+      {
+        key: "ui.start_menu.org_switcher.currently",
+        values: {
+          en: "Currently: {orgName}",
+          de: "Aktuell: {orgName}",
+          pl: "Obecnie: {orgName}",
+          es: "Actualmente: {orgName}",
+          fr: "Actuellement : {orgName}",
+          ja: "現在: {orgName}",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.no_organizations_available",
+        values: {
+          en: "No organizations available",
+          de: "Keine Organisationen verfügbar",
+          pl: "Brak dostępnych organizacji",
+          es: "No hay organizaciones disponibles",
+          fr: "Aucune organisation disponible",
+          ja: "利用可能な組織がありません",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.mode_platform",
+        values: {
+          en: "Platform Org",
+          de: "Plattform-Org",
+          pl: "Org. platformy",
+          es: "Org. de plataforma",
+          fr: "Org. plateforme",
+          ja: "プラットフォーム組織",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.mode_sub",
+        values: {
+          en: "Sub-Org",
+          de: "Unter-Org",
+          pl: "Podorganizacja",
+          es: "Suborganización",
+          fr: "Sous-organisation",
+          ja: "サブ組織",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.placeholder_sub_name",
+        values: {
+          en: "Sub-organization name...",
+          de: "Name der Unterorganisation...",
+          pl: "Nazwa podorganizacji...",
+          es: "Nombre de la suborganización...",
+          fr: "Nom de la sous-organisation...",
+          ja: "サブ組織名...",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.placeholder_org_name",
+        values: {
+          en: "Organization name...",
+          de: "Name der Organisation...",
+          pl: "Nazwa organizacji...",
+          es: "Nombre de la organización...",
+          fr: "Nom de l'organisation...",
+          ja: "組織名...",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.create_sub_short",
+        values: {
+          en: "Create Sub-Org",
+          de: "Unter-Org erstellen",
+          pl: "Utwórz podorganizację",
+          es: "Crear suborganización",
+          fr: "Créer une sous-organisation",
+          ja: "サブ組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.create_org",
+        values: {
+          en: "Create Organization",
+          de: "Organisation erstellen",
+          pl: "Utwórz organizację",
+          es: "Crear organización",
+          fr: "Créer une organisation",
+          ja: "組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.create_sub",
+        values: {
+          en: "Create Sub-Organization",
+          de: "Unterorganisation erstellen",
+          pl: "Utwórz podorganizację",
+          es: "Crear suborganización",
+          fr: "Créer une sous-organisation",
+          ja: "サブ組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.cancel",
+        values: {
+          en: "Cancel",
+          de: "Abbrechen",
+          pl: "Anuluj",
+          es: "Cancelar",
+          fr: "Annuler",
+          ja: "キャンセル",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.footer_switch_or_new_org",
+        values: {
+          en: "Switch organizations or create a new organization",
+          de: "Organisationen wechseln oder neue Organisation erstellen",
+          pl: "Przełącz organizacje lub utwórz nową organizację",
+          es: "Cambia de organización o crea una nueva",
+          fr: "Changez d'organisation ou créez-en une nouvelle",
+          ja: "組織を切り替えるか、新しい組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.footer_switch_or_sub",
+        values: {
+          en: "Switch organizations or create a new sub-organization",
+          de: "Organisationen wechseln oder neue Unterorganisation erstellen",
+          pl: "Przełącz organizacje lub utwórz nową podorganizację",
+          es: "Cambia de organización o crea una nueva suborganización",
+          fr: "Changez d'organisation ou créez une nouvelle sous-organisation",
+          ja: "組織を切り替えるか、新しいサブ組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.footer_switch_or_platform",
+        values: {
+          en: "Switch organizations or create a new platform organization",
+          de: "Organisationen wechseln oder neue Plattform-Organisation erstellen",
+          pl: "Przełącz organizacje lub utwórz nową organizację platformową",
+          es: "Cambia de organización o crea una nueva organización de plataforma",
+          fr: "Changez d'organisation ou créez une nouvelle organisation de plateforme",
+          ja: "組織を切り替えるか、新しいプラットフォーム組織を作成",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.footer_switch_only",
+        values: {
+          en: "Click an organization to switch",
+          de: "Klicken Sie auf eine Organisation, um zu wechseln",
+          pl: "Kliknij organizację, aby się przełączyć",
+          es: "Haz clic en una organización para cambiar",
+          fr: "Cliquez sur une organisation pour changer",
+          ja: "組織をクリックして切り替え",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.error_create_sub",
+        values: {
+          en: "Failed to create sub-organization",
+          de: "Unterorganisation konnte nicht erstellt werden",
+          pl: "Nie udało się utworzyć podorganizacji",
+          es: "No se pudo crear la suborganización",
+          fr: "Impossible de créer la sous-organisation",
+          ja: "サブ組織の作成に失敗しました",
+        }
+      },
+      {
+        key: "ui.start_menu.org_switcher.error_create_org",
+        values: {
+          en: "Failed to create organization",
+          de: "Organisation konnte nicht erstellt werden",
+          pl: "Nie udało się utworzyć organizacji",
+          es: "No se pudo crear la organización",
+          fr: "Impossible de créer l'organisation",
+          ja: "組織の作成に失敗しました",
+        }
+      },
 
       // === WINDOW/APP TITLES ===
       {
