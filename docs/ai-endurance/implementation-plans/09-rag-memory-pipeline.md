@@ -1,11 +1,13 @@
 # 09 Implementation Plan: RAG and Organization Memory Pipeline
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Turn organization memory into a durable moat by adopting a practical five-layer memory architecture and wiring it into the live agent runtime with strict tenant safety, token budgets, and measurable quality.
 
 Primary design input:
-- `docs/agentic_system/MEMORY_ENGINE_DESIGN.md`
+- `docs/platform/MEMORY_ENGINE_DESIGN.md`
 
 ---
 
@@ -41,6 +43,22 @@ Adjust:
   - `convex/schemas/coreSchemas.ts` (`organizationMedia.documentContent`, `tags`)
   - `convex/organizationMedia.ts`
 - `organizationMedia.getKnowledgeBaseDocsInternal` is referenced in AI runtime but not exported yet.
+
+---
+
+## Gaps
+
+- No production memory composer with deterministic multi-layer ordering.
+- KB retrieval path in `agentExecution.ts` still has a TODO seam.
+- Rolling summaries, operator notes, and structured memory extraction are incomplete.
+- Guardrails for token budget, tenant safety, and memory quality telemetry are not fully unified.
+
+## Target state
+
+- Five-layer memory architecture is implemented in runtime with deterministic ordering.
+- Memory and KB retrieval run through shared composer and strict tenant-aware scoping.
+- Budgeting is model-aware and observable with explicit per-layer telemetry.
+- Operator notes and structured memory flows are governed by RBAC and validation checks.
 
 ---
 

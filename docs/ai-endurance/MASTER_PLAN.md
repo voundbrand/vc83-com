@@ -1,416 +1,137 @@
 # AI Endurance Master Plan
 
-**Date:** 2026-02-16  
-**Scope:** Make `vc83-com` durable against rapid AI model, provider, and tooling changes while improving development throughput with Codex.
+**Date:** 2026-02-17  
+**Scope:** Keep `vc83-com` durable under rapid model/provider/tool changes while scaling from single-agent behavior to reliable multi-agent coordination.
 
 ---
 
-## 0. Deep-Dive Plans
+## 0. Planning surfaces
 
-Detailed per-topic implementation plans are indexed in:
-- `docs/ai-endurance/INDEX.md`
-
-Use `MASTER_PLAN.md` for high-level sequencing and `INDEX.md` + `implementation-plans/` for deep implementation detail.
+- Queue-first execution: `docs/ai-endurance/TASK_QUEUE.md`
+- Session lane prompts: `docs/ai-endurance/SESSION_PROMPTS.md`
+- Deep-dive plans: `docs/ai-endurance/INDEX.md`
+- Baseline audit: `docs/ai-endurance/IMPLEMENTATION_BASELINE_AUDIT.md`
 
 ---
 
 ## 1. Mission
 
-Build an AI system that survives model churn by treating models as replaceable and our platform primitives as stable.
-
-In practice:
-- Models can change weekly.
-- Tool contracts, data contracts, and execution policy must stay stable.
-- Reliability, security, and cost controls must be enforced in one control plane.
+Build a model-agnostic AI platform where runtime coordination, memory, safety policy, and operability remain stable even as models and providers change.
 
 ---
 
-## 2. Current Baseline (Reality Check)
+## 2. Current baseline
 
-What is already strong:
-- Composition architecture exists (`knowledge + recipes + skills`) in `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`.
-- Centralized tool registry and execution pipeline exist in `convex/ai/tools/registry.ts` and `convex/ai/agentExecution.ts`.
-- Layered tool scoping exists in `convex/ai/toolScoping.ts`.
-- Model discovery and platform enablement exist in `convex/ai/modelDiscovery.ts` and `convex/ai/platformModels.ts`.
+Delivered and hardened:
+- Policy/cost/failover/stickiness foundation (Plans 05-08).
+- RAG v1 + contracts + observability + approval durability (Plans 09-12).
+- Production closure lane completed (`WSG-*`).
 
-Current gaps to close first:
-- Chat path still uses legacy model field (`settings.llm.model`) in `convex/ai/chat.ts`.
-- Cost estimation is hardcoded in `convex/ai/openrouter.ts`.
-- Model fallback chain is hardcoded in `convex/ai/retryPolicy.ts`.
-- Knowledge-base retrieval in agent runtime is still TODO in `convex/ai/agentExecution.ts`.
+Open and re-activated in this wave:
+- Residual unfinished seams in Plans 01/02/03/04/13.
+- CommonGround borrow implementation (Plans 14-15).
+- Harness/memory/soul unification and operability closure (Plans 16-20).
+- Hotspot refactor wave v2 (Plan 21).
 
 ---
 
-## 3. Endurance Principles
+## 3. Endurance principles
 
-1. **Model-agnostic core**  
-   Business logic never depends on a specific model id.
-
-2. **Stable tool contracts**  
-   Every tool has a versioned input/output contract and compatibility tests.
-
-3. **Single policy router**  
-   Model selection, fallback, pricing, quotas, and gating are resolved in one place.
-
-4. **Memory over prompt size**  
-   Use retrieval and structure, not giant prompts.
-
-5. **Human override always available**  
-   Escalation and approval are first-class, not emergency patches.
-
-6. **Observe everything**  
-   Track success, failure, cost, latency, and tool correctness before broad rollout.
+1. **Protocol over heuristics**: coordination state is explicit and replay-safe.
+2. **Model-agnostic core**: business behavior is not tied to a model ID.
+3. **Stable tool contracts**: tool interfaces are versioned, tested, and policy-gated.
+4. **Memory over prompt bloat**: retrieval and structure beat giant static prompts.
+5. **Human-as-agent participation**: approvals/escalations are first-class runtime states.
+6. **Operability by default**: alerts map to runbooks with clear owners.
 
 ---
 
 ## 4. Workstreams
 
-## WS1: LLM Policy Control Plane
-
-**Goal:** One runtime decision engine for model selection and failover across chat and agent pipelines.
-
-**Primary targets:**
-- `convex/ai/chat.ts`
-- `convex/ai/agentExecution.ts`
-- `convex/ai/settings.ts`
-- `convex/ai/platformModels.ts`
-- `convex/ai/retryPolicy.ts`
-
-**Deliverables:**
-- Replace legacy chat model resolution with `enabledModels/defaultModelId`.
-- Validate selected model against platform-enabled models.
-- Centralize fallback and retry policy in a shared resolver.
-- Add per-session model pinning logic.
-
----
-
-## WS2: Pricing and Cost Integrity
-
-**Goal:** Remove static pricing assumptions and use discovered model metadata.
-
-**Primary targets:**
-- `convex/ai/openrouter.ts`
-- `convex/ai/modelDiscovery.ts`
-- `convex/schemas/aiSchemas.ts`
-
-**Deliverables:**
-- Replace hardcoded `COST_PER_MILLION` table with database-backed pricing.
-- Add fallback behavior when pricing is missing (safe defaults + warning).
-- Ensure reported spend and credit deductions use consistent pricing source.
+| Workstream | Plans | Status | Queue lanes |
+|---|---|---|---|
+| WS1 Policy control plane | 05 | `DONE` | Archive (`WS1-*`) |
+| WS2 Pricing/cost integrity | 06 | `DONE` | Archive (`WS2-*`) |
+| WS3 Tool contract reliability | 10 | `DONE` | Archive (`WS3-*`) |
+| WS4 Knowledge pipeline v1 | 09 | `DONE` | Archive (`WS4-*`) |
+| WS5 Observability/SLOs v1 | 11 | `DONE` | Archive (`WS5-*`) |
+| WS6 Security/refactor seam v1 | 13 | `PARTIAL (residual)` | `WSK-07` |
+| WS7 Coordination kernel | 14 | `OPEN` | `WSH-01..WSH-04` |
+| WS8 Receipts + idempotency contract | 15 | `OPEN` | `WSH-05..WSH-07` |
+| WS9 Harness/team semantics | 16 | `OPEN` | `WSI-01..WSI-03` |
+| WS10 Core memory + semantic retrieval | 17, 18 | `OPEN` | `WSJ-01..WSJ-06` |
+| WS11 Soul-loop drift unification | 19 | `OPEN` | `WSI-04..WSI-06` |
+| WS12 Operability + residual closure | 20 + residual 01/02/03/04/13 | `OPEN` | `WSK-01..WSK-07` |
+| WS13 Hotspot refactor v2 | 21 | `OPEN` | `WSL-01..WSL-06` |
 
 ---
 
-## WS3: Tool Contract Reliability
+## 5. Phase plan
 
-**Goal:** Make tool behavior stable across model upgrades.
+## Phase 0-5 (completed baseline)
 
-**Primary targets:**
-- `convex/ai/tools/registry.ts`
-- `convex/ai/toolBroker.ts`
-- `scripts/test-model-validation.ts`
-- `docs/AI_MODEL_VALIDATION_STRATEGY.md`
+- [x] Phase 0: policy unification
+- [x] Phase 1: cost/fallback hardening
+- [x] Phase 2: tool contracts + eval gates
+- [x] Phase 3: knowledge pipeline completion (v1)
+- [x] Phase 4: SLO publication + partial cleanup
+- [x] Phase 5: production closure lane (G)
 
-**Deliverables:**
-- Versioned contract metadata for critical tools.
-- Add compatibility tests for tool argument parsing and multi-turn tool flows.
-- Gate model enablement with pass thresholds from tool reliability tests.
+## Phase 6 (next): Coordination kernel + receipt contract
 
----
+- [ ] Implement explicit turn state machine and lease/CAS semantics (Plan 14).
+- [ ] Move all ingress to receipt-first idempotent contract with terminal deliverable pointer (Plan 15).
 
-## WS4: Knowledge and RAG Completion
+**Exit criteria:** duplicate inbound deliveries cannot create duplicate side effects; runtime progression is turn-driven and replay-safe.
 
-**Goal:** Move from placeholder knowledge flow to production retrieval.
+## Phase 7: Harness/memory/soul integration
 
-**Primary targets:**
-- `convex/ai/agentExecution.ts`
-- `convex/organizationMedia.ts` (and related media retrieval actions)
-- `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`
+- [ ] Wire harness context into runtime and formalize team handoff contract (Plan 16).
+- [ ] Ship core memory anchors through onboarding and soul lifecycle (Plan 17).
+- [ ] Upgrade retrieval to semantic + citation-aware context assembly (Plan 18).
+- [ ] Unify reflection engine and drift-aware soul policy enforcement (Plan 19).
 
-**Deliverables:**
-- Implement actual KB doc retrieval where TODO exists.
-- Add retrieval quality checks and token budget controls.
-- Ensure org-specific knowledge is scoped and auditable.
+**Exit criteria:** one reflection engine, memory anchors are immutable-by-default, semantic retrieval is production with fallback and telemetry.
 
----
+## Phase 8: Operability + residual plan closure
 
-## WS5: Observability and SLOs
+- [ ] Publish and link runbooks for model outage, tool degradation, cost spikes (Plan 20).
+- [ ] Close unfinished seams from Plans 01/02/03/04/13.
 
-**Goal:** Define and enforce objective quality bars.
+**Exit criteria:** all known residual gaps are represented by completed queue tasks and validated in code/docs.
 
-**Primary targets:**
-- `convex/ai/agentSessions.ts`
-- `convex/ai/deadLetterQueue.ts`
-- `convex/ai/platformAlerts.ts`
-- `convex/ai/workItems.ts`
+## Phase 9: Runtime hotspot refactor v2
 
-**Deliverables:**
-- Dashboard/query layer for: tool success rate, fallback rate, model error rate, avg cost/message, escalation rate.
-- SLO alerts for regressions.
-- Weekly reliability review routine.
+- [ ] Characterize current behavior and extract major orchestration seams from `agentExecution.ts` and `chat.ts` (Plan 21).
+
+**Exit criteria:** hotspot modules are decomposed behind tested interfaces with no unintended behavior drift.
 
 ---
 
-## WS6: Security and Refactor Debt
+## 6. CommonGround borrow policy
 
-**Goal:** Reduce fragility in AI-critical paths.
+Borrow only kernel-level protocol concepts that strengthen determinism in this codebase:
 
-**Primary references:**
-- `docs/REFACTORY/00-OVERVIEW.md`
-- `docs/REFACTORY/03-SECURITY-ISSUES.md`
+- Explicit turn state machine and lease semantics.
+- Durable inbox receipts + idempotency keys.
+- One terminal deliverable contract per turn.
+- Replay-safe operational query surface.
 
-**Deliverables:**
-- Keep AI-sensitive files modular and testable.
-- Reduce large-file hotspots in critical AI paths.
-- Close any open security issues impacting AI workflows.
+Do not copy framework assumptions directly; adapt to Convex runtime, current schemas, and existing product behavior.
 
----
-
-## 5. Phase Plan (8 Weeks)
-
-## Phase 0 (Week 1): Foundation and Policy Unification
-
-- [ ] Introduce shared model policy resolver (chat + agent).
-- [ ] Migrate chat runtime off legacy single-model field.
-- [ ] Enforce platform-enabled model validation in runtime path.
-- [ ] Add tests for model selection edge cases.
-
-**Exit criteria:** Chat and agent both use the same model policy source.
-
-## Phase 1 (Week 2): Cost and Fallback Hardening
-
-- [ ] Replace static pricing in `openrouter.ts`.
-- [ ] Move fallback chain to policy/config data.
-- [ ] Add observability for fallback reasons and frequency.
-
-**Exit criteria:** No hardcoded model cost/fallback in runtime logic.
-
-## Phase 2 (Weeks 3-4): Tool Contract and Eval Gates
-
-- [ ] Add contract versioning metadata for critical tools.
-- [ ] Expand model validation suite to include contract-level checks.
-- [ ] Add release gate: model must pass tool reliability threshold.
-
-**Exit criteria:** Enabling a new model requires passing eval suite.
-
-## Phase 3 (Weeks 5-6): Knowledge Pipeline Completion
-
-- [ ] Implement real KB retrieval in `agentExecution.ts`.
-- [ ] Add retrieval quality metrics and token/cost guardrails.
-- [ ] Validate tenant isolation and tag-scoped retrieval.
-
-**Exit criteria:** Agent knowledge path is production, not TODO.
-
-## Phase 4 (Weeks 7-8): SLOs, Cleanup, and Runbooks
-
-- [ ] Publish AI reliability SLOs and alerts.
-- [ ] Document failure playbooks (model outage, tool degradation, cost spikes).
-- [ ] Refactor remaining high-risk monolith sections in AI path.
-
-**Exit criteria:** Team can operate the system with clear health signals and incident playbooks.
+Reference source folder:
+- `docs/reference_projects/CommonGround/`
 
 ---
 
-## 6. How To Work With Codex (Practical Guide)
+## 7. Delivery loop
 
-Use this exact loop for best results.
+For each queue task:
 
-## Step A: Give one concrete objective
+1. List top 3 regression risks.
+2. Implement smallest viable chunk.
+3. Run row-specific verification commands.
+4. Update `TASK_QUEUE.md` status/notes.
+5. Update `INDEX.md` and this file when plan status changes.
+6. If blocked, log in `BLOCKERS.md` and continue with next promotable task.
 
-Good:
-- “Implement shared model policy resolver for `chat.ts` and `agentExecution.ts`, add tests.”
-
-Bad:
-- “Improve AI architecture.”
-
-## Step B: Require implementation + verification
-
-Template:
-
-```text
-Task: [specific change]
-Constraints: [files, style, no breaking API, etc.]
-Definition of done:
-1) Code changed
-2) Tests added/updated
-3) Relevant test commands executed
-4) Docs updated
-```
-
-## Step C: Ask for risk-first output
-
-Template:
-
-```text
-Before coding, list the top 3 risks/regressions for this change.
-After coding, show:
-- what changed
-- test results
-- any residual risks
-```
-
-## Step D: Keep scope tight (1-2 hour chunks)
-
-Best chunk size:
-- 1 feature
-- 1 bug
-- 1 refactor seam
-- 1 verification run
-
-## Step E: Keep this file updated
-
-After each merged chunk, ask Codex:
-- “Update `docs/ai-endurance/MASTER_PLAN.md` progress checkboxes for completed items.”
-
----
-
-## 7. Prompt Templates You Can Reuse
-
-## Template 1: Build Feature
-
-```text
-Implement [feature] in [files].
-Constraints: [list].
-Definition of done:
-1) Runtime behavior [expected behavior]
-2) Tests: [specific tests]
-3) Update docs: [path]
-Also include a brief regression-risk section.
-```
-
-## Template 2: Refactor Safely
-
-```text
-Refactor [file/module] for [goal] without changing behavior.
-Add characterization tests first, then refactor, then run tests.
-Report any behavior changes you detect.
-```
-
-## Template 3: Reliability Hardening
-
-```text
-Add observability and failure handling for [component].
-I need:
-1) Metrics/logging additions
-2) Alert conditions
-3) One runbook note in docs
-4) Verification steps
-```
-
-## Template 4: Code Review Mode
-
-```text
-Review these changes with a bug-risk focus.
-List findings by severity with file:line references.
-Then list test gaps.
-```
-
----
-
-## 8. First Three Tasks To Run With Codex
-
-1. **Unify model selection runtime**
-- Move chat path from `settings.llm.model` to `enabledModels/defaultModelId`.
-- Validate model against platform-enabled list.
-
-2. **De-hardcode AI cost calculation**
-- Replace static pricing map with `aiModels` lookup.
-- Add safe fallback and warning when model pricing is missing.
-
-3. **Implement agent knowledge retrieval TODO**
-- Wire KB retrieval in `agentExecution.ts`.
-- Add basic tests and guardrails.
-
----
-
-## 8A. Granular Chunk Backlog (Recommended)
-
-Use these as one-by-one Codex tickets. Each chunk is designed to be small enough to complete in a single focused session.
-
-## WS1 Chunks: Model Policy Control Plane (Week 1)
-
-- [ ] **Chunk WS1-01 (60m):** Add `convex/ai/modelPolicy.ts` with pure helpers
-  - `resolveOrgDefaultModel(settings)`
-  - `resolveRequestedModel(settings, selectedModel?)`
-  - `isModelAllowedForOrg(settings, modelId)`
-- [ ] **Chunk WS1-02 (60m):** Add unit tests for policy helpers
-  - New test file under `tests/unit/ai/`
-  - Cover legacy settings fallback + new multi-model settings
-- [ ] **Chunk WS1-03 (60-90m):** Integrate `chat.ts` model resolution through `modelPolicy.ts`
-  - Replace direct `settings.llm.model` usage in runtime path
-- [ ] **Chunk WS1-04 (60m):** Enforce platform-enabled model validation in chat path
-  - Use `platformModels.isModelEnabled`
-  - Add graceful fallback to org default
-- [ ] **Chunk WS1-05 (45-60m):** Add logging for model resolution decisions
-  - Log selected/requested/default/fallback (without secrets)
-- [ ] **Chunk WS1-06 (60-90m):** Align `agentExecution.ts` model selection with same policy module
-  - Remove model selection drift between chat and agent
-
-## WS2 Chunks: Pricing and Cost Integrity (Week 2)
-
-- [ ] **Chunk WS2-01 (60m):** Add `convex/ai/modelPricing.ts` helper
-  - Resolve prompt/completion costs from `aiModels`
-- [ ] **Chunk WS2-02 (60-90m):** Replace static pricing map usage path in `openrouter.ts`
-  - Keep safe fallback with explicit warning
-- [ ] **Chunk WS2-03 (60m):** Add tests for missing-pricing fallback behavior
-- [ ] **Chunk WS2-04 (60-90m):** Ensure chat cost tracking uses same pricing source
-- [ ] **Chunk WS2-05 (60-90m):** Ensure agent session cost and credits align with same pricing source
-
-## WS3 Chunks: Tool Contract Reliability (Week 3+)
-
-- [ ] **Chunk WS3-01 (60m):** Add contract version metadata to top 10 critical tools
-- [ ] **Chunk WS3-02 (90m):** Extend `scripts/test-model-validation.ts` with contract checks
-- [ ] **Chunk WS3-03 (60m):** Add pass/fail gating rule doc in `docs/AI_MODEL_VALIDATION_STRATEGY.md`
-
-## WS4 Chunks: Knowledge Pipeline Completion (Week 3+)
-
-- [ ] **Chunk WS4-01 (60-90m):** Implement real KB retrieval in `agentExecution.ts` where TODO exists
-- [ ] **Chunk WS4-02 (60m):** Add token-budget guardrail for injected KB context
-- [ ] **Chunk WS4-03 (60m):** Add basic retrieval quality telemetry (doc count + bytes + source tags)
-
-## WS5 Chunks: Observability and SLOs (Week 4+)
-
-- [ ] **Chunk WS5-01 (60m):** Add query for model fallback rate
-- [ ] **Chunk WS5-02 (60m):** Add query for tool success/failure ratio
-- [ ] **Chunk WS5-03 (60m):** Add simple SLO doc + alert thresholds
-
-## WS6 Chunks: Refactor and Security Hygiene (Ongoing)
-
-- [ ] **Chunk WS6-01 (60m):** Break one AI monolith function into isolated helper module
-- [ ] **Chunk WS6-02 (60m):** Add regression test for refactored path
-- [ ] **Chunk WS6-03 (45m):** Update docs with changed architecture seam
-
----
-
-## 9. Weekly Execution Cadence
-
-Use this exact cadence to avoid overwhelm:
-
-1. Pick 3 chunks for the week (not more).
-2. Run them sequentially with tests after each.
-3. Update this file checkboxes after each merged chunk.
-4. End week with a 15-minute review:
-   - What shipped
-   - What regressed
-   - What to defer
-
-Rule: unfinished chunks roll forward; do not start new workstreams until current week’s top chunk is done.
-
----
-
-## 10. Progress Tracker
-
-- [ ] WS1 complete
-- [ ] WS2 complete
-- [ ] WS3 complete
-- [ ] WS4 complete
-- [ ] WS5 complete
-- [ ] WS6 complete
-
----
-
-## 11. Ownership Model
-
-- **You:** Set priorities, approve tradeoffs, decide rollout order.
-- **Codex:** Implement tasks end-to-end, run checks, and keep docs current.
-
-If we keep tasks scoped and ship weekly, this plan is executable and will materially improve long-term durability.

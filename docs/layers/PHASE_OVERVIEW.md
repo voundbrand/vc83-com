@@ -138,7 +138,7 @@ After auditing the existing workflow system (`convex/workflows/`, ~4,200 lines, 
 - Async execution queue with retry/circuit breakers
 - Behavior adapter layer (bridges new engine → old behaviors)
 
-See the full analysis in [LAYERS_PRD.md](../agentic_system/LAYERS_PRD.md#architecture-decision-hybrid-execution-engine).
+See the full analysis in [LAYERS_PRD.md](../platform/LAYERS_PRD.md#architecture-decision-hybrid-execution-engine).
 
 ---
 

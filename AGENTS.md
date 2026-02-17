@@ -172,3 +172,44 @@ Your task: [detailed description]
 
 Coordinate with other agents by checking memory BEFORE making decisions.
 ```
+
+---
+
+## Mandatory Queue-First Planning Contract
+
+When the user asks to "create a plan", "break this down", "make a roadmap", or similar planning requests, always produce and/or update queue-first artifacts instead of free-form plans.
+
+Path policy:
+
+- Do not default to `docs/ai-endurance` for unrelated features.
+- Use a per-workstream root folder (`WORKSTREAM_ROOT`) based on the plan context.
+- If a source plan path is provided, set `WORKSTREAM_ROOT` to that plan's directory (or an explicitly requested sibling folder).
+- Place queue artifacts inside `WORKSTREAM_ROOT`.
+
+Required outputs:
+
+1. Update queue:
+   - `WORKSTREAM_ROOT/TASK_QUEUE.md`
+   - Include: queue rules, verification profiles, execution lanes, deterministic task rows, dependency-based status flow.
+
+2. Use deterministic task schema for every row:
+   - `ID`, `Lane`, `Plan`, `Priority`, `Status`, `Depends On`, `Task`, `Primary files`, `Verify`, `Notes`.
+
+3. Update lane prompts:
+   - `WORKSTREAM_ROOT/SESSION_PROMPTS.md`
+   - Ensure one prompt per active lane and clear lane gating/concurrency rules.
+
+4. Sync progress docs in the same workstream folder:
+   - `WORKSTREAM_ROOT/INDEX.md`
+   - `WORKSTREAM_ROOT/MASTER_PLAN.md`
+   - If missing, create minimal versions rather than writing to unrelated folders.
+
+5. Validation:
+   - Run `npm run docs:guard` before returning.
+   - If docs guard fails, fix docs/structure first, then re-run.
+
+Default behavior:
+- Prefer small logical chunks (1-2 hour tasks).
+- Define lane boundaries to minimize overlap and merge conflicts.
+- Put verification commands directly in queue rows.
+- Keep statuses limited to: `READY`, `IN_PROGRESS`, `PENDING`, `BLOCKED`, `DONE`.

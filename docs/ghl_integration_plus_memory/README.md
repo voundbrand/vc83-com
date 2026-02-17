@@ -232,7 +232,7 @@ This folder contains:
 
 1. **[conversation-memory-architecture-whitepaper_V3.docx.md](./conversation-memory-architecture-whitepaper_V3.docx.md)** — Technical foundation & deep dive
 2. **[01_TECHNICAL_ARCHITECTURE.md](./01_TECHNICAL_ARCHITECTURE.md)** — System design, data models, API flows
-3. **[MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md)** — 5-layer memory system specifications (including Layer 3: Operator Pinned Notes)
+3. **[MEMORY_ENGINE_DESIGN.md](../platform/MEMORY_ENGINE_DESIGN.md)** — 5-layer memory system specifications (including Layer 3: Operator Pinned Notes)
 4. **[03_GHL_API_INTEGRATION.md](./03_GHL_API_INTEGRATION.md)** — Webhook handling, API calls, data sync
 5. **[04_IMPLEMENTATION_TIMELINE.md](./04_IMPLEMENTATION_TIMELINE.md)** — 14-week phased development plan
 6. **[05_GTM_STRATEGY.md](./05_GTM_STRATEGY.md)** — Go-to-market, positioning, distribution

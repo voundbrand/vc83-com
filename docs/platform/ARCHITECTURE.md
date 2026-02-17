@@ -93,6 +93,14 @@ If section wording appears ambiguous, the canonical layer document wins.
 
 ---
 
+## Outbound Boundary Seam (2026-02-16)
+
+- Control-plane trigger remains in `convex/ai/agentExecution.ts` (decides if outbound delivery should run).
+- Adapter boundary is now explicit in `convex/ai/outboundDelivery.ts` (provider send + DLQ fallback isolation).
+- Provider protocol execution remains in `convex/channels/router.ts` and `convex/channels/providers/*`.
+
+---
+
 ## Data Model
 
 ### Core Tables

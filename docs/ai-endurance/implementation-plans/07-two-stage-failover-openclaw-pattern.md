@@ -1,5 +1,7 @@
 # 07 Implementation Plan: Two-Stage Failover (OpenClaw Pattern)
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Adopt a two-stage failover architecture:
@@ -7,7 +9,7 @@ Adopt a two-stage failover architecture:
 2) then fallback to next model only when profile pool is exhausted.
 
 This plan translates patterns from:
-- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
+- `docs/platform/OPENCLAW_IDEA_INTEGRATION.md`
 
 ## Current state in this codebase
 

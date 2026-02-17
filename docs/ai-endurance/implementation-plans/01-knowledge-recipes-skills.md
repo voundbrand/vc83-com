@@ -1,12 +1,14 @@
 # 01 Implementation Plan: Knowledge -> Recipes -> Skills
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Make the `knowledge + recipes + skills` model the operational source of truth for AI composition across chat, builder, and agent workflows.
 
 ## Current state in this codebase
 
-- Strategy is documented in `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`.
+- Strategy is documented in `docs/platform/AI_COMPOSITION_PLATFORM.md`.
 - Skills content exists in `convex/ai/systemKnowledge/skills/`.
 - Composition docs exist in `convex/ai/systemKnowledge/composition/`.
 - Runtime loading paths differ by context and are not fully unified (`convex/ai/chat.ts`, `convex/ai/agentExecution.ts`).

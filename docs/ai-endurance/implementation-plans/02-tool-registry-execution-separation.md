@@ -1,5 +1,7 @@
 # 02 Implementation Plan: Tool Registry and Execution Separation
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Keep tool capability stable even when model behavior changes by hardening the contract between model outputs and tool execution.

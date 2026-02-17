@@ -11,7 +11,7 @@ The complete tax integration system is now implemented and ready for use! This i
 
 ## What Was Implemented
 
-### 1. Tax Breakdown Component ([src/components/checkout/tax-breakdown.tsx](../src/components/checkout/tax-breakdown.tsx))
+### 1. Tax Breakdown Component ([src/components/checkout/tax-breakdown.tsx](../../src/components/checkout/tax-breakdown.tsx))
 
 **Two display modes:**
 
@@ -38,7 +38,7 @@ const taxCalculation = calculateTaxFromItems(
 <TaxBreakdown calculation={taxCalculation} showDetails={true} />
 ```
 
-### 2. Updated Payment Form Step ([src/components/checkout/steps/payment-form-step.tsx](../src/components/checkout/steps/payment-form-step.tsx))
+### 2. Updated Payment Form Step ([src/components/checkout/steps/payment-form-step.tsx](../../src/components/checkout/steps/payment-form-step.tsx))
 
 **Enhancements:**
 - Loads organization tax settings via Convex query
@@ -51,7 +51,7 @@ const taxCalculation = calculateTaxFromItems(
 - Real-time display of subtotal, tax, and total
 - Seamless integration with existing checkout flow
 
-### 3. Stripe Checkout Actions ([convex/stripeCheckout.ts](../convex/stripeCheckout.ts))
+### 3. Stripe Checkout Actions ([convex/stripeCheckout.ts](../../convex/stripeCheckout.ts))
 
 **Three new Convex actions:**
 
@@ -89,7 +89,7 @@ Retrieves and validates a Stripe Checkout Session.
 #### `cancelStripeCheckoutSession`
 Expires a Stripe Checkout Session (if not yet completed).
 
-### 4. Tax Settings UI ([src/components/window-content/organizations-window/tax-settings-tab.tsx](../src/components/window-content/organizations-window/tax-settings-tab.tsx))
+### 4. Tax Settings UI (`src/components/window-content/organizations-window/tax-settings-tab.tsx` (legacy path))
 
 **Comprehensive admin interface for tax configuration:**
 
@@ -119,7 +119,7 @@ Expires a Stripe Checkout Session (if not yet completed).
 - Real-time updates via Convex queries
 - Error handling and success messages
 
-### 5. Comprehensive Tests ([src/components/checkout/__tests__/tax-breakdown.test.ts](../src/components/checkout/__tests__/tax-breakdown.test.ts))
+### 5. Comprehensive Tests ([src/components/checkout/__tests__/tax-breakdown.test.ts](../../src/components/checkout/__tests__/tax-breakdown.test.ts))
 
 **Test Coverage:**
 
@@ -492,9 +492,9 @@ const result = await createCheckout({
 
 ## Documentation
 
-- **Tax System Overview**: [docs/TAX_SYSTEM.md](./TAX_SYSTEM.md)
-- **Stripe Tax Integration**: [docs/STRIPE_TAX_INTEGRATION.md](./STRIPE_TAX_INTEGRATION.md)
-- **Payment Providers Architecture**: [docs/PAYMENT_PROVIDERS_ARCHITECTURE.md](./PAYMENT_PROVIDERS_ARCHITECTURE.md)
+- **Tax System Overview**: [docs/reference_docs/billing/tax-system.md](./billing/tax-system.md)
+- **Stripe Tax Integration**: [docs/reference_docs/billing/stripe-tax-integration.md](./billing/stripe-tax-integration.md)
+- **Payment Providers Architecture**: [docs/reference_docs/billing/payment-providers-architecture.md](./billing/payment-providers-architecture.md)
 - **Payment Providers Migration**: [docs/reference_docs/PAYMENT_PROVIDERS_MIGRATION.md](./PAYMENT_PROVIDERS_MIGRATION.md)
 
 ## Next Steps (Optional Enhancements)
@@ -520,7 +520,7 @@ const result = await createCheckout({
 ## Support
 
 For questions or issues:
-1. Check documentation in [docs/](./docs/)
+1. Check documentation in [docs/](./README.md)
 2. Review Stripe Tax documentation: https://stripe.com/docs/tax
 3. Contact development team
 

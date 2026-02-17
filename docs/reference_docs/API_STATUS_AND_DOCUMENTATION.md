@@ -190,7 +190,7 @@ The backend API is **complete and ready**. The frontend team needs to implement 
    - Add client IDs and secrets to `.env.local`
    - Configure redirect URIs
 
-3. **Create NextAuth Route** ✅ Documented in `docs/FRONTEND_OAUTH_SETUP.md`
+3. **Create NextAuth Route** ✅ Documented in `docs/reference_docs/frontend/frontend-oauth-setup.md`
    - File: `app/api/auth/[...nextauth]/route.ts`
    - Configure Google and Microsoft providers
    - Add `signIn` callback to call `/api/v1/auth/sync-user`
@@ -210,7 +210,7 @@ The backend API is **complete and ready**. The frontend team needs to implement 
 
 #### Complete Documentation Available
 
-📖 **See `docs/FRONTEND_OAUTH_SETUP.md`** for:
+📖 **See `docs/reference_docs/frontend/frontend-oauth-setup.md`** for:
 - Step-by-step setup guide
 - Complete code examples
 - OAuth app registration instructions
@@ -809,7 +809,7 @@ Current configuration allows all origins (`*`). For production, this should be r
 - [ ] Optional: Update CORS headers to restrict to frontend domain
 
 **Estimated time:** 2-3 days (frontend only)
-**Documentation:** Complete guide in `docs/FRONTEND_OAUTH_SETUP.md` and `docs/OAUTH_ARCHITECTURE_CLARIFICATION.md`
+**Documentation:** Complete guide in `docs/reference_docs/frontend/frontend-oauth-setup.md` and `docs/reference_docs/api/oauth-architecture-clarification.md`
 
 #### 2. Create Project Management API 🔴 HIGH
 - [ ] Create `/api/v1/projects.ts` endpoint file

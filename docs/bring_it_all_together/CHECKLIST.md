@@ -167,7 +167,7 @@ Things we thought were gaps but are actually DONE:
 ## Phase 4: Make It Professional (Builder-Generated Portal)
 > Docs: [11-BUILDER-PORTAL-TEMPLATE.md](11-BUILDER-PORTAL-TEMPLATE.md), [07-WHITE-LABEL-PORTAL.md](07-WHITE-LABEL-PORTAL.md)
 > Goal: Plumber has branded dashboard deployed to Vercel. Agency sees all clients in-platform.
-> Prototype: `docs/bring_it_all_together/white-label-customer-portal/freelancer-portal-build/`
+> Prototype: `docs/reference_projects/bring_it_all_together_assets/white-label-customer-portal/freelancer-portal-build/`
 >
 > **Approach change (2026-02-02):** Portal is builder-generated + deployed to Vercel, not built inside the platform. Uses existing connect + scaffold + deploy pipeline. See doc 11 for full architecture.
 
@@ -346,7 +346,7 @@ Things we thought were gaps but are actually DONE:
 | Scaffold Generator | `src/lib/scaffold-generators/thin-client.ts` | 800+ | Generates typed API helpers per category |
 | V0 File Analyzer | `src/lib/builder/v0-file-analyzer.ts` | ~150 | Heuristic detection in React source |
 | Builder App CRUD | `convex/builderAppOntology.ts` | 1500+ | App creation, connections, matching |
-| Portal Prototype | `docs/bring_it_all_together/white-label-customer-portal/freelancer-portal-build/` | — | V0-generated portal scaffold |
+| Portal Prototype | `docs/reference_projects/bring_it_all_together_assets/white-label-customer-portal/freelancer-portal-build/` | — | V0-generated portal scaffold |
 | Comms Spec | `docs/bring_it_all_together/12-COMMS-PLATFORM-SPEC.md` | 184 | Four-level hierarchy, 3 primitives (Chat, Feed, Notifications) |
 | Notifications API | `convex/api/v1/notifications.ts` | — | (untracked) Needs audit for Phase 6 |
 | Pushover Settings | `src/components/window-content/integrations-window/pushover-settings.tsx` | — | (untracked) Existing external integration |

@@ -354,7 +354,7 @@ console.log('Session created:', response);
 ## 💡 Quick Tips
 
 1. **Start with free events** - Simplest flow, no payment UI needed
-2. **Use TypeScript types** - Copy from [API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)
+2. **Use TypeScript types** - Copy from [API_PAYLOAD_STRUCTURE.md](./api/api-payload-structure.md)
 3. **Test with Postman first** - Verify payloads before implementing in frontend
 4. **Check invoice types** - Different flows return different `invoiceType` values
 5. **Guest users always created** - Every registration creates a dormant user account
@@ -364,9 +364,9 @@ console.log('Session created:', response);
 ## 📞 Support
 
 **Backend Documentation**:
-- [Complete API Spec](./API_PAYLOAD_STRUCTURE.md) ⭐ **Read this first!**
-- [Frontend Integration Guide](./FRONTEND_CHECKOUT_INTEGRATION.md)
-- [Team Q&A](./FRONTEND_TEAM_ANSWERS.md)
+- [Complete API Spec](./api/api-payload-structure.md) ⭐ **Read this first!**
+- [Frontend Integration Guide](./frontend/frontend-checkout-integration.md)
+- [Team Q&A](./frontend/frontend-team-answers.md)
 
 **Quick Reference**:
 - **Backend Repo**: `/Users/foundbrand_001/Development/vc83-com`
@@ -378,7 +378,7 @@ console.log('Session created:', response);
 ## 🎯 Next Steps
 
 1. ✅ **Read this summary** (you are here!)
-2. ✅ **Review [API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)** for complete examples
+2. ✅ **Review [API_PAYLOAD_STRUCTURE.md](./api/api-payload-structure.md)** for complete examples
 3. ✅ **Copy TypeScript types** from the API spec
 4. ✅ **Test with Postman** to verify payloads
 5. ✅ **Implement in frontend** following the examples

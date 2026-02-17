@@ -4,7 +4,7 @@ Deprecated on: 2026-02-16
 
 This document has moved to the canonical architecture docs home:
 
-- `docs/agentic_system/MEMORY_ENGINE_DESIGN.md`
+- `docs/platform/MEMORY_ENGINE_DESIGN.md`
 
 Archived snapshot:
 

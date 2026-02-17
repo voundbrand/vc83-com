@@ -496,7 +496,7 @@ From the whitepaper: "The LLM does not know your sales strategy. It does not kno
 **Full Documentation Index:**
 1. [README.md](./README.md) — Master plan overview
 2. [01_TECHNICAL_ARCHITECTURE.md](./01_TECHNICAL_ARCHITECTURE.md) — System design
-3. [MEMORY_ENGINE_DESIGN.md](../agentic_system/MEMORY_ENGINE_DESIGN.md) — 5-layer architecture
+3. [MEMORY_ENGINE_DESIGN.md](../platform/MEMORY_ENGINE_DESIGN.md) — 5-layer architecture
 4. [03_GHL_API_INTEGRATION.md](./03_GHL_API_INTEGRATION.md) — API specs
 5. [04_IMPLEMENTATION_TIMELINE.md](./04_IMPLEMENTATION_TIMELINE.md) — 6-week plan
 6. [05_GTM_STRATEGY.md](./05_GTM_STRATEGY.md) — Go-to-market

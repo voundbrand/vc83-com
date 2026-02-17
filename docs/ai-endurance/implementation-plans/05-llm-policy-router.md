@@ -1,5 +1,7 @@
 # 05 Implementation Plan: Unified LLM Policy Router
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Create one shared policy router for model selection, fallback selection, gating, and runtime defaults used by both chat and agent execution paths.

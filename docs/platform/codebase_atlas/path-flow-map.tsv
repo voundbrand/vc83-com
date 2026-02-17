@@ -1,0 +1,171 @@
+# pattern<TAB>flow_ids(comma-separated)<TAB>notes
+convex/auth*	F1	Password/session auth runtime
+convex/passkeys*	F1	Passkey registration/authentication runtime
+convex/portalAuth*	F1	External portal session auth runtime
+convex/rbac*	F1,F15	Role/permission resolution and governance enforcement
+src/app/api/auth/*	F1,F7	Auth API routes including onboarding-linked auth
+src/app/api/passkeys/*	F1	Passkey API routes
+src/app/api/oauth/*	F1,F13	OAuth callback/auth API routes
+
+convex/ai/*	F2	AI chat/agent runtime and model/tool policy
+src/app/chat/*	F2	Primary chat UI path
+src/components/ai/*	F2	AI-focused UI components
+convex/api/v1/webchat*	F2,F5	Webchat API routing into agent runtime
+
+convex/channels/router*	F2,F5	Outbound routing and provider dispatch
+convex/channels/webhooks*	F2,F5	Inbound channel webhook processors
+convex/channels/providers/*	F5	Provider adapters
+
+convex/checkout*	F3	Checkout runtime and ontology
+convex/checkoutSession*	F3	Checkout session lifecycle
+convex/createTransactionsFromCheckout*	F3	Checkout-to-transaction bridge
+convex/transaction*	F3,F12	Transaction lifecycle and downstream invoicing inputs
+convex/api/v1/checkout*	F3	Checkout API surface
+src/app/checkout*	F3	Checkout frontend surfaces
+src/components/checkout/*	F3	Checkout components
+
+convex/workflows/*	F4	Workflow runtime and behaviors
+convex/api/v1/workflows*	F4	Workflow API trigger path
+convex/formsOntology*	F4,F8	Form submission integration points and domain behavior
+src/app/workflows/*	F4	Workflow UI path
+
+convex/http.ts	F5	Webhook endpoints and route wiring
+convex/stripeWebhooks*	F5	Stripe webhook processing
+convex/zapier/*	F5	Webhook subscription integration
+src/app/api/webhooks/*	F5,F13	Next.js webhook endpoints
+
+services/affiliate/apps/api/*	F6	Affiliate API runtime
+services/affiliate/packages/coredb/*	F6	Affiliate data schema/runtime
+services/affiliate/packages/types/*	F6	Affiliate shared contracts
+
+convex/onboarding*	F7	Onboarding orchestration and signup flow
+convex/onboarding/*	F7	Onboarding bootstrap/linking internals
+convex/manualOnboarding.ts	F7	Manual onboarding entrypoints
+convex/organizationOntology.ts	F7	Organization domain bootstrap/read model
+convex/organizationMutations.ts	F7	Organization mutation lifecycle
+convex/organizations.ts	F7	Organization model/service operations
+src/app/auth/*	F1,F7	Auth-facing onboarding surfaces
+
+convex/crm*	F8	CRM entities and pipeline lifecycle
+convex/formsOntology.ts	F8	Form schema and submission lifecycle
+convex/formTemplateAvailability.ts	F8	Form/template entitlement filtering
+convex/eventOntology.ts	F8	Event lifecycle runtime
+convex/bookingOntology.ts	F8	Booking lifecycle runtime
+convex/ticketOntology.ts	F8	Ticket object lifecycle
+convex/certificateOntology.ts	F8	Certificate domain lifecycle
+convex/webinar*	F8	Webinar and registration runtime
+convex/api/v1/crm*	F8	CRM API endpoints
+convex/api/v1/forms*	F8	Forms API endpoints
+convex/api/v1/events*	F8	Events API endpoints
+convex/api/v1/bookings*	F8	Bookings API endpoints
+convex/api/v1/tickets*	F8	Tickets API endpoints
+convex/api/v1/webinars*	F8	Webinar API endpoints
+src/app/crm/*	F8	CRM UI path
+src/app/forms/*	F8	Forms UI path
+src/app/events/*	F8	Events UI path
+src/app/booking/*	F8	Booking UI path
+src/app/tickets/*	F8	Tickets UI path
+src/components/forms/*	F8	Form components
+
+convex/project*	F9	Project lifecycle and collaboration data
+convex/fileSystemOntology.ts	F9	Unified file ontology operations
+convex/projectFileSystem*	F9	Project/org scoped file runtime
+convex/files.ts	F9	Storage/file helper runtime
+convex/organizationMedia.ts	F9	Media library runtime
+convex/mediaFolderOntology.ts	F9	Media folder model runtime
+convex/api/v1/projects*	F9	Projects API endpoints
+src/app/projects/*	F9	Projects list UI path
+src/app/project/*	F9	Project detail/public UI path
+src/app/media/*	F9	Media library UI path
+src/components/window-content/finder-window/*	F9	Finder/file management UI
+src/components/project-drawer/*	F9	Project drawer collaboration UI
+
+convex/template*	F10	Template and template set runtime
+convex/templateSet*	F10	Template set and resolution runtime
+convex/checkTemplateById.ts	F10	Template lookup utility
+convex/pdfTemplate*	F10	PDF template registry/runtime
+src/templates/*	F10	Template source tree
+src/app/templates/*	F10	Template management UI path
+src/components/template*	F10	Template-focused UI components
+
+convex/publishing*	F11	Published page lifecycle runtime
+convex/pageBuilder.ts	F10,F11	AI page builder domain runtime
+convex/builderAppOntology.ts	F11	Builder app lifecycle runtime
+convex/integrations/v0.ts	F11	v0 generation integration
+convex/integrations/github.ts	F11	GitHub integration runtime
+convex/integrations/githubPR.ts	F11	GitHub PR integration runtime
+convex/integrations/vercel.ts	F11	Vercel deployment integration
+convex/integrations/selfHealDeploy.ts	F11	Deployment self-heal loop
+convex/integrations/selfHealChat.ts	F11	Chat-level self-heal helper
+convex/api/v1/publishing*	F11	Publishing API endpoints
+src/app/publish/*	F11	Publishing UI path
+src/app/builder/*	F11	Builder UI path
+src/components/builder/*	F11	Builder components
+src/app/p/*	F11	Public page runtime route
+
+convex/invoicingOntology.ts	F12	Invoice lifecycle runtime
+convex/invoice*	F12	Invoice helper/runtime modules
+convex/consolidatedInvoicing.ts	F12	Consolidated invoicing runtime
+convex/transactionInvoicing.ts	F3,F12	Transaction-to-invoice linking
+convex/pdfGeneration*	F12	Document generation runtime
+convex/pdf/*	F12	Low-level PDF render actions
+convex/ticketGeneration.ts	F3,F12	Ticket generation and document handoff
+convex/ticketEmailService.ts	F12	Ticket email delivery service
+convex/emailDelivery.ts	F12	Email provider send runtime
+convex/emailQueue.ts	F12	Email queue processing
+convex/emailService*	F12	Email service variants
+convex/emailTemplate*	F12	Email template resolution/runtime
+convex/api/v1/invoices*	F12	Invoices API endpoints
+src/app/invoicing/*	F12	Invoicing UI path
+src/components/window-content/invoicing-window/*	F12	Invoicing window UI
+src/components/tickets/*	F12	Ticket/invoice PDF UI components
+
+convex/oauth/*	F13	OAuth authorization and token lifecycle
+convex/apiKeysInternal.ts	F13	API key issuance/validation internals
+convex/organizationApiSettings.ts	F13	Organization API settings
+convex/integrations/chatwoot.ts	F13	Chatwoot integration setup/runtime
+convex/integrations/manychat.ts	F13	Manychat integration setup/runtime
+convex/integrations/infobip.ts	F13	Infobip integration setup/runtime
+convex/integrations/resend.ts	F13	Resend integration setup/runtime
+convex/integrations/pushover.ts	F13	Pushover integration setup/runtime
+convex/integrations/telegram.ts	F13	Telegram integration setup/runtime
+convex/api/v1/oauth*	F13	OAuth API endpoints
+convex/api/v1/api-keys*	F13	API key endpoints
+convex/api/v1/auth*	F1,F13	Frontend/external auth API endpoints
+src/app/integrations/*	F13	Integrations UI path
+src/app/api/v1/api-keys/*	F13	Next API key routes
+src/app/api/v1/auth/*	F13	Next auth sync routes
+src/components/window-content/integrations-window/*	F13	Integration settings UI
+
+convex/credits/*	F14	Credit balances, deduction, and sharing
+convex/licensing/*	F14	Plan/tier limits and features
+convex/ai/billing.ts	F2,F14	AI billing subscription runtime
+convex/stripe/ai*	F14	AI Stripe checkout and webhooks
+convex/stripe/creditCheckout.ts	F14	Credit purchase checkout
+convex/stripe/trial*	F14	Trial lifecycle billing runtime
+convex/stripe/platformCheckout.ts	F14	Platform checkout orchestration
+convex/stripe/stripePrices.ts	F14	Stripe price metadata runtime
+convex/paymentProviderOntology.ts	F3,F14	Payment provider state and selection
+convex/organizationPaymentSettings.ts	F14	Organization billing/payment settings
+src/app/store/*	F14	Plan/store UI path
+src/app/payments/*	F14	Payment settings UI path
+src/app/upgrade/*	F14	Upgrade UI path
+src/components/ai-billing/*	F14	AI billing UI components
+src/components/window-content/store/*	F14	Store window UI components
+
+convex/compliance.ts	F15	Compliance document runtime
+convex/audit*	F15	Audit runtime and exports
+convex/security/*	F15	Security and usage tracking runtime
+convex/middleware/*	F15	Runtime guard middleware
+convex/permissionErrors.ts	F15	Permission error policy surface
+convex/activityProtocol.ts	F15	Runtime activity governance logging
+convex/workflowExecutionLogs.ts	F4,F15	Workflow execution audit trail
+src/app/compliance/*	F15	Compliance UI path
+src/components/permission/*	F15	Permission guard UI components
+src/components/permission-error-boundary.tsx	F15	Permission error boundary
+
+convex/ontologyTranslations.ts	F16	Translation query/mutation runtime
+convex/translationResolver.ts	F16	Ontology object translation resolver
+convex/translations/*	F16	Translation seed/update modules
+src/contexts/translation-context.tsx	F16	Locale context runtime
+src/hooks/use-namespace-translations.ts	F16	Namespace translation hooks

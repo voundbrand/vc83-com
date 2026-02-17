@@ -1,11 +1,13 @@
 # 08 Implementation Plan: Session Stickiness for Model and Auth Routing
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Reduce instability and thrashing by pinning model/auth decisions per session, while still allowing safe escape on sustained failures.
 
 Reference pattern:
-- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md` (session stickiness behavior)
+- `docs/platform/OPENCLAW_IDEA_INTEGRATION.md` (session stickiness behavior)
 
 ## Current state in this codebase
 

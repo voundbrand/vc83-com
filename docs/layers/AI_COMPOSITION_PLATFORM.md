@@ -4,7 +4,7 @@ Deprecated on: 2026-02-16
 
 This document has moved to the canonical architecture docs home:
 
-- `docs/agentic_system/AI_COMPOSITION_PLATFORM.md`
+- `docs/platform/AI_COMPOSITION_PLATFORM.md`
 
 Archived snapshot:
 

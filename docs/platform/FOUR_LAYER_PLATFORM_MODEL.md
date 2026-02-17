@@ -124,7 +124,7 @@ Runtime anchors for this model:
 - `convex/api/v1/subOrganizationsInternal.ts`
 - `convex/ai/toolScoping.ts`
 - `convex/middleware/auth.ts`
-- `docs/agentic_system/MEMORY_ENGINE_DESIGN.md`
+- `docs/platform/MEMORY_ENGINE_DESIGN.md`
 
 ---
 

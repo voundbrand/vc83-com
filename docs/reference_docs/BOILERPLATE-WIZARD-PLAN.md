@@ -38,7 +38,7 @@ Users should see **exactly** what's being installed when they choose their ICP p
 - **Current**: Freelancer Portal template exists as `web_app` subtype
 - **GitHub Integration**: Already exists (`convex/oauth/github.ts`)
 - **Deployment**: Vercel integration exists (`src/components/window-content/integrations-window/vercel-settings.tsx`)
-- **API Connection**: External frontend integration guide exists (`docs/FRONTEND_INTEGRATION_GUIDE.md`)
+- **API Connection**: External frontend integration guide exists (`docs/reference_docs/frontend/frontend-integration-guide.md`)
 
 #### 4. **Settings Structure**
 - **Control Panel** (`src/components/window-content/control-panel-window.tsx`): Icon grid with Desktop, Quick Start, Manage, Integrations, etc.

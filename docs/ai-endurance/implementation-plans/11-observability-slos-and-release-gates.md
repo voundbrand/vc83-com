@@ -1,5 +1,7 @@
 # 11 Implementation Plan: Observability, SLOs, and Release Gates
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Move governance from intuition to objective reliability gates before enabling new models or changing critical runtime behavior.
@@ -29,6 +31,30 @@ Move governance from intuition to objective reliability gates before enabling ne
   - escalation rate
 - Release gates block model enabling when SLOs fail.
 
+## SLO threshold definitions (v1)
+
+Use a rolling **24h** window for alerts and a rolling **7d** window for release-gate decisions.
+
+| Metric | Target | Warning threshold | Critical threshold | Direction |
+|---|---:|---:|---:|---|
+| Tool success rate | >= 0.98 | < 0.97 | < 0.95 | Higher is better |
+| Model fallback rate | <= 0.03 | > 0.05 | > 0.08 | Lower is better |
+| P95 response latency (ms) | <= 8000 | > 10000 | > 15000 | Lower is better |
+| Cost per successful task (USD) | <= 0.08 | > 0.12 | > 0.20 | Lower is better |
+| Escalation rate | <= 0.04 | > 0.06 | > 0.10 | Lower is better |
+
+### Alert policy
+
+- Emit warning alert when metric crosses warning threshold.
+- Emit critical alert when metric crosses critical threshold.
+- Include metric name, observed value, threshold value, and window size in alert payload.
+
+### Release-gate policy
+
+- Block model enablement when any critical threshold is breached in the 7d window.
+- Require manual approval when warning threshold is breached for more than 2 consecutive windows.
+- Keep an override path with explicit audit trail for emergency rollout.
+
 ## Implementation chunks
 
 1. Define SLO baselines and thresholds in docs.
@@ -53,4 +79,3 @@ Move governance from intuition to objective reliability gates before enabling ne
 - SLO dashboards/queries available.
 - Alerts fire for defined thresholds.
 - Enablement flow consults SLO gate.
-

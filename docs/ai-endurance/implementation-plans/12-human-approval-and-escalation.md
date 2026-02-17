@@ -1,5 +1,7 @@
 # 12 Implementation Plan: Human Approval and Escalation Durability
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Keep human-in-the-loop controls first-class so reliability is preserved across model upgrades and edge-case failures.

@@ -4,7 +4,7 @@ Deprecated on: 2026-02-16
 
 This document has moved to the canonical architecture docs home:
 
-- `docs/agentic_system/LAYERS_PRD.md`
+- `docs/platform/LAYERS_PRD.md`
 
 Archived snapshot:
 

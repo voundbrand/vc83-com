@@ -258,11 +258,11 @@ jest.mock('@/lib/payment-providers');
 ## Architecture Reference
 
 For detailed architecture documentation, see:
-- [PAYMENT_PROVIDERS_ARCHITECTURE.md](./PAYMENT_PROVIDERS_ARCHITECTURE.md)
+- [PAYMENT_PROVIDERS_ARCHITECTURE.md](./billing/payment-providers-architecture.md)
 
 For tax integration specifics, see:
-- [STRIPE_TAX_INTEGRATION.md](./STRIPE_TAX_INTEGRATION.md)
-- [TAX_SYSTEM.md](./TAX_SYSTEM.md)
+- [STRIPE_TAX_INTEGRATION.md](./billing/stripe-tax-integration.md)
+- [TAX_SYSTEM.md](./billing/tax-system.md)
 
 ## Questions?
 

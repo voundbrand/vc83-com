@@ -551,10 +551,10 @@ src/components/checkout/
 
 ## 📚 Related Documentation
 
-- [Payment Provider Types](./convex/paymentProviders/types.ts)
-- [RBAC Guide](./docs/reference_docs/RBAC_COMPLETE_GUIDE.md)
-- [App Availability System](./docs/APP_AVAILABILITY_SYSTEM.md)
-- [Checkout System Architecture](./.kiro/checkout_system/CHECKOUT_SYSTEM_ARCHITECTURE.md)
+- [Payment Provider Types](../../convex/paymentProviders/types.ts)
+- [RBAC Guide](./RBAC_COMPLETE_GUIDE.md)
+- [App Availability System](./api/app-availability-system.md)
+- Checkout System Architecture (legacy .kiro draft, not in this repository)
 
 ---
 

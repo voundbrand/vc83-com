@@ -1,5 +1,7 @@
 # 06 Implementation Plan: Dynamic Pricing and Cost Governance
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Replace static model pricing assumptions with control-plane pricing data and enforce consistent cost accounting across runtime, reporting, and credits.

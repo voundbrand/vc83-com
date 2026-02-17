@@ -6,7 +6,7 @@
 
 **Date:** 2026-02-02
 **Depends on:** Builder Connect (Phase A done), Publish Pipeline (done), Sub-org model (Phase 4.1)
-**Prototype:** `docs/bring_it_all_together/white-label-customer-portal/freelancer-portal-build/`
+**Prototype:** `docs/reference_projects/bring_it_all_together_assets/white-label-customer-portal/freelancer-portal-build/`
 
 ---
 
@@ -24,7 +24,7 @@ The client portal becomes a **builder template** — a pre-built V0 scaffold tha
 
 ## The Prototype
 
-We have a complete V0-generated portal at `docs/bring_it_all_together/white-label-customer-portal/freelancer-portal-build/`. It includes:
+We have a complete V0-generated portal at `docs/reference_projects/bring_it_all_together_assets/white-label-customer-portal/freelancer-portal-build/`. It includes:
 
 | Page | Component | What It Shows |
 |------|-----------|--------------|
@@ -342,6 +342,6 @@ Injected into the portal via environment variables or fetched from a branding AP
 - [07-WHITE-LABEL-PORTAL.md](07-WHITE-LABEL-PORTAL.md) — Original sub-org + portal concept (superseded by this doc for portal implementation, sub-org model still applies)
 - [V0 Pipeline Master Plan](../v0_to_l4yercak3_backend/MASTER_PLAN.md) — Builder connect + publish pipeline details
 - [ONTOLOGY_CONNECTION_REFERENCE.md](../v0_to_l4yercak3_backend/ONTOLOGY_CONNECTION_REFERENCE.md) — 9 existing API categories
-- [Prototype](white-label-customer-portal/freelancer-portal-build/) — V0-generated portal scaffold
+- [Prototype](../reference_projects/bring_it_all_together_assets/white-label-customer-portal/freelancer-portal-build/) — V0-generated portal scaffold
 - [API Catalog](../../src/lib/api-catalog.ts) — Current 9 API categories
 - [Scaffold Generator](../../src/lib/scaffold-generators/thin-client.ts) — Generates typed API helpers per category

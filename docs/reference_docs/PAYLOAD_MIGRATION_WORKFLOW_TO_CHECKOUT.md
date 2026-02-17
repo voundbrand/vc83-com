@@ -555,8 +555,8 @@ console.log('Response data:', await createResponse.json());
 - `API_KEY`: API key with checkout permissions
 
 **Documentation**:
-- [Complete API Spec](./API_PAYLOAD_STRUCTURE.md)
-- [Data Flow Diagram](./API_DATA_FLOW_DIAGRAM.md)
+- [Complete API Spec](./api/api-payload-structure.md)
+- [Data Flow Diagram](./api/api-data-flow-diagram.md)
 - [Testing Examples](./API_TESTING_EXAMPLES.md)
 
 ---

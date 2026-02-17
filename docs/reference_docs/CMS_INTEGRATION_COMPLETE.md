@@ -54,8 +54,8 @@ We've successfully built a complete Content Management System (CMS) for your ext
 
 ### 5. Documentation ✅
 **Files**:
-- `docs/FRONTEND_CMS_INTEGRATION_PROGRESS.md` - Implementation tracker
-- `docs/FRONTEND_INTEGRATION_GUIDE.md` - Frontend developer guide
+- `docs/reference_docs/frontend/frontend-cms-integration-progress.md` - Implementation tracker
+- `docs/reference_docs/frontend/frontend-integration-guide.md` - Frontend developer guide
 - `docs/reference_docs/CMS_INTEGRATION_COMPLETE.md` - This file!
 
 ---
@@ -224,8 +224,8 @@ Stored in `published_page.customProperties.contentRules`:
    - Integrated modal component
 
 ### Documentation
-5. ✅ `docs/FRONTEND_CMS_INTEGRATION_PROGRESS.md` - Implementation tracker
-6. ✅ `docs/FRONTEND_INTEGRATION_GUIDE.md` - Developer guide
+5. ✅ `docs/reference_docs/frontend/frontend-cms-integration-progress.md` - Implementation tracker
+6. ✅ `docs/reference_docs/frontend/frontend-integration-guide.md` - Developer guide
 7. ✅ `docs/reference_docs/CMS_INTEGRATION_COMPLETE.md` - This summary
 
 ### Also Modified Earlier
@@ -252,7 +252,7 @@ curl "http://localhost:3000/api/v1/published-content?org=vc83&page=/events"
 ```
 
 ### 2. Frontend Integration (When Ready)
-See `docs/FRONTEND_INTEGRATION_GUIDE.md` for complete instructions.
+See `docs/reference_docs/frontend/frontend-integration-guide.md` for complete instructions.
 
 **Quick Start**:
 ```typescript
@@ -328,8 +328,8 @@ const data = await fetch(
 ## 📞 Support
 
 For questions or issues:
-1. Check `docs/FRONTEND_INTEGRATION_GUIDE.md`
-2. Review `docs/FRONTEND_CMS_INTEGRATION_PROGRESS.md`
+1. Check `docs/reference_docs/frontend/frontend-integration-guide.md`
+2. Review `docs/reference_docs/frontend/frontend-cms-integration-progress.md`
 3. Test API endpoint directly with curl/Postman
 4. Check Convex logs for backend errors
 

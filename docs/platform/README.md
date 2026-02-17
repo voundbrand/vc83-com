@@ -1,6 +1,10 @@
-# Agentic System — Architecture & Implementation
+# Platform Architecture & Implementation
 
 > Comprehensive documentation for the l4yercak3 multi-agent platform. Covers architecture, harness models, error handling, credit systems, session lifecycle, team coordination, tool scoping, and soul evolution.
+
+Naming convention:
+- Canonical architecture docs live under `docs/platform/`.
+- Legacy `agentic_system` namespace is deprecated and must not be used for new references.
 
 ---
 
@@ -41,6 +45,8 @@ This keeps `BusinessLayer`, `PolicyLayer`, and `MemoryLayer` terminology consist
 |----------|-------------|
 | [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md) | Canonical entrypoint + legacy-to-canonical path mapping |
 | [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md) | Active vs deprecated docs, review cadence, archive map |
+| [DOC_CLEANUP_MATRIX.md](./DOC_CLEANUP_MATRIX.md) | Keep/archive/remove matrix for top-level docs folders |
+| [CODEBASE_ATLAS.md](./CODEBASE_ATLAS.md) | Full-codebase visualization contract + diagram update protocol |
 | [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md) | Canonical layer contract: Business L1-L4, Policy L1-L4, Memory L1-L5 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Full system architecture — pipeline, data model, provider registry, deployment topology |
 | [HARNESS_MODEL.md](./HARNESS_MODEL.md) | Agent harness + team harness — scoping, isolation, coordination layers |
@@ -103,6 +109,9 @@ This keeps `BusinessLayer`, `PolicyLayer`, and `MemoryLayer` terminology consist
 - [AGENT_ARCHITECTURE_CONTEXT.md](../AGENT_ARCHITECTURE_CONTEXT.md) — Original architecture walkthrough (13-step pipeline, tool catalog, channel registry)
 - [CANONICAL_DOCS_INDEX.md](./CANONICAL_DOCS_INDEX.md) — Canonical architecture docs home and migration mapping
 - [DOC_STATUS_MATRIX.md](./DOC_STATUS_MATRIX.md) — Documentation lifecycle and drift control
+- [DOC_CLEANUP_MATRIX.md](./DOC_CLEANUP_MATRIX.md) — Keep/archive/remove decisions for top-level docs folders
+- [CODEBASE_ATLAS.md](./CODEBASE_ATLAS.md) — Cross-system flow map and CI diagram-impact contract
+- [Codebase Atlas Index](./codebase_atlas/README.md) — Boundaries/capabilities catalog, flow catalog, path-to-flow mapping
 - [Archive Index](../archive/README.md) — Archived docs sets and archive rules
 - [FOUR_LAYER_PLATFORM_MODEL.md](./FOUR_LAYER_PLATFORM_MODEL.md) — Canonical layer taxonomy and invariants
 - [OPENCLAW_IDEA_INTEGRATION.md](./OPENCLAW_IDEA_INTEGRATION.md) — OpenClaw-derived ideas integrated into canonical architecture docs

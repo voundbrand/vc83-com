@@ -1,5 +1,7 @@
 # 10 Implementation Plan: Tool Contracts and Compatibility Evals
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Treat tools as the stable API surface and use eval gates to prevent model regressions from reaching production.
@@ -7,7 +9,7 @@ Treat tools as the stable API surface and use eval gates to prevent model regres
 ## Current state in this codebase
 
 - Tool registry exists in `convex/ai/tools/registry.ts`.
-- Model validation strategy exists in `docs/AI_MODEL_VALIDATION_STRATEGY.md`.
+- Model validation strategy exists in `docs/reference_docs/api/ai-model-validation-strategy.md`.
 - Validation runner exists in `scripts/test-model-validation.ts`.
 
 ## Gaps

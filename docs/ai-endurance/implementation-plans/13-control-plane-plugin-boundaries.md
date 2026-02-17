@@ -1,11 +1,13 @@
 # 13 Implementation Plan: Control-Plane and Plugin Boundaries
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Establish clean control-plane boundaries so channels/providers/integrations can evolve without destabilizing core AI runtime.
 
 Reference patterns:
-- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
+- `docs/platform/OPENCLAW_IDEA_INTEGRATION.md`
 
 ## Current state in this codebase
 
@@ -55,3 +57,18 @@ Reference patterns:
 - Provider boundaries documented and test-enforced.
 - Core runtime remains stable under adapter failure conditions.
 - New providers can be added via contract without core runtime edits.
+
+## Implemented seam snapshot (2026-02-16)
+
+Refactor delivered in Lane E (`WS6-01` / `WS6-02`):
+
+- Extracted outbound provider delivery + dead-letter fallback from `convex/ai/agentExecution.ts` into `convex/ai/outboundDelivery.ts`.
+- `agentExecution.ts` now calls a narrow operation boundary (`sendMessage`, `addToDeadLetterQueue`) rather than embedding provider/DLQ flow inline.
+- Added regression coverage:
+  - `tests/unit/ai/outboundDelivery.test.ts`
+  - `tests/integration/ai/outboundDelivery.integration.test.ts`
+
+Boundary ownership after refactor:
+
+- Control plane (`agentExecution.ts`): decides *when* outbound should happen.
+- Adapter boundary (`outboundDelivery.ts` + channel router + DLQ): handles *how* outbound and failure isolation are executed.

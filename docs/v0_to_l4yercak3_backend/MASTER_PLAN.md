@@ -498,4 +498,4 @@ The following docs have been moved to `docs/v0_to_l4yercak3_backend/archive/`:
 - `ONTOLOGY_CONNECTION_REFERENCE.md` - Active source of truth for 9 ontology types
 - `MASTER_PLAN.md` - This document
 
-The original `docs/v0_to_production_app/PLAN.md` remains as historical reference for Phase 2 (full-stack) and Phase 3 (hybrid) architecture options, which are not in scope for current work.
+The original `docs/reference_docs/single_topic_folders/v0_to_production_app/PLAN.md` remains as historical reference for Phase 2 (full-stack) and Phase 3 (hybrid) architecture options, which are not in scope for current work.

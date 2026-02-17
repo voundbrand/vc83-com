@@ -4,7 +4,7 @@
 Working on event registration system. Frontend will use checkout API instead of workflow API for registrations.
 
 ## Completed ✅
-1. Created comprehensive frontend integration guide: `docs/FRONTEND_CHECKOUT_INTEGRATION.md`
+1. Created comprehensive frontend integration guide: `docs/reference_docs/frontend/frontend-checkout-integration.md`
 2. Identified and clarified all backend requirements with user
 3. Already have: workflows for validation, checkout for fulfillment, dormant user creation in workflow behaviors
 
@@ -384,7 +384,7 @@ After implementation, test these scenarios:
    - Line ~936: Update purchase_item creation with userId
    - Line ~1128-1136: Update return statement
 
-2. **`docs/FRONTEND_CHECKOUT_INTEGRATION.md`** - Update if needed (already created)
+2. **`docs/reference_docs/frontend/frontend-checkout-integration.md`** - Update if needed (already created)
 
 ---
 

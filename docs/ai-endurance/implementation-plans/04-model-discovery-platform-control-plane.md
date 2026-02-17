@@ -1,5 +1,7 @@
 # 04 Implementation Plan: Model Discovery and Platform Control Plane
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Treat model lifecycle management (discover -> validate -> enable -> default -> retire) as a governed control-plane workflow.

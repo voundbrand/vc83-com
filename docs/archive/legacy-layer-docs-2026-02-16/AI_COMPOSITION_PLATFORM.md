@@ -430,7 +430,7 @@ RAG-enabled docs are retrieved semantically. Non-RAG docs (small, always-relevan
 ### Business Layer Mapping (Canonical Four-Layer Model)
 
 Canonical source:
-- [FOUR_LAYER_PLATFORM_MODEL.md](../agentic_system/FOUR_LAYER_PLATFORM_MODEL.md)
+- [FOUR_LAYER_PLATFORM_MODEL.md](../platform/FOUR_LAYER_PLATFORM_MODEL.md)
 
 This composition architecture maps to `BusinessLayer` as follows:
 

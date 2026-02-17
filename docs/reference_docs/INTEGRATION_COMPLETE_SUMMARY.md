@@ -12,7 +12,7 @@ Your **frontend** (haffnet-l4yercak3) can now communicate with your **backend** 
 
 I've created **7 comprehensive documents** for your team:
 
-### 1. **[API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)** ⭐ **MOST IMPORTANT**
+### 1. **[API_PAYLOAD_STRUCTURE.md](./api/api-payload-structure.md)** ⭐ **MOST IMPORTANT**
 Complete API specification with:
 - Exact payload structure your backend expects
 - All payment methods (free, Stripe, invoice)
@@ -26,7 +26,7 @@ Quick reference guide:
 - Common mistakes to avoid
 - Integration checklist
 
-### 3. **[API_DATA_FLOW_DIAGRAM.md](./API_DATA_FLOW_DIAGRAM.md)**
+### 3. **[API_DATA_FLOW_DIAGRAM.md](./api/api-data-flow-diagram.md)**
 Visual data flow:
 - ASCII diagrams showing data transformation
 - Field-by-field mapping
@@ -56,7 +56,7 @@ Production-ready code:
 - Full working examples
 - Error handling included
 
-### 7. **[FRONTEND_CHECKOUT_INTEGRATION.md](./FRONTEND_CHECKOUT_INTEGRATION.md)** (Updated)
+### 7. **[FRONTEND_CHECKOUT_INTEGRATION.md](./frontend/frontend-checkout-integration.md)** (Updated)
 Original integration guide with:
 - All payment methods explained
 - Account activation flow
@@ -306,7 +306,7 @@ For invoices, use paymentIntentId: "invoice"
 ### Frontend Team Reads
 1. **[READY_TO_USE_CHECKOUT_INTEGRATION.tsx](./READY_TO_USE_CHECKOUT_INTEGRATION.tsx)** ⭐ Start here!
 2. **[PAYLOAD_MIGRATION_WORKFLOW_TO_CHECKOUT.md](./PAYLOAD_MIGRATION_WORKFLOW_TO_CHECKOUT.md)** ⭐ Your exact use case
-3. **[API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)** ⭐ Complete API reference
+3. **[API_PAYLOAD_STRUCTURE.md](./api/api-payload-structure.md)** ⭐ Complete API reference
 4. **[API_TESTING_EXAMPLES.md](./API_TESTING_EXAMPLES.md)** Testing guide
 
 ### Testing Resources

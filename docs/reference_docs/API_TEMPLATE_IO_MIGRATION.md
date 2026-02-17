@@ -480,10 +480,10 @@ However, we recommend fixing issues rather than rolling back.
 ## Resources
 
 - **API Template.io Docs:** https://docs.apitemplate.io
-- **Template System:** [convex/lib/pdf_templates/invoice_template.ts](../convex/lib/pdf_templates/invoice_template.ts)
-- **Generator:** [convex/lib/generateInvoicePdf.ts](../convex/lib/generateInvoicePdf.ts)
-- **B2B Helper:** [convex/b2bInvoiceHelper.ts](../convex/b2bInvoiceHelper.ts)
-- **Consolidated System:** [convex/consolidatedInvoicing.ts](../convex/consolidatedInvoicing.ts)
+- **Template System:** [convex/lib/pdf_templates/invoice_template.ts](../../convex/lib/pdf_templates/invoice_template.ts)
+- **Generator:** [convex/lib/generateInvoicePdf.ts](../../convex/lib/generateInvoicePdf.ts)
+- **B2B Helper:** [convex/b2bInvoiceHelper.ts](../../convex/b2bInvoiceHelper.ts)
+- **Consolidated System:** [convex/consolidatedInvoicing.ts](../../convex/consolidatedInvoicing.ts)
 
 ## Status Summary
 

@@ -129,7 +129,7 @@ Choose the right doc for your needs:
 | **[CMS_QUICK_REFERENCE.md](./CMS_QUICK_REFERENCE.md)** | Quick commands & API reference | 2 min |
 | **[QUICK_START_CMS_TESTING.md](./QUICK_START_CMS_TESTING.md)** | First time testing | 5 min |
 | **[API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md)** | Complete test suite (7 phases) | 20 min |
-| **[FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)** | Build external Next.js app | 30 min |
+| **[FRONTEND_INTEGRATION_GUIDE.md](./frontend/frontend-integration-guide.md)** | Build external Next.js app | 30 min |
 | **[CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md)** | Understand features | 10 min |
 | **[CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md)** | Technical deep dive | 15 min |
 
@@ -219,7 +219,7 @@ When you click ⚙️ Settings, you'll see:
 1. **Share with frontend team**:
    - API endpoint URL
    - Your organization slug
-   - [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)
+   - [FRONTEND_INTEGRATION_GUIDE.md](./frontend/frontend-integration-guide.md)
 
 2. **Create your published pages**:
    - Events page (`/events`)

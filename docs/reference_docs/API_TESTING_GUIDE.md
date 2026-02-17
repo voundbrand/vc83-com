@@ -417,7 +417,7 @@ If you encounter issues:
 1. Check Convex logs for detailed error messages
 2. Verify all prerequisites are met
 3. Test each phase sequentially
-4. Review [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)
+4. Review [FRONTEND_INTEGRATION_GUIDE.md](./frontend/frontend-integration-guide.md)
 5. Consult [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md)
 
 ---

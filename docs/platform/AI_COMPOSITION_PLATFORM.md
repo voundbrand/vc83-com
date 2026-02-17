@@ -1,8 +1,8 @@
 # AI Composition Platform Strategy
 
 Canonical docs home:
-- `docs/agentic_system/CANONICAL_DOCS_INDEX.md`
-- `docs/agentic_system/DOC_STATUS_MATRIX.md`
+- `docs/platform/CANONICAL_DOCS_INDEX.md`
+- `docs/platform/DOC_STATUS_MATRIX.md`
 
 ## The Model
 

@@ -336,7 +336,7 @@ All routes registered with triple authentication support:
 
 ### Phase 8: Internationalization (i18n) ⭕
 
-**Reference:** See [I18N_ONTOLOGY_ARCHITECTURE.md](/docs/I18N_ONTOLOGY_ARCHITECTURE.md) for the full i18n strategy.
+**Reference:** See [I18N_ONTOLOGY_ARCHITECTURE.md](/docs/reference_docs/frontend/i18n-ontology-architecture.md) for the full i18n strategy.
 
 **Current Status:** UI components use hardcoded English strings.
 

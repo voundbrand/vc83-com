@@ -142,10 +142,10 @@ npm run lint
    - Integrated modal component (+10 lines)
 
 ### Documentation Files (5)
-6. ✅ `docs/FRONTEND_CMS_INTEGRATION_PROGRESS.md`
+6. ✅ `docs/reference_docs/frontend/frontend-cms-integration-progress.md`
    - Implementation progress tracker
 
-7. ✅ `docs/FRONTEND_INTEGRATION_GUIDE.md`
+7. ✅ `docs/reference_docs/frontend/frontend-integration-guide.md`
    - Complete frontend developer guide with code examples
 
 8. ✅ `docs/reference_docs/CMS_INTEGRATION_COMPLETE.md`
@@ -231,10 +231,10 @@ npm run lint
 
 ### Detailed Guides
 3. **[API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md)** - Comprehensive testing (7 phases)
-4. **[FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)** - Frontend developer guide
+4. **[FRONTEND_INTEGRATION_GUIDE.md](./frontend/frontend-integration-guide.md)** - Frontend developer guide
 
 ### Implementation Details
-5. **[FRONTEND_CMS_INTEGRATION_PROGRESS.md](./FRONTEND_CMS_INTEGRATION_PROGRESS.md)** - Progress tracker
+5. **[FRONTEND_CMS_INTEGRATION_PROGRESS.md](./frontend/frontend-cms-integration-progress.md)** - Progress tracker
 6. **[CMS_IMPLEMENTATION_SUMMARY.md](./CMS_IMPLEMENTATION_SUMMARY.md)** - This document
 
 ---

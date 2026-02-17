@@ -673,8 +673,8 @@ Create a Postman environment with:
 ## Support
 
 For complete API documentation:
-- **[API_PAYLOAD_STRUCTURE.md](./API_PAYLOAD_STRUCTURE.md)** - Complete API spec
-- **[API_DATA_FLOW_DIAGRAM.md](./API_DATA_FLOW_DIAGRAM.md)** - Visual data flow
+- **[API_PAYLOAD_STRUCTURE.md](./api/api-payload-structure.md)** - Complete API spec
+- **[API_DATA_FLOW_DIAGRAM.md](./api/api-data-flow-diagram.md)** - Visual data flow
 - **[FRONTEND_BACKEND_INTEGRATION_SUMMARY.md](./FRONTEND_BACKEND_INTEGRATION_SUMMARY.md)** - Quick reference
 
 **Need help?**

@@ -178,9 +178,9 @@ export default async function EventsPage() {
 ## 📚 Additional Resources
 
 - **Full Testing Guide**: [API_TESTING_GUIDE.md](./API_TESTING_GUIDE.md)
-- **Frontend Integration**: [FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)
+- **Frontend Integration**: [FRONTEND_INTEGRATION_GUIDE.md](./frontend/frontend-integration-guide.md)
 - **Feature Summary**: [CMS_INTEGRATION_COMPLETE.md](./CMS_INTEGRATION_COMPLETE.md)
-- **Implementation Progress**: [FRONTEND_CMS_INTEGRATION_PROGRESS.md](./FRONTEND_CMS_INTEGRATION_PROGRESS.md)
+- **Implementation Progress**: [FRONTEND_CMS_INTEGRATION_PROGRESS.md](./frontend/frontend-cms-integration-progress.md)
 
 ## ✅ Ready for Production?
 

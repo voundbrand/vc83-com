@@ -1,8 +1,8 @@
 # Layers - Visual Automation Canvas PRD
 
 Canonical docs home:
-- `docs/agentic_system/CANONICAL_DOCS_INDEX.md`
-- `docs/agentic_system/DOC_STATUS_MATRIX.md`
+- `docs/platform/CANONICAL_DOCS_INDEX.md`
+- `docs/platform/DOC_STATUS_MATRIX.md`
 
 ## Product Overview
 

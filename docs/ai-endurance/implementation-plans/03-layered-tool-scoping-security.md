@@ -1,5 +1,7 @@
 # 03 Implementation Plan: Layered Tool Scoping and Security
 
+<!-- ci:ai-endurance-plan-template=v1 -->
+
 ## Objective
 
 Strengthen and verify tool access controls so enterprise safety does not degrade as new tools/providers are added.

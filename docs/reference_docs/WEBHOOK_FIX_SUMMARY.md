@@ -299,7 +299,7 @@ convex/
       manager.ts           # Provider manager
 ```
 
-See `docs/STRIPE_ARCHITECTURE.md` for full details.
+See `docs/reference_docs/billing/stripe-architecture.md` for full details.
 
 ## Stripe Dashboard Setup
 

@@ -1,20 +1,43 @@
 # AI Endurance Index
 
-**Last updated:** 2026-02-16  
-**Purpose:** One overview for all deep-dive implementation plans that make this codebase durable under rapid AI evolution.
+**Last updated:** 2026-02-17  
+**Purpose:** Top-level map for endurance planning, including completed waves, open residuals, and CommonGround-inspired protocol upgrades.
 
 ---
 
 ## How to use this folder
 
-1. Read this index first.
-2. Pick one plan from the sequence below.
-3. Execute that plan in small chunks using Codex.
-4. Mark progress in both this index and `docs/ai-endurance/MASTER_PLAN.md`.
+1. Start with this index.
+2. Use queue-first execution for delivery:
+   - `docs/ai-endurance/AUTONOMOUS_EXECUTION_PROTOCOL.md`
+   - `docs/ai-endurance/TASK_QUEUE.md`
+   - `docs/ai-endurance/BLOCKERS.md`
+3. Use plan files for implementation detail in `docs/ai-endurance/implementation-plans/`.
+4. Keep `TASK_QUEUE.md`, this file, and `MASTER_PLAN.md` synchronized after each chunk.
 
 ---
 
-## Plan Catalog
+## Autonomous mode
+
+- Protocol: `docs/ai-endurance/AUTONOMOUS_EXECUTION_PROTOCOL.md`
+- Queue: `docs/ai-endurance/TASK_QUEUE.md`
+- Lane prompts: `docs/ai-endurance/SESSION_PROMPTS.md`
+- Baseline audit: `docs/ai-endurance/IMPLEMENTATION_BASELINE_AUDIT.md`
+
+---
+
+## Plan authoring contract (CI enforced)
+
+For every file in `docs/ai-endurance/implementation-plans/`:
+
+- Use template: `docs/ai-endurance/PLAN_TEMPLATE.md`
+- Include directive: `<!-- ci:ai-endurance-plan-template=v1 -->`
+
+`npm run docs:guard` enforces this.
+
+---
+
+## Plan catalog
 
 | # | Topic | Plan |
 |---|---|---|
@@ -31,80 +54,81 @@
 | 11 | Observability, SLOs, and release gates | `docs/ai-endurance/implementation-plans/11-observability-slos-and-release-gates.md` |
 | 12 | Human approval and escalation durability | `docs/ai-endurance/implementation-plans/12-human-approval-and-escalation.md` |
 | 13 | Control-plane and plugin boundary architecture | `docs/ai-endurance/implementation-plans/13-control-plane-plugin-boundaries.md` |
+| 14 | Coordination kernel and turn state machine | `docs/ai-endurance/implementation-plans/14-coordination-kernel-turn-state-machine.md` |
+| 15 | Inbox receipts, idempotency, delivery contract | `docs/ai-endurance/implementation-plans/15-inbox-idempotency-delivery-contract.md` |
+| 16 | Harness runtime wiring and team state semantics | `docs/ai-endurance/implementation-plans/16-harness-runtime-wiring-and-team-state.md` |
+| 17 | Core memory model and onboarding implementation | `docs/ai-endurance/implementation-plans/17-core-memory-model-and-onboarding-implementation.md` |
+| 18 | Semantic memory retrieval and context assembly V2 | `docs/ai-endurance/implementation-plans/18-semantic-memory-retrieval-v2.md` |
+| 19 | Soul-loop drift scoring and reflection unification | `docs/ai-endurance/implementation-plans/19-soul-loop-drift-scoring-and-reflection-unification.md` |
+| 20 | AI failure playbooks and runtime operability | `docs/ai-endurance/implementation-plans/20-ai-failure-playbooks-and-operability.md` |
+| 21 | AI runtime hotspot refactor V2 | `docs/ai-endurance/implementation-plans/21-ai-runtime-hotspot-refactor-v2.md` |
 
 ---
 
-## Recommended execution sequence
+## Execution sequence
 
-### Wave A: Stabilize model/runtime policy
-- 05 LLM policy router
-- 06 Dynamic pricing and cost governance
-- 07 Two-stage failover
-- 08 Session stickiness
+### Completed wave (archive)
+- Plans 05, 06, 07, 08, 09, 10, 11, 12 delivered.
+- Lane F hardening and Lane G production closure delivered.
 
-### Wave B: Stabilize execution surface
-- 10 Tool contracts and compatibility evals
-- 11 Observability and SLO gates
-- 12 Human approval and escalation durability
-
-### Wave C: Deepen product moat
-- 09 RAG and org memory pipeline
-- 01 Knowledge -> Recipes -> Skills alignment
-
-### Wave D: Harden platform architecture
-- 13 Control-plane and plugin boundaries
-- 02 Tool/runtime separation
-- 03 Layered scoping safety refinement
-- 04 Model control plane lifecycle hardening
+### Active wave H-L (queue-driven)
+- Lane H: Plans 14 + 15 (CommonGround coordination kernel + receipt/idempotency borrow)
+- Lane I: Plans 16 + 19 (harness/team semantics + soul-loop unification)
+- Lane J: Plans 17 + 18 (core memory + semantic retrieval)
+- Lane K: Plan 20 + residual closure from Plans 01/02/03/04/13
+- Lane L: Plan 21 (runtime hotspot refactor after kernel/memory stabilization)
 
 ---
 
-## Codebase anchors (current implementation)
+## Status board
+
+| Plan | Status | Queue IDs |
+|---|---|---|
+| 01 | `OPEN (residual)` | `WSK-03` |
+| 02 | `OPEN (residual)` | `WSK-04` |
+| 03 | `OPEN (residual)` | `WSK-05` |
+| 04 | `OPEN (residual)` | `WSK-06` |
+| 05 | `DONE` | Archive (`WS1-*`) |
+| 06 | `DONE` | Archive (`WS2-*`) |
+| 07 | `DONE` | Archive (`WSG-02`) |
+| 08 | `DONE` | Archive (`WSG-03`) |
+| 09 | `DONE` | Archive (`WS4-*`) |
+| 10 | `DONE` | Archive (`WS3-*`) |
+| 11 | `DONE` | Archive (`WS5-*`, `WSG-01`) |
+| 12 | `DONE` | Archive (`WSG-04`, `WSG-05`) |
+| 13 | `OPEN (residual)` | `WSK-07` |
+| 14 | `OPEN` | `WSH-01..WSH-04` |
+| 15 | `OPEN` | `WSH-05..WSH-07` |
+| 16 | `OPEN` | `WSI-01..WSI-03` |
+| 17 | `OPEN` | `WSJ-01..WSJ-03` |
+| 18 | `OPEN` | `WSJ-04..WSJ-06` |
+| 19 | `OPEN` | `WSI-04..WSI-06` |
+| 20 | `OPEN` | `WSK-01..WSK-02` |
+| 21 | `OPEN` | `WSL-01..WSL-06` |
+
+---
+
+## Codebase anchors
 
 - Chat runtime: `convex/ai/chat.ts`
 - Agent runtime: `convex/ai/agentExecution.ts`
-- Tool registry: `convex/ai/tools/registry.ts`
-- Tool scoping: `convex/ai/toolScoping.ts`
-- Retry/fallback: `convex/ai/retryPolicy.ts`
-- OpenRouter client and cost logic: `convex/ai/openrouter.ts`
-- Model discovery: `convex/ai/modelDiscovery.ts`
-- Platform model gating: `convex/ai/platformModels.ts`
-- AI settings schema/mutations: `convex/ai/settings.ts`
-- Conversation/message storage: `convex/ai/conversations.ts`, `convex/ai/agentSessions.ts`
+- Team runtime: `convex/ai/teamHarness.ts`
+- Soul/reflection: `convex/ai/soulEvolution.ts`, `convex/ai/selfImprovement.ts`
+- Knowledge retrieval: `convex/organizationMedia.ts`, `convex/ai/memoryComposer.ts`
+- Tool registry/scoping: `convex/ai/tools/registry.ts`, `convex/ai/toolScoping.ts`
+- Model control plane: `convex/ai/modelDiscovery.ts`, `convex/ai/platformModelManagement.ts`
 
-OpenClaw references are integrated into canonical docs via:
-- `docs/agentic_system/OPENCLAW_IDEA_INTEGRATION.md`
+CommonGround reference source folder:
+- `docs/reference_projects/CommonGround/`
 
 ---
 
-## Progress board
-
-- [ ] 01 Knowledge -> Recipes -> Skills
-- [ ] 02 Tool/runtime separation
-- [ ] 03 Layered scoping safety
-- [ ] 04 Model control plane lifecycle
-- [ ] 05 LLM policy router
-- [ ] 06 Dynamic pricing governance
-- [ ] 07 Two-stage failover
-- [ ] 08 Session stickiness
-- [ ] 09 RAG memory pipeline
-- [ ] 10 Tool contracts + compat evals
-- [ ] 11 Observability + SLO gates
-- [ ] 12 Human approval + escalation
-- [ ] 13 Control-plane + plugin boundaries
-
----
-
-## Execution command pattern (copy/paste prompt)
+## Queue resume prompt
 
 ```text
-Implement plan [NN] from docs/ai-endurance/implementation-plans/[file].md.
-Work in 1-2 hour chunks.
-Definition of done:
-1) code changes
-2) tests added/updated
-3) test commands executed
-4) docs updated (mark progress in INDEX.md and MASTER_PLAN.md)
-Before coding, list top 3 regression risks.
-After coding, report what changed, test results, and residual risks.
+Resume execution from docs/ai-endurance/TASK_QUEUE.md.
+Process only READY tasks using dependency order and lane rules.
+For each task: list top 3 risks, implement, run queue verification commands, update TASK_QUEUE.md + relevant docs.
+If blocked >15 minutes or after 3 failed attempts, mark BLOCKED in TASK_QUEUE.md, log to BLOCKERS.md, and continue.
+Stop only for required approvals or no promotable tasks.
 ```
