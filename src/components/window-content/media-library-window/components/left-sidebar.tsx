@@ -6,7 +6,6 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import type { FunctionReference } from "convex/server";
 import { Home, Folder, Star, ChevronRight, ChevronDown } from "lucide-react";
 
 const generatedApi = require("../../../../../convex/_generated/api") as {
@@ -16,6 +15,8 @@ const generatedApi = require("../../../../../convex/_generated/api") as {
     };
   };
 };
+
+type UnsafeQueryFn = (query: unknown, args: unknown) => unknown;
 
 interface LeftSidebarProps {
   activeSection: "home" | "folders" | "starred";
@@ -35,8 +36,8 @@ export function LeftSidebar({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   // Get folder tree
-  const folderTree = useQuery(
-    generatedApi.api.mediaFolderOntology.getFolderTree as FunctionReference<"query">,
+  const folderTree = (useQuery as unknown as UnsafeQueryFn)(
+    generatedApi.api.mediaFolderOntology.getFolderTree,
     { organizationId },
   ) as FolderNode[] | undefined;
 
