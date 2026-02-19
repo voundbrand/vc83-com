@@ -47,45 +47,45 @@ export const seed = internalMutation({
       {
         key: "ui.welcome.tagline",
         values: {
-          en: "Deploy AI employees for your clients. Get paid while they work.",
-          de: "Setze KI-Mitarbeiter für deine Kunden ein. Werde bezahlt, während sie arbeiten.",
-          pl: "Wdrażaj pracowników AI dla swoich klientów. Zarabiaj, gdy oni pracują.",
-          es: "Despliega empleados IA para tus clientes. Cobra mientras ellos trabajan.",
-          fr: "Déployez des employés IA pour vos clients. Soyez payé pendant qu'ils travaillent.",
-          ja: "クライアント向けにAI従業員を導入。彼らが働く間、報酬を得よう。",
+          en: "An AI employee that learns your business. Live in 15 minutes.",
+          de: "Ein KI-Mitarbeiter, der dein Geschäft lernt. In 15 Minuten live.",
+          pl: "Pracownik AI, który poznaje Twój biznes. Na żywo w 15 minut.",
+          es: "Un empleado IA que aprende tu negocio. En vivo en 15 minutos.",
+          fr: "Un employé IA qui apprend votre entreprise. En ligne en 15 minutes.",
+          ja: "あなたのビジネスを学ぶAI従業員。15分でライブ。",
         }
       },
       {
         key: "ui.welcome.description_para1",
         values: {
-          en: "Start a conversation with our agent. It learns your client's business through stories — not forms, not config screens. Fifteen minutes later, their customers are getting answers on WhatsApp, Telegram, or web. 24/7. Under your brand.",
-          de: "Starte ein Gespräch mit unserem Agenten. Er lernt das Geschäft deines Kunden durch Geschichten — keine Formulare, keine Konfigurationsbildschirme. Fünfzehn Minuten später erhalten deren Kunden Antworten auf WhatsApp, Telegram oder im Web. 24/7. Unter deiner Marke.",
-          pl: "Rozpocznij rozmowę z naszym agentem. Poznaje biznes Twojego klienta przez historie — nie formularze, nie ekrany konfiguracji. Piętnaście minut później ich klienci dostają odpowiedzi na WhatsApp, Telegram lub w sieci. 24/7. Pod Twoją marką.",
-          es: "Inicia una conversación con nuestro agente. Aprende el negocio de tu cliente a través de historias — sin formularios, sin pantallas de configuración. Quince minutos después, sus clientes reciben respuestas en WhatsApp, Telegram o web. 24/7. Bajo tu marca.",
-          fr: "Démarrez une conversation avec notre agent. Il apprend le business de votre client à travers des histoires — pas de formulaires, pas d'écrans de configuration. Quinze minutes plus tard, leurs clients obtiennent des réponses sur WhatsApp, Telegram ou le web. 24/7. Sous votre marque.",
-          ja: "エージェントと会話を始めましょう。フォームや設定画面ではなく、ストーリーを通じてクライアントのビジネスを学びます。15分後、顧客はWhatsApp、Telegram、Webで回答を得ています。24時間365日。あなたのブランドで。",
+          en: "Start a conversation with our agent. Tell it how your business works — through stories, not forms, not config screens. Fifteen minutes later, your customers are getting answers on WhatsApp, Telegram, or your website. 24/7.",
+          de: "Starte ein Gespräch mit unserem Agenten. Erzähle ihm, wie dein Geschäft funktioniert — durch Geschichten, nicht Formulare, nicht Konfigurationsbildschirme. Fünfzehn Minuten später erhalten deine Kunden Antworten auf WhatsApp, Telegram oder deiner Website. 24/7.",
+          pl: "Rozpocznij rozmowę z naszym agentem. Opowiedz mu, jak działa Twój biznes — przez historie, nie formularze, nie ekrany konfiguracji. Piętnaście minut później Twoi klienci dostają odpowiedzi na WhatsApp, Telegram lub Twojej stronie. 24/7.",
+          es: "Inicia una conversación con nuestro agente. Cuéntale cómo funciona tu negocio — a través de historias, no formularios, no pantallas de configuración. Quince minutos después, tus clientes reciben respuestas en WhatsApp, Telegram o tu sitio web. 24/7.",
+          fr: "Démarrez une conversation avec notre agent. Racontez-lui comment fonctionne votre entreprise — à travers des histoires, pas des formulaires, pas des écrans de configuration. Quinze minutes plus tard, vos clients obtiennent des réponses sur WhatsApp, Telegram ou votre site web. 24/7.",
+          ja: "エージェントと会話を始めましょう。あなたのビジネスの仕組みを教えてください — フォームや設定画面ではなく、ストーリーで。15分後、顧客はWhatsApp、Telegram、またはあなたのウェブサイトで回答を得ています。24時間365日。",
         }
       },
       {
         key: "ui.welcome.description_para2",
         values: {
-          en: "You don't need another dashboard. You don't need another tool to learn. You need an AI employee that handles the frontline, knows when to escalate, and never forgets who the business is.",
-          de: "Du brauchst kein weiteres Dashboard. Du brauchst kein weiteres Tool zum Lernen. Du brauchst einen KI-Mitarbeiter, der die Frontline übernimmt, weiß wann er eskalieren muss und nie vergisst, wer das Unternehmen ist.",
-          pl: "Nie potrzebujesz kolejnego dashboardu. Nie potrzebujesz kolejnego narzędzia do nauki. Potrzebujesz pracownika AI, który obsługuje pierwszą linię, wie kiedy eskalować i nigdy nie zapomina, kim jest firma.",
-          es: "No necesitas otro panel de control. No necesitas otra herramienta que aprender. Necesitas un empleado IA que maneje la primera línea, sepa cuándo escalar y nunca olvide quién es el negocio.",
-          fr: "Vous n'avez pas besoin d'un autre tableau de bord. Vous n'avez pas besoin d'un autre outil à apprendre. Vous avez besoin d'un employé IA qui gère la première ligne, sait quand escalader et n'oublie jamais qui est l'entreprise.",
-          ja: "別のダッシュボードは必要ありません。新しいツールを学ぶ必要もありません。最前線を担当し、エスカレーションのタイミングを知り、ビジネスの本質を決して忘れないAI従業員が必要です。",
+          en: "You don't need another dashboard. You don't need another tool to learn. You need an AI employee that handles the frontline, knows when to escalate, and never forgets who it works for.",
+          de: "Du brauchst kein weiteres Dashboard. Du brauchst kein weiteres Tool zum Lernen. Du brauchst einen KI-Mitarbeiter, der die Frontline übernimmt, weiß wann er eskalieren muss und nie vergisst, für wen er arbeitet.",
+          pl: "Nie potrzebujesz kolejnego dashboardu. Nie potrzebujesz kolejnego narzędzia do nauki. Potrzebujesz pracownika AI, który obsługuje pierwszą linię, wie kiedy eskalować i nigdy nie zapomina, dla kogo pracuje.",
+          es: "No necesitas otro panel de control. No necesitas otra herramienta que aprender. Necesitas un empleado IA que maneje la primera línea, sepa cuándo escalar y nunca olvide para quién trabaja.",
+          fr: "Vous n'avez pas besoin d'un autre tableau de bord. Vous n'avez pas besoin d'un autre outil à apprendre. Vous avez besoin d'un employé IA qui gère la première ligne, sait quand escalader et n'oublie jamais pour qui il travaille.",
+          ja: "別のダッシュボードは必要ありません。新しいツールを学ぶ必要もありません。最前線を担当し、エスカレーションのタイミングを知り、誰のために働いているかを決して忘れないAI従業員が必要です。",
         }
       },
       {
         key: "ui.welcome.description_para3",
         values: {
-          en: "You set the price. They pay monthly. You keep the margin.",
-          de: "Du bestimmst den Preis. Sie zahlen monatlich. Du behältst die Marge.",
-          pl: "Ty ustalasz cenę. Oni płacą miesięcznie. Ty zatrzymujesz marżę.",
-          es: "Tú fijas el precio. Ellos pagan mensualmente. Tú te quedas con el margen.",
-          fr: "Vous fixez le prix. Ils paient mensuellement. Vous gardez la marge.",
-          ja: "価格はあなたが決める。顧客は月額で支払う。マージンはあなたのもの。",
+          en: "No more losing customers to slow replies. No more answering the same 10 questions every day. Your agent handles it — so you can focus on the work that actually needs you.",
+          de: "Keine Kunden mehr durch langsame Antworten verlieren. Nicht mehr jeden Tag die gleichen 10 Fragen beantworten. Dein Agent erledigt das — damit du dich auf die Arbeit konzentrieren kannst, die dich wirklich braucht.",
+          pl: "Koniec z traceniem klientów przez wolne odpowiedzi. Koniec z odpowiadaniem na te same 10 pytań każdego dnia. Twój agent się tym zajmie — abyś mógł skupić się na pracy, która naprawdę Cię potrzebuje.",
+          es: "No más perder clientes por respuestas lentas. No más responder las mismas 10 preguntas cada día. Tu agente se encarga — para que puedas enfocarte en el trabajo que realmente te necesita.",
+          fr: "Fini de perdre des clients à cause de réponses lentes. Fini de répondre aux mêmes 10 questions chaque jour. Votre agent s'en charge — pour que vous puissiez vous concentrer sur le travail qui a vraiment besoin de vous.",
+          ja: "返信が遅くて顧客を失うことはもうありません。毎日同じ10の質問に答える必要もありません。エージェントが対応します — あなたは本当に必要な仕事に集中できます。",
         }
       },
       {
@@ -102,12 +102,12 @@ export const seed = internalMutation({
       {
         key: "ui.welcome.footer",
         values: {
-          en: "Built for agencies · Agents that earn trust",
-          de: "Für Agenturen gebaut · Agenten, die Vertrauen gewinnen",
-          pl: "Stworzone dla agencji · Agenci, którzy zdobywają zaufanie",
-          es: "Hecho para agencias · Agentes que generan confianza",
-          fr: "Conçu pour les agences · Des agents qui gagnent la confiance",
-          ja: "エージェンシーのために構築 · 信頼を勝ち取るエージェント",
+          en: "Built for business · Agents that earn trust",
+          de: "Für Unternehmen gebaut · Agenten, die Vertrauen gewinnen",
+          pl: "Stworzone dla biznesu · Agenci, którzy zdobywają zaufanie",
+          es: "Hecho para negocios · Agentes que generan confianza",
+          fr: "Conçu pour les entreprises · Des agents qui gagnent la confiance",
+          ja: "ビジネスのために構築 · 信頼を勝ち取るエージェント",
         }
       },
       {

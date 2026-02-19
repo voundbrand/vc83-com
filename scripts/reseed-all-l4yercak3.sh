@@ -61,6 +61,7 @@ npx convex run translations/seedStore:seed
 npx convex run translations/seedStoreButtons:seed
 npx convex run translations/seedShoppingCart:seed
 npx convex run translations/seedAIAssistant:seed
+npx convex run translations/seedBrainWindowTranslations:seed
 echo "✅ Store & shopping translations seeded"
 echo ""
 
@@ -171,7 +172,7 @@ npx convex run translations/seedManage_08_AISettings:seed
 echo "✅ All app translations seeded"
 echo ""
 echo "================================================"
-echo "✅ Complete! All 96 seed files have been run."
-echo "   (3 core data seeds + 93 translation seeds)"
+echo "✅ Complete! All 97 seed files have been run."
+echo "   (3 core data seeds + 94 translation seeds)"
 echo "🔄 Refresh your browser to see the updates."
 echo "================================================"

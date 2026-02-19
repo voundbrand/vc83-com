@@ -402,17 +402,6 @@ export const seed = internalMutation({
         }
       },
       {
-        key: "ui.windows.brain.title",
-        values: {
-          en: "Brain",
-          de: "Gehirn",
-          pl: "Mózg",
-          es: "Cerebro",
-          fr: "Cerveau",
-          ja: "ブレイン",
-        }
-      },
-      {
         key: "ui.windows.finder.title",
         values: {
           en: "Finder",

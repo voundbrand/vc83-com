@@ -41,6 +41,16 @@ const eslintConfig = [
       "react/no-unescaped-entities": "off",
     },
   },
+  {
+    files: ["scripts/i18n/i18n-audit-allowlist.ts"],
+    rules: {
+      // Keep exceptions reviewable; no placeholder warning comments in allowlist policy.
+      "no-warning-comments": [
+        "error",
+        { terms: ["todo", "fixme", "hack", "xxx"], location: "anywhere" },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

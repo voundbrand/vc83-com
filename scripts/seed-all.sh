@@ -61,6 +61,9 @@ npx convex run translations/seedWelcomeTranslations:seed
 echo "→ Desktop UI..."
 npx convex run translations/seedDesktop:seed
 
+echo "→ Brain Window..."
+npx convex run translations/seedBrainWindowTranslations:seed
+
 echo "→ Manage Window (Main)..."
 npx convex run translations/seedManage_01_MainWindow:seed
 

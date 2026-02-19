@@ -6,18 +6,21 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint src/ convex/ --ext .ts,.tsx,.js,.jsx",
+    "lint": "eslint src/ convex/ scripts/i18n/ --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
+    "test:i18n": "vitest run tests/unit/i18n",
     "test:integration": "vitest run tests/integration",
     "test:permissions": "vitest run tests/unit/permissions",
     "test:roles": "vitest run tests/unit/roles",
     "test:model": "npx tsx scripts/test-model-validation.ts",
-    "docs:guard": "bash scripts/ci/check-docs-guard.sh"
+    "docs:guard": "bash scripts/ci/check-docs-guard.sh",
+    "i18n:audit": "bash scripts/ci/check-i18n-audit.sh",
+    "ui:legacy:guard": "bash scripts/ci/check-legacy-style-introductions.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
