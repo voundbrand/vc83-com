@@ -166,8 +166,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
       <div
         className="h-full w-96 border-l-4 flex flex-col"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
         <div className="flex-1 flex items-center justify-center p-8 text-center">
@@ -186,16 +186,16 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
     <div
       className="h-full w-96 border-l-4 flex flex-col"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
       {/* Header */}
       <div
         className="border-b-4 px-4 py-3 flex items-center justify-between"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-highlight)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--tone-accent)",
         }}
       >
         <h3 className="text-sm font-bold text-white">Execution Monitor</h3>
@@ -210,7 +210,7 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
 
       {/* Status Summary */}
       {executionLogs && (
-        <div className="border-b-2 p-4" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="border-b-2 p-4" style={{ borderColor: "var(--window-document-border)" }}>
           <div className="flex items-center gap-2 mb-2">
             {executionLogs.status === "running" && (
               <>
@@ -272,8 +272,8 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
                 style={{
                   borderColor: getStatusColor(behavior.status),
                   background: selectedBehavior === behavior.behaviorType
-                    ? "var(--win95-bg)"
-                    : "var(--win95-bg-light)",
+                    ? "var(--window-document-bg)"
+                    : "var(--window-document-bg-elevated)",
                 }}
               >
                 {/* Behavior Header */}
@@ -296,7 +296,7 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
 
                   {/* Behavior Name */}
                   <div className="flex-1">
-                    <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       {index + 1}. {behavior.behaviorType.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </div>
                     {behavior.timestamp && (
@@ -323,24 +323,24 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
                   <div
                     className="border-t-2 p-3"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
                     }}
                   >
                     {behavior.message && (
                       <div className="mb-2">
                         <div className="flex items-center gap-1 mb-1">
                           <Info className="h-3 w-3" style={{ color: "var(--info)" }} />
-                          <span className="text-[10px] font-bold" style={{ color: "var(--win95-text)" }}>
+                          <span className="text-[10px] font-bold" style={{ color: "var(--window-document-text)" }}>
                             MESSAGE
                           </span>
                         </div>
                         <div
                           className="text-xs p-2 border"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-bg-light)",
-                            color: "var(--win95-text)",
+                            borderColor: "var(--window-document-border)",
+                            background: "var(--window-document-bg-elevated)",
+                            color: "var(--window-document-text)",
                           }}
                         >
                           {behavior.message}
@@ -373,16 +373,16 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
                       <div>
                         <div className="flex items-center gap-1 mb-1">
                           <Info className="h-3 w-3" style={{ color: "var(--info)" }} />
-                          <span className="text-[10px] font-bold" style={{ color: "var(--win95-text)" }}>
+                          <span className="text-[10px] font-bold" style={{ color: "var(--window-document-text)" }}>
                             DATA
                           </span>
                         </div>
                         <pre
                           className="text-[10px] p-2 border overflow-x-auto"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-bg-light)",
-                            color: "var(--win95-text)",
+                            borderColor: "var(--window-document-border)",
+                            background: "var(--window-document-bg-elevated)",
+                            color: "var(--window-document-text)",
                             fontFamily: "monospace",
                           }}
                         >
@@ -403,11 +403,11 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
         <div
           className="border-t-4 p-3 max-h-48 overflow-y-auto"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
-          <div className="text-[10px] font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <div className="text-[10px] font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             FULL EXECUTION LOG
           </div>
           <div className="space-y-1">
@@ -416,19 +416,19 @@ export function WorkflowExecutionPanel({ executionId, onClose }: ExecutionPanelP
                 key={index}
                 className="text-[10px] px-2 py-1 border"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                   background:
                     log.level === "error"
                       ? "var(--error-light)"
                       : log.level === "success"
                       ? "var(--success-light)"
-                      : "var(--win95-bg-light)",
+                      : "var(--window-document-bg-elevated)",
                   color:
                     log.level === "error"
                       ? "var(--error)"
                       : log.level === "success"
                       ? "var(--success)"
-                      : "var(--win95-text)",
+                      : "var(--window-document-text)",
                 }}
               >
                 <span style={{ color: "var(--neutral-gray)" }}>

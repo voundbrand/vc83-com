@@ -46,8 +46,8 @@ export default function CommentCard({
       <div
         className="p-3 border-2 rounded bg-white"
         style={{
-          border: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg-light)",
+          border: "var(--window-document-border)",
+          backgroundColor: "var(--window-document-bg-elevated)",
         }}
       >
         {/* Header */}
@@ -99,13 +99,13 @@ export default function CommentCard({
               onChange={(e) => setEditContent(e.target.value)}
               rows={3}
               className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             />
             <div className="flex gap-2">
               <button
                 onClick={handleSaveEdit}
                 className="px-3 py-1 text-xs border-2 rounded bg-purple-600 text-white hover:bg-purple-700"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 Save
               </button>
@@ -115,7 +115,7 @@ export default function CommentCard({
                   setEditContent(comment.description || "");
                 }}
                 className="px-3 py-1 text-xs border-2 rounded hover:bg-gray-100"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 Cancel
               </button>

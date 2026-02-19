@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation with large integration modules
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -258,16 +258,16 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -275,7 +275,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
           <div className="flex items-center gap-2">
             <Bell size={24} style={{ color: "#249df0" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 Pushover
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -290,9 +290,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
           {isLoading ? (
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading connection status...
               </p>
@@ -303,7 +303,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               {/* Status */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
@@ -313,7 +313,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 </div>
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       API Token
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -321,7 +321,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       User Key
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -350,9 +350,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               {/* Notification Preferences */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Notify On
                 </p>
                 <div className="space-y-2">
@@ -364,7 +364,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                         onChange={() => toggleNotifyOn(key)}
                         className="w-4 h-4"
                       />
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {NOTIFY_LABELS[key]}
                       </span>
                     </label>
@@ -375,16 +375,16 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               {/* Sound & Priority */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Defaults
                 </p>
                 <div className="space-y-3">
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Sound
                     </label>
@@ -393,9 +393,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       onChange={(e) => setDefaultSound(e.target.value)}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       {SOUND_OPTIONS.map((opt) => (
@@ -408,7 +408,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Priority
                     </label>
@@ -417,9 +417,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       onChange={(e) => setDefaultPriority(Number(e.target.value))}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       {PRIORITY_OPTIONS.map((opt) => (
@@ -432,7 +432,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 </div>
 
                 <div className="mt-3">
-                  <RetroButton
+                  <InteriorButton
                     onClick={handleUpdateSettings}
                     disabled={isConnecting}
                     className="w-full"
@@ -445,13 +445,13 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                     ) : (
                       "Save Settings"
                     )}
-                  </RetroButton>
+                  </InteriorButton>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <RetroButton
+                <InteriorButton
                   variant="secondary"
                   onClick={handleTestConnection}
                   disabled={isTesting}
@@ -465,10 +465,10 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                   ) : (
                     "Send Test"
                   )}
-                </RetroButton>
-                <RetroButton variant="secondary" onClick={handleDisconnect} className="flex-1">
+                </InteriorButton>
+                <InteriorButton variant="secondary" onClick={handleDisconnect} className="flex-1">
                   Disconnect
-                </RetroButton>
+                </InteriorButton>
               </div>
             </div>
           ) : (
@@ -476,10 +476,10 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
             <div className="space-y-4">
               <div
                 className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <Bell size={48} className="mx-auto mb-4" style={{ color: "#249df0" }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Not Connected
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -491,9 +491,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               {/* Features */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -519,9 +519,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               {/* Connection Form */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Enter your Pushover credentials
                 </p>
 
@@ -542,7 +542,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       API Token (Application Token)
                     </label>
@@ -557,9 +557,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                         placeholder="Your Pushover API token"
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <button
@@ -579,7 +579,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       User Key
                     </label>
@@ -594,9 +594,9 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                         placeholder="Your Pushover user key"
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <button
@@ -621,14 +621,14 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs flex items-center gap-1 hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
                 Pushover API documentation
               </a>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isConnecting || !user}
                 className="w-full"
@@ -641,7 +641,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 ) : (
                   "Connect Pushover"
                 )}
-              </RetroButton>
+              </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>

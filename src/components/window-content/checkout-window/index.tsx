@@ -71,9 +71,9 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--shell-surface)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--shell-border)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
@@ -82,9 +82,9 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
                 href="/"
                 className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
                 title="Back to Desktop"
               >
@@ -92,7 +92,7 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
                 <ShoppingCart size={16} />
                 {translationsLoading ? "Checkout Manager" : t("ui.checkout_window.main.title")}
               </h2>
@@ -108,9 +108,9 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
               href="/checkout-manager"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title="Open Full Screen"
             >
@@ -121,13 +121,13 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="flex border-b-2" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface-elevated)' }}>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "checkouts" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "checkouts" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--shell-border)',
+            background: activeTab === "checkouts" ? 'var(--shell-surface-elevated)' : 'var(--shell-surface)',
+            color: activeTab === "checkouts" ? 'var(--shell-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("checkouts")}
         >
@@ -137,9 +137,9 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--shell-border)',
+            background: activeTab === "create" ? 'var(--shell-surface-elevated)' : 'var(--shell-surface)',
+            color: activeTab === "create" ? 'var(--shell-text)' : 'var(--neutral-gray)'
           }}
           onClick={handleCreateNew}
         >
@@ -149,9 +149,9 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "templates" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "templates" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--shell-border)',
+            background: activeTab === "templates" ? 'var(--shell-surface-elevated)' : 'var(--shell-surface)',
+            color: activeTab === "templates" ? 'var(--shell-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("templates")}
         >
@@ -161,8 +161,8 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
             color: 'var(--neutral-gray)'
           }}
           disabled
@@ -174,8 +174,8 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
             color: 'var(--neutral-gray)'
           }}
           disabled
@@ -205,7 +205,7 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         {activeTab === "settings" && (
           <div className="p-8 text-center">
             <Settings size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
-            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
               {translationsLoading ? "Settings Coming Soon" : t("ui.checkout_window.main.settings_coming_soon")}
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -216,7 +216,7 @@ export function CheckoutWindow({ fullScreen = false }: CheckoutWindowProps = {})
         {activeTab === "analytics" && (
           <div className="p-8 text-center">
             <BarChart3 size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
-            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
               {translationsLoading ? "Analytics Coming Soon" : t("ui.checkout_window.main.analytics_coming_soon")}
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>

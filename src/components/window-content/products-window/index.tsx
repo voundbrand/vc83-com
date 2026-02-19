@@ -37,11 +37,11 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--shell-surface)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--primary)" }} />
-            <p style={{ color: "var(--win95-text)" }}>{t("ui.products.loading")}</p>
+            <p style={{ color: "var(--shell-text)" }}>{t("ui.products.loading")}</p>
           </div>
         </div>
       </div>
@@ -50,11 +50,11 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
 
   if (!user) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--shell-surface)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>{t("ui.products.error.login")}</p>
+            <p style={{ color: "var(--shell-text)" }}>{t("ui.products.error.login")}</p>
           </div>
         </div>
       </div>
@@ -63,11 +63,11 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
 
   if (!organizationId) {
     return (
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--shell-surface)" }}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--warning)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }} className="font-semibold">
+            <p style={{ color: "var(--shell-text)" }} className="font-semibold">
               {t("ui.products.error.noOrg")}
             </p>
             <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
@@ -95,9 +95,9 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+    <div className="flex flex-col h-full" style={{ background: "var(--shell-surface)" }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--shell-border)" }}>
         <div className="flex items-center justify-between">
           {/* Back to desktop link (full-screen mode only) */}
           {fullScreen && (
@@ -105,9 +105,9 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
               href="/"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title="Back to Desktop"
             >
@@ -115,7 +115,7 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
             </Link>
           )}
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
               <Package size={16} />
               {t("ui.products.header.title")}
             </h2>
@@ -127,7 +127,7 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
           {/* Organization Info & Full Screen Toggle */}
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
                 {currentOrganization?.name}
               </p>
             </div>
@@ -138,9 +138,9 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
                 href="/products"
                 className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
                 title="Open Full Screen"
               >
@@ -154,16 +154,16 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
       {/* Action Bar */}
       <div
         className="flex items-center gap-2 px-4 py-2 border-b-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         {viewMode === "list" ? (
           <button
             onClick={handleCreateNew}
             className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             <Plus size={14} />
@@ -174,9 +174,9 @@ export function ProductsWindow({ fullScreen = false }: ProductsWindowProps = {})
             onClick={handleBackToList}
             className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             <List size={14} />

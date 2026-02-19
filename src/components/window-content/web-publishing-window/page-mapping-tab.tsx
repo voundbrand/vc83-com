@@ -18,7 +18,7 @@ import {
   Pencil,
   MoreHorizontal,
 } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -142,7 +142,7 @@ export function PageMappingTab({
       case "cli_auto":
         return { label: "CLI Auto", color: "var(--success)" };
       case "manual":
-        return { label: "Manual", color: "var(--win95-highlight)" };
+        return { label: "Manual", color: "var(--tone-accent)" };
       case "runtime":
         return { label: "Runtime", color: "var(--warning)" };
       default:
@@ -189,12 +189,12 @@ export function PageMappingTab({
       {/* Header */}
       <div
         className="px-4 py-3 border-b-2 flex items-center justify-between"
-        style={{ borderColor: "var(--win95-border)" }}
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <div>
           <h4
             className="text-sm font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             Detected Pages
           </h4>
@@ -202,14 +202,14 @@ export function PageMappingTab({
             {pages?.length ?? 0} pages detected in this application
           </p>
         </div>
-        <RetroButton
+        <InteriorButton
           variant="secondary"
           size="sm"
           className="flex items-center gap-1"
         >
           <Plus size={14} />
           Add Page
-        </RetroButton>
+        </InteriorButton>
       </div>
 
       {/* Page List */}
@@ -234,17 +234,17 @@ export function PageMappingTab({
             >
               Run the CLI to auto-detect pages, or add them manually.
             </p>
-            <RetroButton
+            <InteriorButton
               variant="primary"
               size="sm"
               className="mt-4 flex items-center gap-2 mx-auto"
             >
               <Plus size={14} />
               Add Page Manually
-            </RetroButton>
+            </InteriorButton>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
             {pages.map((page) => (
               <PageRow
                 key={page._id}
@@ -298,7 +298,7 @@ function PageRow({
   const detectionBadge = getDetectionMethodBadge(props?.detectionMethod ?? "unknown");
 
   return (
-    <div style={{ borderColor: "var(--win95-border)" }}>
+    <div style={{ borderColor: "var(--window-document-border)" }}>
       {/* Main Row */}
       <div
         className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -310,7 +310,7 @@ function PageRow({
         </button>
 
         {/* Page Icon */}
-        <FileCode size={16} style={{ color: "var(--win95-highlight)" }} />
+        <FileCode size={16} style={{ color: "var(--tone-accent)" }} />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -318,7 +318,7 @@ function PageRow({
           <div className="flex items-center gap-2">
             <span
               className="text-sm font-bold"
-              style={{ color: "var(--win95-text)" }}
+              style={{ color: "var(--window-document-text)" }}
             >
               {page.name}
             </span>
@@ -332,7 +332,7 @@ function PageRow({
               <span
                 className="px-1.5 py-0.5 text-xs"
                 style={{
-                  background: "var(--win95-bg-light)",
+                  background: "var(--window-document-bg-elevated)",
                   color: "var(--neutral-gray)",
                 }}
               >
@@ -345,7 +345,7 @@ function PageRow({
           <p className="text-xs mt-0.5" style={{ color: "var(--neutral-gray)" }}>
             <code
               className="px-1"
-              style={{ background: "var(--win95-bg-light)" }}
+              style={{ background: "var(--window-document-bg-elevated)" }}
             >
               {props?.path ?? page.description}
             </code>
@@ -382,21 +382,21 @@ function PageRow({
           className="flex items-center gap-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <RetroButton
+          <InteriorButton
             variant="secondary"
             size="sm"
             className="flex items-center gap-1"
           >
             <Edit2 size={12} />
-          </RetroButton>
-          <RetroButton
+          </InteriorButton>
+          <InteriorButton
             variant="secondary"
             size="sm"
             className="flex items-center gap-1 text-red-600 hover:bg-red-50"
             onClick={onDelete}
           >
             <Trash2 size={12} />
-          </RetroButton>
+          </InteriorButton>
         </div>
       </div>
 
@@ -405,8 +405,8 @@ function PageRow({
         <div
           className="px-4 py-3 ml-10 mr-4 mb-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
           }}
         >
           {/* Object Bindings */}
@@ -414,18 +414,18 @@ function PageRow({
             <div className="flex items-center justify-between mb-2">
               <h5
                 className="text-xs font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Object Bindings
               </h5>
-              <RetroButton
+              <InteriorButton
                 variant="secondary"
                 size="sm"
                 className="flex items-center gap-1"
               >
                 <Plus size={12} />
                 Add Binding
-              </RetroButton>
+              </InteriorButton>
             </div>
 
             {bindings.length === 0 ? (
@@ -440,7 +440,7 @@ function PageRow({
                     key={index}
                     className="flex items-center justify-between p-2 border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: "white",
                     }}
                   >
@@ -449,7 +449,7 @@ function PageRow({
                       <span
                         className="px-2 py-0.5 text-xs font-bold"
                         style={{
-                          background: "var(--win95-highlight)",
+                          background: "var(--tone-accent)",
                           color: "white",
                         }}
                       >
@@ -517,7 +517,7 @@ function PageRow({
             <div>
               <h5
                 className="text-xs font-bold mb-2"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Raw Page Data
               </h5>
@@ -525,7 +525,7 @@ function PageRow({
                 className="p-2 text-xs overflow-x-auto"
                 style={{
                   background: "white",
-                  border: "1px solid var(--win95-border)",
+                  border: "1px solid var(--window-document-border)",
                   fontFamily: "monospace",
                 }}
               >

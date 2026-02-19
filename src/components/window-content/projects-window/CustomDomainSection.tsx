@@ -193,13 +193,13 @@ export function CustomDomainSection({
   return (
     <div
       className="p-4 border-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Globe size={18} style={{ color: "var(--win95-highlight)" }} />
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <Globe size={18} style={{ color: "var(--tone-accent)" }} />
+          <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Custom Domain
           </h4>
         </div>
@@ -208,8 +208,8 @@ export function CustomDomainSection({
             onClick={() => setIsAdding(true)}
             className="px-3 py-1.5 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:opacity-90"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-highlight)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--tone-accent)",
               color: "white",
             }}
           >
@@ -245,8 +245,8 @@ export function CustomDomainSection({
 
       {/* Add Domain Form */}
       {isAdding && (
-        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Domain Name
           </label>
           <div className="flex gap-2">
@@ -257,9 +257,9 @@ export function CustomDomainSection({
               placeholder="example.com"
               className="flex-1 px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               disabled={isSubmitting}
               onKeyDown={(e) => e.key === "Enter" && handleAddDomain()}
@@ -269,8 +269,8 @@ export function CustomDomainSection({
               disabled={isSubmitting || !newDomain.trim()}
               className="px-4 py-2 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-highlight)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--tone-accent)",
                 color: "white",
               }}
             >
@@ -292,9 +292,9 @@ export function CustomDomainSection({
               disabled={isSubmitting}
               className="px-3 py-2 text-xs font-bold border-2 transition-colors hover:opacity-90"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               Cancel
@@ -326,7 +326,7 @@ export function CustomDomainSection({
       ) : !isAdding ? (
         <div
           className="p-4 text-center border-2 border-dashed"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <Globe size={24} className="mx-auto mb-2" style={{ color: "var(--neutral-gray)" }} />
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -341,9 +341,9 @@ export function CustomDomainSection({
           onClick={() => setIsAdding(true)}
           className="mt-3 px-3 py-1.5 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:opacity-90"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+            color: "var(--window-document-text)",
           }}
         >
           <Plus size={12} />
@@ -381,7 +381,7 @@ function DomainCard({
   return (
     <div
       className="border-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
     >
       {/* Domain Header */}
       <div
@@ -398,7 +398,7 @@ function DomainCard({
           )}
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+              <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 {domain.domainName}
               </span>
               {isVerified && (
@@ -409,7 +409,7 @@ function DomainCard({
                   onClick={(e) => e.stopPropagation()}
                   className="hover:opacity-70"
                 >
-                  <ExternalLink size={12} style={{ color: "var(--win95-highlight)" }} />
+                  <ExternalLink size={12} style={{ color: "var(--tone-accent)" }} />
                 </a>
               )}
             </div>
@@ -432,9 +432,9 @@ function DomainCard({
               disabled={isVerifying}
               className="px-2 py-1 text-xs font-bold flex items-center gap-1 border-2 transition-colors hover:opacity-90 disabled:opacity-50"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               {isVerifying ? (
@@ -453,8 +453,8 @@ function DomainCard({
             disabled={isRemoving}
             className="p-1.5 border-2 transition-colors hover:opacity-90 disabled:opacity-50"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
             }}
           >
             {isRemoving ? (
@@ -473,7 +473,7 @@ function DomainCard({
 
       {/* Expanded DNS Instructions */}
       {isExpanded && (
-        <div className="border-t-2 p-3" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="border-t-2 p-3" style={{ borderColor: "var(--window-document-border)" }}>
           <DNSInstructions
             domainName={domain.domainName}
             dnsInstructions={domain.dnsInstructions}
@@ -542,7 +542,7 @@ function DNSInstructions({
 
       {/* DNS Records */}
       <div>
-        <h5 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <h5 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           Required DNS Records
         </h5>
 
@@ -570,8 +570,8 @@ function DNSInstructions({
                     value="76.76.21.21"
                     onCopy={onCopy}
                   />
-                  <p className="text-xs mt-2 p-2" style={{ background: "var(--win95-bg-light)", color: "var(--neutral-gray)" }}>
-                    <strong>Note:</strong> For apex domains (no www), you need an A record. Some DNS providers also support ALIAS or ANAME records which you can point to <code className="px-1 py-0.5" style={{ background: "var(--win95-bg)" }}>cname.vercel-dns.com</code>
+                  <p className="text-xs mt-2 p-2" style={{ background: "var(--window-document-bg-elevated)", color: "var(--neutral-gray)" }}>
+                    <strong>Note:</strong> For apex domains (no www), you need an A record. Some DNS providers also support ALIAS or ANAME records which you can point to <code className="px-1 py-0.5" style={{ background: "var(--window-document-bg)" }}>cname.vercel-dns.com</code>
                   </p>
                 </>
               ) : (
@@ -591,7 +591,7 @@ function DNSInstructions({
       {/* Optional: www redirect */}
       {isApex && (
         <div>
-          <h5 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <h5 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Optional: www Redirect
           </h5>
           <DNSRecordRow
@@ -607,7 +607,7 @@ function DNSInstructions({
       )}
 
       {/* Verification Note */}
-      <div className="p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+      <div className="p-3 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           After updating your DNS records, click the <strong>Verify</strong> button above to check the configuration.
           SSL certificates will be automatically provisioned once the domain is verified.
@@ -629,17 +629,17 @@ function DNSRecordRow({ type, name, value, onCopy }: DNSRecordRowProps) {
   return (
     <div
       className="grid grid-cols-12 gap-2 p-2 text-xs border-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
     >
       <div className="col-span-2">
-        <span className="font-bold" style={{ color: "var(--win95-text)" }}>Type</span>
-        <div className="mt-1 px-2 py-1 font-mono" style={{ background: "var(--win95-bg-light)" }}>
+        <span className="font-bold" style={{ color: "var(--window-document-text)" }}>Type</span>
+        <div className="mt-1 px-2 py-1 font-mono" style={{ background: "var(--window-document-bg-elevated)" }}>
           {type}
         </div>
       </div>
       <div className="col-span-3">
-        <span className="font-bold" style={{ color: "var(--win95-text)" }}>Name/Host</span>
-        <div className="mt-1 px-2 py-1 font-mono flex items-center justify-between" style={{ background: "var(--win95-bg-light)" }}>
+        <span className="font-bold" style={{ color: "var(--window-document-text)" }}>Name/Host</span>
+        <div className="mt-1 px-2 py-1 font-mono flex items-center justify-between" style={{ background: "var(--window-document-bg-elevated)" }}>
           <span className="truncate">{name}</span>
           <button
             onClick={() => onCopy(name)}
@@ -650,8 +650,8 @@ function DNSRecordRow({ type, name, value, onCopy }: DNSRecordRowProps) {
         </div>
       </div>
       <div className="col-span-7">
-        <span className="font-bold" style={{ color: "var(--win95-text)" }}>Value/Points to</span>
-        <div className="mt-1 px-2 py-1 font-mono flex items-center justify-between" style={{ background: "var(--win95-bg-light)" }}>
+        <span className="font-bold" style={{ color: "var(--window-document-text)" }}>Value/Points to</span>
+        <div className="mt-1 px-2 py-1 font-mono flex items-center justify-between" style={{ background: "var(--window-document-bg-elevated)" }}>
           <span className="truncate">{value}</span>
           <button
             onClick={() => onCopy(value)}

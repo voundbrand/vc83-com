@@ -220,10 +220,10 @@ export function AddonManager({
   };
 
   return (
-    <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+    <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
             <span className="inline-flex items-center gap-1">
               <Puzzle size={14} />
               {t("ui.products.addons.title")}
@@ -239,9 +239,9 @@ export function AddonManager({
             onClick={handleAdd}
             className="px-3 py-1 text-xs font-bold border-2 flex items-center gap-1"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             <Plus size={14} />
@@ -257,15 +257,15 @@ export function AddonManager({
             <div
               key={addon.id}
               className="p-3 border-2 rounded flex items-start justify-between"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   {addon.icon && <span>{addon.icon}</span>}
-                  <span className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
+                  <span className="font-semibold text-sm" style={{ color: "var(--shell-text)" }}>
                     {addon.name}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--shell-surface)", color: "var(--shell-text)" }}>
                     {new Intl.NumberFormat("en-US", {
                       style: "currency",
                       currency: addon.currency,
@@ -302,7 +302,7 @@ export function AddonManager({
                   type="button"
                   onClick={() => handleEdit(index)}
                   className="p-1 border-2"
-                  style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-face)" }}
+                  style={{ borderColor: "var(--shell-border)", background: "var(--shell-button-surface)" }}
                   title={t("ui.products.addons.button.edit")}
                 >
                   <Edit2 size={14} />
@@ -311,7 +311,7 @@ export function AddonManager({
                   type="button"
                   onClick={() => handleDelete(index)}
                   className="p-1 border-2"
-                  style={{ borderColor: "var(--error)", background: "var(--win95-button-face)", color: "var(--error)" }}
+                  style={{ borderColor: "var(--error)", background: "var(--shell-button-surface)", color: "var(--error)" }}
                   title={t("ui.products.addons.button.delete")}
                 >
                   <Trash2 size={14} />
@@ -324,14 +324,14 @@ export function AddonManager({
 
       {/* Addon Editor */}
       {(isAdding || editingIndex !== null) && (
-        <div className="space-y-3 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="space-y-3 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+          <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
             {isAdding ? "Add New Addon" : "Edit Addon"}
           </h4>
 
           {/* Addon Name */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
               {t("ui.products.addons.name.label")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <input
@@ -340,13 +340,13 @@ export function AddonManager({
               onChange={(e) => setCurrentAddon({ ...currentAddon, name: e.target.value })}
               placeholder={t("ui.products.addons.name.placeholder")}
               className="w-full px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
             />
           </div>
 
           {/* Icon (Optional) */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
               Icon
             </label>
             <input
@@ -356,13 +356,13 @@ export function AddonManager({
               placeholder="Optional icon"
               maxLength={2}
               className="w-20 px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
               Description
             </label>
             <textarea
@@ -371,13 +371,13 @@ export function AddonManager({
               placeholder="Brief description of what this addon includes..."
               rows={2}
               className="w-full px-2 py-1 text-sm border-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
             />
           </div>
 
           {/* Price */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
               {t("ui.products.addons.price.label")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <div className="flex gap-2">
@@ -404,37 +404,37 @@ export function AddonManager({
                 }}
                 placeholder="30.00"
                 className="flex-1 px-2 py-1 text-sm border-2"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+                style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
               />
-              <span className="px-2 py-1 text-sm border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+              <span className="px-2 py-1 text-sm border-2" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
                 {currency}
               </span>
             </div>
           </div>
 
           {/* Tax Settings */}
-          <div className="space-y-2 p-3 border rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+          <div className="space-y-2 p-3 border rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={currentAddon.taxable !== false}
                 onChange={(e) => setCurrentAddon({ ...currentAddon, taxable: e.target.checked })}
               />
-              <span className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <span className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
                 {t("ui.products.addons.taxable.label")}
               </span>
             </label>
 
             {currentAddon.taxable !== false && (
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                   Tax Code (Optional - defaults to product&apos;s tax)
                 </label>
                 <select
                   value={currentAddon.taxCode || ""}
                   onChange={(e) => setCurrentAddon({ ...currentAddon, taxCode: e.target.value || undefined })}
                   className="w-full px-2 py-1 text-xs border-2"
-                  style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+                  style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
                 >
                   <option value="">Use product&apos;s tax code</option>
                   {taxCodes?.codes.map((code) => (
@@ -452,7 +452,7 @@ export function AddonManager({
 
           {/* Form Field Mapping - Multi-Select */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
               Form Fields (Optional)
             </label>
             <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -462,7 +462,7 @@ export function AddonManager({
             {availableFormFields && availableFormFields.length > 0 ? (
               <div
                 className="border-2 rounded p-2 max-h-48 overflow-y-auto"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
+                style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}
               >
                 {availableFormFields.map((field) => {
                   const isSelected = (currentAddon.formFieldIds || []).includes(field.id);
@@ -471,12 +471,12 @@ export function AddonManager({
                       key={field.id}
                       className="flex items-center gap-2 py-1 px-1 cursor-pointer"
                       style={{
-                        backgroundColor: isSelected ? "var(--win95-selected-bg)" : "transparent",
-                        color: isSelected ? "var(--win95-selected-text)" : "var(--win95-text)",
+                        backgroundColor: isSelected ? "var(--shell-selection-bg)" : "transparent",
+                        color: isSelected ? "var(--shell-selection-text)" : "var(--shell-text)",
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = "var(--win95-hover-light)";
+                          e.currentTarget.style.backgroundColor = "var(--shell-hover-surface)";
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -521,7 +521,7 @@ export function AddonManager({
                 }}
                 placeholder="ucra_participants_external"
                 className="w-full px-2 py-1 text-sm border-2"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+                style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
               />
             )}
 
@@ -538,7 +538,7 @@ export function AddonManager({
           {((currentAddon.formFieldIds && currentAddon.formFieldIds.length > 0) || currentAddon.formFieldId) && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
                   Field Value → Quantity Mapping
                 </label>
               {availableFormFields && availableFormFields.length > 0 && (
@@ -547,9 +547,9 @@ export function AddonManager({
                   onClick={handleAutoGenerateMapping}
                   className="px-2 py-1 text-xs border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)"
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-button-surface)",
+                    color: "var(--shell-text)"
                   }}
                   title="Auto-generate mapping from selected field options"
                 >
@@ -577,9 +577,9 @@ export function AddonManager({
                     }}
                     placeholder="Field value (e.g., '1', 'yes')"
                     className="flex-1 px-2 py-1 text-sm border-2"
-                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+                    style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
                   />
-                  <span style={{ color: "var(--win95-text)" }}>→</span>
+                  <span style={{ color: "var(--shell-text)" }}>→</span>
                   <input
                     type="number"
                     min="0"
@@ -587,7 +587,7 @@ export function AddonManager({
                     onChange={(e) => handleMappingChange(key, e.target.value)}
                     placeholder="Qty"
                     className="w-20 px-2 py-1 text-sm border-2"
-                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}
+                    style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}
                   />
                   <button
                     type="button"
@@ -597,7 +597,7 @@ export function AddonManager({
                       setCurrentAddon({ ...currentAddon, formFieldMapping: newMapping });
                     }}
                     className="p-1 border-2"
-                    style={{ borderColor: "var(--error)", background: "var(--win95-button-face)", color: "var(--error)" }}
+                    style={{ borderColor: "var(--error)", background: "var(--shell-button-surface)", color: "var(--error)" }}
                   >
                     <X size={14} />
                   </button>
@@ -607,7 +607,7 @@ export function AddonManager({
                 type="button"
                 onClick={addMappingEntry}
                 className="px-2 py-1 text-xs border-2 flex items-center gap-1"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-face)", color: "var(--win95-text)" }}
+                style={{ borderColor: "var(--shell-border)", background: "var(--shell-button-surface)", color: "var(--shell-text)" }}
               >
                 <Plus size={12} />
                 Add Mapping
@@ -625,7 +625,7 @@ export function AddonManager({
               type="button"
               onClick={handleSave}
               className="px-3 py-1 text-sm font-bold border-2 flex items-center gap-1"
-              style={{ borderColor: "var(--win95-border)", background: "var(--success)", color: "white" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--success)", color: "white" }}
             >
               <Save size={14} />
               {t("ui.products.addons.button.save")}
@@ -634,7 +634,7 @@ export function AddonManager({
               type="button"
               onClick={handleCancel}
               className="px-3 py-1 text-sm font-bold border-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-button-bg)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-button-surface)" }}
             >
               {t("ui.products.addons.button.cancel")}
             </button>

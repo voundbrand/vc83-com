@@ -86,13 +86,13 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
       {/* Footer buttons */}
       <div className="flex justify-end gap-2 mt-3">
         <button
-          className="retro-button px-3 py-1 font-pixel text-xs"
+          className="desktop-interior-button px-3 py-1 font-pixel text-xs"
           onClick={onClose}
         >
           Cancel
         </button>
         <button
-          className="retro-button px-3 py-1 font-pixel text-xs"
+          className="desktop-interior-button px-3 py-1 font-pixel text-xs"
           style={{
             background: 'var(--win95-selected-bg)',
             color: 'var(--win95-selected-text)',

@@ -9,9 +9,12 @@
  */
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useState, useEffect, useRef } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Clock,
   Zap,
@@ -22,6 +25,13 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
+import {
+  InteriorButton,
+  InteriorHelperText,
+  InteriorPanel,
+  InteriorRoot,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 interface InterviewSelectorProps {
   sessionId: string; // Auth session ID for API calls
@@ -31,11 +41,28 @@ interface InterviewSelectorProps {
   className?: string;
 }
 
+interface InterviewTemplateListItem {
+  _id: Id<"objects">;
+  customProperties: {
+    templateName: string;
+    description: string;
+    mode: "quick" | "standard" | "deep_discovery";
+    estimatedMinutes: number;
+    phases: Array<{ phaseName: string }>;
+  };
+}
+
 const MODE_CONFIG = {
-  quick: { icon: Zap, label: "Quick", color: "yellow", description: "Fast 5-10 min interview" },
-  standard: { icon: BookOpen, label: "Standard", color: "blue", description: "Balanced 15-20 min" },
-  deep_discovery: { icon: Sparkles, label: "Deep Discovery", color: "purple", description: "Thorough 30+ min" },
+  quick: { icon: Zap, label: "Quick", description: "Fast 5-10 min interview" },
+  standard: { icon: BookOpen, label: "Standard", description: "Balanced 15-20 min" },
+  deep_discovery: { icon: Sparkles, label: "Deep Discovery", description: "Thorough 30+ min" },
 } as const;
+
+const MODE_ACCENT: Record<keyof typeof MODE_CONFIG, { border: string; bg: string; icon: string }> = {
+  quick: { border: "#9a7f2f", bg: "rgba(183, 144, 77, 0.2)", icon: "#b7904d" },
+  standard: { border: "#4e6f98", bg: "rgba(104, 135, 177, 0.2)", icon: "#6887b1" },
+  deep_discovery: { border: "#6f62a8", bg: "rgba(111, 98, 168, 0.2)", icon: "#988dd6" },
+};
 
 export function InterviewSelector({
   sessionId,
@@ -44,6 +71,11 @@ export function InterviewSelector({
   onCancel,
   className = "",
 }: InterviewSelectorProps) {
+  const { t } = useNamespaceTranslations("ui.brain");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>) => {
+    const value = t(key, params);
+    return value === key ? fallback : value;
+  };
   const [selectedTemplateId, setSelectedTemplateId] = useState<Id<"objects"> | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +86,7 @@ export function InterviewSelector({
     sessionId,
     organizationId,
     status: "active",
-  });
+  }) as InterviewTemplateListItem[] | undefined;
 
   const startInterview = useMutation(api.ai.interviewRunner.startInterview);
   const ensureTemplates = useMutation(api.interviewTemplateOntology.ensureDefaultTemplates);
@@ -101,10 +133,10 @@ export function InterviewSelector({
 
   if (!templates) {
     return (
-      <div className={`flex items-center justify-center p-8 ${className}`}>
-        <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-        <span className="ml-2 text-zinc-400">Loading templates...</span>
-      </div>
+      <InteriorRoot className={`flex items-center justify-center gap-2 p-8 ${className}`}>
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+        <InteriorHelperText>{tx("ui.brain.learn.selector.loading", "Loading templates...")}</InteriorHelperText>
+      </InteriorRoot>
     );
   }
 
@@ -112,132 +144,144 @@ export function InterviewSelector({
     // Show loading during seeding
     if (isSeeding) {
       return (
-        <div className={`flex items-center justify-center p-8 ${className}`}>
-          <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-          <span className="ml-2 text-zinc-400">Setting up interview templates...</span>
-        </div>
+        <InteriorRoot className={`flex items-center justify-center gap-2 p-8 ${className}`}>
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+          <InteriorHelperText>
+            {tx("ui.brain.learn.selector.seeding", "Setting up interview templates...")}
+          </InteriorHelperText>
+        </InteriorRoot>
       );
     }
 
     // Only show error if seeding was attempted and failed
     return (
-      <div className={`p-6 text-center ${className}`}>
-        <AlertCircle className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-        <p className="text-zinc-300 mb-2">No interview templates available</p>
-        <p className="text-sm text-zinc-500">Create a template in the Interview Designer first.</p>
+      <InteriorRoot className={`p-6 text-center ${className}`}>
+        <AlertCircle className="mx-auto mb-2 h-8 w-8" style={{ color: "var(--warning)" }} />
+        <InteriorTitle className="text-sm">
+          {tx("ui.brain.learn.selector.empty.title", "No interview templates available")}
+        </InteriorTitle>
+        <InteriorHelperText className="mt-1">
+          {tx(
+            "ui.brain.learn.selector.empty.body",
+            "Create a template in the Interview Designer first.",
+          )}
+        </InteriorHelperText>
         {onCancel && (
-          <button onClick={onCancel} className="mt-4 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm">
-            Go Back
-          </button>
+          <div className="mt-4">
+            <InteriorButton onClick={onCancel} variant="subtle">
+              {tx("ui.brain.learn.selector.actions.go_back", "Go Back")}
+            </InteriorButton>
+          </div>
         )}
-      </div>
+      </InteriorRoot>
     );
   }
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-100">Start an Interview</h2>
-        <p className="text-sm text-zinc-500">Choose a template to begin extracting Content DNA</p>
-      </div>
-
-      {/* Template List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-3 max-w-2xl mx-auto">
+    <InteriorRoot className={`flex h-full flex-col ${className}`}>
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="mx-auto max-w-3xl space-y-2">
           {templates.map((template) => {
-            const props = template.customProperties as {
-              templateName: string;
-              description: string;
-              mode: "quick" | "standard" | "deep_discovery";
-              estimatedMinutes: number;
-              phases: Array<{ phaseName: string }>;
-            };
+            const props = template.customProperties;
 
             const modeConfig = MODE_CONFIG[props.mode] || MODE_CONFIG.standard;
             const ModeIcon = modeConfig.icon;
+            const accent = MODE_ACCENT[props.mode] ?? MODE_ACCENT.standard;
             const isSelected = selectedTemplateId === template._id;
 
             return (
-              <button
+              <InteriorPanel
                 key={template._id}
                 onClick={() => setSelectedTemplateId(template._id)}
-                disabled={isStarting}
-                className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedTemplateId(template._id);
+                  }
+                }}
+                className={`w-full cursor-pointer p-3 text-left transition-colors ${isStarting ? "opacity-70" : ""}`}
+                style={
                   isSelected
-                    ? "border-purple-500 bg-purple-900/20"
-                    : "border-zinc-700 bg-zinc-800 hover:border-zinc-600"
-                } disabled:opacity-50`}
+                    ? {
+                        borderColor: "var(--tone-accent-strong)",
+                        background: "var(--desktop-shell-accent)",
+                      }
+                    : undefined
+                }
               >
-                <div className="flex items-start gap-4">
-                  {/* Mode Icon */}
-                  <div className={`p-2 rounded-lg bg-${modeConfig.color}-900/30`}>
-                    <ModeIcon className={`w-5 h-5 text-${modeConfig.color}-400`} />
+                <div className="flex items-start gap-3">
+                  <div
+                    className="rounded border p-1.5"
+                    style={{ borderColor: accent.border, background: accent.bg }}
+                  >
+                    <ModeIcon className="h-4 w-4" style={{ color: accent.icon }} />
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-zinc-100">{props.templateName}</h3>
-                      {isSelected && <CheckCircle className="w-4 h-4 text-purple-400" />}
+                      <h3 className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                        {props.templateName}
+                      </h3>
+                      {isSelected && (
+                        <CheckCircle className="h-4 w-4" style={{ color: "var(--success)" }} />
+                      )}
                     </div>
-                    <p className="text-sm text-zinc-400 mt-1 line-clamp-2">{props.description}</p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                    <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      {props.description}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
                         ~{props.estimatedMinutes} min
                       </span>
                       <span>{props.phases?.length || 0} phases</span>
-                      <span className={`text-${modeConfig.color}-400`}>{modeConfig.label}</span>
+                      <span style={{ color: accent.icon }}>{modeConfig.label}</span>
                     </div>
                   </div>
                 </div>
-              </button>
+              </InteriorPanel>
             );
           })}
         </div>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="mx-4 mb-4 p-3 bg-red-900/20 border border-red-800/30 rounded text-sm text-red-300 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
+        <InteriorPanel className="mx-3 mb-3 flex items-center gap-2 p-3" style={{ borderColor: "var(--error)", background: "var(--error-bg)" }}>
+          <AlertCircle className="h-4 w-4" style={{ color: "var(--error)" }} />
           {error}
-        </div>
+        </InteriorPanel>
       )}
 
-      {/* Footer */}
-      <div className="p-4 border-t border-zinc-700 bg-zinc-800/50">
-        <div className="flex items-center justify-between max-w-2xl mx-auto">
+      <div className="border-t p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}>
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
           {onCancel && (
-            <button
-              onClick={onCancel}
-              disabled={isStarting}
-              className="px-4 py-2 text-zinc-400 hover:text-zinc-300 text-sm disabled:opacity-50"
-            >
-              Cancel
-            </button>
+            <InteriorButton onClick={onCancel} disabled={isStarting} variant="ghost">
+              {tx("ui.brain.learn.selector.actions.cancel", "Cancel")}
+            </InteriorButton>
           )}
-          <button
+          <InteriorButton
             onClick={handleStart}
             disabled={!selectedTemplateId || isStarting}
-            className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+            variant="primary"
+            className="ml-auto gap-2"
           >
             {isStarting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Starting...
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {tx("ui.brain.learn.selector.actions.starting", "Starting...")}
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
-                Start Interview
+                <Play className="h-4 w-4" />
+                {tx("ui.brain.learn.selector.actions.start", "Start Interview")}
               </>
             )}
-          </button>
+          </InteriorButton>
         </div>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }
 

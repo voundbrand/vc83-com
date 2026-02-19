@@ -39,7 +39,7 @@ function TeamMemberCard({
             className="w-full h-full rounded-full object-cover"
           />
         ) : (
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white text-3xl font-bold">
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-400 to-amber-400 flex items-center justify-center text-white text-3xl font-bold">
             {member.name.charAt(0)}
           </div>
         )}

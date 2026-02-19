@@ -21,7 +21,7 @@ export function IntegrationCard({
   logoSrc,
   logoAlt,
   icon,
-  iconColor = "var(--win95-highlight)",
+  iconColor = "var(--tone-accent)",
   status,
   onClick,
   requiredTier,
@@ -70,16 +70,16 @@ export function IntegrationCard({
       return 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.15) 100%)';
     }
     if (isLocked) {
-      return 'linear-gradient(180deg, var(--win95-bg-light) 0%, rgba(245, 158, 11, 0.05) 100%)';
+      return 'linear-gradient(180deg, var(--window-document-bg-elevated) 0%, rgba(245, 158, 11, 0.05) 100%)';
     }
-    return 'var(--win95-bg-light)';
+    return 'var(--window-document-bg-elevated)';
   };
 
   // Determine border color based on status
   const getBorderColor = () => {
     if (isConnected) return '#10b981'; // Green border for connected
     if (isLocked) return 'var(--warning)';
-    return 'var(--win95-border)';
+    return 'var(--window-document-border)';
   };
 
   return (
@@ -103,7 +103,7 @@ export function IntegrationCard({
           } else if (isLocked) {
             e.currentTarget.style.borderColor = '#d97706';
           } else {
-            e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+            e.currentTarget.style.borderColor = 'var(--tone-accent)';
           }
           e.currentTarget.style.transform = 'translateY(-2px)';
         }
@@ -142,7 +142,7 @@ export function IntegrationCard({
       {/* Name */}
       <div
         className="text-xs font-semibold text-center break-words w-full"
-        style={{ color: isLocked ? 'var(--neutral-gray)' : 'var(--win95-text)' }}
+        style={{ color: isLocked ? 'var(--neutral-gray)' : 'var(--window-document-text)' }}
       >
         {name}
       </div>
@@ -151,7 +151,7 @@ export function IntegrationCard({
         <div
           className="text-[10px] px-2 py-0.5 rounded"
           style={{
-            background: 'var(--win95-border)',
+            background: 'var(--window-document-border)',
             color: 'var(--neutral-gray)',
           }}
         >

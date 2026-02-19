@@ -20,7 +20,10 @@ import {
   calculateExclusiveVAT,
 } from "../helpers/vat-test-helpers";
 
-describe("VAT Checkout to Invoice Flow - Integration Tests", () => {
+const runCloudIntegration = process.env.RUN_CLOUD_INTEGRATION_TESTS === "true";
+const describeCloudIntegration = runCloudIntegration ? describe : describe.skip;
+
+describeCloudIntegration("VAT Checkout to Invoice Flow - Integration Tests", () => {
   console.log("🧪 Starting VAT integration test suite...");
 
   /**

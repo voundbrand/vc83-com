@@ -7,8 +7,11 @@
 
 import { Clock, CheckCircle, XCircle, Shield } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+
+// Use require to avoid TS2589 deep type instantiation
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface AgentApprovalQueueProps {
   agentId: Id<"objects">;
@@ -18,7 +21,7 @@ interface AgentApprovalQueueProps {
 
 export function AgentApprovalQueue({ agentId, sessionId, organizationId }: AgentApprovalQueueProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const approvals = useQuery(api.ai.agentApprovals.getPendingApprovals, {
+  const approvals = (useQuery as any)((api.ai.agentApprovals as any).getPendingApprovals, {
     sessionId, organizationId,
   }) as any[] | undefined;
 
@@ -56,6 +59,9 @@ export function AgentApprovalQueue({ agentId, sessionId, organizationId }: Agent
 
       {agentApprovals.map((approval) => {
         const props = (approval.customProperties || {}) as Record<string, unknown>;
+        const actionType = String(props.actionType || "Unknown action");
+        const actionSummary = summarizeApprovalIntent(actionType, props.actionPayload);
+        const contextSummary = summarizePayloadContext(props.actionPayload);
         return (
           <div
             key={approval._id}
@@ -66,7 +72,7 @@ export function AgentApprovalQueue({ agentId, sessionId, organizationId }: Agent
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-yellow-600" />
                 <span className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
-                  {String(props.actionType || "Unknown action")}
+                  {actionType}
                 </span>
               </div>
               <span className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -74,20 +80,14 @@ export function AgentApprovalQueue({ agentId, sessionId, organizationId }: Agent
               </span>
             </div>
 
-            {/* Payload preview */}
-            {!!props.actionPayload && (
-              <pre
-                className="text-[10px] p-2 mb-2 overflow-x-auto border"
-                style={{
-                  background: "var(--win95-bg)",
-                  borderColor: "var(--win95-border)",
-                  color: "var(--win95-text)",
-                  maxHeight: "100px",
-                }}
-              >
-                {JSON.stringify(props.actionPayload, null, 2)}
-              </pre>
-            )}
+            <div className="mb-2 p-2 border text-[11px]" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+              <p style={{ color: "var(--win95-text)" }}>{actionSummary}</p>
+              {contextSummary && (
+                <p className="mt-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                  Context: {contextSummary}
+                </p>
+              )}
+            </div>
 
             {/* Actions */}
             <div className="flex gap-2">
@@ -113,4 +113,55 @@ export function AgentApprovalQueue({ agentId, sessionId, organizationId }: Agent
       })}
     </div>
   );
+}
+
+function summarizeApprovalIntent(actionType: string, payload: unknown): string {
+  const normalized = actionType.replace(/_/g, " ").toLowerCase();
+  const context = summarizePayloadContext(payload);
+
+  if (normalized.includes("delete")) {
+    return `Agent requested approval for a destructive action (${normalized}). Review scope before approving.`;
+  }
+
+  if (normalized.includes("deploy")) {
+    return `Agent requested approval to deploy or publish (${normalized}). Confirm target and timing.`;
+  }
+
+  if (normalized.includes("create") || normalized.includes("connect")) {
+    return `Agent requested approval to modify records (${normalized}). Confirm this change is expected.`;
+  }
+
+  if (context) {
+    return `Agent requested approval for ${normalized}. Verify the context before approving.`;
+  }
+
+  return `Agent requested approval for ${normalized}.`;
+}
+
+function summarizePayloadContext(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const hints = [
+    readString(record.tool),
+    readString(record.toolName),
+    readString(record.target),
+    readString(record.channel),
+    readString(record.contactIdentifier),
+    readString(record.recordId),
+    readString(record.objectId),
+    readString(record.url),
+  ].filter(Boolean) as string[];
+
+  if (hints.length === 0) {
+    return null;
+  }
+
+  return hints.slice(0, 3).join(" | ");
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }

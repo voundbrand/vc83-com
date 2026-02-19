@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -166,16 +166,16 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -183,7 +183,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
           <div className="flex items-center gap-2">
             <Send size={24} style={{ color: "#0088cc" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 Telegram
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -199,14 +199,14 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
               <Loader2
                 size={24}
                 className="animate-spin"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading...
@@ -218,13 +218,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Connection Status
                 </p>
@@ -239,7 +239,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     </div>
                     {status.platformBot.chatId && (
                       <div>
-                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           Chat ID
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -249,7 +249,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     )}
                     {status.platformBot.senderName && (
                       <div>
-                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           Sender
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -258,7 +258,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       </div>
                     )}
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Connected
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -266,7 +266,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Active Chats
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -291,8 +291,8 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     <div
                       className="p-3 border rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
                         color: "var(--neutral-gray)",
                       }}
                     >
@@ -304,7 +304,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
 
                     {telegramLink && !isLinkExpired ? (
                       <div className="space-y-2">
-                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           Your Connect Link
                         </p>
                         <div className="flex items-center gap-2">
@@ -314,9 +314,9 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                             rel="noopener noreferrer"
                             className="flex-1 p-2 border rounded font-mono text-xs break-all underline"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-bg)",
-                              color: "var(--win95-highlight)",
+                              borderColor: "var(--window-document-border)",
+                              background: "var(--window-document-bg)",
+                              color: "var(--tone-accent)",
                             }}
                           >
                             {telegramLink}
@@ -333,7 +333,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         </p>
                       </div>
                     ) : (
-                      <RetroButton
+                      <InteriorButton
                         onClick={handleGenerateLink}
                         disabled={isGeneratingLink}
                         className="w-full"
@@ -349,7 +349,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                             {isLinkExpired ? "Generate New Link" : "Connect Telegram"}
                           </>
                         )}
-                      </RetroButton>
+                      </InteriorButton>
                     )}
                   </div>
                 )}
@@ -359,13 +359,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Custom Bot
                 </p>
@@ -384,7 +384,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
 
                     {status.customBot.botUsername && (
                       <div>
-                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           Bot Username
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -395,16 +395,16 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
 
                     {status.customBot.webhookUrl && (
                       <div>
-                        <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                           Webhook URL
                         </p>
                         <div className="flex items-center gap-2">
                           <div
                             className="flex-1 p-2 border rounded font-mono text-xs break-all"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-bg)",
-                              color: "var(--win95-text)",
+                              borderColor: "var(--window-document-border)",
+                              background: "var(--window-document-bg)",
+                              color: "var(--window-document-text)",
                             }}
                           >
                             {status.customBot.webhookUrl}
@@ -419,7 +419,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       </div>
                     )}
 
-                    <RetroButton
+                    <InteriorButton
                       variant="secondary"
                       onClick={handleDisconnect}
                       disabled={isDisconnecting}
@@ -433,7 +433,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       ) : (
                         "Disconnect Custom Bot"
                       )}
-                    </RetroButton>
+                    </InteriorButton>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -458,7 +458,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
 
                     {/* Token input */}
                     <div>
-                      <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         Bot Token
                       </p>
                       <div className="flex items-center gap-2">
@@ -470,9 +470,9 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                             placeholder="Paste token from @BotFather"
                             className="w-full p-2 pr-8 border-2 rounded text-xs font-mono"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-bg)",
-                              color: "var(--win95-text)",
+                              borderColor: "var(--window-document-border)",
+                              background: "var(--window-document-bg)",
+                              color: "var(--window-document-text)",
                             }}
                           />
                           <button
@@ -495,7 +495,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="underline"
-                          style={{ color: "var(--win95-highlight)" }}
+                          style={{ color: "var(--tone-accent)" }}
                         >
                           @BotFather
                         </a>{" "}
@@ -503,7 +503,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       </p>
                     </div>
 
-                    <RetroButton
+                    <InteriorButton
                       onClick={handleDeploy}
                       disabled={isDeploying || !botToken.trim()}
                       className="w-full"
@@ -516,7 +516,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       ) : (
                         "Deploy Bot"
                       )}
-                    </RetroButton>
+                    </InteriorButton>
                   </div>
                 )}
               </div>
@@ -525,15 +525,15 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <Users size={14} style={{ color: "var(--win95-text)" }} />
+                  <Users size={14} style={{ color: "var(--window-document-text)" }} />
                   <p
                     className="text-xs font-bold uppercase tracking-wide"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     Team Group Chat
                   </p>
@@ -553,7 +553,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
 
                     {status.teamGroup.groupChatId && (
                       <div>
-                        <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           Group Chat ID
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -569,7 +569,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         onChange={(e) => handleToggleMirror(e.target.checked)}
                         className="accent-[#10b981]"
                       />
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         Mirror conversations to team group
                       </span>
                     </label>
@@ -585,7 +585,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       <li>Add your bot to the group</li>
                       <li>The group will be auto-detected and linked</li>
                     </ol>
-                    <p className="mt-2" style={{ color: "var(--win95-text)" }}>
+                    <p className="mt-2" style={{ color: "var(--window-document-text)" }}>
                       The bot must be added by the same Telegram user who completed onboarding.
                     </p>
                   </div>

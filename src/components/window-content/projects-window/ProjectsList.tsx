@@ -44,7 +44,7 @@ export function ProjectsList({
           <Loader2
             size={48}
             className="animate-spin mx-auto mb-4"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           />
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
             Loading projects...
@@ -60,7 +60,7 @@ export function ProjectsList({
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-          <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Error Loading Projects
           </p>
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -81,7 +81,7 @@ export function ProjectsList({
             className="mx-auto mb-4 opacity-30"
             style={{ color: "var(--neutral-gray)" }}
           />
-          <p className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <p className="text-lg font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             No Projects Found
           </p>
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>

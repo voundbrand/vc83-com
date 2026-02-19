@@ -10,6 +10,8 @@ Always read first:
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/TASK_QUEUE.md`
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/BLOCKERS.md`
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/MASTER_PLAN.md`
+- `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/WINDOW_UI_DESIGN_CONTRACT.md`
+- `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/WINDOW_UI_CONTRACT_AUDIT_MATRIX.md`
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation-plan.md`
 
 ---
@@ -202,4 +204,65 @@ Rules:
 9) Update TASK_QUEUE.md notes after each task and log blockers in BLOCKERS.md.
 
 Stop when Lane H has no promotable tasks.
+```
+
+---
+
+## Session I (Lane I: selective PostHog architecture adoption)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute only Lane I tasks from:
+/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/TASK_QUEUE.md
+
+Scope:
+- DAC-025..DAC-030
+
+Required references:
+- /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/LANE_G_POSTHOG_REFERENCE_NOTES.md
+- https://posthog.com/handbook/engineering/posthog-com/technical-architecture
+
+Rules:
+1) Confirm DAC-024 is DONE before starting.
+2) Before each task, list top 3 regression risks.
+3) Run queue Verify commands exactly for each row.
+4) Keep dark/sepia as the only appearance modes; do not reintroduce legacy theme/window-style customization.
+5) Keep auth, onboarding, and OAuth callback behavior backward compatible while unifying shell URL-state handling.
+6) Introduce a mobile fallback mode for desktop shell flows without breaking critical actions (AI assistant, login, settings, store).
+7) Keep SEO/content ownership on the separate dedicated landing page; do not introduce desktop-workstream marketing route surfaces for SEO.
+8) Log blockers in BLOCKERS.md and update TASK_QUEUE.md, INDEX.md, and MASTER_PLAN.md after each completed task.
+
+Stop when Lane I has no promotable tasks.
+```
+
+---
+
+## Session J (Lane J: account-hub shell + manage-org modernization)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute only Lane J tasks from:
+/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/TASK_QUEUE.md
+
+Scope:
+- DAC-031..DAC-036
+
+Required references:
+- /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/desktop-appearance-consolidation/LANE_G_POSTHOG_REFERENCE_NOTES.md
+- /Users/foundbrand_001/Development/vc83-com/tmp/posthog-audit/menu-product-os.png
+- /Users/foundbrand_001/Development/vc83-com/tmp/posthog-audit/menu-more.png
+
+Rules:
+1) Confirm DAC-028 is DONE before starting.
+2) Before each task, list top 3 regression risks.
+3) Run queue Verify commands exactly for each row.
+4) Keep dark/sepia as the only appearance modes and keep shell/menu surfaces aligned to Lane G PostHog cues.
+5) Reinstate `/builder` and `/layers` as first-class desktop-runtime windows in shell IA before avatar-menu migration.
+6) Replace top-right clock with avatar trigger and move current More-menu actions under the avatar context menu.
+7) Implement language and organization switchers as keyboard-accessible submenus (icon-led rows + chevrons).
+8) Add direct User Settings entry into the Manage flow (users tab/current-user context) without breaking legacy callback params.
+9) Remove Win95 leftovers in manage-org surfaces while adding avatar upload UI; preserve translation namespaces and avoid raw key fallbacks.
+10) Log blockers in BLOCKERS.md and update TASK_QUEUE.md, INDEX.md, and MASTER_PLAN.md after each completed task.
+
+Stop when Lane J has no promotable tasks.
 ```

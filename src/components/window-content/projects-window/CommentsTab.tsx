@@ -127,14 +127,14 @@ export default function CommentsTab({ projectId, sessionId }: CommentsTabProps) 
           placeholder="Write a comment..."
           rows={3}
           className="w-full px-3 py-2 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-          style={{ border: "var(--win95-border)" }}
+          style={{ border: "var(--window-document-border)" }}
         />
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={!newComment.trim() || loading}
             className="px-4 py-1.5 text-sm border-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-            style={{ border: "var(--win95-border)" }}
+            style={{ border: "var(--window-document-border)" }}
           >
             {loading ? "Posting..." : replyToId ? "Reply" : "Comment"}
           </button>
@@ -146,8 +146,8 @@ export default function CommentsTab({ projectId, sessionId }: CommentsTabProps) 
         <div
           className="p-8 text-center border-2 rounded"
           style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            border: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           <p className="text-sm text-gray-600 mb-2">No comments yet</p>

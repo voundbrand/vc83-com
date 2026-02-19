@@ -68,29 +68,29 @@ export function CreateFolderModal({
       <div
         className="w-full max-w-md border-2 rounded-lg"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b-2"
           style={{
-            background: "var(--win95-titlebar-bg)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-titlebar-gradient)",
+            borderColor: "var(--shell-border)",
           }}
         >
           <div className="flex items-center gap-2">
-            <FolderPlus size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <FolderPlus size={18} style={{ color: "var(--shell-titlebar-text)" }} />
             <h3
               className="text-sm font-bold"
-              style={{ color: "var(--win95-titlebar-text)" }}
+              style={{ color: "var(--shell-titlebar-text)" }}
             >
               Create New Folder
             </h3>
           </div>
           <button onClick={onClose}>
-            <X size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <X size={18} style={{ color: "var(--shell-titlebar-text)" }} />
           </button>
         </div>
 
@@ -98,7 +98,7 @@ export function CreateFolderModal({
         <div className="p-6 space-y-4">
           {/* Folder Name */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               Folder Name *
             </label>
             <input
@@ -108,9 +108,9 @@ export function CreateFolderModal({
               placeholder="Enter folder name"
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
+                color: "var(--shell-text)",
               }}
               autoFocus
             />
@@ -118,7 +118,7 @@ export function CreateFolderModal({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               Description (optional)
             </label>
             <textarea
@@ -127,9 +127,9 @@ export function CreateFolderModal({
               placeholder="Add a description"
               className="w-full px-3 py-2 text-sm border-2 resize-none"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
+                color: "var(--shell-text)",
               }}
               rows={3}
             />
@@ -137,7 +137,7 @@ export function CreateFolderModal({
 
           {/* Color */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               Color
             </label>
             <div className="flex gap-2">
@@ -148,7 +148,7 @@ export function CreateFolderModal({
                   className="w-8 h-8 rounded border-2 transition-transform"
                   style={{
                     background: c,
-                    borderColor: color === c ? "var(--win95-text)" : "transparent",
+                    borderColor: color === c ? "var(--shell-text)" : "transparent",
                     transform: color === c ? "scale(1.1)" : "scale(1)",
                   }}
                 />
@@ -160,15 +160,15 @@ export function CreateFolderModal({
         {/* Footer */}
         <div
           className="flex justify-end gap-2 px-6 py-4 border-t-2"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--shell-border)" }}
         >
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold border-2 rounded"
             style={{
-              background: "var(--win95-button-face)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              background: "var(--shell-button-surface)",
+              borderColor: "var(--shell-border)",
+              color: "var(--shell-text)",
             }}
           >
             Cancel
@@ -178,8 +178,8 @@ export function CreateFolderModal({
             disabled={!folderName.trim() || isCreating}
             className="px-4 py-2 text-xs font-bold border-2 rounded flex items-center gap-2"
             style={{
-              background: "var(--win95-highlight)",
-              borderColor: "var(--win95-border)",
+              background: "var(--shell-accent)",
+              borderColor: "var(--shell-border)",
               color: "white",
               opacity: !folderName.trim() || isCreating ? 0.5 : 1,
             }}
@@ -247,29 +247,29 @@ export function CreateDocumentModal({
       <div
         className="w-full max-w-4xl h-[80vh] border-2 rounded-lg flex flex-col"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b-2 flex-shrink-0"
           style={{
-            background: "var(--win95-titlebar-bg)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-titlebar-gradient)",
+            borderColor: "var(--shell-border)",
           }}
         >
           <div className="flex items-center gap-2">
-            <FileText size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <FileText size={18} style={{ color: "var(--shell-titlebar-text)" }} />
             <h3
               className="text-sm font-bold"
-              style={{ color: "var(--win95-titlebar-text)" }}
+              style={{ color: "var(--shell-titlebar-text)" }}
             >
               Create Layer Cake Document
             </h3>
           </div>
           <button onClick={onClose}>
-            <X size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <X size={18} style={{ color: "var(--shell-titlebar-text)" }} />
           </button>
         </div>
 
@@ -277,7 +277,7 @@ export function CreateDocumentModal({
         <div className="flex-1 overflow-hidden p-6 space-y-4">
           {/* Document Name */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               Document Name *
             </label>
             <input
@@ -287,9 +287,9 @@ export function CreateDocumentModal({
               placeholder="My Document"
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
+                color: "var(--shell-text)",
               }}
               autoFocus
             />
@@ -300,7 +300,7 @@ export function CreateDocumentModal({
 
           {/* Editor */}
           <div className="flex-1">
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               Content (Markdown)
             </label>
             <SimpleTiptapEditor
@@ -315,15 +315,15 @@ export function CreateDocumentModal({
         {/* Footer */}
         <div
           className="flex justify-end gap-2 px-6 py-4 border-t-2 flex-shrink-0"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--shell-border)" }}
         >
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold border-2 rounded"
             style={{
-              background: "var(--win95-button-face)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              background: "var(--shell-button-surface)",
+              borderColor: "var(--shell-border)",
+              color: "var(--shell-text)",
             }}
           >
             Cancel
@@ -333,8 +333,8 @@ export function CreateDocumentModal({
             disabled={!documentName.trim() || isCreating}
             className="px-4 py-2 text-xs font-bold border-2 rounded flex items-center gap-2"
             style={{
-              background: "var(--win95-highlight)",
-              borderColor: "var(--win95-border)",
+              background: "var(--shell-accent)",
+              borderColor: "var(--shell-border)",
               color: "white",
               opacity: !documentName.trim() || isCreating ? 0.5 : 1,
             }}
@@ -521,29 +521,29 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
       <div
         className="w-full max-w-2xl max-h-[90vh] border-2 rounded-lg flex flex-col"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b-2 flex-shrink-0"
           style={{
-            background: "var(--win95-titlebar-bg)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-titlebar-gradient)",
+            borderColor: "var(--shell-border)",
           }}
         >
           <div className="flex items-center gap-2">
-            <Upload size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <Upload size={18} style={{ color: "var(--shell-titlebar-text)" }} />
             <h3
               className="text-sm font-bold"
-              style={{ color: "var(--win95-titlebar-text)" }}
+              style={{ color: "var(--shell-titlebar-text)" }}
             >
               Upload Files {fileQueue.length > 0 && `(${fileQueue.length})`}
             </h3>
           </div>
           <button onClick={onClose} disabled={isUploading}>
-            <X size={18} style={{ color: "var(--win95-titlebar-text)" }} />
+            <X size={18} style={{ color: "var(--shell-titlebar-text)" }} />
           </button>
         </div>
 
@@ -554,8 +554,8 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
             <div
               className="border-4 border-dashed rounded-2xl p-12 transition-all text-center"
               style={{
-                borderColor: isDragging ? "var(--win95-highlight)" : "var(--win95-border)",
-                background: isDragging ? "var(--win95-bg)" : "var(--win95-bg-light)",
+                borderColor: isDragging ? "var(--shell-accent)" : "var(--shell-border)",
+                background: isDragging ? "var(--shell-surface)" : "var(--shell-surface-elevated)",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -568,7 +568,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                 className="w-16 h-16 mx-auto mb-4"
                 style={{ color: "var(--neutral-gray)" }}
               />
-              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--shell-text)" }}>
                 Drop files here
               </h3>
               <p className="mb-6" style={{ color: "var(--neutral-gray)" }}>
@@ -589,8 +589,8 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                 <span
                   className="px-6 py-3 rounded-lg font-medium cursor-pointer transition-colors inline-block border-2"
                   style={{
-                    background: "var(--win95-highlight)",
-                    borderColor: "var(--win95-border)",
+                    background: "var(--shell-accent)",
+                    borderColor: "var(--shell-border)",
                     color: "white",
                   }}
                 >
@@ -605,7 +605,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
             <div className="space-y-3">
               {/* Add More Files Button */}
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                   Upload Queue ({fileQueue.length} {fileQueue.length === 1 ? "file" : "files"})
                 </h4>
                 <label className="inline-block">
@@ -624,9 +624,9 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                   <span
                     className="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors inline-block border-2 rounded"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)",
-                      color: "var(--win95-text)",
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)",
+                      color: "var(--shell-text)",
                       opacity: isUploading ? 0.5 : 1,
                       cursor: isUploading ? "not-allowed" : "pointer",
                     }}
@@ -642,8 +642,8 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                   key={index}
                   className="border-2 rounded p-3"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-surface-elevated)",
                   }}
                 >
                   <div className="flex items-start gap-3">
@@ -653,7 +653,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                         <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: "var(--neutral-gray)" }} />
                       )}
                       {item.status === "uploading" && (
-                        <Loader2 size={20} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+                        <Loader2 size={20} className="animate-spin" style={{ color: "var(--shell-accent)" }} />
                       )}
                       {item.status === "success" && (
                         <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "#10B981" }}>
@@ -671,7 +671,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--win95-text)" }}>
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--shell-text)" }}>
                             {item.file.name}
                           </p>
                           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -685,8 +685,8 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                             onClick={() => removeFile(index)}
                             className="text-xs px-2 py-1 border rounded"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              color: "var(--win95-text)",
+                              borderColor: "var(--shell-border)",
+                              color: "var(--shell-text)",
                             }}
                           >
                             Remove
@@ -697,8 +697,8 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                             onClick={() => retryFile(index)}
                             className="text-xs px-2 py-1 border rounded"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-highlight)",
+                              borderColor: "var(--shell-border)",
+                              background: "var(--shell-accent)",
                               color: "white",
                             }}
                           >
@@ -711,13 +711,13 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
                       {(item.status === "uploading" || item.status === "success") && (
                         <div
                           className="mt-2 w-full rounded-full h-2"
-                          style={{ background: "var(--win95-border-light)" }}
+                          style={{ background: "var(--shell-border-soft)" }}
                         >
                           <div
                             className="h-2 rounded-full transition-all"
                             style={{
                               width: `${item.progress}%`,
-                              background: item.status === "success" ? "#10B981" : "var(--win95-highlight)",
+                              background: item.status === "success" ? "#10B981" : "var(--shell-accent)",
                             }}
                           />
                         </div>
@@ -741,7 +741,7 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
         {fileQueue.length > 0 && (
           <div
             className="flex justify-between items-center gap-2 px-6 py-4 border-t-2 flex-shrink-0"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--shell-border)" }}
           >
             <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
               {hasSuccess && `${fileQueue.filter(f => f.status === "success").length} uploaded`}
@@ -752,9 +752,9 @@ export function UploadModal({ organizationId, sessionId, onClose }: UploadModalP
               disabled={isUploading}
               className="px-4 py-2 text-xs font-bold border-2 rounded"
               style={{
-                background: allComplete ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                borderColor: "var(--win95-border)",
-                color: allComplete ? "white" : "var(--win95-text)",
+                background: allComplete ? "var(--shell-accent)" : "var(--shell-button-surface)",
+                borderColor: "var(--shell-border)",
+                color: allComplete ? "white" : "var(--shell-text)",
                 opacity: isUploading ? 0.5 : 1,
                 cursor: isUploading ? "not-allowed" : "pointer",
               }}

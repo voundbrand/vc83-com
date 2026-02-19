@@ -17,7 +17,7 @@ export function ConversationHistory() {
     const conversations = chat.conversations || []
     if (!searchQuery) return conversations
 
-    return conversations.filter((conv) =>
+    return conversations.filter((conv: any) =>
       conv.title?.toLowerCase().includes(searchQuery.toLowerCase())
     )
   }, [chat.conversations, searchQuery])
@@ -123,10 +123,10 @@ export function ConversationHistory() {
           </div>
         ) : (
           <div className="p-1">
-            {filteredConversations.map((conv) => {
+            {filteredConversations.map((conv: any) => {
               const isActive = currentConversationId === conv._id
               // Calculate message count from messages array
-              const messageCount = chat.messages?.filter(msg => msg.conversationId === conv._id).length || 0
+              const messageCount = chat.messages?.filter((msg: any) => msg.conversationId === conv._id).length || 0
 
               return (
                 <button

@@ -5,6 +5,8 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import MediaLibraryWindow from "@/components/window-content/media-library-window";
 import {
   Building2,
   Mail,
@@ -19,7 +21,9 @@ import {
   Hash,
   Palette,
   Languages,
-  Receipt
+  Receipt,
+  ImagePlus,
+  Trash2
 } from "lucide-react";
 import { Doc } from "../../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
@@ -83,6 +87,7 @@ export interface FormData {
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
     const { t } = useNamespaceTranslations("ui.manage");
+    const { openWindow } = useWindowManager();
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
@@ -280,6 +285,25 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     border: '1px solid var(--window-document-border)',
     borderColor: 'var(--window-document-border)',
     opacity: canEdit ? 1 : 0.7
+  };
+
+  const openBrandingMediaPicker = (windowId: string, title: string, onSelectUrl: (url: string) => void) => {
+    if (!canEdit || !isEditing) {
+      return;
+    }
+
+    openWindow(
+      windowId,
+      title,
+      <MediaLibraryWindow
+        selectionMode={true}
+        onSelect={async (media) => {
+          onSelectUrl(media.url || "");
+        }}
+      />,
+      { x: 240, y: 160 },
+      { width: 1000, height: 700 },
+    );
   };
 
   return (
@@ -780,26 +804,94 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </div>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                   {t("ui.manage.org.logo_url")}
                 </label>
-                <input
-                  type="url"
-                  value={formData.settings.branding.logo}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    settings: {
-                      ...formData.settings,
-                      branding: { ...formData.settings.branding, logo: e.target.value }
-                    }
-                  })}
-                  readOnly={!isEditing}
-                  disabled={!canEdit || !isEditing}
-                  placeholder="https://..."
-                  className="w-full px-2 py-1 text-sm"
-                  style={inputStyles}
-                />
+                <div className="manage-org-avatar-uploader">
+                  <div className="manage-org-avatar-preview">
+                    {formData.settings.branding.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={formData.settings.branding.logo}
+                        alt="Organization avatar"
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            settings: {
+                              ...previous.settings,
+                              branding: { ...previous.settings.branding, logo: "" },
+                            },
+                          }))
+                        }
+                      />
+                    ) : (
+                      <Building2 className="h-7 w-7" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openBrandingMediaPicker("media-library-select-logo", "Select Avatar", (url) =>
+                            setFormData((previous) => ({
+                              ...previous,
+                              settings: {
+                                ...previous.settings,
+                                branding: { ...previous.settings.branding, logo: url },
+                              },
+                            })),
+                          )
+                        }
+                        disabled={!canEdit || !isEditing}
+                        className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        Upload Avatar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            settings: {
+                              ...previous.settings,
+                              branding: { ...previous.settings.branding, logo: "" },
+                            },
+                          }))
+                        }
+                        disabled={!canEdit || !isEditing || !formData.settings.branding.logo}
+                        className="desktop-interior-button h-8 px-3 text-xs font-semibold"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={formData.settings.branding.logo}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          settings: {
+                            ...formData.settings,
+                            branding: { ...formData.settings.branding, logo: e.target.value },
+                          },
+                        })
+                      }
+                      readOnly={!isEditing}
+                      disabled={!canEdit || !isEditing}
+                      placeholder="https://..."
+                      className="w-full px-2 py-1 text-sm"
+                      style={inputStyles}
+                    />
+                    <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      Use a square image for the best avatar crop.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

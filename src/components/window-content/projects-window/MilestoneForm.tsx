@@ -83,8 +83,8 @@ export default function MilestoneForm({
       <div
         className="bg-white rounded shadow-lg max-w-md w-full"
         style={{
-          border: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg)",
+          border: "var(--window-document-border)",
+          backgroundColor: "var(--window-document-bg)",
         }}
       >
         {/* Header */}
@@ -92,7 +92,7 @@ export default function MilestoneForm({
           className="flex items-center justify-between p-3 border-b-2"
           style={{
             background: "linear-gradient(90deg, #000080 0%, #1084d0 100%)",
-            borderBottom: "var(--win95-border)",
+            borderBottom: "var(--window-document-border)",
           }}
         >
           <h3 className="font-bold text-sm text-white">
@@ -125,7 +125,7 @@ export default function MilestoneForm({
               onChange={(e) => setName(e.target.value)}
               maxLength={100}
               className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
               required
             />
           </div>
@@ -141,7 +141,7 @@ export default function MilestoneForm({
               rows={3}
               maxLength={200}
               className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             />
           </div>
 
@@ -155,7 +155,7 @@ export default function MilestoneForm({
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 <option value="pending">Pending</option>
                 <option value="in_progress">In Progress</option>
@@ -175,7 +175,7 @@ export default function MilestoneForm({
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             />
           </div>
 
@@ -186,7 +186,7 @@ export default function MilestoneForm({
               onClick={onCancel}
               disabled={loading}
               className="px-4 py-1.5 text-sm border-2 rounded hover:bg-gray-100 disabled:opacity-50"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             >
               Cancel
             </button>
@@ -194,7 +194,7 @@ export default function MilestoneForm({
               type="submit"
               disabled={loading}
               className="px-4 py-1.5 text-sm border-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             >
               {loading ? "Saving..." : "Save"}
             </button>

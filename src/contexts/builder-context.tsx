@@ -18,12 +18,17 @@ import {
 } from "react";
 import { useMemo } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
+// Dynamic require avoids deep generated Convex API type instantiation in this large module.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const apiAny: any = require("@convex/_generated/api").api;
+const api = apiAny as any;
 import { analyzeV0FilesForConnections } from "@/lib/builder/v0-file-analyzer";
 import { API_CATEGORIES } from "@/lib/api-catalog";
 import type { Id } from "@convex/_generated/dataModel";
 import type { AIGeneratedPageSchema } from "@/lib/page-builder/page-schema";
 import { parseAndValidateAIResponse } from "@/lib/page-builder/validators";
+import { parseSetupResponse, validateAgentConfig } from "@/lib/builder/setup-response-parser";
+import { detectAgentConfig } from "@/lib/builder/agent-config-detector";
 import { useAuth } from "@/hooks/use-auth";
 
 // ============================================================================
@@ -254,6 +259,91 @@ function parseApiError(error: unknown): ParsedError {
   };
 }
 
+function normalizeBuilderFilePath(path: string): string {
+  return path.trim().replace(/^\.?\//, "");
+}
+
+function inferLanguageFromPath(path: string, language?: string): string {
+  if (language && language.trim().length > 0) {
+    return language;
+  }
+
+  const extension = path.split(".").pop()?.toLowerCase() || "";
+  const langMap: Record<string, string> = {
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    css: "css",
+    json: "json",
+    md: "markdown",
+    html: "html",
+  };
+  return langMap[extension] || "text";
+}
+
+function isSetupArtifactPath(path: string): boolean {
+  const normalizedPath = normalizeBuilderFilePath(path);
+  if (normalizedPath === "agent-config.json") return true;
+  if (normalizedPath.endsWith("/agent-config.json")) return true;
+  if (normalizedPath.startsWith("kb/")) return true;
+  return normalizedPath.includes("/kb/");
+}
+
+function createSlugTag(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeFaqEntries(
+  value: unknown,
+): Array<{ q: string; a: string }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      const q = typeof record.q === "string" ? record.q.trim() : "";
+      const a = typeof record.a === "string" ? record.a.trim() : "";
+      if (!q || !a) return null;
+      return { q, a };
+    })
+    .filter((entry): entry is { q: string; a: string } => Boolean(entry));
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeChannelBindings(
+  value: unknown,
+): Array<{ channel: string; enabled: boolean }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const record = entry as Record<string, unknown>;
+      if (typeof record.channel !== "string" || typeof record.enabled !== "boolean") {
+        return null;
+      }
+      const channel = record.channel.trim();
+      if (!channel) return null;
+      return { channel, enabled: record.enabled };
+    })
+    .filter((entry): entry is { channel: string; enabled: boolean } => Boolean(entry));
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -370,8 +460,8 @@ interface BuilderContextType {
   /** Set linked records */
   setLinkedRecords: (records: LinkedRecord[]) => void;
 
-  /** Analyze current page for connections (call when entering connect mode) */
-  analyzePageForConnections: () => Promise<void>;
+  /** Analyze current page/artifacts for connections (call when entering connect mode) */
+  analyzePageForConnections: () => Promise<boolean>;
 
   /** Update a single connection choice */
   updateConnectionChoice: (
@@ -546,16 +636,29 @@ export function BuilderProvider({
   // BUILDER FILES QUERY (for v0 file analysis)
   // ============================================================================
 
-  const builderFilesRaw = useQuery(
-    api.fileSystemOntology.getFilesByApp,
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => unknown;
+
+  const builderFilesRaw = unsafeUseQuery(
+    apiAny.fileSystemOntology.getFilesByApp,
     sessionId && builderAppId
       ? { sessionId, appId: builderAppId }
       : "skip"
-  );
+  ) as Array<{ path: string; content?: string | null }> | undefined;
   const builderFiles = useMemo(() => {
     if (!builderFilesRaw) return [];
-    return builderFilesRaw.map((f) => ({ path: f.path, content: f.content }));
+    return builderFilesRaw.map((file) => ({
+      path: file.path,
+      content: typeof file.content === "string" ? file.content : "",
+    }));
   }, [builderFilesRaw]);
+
+  const setupArtifactCandidates = useMemo(
+    () => builderFiles.filter((file) => isSetupArtifactPath(file.path)),
+    [builderFiles]
+  );
 
   // ============================================================================
   // EXISTING RECORDS QUERY (for ConnectionPanel match suggestions)
@@ -613,7 +716,7 @@ export function BuilderProvider({
         const typeRestoreMap: Record<string, LinkedRecord["recordType"]> = {
           contacts: "contact", forms: "form", products: "product", events: "event",
           invoices: "invoice", bookings: "booking", tickets: "ticket",
-          workflows: "workflow", checkouts: "checkout",
+          workflows: "workflow", checkouts: "checkout", agents: "agent",
         };
         for (const [type, ids] of Object.entries(linked)) {
           const recordType = typeRestoreMap[type] || "form";
@@ -705,6 +808,9 @@ export function BuilderProvider({
   const sendV0Message = useAction(api.integrations.v0.builderChat);
   const createBuilderAppMutation = useMutation(api.builderAppOntology.createBuilderApp);
   const updateBuilderAppMutation = useMutation(api.builderAppOntology.updateBuilderApp);
+  const createAgentMutation = useMutation(api.agentOntology.createAgent);
+  const createLayerCakeDocumentMutation = useMutation(api.organizationMedia.createLayerCakeDocument);
+  const registerMediaKnowledgeItemMutation = useMutation(api.brainKnowledge.registerMediaKnowledgeItem);
   const saveGeneratedPage = useMutation(api.pageBuilder.saveGeneratedPage);
   const sendPlatformAlert = useAction(api.ai.platformAlerts.sendPlatformAlert);
 
@@ -739,7 +845,13 @@ export function BuilderProvider({
     }
 
     // Convert messages from database format to BuilderMessage format
-    const loadedMessages: BuilderMessage[] = initialConversation.messages.map((msg, index) => {
+    const conversationMessages = (initialConversation.messages || []) as Array<{
+      _id?: string;
+      role: string;
+      content: string;
+      timestamp: number;
+    }>;
+    const loadedMessages: BuilderMessage[] = conversationMessages.map((msg, index: number) => {
       const builderMsg: BuilderMessage = {
         id: `loaded_${msg._id || index}`,
         role: msg.role as "user" | "assistant" | "system",
@@ -795,8 +907,10 @@ export function BuilderProvider({
 
     // Check for pending setup mode (agent creation wizard)
     const pendingSetupMode = sessionStorage.getItem("builder_pending_setup_mode");
+    const shouldUseSetupMode = pendingSetupMode === "true";
     if (pendingSetupMode === "true") {
       setIsSetupMode(true);
+      setAiProvider("built-in");
       sessionStorage.removeItem("builder_pending_setup_mode");
     }
 
@@ -805,8 +919,12 @@ export function BuilderProvider({
     if (pendingPrompt) {
       hasProcessedInitialPrompt.current = true;
       sessionStorage.removeItem("builder_pending_prompt");
-      // Send message with explicit planning mode (don't rely on state update timing)
-      sendMessageWithMode(pendingPrompt, shouldUsePlanningMode);
+      if (shouldUseSetupMode) {
+        void sendMessageInternal(pendingPrompt);
+      } else {
+        // Send message with explicit planning mode (don't rely on state update timing)
+        void sendMessageWithMode(pendingPrompt, shouldUsePlanningMode);
+      }
     } else {
       hasProcessedInitialPrompt.current = true;
     }
@@ -1188,10 +1306,12 @@ export function BuilderProvider({
         ? "\n[PLANNING MODE ACTIVE - Do NOT generate page JSON yet. Instead, discuss the design with the user, ask clarifying questions about their preferences (colors, style, content), and create a detailed plan. Only generate the actual page after the user explicitly approves the plan.]"
         : "";
       // For edits, add a strong instruction at the END so it's the last thing the AI sees
-      const editSuffix = pageSchema && !isPlanningMode
+      const editSuffix = pageSchema && !isPlanningMode && !isSetupMode
         ? "\n\n---\nIMPORTANT: Respond with the COMPLETE updated JSON code block. Start your response with ```json"
         : "";
-      const contextPrefix = pageSchema
+      const contextPrefix = isSetupMode
+        ? `[SETUP MODE - EXECUTION]\n\nSYSTEM REMINDER: Return setup artifacts as fenced file blocks (for example: \`\`\`json agent-config.json).\n\nUSER REQUEST:\n`
+        : pageSchema
         ? `[PAGE BUILDER - ${modeIndicator}]\n\nCURRENT PAGE JSON:\n${JSON.stringify(pageSchema, null, 2)}\n\nUSER REQUEST:\n`
         : `[PAGE BUILDER - ${modeIndicator} - No page yet]${planningInstructions}\n\n`;
       const fullMessage = contextPrefix + message + editSuffix;
@@ -1223,6 +1343,135 @@ export function BuilderProvider({
       const aiContent = result.message || "";
       console.log("[Builder] AI response received, length:", aiContent.length);
       console.log("[Builder] AI response preview:", aiContent.substring(0, 200));
+
+      if (isSetupMode) {
+        const parsedSetupFiles = parseSetupResponse(aiContent).map((file) => ({
+          ...file,
+          path: normalizeBuilderFilePath(file.path),
+        }));
+        const setupConfig = validateAgentConfig(parsedSetupFiles);
+        const kbFileCount = parsedSetupFiles.filter(
+          (file) => file.path.startsWith("kb/") && file.path.endsWith(".md")
+        ).length;
+
+        const setupValidationErrors: string[] = [];
+        const setupWarnings: string[] = [];
+
+        if (parsedSetupFiles.length === 0) {
+          setupValidationErrors.push(
+            "No generated files were detected. Include fenced file blocks like ```json agent-config.json and ```markdown kb/guide-positioning.md."
+          );
+        }
+
+        if (!setupConfig) {
+          setupValidationErrors.push(
+            "Missing or invalid `agent-config.json`. It must be valid JSON and include a non-empty `name` field."
+          );
+        }
+
+        if (!sessionId) {
+          setupValidationErrors.push(
+            "Session missing while persisting setup artifacts. Refresh and rerun the setup step."
+          );
+        }
+
+        if (setupConfig && kbFileCount === 0) {
+          setupWarnings.push(
+            "No `kb/*.md` files were detected. Connect can still create the agent, but knowledge import will be skipped."
+          );
+        }
+
+        if (parsedSetupFiles.length > 0 && sessionId) {
+          const filesToPersist = parsedSetupFiles.map((file) => ({
+            path: file.path,
+            content: file.content,
+            language: inferLanguageFromPath(file.path, file.language),
+          }));
+
+          try {
+            if (!builderAppId) {
+              const setupAppName =
+                setupConfig?.displayName || setupConfig?.name || "Agent Setup Workspace";
+              const setupConversationId =
+                (result.conversationId || conversationId || undefined) as
+                  | Id<"aiConversations">
+                  | undefined;
+              const createdBuilderApp = await createBuilderAppMutation({
+                sessionId,
+                organizationId,
+                name: setupAppName,
+                description: "Setup-mode generated agent artifacts",
+                subtype: "custom",
+                files: filesToPersist,
+                conversationId: setupConversationId,
+              });
+              setBuilderAppId(createdBuilderApp.appId);
+            } else {
+              await updateBuilderAppMutation({
+                sessionId,
+                appId: builderAppId,
+                files: filesToPersist,
+              });
+            }
+          } catch (persistError) {
+            const persistMessage =
+              persistError instanceof Error
+                ? persistError.message
+                : "Unknown persistence error";
+            setupValidationErrors.push(
+              `Failed to persist setup artifacts in workspace files: ${persistMessage}`
+            );
+          }
+        }
+
+        const assistantMessage: BuilderMessage = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: aiContent,
+          timestamp: Date.now(),
+          processingTime,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        if (setupValidationErrors.length > 0 || setupWarnings.length > 0) {
+          const summaryLines: string[] = [];
+          if (setupValidationErrors.length > 0) {
+            summaryLines.push("Setup artifact validation failed:");
+            for (const error of setupValidationErrors) {
+              summaryLines.push(`- ${error}`);
+            }
+          }
+          if (setupWarnings.length > 0) {
+            if (summaryLines.length > 0) {
+              summaryLines.push("");
+            }
+            summaryLines.push("Setup artifact warnings:");
+            for (const warning of setupWarnings) {
+              summaryLines.push(`- ${warning}`);
+            }
+          }
+
+          if (setupValidationErrors.length > 0) {
+            setGenerationError(summaryLines.join("\n"));
+          }
+          const setupValidationMessage: BuilderMessage = {
+            id: generateMessageId(),
+            role: "system",
+            content: summaryLines.join("\n"),
+            timestamp: Date.now(),
+            errorDetails:
+              setupValidationErrors.length > 0
+                ? {
+                    type: "api",
+                    canRetry: true,
+                  }
+                : undefined,
+          };
+          setMessages((prev) => [...prev, setupValidationMessage]);
+        }
+
+        return;
+      }
 
       const validation = parseAndValidateAIResponse(aiContent);
       console.log("[Builder] Validation result:", {
@@ -1322,7 +1571,26 @@ export function BuilderProvider({
     async (message: string) => {
       await sendMessageInternal(message);
     },
-    [organizationId, user, conversationId, pageSchema, sendChatMessage, sendV0Message, selectedModel, isPlanningMode, aiProvider, v0ChatId, builderAppId, sessionId, createBuilderAppMutation, updateBuilderAppMutation]
+    [
+      aiProvider,
+      builderAppId,
+      builderMode,
+      conversationId,
+      createBuilderAppMutation,
+      isPlanningMode,
+      isSetupMode,
+      onConversationCreated,
+      organizationId,
+      pageSchema,
+      selectedModel,
+      sendChatMessage,
+      sendPlatformAlert,
+      sendV0Message,
+      sessionId,
+      updateBuilderAppMutation,
+      user,
+      v0ChatId,
+    ]
   );
 
   // Save the current page as a project
@@ -1374,12 +1642,17 @@ export function BuilderProvider({
         // Can always go back to prototype mode
         return true;
       case "connect":
-        // Need a prototype page OR v0 demo URL to connect
-        return pageSchema !== null || prototypePageJson !== null || v0DemoUrl !== null;
+        // Need a prototype page, v0 preview, or setup artifacts ready for connect.
+        return (
+          pageSchema !== null ||
+          prototypePageJson !== null ||
+          v0DemoUrl !== null ||
+          setupArtifactCandidates.length > 0
+        );
       default:
         return false;
     }
-  }, [pageSchema, prototypePageJson, v0DemoUrl]);
+  }, [pageSchema, prototypePageJson, v0DemoUrl, setupArtifactCandidates.length]);
 
   /**
    * Set the builder mode with validation
@@ -1416,11 +1689,61 @@ export function BuilderProvider({
   /**
    * Analyze current page for sections that need real data connections
    */
-  const analyzePageForConnections = useCallback(async () => {
+  const analyzePageForConnections = useCallback(async (): Promise<boolean> => {
     setIsAnalyzingConnections(true);
     console.log("[Builder] Analyzing page for connections...");
 
     try {
+      const setupDetection = detectAgentConfig(setupArtifactCandidates);
+      if (aiProvider !== "v0" && setupArtifactCandidates.length > 0) {
+        if (setupDetection.section) {
+          setPendingConnections([setupDetection.section]);
+          if (setupDetection.warnings.length > 0) {
+            const warningMessage = [
+              "Setup connect warnings:",
+              ...setupDetection.warnings.map((warning) => `- ${warning}`),
+            ].join("\n");
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: generateMessageId(),
+                role: "system",
+                content: warningMessage,
+                timestamp: Date.now(),
+              },
+            ]);
+          }
+
+          return true;
+        }
+
+        const validationErrors =
+          setupDetection.validationErrors.length > 0
+            ? setupDetection.validationErrors
+            : ["Setup artifacts were detected but `agent-config.json` is missing or invalid."];
+        const validationMessage = [
+          "Setup connect validation failed:",
+          ...validationErrors.map((error) => `- ${error}`),
+        ].join("\n");
+
+        setGenerationError(validationMessage);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateMessageId(),
+            role: "system",
+            content: validationMessage,
+            timestamp: Date.now(),
+            errorDetails: {
+              type: "api",
+              canRetry: true,
+            },
+          },
+        ]);
+        setPendingConnections([]);
+        return false;
+      }
+
       // V0 apps: analyze React source files instead of JSON schema
       if (aiProvider === "v0" && builderFiles.length > 0) {
         const v0Connections = analyzeV0FilesForConnections(builderFiles);
@@ -1449,16 +1772,14 @@ export function BuilderProvider({
 
         setPendingConnections(v0Connections);
         console.log(`[Builder] v0 analysis: found ${v0Connections.length} sections with ${v0Connections.reduce((sum, c) => sum + c.detectedItems.length, 0)} items`);
-        setIsAnalyzingConnections(false);
-        return;
+        return true;
       }
 
       // Built-in provider: analyze JSON page schema
       const schemaToAnalyze = pageSchema || prototypePageJson;
       if (!schemaToAnalyze) {
         console.warn("[Builder] No page schema to analyze");
-        setIsAnalyzingConnections(false);
-        return;
+        return false;
       }
 
       const connections: SectionConnection[] = [];
@@ -1556,12 +1877,14 @@ export function BuilderProvider({
 
       setPendingConnections(connections);
       console.log(`[Builder] Found ${connections.length} sections with ${connections.reduce((sum, c) => sum + c.detectedItems.length, 0)} items to connect`);
+      return true;
     } catch (error) {
       console.error("[Builder] Error analyzing page:", error);
+      return false;
     } finally {
       setIsAnalyzingConnections(false);
     }
-  }, [pageSchema, prototypePageJson, aiProvider, builderFiles, getWizardCategories]);
+  }, [aiProvider, builderFiles, getWizardCategories, pageSchema, prototypePageJson, setupArtifactCandidates]);
 
   /**
    * Update a single connection choice
@@ -1602,6 +1925,7 @@ export function BuilderProvider({
       booking: { name: "New Booking" },
       workflow: { name: "New Workflow" },
       checkout: { name: "New Checkout" },
+      agent: { name: "New Agent" },
     };
     const newItem: DetectedItem = {
       id: `manual-${Date.now()}`,
@@ -1673,14 +1997,15 @@ export function BuilderProvider({
     const newLinkedRecords: LinkedRecord[] = [];
     const idsByType: Record<string, Id<"objects">[]> = {
       forms: [], contacts: [], products: [], events: [],
-      invoices: [], tickets: [], bookings: [], workflows: [], checkouts: [],
+      invoices: [], tickets: [], bookings: [], workflows: [], checkouts: [], agents: [],
     };
     // Map DetectedItem type → linkObjects key
     const typeToBucket: Record<string, string> = {
       form: "forms", contact: "contacts", product: "products", event: "events",
       invoice: "invoices", ticket: "tickets", booking: "bookings",
-      workflow: "workflows", checkout: "checkouts",
+      workflow: "workflows", checkout: "checkouts", agent: "agents",
     };
+    const setupDetectionForExecute = detectAgentConfig(setupArtifactCandidates);
 
     try {
       for (const section of pendingConnections) {
@@ -1781,6 +2106,98 @@ export function BuilderProvider({
                 name: item.placeholderData.name || "New Checkout",
               });
               createdId = checkoutResult.instanceId;
+            } else if (item.type === "agent") {
+              if (!setupDetectionForExecute.config) {
+                throw new Error(
+                  "Connect validation failed: `agent-config.json` is missing or invalid. Regenerate setup artifacts before connecting."
+                );
+              }
+              if (setupDetectionForExecute.validationErrors.length > 0) {
+                throw new Error(
+                  `Connect validation failed:\n- ${setupDetectionForExecute.validationErrors.join("\n- ")}`
+                );
+              }
+
+              const setupConfig = setupDetectionForExecute.config;
+              const normalizedSubtype = setupConfig.subtype?.trim() || "general";
+              const slugTag = createSlugTag(
+                setupConfig.displayName || setupConfig.name || "setup-agent"
+              );
+              const configuredTags = normalizeStringArray(setupConfig.knowledgeBaseTags) || [];
+              const setupKnowledgeTags = Array.from(
+                new Set([...configuredTags, `agent:${slugTag}`])
+              );
+
+              createdId = await createAgentMutation({
+                sessionId,
+                organizationId,
+                subtype: normalizedSubtype,
+                name: setupConfig.name,
+                displayName: setupConfig.displayName,
+                personality: setupConfig.personality,
+                language: setupConfig.language,
+                additionalLanguages: normalizeStringArray(
+                  setupConfig.additionalLanguages
+                ),
+                brandVoiceInstructions: setupConfig.brandVoiceInstructions,
+                systemPrompt: setupConfig.systemPrompt,
+                faqEntries: normalizeFaqEntries(setupConfig.faqEntries),
+                knowledgeBaseTags: setupKnowledgeTags,
+                enabledTools: normalizeStringArray(setupConfig.enabledTools),
+                disabledTools: normalizeStringArray(setupConfig.disabledTools),
+                autonomyLevel: setupConfig.autonomyLevel || "supervised",
+                maxMessagesPerDay:
+                  typeof setupConfig.maxMessagesPerDay === "number"
+                    ? setupConfig.maxMessagesPerDay
+                    : undefined,
+                maxCostPerDay:
+                  typeof setupConfig.maxCostPerDay === "number"
+                    ? setupConfig.maxCostPerDay
+                    : undefined,
+                requireApprovalFor: normalizeStringArray(
+                  setupConfig.requireApprovalFor
+                ),
+                blockedTopics: normalizeStringArray(setupConfig.blockedTopics),
+                modelProvider: setupConfig.modelProvider,
+                modelId: setupConfig.modelId,
+                temperature:
+                  typeof setupConfig.temperature === "number"
+                    ? setupConfig.temperature
+                    : undefined,
+                maxTokens:
+                  typeof setupConfig.maxTokens === "number"
+                    ? setupConfig.maxTokens
+                    : undefined,
+                channelBindings: normalizeChannelBindings(
+                  setupConfig.channelBindings
+                ),
+              });
+
+              for (const kbFile of setupDetectionForExecute.kbFiles) {
+                const normalizedPath = normalizeBuilderFilePath(kbFile.path);
+                const documentContent = kbFile.content.trim();
+                if (!documentContent) continue;
+
+                const fileNameFromPath =
+                  normalizedPath.split("/").pop() || "knowledge.md";
+                const createdDocument = await createLayerCakeDocumentMutation({
+                  sessionId,
+                  organizationId,
+                  filename: fileNameFromPath.endsWith(".md")
+                    ? fileNameFromPath
+                    : `${fileNameFromPath}.md`,
+                  documentContent,
+                  description: `Setup-generated knowledge doc for ${setupConfig.displayName || setupConfig.name}`,
+                  tags: setupKnowledgeTags,
+                });
+
+                await registerMediaKnowledgeItemMutation({
+                  sessionId,
+                  organizationId,
+                  mediaId: createdDocument.docId,
+                  sourceType: "text",
+                });
+              }
             }
             // Note: ticket type is intentionally excluded — tickets are internal-only
 
@@ -1850,7 +2267,26 @@ export function BuilderProvider({
       setGenerationError(errorMessage);
       return false;
     }
-  }, [organizationId, sessionId, builderAppId, pendingConnections, createFormMutation, createContactMutation, createProductMutation, createEventMutation, createInvoiceMutation, createBookingMutation, createWorkflowMutation, createCheckoutMutation, linkObjectsMutation, updateConnectionStatusMutation]);
+  }, [
+    organizationId,
+    sessionId,
+    builderAppId,
+    pendingConnections,
+    createFormMutation,
+    createContactMutation,
+    createProductMutation,
+    createEventMutation,
+    createInvoiceMutation,
+    createBookingMutation,
+    createWorkflowMutation,
+    createCheckoutMutation,
+    createAgentMutation,
+    createLayerCakeDocumentMutation,
+    registerMediaKnowledgeItemMutation,
+    linkObjectsMutation,
+    setupArtifactCandidates,
+    updateConnectionStatusMutation,
+  ]);
 
   // Reset the builder state
   const reset = useCallback(() => {
@@ -2281,6 +2717,6 @@ export function useBuilderMode() {
  * Hook to check if we can connect (have prototype page)
  */
 export function useCanConnect() {
-  const { pageSchema, prototypePageJson } = useBuilder();
-  return Boolean(pageSchema || prototypePageJson);
+  const { canSwitchToMode } = useBuilder();
+  return canSwitchToMode("connect");
 }

@@ -23,7 +23,7 @@ export function PaymentProviderCard({
   name,
   description,
   icon,
-  iconColor = "var(--win95-highlight)",
+  iconColor = "var(--tone-accent)",
   status,
   onClick,
   requiredTier,
@@ -68,7 +68,7 @@ export function PaymentProviderCard({
           <div
             className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded"
             style={{
-              background: 'var(--win95-border)',
+              background: 'var(--window-document-border)',
               color: 'var(--neutral-gray)',
             }}
           >
@@ -97,16 +97,16 @@ export function PaymentProviderCard({
       return 'linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.1) 100%)';
     }
     if (isLocked) {
-      return 'linear-gradient(180deg, var(--win95-bg-light) 0%, rgba(245, 158, 11, 0.05) 100%)';
+      return 'linear-gradient(180deg, var(--window-document-bg-elevated) 0%, rgba(245, 158, 11, 0.05) 100%)';
     }
-    return 'var(--win95-bg-light)';
+    return 'var(--window-document-bg-elevated)';
   };
 
   const getBorderColor = () => {
     if (isConnected) return '#10b981';
     if (needsSetup) return '#f59e0b';
     if (isLocked) return 'var(--warning)';
-    return 'var(--win95-border)';
+    return 'var(--window-document-border)';
   };
 
   return (
@@ -130,7 +130,7 @@ export function PaymentProviderCard({
           } else if (isLocked || needsSetup) {
             e.currentTarget.style.borderColor = '#d97706';
           } else {
-            e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+            e.currentTarget.style.borderColor = 'var(--tone-accent)';
           }
           e.currentTarget.style.transform = 'translateY(-2px)';
         }
@@ -146,7 +146,7 @@ export function PaymentProviderCard({
       <div
         className="w-10 h-10 flex items-center justify-center rounded"
         style={{
-          background: isDisabled ? 'var(--win95-border)' : `${iconColor}15`,
+          background: isDisabled ? 'var(--window-document-border)' : `${iconColor}15`,
         }}
       >
         <i
@@ -161,7 +161,7 @@ export function PaymentProviderCard({
       {/* Name */}
       <span
         className="text-xs font-bold text-center"
-        style={{ color: isDisabled ? 'var(--neutral-gray)' : 'var(--win95-text)' }}
+        style={{ color: isDisabled ? 'var(--neutral-gray)' : 'var(--window-document-text)' }}
       >
         {name}
       </span>

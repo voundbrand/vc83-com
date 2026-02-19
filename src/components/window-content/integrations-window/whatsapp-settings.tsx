@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -133,16 +133,16 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -150,7 +150,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
           <div className="flex items-center gap-2">
             <MessageCircle size={24} style={{ color: "#25D366" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 WhatsApp Business
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -166,14 +166,14 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
               <Loader2
                 size={24}
                 className="animate-spin"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading...
@@ -186,8 +186,8 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center gap-2 mb-3">
@@ -202,7 +202,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     <div>
                       <p
                         className="text-xs font-bold"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         Verified Name
                       </p>
@@ -215,7 +215,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     <div>
                       <p
                         className="text-xs font-bold"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         Phone Number
                       </p>
@@ -228,7 +228,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     <div>
                       <p
                         className="text-xs font-bold"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         Business
                       </p>
@@ -241,7 +241,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     <div>
                       <p
                         className="text-xs font-bold"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         Connected
                       </p>
@@ -283,13 +283,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Webhook URL
                 </p>
@@ -301,9 +301,9 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   <div
                     className="flex-1 p-2 border rounded font-mono text-xs break-all"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     {webhookUrl}
@@ -320,13 +320,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <RetroButton variant="secondary" className="w-full">
+                <InteriorButton variant="secondary" className="w-full">
                   <ExternalLink size={14} className="mr-1" />
                   Open Meta Business Settings
-                </RetroButton>
+                </InteriorButton>
               </a>
 
-              <RetroButton
+              <InteriorButton
                 variant="secondary"
                 onClick={handleConnect}
                 disabled={isConnecting}
@@ -340,15 +340,15 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 ) : (
                   "Reconnect (Refresh Token)"
                 )}
-              </RetroButton>
+              </InteriorButton>
 
-              <RetroButton
+              <InteriorButton
                 variant="secondary"
                 onClick={handleDisconnect}
                 className="w-full"
               >
                 Disconnect
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : (
             /* ======== NOT CONNECTED STATE ======== */
@@ -357,14 +357,14 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               <div
                 className="p-6 border-2 rounded text-center"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <MessageCircle size={48} className="mb-4" style={{ color: "#25D366" }} />
                 <p
                   className="text-sm font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Connect WhatsApp Business
                 </p>
@@ -378,13 +378,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   What you get
                 </p>
@@ -427,13 +427,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Requirements
                 </p>
@@ -459,7 +459,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               </div>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isConnecting}
                 className="w-full"
@@ -472,7 +472,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 ) : (
                   "Connect WhatsApp Business"
                 )}
-              </RetroButton>
+              </InteriorButton>
             </div>
           )}
         </div>

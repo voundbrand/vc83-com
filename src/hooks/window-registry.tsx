@@ -22,6 +22,23 @@ export interface WindowFactory {
   defaultConfig: Omit<WindowConfig, 'id' | 'props'>;
 }
 
+/**
+ * Canonical desktop-shell deep-link grammar (Lane I freeze).
+ * Legacy aliases remain read-compatible in the shell parser.
+ */
+export const SHELL_URL_STATE_KEYS = Object.freeze({
+  app: "app",
+  panel: "panel",
+  entity: "entity",
+  context: "context",
+});
+
+export const LEGACY_SHELL_URL_STATE_KEYS = Object.freeze({
+  openWindow: "openWindow",
+  window: "window",
+  tab: "tab",
+});
+
 // Lazy load window components
 const AIAssistantWindow = lazy(() =>
   import("@/components/window-content/ai-chat-window").then(m => ({ default: m.AIChatWindow }))
@@ -187,12 +204,12 @@ const LayersBrowserWindow = lazy(() =>
   import("@/components/window-content/layers-browser-window").then(m => ({ default: m.LayersBrowserWindow }))
 );
 
-const BrainWindow = lazy(() =>
-  import("@/components/window-content/brain-window").then(m => ({ default: m.BrainWindow }))
-);
-
 const FinderWindow = lazy(() =>
   import("@/components/window-content/finder-window").then(m => ({ default: m.FinderWindow }))
+);
+
+const TextEditorWindow = lazy(() =>
+  import("@/components/window-content/text-editor-window").then(m => ({ default: m.TextEditorWindow }))
 );
 
 const TerminalWindow = lazy(() =>
@@ -220,7 +237,11 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "manage": {
-    createComponent: (props) => <ManageWindow {...(props as Record<string, unknown>)} />,
+    createComponent: (props) => {
+      const typedProps = (props || {}) as Record<string, unknown>
+      const deepLinkNonce = typeof typedProps.deepLinkNonce === "string" ? typedProps.deepLinkNonce : "default"
+      return <ManageWindow key={`manage-${deepLinkNonce}`} {...typedProps} />
+    },
     defaultConfig: {
       title: "Manage",
       titleKey: "ui.windows.manage.title",
@@ -335,8 +356,8 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       title: "All Apps",
       titleKey: "ui.windows.all_apps.title",
       icon: "📱",
-      position: { x: 150, y: 100 },
-      size: { width: 800, height: 600 }
+      position: { x: 90, y: 50 },
+      size: { width: 1320, height: 780 }
     }
   },
 
@@ -440,13 +461,32 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "web-publishing": {
-    createComponent: () => <WebPublishingWindow />,
+    createComponent: (props) => <WebPublishingWindow {...(props as { fullScreen?: boolean; initialTab?: string; initialPanel?: string })} />,
     defaultConfig: {
       title: "Web Publishing",
       titleKey: "ui.windows.web_publishing.title",
       icon: "🌐",
       position: { x: 150, y: 100 },
       size: { width: 1100, height: 700 }
+    }
+  },
+
+  "webchat-deployment": {
+    createComponent: (props) => (
+      <WebPublishingWindow
+        {...(props as { fullScreen?: boolean; initialTab?: string; initialPanel?: string })}
+        initialTab={
+          (props as { initialTab?: string; initialPanel?: string } | undefined)?.initialTab ||
+          (props as { initialPanel?: string } | undefined)?.initialPanel ||
+          "webchat-deployment"
+        }
+      />
+    ),
+    defaultConfig: {
+      title: "Webchat Deployment",
+      icon: "💬",
+      position: { x: 170, y: 90 },
+      size: { width: 1120, height: 720 }
     }
   },
 
@@ -660,10 +700,10 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     }
   },
 
-  "builder-browser": {
+  "builder": {
     createComponent: (props) => <BuilderBrowserWindow initialSetupMode={props?.initialSetupMode as boolean | undefined} />,
     defaultConfig: {
-      title: "AI Builder",
+      title: "Builder",
       icon: "🏗️",
       position: { x: 80, y: 40 },
       size: { width: 1100, height: 750 }
@@ -680,7 +720,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     }
   },
 
-  "layers-browser": {
+  "layers": {
     createComponent: () => <LayersBrowserWindow />,
     defaultConfig: {
       title: "Layers",
@@ -690,14 +730,24 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
     }
   },
 
-  "brain": {
-    createComponent: (props) => <BrainWindow initialMode={props?.initialMode as "learn" | "teach" | "review" | undefined} />,
+  // Legacy aliases kept for deep-link/session backward compatibility.
+  "builder-browser": {
+    createComponent: (props) => <BuilderBrowserWindow initialSetupMode={props?.initialSetupMode as boolean | undefined} />,
     defaultConfig: {
-      title: "Brain",
-      titleKey: "ui.windows.brain.title",
-      icon: "🧠",
-      position: { x: 120, y: 80 },
-      size: { width: 1000, height: 700 }
+      title: "Builder",
+      icon: "🏗️",
+      position: { x: 80, y: 40 },
+      size: { width: 1100, height: 750 }
+    }
+  },
+
+  "layers-browser": {
+    createComponent: () => <LayersBrowserWindow />,
+    defaultConfig: {
+      title: "Layers",
+      icon: "🔀",
+      position: { x: 120, y: 60 },
+      size: { width: 1100, height: 750 }
     }
   },
 
@@ -709,6 +759,16 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
       icon: "🔍",
       position: { x: 100, y: 60 },
       size: { width: 1200, height: 800 }
+    }
+  },
+
+  "text-editor": {
+    createComponent: () => <TextEditorWindow />,
+    defaultConfig: {
+      title: "Text Editor",
+      icon: "🖊️",
+      position: { x: 130, y: 70 },
+      size: { width: 1100, height: 740 }
     }
   },
 

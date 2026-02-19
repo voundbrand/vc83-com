@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, FileType, FileInput, ShoppingCart, Mail, Package } from "lucide-react";
+import { FileText, FileType, FileInput, ShoppingCart, Mail, Package, type LucideIcon } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export type TemplateCategory = "all" | "template_sets" | "email" | "pdf_ticket" | "pdf_invoice" | "web" | "form" | "checkout";
@@ -30,25 +30,25 @@ export function TemplateCategories({
 }: TemplateCategoriesProps) {
   const { t } = useNamespaceTranslations("ui.templates");
 
-  const categories = [
-    { id: "all" as TemplateCategory, translationKey: "ui.templates.categories.all", icon: FileText, emoji: "📁" },
-    { id: "template_sets" as TemplateCategory, translationKey: "ui.templates.categories.template_sets", icon: Package, emoji: "📦" },
-    { id: "email" as TemplateCategory, translationKey: "ui.templates.categories.email", icon: Mail, emoji: "📧" },
-    { id: "pdf_ticket" as TemplateCategory, translationKey: "ui.templates.categories.pdf_ticket", icon: FileType, emoji: "🎫" },
-    { id: "pdf_invoice" as TemplateCategory, translationKey: "ui.templates.categories.pdf_invoice", icon: FileType, emoji: "💰" },
-    { id: "web" as TemplateCategory, translationKey: "ui.templates.categories.web", icon: FileText, emoji: "🌐" },
-    { id: "form" as TemplateCategory, translationKey: "ui.templates.categories.form", icon: FileInput, emoji: "📝" },
-    { id: "checkout" as TemplateCategory, translationKey: "ui.templates.categories.checkout", icon: ShoppingCart, emoji: "🛒" },
+  const categories: Array<{ id: TemplateCategory; translationKey: string; icon: LucideIcon }> = [
+    { id: "all", translationKey: "ui.templates.categories.all", icon: FileText },
+    { id: "template_sets", translationKey: "ui.templates.categories.template_sets", icon: Package },
+    { id: "email", translationKey: "ui.templates.categories.email", icon: Mail },
+    { id: "pdf_ticket", translationKey: "ui.templates.categories.pdf_ticket", icon: FileType },
+    { id: "pdf_invoice", translationKey: "ui.templates.categories.pdf_invoice", icon: FileType },
+    { id: "web", translationKey: "ui.templates.categories.web", icon: FileText },
+    { id: "form", translationKey: "ui.templates.categories.form", icon: FileInput },
+    { id: "checkout", translationKey: "ui.templates.categories.checkout", icon: ShoppingCart },
   ];
 
   return (
-    <div className="border-r-2" style={{ borderColor: "var(--win95-border)", width: "200px" }}>
+    <div className="border-r-2" style={{ borderColor: "var(--window-document-border)", width: "200px" }}>
       <div
         className="p-3 border-b-2 font-bold text-xs"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
+          color: "var(--window-document-text)",
         }}
       >
         {t("ui.templates.categories.title")}
@@ -57,6 +57,7 @@ export function TemplateCategories({
         {categories.map((category) => {
           const count = counts[category.id] || 0;
           const isSelected = selectedCategory === category.id;
+          const CategoryIcon = category.icon;
 
           return (
             <button
@@ -64,19 +65,19 @@ export function TemplateCategories({
               onClick={() => onCategoryChange(category.id)}
               className="w-full px-3 py-2 text-xs font-semibold flex items-center gap-2 border-2 mb-1 transition-colors"
               style={{
-                borderColor: isSelected ? "var(--win95-highlight)" : "var(--win95-border)",
-                background: isSelected ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: isSelected ? "white" : "var(--win95-text)",
+                borderColor: isSelected ? "var(--tone-accent)" : "var(--window-document-border)",
+                background: isSelected ? "var(--tone-accent-soft)" : "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
-              <span>{category.emoji}</span>
+              <CategoryIcon size={14} className="shrink-0" />
               <span className="flex-1 text-left">{t(category.translationKey)}</span>
               {count > 0 && (
                 <span
                   className="px-1.5 py-0.5 text-xs rounded border"
                   style={{
-                    borderColor: isSelected ? "rgba(255,255,255,0.3)" : "var(--win95-border)",
-                    background: isSelected ? "rgba(255,255,255,0.2)" : "var(--win95-bg)",
+                    borderColor: isSelected ? "var(--tone-accent)" : "var(--window-document-border)",
+                    background: isSelected ? "var(--window-document-bg)" : "var(--window-document-bg)",
                   }}
                 >
                   {count}

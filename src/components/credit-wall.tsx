@@ -56,12 +56,12 @@ export function CreditWall({
 }: CreditWallProps) {
   const { openWindow } = useWindowManager();
 
-  const handleOpenStore = () => {
+  const handleOpenStore = (initialSection: "plans" | "credits") => {
     import("@/components/window-content/store-window").then(({ StoreWindow }) => {
       openWindow(
         "store",
         "Platform Store",
-        <StoreWindow />,
+        <StoreWindow initialSection={initialSection} />,
         { x: 100, y: 100 },
         { width: 900, height: 600 }
       );
@@ -70,7 +70,7 @@ export function CreditWall({
 
   const tierUpgrade: Record<string, { name: string; credits: number; price: string }> = {
     free: { name: "Pro", credits: 200, price: "€29/mo" },
-    pro: { name: "Agency", credits: 2000, price: "€299/mo" },
+    pro: { name: "Scale", credits: 2000, price: "€299/mo" },
     agency: { name: "Enterprise", credits: -1, price: "Custom" },
   };
 
@@ -89,8 +89,8 @@ export function CreditWall({
       <div
         className="px-4 py-2 border-b-2 flex flex-wrap items-center gap-3"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
           boxShadow: "inset 3px 0 0 var(--warning)",
         }}
       >
@@ -102,10 +102,10 @@ export function CreditWall({
             <Zap size={14} style={{ color: "var(--warning)" }} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold leading-tight" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs font-bold leading-tight" style={{ color: "var(--shell-text)" }}>
               Credits exhausted
             </p>
-            <p className="text-[11px] leading-tight truncate" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-[11px] leading-tight truncate" style={{ color: "var(--shell-text-muted)" }}>
               Your agents are paused
               {statusDetails.length > 0 ? ` • ${statusDetails.join(" • ")}` : ""}
             </p>
@@ -114,12 +114,12 @@ export function CreditWall({
 
         <div className="flex items-center gap-1.5 ml-auto">
           <button
-            onClick={onBuyCredits || handleOpenStore}
+            onClick={onBuyCredits || (() => handleOpenStore("credits"))}
             className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
             style={{
-              borderColor: "var(--win95-border-light)",
+              borderColor: "var(--shell-border-soft)",
               background: "var(--tone-surface-elevated)",
-              color: "var(--win95-text)",
+              color: "var(--shell-text)",
             }}
           >
             <ShoppingBag size={12} style={{ color: "var(--warning)" }} />
@@ -128,15 +128,15 @@ export function CreditWall({
 
           {upgrade && (
             <button
-              onClick={onUpgrade || handleOpenStore}
+              onClick={onUpgrade || (() => handleOpenStore("plans"))}
               className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
               style={{
-                borderColor: "var(--win95-border-light)",
+                borderColor: "var(--shell-border-soft)",
                 background: "var(--tone-surface-elevated)",
-                color: "var(--win95-text)",
+                color: "var(--shell-text)",
               }}
             >
-              <ArrowUpCircle size={12} style={{ color: "var(--win95-text-secondary)" }} />
+              <ArrowUpCircle size={12} style={{ color: "var(--shell-text-muted)" }} />
               Upgrade
             </button>
           )}
@@ -165,7 +165,7 @@ export function CreditWall({
           <h4 className="text-sm font-bold" style={{ color: "var(--warning)" }}>
             Credits Exhausted
           </h4>
-          <p className="text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-xs" style={{ color: "var(--shell-text-muted)" }}>
             Your agents are paused
           </p>
         </div>
@@ -175,12 +175,12 @@ export function CreditWall({
       <div
         className="border-2 p-3 mb-3 space-y-1"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         {creditsRequired !== undefined && (
-          <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <p className="text-xs" style={{ color: "var(--shell-text)" }}>
             Action requires <strong>{creditsRequired}</strong> credit(s), you have{" "}
             <strong>{creditsAvailable}</strong>.
           </p>
@@ -196,7 +196,7 @@ export function CreditWall({
       <div className="flex gap-2">
         {/* Quick: Buy credit pack */}
         <button
-          onClick={onBuyCredits || handleOpenStore}
+          onClick={onBuyCredits || (() => handleOpenStore("credits"))}
           className="beveled-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
           style={{
             background: "var(--primary)",
@@ -210,11 +210,11 @@ export function CreditWall({
         {/* Upgrade plan */}
         {upgrade && (
           <button
-            onClick={onUpgrade || handleOpenStore}
+            onClick={onUpgrade || (() => handleOpenStore("plans"))}
             className="beveled-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
             style={{
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             <ArrowUpCircle size={14} />
@@ -225,7 +225,7 @@ export function CreditWall({
 
       {/* Value proposition */}
       {upgrade && (
-        <p className="text-xs mt-2 text-center" style={{ color: "var(--win95-text-secondary)" }}>
+        <p className="text-xs mt-2 text-center" style={{ color: "var(--shell-text-muted)" }}>
           {upgrade.credits === -1
             ? "Unlimited credits with Enterprise"
             : `${upgrade.name} includes ${upgrade.credits} credits/month`}

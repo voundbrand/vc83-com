@@ -270,7 +270,7 @@ export function AddressForm({
       </div>
 
       {/* Flags */}
-      <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -319,7 +319,7 @@ export function AddressForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="retro-button-primary px-4 py-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="desktop-interior-button desktop-interior-button-primary px-4 py-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? t("ui.manage.address.form.saving") : initialData ? t("ui.manage.address.form.update_button") : t("ui.manage.address.form.add_button")}
         </button>
@@ -327,7 +327,7 @@ export function AddressForm({
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="retro-button px-4 py-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="desktop-interior-button px-4 py-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t("ui.manage.address.form.cancel_button")}
         </button>

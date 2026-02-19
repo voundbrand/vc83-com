@@ -224,7 +224,7 @@ export function ProductSelectionStep({
         style={{
           fontSize: "0.875rem",
           fontWeight: "600",
-          color: "var(--win95-text)",
+          color: "var(--shell-text)",
           marginBottom: "var(--spacing-md, 1rem)",
         }}
       >
@@ -300,7 +300,7 @@ export function ProductSelectionStep({
             style={{
               fontSize: "0.875rem",
               fontWeight: "600",
-              color: "var(--win95-text)",
+              color: "var(--shell-text)",
               marginTop: "var(--spacing-xl, 2rem)",
               marginBottom: "var(--spacing-md, 1rem)",
             }}
@@ -333,7 +333,7 @@ export function ProductSelectionStep({
             style={{
               fontSize: "0.875rem",
               fontWeight: "600",
-              color: "var(--win95-text)",
+              color: "var(--shell-text)",
               marginTop: "var(--spacing-xl, 2rem)",
               marginBottom: "var(--spacing-md, 1rem)",
             }}

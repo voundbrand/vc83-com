@@ -1,7 +1,9 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { AdminSecurityTab } from "./admin-security-tab";
@@ -11,18 +13,43 @@ import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
 import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Link2 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Id, Doc } from "../../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  InteriorButton,
+  InteriorHeader,
+  InteriorHelperText,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 type TabType = "organization" | "users" | "roles" | "security" | "licensing";
 
 interface AdminManageWindowProps {
   organizationId: Id<"organizations">;
 }
 
+type ParentOrganizationOption = {
+  _id: Id<"organizations">;
+  isActive?: boolean;
+  parentOrganizationId?: Id<"organizations"> | null;
+  name?: string | null;
+  slug?: string | null;
+};
+
+type OrganizationAddress = Doc<"objects"> & {
+  customProperties?: {
+    isPrimary?: boolean;
+  } & Record<string, unknown>;
+};
+
 export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   const { t } = useNamespaceTranslations("ui.manage");
+  const manageRootClassName = "manage-window-modern flex h-full flex-col";
   const [activeTab, setActiveTab] = useState<TabType>("organization");
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [isSavingOrg, setIsSavingOrg] = useState(false);
@@ -62,13 +89,13 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   // Get organization addresses (from ontology)
   const addresses = useQuery(api.organizationOntology.getOrganizationAddresses,
     organizationId ? { organizationId } : "skip"
-  );
+  ) as OrganizationAddress[] | undefined;
 
   // Get all organizations for parent selection (super admin only)
   const allOrganizations = useQuery(
     api.organizations.listAll,
     sessionId && isSuperAdmin ? { sessionId } : "skip"
-  );
+  ) as ParentOrganizationOption[] | undefined;
 
   // Mutation for updating parent
   const updateOrganizationParent = useMutation(api.organizations.updateOrganizationParent);
@@ -77,6 +104,14 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   const potentialParentOrgs = allOrganizations?.filter(org =>
     org.isActive && !org.parentOrganizationId && org._id !== organizationId
   ) || [];
+
+  const tabs: Array<{ id: TabType; label: string; icon: ReactNode }> = [
+    { id: "organization", label: t("ui.manage.tab.organization"), icon: <Building2 size={14} /> },
+    { id: "users", label: t("ui.manage.tab.users_invites"), icon: <Users size={14} /> },
+    { id: "roles", label: t("ui.manage.tab.roles_permissions"), icon: <Shield size={14} /> },
+    { id: "security", label: "Security & API", icon: <Key size={14} /> },
+    { id: "licensing", label: "Licensing", icon: <Crown size={14} /> },
+  ];
 
 
   const handleCancelEdit = () => {
@@ -201,166 +236,112 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className={manageRootClassName}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: 'var(--primary)' }} />
-            <p style={{ color: 'var(--win95-text)' }}>{t("ui.manage.loading")}</p>
+            <p style={{ color: "var(--window-document-text)" }}>{t("ui.manage.loading")}</p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className={manageRootClassName}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: 'var(--error)' }} className="mx-auto mb-4" />
-            <p style={{ color: 'var(--win95-text)' }}>{t("ui.manage.not_authenticated")}</p>
+            <p style={{ color: "var(--window-document-text)" }}>{t("ui.manage.not_authenticated")}</p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   // System admin check - only super admins can use this window
   if (!isSuperAdmin) {
     return (
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className={manageRootClassName}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Shield size={48} style={{ color: 'var(--error)' }} className="mx-auto mb-4" />
-            <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>Access Denied</p>
-            <p className="text-sm mt-2" style={{ color: 'var(--win95-text-secondary)' }}>
+            <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>Access Denied</p>
+            <p className="text-sm mt-2" style={{ color: "var(--desktop-menu-text-muted)" }}>
               Only system administrators can access this view.
             </p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   if (!organizationId) {
     return (
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <InteriorRoot className={manageRootClassName}>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Building2 size={48} style={{ color: 'var(--warning)' }} className="mx-auto mb-4" />
-            <p style={{ color: 'var(--win95-text)' }} className="font-semibold">{t("ui.manage.no_organization")}</p>
-            <p style={{ color: 'var(--win95-text-secondary)' }} className="text-sm mt-2">
+            <p style={{ color: "var(--window-document-text)" }} className="font-semibold">{t("ui.manage.no_organization")}</p>
+            <p style={{ color: "var(--desktop-menu-text-muted)" }} className="text-sm mt-2">
               {t("ui.manage.no_organization_message")}
             </p>
           </div>
         </div>
-      </div>
+      </InteriorRoot>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+    <InteriorRoot className={manageRootClassName}>
+      <InteriorHeader className="px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <InteriorTitle className="flex items-center gap-2 text-sm">
               <Building2 size={16} />
               {t("ui.manage.title")}
-              {/* SYSTEM ADMIN MODE BADGE */}
               <span
-                className="inline-flex items-center px-2 py-0.5 text-xs font-bold"
+                className="inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-semibold uppercase"
                 style={{
-                  backgroundColor: 'var(--error)',
-                  color: 'white',
-                  border: '1px solid',
-                  borderColor: 'var(--error)',
+                  backgroundColor: "var(--error-bg)",
+                  borderColor: "var(--error)",
+                  color: "var(--error)",
                 }}
               >
                 <Crown size={10} className="mr-1" />
-                SYSTEM ADMIN MODE
+                System Admin Mode
               </span>
-            </h2>
-            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            </InteriorTitle>
+            <InteriorSubtitle className="mt-1 text-xs">
               Managing organization as system administrator
-            </p>
+            </InteriorSubtitle>
           </div>
 
-          {/* Organization Info */}
           <div className="text-right">
-            <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
               {organization?.name}
             </p>
-            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            <InteriorHelperText className="text-xs">
               Organization ID: {organizationId.slice(0, 8)}...
-            </p>
+            </InteriorHelperText>
           </div>
         </div>
-      </div>
+      </InteriorHeader>
 
-      {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "organization" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "organization" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("organization")}
-        >
-          <Building2 size={14} />
-          {t("ui.manage.tab.organization")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "users" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "users" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("users")}
-        >
-          <Users size={14} />
-          {t("ui.manage.tab.users_invites")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "roles" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "roles" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("roles")}
-        >
-          <Shield size={14} />
-          {t("ui.manage.tab.roles_permissions")}
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "security" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "security" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("security")}
-        >
-          <Key size={14} />
-          Security & API
-        </button>
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "licensing" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "licensing" ? 'var(--win95-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("licensing")}
-        >
-          <Crown size={14} />
-          Licensing
-        </button>
-      </div>
+      <InteriorTabRow className="px-3 py-2">
+        {tabs.map((tab) => (
+          <InteriorTabButton
+            key={tab.id}
+            active={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="flex items-center gap-2"
+          >
+            {tab.icon}
+            {tab.label}
+          </InteriorTabButton>
+        ))}
+      </InteriorTabRow>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-4">
@@ -370,25 +351,22 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
 
             {/* Edit/Save Controls */}
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                   Organization Details
                 </h3>
                 <div className="flex gap-2">
                   {isEditingOrg ? (
                     <>
-                      <button
+                      <InteriorButton
                         onClick={handleCancelEdit}
                         disabled={isSavingOrg}
-                        className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                        style={{
-                          backgroundColor: "var(--win95-button-face)",
-                          color: "var(--win95-text)",
-                        }}
+                        variant="subtle"
+                        size="sm"
                       >
                         <X size={12} />
                         Cancel
-                      </button>
-                      <button
+                      </InteriorButton>
+                      <InteriorButton
                         onClick={async () => {
                           if (!organizationFormRef.current || !sessionId || !organizationId) return;
 
@@ -479,28 +457,22 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                           }
                         }}
                         disabled={isSavingOrg}
-                        className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                        style={{
-                          backgroundColor: "var(--success)",
-                          color: "white",
-                        }}
+                        variant="primary"
+                        size="sm"
                       >
                         <Save size={12} />
                         {isSavingOrg ? "Saving..." : "Save All Changes"}
-                      </button>
+                      </InteriorButton>
                     </>
                   ) : (
-                    <button
+                    <InteriorButton
                       onClick={() => setIsEditingOrg(true)}
-                      className="beveled-button px-3 py-1 text-xs font-semibold flex items-center gap-1"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "white",
-                      }}
+                      variant="primary"
+                      size="sm"
                     >
                       <Edit2 size={12} />
                       Edit Organization
-                    </button>
+                    </InteriorButton>
                   )}
                 </div>
               </div>
@@ -524,25 +496,19 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                 defaultCollapsed={true}
               >
                 <div className="space-y-4">
-                  <p className="text-sm" style={{ color: 'var(--win95-text-secondary)' }}>
+                  <p className="text-sm" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     Set this organization as a sub-organization of another. Sub-organizations can inherit templates,
                     forms, and other assets from their parent.
                   </p>
 
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                    <label className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                       Parent Organization
                     </label>
                     <select
                       value={selectedParentId}
                       onChange={(e) => setSelectedParentId(e.target.value)}
-                      className="w-full px-3 py-2 text-sm"
-                      style={{
-                        backgroundColor: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
-                        border: "2px inset",
-                        borderColor: "var(--win95-input-border-dark)",
-                      }}
+                      className="desktop-interior-select w-full text-sm"
                     >
                       <option value="">-- None (Top-level organization) --</option>
                       {potentialParentOrgs.map((org) => (
@@ -554,8 +520,8 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                   </div>
 
                   {organization?.parentOrganizationId && (
-                    <div className="p-3 rounded" style={{ backgroundColor: 'var(--win95-bg-light)', border: '1px solid var(--win95-border)' }}>
-                      <p className="text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+                    <div className="desktop-interior-panel border p-3" style={{ borderColor: "var(--window-document-border)" }}>
+                      <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                         <strong>Current parent:</strong>{' '}
                         {potentialParentOrgs.find(o => o._id === organization.parentOrganizationId)?.name ||
                          allOrganizations?.find(o => o._id === organization.parentOrganizationId)?.name ||
@@ -565,22 +531,18 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                   )}
 
                   {parentSaveError && (
-                    <div className="p-3 rounded" style={{ backgroundColor: 'var(--error)', color: 'white' }}>
+                    <div className="desktop-interior-panel border p-3" style={{ borderColor: "var(--error)", color: "var(--error)" }}>
                       <p className="text-sm">{parentSaveError}</p>
                     </div>
                   )}
 
                   {parentHasChanged && (
                     <div className="flex justify-end">
-                      <button
+                      <InteriorButton
                         onClick={handleSaveParent}
                         disabled={isSavingParent}
-                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
-                        style={{
-                          backgroundColor: "var(--primary)",
-                          color: "white",
-                          opacity: isSavingParent ? 0.5 : 1,
-                        }}
+                        variant="primary"
+                        size="md"
                       >
                         {isSavingParent ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -588,7 +550,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                           <Save size={14} />
                         )}
                         Save Parent Relationship
-                      </button>
+                      </InteriorButton>
                     </div>
                   )}
                 </div>
@@ -602,40 +564,35 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
               collapsible={true}
               defaultCollapsed={false}
               actions={
-                <button
+                <InteriorButton
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent accordion toggle
                     setEditingAddress(undefined);
                     setIsAddressModalOpen(true);
                   }}
-                  className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1"
-                  style={{
-                    backgroundColor: "var(--success)",
-                    color: "white",
-                  }}
+                  variant="primary"
+                  size="sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {t("ui.manage.org.add_address")}
-                </button>
+                </InteriorButton>
               }
             >
               {(!addresses || addresses.length === 0) ? (
                 <div className="text-center py-8" style={{ color: 'var(--neutral-gray)' }}>
                   <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">{t("ui.manage.org.no_addresses")}</p>
-                  <button
+                  <InteriorButton
                     onClick={() => {
                       setEditingAddress(undefined);
                       setIsAddressModalOpen(true);
                     }}
-                    className="beveled-button mt-4 px-4 py-2 text-sm font-semibold"
-                    style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                    }}
+                    variant="primary"
+                    size="md"
+                    className="mt-4"
                   >
                     {t("ui.manage.org.add_first_address")}
-                  </button>
+                  </InteriorButton>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -662,7 +619,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                   {/* Other Addresses */}
                   {addresses?.filter((a) => !(a.customProperties as any)?.isPrimary).length > 0 && (
                     <div>
-                      <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                      <h4 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.manage.org.other_addresses")}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -734,7 +691,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="px-4 py-3 border-t" style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}>
         <div className="flex justify-between items-center">
           <p className="text-xs font-semibold" style={{ color: 'var(--error)' }}>
              System Admin Mode - Full access to organization settings
@@ -744,7 +701,6 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
           </p>
         </div>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }
-

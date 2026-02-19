@@ -16,7 +16,7 @@ import {
   Webhook,
   Shuffle,
 } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -182,8 +182,8 @@ export function ActivityTimeline({
       <div
         className="px-4 py-2 border-b-2 flex items-center gap-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
         <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export function ActivityTimeline({
             onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
             className="px-2 py-1 text-xs border-2"
             style={{
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
               background: "white",
             }}
           >
@@ -208,7 +208,7 @@ export function ActivityTimeline({
             onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
             className="px-2 py-1 text-xs border-2"
             style={{
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
               background: "white",
             }}
           >
@@ -229,7 +229,7 @@ export function ActivityTimeline({
           style={{
             borderColor: autoRefresh
               ? "var(--success)"
-              : "var(--win95-border)",
+              : "var(--window-document-border)",
             background: autoRefresh ? "var(--success)" : "white",
             color: autoRefresh ? "white" : "var(--neutral-gray)",
           }}
@@ -260,7 +260,7 @@ export function ActivityTimeline({
             </p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
             {events.map((event) => (
               <EventRow
                 key={event._id}
@@ -279,9 +279,9 @@ export function ActivityTimeline({
 
         {eventsResult?.hasMore && (
           <div className="p-4 text-center">
-            <RetroButton variant="secondary" size="sm">
+            <InteriorButton variant="secondary" size="sm">
               Load More
-            </RetroButton>
+            </InteriorButton>
           </div>
         )}
       </div>
@@ -314,7 +314,7 @@ function EventRow({
   return (
     <div
       className="hover:bg-gray-50 transition-colors"
-      style={{ borderColor: "var(--win95-border)" }}
+      style={{ borderColor: "var(--window-document-border)" }}
     >
       {/* Main Row */}
       <div
@@ -347,7 +347,7 @@ function EventRow({
             <span
               className="flex items-center gap-1 text-xs px-1.5 py-0.5"
               style={{
-                background: "var(--win95-bg-light)",
+                background: "var(--window-document-bg-elevated)",
                 color: "var(--neutral-gray)",
               }}
             >
@@ -372,7 +372,7 @@ function EventRow({
               <span
                 className="text-xs px-1.5 py-0.5"
                 style={{
-                  background: "var(--win95-highlight)",
+                  background: "var(--tone-accent)",
                   color: "white",
                   fontSize: "10px",
                 }}
@@ -395,8 +395,8 @@ function EventRow({
         <div
           className="px-4 py-3 ml-10 mr-4 mb-2 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
           }}
         >
           <div className="space-y-2 font-mono text-xs">
@@ -404,7 +404,7 @@ function EventRow({
             {(event.details.method || event.details.endpoint) && (
               <div className="flex items-center gap-2">
                 <span style={{ color: "var(--neutral-gray)" }}>Request:</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {event.details.method} {event.details.endpoint}
                 </span>
                 {event.details.statusCode && (
@@ -426,7 +426,7 @@ function EventRow({
             {event.details.objectType && (
               <div className="flex items-center gap-2">
                 <span style={{ color: "var(--neutral-gray)" }}>Object:</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {event.details.objectType}
                   {event.details.objectName && ` - "${event.details.objectName}"`}
                 </span>
@@ -442,7 +442,7 @@ function EventRow({
             {event.details.syncDirection && (
               <div className="flex items-center gap-2">
                 <span style={{ color: "var(--neutral-gray)" }}>Sync:</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {event.details.syncDirection}
                   {event.details.recordsAffected !== undefined &&
                     ` (${event.details.recordsAffected} records)`}
@@ -458,7 +458,7 @@ function EventRow({
                   className="mt-1 p-2 overflow-x-auto"
                   style={{
                     background: "white",
-                    border: "1px solid var(--win95-border)",
+                    border: "1px solid var(--window-document-border)",
                   }}
                 >
                   {event.details.inputSummary}
@@ -472,7 +472,7 @@ function EventRow({
                   className="mt-1 p-2 overflow-x-auto"
                   style={{
                     background: "white",
-                    border: "1px solid var(--win95-border)",
+                    border: "1px solid var(--window-document-border)",
                   }}
                 >
                   {event.details.outputSummary}
@@ -510,7 +510,7 @@ function EventRow({
             {event.details.sourceFile && (
               <div className="flex items-center gap-2">
                 <span style={{ color: "var(--neutral-gray)" }}>Source:</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {event.details.sourceFile}
                   {event.details.sourceLine && `:${event.details.sourceLine}`}
                 </span>
@@ -525,7 +525,7 @@ function EventRow({
                   className="px-1"
                   style={{
                     background: "white",
-                    color: "var(--win95-highlight)",
+                    color: "var(--tone-accent)",
                   }}
                 >
                   {event.details.correlationId}

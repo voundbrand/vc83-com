@@ -190,7 +190,7 @@ export function ProjectForm({
   if (mode === "edit" && existingProject === undefined) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 size={48} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={48} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -215,15 +215,15 @@ export function ProjectForm({
       {/* Basic Info Section */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Basic Information
         </h3>
 
         {/* Project Name */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Project Name <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <input
@@ -234,9 +234,9 @@ export function ProjectForm({
             maxLength={100}
             className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Enter project name"
           />
@@ -244,7 +244,7 @@ export function ProjectForm({
 
         {/* Short Description */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Short Description
           </label>
           <input
@@ -254,9 +254,9 @@ export function ProjectForm({
             maxLength={200}
             className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Brief project summary"
           />
@@ -266,7 +266,7 @@ export function ProjectForm({
         <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Project Type */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Project Type <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
@@ -275,9 +275,9 @@ export function ProjectForm({
               required
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="client_project">Client Project</option>
@@ -290,7 +290,7 @@ export function ProjectForm({
 
           {/* Priority */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Priority <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
@@ -299,9 +299,9 @@ export function ProjectForm({
               required
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="low">Low</option>
@@ -315,7 +315,7 @@ export function ProjectForm({
         {/* Status (only for edit mode) */}
         {mode === "edit" && (
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Status <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
@@ -324,9 +324,9 @@ export function ProjectForm({
               required
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="draft">Draft</option>
@@ -342,7 +342,7 @@ export function ProjectForm({
         {/* Progress (only for edit mode) */}
         {mode === "edit" && (
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               Progress: {progress}%
             </label>
             <input
@@ -361,15 +361,15 @@ export function ProjectForm({
       {/* Client & Dates Section */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Client & Timeline
         </h3>
 
         {/* Client Selector */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Client (CRM)
           </label>
           <ClientSelector
@@ -385,7 +385,7 @@ export function ProjectForm({
         <div className="grid grid-cols-2 gap-4">
           {/* Start Date */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Start Date
             </label>
             <input
@@ -394,16 +394,16 @@ export function ProjectForm({
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
 
           {/* Target End Date */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Target End Date
             </label>
             <input
@@ -412,9 +412,9 @@ export function ProjectForm({
               onChange={(e) => setTargetEndDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
@@ -424,16 +424,16 @@ export function ProjectForm({
       {/* Budget Section */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Budget
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Budget Amount */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Amount
             </label>
             <input
@@ -444,9 +444,9 @@ export function ProjectForm({
               onChange={(e) => setBudgetAmount(e.target.value)}
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="0.00"
             />
@@ -454,7 +454,7 @@ export function ProjectForm({
 
           {/* Currency */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Currency
             </label>
             <select
@@ -462,9 +462,9 @@ export function ProjectForm({
               onChange={(e) => setBudgetCurrency(e.target.value)}
               className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="USD">USD</option>
@@ -480,9 +480,9 @@ export function ProjectForm({
       {/* Detailed Description Section */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           Detailed Description
         </h3>
         <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -501,9 +501,9 @@ export function ProjectForm({
       {mode === "edit" && projectId && (
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
-          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Calendar size={16} />
             Project Meetings
           </h3>
@@ -513,7 +513,7 @@ export function ProjectForm({
 
           <div
             className="border-2 rounded overflow-hidden"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
             <MeetingsTab
               projectId={projectId}
@@ -528,9 +528,9 @@ export function ProjectForm({
       {mode === "edit" && projectId && (
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
-          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Globe size={16} />
             Public Project Page
           </h3>
@@ -548,17 +548,17 @@ export function ProjectForm({
                 className="w-4 h-4"
                 disabled={publicPageSaving}
               />
-              <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+              <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 Enable public page
               </span>
             </label>
           </div>
 
           {publicPageEnabled && (
-            <div className="space-y-4 pl-6 border-l-2" style={{ borderColor: "var(--win95-highlight)" }}>
+            <div className="space-y-4 pl-6 border-l-2" style={{ borderColor: "var(--tone-accent)" }}>
               {/* Slug */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   URL Slug <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -572,9 +572,9 @@ export function ProjectForm({
                     placeholder="my-project"
                     className="flex-1 px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                     disabled={publicPageSaving}
                     maxLength={50}
@@ -587,7 +587,7 @@ export function ProjectForm({
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Password Protection
                 </label>
                 <input
@@ -597,9 +597,9 @@ export function ProjectForm({
                   placeholder="Leave empty for no password"
                   className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={publicPageSaving}
                 />
@@ -607,7 +607,7 @@ export function ProjectForm({
 
               {/* Theme */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Theme Color
                 </label>
                 <select
@@ -615,9 +615,9 @@ export function ProjectForm({
                   onChange={(e) => setPublicPageTheme(e.target.value)}
                   className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={publicPageSaving}
                 >
@@ -631,7 +631,7 @@ export function ProjectForm({
 
               {/* Template */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Page Template
                 </label>
                 <select
@@ -639,9 +639,9 @@ export function ProjectForm({
                   onChange={(e) => setPublicPageTemplate(e.target.value)}
                   className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={publicPageSaving}
                 >
@@ -661,8 +661,8 @@ export function ProjectForm({
                   disabled={publicPageSaving || !publicPageSlug || publicPageSlug.length < 3}
                   className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-highlight)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--tone-accent)",
                     color: "white",
                   }}
                 >
@@ -685,7 +685,7 @@ export function ProjectForm({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs flex items-center gap-1 hover:underline"
-                    style={{ color: "var(--win95-highlight)" }}
+                    style={{ color: "var(--tone-accent)" }}
                   >
                     <ExternalLink size={12} />
                     Preview: /project/{publicPageSlug}
@@ -705,9 +705,9 @@ export function ProjectForm({
           disabled={isSubmitting}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <X size={14} />
@@ -719,8 +719,8 @@ export function ProjectForm({
           disabled={isSubmitting || !name}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-highlight)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--tone-accent)",
             color: "white",
           }}
         >

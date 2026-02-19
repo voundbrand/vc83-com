@@ -86,11 +86,11 @@ export function TokenPackIssuance({
     <div
       className="border-2 p-4"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
-      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
         <Ticket size={14} />
         Issue Token Pack Manually
       </h4>
@@ -100,23 +100,23 @@ export function TokenPackIssuance({
         <div
           className="mb-4 p-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
           <div className="flex items-start gap-2 mb-2">
-            <Info size={14} style={{ color: "var(--win95-text)", marginTop: "2px" }} />
+            <Info size={14} style={{ color: "var(--window-document-text)", marginTop: "2px" }} />
             <div className="flex-1">
-              <div className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <div className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Current Token Balance:
               </div>
               <div className="space-y-2 text-xs">
                 {/* Included Tokens */}
                 {currentSubscription.hasSubscription && (
-                  <div className="p-2 border" style={{ borderColor: "var(--win95-border)", background: "rgba(107, 70, 193, 0.05)" }}>
+                  <div className="p-2 border" style={{ borderColor: "var(--window-document-border)", background: "rgba(107, 70, 193, 0.05)" }}>
                     <div className="flex justify-between mb-1">
                       <span style={{ color: "var(--neutral-gray)" }}>Included (monthly):</span>
-                      <span className="font-mono font-bold" style={{ color: "var(--win95-text)" }}>
+                      <span className="font-mono font-bold" style={{ color: "var(--window-document-text)" }}>
                         {currentSubscription.includedTokensRemaining.toLocaleString()} / {currentSubscription.includedTokensTotal.toLocaleString()}
                       </span>
                     </div>
@@ -125,7 +125,7 @@ export function TokenPackIssuance({
                         className="h-full"
                         style={{
                           width: `${((currentSubscription.includedTokensTotal - currentSubscription.includedTokensRemaining) / currentSubscription.includedTokensTotal) * 100}%`,
-                          background: "var(--win95-highlight)",
+                          background: "var(--tone-accent)",
                         }}
                       />
                     </div>
@@ -146,7 +146,7 @@ export function TokenPackIssuance({
                 </div>
 
                 {/* What will happen */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                   <TrendingUp size={12} style={{ color: "var(--success)" }} />
                   <span style={{ color: "var(--success)", fontSize: "11px" }}>
                     Issuing will <strong>add</strong> to purchased balance
@@ -160,11 +160,11 @@ export function TokenPackIssuance({
         <div
           className="mb-4 p-3 border-2 flex items-center justify-center gap-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
-          <Loader2 size={14} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+          <Loader2 size={14} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
           <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             Loading current balance...
           </span>
@@ -187,7 +187,7 @@ export function TokenPackIssuance({
       <div className="space-y-4">
         {/* Pack Size Selection */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Token Pack
           </label>
           <select
@@ -195,9 +195,9 @@ export function TokenPackIssuance({
             onChange={(e) => handlePackChange(e.target.value as "1M" | "5M" | "10M" | "50M" | "custom")}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="1M">1M tokens (€29 value)</option>
@@ -212,7 +212,7 @@ export function TokenPackIssuance({
         {packSize === "custom" && (
           <>
             <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Custom Token Amount
               </label>
               <input
@@ -223,14 +223,14 @@ export function TokenPackIssuance({
                 onChange={(e) => setCustomTokens(Number(e.target.value))}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
               />
             </div>
             <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Retail Value (€)
               </label>
               <input
@@ -241,9 +241,9 @@ export function TokenPackIssuance({
                 onChange={(e) => setValue(Number(e.target.value))}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 placeholder="For tracking only"
               />
@@ -256,7 +256,7 @@ export function TokenPackIssuance({
 
         {/* Reason */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Reason (Required)
           </label>
           <textarea
@@ -264,9 +264,9 @@ export function TokenPackIssuance({
             onChange={(e) => setReason(e.target.value)}
             className="w-full px-3 py-2 text-sm border-2 h-24 resize-none"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Why are we issuing tokens? (e.g., Customer service compensation, beta tester reward)"
           />
@@ -278,7 +278,7 @@ export function TokenPackIssuance({
           disabled={isIssuing || !reason.trim()}
           className="beveled-button w-full px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2"
           style={{
-            background: isIssuing || !reason.trim() ? "var(--win95-bg-light)" : "var(--success)",
+            background: isIssuing || !reason.trim() ? "var(--window-document-bg-elevated)" : "var(--success)",
             color: isIssuing || !reason.trim() ? "var(--neutral-gray)" : "white",
             cursor: isIssuing || !reason.trim() ? "not-allowed" : "pointer",
           }}

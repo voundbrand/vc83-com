@@ -87,8 +87,8 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
   if (templates === undefined) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <Loader2 className="animate-spin" size={24} style={{ color: "var(--win95-highlight)" }} />
-        <p className="ml-3 text-sm" style={{ color: "var(--win95-text)" }}>
+        <Loader2 className="animate-spin" size={24} style={{ color: "var(--tone-accent)" }} />
+        <p className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.templates.loading") || "Loading templates..."}
         </p>
       </div>
@@ -99,7 +99,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
     return (
       <div className="flex flex-col items-center justify-center h-full p-4 text-center">
         <TrendingUp size={48} className="mb-4 opacity-30" style={{ color: "var(--neutral-gray)" }} />
-        <p className="font-pixel text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+        <p className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.templates.no_templates") || "No templates available"}
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -113,7 +113,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.templates.title") || "Pipeline Templates"}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -128,15 +128,15 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const isExpanded = expandedTemplate === template._id;
           const isCopying = copying === template._id;
-          const categoryColor = template.customProperties?.color || "var(--win95-highlight)";
+          const categoryColor = template.customProperties?.color || "var(--tone-accent)";
 
           return (
             <div
               key={template._id}
               className="border-2 rounded-lg p-4 hover:shadow-md transition-shadow"
               style={{
-                background: "var(--win95-bg-light)",
-                borderColor: "var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               {/* Template Header */}
@@ -145,7 +145,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
                   <div
                     className="p-2 rounded border-2 flex-shrink-0"
                     style={{
-                      backgroundColor: "var(--win95-bg)",
+                      backgroundColor: "var(--window-document-bg)",
                       color: categoryColor,
                       borderColor: categoryColor,
                     }}
@@ -153,7 +153,7 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
                     <TrendingUp size={24} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       {template.name}
                     </h4>
                     {template.description && (
@@ -180,10 +180,10 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
                 <button
                   onClick={() => handleCopyTemplate(template._id)}
                   disabled={isCopying}
-                  className="retro-button px-3 py-2 flex items-center gap-2 ml-4 flex-shrink-0"
+                  className="desktop-interior-button px-3 py-2 flex items-center gap-2 ml-4 flex-shrink-0"
                   style={{
-                    background: isCopying ? "var(--neutral-gray)" : "var(--win95-highlight)",
-                    color: "var(--win95-button-text)",
+                    background: isCopying ? "var(--neutral-gray)" : "var(--tone-accent)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   {isCopying ? (
@@ -206,8 +206,8 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
 
               {/* AI Settings Info (if available) */}
               {template.customProperties?.aiSettings && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--win95-border)" }}>
-                  <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--window-document-border)" }}>
+                  <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.pipeline.templates.ai_features") || "AI Features"}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -216,9 +216,9 @@ export function PipelineTemplatesTab({ onTemplateCreated }: PipelineTemplatesTab
                         key={key}
                         className="text-xs px-2 py-1 rounded"
                         style={{
-                          background: "var(--win95-bg)",
+                          background: "var(--window-document-bg)",
                           color: value ? "var(--success)" : "var(--neutral-gray)",
-                          border: "1px solid var(--win95-border)",
+                          border: "1px solid var(--window-document-border)",
                         }}
                       >
                         {key.replace(/([A-Z])/g, " $1").trim()}

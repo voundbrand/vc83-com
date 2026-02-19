@@ -17,6 +17,11 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Id } from "@/../convex/_generated/dataModel";
 import {
+  buildAccountSignupUrl,
+  getNativeGuestClaimToken,
+  setNativeGuestClaimToken,
+} from "@/hooks/use-ai-chat";
+import {
   FileText,
   Image as ImageIcon,
   Gamepad2,
@@ -83,6 +88,7 @@ function BuilderLandingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn, isLoading, user } = useAuth();
+  const identityClaimToken = searchParams.get("identityClaimToken");
   const [prompt, setPrompt] = useState("");
   const isEmbedded = searchParams.get("embedded") === "true" ||
     (typeof window !== "undefined" && window.self !== window.top);
@@ -96,6 +102,12 @@ function BuilderLandingPageInner() {
       router.push("/builder/new");
     }
   }, [conversationId, isSignedIn, isLoading, router]);
+
+  useEffect(() => {
+    if (identityClaimToken) {
+      setNativeGuestClaimToken(identityClaimToken);
+    }
+  }, [identityClaimToken]);
 
   // Handle setup mode URL parameter - for agent creation wizard
   const setupParam = searchParams.get("setup");
@@ -472,12 +484,56 @@ function BuilderLandingPageInner() {
     router.push("/builder/new");
   };
 
+  const openLoginWithReturn = (returnUrl: string) => {
+    sessionStorage.setItem("auth_return_url", returnUrl);
+    const loginUrl = "/?openLogin=builder";
+    if (window.self !== window.top) {
+      window.top!.location.href = loginUrl;
+    } else {
+      router.push(loginUrl);
+    }
+  };
+
+  const handleConversionShortcut = (intent: "create_account" | "resume_chat" | "upgrade" | "credits") => {
+    const storedClaimToken = getNativeGuestClaimToken();
+    const claimToken = identityClaimToken || storedClaimToken;
+
+    if (intent === "create_account") {
+      const signupUrl = buildAccountSignupUrl({
+        provider: "google",
+        claimToken,
+      });
+      window.location.href = signupUrl;
+      return;
+    }
+
+    if (intent === "resume_chat") {
+      if (!isSignedIn) {
+        openLoginWithReturn("/chat");
+        return;
+      }
+      router.push("/chat");
+      return;
+    }
+
+    const storeTarget = intent === "credits"
+      ? "/?openWindow=store&panel=credits"
+      : "/?openWindow=store&panel=plans";
+
+    if (!isSignedIn) {
+      openLoginWithReturn(storeTarget);
+      return;
+    }
+
+    router.push(storeTarget);
+  };
+
   const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen text-zinc-100" style={{ backgroundColor: '#0a0a0a' }}>
+    <div className="min-h-screen text-neutral-100" style={{ backgroundColor: '#0a0a0a' }}>
       {/* Navigation - hidden when embedded in a window */}
-      {!isEmbedded && <nav className="h-14 flex items-center justify-between px-4 border-b border-zinc-800/50">
+      {!isEmbedded && <nav className="h-14 flex items-center justify-between px-4 border-b border-neutral-800/50">
         {/* Left: Logo (with hover menu when logged in) */}
         {isSignedIn ? (
           <div
@@ -485,7 +541,7 @@ function BuilderLandingPageInner() {
             onMouseEnter={() => setIsLogoMenuOpen(true)}
             onMouseLeave={() => setIsLogoMenuOpen(false)}
           >
-            <button className="flex items-center p-2 rounded-lg hover:bg-zinc-800 transition-colors">
+            <button className="flex items-center p-2 rounded-lg hover:bg-neutral-800 transition-colors">
               <Image
                 src="/android-chrome-512x512.png"
                 alt="l4yercak3"
@@ -516,27 +572,24 @@ function BuilderLandingPageInner() {
         {/* Center: Nav Links (only when logged out) */}
         {!isSignedIn && !isLoading && (
           <div className="hidden md:flex items-center gap-1">
-            <button className="flex items-center gap-1 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <button className="flex items-center gap-1 px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               Templates
               <ChevronDown className="w-3 h-3" />
             </button>
-            <button className="flex items-center gap-1 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <button className="flex items-center gap-1 px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               Resources
               <ChevronDown className="w-3 h-3" />
             </button>
-            <Link href="/enterprise" className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <Link href="/enterprise" className="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               Enterprise
             </Link>
-            <Link href="/pricing" className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
-              Pricing
-            </Link>
-            <Link href="/ios" className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <Link href="/ios" className="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               iOS
             </Link>
-            <Link href="/students" className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <Link href="/students" className="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               Students
             </Link>
-            <Link href="/faq" className="px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
+            <Link href="/faq" className="px-3 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors">
               FAQ
             </Link>
           </div>
@@ -545,20 +598,20 @@ function BuilderLandingPageInner() {
         {/* Right: Auth Buttons or User Menu */}
         <div className="flex items-center gap-2">
           {isLoading ? (
-            <div className="w-20 h-8 bg-zinc-800 rounded animate-pulse" />
+            <div className="w-20 h-8 bg-neutral-800 rounded animate-pulse" />
           ) : isSignedIn ? (
             <>
               {/* Feedback Button */}
-              <button className="px-3 py-1.5 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+              <button className="px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
                 Feedback
               </button>
               {/* Refer Button */}
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
                 <Gift className="w-4 h-4" />
                 Refer
               </button>
               {/* Credits Button */}
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
                 <Coins className="w-4 h-4" />
                 <span>21.59</span>
               </button>
@@ -577,7 +630,7 @@ function BuilderLandingPageInner() {
                     router.push(loginUrl);
                   }
                 }}
-                className="px-4 py-2 text-sm text-zinc-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-neutral-300 hover:text-white transition-colors"
               >
                 Sign In
               </button>
@@ -591,7 +644,7 @@ function BuilderLandingPageInner() {
                     router.push(loginUrl);
                   }
                 }}
-                className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-zinc-200 transition-colors"
+                className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-neutral-200 transition-colors"
               >
                 Sign Up
               </button>
@@ -607,21 +660,59 @@ function BuilderLandingPageInner() {
           {headline}
         </h1>
 
+        {!isSignedIn && !isLoading && (
+          <div className="mb-6 rounded-xl border border-neutral-800 bg-neutral-900/70 p-3">
+            <p className="text-xs text-neutral-400 mb-2">
+              Continue onboarding with low-friction actions:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleConversionShortcut("create_account")}
+                className="px-3 py-1.5 rounded-full text-xs bg-white text-black hover:bg-neutral-200 transition-colors"
+              >
+                Create account
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConversionShortcut("resume_chat")}
+                className="px-3 py-1.5 rounded-full text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-600 hover:text-neutral-100 transition-colors"
+              >
+                Resume chat
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConversionShortcut("upgrade")}
+                className="px-3 py-1.5 rounded-full text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-600 hover:text-neutral-100 transition-colors"
+              >
+                Upgrade
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConversionShortcut("credits")}
+                className="px-3 py-1.5 rounded-full text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-600 hover:text-neutral-100 transition-colors"
+              >
+                Buy credits
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Prompt Input */}
         <form onSubmit={handleSubmit} className="mb-6">
-          <div className="relative bg-zinc-900 border border-zinc-800 rounded-2xl">
+          <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl">
             {/* Attached items display */}
             {(attachedText || referenceUrls.length > 0) && (
               <div className="px-4 pt-3 flex flex-wrap gap-2">
                 {/* Attached text file */}
                 {attachedText && (
-                  <div className="flex items-center gap-2 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs">
-                    <Paperclip className="w-3 h-3 text-zinc-400" />
-                    <span className="text-zinc-300 max-w-[150px] truncate">{attachedText.preview}</span>
+                  <div className="flex items-center gap-2 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-xs">
+                    <Paperclip className="w-3 h-3 text-neutral-400" />
+                    <span className="text-neutral-300 max-w-[150px] truncate">{attachedText.preview}</span>
                     <button
                       type="button"
                       onClick={removeAttachedText}
-                      className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                      className="text-neutral-500 hover:text-neutral-300 transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -675,7 +766,7 @@ function BuilderLandingPageInner() {
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="https://example.com"
-                  className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                  className="flex-1 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -699,7 +790,7 @@ function BuilderLandingPageInner() {
                 <button
                   type="button"
                   onClick={() => { setShowUrlInput(false); setUrlInput(""); }}
-                  className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="p-1.5 text-neutral-500 hover:text-neutral-300 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -718,7 +809,7 @@ function BuilderLandingPageInner() {
                   ? "Describe what you want to plan..."
                   : "Ask l4yercak3 to build..."
               }
-              className="w-full min-h-[100px] max-h-[300px] px-4 pt-4 pb-14 bg-transparent text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none overflow-y-auto"
+              className="w-full min-h-[100px] max-h-[300px] px-4 pt-4 pb-14 bg-transparent text-neutral-100 placeholder-neutral-500 focus:outline-none resize-none overflow-y-auto"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -733,7 +824,7 @@ function BuilderLandingPageInner() {
                   <button
                     type="button"
                     onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                    className={`flex items-center gap-1.5 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-zinc-300 transition-colors border border-zinc-700 ${
+                    className={`flex items-center gap-1.5 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-400 hover:text-neutral-300 transition-colors border border-neutral-700 ${
                       isModelMenuOpen ? "rounded-t-md border-b-0" : "rounded-md"
                     }`}
                   >
@@ -752,7 +843,7 @@ function BuilderLandingPageInner() {
 
                   {/* Dropdown Menu - opens downward, connected to button */}
                   {isModelMenuOpen && (
-                    <div className="absolute top-full left-0 mt-0 w-48 bg-zinc-800 border border-zinc-700 border-t-0 rounded-b-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 mt-0 w-48 bg-neutral-800 border border-neutral-700 border-t-0 rounded-b-md shadow-lg z-50 max-h-48 overflow-y-auto">
                       {/* Default option */}
                       <button
                         type="button"
@@ -760,11 +851,11 @@ function BuilderLandingPageInner() {
                           setSelectedModel(undefined);
                           setIsModelMenuOpen(false);
                         }}
-                        className={`w-full px-2 py-1.5 text-left text-xs hover:bg-zinc-700 transition-colors ${
-                          !selectedModel ? "bg-zinc-700" : ""
+                        className={`w-full px-2 py-1.5 text-left text-xs hover:bg-neutral-700 transition-colors ${
+                          !selectedModel ? "bg-neutral-700" : ""
                         }`}
                       >
-                        <span className="text-zinc-200">Auto</span>
+                        <span className="text-neutral-200">Auto</span>
                       </button>
 
                       {/* Models list */}
@@ -776,16 +867,16 @@ function BuilderLandingPageInner() {
                             setSelectedModel(model.modelId);
                             setIsModelMenuOpen(false);
                           }}
-                          className={`w-full px-2 py-1.5 text-left text-xs hover:bg-zinc-700 transition-colors truncate ${
-                            selectedModel === model.modelId ? "bg-purple-900/30" : ""
+                          className={`w-full px-2 py-1.5 text-left text-xs hover:bg-neutral-700 transition-colors truncate ${
+                            selectedModel === model.modelId ? "bg-amber-900/30" : ""
                           }`}
                         >
-                          <span className="text-zinc-200">{model.name}</span>
+                          <span className="text-neutral-200">{model.name}</span>
                         </button>
                       ))}
 
                       {modelList.length === 0 && !isSignedIn && (
-                        <div className="px-2 py-1.5 text-xs text-zinc-500">
+                        <div className="px-2 py-1.5 text-xs text-neutral-500">
                           Sign in for more models
                         </div>
                       )}
@@ -808,7 +899,7 @@ function BuilderLandingPageInner() {
                         icon: <Zap className="w-3 h-3" />,
                         label: "Auto",
                         description: "Execute directly",
-                        color: "text-zinc-400",
+                        color: "text-neutral-400",
                         bgColor: "",
                       },
                       plan: {
@@ -829,8 +920,8 @@ function BuilderLandingPageInner() {
                         icon: <FileText className="w-3 h-3" />,
                         label: "Docs",
                         description: "Document editor mode",
-                        color: "text-purple-400",
-                        bgColor: "bg-purple-500/10",
+                        color: "text-amber-400",
+                        bgColor: "bg-amber-500/10",
                       },
                     };
 
@@ -844,7 +935,7 @@ function BuilderLandingPageInner() {
                           className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors border ${
                             currentUIMode !== "auto"
                               ? `${current.color} ${current.bgColor} border-transparent`
-                              : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700 bg-zinc-800 border-zinc-700"
+                              : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-700 bg-neutral-800 border-neutral-700"
                           }`}
                         >
                           {current.icon}
@@ -854,7 +945,7 @@ function BuilderLandingPageInner() {
 
                         {/* Dropdown menu - opens downward */}
                         {isModeMenuOpen && (
-                          <div className="absolute top-full left-0 mt-1 w-44 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800">
+                          <div className="absolute top-full left-0 mt-1 w-44 bg-neutral-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-neutral-800">
                             {(["auto", "plan", "connect", "docs"] as BuilderUIMode[]).map((mode) => {
                               const config = modeConfig[mode];
                               const isActive = currentUIMode === mode;
@@ -869,19 +960,19 @@ function BuilderLandingPageInner() {
                                   disabled={isDisabled}
                                   className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors ${
                                     isActive
-                                      ? "bg-zinc-800 text-zinc-200"
+                                      ? "bg-neutral-800 text-neutral-200"
                                       : isDisabled
-                                      ? "text-zinc-600 cursor-not-allowed"
-                                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                                      ? "text-neutral-600 cursor-not-allowed"
+                                      : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
                                   }`}
                                   title={isDisabled ? "Generate a page first" : config.description}
                                 >
-                                  <span className={isActive || !isDisabled ? config.color : "text-zinc-600"}>
+                                  <span className={isActive || !isDisabled ? config.color : "text-neutral-600"}>
                                     {config.icon}
                                   </span>
                                   <div>
                                     <div className="font-medium">{config.label}</div>
-                                    <div className="text-zinc-500 text-[10px]">{config.description}</div>
+                                    <div className="text-neutral-500 text-[10px]">{config.description}</div>
                                   </div>
                                 </button>
                               );
@@ -900,7 +991,7 @@ function BuilderLandingPageInner() {
                   className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-colors ${
                     showUrlInput || referenceUrls.length > 0
                       ? "bg-blue-600/20 border-blue-500/50 text-blue-400"
-                      : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-300"
                   }`}
                   title="Add URL reference for design inspiration"
                 >
@@ -911,7 +1002,7 @@ function BuilderLandingPageInner() {
               <button
                 type="submit"
                 disabled={(!prompt.trim() && !attachedText) || isSubmitting || isFetchingUrls}
-                className="p-2 bg-zinc-700 text-zinc-300 rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 bg-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title={isFetchingUrls ? "Fetching URL content..." : undefined}
               >
                 {isSubmitting || isFetchingUrls ? (
@@ -941,7 +1032,7 @@ function BuilderLandingPageInner() {
                 router.push("/layers");
               }
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/50 rounded-full text-sm text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 hover:border-purple-400 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/50 rounded-full text-sm text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-400 transition-colors"
           >
             <Layers className="w-4 h-4" />
             Layers
@@ -974,14 +1065,14 @@ function BuilderLandingPageInner() {
               <button
                 key={action.label}
                 onClick={() => handleQuickAction(action.label)}
-                className="flex items-center gap-2 px-4 py-2 bg-transparent border border-zinc-800 rounded-full text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-300 hover:border-zinc-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-transparent border border-neutral-800 rounded-full text-sm text-neutral-400 hover:bg-neutral-900 hover:text-neutral-300 hover:border-neutral-700 transition-colors"
               >
                 <Icon className="w-4 h-4" />
                 {action.label}
               </button>
             );
           })}
-          <button className="p-2 bg-transparent border border-zinc-800 rounded-full text-zinc-500 hover:bg-zinc-900 hover:text-zinc-400 hover:border-zinc-700 transition-colors">
+          <button className="p-2 bg-transparent border border-neutral-800 rounded-full text-neutral-500 hover:bg-neutral-900 hover:text-neutral-400 hover:border-neutral-700 transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -991,7 +1082,7 @@ function BuilderLandingPageInner() {
       {/* Templates Section - Full width */}
       <section className="max-w-6xl mx-auto px-4 pb-20">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-medium text-zinc-200">
+          <h2 className="text-xl font-medium text-neutral-200">
             Start with a template
           </h2>
           <div className="flex items-center gap-2">
@@ -1000,7 +1091,7 @@ function BuilderLandingPageInner() {
               return (
                 <button
                   key={cat.label}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 bg-transparent border border-zinc-800 rounded-lg hover:bg-zinc-900 hover:text-zinc-300 hover:border-zinc-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-400 bg-transparent border border-neutral-800 rounded-lg hover:bg-neutral-900 hover:text-neutral-300 hover:border-neutral-700 transition-colors"
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {cat.label}
@@ -1009,7 +1100,7 @@ function BuilderLandingPageInner() {
             })}
             <Link
               href="/builder/templates"
-              className="text-xs text-zinc-400 hover:text-zinc-300 ml-2 flex items-center gap-1"
+              className="text-xs text-neutral-400 hover:text-neutral-300 ml-2 flex items-center gap-1"
             >
               Browse all
               <span>→</span>
@@ -1023,18 +1114,18 @@ function BuilderLandingPageInner() {
             <button
               key={template.id}
               onClick={() => handleTemplateClick(template.id)}
-              className="group relative aspect-[4/3] bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden hover:border-zinc-700 transition-colors"
+              className="group relative aspect-[4/3] bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-neutral-700 transition-colors"
             >
               {/* Placeholder - would show template preview */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <LayoutTemplate className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
-                  <span className="text-xs text-zinc-600">{template.name}</span>
+                  <LayoutTemplate className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                  <span className="text-xs text-neutral-600">{template.name}</span>
                 </div>
               </div>
               {/* Hover overlay */}
-              <div className="absolute inset-0 bg-zinc-800/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-sm font-medium text-zinc-300">Use Template</span>
+              <div className="absolute inset-0 bg-neutral-800/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-sm font-medium text-neutral-300">Use Template</span>
               </div>
             </button>
           ))}
@@ -1042,8 +1133,8 @@ function BuilderLandingPageInner() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-900 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-xs text-zinc-600">
+      <footer className="border-t border-neutral-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 text-center text-xs text-neutral-600">
           <p>Built with l4yercak3</p>
         </div>
       </footer>
@@ -1055,8 +1146,8 @@ function BuilderLandingPageInner() {
 export default function BuilderLandingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen text-zinc-100 flex items-center justify-center" style={{ backgroundColor: '#0a0a0a' }}>
-        <div className="w-8 h-8 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
+      <div className="min-h-screen text-neutral-100 flex items-center justify-center" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="w-8 h-8 border-2 border-neutral-600 border-t-neutral-300 rounded-full animate-spin" />
       </div>
     }>
       <BuilderLandingPageInner />

@@ -89,11 +89,11 @@ export function ManualSubscriptionGrant({
     <div
       className="border-2 p-4"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
-      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
         <Gift size={14} />
         Grant AI Subscription Manually
       </h4>
@@ -108,16 +108,16 @@ export function ManualSubscriptionGrant({
           }}
         >
           <div className="flex items-start gap-2 mb-2">
-            <Info size={14} style={{ color: "var(--win95-text)", marginTop: "2px" }} />
+            <Info size={14} style={{ color: "var(--window-document-text)", marginTop: "2px" }} />
             <div className="flex-1">
-              <div className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <div className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Current Status:
               </div>
               {currentSubscription.hasSubscription && currentSubscription.tier ? (
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between">
                     <span style={{ color: "var(--neutral-gray)" }}>Tier:</span>
-                    <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+                    <span className="font-bold" style={{ color: "var(--window-document-text)" }}>
                       {currentSubscription.tier === "standard" && "Standard"}
                       {currentSubscription.tier === "privacy-enhanced" && "Privacy-Enhanced"}
                       {currentSubscription.tier === "private-llm" &&
@@ -139,20 +139,20 @@ export function ManualSubscriptionGrant({
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--neutral-gray)" }}>Price:</span>
-                    <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+                    <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
                       €{((currentSubscription.priceInCents || 0) / 100).toFixed(2)}/month
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--neutral-gray)" }}>Period End:</span>
-                    <span style={{ color: "var(--win95-text)" }}>
+                    <span style={{ color: "var(--window-document-text)" }}>
                       {currentSubscription.currentPeriodEnd
                         ? new Date(currentSubscription.currentPeriodEnd).toLocaleDateString()
                         : "N/A"
                       }
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                     <AlertCircle size={12} style={{ color: "var(--warning)" }} />
                     <span style={{ color: "var(--warning)", fontSize: "11px" }}>
                       Granting will <strong>override</strong> this subscription
@@ -162,7 +162,7 @@ export function ManualSubscriptionGrant({
               ) : (
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   No active subscription. Organization is using BYOK mode.
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                     <CheckCircle size={12} style={{ color: "var(--success)" }} />
                     <span style={{ color: "var(--success)", fontSize: "11px" }}>
                       Granting will <strong>create</strong> a new subscription
@@ -177,11 +177,11 @@ export function ManualSubscriptionGrant({
         <div
           className="mb-4 p-3 border-2 flex items-center justify-center gap-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
           }}
         >
-          <Loader2 size={14} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+          <Loader2 size={14} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
           <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             Loading current subscription...
           </span>
@@ -204,7 +204,7 @@ export function ManualSubscriptionGrant({
       <div className="space-y-4">
         {/* Tier Selection */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Subscription Tier
           </label>
           <select
@@ -212,9 +212,9 @@ export function ManualSubscriptionGrant({
             onChange={(e) => setTier(e.target.value)}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="none">None - Remove/Cancel Subscription (BYOK mode)</option>
@@ -238,7 +238,7 @@ export function ManualSubscriptionGrant({
 
         {/* Custom Price */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Custom Price (€) - Set to 0 for free
           </label>
           <input
@@ -249,9 +249,9 @@ export function ManualSubscriptionGrant({
             onChange={(e) => setCustomPrice(Number(e.target.value))}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="0"
           />
@@ -262,7 +262,7 @@ export function ManualSubscriptionGrant({
 
         {/* Internal Notes */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Internal Notes (Required)
           </label>
           <textarea
@@ -270,9 +270,9 @@ export function ManualSubscriptionGrant({
             onChange={(e) => setNotes(e.target.value)}
             className="w-full px-3 py-2 text-sm border-2 h-24 resize-none"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
             placeholder="Why are we granting this? (e.g., Beta tester, enterprise deal, customer service)"
           />
@@ -284,7 +284,7 @@ export function ManualSubscriptionGrant({
           disabled={isGranting || !notes.trim()}
           className="beveled-button w-full px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2"
           style={{
-            background: isGranting || !notes.trim() ? "var(--win95-bg-light)" : tier === "none" ? "var(--error)" : "var(--success)",
+            background: isGranting || !notes.trim() ? "var(--window-document-bg-elevated)" : tier === "none" ? "var(--error)" : "var(--success)",
             color: isGranting || !notes.trim() ? "var(--neutral-gray)" : "white",
             cursor: isGranting || !notes.trim() ? "not-allowed" : "pointer",
           }}

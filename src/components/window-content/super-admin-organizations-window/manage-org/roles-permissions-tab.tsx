@@ -82,8 +82,8 @@ export function RolesPermissionsTab() {
             className="p-4 border-2 flex items-start gap-2"
             style={{
               backgroundColor: 'var(--warning)',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-text)'
+              borderColor: 'var(--window-document-border)',
+              color: 'var(--window-document-text)'
             }}
           >
             <Lock size={20} className="mt-0.5 flex-shrink-0" />
@@ -100,7 +100,7 @@ export function RolesPermissionsTab() {
     <div className="space-y-4">
       {/* Header with view mode tabs */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+        <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
           {t("ui.manage.roles_perms.title")}
         </h3>
 
@@ -110,8 +110,8 @@ export function RolesPermissionsTab() {
             onClick={() => setViewMode("roles")}
             className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
-              backgroundColor: viewMode === "roles" ? "var(--primary)" : "var(--win95-button-face)",
-              color: viewMode === "roles" ? "white" : "var(--win95-text)",
+              backgroundColor: viewMode === "roles" ? "var(--primary)" : "var(--window-document-bg)",
+              color: viewMode === "roles" ? "white" : "var(--window-document-text)",
             }}
           >
             {t("ui.manage.roles_perms.by_role")}
@@ -120,8 +120,8 @@ export function RolesPermissionsTab() {
             onClick={() => setViewMode("permissions")}
             className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
-              backgroundColor: viewMode === "permissions" ? "var(--primary)" : "var(--win95-button-face)",
-              color: viewMode === "permissions" ? "white" : "var(--win95-text)",
+              backgroundColor: viewMode === "permissions" ? "var(--primary)" : "var(--window-document-bg)",
+              color: viewMode === "permissions" ? "white" : "var(--window-document-text)",
             }}
           >
             {t("ui.manage.roles_perms.by_permission")}
@@ -130,8 +130,8 @@ export function RolesPermissionsTab() {
             onClick={() => setViewMode("matrix")}
             className="beveled-button px-3 py-1 text-xs font-semibold"
             style={{
-              backgroundColor: viewMode === "matrix" ? "var(--primary)" : "var(--win95-button-face)",
-              color: viewMode === "matrix" ? "white" : "var(--win95-text)",
+              backgroundColor: viewMode === "matrix" ? "var(--primary)" : "var(--window-document-bg)",
+              color: viewMode === "matrix" ? "white" : "var(--window-document-text)",
             }}
           >
             {t("ui.manage.roles_perms.matrix")}
@@ -144,7 +144,7 @@ export function RolesPermissionsTab() {
           className="p-3 border-2 flex items-start gap-2"
           style={{
             backgroundColor: 'var(--info)',
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             color: 'white'
           }}
         >
@@ -172,8 +172,8 @@ export function RolesPermissionsTab() {
                 key={role._id}
                 className="border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  backgroundColor: 'var(--win95-bg-light)'
+                  borderColor: 'var(--window-document-border)',
+                  backgroundColor: 'var(--window-document-bg-elevated)'
                 }}
               >
                 {/* Role Header */}
@@ -185,7 +185,7 @@ export function RolesPermissionsTab() {
                   <div className="flex items-center gap-2">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     <RoleBadge role={role.name} />
-                    <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
                       {formatRoleName(role.name, t)}
                     </span>
                   </div>
@@ -195,8 +195,8 @@ export function RolesPermissionsTab() {
                 </button>
 
                 {/* Role Description */}
-                <div className="px-3 py-2 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-                  <p className="text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+                <div className="px-3 py-2 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
+                  <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
                     {role.description}
                   </p>
                 </div>
@@ -211,17 +211,17 @@ export function RolesPermissionsTab() {
                             key={perm._id}
                             className="flex items-start gap-2 p-2 text-xs"
                             style={{
-                              backgroundColor: 'var(--win95-bg)',
+                              backgroundColor: 'var(--window-document-bg)',
                               border: '1px solid',
-                              borderColor: 'var(--win95-border)'
+                              borderColor: 'var(--window-document-border)'
                             }}
                           >
                             <PermissionIcon action={perm.action} />
                             <div className="flex-1">
-                              <div className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                              <div className="font-semibold" style={{ color: 'var(--window-document-text)' }}>
                                 {perm.name}
                               </div>
-                              <div style={{ color: 'var(--win95-text-secondary)' }}>
+                              <div style={{ color: 'var(--window-document-text-muted)' }}>
                                 {perm.description}
                               </div>
                               <div className="mt-1 flex gap-2">
@@ -272,8 +272,8 @@ export function RolesPermissionsTab() {
                 key={resource}
                 className="border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  backgroundColor: 'var(--win95-bg-light)'
+                  borderColor: 'var(--window-document-border)',
+                  backgroundColor: 'var(--window-document-bg-elevated)'
                 }}
               >
                 {/* Resource Header */}
@@ -285,7 +285,7 @@ export function RolesPermissionsTab() {
                   <div className="flex items-center gap-2">
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     <Lock size={16} />
-                    <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
                       {resourceNames[resource] || resource}
                     </span>
                   </div>
@@ -303,17 +303,17 @@ export function RolesPermissionsTab() {
                           key={perm._id}
                           className="flex items-start gap-2 p-2 text-xs"
                           style={{
-                            backgroundColor: 'var(--win95-bg)',
+                            backgroundColor: 'var(--window-document-bg)',
                             border: '1px solid',
-                            borderColor: 'var(--win95-border)'
+                            borderColor: 'var(--window-document-border)'
                           }}
                         >
                           <PermissionIcon action={perm.action} />
                           <div className="flex-1">
-                            <div className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                            <div className="font-semibold" style={{ color: 'var(--window-document-text)' }}>
                               {perm.name}
                             </div>
-                            <div style={{ color: 'var(--win95-text-secondary)' }}>
+                            <div style={{ color: 'var(--window-document-text-muted)' }}>
                               {perm.description}
                             </div>
                             <span
@@ -342,8 +342,8 @@ export function RolesPermissionsTab() {
         <div
           className="overflow-x-auto border-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            backgroundColor: 'var(--win95-bg-light)'
+            borderColor: 'var(--window-document-border)',
+            backgroundColor: 'var(--window-document-bg-elevated)'
           }}
         >
           <table className="w-full text-xs">
@@ -378,7 +378,7 @@ export function RolesPermissionsTab() {
                     <div className="flex items-center gap-2">
                       <PermissionIcon action={perm.action} />
                       <div>
-                        <div className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                        <div className="font-semibold" style={{ color: 'var(--window-document-text)' }}>
                           {perm.name}
                         </div>
                         <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -412,11 +412,11 @@ export function RolesPermissionsTab() {
       <div
         className="p-3 border-2"
         style={{
-          backgroundColor: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)'
+          backgroundColor: 'var(--window-document-bg-elevated)',
+          borderColor: 'var(--window-document-border)'
         }}
       >
-        <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
           {t("ui.manage.roles_perms.system_summary")}
         </h4>
         <div className="grid grid-cols-3 gap-4 text-xs">
@@ -424,19 +424,19 @@ export function RolesPermissionsTab() {
             <div className="font-semibold" style={{ color: 'var(--primary)' }}>
               {roles?.length || 0}
             </div>
-            <div style={{ color: 'var(--win95-text-secondary)' }}>{t("ui.manage.roles_perms.roles")}</div>
+            <div style={{ color: 'var(--window-document-text-muted)' }}>{t("ui.manage.roles_perms.roles")}</div>
           </div>
           <div>
             <div className="font-semibold" style={{ color: 'var(--primary)' }}>
               {allPermissions?.length || 0}
             </div>
-            <div style={{ color: 'var(--win95-text-secondary)' }}>{t("ui.manage.roles_perms.permissions")}</div>
+            <div style={{ color: 'var(--window-document-text-muted)' }}>{t("ui.manage.roles_perms.permissions")}</div>
           </div>
           <div>
             <div className="font-semibold" style={{ color: 'var(--primary)' }}>
               {permissionsByResource ? Object.keys(permissionsByResource).length : 0}
             </div>
-            <div style={{ color: 'var(--win95-text-secondary)' }}>{t("ui.manage.roles_perms.resources")}</div>
+            <div style={{ color: 'var(--window-document-text-muted)' }}>{t("ui.manage.roles_perms.resources")}</div>
           </div>
         </div>
       </div>

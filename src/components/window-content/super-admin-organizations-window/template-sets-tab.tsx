@@ -122,7 +122,7 @@ export function TemplateSetsTab() {
   if (!systemOrgId || templateSets === undefined || auditData === undefined || orgTemplates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -147,11 +147,11 @@ export function TemplateSetsTab() {
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
           style={{
-            backgroundColor: "var(--win95-highlight)",
+            backgroundColor: "var(--tone-accent)",
             color: "white",
             borderWidth: "2px",
             borderStyle: "solid",
-            borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+            borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
           }}
         >
           <Plus size={14} />
@@ -174,7 +174,7 @@ export function TemplateSetsTab() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Package size={16} />
             Template Set Configuration (v2.0)
           </h3>
@@ -186,11 +186,11 @@ export function TemplateSetsTab() {
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
           style={{
-            backgroundColor: "var(--win95-highlight)",
+            backgroundColor: "var(--tone-accent)",
             color: "white",
             borderWidth: "2px",
             borderStyle: "solid",
-            borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+            borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
           }}
         >
           <Plus size={14} />
@@ -307,8 +307,8 @@ function TemplateSetCard({
     <div
       className="border-2 p-4 rounded-lg transition-shadow"
       style={{
-        borderColor: isDefault ? "var(--win95-highlight)" : "var(--win95-border)",
-        backgroundColor: "var(--win95-bg)",
+        borderColor: isDefault ? "var(--tone-accent)" : "var(--window-document-border)",
+        backgroundColor: "var(--window-document-bg)",
       }}
     >
       {/* Header */}
@@ -319,7 +319,7 @@ function TemplateSetCard({
           ) : (
             <Package size={16} style={{ color: "var(--neutral-gray)" }} />
           )}
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {templateSet.name}
           </h4>
         </div>
@@ -342,11 +342,11 @@ function TemplateSetCard({
           <span
             className="text-xs px-2 py-1 rounded font-mono"
             style={{
-              backgroundColor: version === "2.0" ? "#dcfce7" : "var(--win95-bg-light)",
+              backgroundColor: version === "2.0" ? "#dcfce7" : "var(--window-document-bg-elevated)",
               color: version === "2.0" ? "#166534" : "var(--neutral-gray)",
               borderWidth: "1px",
               borderStyle: "solid",
-              borderColor: version === "2.0" ? "#86efac" : "var(--win95-border)",
+              borderColor: version === "2.0" ? "#86efac" : "var(--window-document-border)",
             }}
           >
             v{version}
@@ -369,11 +369,11 @@ function TemplateSetCard({
               key={tag}
               className="text-xs px-2 py-0.5 rounded"
               style={{
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
                 borderWidth: "1px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               #{tag}
@@ -400,7 +400,7 @@ function TemplateSetCard({
 
       {/* Templates List (v2.0) */}
       <div className="space-y-2 mb-4">
-        <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
           Templates in Set ({templatesList.length}):
         </div>
         {templatesList.length === 0 ? (
@@ -419,14 +419,14 @@ function TemplateSetCard({
                   key={idx}
                   className="flex items-center gap-2 text-xs p-2 rounded"
                   style={{
-                    backgroundColor: "var(--win95-bg-light)",
+                    backgroundColor: "var(--window-document-bg-elevated)",
                     borderWidth: "1px",
                     borderStyle: "solid",
-                    borderColor: "var(--win95-border)",
+                    borderColor: "var(--window-document-border)",
                   }}
                 >
                   <span>{icon}</span>
-                  <span style={{ color: "var(--win95-text)" }} className="flex-1">
+                  <span style={{ color: "var(--window-document-text)" }} className="flex-1">
                     {name}
                   </span>
                   {item.isRequired && (
@@ -445,17 +445,17 @@ function TemplateSetCard({
       </div>
 
       {/* Actions */}
-      <div className="pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowEditModal(true)}
             className="flex items-center gap-2 text-xs px-3 py-1 rounded transition-colors"
             style={{
-              backgroundColor: "var(--win95-highlight)",
+              backgroundColor: "var(--tone-accent)",
               color: "white",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+              borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
             }}
           >
             <Edit size={12} />
@@ -632,13 +632,13 @@ function CreateTemplateSetModal({
       <div
         className="border-2 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Plus size={16} />
             Create New Template Set (v2.0)
           </h3>
@@ -666,7 +666,7 @@ function CreateTemplateSetModal({
 
           {/* Name */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Name <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <input
@@ -679,16 +679,16 @@ function CreateTemplateSetModal({
               style={{
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Description
             </label>
             <textarea
@@ -701,28 +701,28 @@ function CreateTemplateSetModal({
               style={{
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
 
           {/* Templates Selection */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               Select Templates <span style={{ color: "var(--error)" }}>*</span> ({selectedTemplates.length} selected)
             </label>
             <div
               className="border-2 rounded max-h-64 overflow-y-auto"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               {allTemplates.length === 0 ? (
                 <p className="text-xs p-4 text-center" style={{ color: "var(--neutral-gray)" }}>
                   No schema-driven templates found
                 </p>
               ) : (
-                <div className="divide-y" style={{ borderColor: "var(--win95-border-light)" }}>
+                <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
                   {allTemplates.map((template) => {
                     const isSelected = selectedTemplates.includes(template._id);
                     const type = template.subtype || template.category || "other";
@@ -747,13 +747,13 @@ function CreateTemplateSetModal({
                         onClick={() => toggleTemplate(template._id)}
                         className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors"
                         style={{
-                          backgroundColor: isSelected ? "color-mix(in srgb, var(--win95-highlight) 10%, white)" : "transparent",
+                          backgroundColor: isSelected ? "color-mix(in srgb, var(--tone-accent) 10%, white)" : "transparent",
                         }}
                       >
                         <div
                           className="w-5 h-5 border-2 flex items-center justify-center"
                           style={{
-                            borderColor: "var(--win95-border)",
+                            borderColor: "var(--window-document-border)",
                             backgroundColor: isSelected ? "#22c55e" : "transparent",
                           }}
                         >
@@ -761,7 +761,7 @@ function CreateTemplateSetModal({
                         </div>
                         <span className="text-xs">{getIcon(type)}</span>
                         <div className="flex-1">
-                          <div className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
+                          <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
                             {template.name}
                           </div>
                           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -781,7 +781,7 @@ function CreateTemplateSetModal({
 
           {/* Tags */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Tags
             </label>
             <input
@@ -794,9 +794,9 @@ function CreateTemplateSetModal({
               style={{
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
@@ -811,23 +811,23 @@ function CreateTemplateSetModal({
               disabled={isSubmitting}
               className="w-4 h-4"
             />
-            <label htmlFor="isDefault" className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <label htmlFor="isDefault" className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               Set as organization default
             </label>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex gap-3 pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             <button
               type="submit"
               disabled={isSubmitting}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: "var(--win95-highlight)",
+                backgroundColor: "var(--tone-accent)",
                 color: "white",
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+                borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
               }}
             >
               {isSubmitting ? (
@@ -848,11 +848,11 @@ function CreateTemplateSetModal({
               disabled={isSubmitting}
               className="px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               Cancel
@@ -941,13 +941,13 @@ function EditTemplateSetModal({
       <div
         className="border-2 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Edit size={16} />
             Edit Templates - {templateSet.name}
           </h3>
@@ -975,14 +975,14 @@ function EditTemplateSetModal({
 
           {/* Templates Selection */}
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               Select Templates ({selectedTemplates.length} selected)
             </label>
             <div
               className="border-2 rounded max-h-96 overflow-y-auto"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
-              <div className="divide-y" style={{ borderColor: "var(--win95-border-light)" }}>
+              <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
                 {allTemplates.map((template) => {
                   const isSelected = selectedTemplates.includes(template._id);
                   const type = template.subtype || template.category || "other";
@@ -1007,13 +1007,13 @@ function EditTemplateSetModal({
                       onClick={() => toggleTemplate(template._id)}
                       className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors"
                       style={{
-                        backgroundColor: isSelected ? "color-mix(in srgb, var(--win95-highlight) 10%, white)" : "transparent",
+                        backgroundColor: isSelected ? "color-mix(in srgb, var(--tone-accent) 10%, white)" : "transparent",
                       }}
                     >
                       <div
                         className="w-5 h-5 border-2 flex items-center justify-center"
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--window-document-border)",
                           backgroundColor: isSelected ? "#22c55e" : "transparent",
                         }}
                       >
@@ -1021,7 +1021,7 @@ function EditTemplateSetModal({
                       </div>
                       <span className="text-xs">{getIcon(type)}</span>
                       <div className="flex-1">
-                        <div className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
+                        <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
                           {template.name}
                         </div>
                         <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1039,17 +1039,17 @@ function EditTemplateSetModal({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex gap-3 pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             <button
               type="submit"
               disabled={isSubmitting}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: "var(--win95-highlight)",
+                backgroundColor: "var(--tone-accent)",
                 color: "white",
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+                borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
               }}
             >
               {isSubmitting ? (
@@ -1070,11 +1070,11 @@ function EditTemplateSetModal({
               disabled={isSubmitting}
               className="px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
                 borderWidth: "2px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               Cancel
@@ -1116,15 +1116,15 @@ function DeleteConfirmModal({
       <div
         className="border-2 rounded-lg shadow-xl max-w-md w-full"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between p-4 border-b-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             backgroundColor: "color-mix(in srgb, var(--error) 10%, white)",
           }}
         >
@@ -1139,19 +1139,19 @@ function DeleteConfirmModal({
 
         {/* Body */}
         <div className="p-4 space-y-4">
-          <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+          <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
             Are you sure you want to delete the template set:
           </p>
           <div
             className="p-3 rounded"
             style={{
-              backgroundColor: "var(--win95-bg-light)",
+              backgroundColor: "var(--window-document-bg-elevated)",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               {templateSetName}
             </p>
           </div>
@@ -1178,7 +1178,7 @@ function DeleteConfirmModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="flex gap-3 p-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
           <button
             onClick={handleConfirm}
             disabled={isDeleting}
@@ -1208,11 +1208,11 @@ function DeleteConfirmModal({
             disabled={isDeleting}
             className="px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
             style={{
-              backgroundColor: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             Cancel

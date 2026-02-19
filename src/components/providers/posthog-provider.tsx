@@ -3,6 +3,23 @@
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useEffect, useState } from "react";
+import {
+  buildShellTelemetryPayload,
+  type ShellTelemetryEventName,
+} from "@/lib/shell/telemetry";
+
+export { buildShellTelemetryPayload, type ShellTelemetryEventName } from "@/lib/shell/telemetry";
+
+export function captureShellTelemetry(
+  event: ShellTelemetryEventName,
+  payload: Record<string, unknown>
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  posthog.capture(event, buildShellTelemetryPayload(event, payload));
+}
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);

@@ -14,7 +14,7 @@ import {
   Clock,
   Zap,
 } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -98,7 +98,7 @@ export function ApplicationDetailsTab({
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <RetroButton
+            <InteriorButton
               onClick={onBack}
               variant="secondary"
               size="sm"
@@ -106,7 +106,7 @@ export function ApplicationDetailsTab({
             >
               <ArrowLeft size={14} />
               Back to list
-            </RetroButton>
+            </InteriorButton>
             <h3
               className="text-sm font-bold truncate"
               style={{ color: "var(--window-document-text)" }}

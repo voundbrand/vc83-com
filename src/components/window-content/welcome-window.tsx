@@ -5,7 +5,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 /**
  * Welcome Window - First impression for visitors
  *
- * Agency-focused landing experience explaining the AI employee platform.
+ * Business-owner-focused landing experience explaining the AI employee platform.
  * Uses Playfair Display italic for the l4yercak3 brand name.
  */
 export function WelcomeWindow() {

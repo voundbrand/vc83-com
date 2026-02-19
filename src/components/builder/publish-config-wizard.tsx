@@ -83,7 +83,7 @@ function AppInfoStep() {
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider block mb-1.5">
           App Name
         </label>
         <input
@@ -91,12 +91,12 @@ function AppInfoStep() {
           value={config.appName}
           onChange={(e) => handleNameChange(e.target.value)}
           placeholder="My App"
-          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
         />
       </div>
 
       <div>
-        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider block mb-1.5">
           Repository Name
         </label>
         <input
@@ -108,12 +108,12 @@ function AppInfoStep() {
             })
           }
           placeholder="my-app"
-          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
         />
       </div>
 
       <div>
-        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider block mb-1.5">
           Description
         </label>
         <input
@@ -121,12 +121,12 @@ function AppInfoStep() {
           value={config.description}
           onChange={(e) => updateConfig({ description: e.target.value })}
           placeholder="A brief description of your app"
-          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
         />
       </div>
 
       <div>
-        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+        <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider block mb-1.5">
           Visibility
         </label>
         <div className="flex items-center gap-3">
@@ -134,8 +134,8 @@ function AppInfoStep() {
             onClick={() => updateConfig({ isPrivate: true })}
             className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
               config.isPrivate
-                ? "border-purple-700 bg-purple-950/30 text-purple-300"
-                : "border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                ? "border-amber-700 bg-amber-950/30 text-amber-300"
+                : "border-neutral-700 text-neutral-400 hover:border-neutral-600"
             }`}
           >
             Private
@@ -144,8 +144,8 @@ function AppInfoStep() {
             onClick={() => updateConfig({ isPrivate: false })}
             className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
               !config.isPrivate
-                ? "border-purple-700 bg-purple-950/30 text-purple-300"
-                : "border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                ? "border-amber-700 bg-amber-950/30 text-amber-300"
+                : "border-neutral-700 text-neutral-400 hover:border-neutral-600"
             }`}
           >
             Public
@@ -166,7 +166,7 @@ function CapabilitiesStep({ onSwitchToConnect }: { onSwitchToConnect?: () => voi
     <div className="space-y-3 w-full min-w-0 max-w-full overflow-hidden">
       {selectedCats.length > 0 ? (
         <>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-neutral-500">
             These API capabilities were configured during the Connect step and are locked to your API key&apos;s scopes.
           </p>
           <div className="grid gap-2 w-full min-w-0 max-w-full">
@@ -175,28 +175,28 @@ function CapabilitiesStep({ onSwitchToConnect }: { onSwitchToConnect?: () => voi
               return (
                 <div
                   key={cat.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-purple-700 bg-purple-950/20 text-white w-full min-w-0 max-w-full overflow-hidden box-border"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-amber-700 bg-amber-950/20 text-white w-full min-w-0 max-w-full overflow-hidden box-border"
                 >
-                  {Icon && <Icon className="h-4 w-4 flex-shrink-0 text-purple-400 mt-0.5" />}
+                  {Icon && <Icon className="h-4 w-4 flex-shrink-0 text-amber-400 mt-0.5" />}
                   <div className="flex-1 min-w-0 overflow-hidden">
                     <p className="text-sm font-medium break-words">{cat.label}</p>
-                    <p className="text-xs text-zinc-500 break-words">{cat.description}</p>
+                    <p className="text-xs text-neutral-500 break-words">{cat.description}</p>
                   </div>
-                  <Check className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  <Check className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
                 </div>
               );
             })}
           </div>
           {unselectedCats.length > 0 && (
-            <p className="text-[10px] text-zinc-600">
+            <p className="text-[10px] text-neutral-600">
               {unselectedCats.length} other {unselectedCats.length === 1 ? "category" : "categories"} available
             </p>
           )}
         </>
       ) : (
         <div className="text-center py-4">
-          <p className="text-sm text-zinc-400">No API categories connected yet.</p>
-          <p className="text-xs text-zinc-500 mt-1">
+          <p className="text-sm text-neutral-400">No API categories connected yet.</p>
+          <p className="text-xs text-neutral-500 mt-1">
             Connect your app first to select API capabilities.
           </p>
         </div>
@@ -205,7 +205,7 @@ function CapabilitiesStep({ onSwitchToConnect }: { onSwitchToConnect?: () => voi
       {onSwitchToConnect && (
         <button
           onClick={onSwitchToConnect}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium hover:bg-zinc-700 transition-colors border border-zinc-700"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-neutral-800 text-neutral-300 rounded-lg text-xs font-medium hover:bg-neutral-700 transition-colors border border-neutral-700"
         >
           <Plug className="h-3.5 w-3.5" />
           {selectedCats.length > 0 ? "Edit in Connect" : "Go to Connect"}
@@ -241,7 +241,7 @@ function ArchitectureStep() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-neutral-500">
         Choose how your app connects to data. Thin Client is recommended for Phase 1.
       </p>
       <div className="space-y-2">
@@ -252,18 +252,18 @@ function ArchitectureStep() {
             disabled={!opt.available}
             className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
               config.architecture === opt.value
-                ? "border-purple-700 bg-purple-950/20 text-white"
+                ? "border-amber-700 bg-amber-950/20 text-white"
                 : opt.available
-                  ? "border-zinc-800 text-zinc-400 hover:border-zinc-700"
-                  : "border-zinc-800/50 text-zinc-600 opacity-50 cursor-not-allowed"
+                  ? "border-neutral-800 text-neutral-400 hover:border-neutral-700"
+                  : "border-neutral-800/50 text-neutral-600 opacity-50 cursor-not-allowed"
             }`}
           >
             <div className="flex-1">
               <p className="text-sm font-medium">{opt.label}</p>
-              <p className="text-xs text-zinc-500">{opt.description}</p>
+              <p className="text-xs text-neutral-500">{opt.description}</p>
             </div>
             {config.architecture === opt.value && (
-              <Check className="h-4 w-4 text-purple-400 flex-shrink-0" />
+              <Check className="h-4 w-4 text-amber-400 flex-shrink-0" />
             )}
           </button>
         ))}
@@ -305,7 +305,7 @@ function AuthStep() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-neutral-500">
         Choose how users authenticate in your published app.
       </p>
       <div className="space-y-2">
@@ -318,19 +318,19 @@ function AuthStep() {
               disabled={opt.disabled}
               className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
                 config.auth === opt.value
-                  ? "border-purple-700 bg-purple-950/20 text-white"
+                  ? "border-amber-700 bg-amber-950/20 text-white"
                   : opt.disabled
-                    ? "border-zinc-800/50 text-zinc-600 opacity-50 cursor-not-allowed"
-                    : "border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                    ? "border-neutral-800/50 text-neutral-600 opacity-50 cursor-not-allowed"
+                    : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
               }`}
             >
-              {Icon && <Icon className="h-4 w-4 text-zinc-500 flex-shrink-0" />}
+              {Icon && <Icon className="h-4 w-4 text-neutral-500 flex-shrink-0" />}
               <div className="flex-1">
                 <p className="text-sm font-medium">{opt.label}</p>
-                <p className="text-xs text-zinc-500">{opt.description}</p>
+                <p className="text-xs text-neutral-500">{opt.description}</p>
               </div>
               {config.auth === opt.value && (
-                <Check className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                <Check className="h-4 w-4 text-amber-400 flex-shrink-0" />
               )}
             </button>
           );
@@ -345,7 +345,7 @@ function PaymentsStep() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-neutral-500">
         Enable payment processing for your app. You can enable both.
       </p>
       <div className="space-y-2">
@@ -357,16 +357,16 @@ function PaymentsStep() {
           }
           className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
             config.payments.stripe
-              ? "border-purple-700 bg-purple-950/20 text-white"
-              : "border-zinc-800 text-zinc-400 hover:border-zinc-700"
+              ? "border-amber-700 bg-amber-950/20 text-white"
+              : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
           }`}
         >
           <CreditCard className="h-4 w-4 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium">Stripe</p>
-            <p className="text-xs text-zinc-500">Direct checkout and payment processing.</p>
+            <p className="text-xs text-neutral-500">Direct checkout and payment processing.</p>
           </div>
-          {config.payments.stripe && <Check className="h-4 w-4 text-purple-400 flex-shrink-0" />}
+          {config.payments.stripe && <Check className="h-4 w-4 text-amber-400 flex-shrink-0" />}
         </button>
 
         <button
@@ -377,16 +377,16 @@ function PaymentsStep() {
           }
           className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
             config.payments.l4yercak3Invoicing
-              ? "border-purple-700 bg-purple-950/20 text-white"
-              : "border-zinc-800 text-zinc-400 hover:border-zinc-700"
+              ? "border-amber-700 bg-amber-950/20 text-white"
+              : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
           }`}
         >
           <Receipt className="h-4 w-4 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium">l4yercak3 Invoicing</p>
-            <p className="text-xs text-zinc-500">B2B invoicing through the platform.</p>
+            <p className="text-xs text-neutral-500">B2B invoicing through the platform.</p>
           </div>
-          {config.payments.l4yercak3Invoicing && <Check className="h-4 w-4 text-purple-400 flex-shrink-0" />}
+          {config.payments.l4yercak3Invoicing && <Check className="h-4 w-4 text-amber-400 flex-shrink-0" />}
         </button>
 
         <button
@@ -397,13 +397,13 @@ function PaymentsStep() {
           }
           className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
             !config.payments.stripe && !config.payments.l4yercak3Invoicing
-              ? "border-purple-700 bg-purple-950/20 text-white"
-              : "border-zinc-800 text-zinc-400 hover:border-zinc-700"
+              ? "border-amber-700 bg-amber-950/20 text-white"
+              : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
           }`}
         >
           <div className="flex-1">
             <p className="text-sm font-medium">No Payments</p>
-            <p className="text-xs text-zinc-500">Skip payment integration for now.</p>
+            <p className="text-xs text-neutral-500">Skip payment integration for now.</p>
           </div>
         </button>
       </div>
@@ -424,26 +424,26 @@ function EnvVarsStep() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
-        These environment variables will be required. They&apos;ll be listed in the generated <code className="text-zinc-400">.env.example</code>.
+      <p className="text-xs text-neutral-500">
+        These environment variables will be required. They&apos;ll be listed in the generated <code className="text-neutral-400">.env.example</code>.
       </p>
       {envVars.length === 0 ? (
-        <div className="text-center py-4 text-zinc-500 text-sm">
+        <div className="text-center py-4 text-neutral-500 text-sm">
           No environment variables needed for this configuration.
         </div>
       ) : (
         <div className="space-y-3">
           {Array.from(grouped).map(([source, vars]) => (
             <div key={source} className="space-y-1">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wider">
                 {source}
               </p>
               {vars.map((v) => (
                 <div
                   key={v.key}
-                  className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-xs min-w-0"
+                  className="flex items-center gap-2 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-xs min-w-0"
                 >
-                  <code className="text-purple-400 font-mono flex-1 truncate min-w-0">{v.key}</code>
+                  <code className="text-amber-400 font-mono flex-1 truncate min-w-0">{v.key}</code>
                   {v.required && (
                     <span className="text-[10px] text-amber-500 font-medium">Required</span>
                   )}
@@ -466,7 +466,7 @@ function ReviewStep() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-neutral-500">
         Review your configuration before publishing.
       </p>
 
@@ -493,9 +493,9 @@ function ReviewStep() {
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded min-w-0">
-      <span className="text-xs text-zinc-500 flex-shrink-0">{label}</span>
-      <span className="text-xs text-zinc-200 font-medium truncate min-w-0">{value}</span>
+    <div className="flex items-center justify-between gap-3 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded min-w-0">
+      <span className="text-xs text-neutral-500 flex-shrink-0">{label}</span>
+      <span className="text-xs text-neutral-200 font-medium truncate min-w-0">{value}</span>
     </div>
   );
 }
@@ -705,17 +705,17 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-purple-400" />
+            <Rocket className="h-5 w-5 text-amber-400" />
             <h2 className="text-lg font-semibold text-white">Publish</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+          <button onClick={onClose} className="p-1 rounded hover:bg-neutral-800 text-neutral-400">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 text-center">
-          <Settings className="h-8 w-8 mx-auto mb-3 text-zinc-600" />
-          <p className="text-zinc-300 font-medium">Connect your app first</p>
-          <p className="text-xs text-zinc-500 mt-1">
+        <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 text-center">
+          <Settings className="h-8 w-8 mx-auto mb-3 text-neutral-600" />
+          <p className="text-neutral-300 font-medium">Connect your app first</p>
+          <p className="text-xs text-neutral-500 mt-1">
             Switch to Connect mode and select API capabilities before publishing.
           </p>
         </div>
@@ -729,10 +729,10 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-purple-400" />
+            <Rocket className="h-5 w-5 text-amber-400" />
             <h2 className="text-lg font-semibold text-white">Published</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+          <button onClick={onClose} className="p-1 rounded hover:bg-neutral-800 text-neutral-400">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -748,23 +748,23 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
               href={publishResult.repoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300"
+              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300"
             >
               <ExternalLink className="h-3 w-3" />
               {publishResult.repoUrl}
             </a>
-            <p className="text-xs text-zinc-500">{publishResult.fileCount} files committed</p>
+            <p className="text-xs text-neutral-500">{publishResult.fileCount} files committed</p>
           </div>
         </div>
 
         {/* Clone URL */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Clone URL</label>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 flex items-center justify-between gap-2">
-            <code className="text-xs text-zinc-300 font-mono truncate">{publishResult.cloneUrl}</code>
+          <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Clone URL</label>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-2.5 flex items-center justify-between gap-2">
+            <code className="text-xs text-neutral-300 font-mono truncate">{publishResult.cloneUrl}</code>
             <button
               onClick={() => copyToClipboard(publishResult.cloneUrl, "clone")}
-              className="p-1 rounded hover:bg-zinc-700 text-zinc-400 flex-shrink-0"
+              className="p-1 rounded hover:bg-neutral-700 text-neutral-400 flex-shrink-0"
             >
               {copiedField === "clone" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
@@ -776,7 +776,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
           <button
             onClick={handleGenerateDeployUrl}
             disabled={isGeneratingDeploy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
           >
             {isGeneratingDeploy ? (
               <>
@@ -796,7 +796,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
               href={deployUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
             >
               <Rocket className="h-4 w-4" />
               Open Vercel Deploy
@@ -804,7 +804,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
             </a>
             <button
               onClick={() => copyToClipboard(deployUrl, "deploy")}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors text-sm border border-zinc-700"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors text-sm border border-neutral-700"
             >
               {copiedField === "deploy" ? (
                 <>
@@ -838,23 +838,23 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Rocket className="h-5 w-5 text-purple-400" />
+          <Rocket className="h-5 w-5 text-amber-400" />
           <h2 className="text-lg font-semibold text-white">Publish</h2>
         </div>
-        <button onClick={handleClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+        <button onClick={handleClose} className="p-1 rounded hover:bg-neutral-800 text-neutral-400">
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Progress bar */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+        <div className="flex items-center justify-between text-[10px] text-neutral-500">
           <span>Step {currentStepIndex + 1} of {totalSteps}</span>
           <span>{stepConfig.title}</span>
         </div>
-        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+        <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-purple-600 rounded-full transition-all duration-300"
+            className="h-full bg-amber-600 rounded-full transition-all duration-300"
             style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
           />
         </div>
@@ -871,7 +871,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
           <button
             onClick={handleConnectGitHub}
             disabled={isConnectingGitHub}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 text-white rounded-md text-xs font-medium hover:bg-zinc-700 transition-colors border border-zinc-700 disabled:opacity-50 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 text-white rounded-md text-xs font-medium hover:bg-neutral-700 transition-colors border border-neutral-700 disabled:opacity-50 flex-shrink-0"
           >
             {isConnectingGitHub ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -879,7 +879,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
               <Github className="h-3.5 w-3.5" />
             )}
             {isConnectingGitHub ? "Opening..." : "Connect"}
-            {!isConnectingGitHub && <ExternalLink className="h-3 w-3 text-zinc-400" />}
+            {!isConnectingGitHub && <ExternalLink className="h-3 w-3 text-neutral-400" />}
           </button>
         </div>
       )}
@@ -895,7 +895,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       {/* Step content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 w-full">
         <div className="flex items-center gap-2 mb-3">
-          <StepIcon className="h-4 w-4 text-purple-400" />
+          <StepIcon className="h-4 w-4 text-amber-400" />
           <h3 className="text-sm font-semibold text-white">{stepConfig.title}</h3>
         </div>
         <div className="w-full min-w-0 overflow-hidden">
@@ -904,12 +904,12 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
+      <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
         {!isFirstStep && (
           <button
             onClick={handleGoBack}
             disabled={!canGoBack}
-            className="flex items-center gap-1 px-3 py-2 text-xs text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-2 text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-50"
           >
             <ChevronLeft className="h-3 w-3" />
             Back
@@ -920,7 +920,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
           <button
             onClick={handlePublish}
             disabled={isPublishing || !githubConnection?.connected || !isStepValid(currentStep)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isPublishing ? (
               <>
@@ -939,7 +939,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
           <button
             onClick={handleGoNext}
             disabled={!canGoNext}
-            className="flex items-center gap-1 px-4 py-2 bg-zinc-800 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-zinc-700"
+            className="flex items-center gap-1 px-4 py-2 bg-neutral-800 text-white rounded-lg text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-neutral-700"
           >
             Next
             <ChevronRight className="h-3 w-3" />

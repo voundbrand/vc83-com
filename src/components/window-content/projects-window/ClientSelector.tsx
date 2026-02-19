@@ -29,7 +29,7 @@ export function ClientSelector({
   // Loading state
   if (crmOrgs === undefined) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+      <div className="flex items-center gap-2 px-3 py-2 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
         <Loader2 size={14} className="animate-spin" style={{ color: "var(--neutral-gray)" }} />
         <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           Loading clients...
@@ -49,9 +49,9 @@ export function ClientSelector({
         disabled={disabled}
         className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
-          color: "var(--win95-text)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
+          color: "var(--window-document-text)",
         }}
       >
         <option value="">No client selected</option>

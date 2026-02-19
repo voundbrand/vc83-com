@@ -7,7 +7,7 @@
  * Shows connection status, tax configuration, and quick actions.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,7 +35,11 @@ interface StripeSectionProps {
 
 export function StripeSection({ organizationId, organization }: StripeSectionProps) {
   const { sessionId } = useAuth();
-  const { t } = useNamespaceTranslations("ui.payments");
+  const { t, translationsMap } = useNamespaceTranslations("ui.payments");
+  const tx = useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap]
+  );
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [selectedMode, setSelectedMode] = useState<"test" | "live">("live");
@@ -98,11 +102,11 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
         }, 2000);
       }).catch(err => {
         console.error('Failed to process OAuth:', err);
-        alert('Failed to connect Stripe account. Please try again.');
+        alert(tx("ui.payments.stripe.oauth.connect_error", "Failed to connect Stripe account. Please try again."));
         localStorage.removeItem('stripe_oauth_reopen_payments');
       });
     }
-  }, [sessionId, organizationId, selectedMode, refreshAccountStatus, handleOAuthCallbackMutation]);
+  }, [sessionId, organizationId, selectedMode, refreshAccountStatus, handleOAuthCallbackMutation, tx]);
 
   const handleStartOnboarding = async () => {
     if (!sessionId) return;
@@ -124,7 +128,12 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
       }
     } catch (error) {
       console.error("Failed to start onboarding:", error);
-      alert("Failed to start Stripe Connect onboarding. Please try again.");
+      alert(
+        tx(
+          "ui.payments.stripe.oauth.onboarding_start_error",
+          "Failed to start Stripe Connect onboarding. Please try again."
+        )
+      );
       setIsOnboarding(false);
     }
   };
@@ -197,7 +206,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
           >
             <CreditCard size={32} style={{ color: "var(--primary)" }} />
           </div>
-          <h3 className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-lg font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.payments.stripe.connect_title")}
           </h3>
           <p className="text-sm max-w-md mx-auto" style={{ color: "var(--neutral-gray)" }}>
@@ -209,7 +218,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <DollarSign size={24} style={{ color: "var(--success)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1">{t("ui.payments.stripe.benefit_payments_title")}</h4>
@@ -220,7 +229,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
 
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <Receipt size={24} style={{ color: "var(--primary)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1">{t("ui.payments.stripe.benefit_tax_title")}</h4>
@@ -231,7 +240,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
 
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <Zap size={24} style={{ color: "var(--warning)" }} className="mb-2" />
             <h4 className="font-bold text-sm mb-1">{t("ui.payments.stripe.benefit_payouts_title")}</h4>
@@ -244,7 +253,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
         {/* Mode Selection */}
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <h4 className="font-bold text-sm mb-3">{t("ui.payments.stripe.mode_selection_title")}</h4>
           <div className="flex gap-3">
@@ -253,8 +262,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
               onClick={() => setSelectedMode("live")}
               className="flex-1 p-3 border-2 text-left transition-all"
               style={{
-                borderColor: selectedMode === "live" ? "var(--primary)" : "var(--win95-border)",
-                background: selectedMode === "live" ? "var(--primary-light)" : "var(--win95-bg)",
+                borderColor: selectedMode === "live" ? "var(--primary)" : "var(--window-document-border)",
+                background: selectedMode === "live" ? "var(--primary-light)" : "var(--window-document-bg)",
               }}
             >
               <div className="flex items-start gap-2">
@@ -271,8 +280,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
               onClick={() => setSelectedMode("test")}
               className="flex-1 p-3 border-2 text-left transition-all"
               style={{
-                borderColor: selectedMode === "test" ? "var(--warning)" : "var(--win95-border)",
-                background: selectedMode === "test" ? "var(--warning-light)" : "var(--win95-bg)",
+                borderColor: selectedMode === "test" ? "var(--warning)" : "var(--window-document-border)",
+                background: selectedMode === "test" ? "var(--warning-light)" : "var(--window-document-bg)",
               }}
             >
               <div className="flex items-start gap-2">
@@ -323,7 +332,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
       <div
         className="p-4 border-2"
         style={{
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--window-document-border)",
           background: accountStatus === "active" ? "var(--success-light)" : "var(--warning-light)",
         }}
       >
@@ -346,8 +355,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             onClick={handleRefreshStatus}
             className="px-3 py-1 text-xs font-semibold"
             style={{
-              backgroundColor: "var(--win95-button-face)",
-              border: "2px solid var(--win95-border)",
+              backgroundColor: "var(--window-document-bg-elevated)",
+              border: "2px solid var(--window-document-border)",
             }}
           >
             {t("ui.payments.stripe.refresh")}
@@ -359,7 +368,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
       {taxEnabled && (
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <div className="flex items-start gap-3 mb-3">
             <Receipt size={20} style={{ color: "var(--primary)" }} />
@@ -397,7 +406,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid var(--win95-border)",
+              border: "2px solid var(--window-document-border)",
               opacity: isSyncingTax ? 0.6 : 1,
             }}
           >
@@ -419,7 +428,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
       {/* Quick Actions */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="font-bold text-sm mb-3">{t("ui.payments.stripe.quick_actions")}</h3>
         <div className="flex flex-col gap-2">
@@ -431,7 +440,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             style={{
               backgroundColor: "var(--primary)",
               color: "white",
-              border: "2px solid var(--win95-border)",
+              border: "2px solid var(--window-document-border)",
             }}
           >
             <ExternalLink size={14} />
@@ -445,7 +454,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             style={{
               backgroundColor: "var(--error)",
               color: "white",
-              border: "2px solid var(--win95-border)",
+              border: "2px solid var(--window-document-border)",
               opacity: isDisconnecting ? 0.6 : 1,
             }}
           >
@@ -469,7 +478,7 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
         <div
           className="p-3 border-2 text-xs"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--info-light)",
           }}
         >

@@ -619,7 +619,7 @@ export function TransactionDetailModal({
               onClick={onClose}
               className="desktop-interior-button px-4 py-2 text-sm font-semibold"
               style={{
-                backgroundColor: "var(--win95-button-face)",
+                backgroundColor: "var(--window-document-bg-elevated)",
                 color: "var(--window-document-text)",
               }}
             >

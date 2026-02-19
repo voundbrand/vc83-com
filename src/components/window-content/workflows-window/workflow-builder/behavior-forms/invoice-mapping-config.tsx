@@ -127,21 +127,21 @@ export function InvoiceMappingConfigForm({
   };
 
   if (translationsLoading) {
-    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+    return <div className="p-4" style={{ color: "var(--window-document-text)" }}>Loading...</div>;
   }
 
   return (
     <div
       className="space-y-4 p-4 border-2 rounded"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <FileText size={16} />
             {t("ui.workflows.invoice_mapping.header.title")}
           </h3>
@@ -153,7 +153,7 @@ export function InvoiceMappingConfigForm({
 
       {/* Template Selection */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_mapping.template.label")}
         </label>
         <select
@@ -166,9 +166,9 @@ export function InvoiceMappingConfigForm({
           }
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           {availableTemplates?.map((template) => (
@@ -191,8 +191,8 @@ export function InvoiceMappingConfigForm({
           <div
             className="mt-2 p-3 border-2 rounded"
             style={{
-              background: "var(--win95-bg-light)",
-              borderColor: "var(--win95-border)",
+              background: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             {(() => {
@@ -204,7 +204,7 @@ export function InvoiceMappingConfigForm({
                   <div className="flex items-start gap-2">
                     <Info size={14} style={{ color: "var(--primary)", marginTop: "2px" }} />
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         {selectedTemplate.name}
                       </p>
                       <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -215,7 +215,7 @@ export function InvoiceMappingConfigForm({
 
                   {selectedTemplate.useCases && selectedTemplate.useCases.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                         Use Cases:
                       </p>
                       <ul className="text-xs space-y-1 pl-4" style={{ color: "var(--neutral-gray)" }}>
@@ -230,7 +230,7 @@ export function InvoiceMappingConfigForm({
                     <div
                       className="p-2 border-2 rounded"
                       style={{
-                        background: "var(--win95-input-bg)",
+                        background: "var(--window-document-bg-elevated)",
                         borderColor: "var(--primary)",
                       }}
                     >
@@ -252,7 +252,7 @@ export function InvoiceMappingConfigForm({
 
       {/* Organization Source Field */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_mapping.source_field.label")}
         </label>
         <select
@@ -265,9 +265,9 @@ export function InvoiceMappingConfigForm({
           }
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <option value="">{t("ui.workflows.invoice_mapping.source_field.placeholder")}</option>
@@ -284,10 +284,10 @@ export function InvoiceMappingConfigForm({
 
       {/* Organization Mapping - Only show if field selected */}
       {config.organizationSourceField && (
-        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.workflows.invoice_mapping.mapping.label")}
               </label>
             </div>
@@ -322,7 +322,7 @@ export function InvoiceMappingConfigForm({
                 style={{
                   color: "var(--warning)",
                   borderColor: "var(--warning)",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 {t("ui.workflows.invoice_mapping.mapping.no_orgs")}
@@ -332,16 +332,16 @@ export function InvoiceMappingConfigForm({
 
           {/* Options */}
           <div>
-            <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.invoice_mapping.options.title")}
             </label>
 
             <label
               className="flex items-center justify-between p-2 border-2 cursor-pointer hover:bg-gray-50"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div>
-                <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.workflows.invoice_mapping.options.require_mapping.label")}
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -364,7 +364,7 @@ export function InvoiceMappingConfigForm({
 
           {/* Payment Terms */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.invoice_mapping.payment_terms.label")}
             </label>
             <select
@@ -377,9 +377,9 @@ export function InvoiceMappingConfigForm({
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="net30">{t("ui.workflows.invoice_mapping.payment_terms.net30")}</option>
@@ -393,7 +393,7 @@ export function InvoiceMappingConfigForm({
 
           {/* Invoice Field Mapping (Optional) */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.invoice_mapping.field_mapping.label")} <span style={{ color: "var(--neutral-gray)", fontWeight: "normal" }}>{t("ui.workflows.invoice_mapping.field_mapping.optional")}</span>
             </label>
             <textarea
@@ -408,9 +408,9 @@ export function InvoiceMappingConfigForm({
               }}
               className="w-full px-2 py-1 text-xs font-mono border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
                 fontFamily: "monospace",
               }}
               rows={4}
@@ -427,8 +427,8 @@ export function InvoiceMappingConfigForm({
       <div
         className="p-3 border-2 rounded"
         style={{
-          background: "var(--win95-input-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }} dangerouslySetInnerHTML={{ __html: t("ui.workflows.invoice_mapping.info.how_it_works") }} />

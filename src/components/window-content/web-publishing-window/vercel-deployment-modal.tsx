@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -394,8 +394,8 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
         <div
           className="border-4 shadow-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)',
             boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
           }}
           onClick={(e) => e.stopPropagation()}
@@ -404,7 +404,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
         <div
           className="px-4 py-2 flex items-center justify-between sticky top-0 z-10"
           style={{
-            background: 'var(--win95-highlight)',
+            background: 'var(--tone-accent)',
             color: 'white'
           }}
         >
@@ -423,8 +423,8 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
         {/* Content */}
         <div className="p-6">
           {/* Page info */}
-          <div className="mb-4 pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
-            <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+          <div className="mb-4 pb-4 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
+            <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
               {page.name}
             </h4>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -445,10 +445,10 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   key={check.id}
                   className="flex items-start gap-3 p-3 border-2 relative overflow-hidden"
                   style={{
-                    borderColor: isIntegrationConnected ? '#22c55e' : 'var(--win95-border)',
+                    borderColor: isIntegrationConnected ? '#22c55e' : 'var(--window-document-border)',
                     background: isIntegrationConnected
                       ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)'
-                      : 'var(--win95-bg-light)',
+                      : 'var(--window-document-bg-elevated)',
                     boxShadow: isIntegrationConnected ? '0 0 10px rgba(34, 197, 94, 0.2)' : 'none'
                   }}
                 >
@@ -467,7 +467,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       <div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: 'var(--neutral-gray)' }} />
                     )}
                     {check.status === "checking" && (
-                      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+                      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
                     )}
                     {check.status === "passed" && (
                       <CheckCircle size={20} style={{ color: '#22c55e', fontWeight: 'bold' }} />
@@ -480,7 +480,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                     )}
                   </div>
                 <div className="flex-1">
-                  <div className="font-bold text-xs mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <div className="font-bold text-xs mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {check.label}
                   </div>
                   {check.message && (
@@ -494,14 +494,14 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       className="mt-2 px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
                         borderColor: 'var(--error)',
-                        background: 'var(--win95-bg)',
+                        background: 'var(--window-document-bg)',
                         color: 'var(--error)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'var(--win95-bg)';
+                        e.currentTarget.style.background = 'var(--window-document-bg)';
                       }}
                     >
                       <Settings size={12} />
@@ -514,14 +514,14 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       className="mt-2 px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                       style={{
                         borderColor: 'var(--warning)',
-                        background: 'var(--win95-bg)',
+                        background: 'var(--window-document-bg)',
                         color: 'var(--warning)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--win95-hover-light)';
+                        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'var(--win95-bg)';
+                        e.currentTarget.style.background = 'var(--window-document-bg)';
                       }}
                     >
                       <Settings size={12} />
@@ -538,16 +538,16 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
           <div
             className="mb-6 p-4 border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)'
             }}
           >
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
                 <Key size={16} />
                 Environment Variables ({envVars && Array.isArray(envVars) ? envVars.length : 0})
               </h4>
-              <RetroButton
+              <InteriorButton
                 onClick={() => setShowEnvVarsModal(true)}
                 variant="secondary"
                 size="sm"
@@ -555,7 +555,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
               >
                 <Plus size={14} />
                 Add Variable
-              </RetroButton>
+              </InteriorButton>
             </div>
 
             {!envVars || (Array.isArray(envVars) && envVars.length === 0) ? (
@@ -578,13 +578,13 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       key={envVar._id}
                       className="flex items-center justify-between p-2 border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
+                        borderColor: 'var(--window-document-border)',
                         background: 'white'
                       }}
                     >
                       <div className="flex-1 font-mono text-xs overflow-hidden">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+                          <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
                             {envVar.key}
                           </span>
                           {envVar.required && (
@@ -617,16 +617,16 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                         }}
                         className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors ml-2"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-bg-light)',
+                          borderColor: 'var(--window-document-border)',
+                          background: 'var(--window-document-bg-elevated)',
                           color: 'var(--info)'
                         }}
                         title={`Copy ${envVar.key}`}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--win95-hover-light)';
+                          e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'var(--win95-bg-light)';
+                          e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                         }}
                       >
                         <Copy size={12} />
@@ -701,7 +701,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
           {/* Action Buttons */}
           <div className="flex items-center justify-between gap-2">
             <div>
-              <RetroButton
+              <InteriorButton
                 onClick={runValidation}
                 variant="secondary"
                 size="sm"
@@ -710,20 +710,20 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
               >
                 <RefreshCw size={14} className={isValidating ? "animate-spin" : ""} />
                 Re-validate
-              </RetroButton>
+              </InteriorButton>
             </div>
 
             <div className="flex items-center gap-2">
-              <RetroButton
+              <InteriorButton
                 onClick={onClose}
                 variant="outline"
                 size="sm"
               >
                 Cancel
-              </RetroButton>
+              </InteriorButton>
 
               {allCriticalChecksPassed && (
-                <RetroButton
+                <InteriorButton
                   onClick={handleDeploy}
                   variant="primary"
                   size="sm"
@@ -741,7 +741,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                       Deploy to Vercel
                     </>
                   )}
-                </RetroButton>
+                </InteriorButton>
               )}
             </div>
           </div>

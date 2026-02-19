@@ -1,15 +1,16 @@
 "use client";
 
 import { useQuery, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe } from "lucide-react";
+import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useState, useMemo } from "react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { AdminManageWindow } from "./manage-org";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 /**
  * Organizations List Tab
@@ -23,6 +24,18 @@ export function OrganizationsListTab() {
   const currentOrg = useCurrentOrganization();
   const { openWindow } = useWindowManager();
   const { t } = useNamespaceTranslations("ui.organizations");
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown,
+  ) => unknown;
+  // Avoid deep generated type instantiation on large Convex API unions.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseAction = useAction as any;
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [pageSize, setPageSize] = useState(25);
 
   // Archive modal (soft delete - for active orgs)
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
@@ -34,35 +47,76 @@ export function OrganizationsListTab() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<{ id: Id<"organizations">; name: string } | null>(null);
 
-  // Query user's organizations (for regular users)
-  const userOrganizations = useQuery(
-    api.organizations.getUserOrganizations,
-    sessionId && !isSuperAdmin ? { sessionId } : "skip"
-  );
+  // Query user's organizations (used for regular users and archive safety checks)
+  const userOrganizations = unsafeUseQuery(
+    apiAny.organizations.getUserOrganizations,
+    sessionId ? { sessionId } : "skip"
+  ) as
+    | Array<{
+        organization: {
+          _id: Id<"organizations">;
+          name: string;
+          businessName?: string;
+          slug?: string;
+          isActive: boolean;
+        } | null;
+        role: string;
+        joinedAt?: number;
+      }>
+    | null
+    | undefined;
 
-  // Query ALL organizations (for super admins)
-  const allOrganizations = useQuery(
-    api.organizations.listAll,
-    sessionId && isSuperAdmin ? { sessionId } : "skip"
-  );
+  // Query paginated organizations for super admins
+  const paginatedOrganizations = unsafeUseQuery(
+    apiAny.organizations.listAllPaginated,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          cursor: cursor ?? undefined,
+          pageSize,
+          search: searchTerm || undefined,
+        }
+      : "skip"
+  ) as
+    | {
+        organizations: Array<{
+          _id: Id<"organizations">;
+          name: string;
+          businessName?: string;
+          slug?: string;
+          isActive: boolean;
+          createdAt: number;
+          memberCount: number;
+        }>;
+        continueCursor: string;
+        isDone: boolean;
+      }
+    | null
+    | undefined;
 
   // Normalize the data format - super admin query returns different structure
   const organizations = useMemo(() => {
-    if (isSuperAdmin && allOrganizations) {
-      // Transform listAll format to match getUserOrganizations format
-      return allOrganizations.map(org => ({
+    if (isSuperAdmin) {
+      if (!paginatedOrganizations) {
+        return undefined;
+      }
+      return paginatedOrganizations.organizations.map((org) => ({
         organization: org,
         role: "super_admin" as const,
-        joinedAt: org.createdAt,
+        joinedAt: typeof org.createdAt === "number" ? org.createdAt : undefined,
       }));
     }
     return userOrganizations;
-  }, [isSuperAdmin, allOrganizations, userOrganizations]);
+  }, [isSuperAdmin, paginatedOrganizations, userOrganizations]);
+
+  const accessibleOrganizations = useMemo(() => {
+    return (userOrganizations ?? []).filter((item) => item.organization);
+  }, [userOrganizations]);
 
   // Actions
-  const archiveOrganization = useAction(api.organizations.deleteOrganization); // This soft-deletes
-  const restoreOrganization = useAction(api.organizations.restoreOrganization);
-  const permanentlyDeleteOrganization = useAction(api.organizations.permanentlyDeleteOrganization);
+  const archiveOrganization = unsafeUseAction(apiAny.organizations.deleteOrganization); // This soft-deletes
+  const restoreOrganization = unsafeUseAction(apiAny.organizations.restoreOrganization);
+  const permanentlyDeleteOrganization = unsafeUseAction(apiAny.organizations.permanentlyDeleteOrganization);
 
   // Open AdminManageWindow for system admins
   const handleManageClick = (organizationId: Id<"organizations">, organizationName: string) => {
@@ -75,16 +129,50 @@ export function OrganizationsListTab() {
     );
   };
 
+  const applySearch = (value: string) => {
+    setSearchTerm(value);
+    setCursor(null);
+    setCursorHistory([]);
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    applySearch(searchInput.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    applySearch("");
+  };
+
+  const handleNextPage = () => {
+    if (!paginatedOrganizations || paginatedOrganizations.isDone) {
+      return;
+    }
+    setCursorHistory((prev) => [...prev, cursor]);
+    setCursor(paginatedOrganizations.continueCursor);
+  };
+
+  const handlePreviousPage = () => {
+    setCursorHistory((prev) => {
+      if (prev.length === 0) {
+        return prev;
+      }
+      const next = [...prev];
+      const previousCursor = next.pop() ?? null;
+      setCursor(previousCursor);
+      return next;
+    });
+  };
+
   // Archive handler (soft delete - for active orgs)
   const handleArchiveClick = (organizationId: Id<"organizations">, organizationName: string) => {
-    // Count active organizations
-    const activeOrgCount = organizations?.filter(item =>
-      item.organization?.isActive
-    ).length || 0;
-
-    // Check if this is the last active org
-    const isLastActiveOrg = activeOrgCount === 1 &&
-      organizations?.find(item => item.organization?._id === organizationId)?.organization?.isActive;
+    // Use accessible memberships for safety checks (paged super-admin lists are not complete).
+    const activeAccessibleOrgCount = accessibleOrganizations.filter((item) => item.organization?.isActive).length;
+    const targetAccessibleOrg = accessibleOrganizations.find(
+      (item) => item.organization?._id === organizationId,
+    )?.organization;
+    const isLastActiveOrg = activeAccessibleOrgCount === 1 && !!targetAccessibleOrg?.isActive;
 
     if (isLastActiveOrg) {
       // Instead of archiving, offer account deletion
@@ -110,11 +198,12 @@ export function OrganizationsListTab() {
     try {
       // If archiving current org, switch to another active org first
       if (orgToArchive.isCurrent) {
-        // Find another active organization
-        const otherActiveOrgs = organizations?.filter(item =>
-          item.organization &&
-          item.organization.isActive &&
-          item.organization._id !== orgToArchive.id
+        // Find another active organization from user's memberships.
+        const otherActiveOrgs = accessibleOrganizations.filter(
+          (item) =>
+            item.organization &&
+            item.organization.isActive &&
+            item.organization._id !== orgToArchive.id,
         );
 
         if (!otherActiveOrgs || otherActiveOrgs.length === 0) {
@@ -195,7 +284,7 @@ export function OrganizationsListTab() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <Loader2 className="animate-spin mx-auto mb-4" size={48} style={{ color: "var(--primary)" }} />
-          <p style={{ color: "var(--win95-text)" }}>{t('ui.organizations.list.loading')}</p>
+          <p style={{ color: "var(--window-document-text)" }}>{t('ui.organizations.list.loading')}</p>
         </div>
       </div>
     );
@@ -207,7 +296,7 @@ export function OrganizationsListTab() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center p-8">
           <Building2 className="mx-auto mb-4 opacity-50" size={64} style={{ color: "var(--neutral-gray)" }} />
-          <h3 className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-lg font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.list.empty.title')}
           </h3>
           <p className="text-sm mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -221,16 +310,18 @@ export function OrganizationsListTab() {
     );
   }
 
+  const currentPage = cursorHistory.length + 1;
+
   return (
     <div className="p-4">
       <div className="mb-4">
-        <h3 className="text-sm font-bold mb-1 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-1 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           {isSuperAdmin && <Globe size={14} style={{ color: "var(--primary)" }} />}
           {t('ui.organizations.list.title')}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {isSuperAdmin
-            ? `Viewing all ${organizations.length} organizations in the system`
+            ? `Viewing ${organizations.length} organizations (page ${currentPage})`
             : `${t('ui.organizations.list.subtitle')} (${organizations.length})`
           }
         </p>
@@ -238,6 +329,100 @@ export function OrganizationsListTab() {
           {t('ui.organizations.list.inactive_note')}
         </p>
       </div>
+
+      {isSuperAdmin ? (
+        <div
+          className="mb-4 border-2 p-3 flex flex-wrap items-center gap-3"
+          style={{
+            borderColor: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
+          }}
+        >
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--neutral-gray)" }} />
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search organizations by name"
+                className="pl-8 pr-2 py-1.5 text-xs border min-w-[240px]"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  backgroundColor: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              className="beveled-button px-3 py-1.5 text-xs font-semibold"
+              style={{ backgroundColor: "var(--window-document-bg)", color: "var(--window-document-text)" }}
+            >
+              Search
+            </button>
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="beveled-button px-3 py-1.5 text-xs font-semibold"
+                style={{ backgroundColor: "var(--window-document-bg)", color: "var(--window-document-text)" }}
+              >
+                Clear
+              </button>
+            ) : null}
+          </form>
+
+          <div className="flex items-center gap-2 text-xs" style={{ color: "var(--window-document-text)" }}>
+            <span className="font-semibold">Rows</span>
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                const nextPageSize = Number(event.target.value);
+                setPageSize(nextPageSize);
+                setCursor(null);
+                setCursorHistory([]);
+              }}
+              className="px-2 py-1 border text-xs"
+              style={{
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePreviousPage}
+              disabled={cursorHistory.length === 0}
+              className="beveled-button px-3 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              style={{ backgroundColor: "var(--window-document-bg)", color: "var(--window-document-text)" }}
+            >
+              <ChevronLeft size={12} />
+              Prev
+            </button>
+            <span className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+              Page {currentPage}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextPage}
+              disabled={!paginatedOrganizations || paginatedOrganizations.isDone}
+              className="beveled-button px-3 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              style={{ backgroundColor: "var(--window-document-bg)", color: "var(--window-document-text)" }}
+            >
+              Next
+              <ChevronRight size={12} />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         {organizations.map((item) => {
@@ -252,8 +437,8 @@ export function OrganizationsListTab() {
               key={org._id}
               className="border-2 p-3"
               style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <div className="flex items-start justify-between">
@@ -262,7 +447,7 @@ export function OrganizationsListTab() {
                     <Building2 size={18} style={{ color: "var(--primary)" }} />
                     <div className="flex items-center gap-2">
                       <div>
-                        <h4 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+                        <h4 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                           {org.name}
                         </h4>
                         {org.businessName && org.businessName !== org.name && (
@@ -288,7 +473,7 @@ export function OrganizationsListTab() {
                   <div className="grid grid-cols-3 gap-3 mt-2 text-xs">
                     <div className="flex items-center gap-1.5">
                       <Users size={12} style={{ color: "var(--neutral-gray)" }} />
-                      <span style={{ color: "var(--win95-text)" }}>
+                      <span style={{ color: "var(--window-document-text)" }}>
                         {t('ui.organizations.role.label')} <span className="font-semibold">{formatRole(role, t)}</span>
                       </span>
                     </div>
@@ -297,7 +482,7 @@ export function OrganizationsListTab() {
                     {isSuperAdmin && 'memberCount' in org && (
                       <div className="flex items-center gap-1.5">
                         <Users size={12} style={{ color: "var(--primary)" }} />
-                        <span style={{ color: "var(--win95-text)" }}>
+                        <span style={{ color: "var(--window-document-text)" }}>
                           <span className="font-semibold">{(org as { memberCount: number }).memberCount}</span> {(org as { memberCount: number }).memberCount === 1 ? 'member' : 'members'}
                         </span>
                       </div>
@@ -306,7 +491,7 @@ export function OrganizationsListTab() {
                     {joinedAt && (
                       <div className="flex items-center gap-1.5">
                         <Calendar size={12} style={{ color: "var(--neutral-gray)" }} />
-                        <span style={{ color: "var(--win95-text)" }}>
+                        <span style={{ color: "var(--window-document-text)" }}>
                           {new Date(joinedAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -316,8 +501,8 @@ export function OrganizationsListTab() {
                   {org.slug && (
                     <div className="mt-2">
                       <span className="text-xs px-2 py-0.5 border" style={{
-                        backgroundColor: "var(--win95-bg)",
-                        borderColor: "var(--win95-border)",
+                        backgroundColor: "var(--window-document-bg)",
+                        borderColor: "var(--window-document-border)",
                         color: "var(--neutral-gray)",
                         fontFamily: "monospace"
                       }}>

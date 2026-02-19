@@ -327,7 +327,7 @@ export function CreateInvoiceTab() {
   if (translationsLoading) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <p style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
+        <p style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
       </div>
     );
   }
@@ -345,7 +345,7 @@ export function CreateInvoiceTab() {
     <div className="p-4 space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <FileText size={16} />
           {t("ui.invoicing_window.create.title")}
         </h3>
@@ -357,9 +357,9 @@ export function CreateInvoiceTab() {
       {/* Customer Type Selector */}
       <div
         className="p-4 border-2 rounded"
-        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
       >
-        <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.invoicing_window.create.customer_type")}
         </label>
         <div className="flex gap-2">
@@ -369,9 +369,9 @@ export function CreateInvoiceTab() {
               customerType === "b2b" ? "opacity-100" : "opacity-60 hover:opacity-80"
             }`}
             style={{
-              background: customerType === "b2b" ? "var(--win95-highlight)" : "var(--win95-bg)",
-              borderColor: customerType === "b2b" ? "var(--win95-highlight)" : "var(--win95-border)",
-              color: customerType === "b2b" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+              background: customerType === "b2b" ? "var(--tone-accent)" : "var(--window-document-bg)",
+              borderColor: customerType === "b2b" ? "var(--tone-accent)" : "var(--window-document-border)",
+              color: customerType === "b2b" ? "var(--window-document-text)" : "var(--window-document-text)",
             }}
           >
             <Building2 size={14} />
@@ -383,9 +383,9 @@ export function CreateInvoiceTab() {
               customerType === "b2c" ? "opacity-100" : "opacity-60 hover:opacity-80"
             }`}
             style={{
-              background: customerType === "b2c" ? "var(--win95-highlight)" : "var(--win95-bg)",
-              borderColor: customerType === "b2c" ? "var(--win95-highlight)" : "var(--win95-border)",
-              color: customerType === "b2c" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+              background: customerType === "b2c" ? "var(--tone-accent)" : "var(--window-document-bg)",
+              borderColor: customerType === "b2c" ? "var(--tone-accent)" : "var(--window-document-border)",
+              color: customerType === "b2c" ? "var(--window-document-text)" : "var(--window-document-text)",
             }}
           >
             <User size={14} />
@@ -398,9 +398,9 @@ export function CreateInvoiceTab() {
       {customerType === "b2b" && (
         <div
           className="p-4 border-2 rounded"
-          style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+          style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
         >
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             <Building2 size={14} className="inline mr-2" />
             {t("ui.invoicing_window.create.select_organization")}
           </label>
@@ -409,9 +409,9 @@ export function CreateInvoiceTab() {
             onChange={(e) => setSelectedCrmOrgId(e.target.value as Id<"objects"> | "")}
             className="w-full px-3 py-2 text-sm border-2 rounded"
             style={{
-              background: "var(--win95-bg)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              background: "var(--window-document-bg)",
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="">{t("ui.invoicing_window.create.select_customer_placeholder")}</option>
@@ -435,9 +435,9 @@ export function CreateInvoiceTab() {
       {customerType === "b2c" && (
         <div
           className="p-4 border-2 rounded"
-          style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+          style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
         >
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             <User size={14} className="inline mr-2" />
             {t("ui.invoicing_window.create.select_contact")}
           </label>
@@ -446,9 +446,9 @@ export function CreateInvoiceTab() {
             onChange={(e) => setSelectedContactId(e.target.value as Id<"objects"> | "")}
             className="w-full px-3 py-2 text-sm border-2 rounded"
             style={{
-              background: "var(--win95-bg)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              background: "var(--window-document-bg)",
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="">{t("ui.invoicing_window.create.select_contact_placeholder")}</option>
@@ -472,16 +472,16 @@ export function CreateInvoiceTab() {
       {customerType === "b2b" && b2bData && (
         <div
           className="p-4 border-2 rounded space-y-3"
-          style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+          style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
         >
-          <h4 className="text-xs font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-xs font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <CreditCard size={14} />
             {t("ui.invoicing_window.create.billing_info")}
           </h4>
 
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+              <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.invoicing_window.create.payment_terms")}
               </p>
               <p style={{ color: "var(--neutral-gray)" }}>
@@ -491,7 +491,7 @@ export function CreateInvoiceTab() {
 
             {b2bData.creditLimit && (
               <div>
-                <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.invoicing_window.create.credit_limit")}
                 </p>
                 <p style={{ color: "var(--neutral-gray)" }}>
@@ -502,7 +502,7 @@ export function CreateInvoiceTab() {
 
             {b2bData.vatNumber && (
               <div>
-                <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.invoicing_window.create.vat_number")}
                 </p>
                 <p style={{ color: "var(--neutral-gray)" }}>{b2bData.vatNumber}</p>
@@ -523,7 +523,7 @@ export function CreateInvoiceTab() {
             <div
               className={`p-3 border-2 rounded flex items-start gap-2 text-xs`}
               style={{
-                background: "var(--win95-bg)",
+                background: "var(--window-document-bg)",
                 borderColor: creditValidation.valid ? "var(--success)" : "var(--error)",
               }}
             >
@@ -554,16 +554,16 @@ export function CreateInvoiceTab() {
       {customerType === "b2c" && selectedContact && (
         <div
           className="p-4 border-2 rounded space-y-3"
-          style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+          style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
         >
-          <h4 className="text-xs font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-xs font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <User size={14} />
             {t("ui.invoicing_window.create.contact_info")}
           </h4>
 
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+              <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.invoicing_window.create.name")}
               </p>
               <p style={{ color: "var(--neutral-gray)" }}>
@@ -573,7 +573,7 @@ export function CreateInvoiceTab() {
 
             {selectedContact.customProperties?.email && (
               <div>
-                <p className="font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.invoicing_window.create.email")}
                 </p>
                 <p style={{ color: "var(--neutral-gray)" }}>
@@ -588,11 +588,11 @@ export function CreateInvoiceTab() {
       {/* Invoice Date & Payment Terms Override */}
       <div
         className="p-4 border-2 rounded space-y-4"
-        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
       >
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               <Calendar size={14} className="inline mr-2" />
               {t("ui.invoicing_window.create.invoice_date")}
             </label>
@@ -602,15 +602,15 @@ export function CreateInvoiceTab() {
               onChange={(e) => setInvoiceDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border-2 rounded"
               style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
+                background: "var(--window-document-bg)",
+                borderColor: "var(--window-document-border)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               <DollarSign size={14} className="inline mr-2" />
               {t("ui.invoicing_window.create.payment_terms_override")}
             </label>
@@ -630,9 +630,9 @@ export function CreateInvoiceTab() {
               }}
               className="w-full px-3 py-2 text-sm border-2 rounded"
               style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
+                background: "var(--window-document-bg)",
+                borderColor: "var(--window-document-border)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="">{t("ui.invoicing_window.create.use_default")}</option>
@@ -649,7 +649,7 @@ export function CreateInvoiceTab() {
         {/* Custom Due Date Picker (shown when "custom" is selected) */}
         {paymentTermsOverride === "custom" && (
           <div className="mt-3">
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               <Calendar size={14} className="inline mr-2" />
               Due Date
             </label>
@@ -660,9 +660,9 @@ export function CreateInvoiceTab() {
               min={invoiceDate} // Due date cannot be before invoice date
               className="w-full px-3 py-2 text-sm border-2 rounded"
               style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
+                background: "var(--window-document-bg)",
+                borderColor: "var(--window-document-border)",
+                color: "var(--window-document-text)",
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -675,9 +675,9 @@ export function CreateInvoiceTab() {
       {/* Line Items */}
       <div
         className="p-4 border-2 rounded space-y-3"
-        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
       >
-        <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
           {t("ui.invoicing_window.create.line_items")}
         </h4>
 
@@ -685,7 +685,7 @@ export function CreateInvoiceTab() {
           <div
             key={index}
             className="p-3 border-2 rounded space-y-2"
-            style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)" }}
+            style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)" }}
           >
             <div className="flex items-start gap-2">
               <div className="flex-1 grid grid-cols-4 gap-2">
@@ -696,9 +696,9 @@ export function CreateInvoiceTab() {
                   onChange={(e) => updateLineItem(index, "description", e.target.value)}
                   className="col-span-2 px-2 py-1 text-xs border rounded"
                   style={{
-                    background: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)",
-                    color: "var(--win95-text)",
+                    background: "var(--window-document-bg-elevated)",
+                    borderColor: "var(--window-document-border)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <input
@@ -709,9 +709,9 @@ export function CreateInvoiceTab() {
                   min="1"
                   className="px-2 py-1 text-xs border rounded"
                   style={{
-                    background: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)",
-                    color: "var(--win95-text)",
+                    background: "var(--window-document-bg-elevated)",
+                    borderColor: "var(--window-document-border)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <input
@@ -725,15 +725,15 @@ export function CreateInvoiceTab() {
                   min="0"
                   className="px-2 py-1 text-xs border rounded"
                   style={{
-                    background: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)",
-                    color: "var(--win95-text)",
+                    background: "var(--window-document-bg-elevated)",
+                    borderColor: "var(--window-document-border)",
+                    color: "var(--window-document-text)",
                   }}
                 />
               </div>
 
               <div className="flex flex-col items-end gap-1">
-                <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                   {formatCurrency(item.totalPriceInCents)}
                 </p>
                 <button
@@ -756,9 +756,9 @@ export function CreateInvoiceTab() {
           onClick={addLineItem}
           className="w-full px-3 py-2 text-xs font-semibold border-2 rounded flex items-center justify-center gap-2 hover:opacity-80 transition-opacity"
           style={{
-            background: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-highlight)",
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+            color: "var(--tone-accent)",
           }}
         >
           <Plus size={14} />
@@ -769,15 +769,15 @@ export function CreateInvoiceTab() {
       {/* Invoice Totals */}
       <div
         className="p-4 border-2 rounded space-y-2"
-        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
       >
-        <h4 className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.invoicing_window.create.totals")}
         </h4>
 
         <div className="flex justify-between text-sm">
           <span style={{ color: "var(--neutral-gray)" }}>{t("ui.invoicing_window.create.subtotal")}</span>
-          <span style={{ color: "var(--win95-text)" }} className="font-semibold">
+          <span style={{ color: "var(--window-document-text)" }} className="font-semibold">
             {formatCurrency(totals.subtotalInCents)}
           </span>
         </div>
@@ -787,7 +787,7 @@ export function CreateInvoiceTab() {
             <span style={{ color: "var(--neutral-gray)" }}>
               {t("ui.invoicing_window.create.tax")} ({(totals.taxRate * 100).toFixed(0)}%)
             </span>
-            <span style={{ color: "var(--win95-text)" }} className="font-semibold">
+            <span style={{ color: "var(--window-document-text)" }} className="font-semibold">
               {formatCurrency(totals.taxInCents)}
             </span>
           </div>
@@ -795,12 +795,12 @@ export function CreateInvoiceTab() {
 
         <div
           className="flex justify-between text-base pt-2 border-t-2"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
-          <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.invoicing_window.create.total")}
           </span>
-          <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="font-bold" style={{ color: "var(--window-document-text)" }}>
             {formatCurrency(totals.totalInCents)}
           </span>
         </div>
@@ -809,9 +809,9 @@ export function CreateInvoiceTab() {
       {/* Notes */}
       <div
         className="p-4 border-2 rounded"
-        style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+        style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
       >
-        <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.invoicing_window.create.notes")}
         </label>
         <textarea
@@ -821,9 +821,9 @@ export function CreateInvoiceTab() {
           placeholder={t("ui.invoicing_window.create.notes_placeholder")}
           className="w-full px-3 py-2 text-sm border-2 rounded"
           style={{
-            background: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-text)",
+            background: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+            color: "var(--window-document-text)",
           }}
         />
       </div>
@@ -834,9 +834,9 @@ export function CreateInvoiceTab() {
         disabled={!hasCustomerSelected || lineItems.every((item) => !item.description.trim())}
         className="w-full px-4 py-3 text-sm font-bold rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
-          background: "var(--win95-highlight)",
-          color: "var(--win95-titlebar-text)",
-          border: "2px solid var(--win95-border)",
+          background: "var(--tone-accent)",
+          color: "var(--window-document-text)",
+          border: "2px solid var(--window-document-border)",
         }}
       >
         <FileText size={16} />

@@ -29,6 +29,18 @@ const TranslationContext = createContext<TranslationContextValue | undefined>(un
 
 const AVAILABLE_LOCALES = ["en", "de", "pl", "es", "fr", "ja"];
 const DEFAULT_LOCALE = "en";
+export const LOCALE_LABELS: Record<string, string> = {
+  en: "English",
+  de: "Deutsch",
+  pl: "Polski",
+  es: "Espanol",
+  fr: "Francais",
+  ja: "Japanese",
+};
+
+export function getLocaleLabel(localeCode: string): string {
+  return LOCALE_LABELS[localeCode] || localeCode.toUpperCase();
+}
 
 /**
  * Detect browser language and return best match from available locales
@@ -94,10 +106,12 @@ export function TranslationProvider({ children, forceLocale }: TranslationProvid
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Load preferences from Convex (only if signed in)
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this context.
+  const getUserPreferencesQuery = (api as any).userPreferences.get;
   const userPrefs = useQuery(
-    api.userPreferences.get,
+    getUserPreferencesQuery,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as { language?: string } | undefined;
 
   const updatePrefs = useMutation(api.userPreferences.update);
 

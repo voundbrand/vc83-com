@@ -100,27 +100,27 @@ function SectionRenderer({
     };
 
     return (
-      <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
         {/* Section Header */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-between p-3 transition-colors"
-          style={{ background: 'var(--win95-bg-light)' }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+          style={{ background: 'var(--window-document-bg-elevated)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
         >
           <div className="text-left">
-            <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{section.label}</h4>
+            <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{section.label}</h4>
             {section.description && (
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{section.description}</p>
             )}
           </div>
-          <span className="text-xs" style={{ color: 'var(--win95-text)' }}>{isOpen ? "▼" : "▶"}</span>
+          <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>{isOpen ? "▼" : "▶"}</span>
         </button>
 
         {/* Repeater Content */}
         {isOpen && (
-          <div className="p-3 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="p-3 border-t-2" style={{ borderColor: 'var(--window-document-border)' }}>
             <FieldRenderer
               field={repeaterField}
               content={content}
@@ -135,27 +135,27 @@ function SectionRenderer({
 
   // Regular section - render fields normally
   return (
-    <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+    <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
       {/* Section Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-3 transition-colors"
-        style={{ background: 'var(--win95-bg-light)' }}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+        style={{ background: 'var(--window-document-bg-elevated)' }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
       >
         <div className="text-left">
-          <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{section.label}</h4>
+          <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{section.label}</h4>
           {section.description && (
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{section.description}</p>
           )}
         </div>
-        <span className="text-xs" style={{ color: 'var(--win95-text)' }}>{isOpen ? "▼" : "▶"}</span>
+        <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>{isOpen ? "▼" : "▶"}</span>
       </button>
 
       {/* Section Content */}
       {isOpen && (
-        <div className="p-3 border-t-2 space-y-4" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="p-3 border-t-2 space-y-4" style={{ borderColor: 'var(--window-document-border)' }}>
           {section.fields.map((field) => (
             <FieldRenderer
               key={field.id}
@@ -320,7 +320,7 @@ function TextInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -333,9 +333,9 @@ function TextInput({
         maxLength={field.maxLength}
         className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
-          color: 'var(--win95-text)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)',
+          color: 'var(--window-document-text)'
         }}
       />
       {field.helpText && (
@@ -359,7 +359,7 @@ function TextareaInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -372,9 +372,9 @@ function TextareaInput({
         rows={field.rows || 3}
         className="w-full px-2 py-1 text-xs border-2 focus:outline-none resize-y"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
-          color: 'var(--win95-text)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)',
+          color: 'var(--window-document-text)'
         }}
       />
       {field.helpText && (
@@ -449,8 +449,8 @@ function RichTextInput({
       <div
         className="w-full max-w-4xl max-h-[90vh] flex flex-col border-2 shadow-lg"
         style={{
-          background: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)',
+          background: 'var(--window-document-bg)',
+          borderColor: 'var(--window-document-border)',
           // Ensure this element is not affected by transforms
           transform: 'none',
           pointerEvents: 'auto',
@@ -460,9 +460,9 @@ function RichTextInput({
         {/* Modal Header */}
         <div
           className="flex items-center justify-between px-4 py-2 border-b-2"
-          style={{ background: 'var(--win95-highlight)', borderColor: 'var(--win95-border)' }}
+          style={{ background: 'var(--tone-accent)', borderColor: 'var(--window-document-border)' }}
         >
-          <h3 className="text-sm font-bold" style={{ color: 'var(--win95-bg-light)' }}>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-bg-elevated)' }}>
             {field.label}
           </h3>
           <button
@@ -470,9 +470,9 @@ function RichTextInput({
             onClick={handleCancel}
             className="w-6 h-6 flex items-center justify-center border-2 text-xs font-bold"
             style={{
-              background: 'var(--win95-button-face)',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-text)',
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)',
+              color: 'var(--window-document-text)',
             }}
           >
             <X size={14} />
@@ -492,19 +492,19 @@ function RichTextInput({
         {/* Modal Footer */}
         <div
           className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
-          style={{ borderColor: 'var(--win95-border)' }}
+          style={{ borderColor: 'var(--window-document-border)' }}
         >
           <button
             type="button"
             onClick={handleCancel}
             className="px-4 py-2 text-xs font-bold border-2 transition-colors"
             style={{
-              background: 'var(--win95-button-face)',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-text)',
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)',
+              color: 'var(--window-document-text)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-button-face)'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg)'}
           >
             Cancel
           </button>
@@ -513,9 +513,9 @@ function RichTextInput({
             onClick={handleSave}
             className="px-4 py-2 text-xs font-bold border-2 transition-colors"
             style={{
-              background: 'var(--win95-highlight)',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-bg-light)',
+              background: 'var(--tone-accent)',
+              borderColor: 'var(--window-document-border)',
+              color: 'var(--window-document-bg-elevated)',
             }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
@@ -530,7 +530,7 @@ function RichTextInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -541,12 +541,12 @@ function RichTextInput({
         onClick={handleOpen}
         className="w-full text-left border-2 p-3 min-h-[80px] transition-colors"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-input-bg)',
-          color: value ? 'var(--win95-text)' : 'var(--neutral-gray)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
+          color: value ? 'var(--window-document-text)' : 'var(--neutral-gray)',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--win95-highlight)'}
-        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--win95-border)'}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--tone-accent)'}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--window-document-border)'}
       >
         {value ? (
           <span className="text-xs">{getPlainTextPreview(value)}</span>
@@ -589,7 +589,7 @@ function BooleanInput({
         className="mt-0.5"
       />
       <div>
-        <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{field.label}</label>
+        <label className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{field.label}</label>
         {field.helpText && (
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{field.helpText}</p>
         )}
@@ -630,7 +630,7 @@ function TextArrayInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -647,14 +647,14 @@ function TextArrayInput({
               onChange={(e) => updateItem(index, e.target.value)}
               placeholder={field.placeholder}
               className="flex-1 px-2 py-1 text-xs border-2"
-              style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+              style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)', color: 'var(--window-document-text)' }}
             />
             <button
               onClick={() => removeItem(index)}
               className="px-2 py-1 text-xs border-2 transition-colors"
-              style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--error)' }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+              style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)', color: 'var(--error)' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
             >
               {t("ui.web_publishing.form.text_array.remove")}
             </button>
@@ -666,9 +666,9 @@ function TextArrayInput({
         <button
           onClick={addItem}
           className="mt-2 px-3 py-1 text-xs border-2 transition-colors"
-          style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+          style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
         >
           {t("ui.web_publishing.form.text_array.add").replace("{label}", field.label)}
         </button>
@@ -714,7 +714,7 @@ function RepeaterInput({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+        <label className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
           {field.label}
           {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
         </label>
@@ -722,9 +722,9 @@ function RepeaterInput({
           <button
             onClick={addItem}
             className="px-2 py-1 text-xs border-2 transition-colors"
-            style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--win95-text)' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+            style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
           >
             {t("ui.web_publishing.form.repeater.add")}
           </button>
@@ -740,18 +740,18 @@ function RepeaterInput({
           <div
             key={item.id as string}
             className="border-2 p-3"
-            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+            style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
           >
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.web_publishing.form.repeater.item_number").replace("{label}", field.label).replace("{number}", String(index + 1))}
               </span>
               <button
                 onClick={() => removeItem(index)}
                 className="px-2 py-1 text-xs border-2 transition-colors"
-                style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)', color: 'var(--error)' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+                style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)', color: 'var(--error)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
               >
                 {t("ui.web_publishing.form.repeater.remove")}
               </button>
@@ -816,7 +816,7 @@ function ImageInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -827,9 +827,9 @@ function ImageInput({
           type="button"
           onClick={handleBrowseLibrary}
           className="w-full px-4 py-3 text-sm border-2 flex items-center justify-center gap-2 transition-colors"
-          style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-hover-light)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--win95-bg-light)'}
+          style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)', color: 'var(--window-document-text)' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--desktop-menu-hover)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--window-document-bg-elevated)'}
         >
           {t("ui.web_publishing.form.media_library.select")}
         </button>
@@ -853,9 +853,9 @@ function ImageInput({
 
       {/* Selected Image Preview with Remove Button */}
       {value && (
-        <div className="mt-2 border-2 p-3 relative rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
+        <div className="mt-2 border-2 p-3 relative rounded" style={{ borderColor: 'var(--tone-accent)', background: 'var(--desktop-menu-hover)' }}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.media_library.selected_image")}</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{t("ui.web_publishing.form.media_library.selected_image")}</p>
             <button
               type="button"
               onClick={() => onChange("")}
@@ -874,7 +874,7 @@ function ImageInput({
             src={value}
             alt="Selected"
             className="w-full h-auto max-h-48 object-contain border p-2 rounded"
-            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+            style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
@@ -912,7 +912,7 @@ function IconInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -928,14 +928,14 @@ function IconInput({
             onClick={() => onChange(icon)}
             className="p-2 text-lg border-2 transition-colors"
             style={{
-              borderColor: value === icon ? 'var(--win95-highlight)' : 'var(--win95-border)',
-              background: value === icon ? 'var(--win95-hover-light)' : 'var(--win95-bg-light)'
+              borderColor: value === icon ? 'var(--tone-accent)' : 'var(--window-document-border)',
+              background: value === icon ? 'var(--desktop-menu-hover)' : 'var(--window-document-bg-elevated)'
             }}
             onMouseEnter={(e) => {
-              if (value !== icon) e.currentTarget.style.background = 'var(--win95-hover-light)';
+              if (value !== icon) e.currentTarget.style.background = 'var(--desktop-menu-hover)';
             }}
             onMouseLeave={(e) => {
-              if (value !== icon) e.currentTarget.style.background = 'var(--win95-bg-light)';
+              if (value !== icon) e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
             }}
           >
             {icon}
@@ -949,11 +949,11 @@ function IconInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t("ui.web_publishing.form.icon.custom_placeholder")}
         className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
-        style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+        style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)', color: 'var(--window-document-text)' }}
       />
 
       {value && (
-        <div className="mt-2 text-2xl border-2 p-2 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <div className="mt-2 text-2xl border-2 p-2 text-center" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
           {value}
         </div>
       )}
@@ -1205,7 +1205,7 @@ function EventLinkInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -1216,7 +1216,7 @@ function EventLinkInput({
             value={value || ""}
             onChange={(e) => handleEventSelect(e.target.value)}
             className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
-            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+            style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)', color: 'var(--window-document-text)' }}
           >
             <option value="">{t("ui.web_publishing.form.event_link.select_event")}</option>
             {availableEvents?.map((event) => (
@@ -1232,23 +1232,23 @@ function EventLinkInput({
 
           {/* Selected Event Preview */}
           {selectedEvent && (
-            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
-              <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.event_link.linked_event")}</p>
+            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--tone-accent)', background: 'var(--desktop-menu-hover)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>{t("ui.web_publishing.form.event_link.linked_event")}</p>
               <div className="space-y-1 text-xs">
-                <p style={{ color: 'var(--win95-text)' }}>
+                <p style={{ color: 'var(--window-document-text)' }}>
                   <span className="font-bold">{t("ui.web_publishing.form.event_link.name")}</span> {selectedEvent.name}
                 </p>
-                <p style={{ color: 'var(--win95-text)' }}>
+                <p style={{ color: 'var(--window-document-text)' }}>
                   <span className="font-bold">{t("ui.web_publishing.form.event_link.type")}</span> {selectedEvent.subtype}
                 </p>
                 {selectedEvent.customProperties?.startDate && (
-                  <p style={{ color: 'var(--win95-text)' }}>
+                  <p style={{ color: 'var(--window-document-text)' }}>
                     <span className="font-bold">{t("ui.web_publishing.form.event_link.date")}</span>{" "}
                     {new Date(selectedEvent.customProperties.startDate as number).toLocaleDateString()}
                   </p>
                 )}
                 {selectedEvent.customProperties?.location && (
-                  <p style={{ color: 'var(--win95-text)' }}>
+                  <p style={{ color: 'var(--window-document-text)' }}>
                     <span className="font-bold">{t("ui.web_publishing.form.event_link.location")}</span>{" "}
                     {selectedEvent.customProperties.location as string}
                   </p>
@@ -1317,7 +1317,7 @@ function CheckoutLinkInput({
 
   return (
     <div>
-      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+      <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
         {field.label}
         {field.required && <span className="ml-1" style={{ color: 'var(--error)' }}>*</span>}
       </label>
@@ -1328,7 +1328,7 @@ function CheckoutLinkInput({
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-2 py-1 text-xs border-2 focus:outline-none"
-            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)', color: 'var(--win95-text)' }}
+            style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)', color: 'var(--window-document-text)' }}
           >
             <option value="">{t("ui.web_publishing.form.checkout_link.select_checkout")}</option>
             {availableCheckouts?.map((checkout) => (
@@ -1344,20 +1344,20 @@ function CheckoutLinkInput({
 
           {/* Selected Checkout Preview */}
           {selectedCheckout && (
-            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--win95-highlight)', background: 'var(--win95-hover-light)' }}>
-              <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.web_publishing.form.checkout_link.linked_checkout")}</p>
+            <div className="mt-2 border-2 p-3 rounded" style={{ borderColor: 'var(--tone-accent)', background: 'var(--desktop-menu-hover)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>{t("ui.web_publishing.form.checkout_link.linked_checkout")}</p>
               <div className="space-y-1 text-xs">
-                <p style={{ color: 'var(--win95-text)' }}>
+                <p style={{ color: 'var(--window-document-text)' }}>
                   <span className="font-bold">Name:</span> {selectedCheckout.name}
                 </p>
-                <p style={{ color: 'var(--win95-text)' }}>
+                <p style={{ color: 'var(--window-document-text)' }}>
                   <span className="font-bold">Type:</span> {selectedCheckout.subtype}
                 </p>
-                <p style={{ color: 'var(--win95-text)' }}>
+                <p style={{ color: 'var(--window-document-text)' }}>
                   <span className="font-bold">{t("ui.web_publishing.form.checkout_link.products")}</span> {t("ui.web_publishing.form.checkout_link.products_linked").replace("{count}", String(productCount))}
                 </p>
                 {selectedCheckout.customProperties?.paymentProvider && (
-                  <p style={{ color: 'var(--win95-text)' }}>
+                  <p style={{ color: 'var(--window-document-text)' }}>
                     <span className="font-bold">{t("ui.web_publishing.form.checkout_link.payment")}</span>{" "}
                     {selectedCheckout.customProperties.paymentProvider as string}
                   </p>

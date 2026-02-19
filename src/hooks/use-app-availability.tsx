@@ -48,6 +48,7 @@ export function useAvailableApps() {
     icon?: string;
     description?: string;
     category?: string;
+    releaseStage?: "none" | "new" | "beta" | "wip";
     [key: string]: unknown;
   };
 

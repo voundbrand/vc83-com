@@ -39,6 +39,50 @@ export const JWT_CONFIG = {
   secretKey: process.env.JWT_SECRET_KEY,
 } as const;
 
+export const SLACK_BOT_TOKEN_POLICIES = [
+  "oauth_connection_only",
+  "oauth_or_env_fallback",
+] as const;
+
+export type SlackBotTokenPolicy = (typeof SLACK_BOT_TOKEN_POLICIES)[number];
+
+function isSlackBotTokenPolicy(value: string | undefined): value is SlackBotTokenPolicy {
+  return value === "oauth_connection_only" || value === "oauth_or_env_fallback";
+}
+
+function uniqueSecretCandidates(values: Array<string | undefined>): string[] {
+  const trimmed = values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  return Array.from(new Set(trimmed));
+}
+
+const configuredSlackBotTokenPolicy = process.env.SLACK_BOT_TOKEN_POLICY;
+const slackClientSecretCandidates = uniqueSecretCandidates([
+  process.env.SLACK_CLIENT_SECRET,
+  process.env.SLACK_CLIENT_SECRET_PREVIOUS,
+]);
+const slackSigningSecretCandidates = uniqueSecretCandidates([
+  process.env.SLACK_SIGNING_SECRET,
+  process.env.SLACK_SIGNING_SECRET_PREVIOUS,
+]);
+
+export const SLACK_INTEGRATION_CONFIG = {
+  enabled: process.env.SLACK_INTEGRATION_ENABLED === "true",
+  slashCommandsEnabled: process.env.SLACK_SLASH_COMMANDS_ENABLED === "true",
+  clientId: process.env.SLACK_CLIENT_ID,
+  clientSecret: process.env.SLACK_CLIENT_SECRET,
+  clientSecretPrevious: process.env.SLACK_CLIENT_SECRET_PREVIOUS,
+  clientSecretCandidates: slackClientSecretCandidates,
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  signingSecretPrevious: process.env.SLACK_SIGNING_SECRET_PREVIOUS,
+  signingSecretCandidates: slackSigningSecretCandidates,
+  botTokenPolicy: isSlackBotTokenPolicy(configuredSlackBotTokenPolicy)
+    ? configuredSlackBotTokenPolicy
+    : "oauth_connection_only",
+  envBotToken: process.env.SLACK_BOT_TOKEN,
+} as const;
+
 
 /**
  * Validate OAuth Configuration
@@ -59,6 +103,42 @@ export function validateOAuthConfig(): void {
 
   if (JWT_CONFIG.secretKey && JWT_CONFIG.secretKey.length < 32) {
     errors.push('JWT_SECRET_KEY must be at least 32 characters long');
+  }
+
+  if (
+    configuredSlackBotTokenPolicy &&
+    !isSlackBotTokenPolicy(configuredSlackBotTokenPolicy)
+  ) {
+    errors.push(
+      "SLACK_BOT_TOKEN_POLICY must be one of: oauth_connection_only, oauth_or_env_fallback"
+    );
+  }
+
+  if (SLACK_INTEGRATION_CONFIG.enabled) {
+    if (!SLACK_INTEGRATION_CONFIG.clientId) {
+      errors.push('SLACK_CLIENT_ID environment variable is required when SLACK_INTEGRATION_ENABLED=true');
+    }
+
+    if (SLACK_INTEGRATION_CONFIG.clientSecretCandidates.length === 0) {
+      errors.push(
+        'At least one Slack client secret is required when SLACK_INTEGRATION_ENABLED=true (SLACK_CLIENT_SECRET or SLACK_CLIENT_SECRET_PREVIOUS)'
+      );
+    }
+
+    if (SLACK_INTEGRATION_CONFIG.signingSecretCandidates.length === 0) {
+      errors.push(
+        'At least one Slack signing secret is required when SLACK_INTEGRATION_ENABLED=true (SLACK_SIGNING_SECRET or SLACK_SIGNING_SECRET_PREVIOUS)'
+      );
+    }
+  }
+
+  if (
+    SLACK_INTEGRATION_CONFIG.botTokenPolicy === "oauth_connection_only" &&
+    SLACK_INTEGRATION_CONFIG.envBotToken
+  ) {
+    errors.push(
+      "SLACK_BOT_TOKEN must not be set when SLACK_BOT_TOKEN_POLICY=oauth_connection_only"
+    );
   }
 
   if (errors.length > 0) {
@@ -297,4 +377,3 @@ function base64UrlDecode(str: string): string {
   }
   return atob(base64);
 }
-

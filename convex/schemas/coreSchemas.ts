@@ -11,6 +11,7 @@ export const users = defineTable({
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
   email: v.string(),
+  avatarUrl: v.optional(v.string()),
 
   // Organization association
   defaultOrgId: v.optional(v.id("organizations")),
@@ -442,6 +443,19 @@ export const organizationMedia = defineTable({
   // Metadata
   createdAt: v.number(),
   updatedAt: v.number(),
+
+  // Semantic retrieval ingest/index metadata (Plan 18)
+  knowledgeIndexStatus: v.optional(v.union(
+    v.literal("not_indexed"),
+    v.literal("pending"),
+    v.literal("indexed"),
+    v.literal("failed"),
+    v.literal("skipped"),
+  )),
+  knowledgeIndexVersion: v.optional(v.number()),
+  knowledgeIndexedAt: v.optional(v.number()),
+  knowledgeChunkCount: v.optional(v.number()),
+  knowledgeIndexError: v.optional(v.string()),
 })
   .index("by_organization", ["organizationId"])
   .index("by_organization_and_category", ["organizationId", "category"])
@@ -561,6 +575,9 @@ export const oauthSignupStates = defineTable({
   callbackUrl: v.string(),                     // Where to redirect after OAuth
   provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
   organizationName: v.optional(v.string()),    // Optional organization name for new accounts
+  identityClaimToken: v.optional(v.string()),  // Optional anonymous/Telegram claim token
+  onboardingChannel: v.optional(v.string()),   // Optional source channel attribution
+  onboardingCampaign: v.optional(v.any()),     // Optional campaign attribution payload
   cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
   cliState: v.optional(v.string()),            // CLI's original state for CSRF protection (returned in callback)
   createdAt: v.number(),

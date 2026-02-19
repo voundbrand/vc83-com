@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { type ComponentProps, useState, useEffect, useCallback, useMemo } from "react"
 import { ClientOnly } from "@/components/client-only"
-import { SystemClock } from "@/components/system-clock"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
 import { WelcomeWindow } from "@/components/window-content/welcome-window"
@@ -22,7 +21,7 @@ import { CheckoutFailedWindow } from "@/components/window-content/checkout-faile
 import { PurchaseResultWindow } from "@/components/window-content/purchase-result-window"
 import type { PurchaseResultWindowProps } from "@/components/window-content/purchase-result-window"
 import { FormsWindow } from "@/components/window-content/forms-window"
-import { AllAppsWindow } from "@/components/window-content/all-apps-window"
+import { AllAppsWindow, ALL_APPS_SET_VIEW_EVENT, type AllAppsView } from "@/components/window-content/all-apps-window"
 import { ShoppingCartButton } from "@/components/shopping-cart-button"
 import { CRMWindow } from "@/components/window-content/crm-window"
 import { InvoicingWindow } from "@/components/window-content/invoicing-window"
@@ -40,30 +39,43 @@ import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
 import { BenefitsWindow } from "@/components/window-content/benefits-window"
 import { BookingWindow } from "@/components/window-content/booking-window"
-import { BrainWindow } from "@/components/window-content/brain-window"
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
 import { AgentsWindow } from "@/components/window-content/agents-window"
 import { LayersBrowserWindow } from "@/components/window-content/layers-browser-window"
 import { FinderWindow } from "@/components/window-content/finder-window"
 import { TerminalWindow } from "@/components/window-content/terminal-window"
+import { TextEditorWindow } from "@/components/window-content/text-editor-window"
+import {
+  dispatchTextEditorCommand,
+  TEXT_EDITOR_OPEN_REQUEST_EVENT,
+  type TextEditorOpenRequestDetail,
+} from "@/components/window-content/text-editor-window/bridge"
 import { WaitingForApprovalScreen } from "@/components/waiting-for-approval-screen"
-import { useIsMobile } from "@/hooks/use-media-query"
+import { useIsDesktopShellFallback } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 import { useAppearance } from "@/contexts/appearance-context"
+import { getLocaleLabel, useTranslation } from "@/contexts/translation-context"
+import { setNativeGuestClaimToken } from "@/hooks/use-ai-chat"
 import {
+  buildShellWindowProps,
+  isLegacyManageOAuthCallback,
+  parseShellUrlState,
+  serializeShellUrlState,
+  stripShellQueryParams,
+} from "@/lib/shell/url-state"
+import {
+  getProductAppIconByCode,
   getWindowIconById,
   ShellBotIcon,
-  ShellBriefcaseIcon,
-  ShellClockIcon,
   ShellFinderIcon,
   ShellGridIcon,
   ShellBuilderIcon,
+  ShellLayersIcon,
   ShellLoginIcon,
   ShellLogoutIcon,
   ShellMoonIcon,
-  ShellPaymentsIcon,
   ShellPeopleIcon,
   ShellSepiaIcon,
   ShellSettingsIcon,
@@ -71,24 +83,47 @@ import {
   ShellStoreIcon,
   ShellTerminalIcon,
   ShellWarningIcon,
-  ShellWorkflowIcon,
+  ShellProfileIcon,
+  ShellTranslationsIcon,
 } from "@/components/icons/shell-icons"
+import {
+  PRODUCT_OS_CATALOG,
+  PRODUCT_OS_CATALOG_BY_CODE,
+  PRODUCT_OS_CATEGORIES,
+  PRODUCT_OS_CATEGORY_ICON_ID,
+  PRODUCT_OS_NEW_CODES,
+  PRODUCT_OS_POPULAR_CODES,
+  getProductOSBadgeTranslationKey,
+  getProductOSBadgeLabel,
+  getProductOSCategoryTranslationKey,
+  normalizeProductOSReleaseStage,
+} from "@/lib/product-os/catalog"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 
+const GUEST_DEEPLINK_ALLOWED_APPS = new Set(["ai-assistant", "store", "login"])
+
 export default function HomePage() {
   // Load translations for start menu and app names
-  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows"])
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows", "ui.product_os"])
+  const tx = useCallback(
+    (key: string, fallback: string, params?: Record<string, string | number>) => {
+      const translated = t(key, params)
+      return translated === key ? fallback : translated
+    },
+    [t],
+  )
   // Note: locale management is now handled via TranslationContext if needed
-  const { windows, openWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
-  const isMobile = useIsMobile()
-  const { isSignedIn, signOut, sessionId, user } = useAuth()
+  const { windows, openWindow, closeWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
+  const isMobileShellFallback = useIsDesktopShellFallback()
+  const { isSignedIn, signOut, sessionId, user, switchOrganization } = useAuth()
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
   const deletionStatus = useAccountDeletionStatus()
   const { mode, toggleMode } = useAppearance()
+  const { locale, availableLocales, setLocale } = useTranslation()
 
   const isDarkAppearance = mode === "dark"
 
@@ -98,11 +133,14 @@ export default function HomePage() {
   }
 
   // Use the new hook for app availability
-  const { isAppAvailable } = useAvailableApps()
+  const { isAppAvailable, availableApps } = useAvailableApps()
+
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
+  const getOrganizationSettingsQuery = (api as any).organizationOntology.getOrganizationSettings
 
   // Query branding settings for desktop background
-  const brandingSettings = useQuery(
-    api.organizationOntology.getOrganizationSettings,
+  const brandingSettings = (useQuery as any)(
+    getOrganizationSettingsQuery,
     currentOrg?.id ? {
       organizationId: currentOrg.id as Id<"organizations">,
       subtype: "branding"
@@ -158,6 +196,19 @@ export default function HomePage() {
 
   const openWebPublishingWindow = () => {
     openWindow("web-publishing", "Web Publishing", <WebPublishingWindow />, { x: 110, y: 55 }, { width: 900, height: 600 }, 'ui.windows.web_publishing.title')
+  }
+
+  const openWebchatDeploymentWindow = () => {
+    openWindow(
+      "webchat-deployment",
+      "Webchat Deployment",
+      <WebPublishingWindow initialTab="webchat-deployment" />,
+      { x: 125, y: 65 },
+      { width: 1000, height: 680 },
+      undefined,
+      "webchat-deployment",
+      { initialTab: "webchat-deployment", initialPanel: "webchat-deployment" }
+    )
   }
 
   const openMediaLibraryWindow = () => {
@@ -217,8 +268,32 @@ export default function HomePage() {
     openWindow("forms", "Forms", <FormsWindow />, { x: 180, y: 60 }, { width: 950, height: 650 }, 'ui.app.forms')
   }
 
-  const openAllAppsWindow = () => {
-    openWindow("all-apps", "All Applications", <AllAppsWindow />, { x: 150, y: 100 }, { width: 870, height: 600 }, 'ui.app.all_applications')
+  const openAllAppsWindow = (initialView: AllAppsView = "browse") => {
+    const allAppsWindow = windows.find((entry) => entry.id === "all-apps" && entry.isOpen)
+    if (allAppsWindow) {
+      window.dispatchEvent(
+        new CustomEvent<{ view: AllAppsView }>(ALL_APPS_SET_VIEW_EVENT, {
+          detail: { view: initialView },
+        }),
+      )
+
+      if (allAppsWindow.isMinimized) {
+        restoreWindow("all-apps")
+      } else {
+        focusWindow("all-apps")
+      }
+
+      return
+    }
+
+    openWindow(
+      "all-apps",
+      "All Applications",
+      <AllAppsWindow initialView={initialView} />,
+      { x: 90, y: 50 },
+      { width: 1320, height: 780 },
+      'ui.app.all_applications'
+    )
   }
 
   const openCRMWindow = () => {
@@ -261,20 +336,29 @@ export default function HomePage() {
     openWindow("booking", "Booking", <BookingWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.booking')
   }
 
-  const openBrainWindow = () => {
-    openWindow("brain", "Brain", <BrainWindow />, { x: 120, y: 80 }, { width: 1000, height: 700 }, 'ui.windows.brain.title')
-  }
-
   const openFinderWindow = () => {
     openWindow("finder", "Finder", <FinderWindow />, { x: 100, y: 60 }, { width: 1200, height: 800 }, 'ui.windows.finder.title')
   }
+
+  const openTextEditorWindow = useCallback((request?: TextEditorOpenRequestDetail) => {
+    openWindow("text-editor", "Text Editor", <TextEditorWindow />, { x: 130, y: 70 }, { width: 1100, height: 740 }, undefined, "text-editor")
+    const file = request?.file
+    if (file) {
+      window.setTimeout(() => {
+        dispatchTextEditorCommand({
+          type: "open-file",
+          file,
+        })
+      }, 0)
+    }
+  }, [openWindow])
 
   const openTerminalWindow = () => {
     openWindow("terminal", "Terminal", <TerminalWindow />, { x: 120, y: 80 }, { width: 900, height: 550 })
   }
 
   const openBuilderBrowserWindow = () => {
-    openWindow("builder-browser", "AI Builder", <BuilderBrowserWindow />, { x: 80, y: 40 }, { width: 1100, height: 750 })
+    openWindow("builder", "Builder", <BuilderBrowserWindow />, { x: 80, y: 40 }, { width: 1100, height: 750 })
   }
 
   const openAgentsBrowserWindow = () => {
@@ -282,7 +366,7 @@ export default function HomePage() {
   }
 
   const openLayersBrowserWindow = () => {
-    openWindow("layers-browser", "Layers", <LayersBrowserWindow />, { x: 120, y: 60 }, { width: 1100, height: 750 })
+    openWindow("layers", "Layers", <LayersBrowserWindow />, { x: 120, y: 60 }, { width: 1100, height: 750 })
   }
 
   const openOrganizationSwitcherWindow = () => {
@@ -371,6 +455,40 @@ export default function HomePage() {
   // Track if we've already opened a window on mount
   const [hasOpenedInitialWindow, setHasOpenedInitialWindow] = useState(false);
 
+  const replaceUrlWithParams = (params: URLSearchParams) => {
+    const url = window.location.pathname + (params.toString() ? `?${params.toString()}` : "")
+    window.history.replaceState({}, "", url)
+  }
+
+  const removeShellStateFromCurrentUrl = (includeUpgradeKeys: boolean = true) => {
+    const nextParams = stripShellQueryParams(new URLSearchParams(window.location.search), { includeUpgradeKeys })
+    replaceUrlWithParams(nextParams)
+  }
+
+  useEffect(() => {
+    if (!isMobileShellFallback) {
+      return
+    }
+
+    const openMobileWindows = windows.filter((window) => window.isOpen && !window.isClosing)
+    if (openMobileWindows.length <= 1) {
+      return
+    }
+
+    const activeWindow = openMobileWindows.reduce((current, candidate) => {
+      if (!current || candidate.zIndex > current.zIndex) {
+        return candidate
+      }
+      return current
+    }, undefined as (typeof openMobileWindows)[number] | undefined)
+
+    openMobileWindows.forEach((window) => {
+      if (window.id !== activeWindow?.id) {
+        closeWindow(window.id)
+      }
+    })
+  }, [closeWindow, isMobileShellFallback, windows])
+
   // Open welcome/login window or tutorial on mount based on auth status
   useEffect(() => {
     // Wait for window manager to finish restoring from sessionStorage
@@ -379,7 +497,7 @@ export default function HomePage() {
     }
 
     // Only run once
-    if (hasOpenedInitialWindow || isMobile) {
+    if (hasOpenedInitialWindow || isMobileShellFallback) {
       return;
     }
 
@@ -387,6 +505,14 @@ export default function HomePage() {
     if (!isSignedIn) {
       const params = new URLSearchParams(window.location.search);
       const openLogin = params.get('openLogin');
+      const shellDeepLink = parseShellUrlState(params);
+
+      if (shellDeepLink.app === "ai-assistant") {
+        openAIAssistantWindow();
+        setHasOpenedInitialWindow(true);
+        replaceUrlWithParams(stripShellQueryParams(params));
+        return;
+      }
 
       if (openLogin === 'builder') {
         // Clean up the URL
@@ -414,23 +540,24 @@ export default function HomePage() {
     openWelcomeWindow();
     setHasOpenedInitialWindow(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
+  }, [isMobileShellFallback, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
 
   // Handle return from OAuth callbacks (Microsoft, etc.)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const windowParam = params.get('window');
-    const tabParam = params.get('tab');
+    const shellDeepLink = parseShellUrlState(params);
+    const isLegacyManageCallback = isLegacyManageOAuthCallback(params)
 
     // Handle manage window with specific tab (e.g., from OAuth callback)
-    if (windowParam === 'manage' && tabParam === 'integrations' && isSignedIn) {
+    if (isLegacyManageCallback && shellDeepLink.app === "manage" && shellDeepLink.panel === "integrations" && isSignedIn) {
       // Import ManageWindow component dynamically
       import('@/components/window-content/org-owner-manage-window').then((module) => {
         const ManageWindow = module.ManageWindow;
+        const integrationsTab: ComponentProps<typeof ManageWindow>["initialTab"] = "integrations";
         openWindow(
           "manage",
           "Manage",
-          <ManageWindow initialTab="integrations" />,
+          <ManageWindow initialTab={integrationsTab} />,
           { x: 200, y: 50 },
           { width: 1200, height: 700 }
         );
@@ -443,36 +570,47 @@ export default function HomePage() {
   }, [isSignedIn]);
 
   // Handle generic window opening via URL parameters
-  // Supports: ?openWindow=<window-id>&panel=<panel-id>
+  // Canonical: ?app=<window-id>&panel=<panel-id>&entity=<id>&context=<source>
+  // Legacy aliases remain supported: ?openWindow=... and ?window=...&tab=...
   // This enables deep linking to any registered window from CLI or external links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const openWindowParam = params.get('openWindow');
-    const panelParam = params.get('panel');
+    const shellDeepLink = parseShellUrlState(params);
+    const openWindowParam = shellDeepLink.app;
     const upgradeReason = params.get('upgradeReason');
     const upgradeResource = params.get('upgradeResource');
 
-    // Skip if no openWindow param or user not signed in
-    if (!openWindowParam || !isSignedIn) return;
+    // Preserve legacy OAuth callback flow so integrations tab can handle success/error params.
+    if (isLegacyManageOAuthCallback(params)) {
+      return;
+    }
+
+    // Skip if no app param. Keep a small guest-allowed deep-link set for mobile fallback and onboarding.
+    if (!openWindowParam) return;
+    const guestAllowed = GUEST_DEEPLINK_ALLOWED_APPS.has(openWindowParam);
+    if (!isSignedIn && !guestAllowed) return;
 
     // Import window registry to check if window exists
     import('@/hooks/window-registry').then(({ WINDOW_REGISTRY }) => {
       const windowConfig = WINDOW_REGISTRY[openWindowParam];
 
       if (windowConfig) {
-        // Build props object if panel parameter is provided
-        const props: Record<string, unknown> = {};
-        if (panelParam) {
-          // Map panel param to the appropriate prop name based on window type
-          // Most windows use 'initialPanel', some use 'initialTab'
-          props.initialPanel = panelParam;
-          props.initialTab = panelParam; // Some windows may use this
-        }
+        const shellProps = buildShellWindowProps(shellDeepLink);
+        const props = shellProps
+          ? {
+              ...shellProps,
+              // Force remount for repeated deep-link opens against an already-open window.
+              deepLinkNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+            }
+          : undefined;
+        const panelParam = shellDeepLink.panel;
 
         // Log for debugging
         console.log('[HomePage] Opening window via URL param:', {
           windowId: openWindowParam,
           panel: panelParam,
+          entity: shellDeepLink.entity,
+          context: shellDeepLink.context,
           props
         });
 
@@ -480,7 +618,7 @@ export default function HomePage() {
         const { defaultConfig } = windowConfig;
 
         // Create the component with props
-        const component = windowConfig.createComponent(Object.keys(props).length > 0 ? props : undefined);
+        const component = windowConfig.createComponent(props);
 
         // Open the window
         openWindow(
@@ -491,7 +629,7 @@ export default function HomePage() {
           defaultConfig.size,
           defaultConfig.titleKey,
           defaultConfig.icon,
-          Object.keys(props).length > 0 ? props : undefined
+          props
         );
 
         // Prevent initial window effect from opening another window
@@ -502,12 +640,12 @@ export default function HomePage() {
           console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
         }
 
-        // Clean up the URL (remove query params)
-        window.history.replaceState({}, '', window.location.pathname);
+        // Clean up shell state params while preserving non-shell query params.
+        removeShellStateFromCurrentUrl();
       } else {
         console.warn('[HomePage] Unknown window ID in URL param:', openWindowParam);
-        // Still clean up URL for unknown windows
-        window.history.replaceState({}, '', window.location.pathname);
+        // Still clean up shell params for unknown windows.
+        removeShellStateFromCurrentUrl();
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,6 +659,35 @@ export default function HomePage() {
     const checkoutParam = params.get('checkout');
     const reasonParam = params.get('reason');
     const oauthProvider = params.get('oauthProvider');
+    const identityClaimToken = params.get("identityClaimToken");
+    const onboardingChannel = params.get("onboardingChannel");
+    const onboardingCampaign = {
+      source: params.get("utm_source") || params.get("utmSource") || undefined,
+      medium: params.get("utm_medium") || params.get("utmMedium") || undefined,
+      campaign: params.get("utm_campaign") || params.get("utmCampaign") || undefined,
+      content: params.get("utm_content") || params.get("utmContent") || undefined,
+      term: params.get("utm_term") || params.get("utmTerm") || undefined,
+      referrer: params.get("referrer") || undefined,
+      landingPath: params.get("landingPath") || undefined,
+    };
+    const hasOnboardingCampaign = Object.values(onboardingCampaign).some(
+      (value) => typeof value === "string" && value.length > 0
+    );
+
+    if (onboardingChannel || hasOnboardingCampaign) {
+      localStorage.setItem(
+        "l4yercak3_onboarding_attribution",
+        JSON.stringify({
+          channel: onboardingChannel || "platform_web",
+          campaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
+          capturedAt: Date.now(),
+        })
+      );
+    }
+
+    if (identityClaimToken) {
+      setNativeGuestClaimToken(identityClaimToken);
+    }
 
     // Handle OAuth callback - store session and provider
     if (sessionToken) {
@@ -577,10 +744,24 @@ export default function HomePage() {
       openCheckoutFailedWindow(reasonParam || checkoutParam);
       setHasOpenedInitialWindow(true);
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (oauthProvider) {
+    } else if (oauthProvider || identityClaimToken) {
       // Clean up OAuth provider from URL after storing
       const newParams = new URLSearchParams(params);
       newParams.delete('oauthProvider');
+      newParams.delete("identityClaimToken");
+      newParams.delete("onboardingChannel");
+      newParams.delete("utm_source");
+      newParams.delete("utmSource");
+      newParams.delete("utm_medium");
+      newParams.delete("utmMedium");
+      newParams.delete("utm_campaign");
+      newParams.delete("utmCampaign");
+      newParams.delete("utm_content");
+      newParams.delete("utmContent");
+      newParams.delete("utm_term");
+      newParams.delete("utmTerm");
+      newParams.delete("referrer");
+      newParams.delete("landingPath");
       const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
       window.history.replaceState({}, '', newUrl);
     }
@@ -596,6 +777,18 @@ export default function HomePage() {
       window.location.href = returnUrl;
     }
   }, [isSignedIn]);
+
+  useEffect(() => {
+    const handleTextEditorRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TextEditorOpenRequestDetail>).detail;
+      openTextEditorWindow(detail)
+    }
+
+    window.addEventListener(TEXT_EDITOR_OPEN_REQUEST_EVENT, handleTextEditorRequest as EventListener)
+    return () => {
+      window.removeEventListener(TEXT_EDITOR_OPEN_REQUEST_EVENT, handleTextEditorRequest as EventListener)
+    }
+  }, [openTextEditorWindow])
 
   // Handle onboarding after signup - clear the flag (no longer used)
   useEffect(() => {
@@ -626,6 +819,77 @@ export default function HomePage() {
     }
   }
 
+  const routeToShellState = (state: {
+    app: string
+    panel?: string
+    entity?: string
+    context?: string
+  }) => {
+    const nextUrl = serializeShellUrlState(state, window.location.pathname)
+    window.location.assign(nextUrl)
+  }
+
+  const mobileLauncherItems = [
+    {
+      id: "mobile-ai-assistant",
+      label: tx("ui.app.ai_assistant", "AI Assistant"),
+      onSelect: () => routeToShellState({ app: "ai-assistant", context: "mobile_fallback" }),
+      icon: <ShellBotIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-store",
+      label: t("ui.start_menu.store"),
+      onSelect: () => routeToShellState({ app: "store", panel: "plans", context: "mobile_fallback" }),
+      icon: <ShellStoreIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-builder",
+      label: tx("ui.app.builder", "Builder"),
+      onSelect: () => {
+        if (!isSignedIn) {
+          routeToShellState({ app: "login", context: "mobile_fallback" })
+          return
+        }
+        routeToShellState({ app: "builder", context: "mobile_fallback" })
+      },
+      icon: <ShellBuilderIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-layers",
+      label: tx("ui.app.layers", "Layers"),
+      onSelect: () => {
+        if (!isSignedIn) {
+          routeToShellState({ app: "login", context: "mobile_fallback" })
+          return
+        }
+        routeToShellState({ app: "layers", context: "mobile_fallback" })
+      },
+      icon: <ShellLayersIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-settings",
+      label: t("ui.start_menu.settings"),
+      onSelect: () => {
+        if (!isSignedIn) {
+          routeToShellState({ app: "login", context: "mobile_fallback" })
+          return
+        }
+        routeToShellState({ app: "control-panel", context: "mobile_fallback" })
+      },
+      icon: <ShellSettingsIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-auth",
+      label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
+      onSelect: isSignedIn
+        ? handleLogout
+        : () => routeToShellState({ app: "login", context: "mobile_fallback" }),
+      icon: isSignedIn
+        ? <ShellLogoutIcon size={16} tone="muted" />
+        : <ShellLoginIcon size={16} tone="muted" />,
+    },
+  ]
+
   // DEBUG: Log app availability data
   console.log('[DEBUG] App availability:', {
     isSignedIn,
@@ -646,33 +910,239 @@ export default function HomePage() {
     }
   });
 
+  type ProductAppMetadata = {
+    code?: string;
+    name?: string;
+    icon?: string;
+    releaseStage?: string;
+  };
+
+  const availableAppMetadataByCode = useMemo(() => {
+    const byCode = new Map<string, ProductAppMetadata>();
+    (availableApps as ProductAppMetadata[]).forEach((app) => {
+      if (app?.code) {
+        byCode.set(app.code, app);
+      }
+    });
+    return byCode;
+  }, [availableApps]);
+
+  const resolveProductLabel = (code: string, fallbackName?: string) => {
+    const catalogEntry = PRODUCT_OS_CATALOG_BY_CODE.get(code);
+    if (catalogEntry?.translationKey) {
+      return tx(catalogEntry.translationKey, catalogEntry.displayName ?? fallbackName ?? code);
+    }
+    return catalogEntry?.displayName ?? fallbackName ?? code;
+  };
+
+  const productAppActions: Record<string, () => void> = {
+    "ai-assistant": openAIAssistantWindow,
+    "agents-browser": requireAuth(openAgentsBrowserWindow),
+    "webchat-deployment": requireAuth(openWebchatDeploymentWindow),
+    builder: requireAuth(openBuilderBrowserWindow),
+    layers: requireAuth(openLayersBrowserWindow),
+    finder: requireAuth(openFinderWindow),
+    "text-editor": requireAuth(() => openTextEditorWindow()),
+    terminal: requireAuth(openTerminalWindow),
+    crm: requireAuth(openCRMWindow),
+    projects: requireAuth(openProjectsWindow),
+    events: requireAuth(openEventsWindow),
+    payments: requireAuth(openPaymentsWindow),
+    benefits: requireAuth(openBenefitsWindow),
+    products: requireAuth(openProductsWindow),
+    app_invoicing: requireAuth(openInvoicingWindow),
+    checkout: requireAuth(openCheckoutAppWindow),
+    tickets: requireAuth(openTicketsWindow),
+    certificates: requireAuth(openCertificatesWindow),
+    booking: requireAuth(openBookingWindow),
+    workflows: requireAuth(openWorkflowsWindow),
+    "web-publishing": requireAuth(openWebPublishingWindow),
+    forms: requireAuth(openFormsWindow),
+    templates: requireAuth(openTemplatesWindow),
+    "media-library": requireAuth(openMediaLibraryWindow),
+    integrations: requireAuth(() => openIntegrationsWindow()),
+  };
+
+  const buildProductMenuItem = (code: string, prefix: string): TopNavMenuItem | null => {
+    const onSelect = productAppActions[code];
+    if (!onSelect) {
+      return null;
+    }
+
+    const metadata = availableAppMetadataByCode.get(code);
+    const catalogEntry = PRODUCT_OS_CATALOG_BY_CODE.get(code);
+    const releaseStage = normalizeProductOSReleaseStage(
+      metadata?.releaseStage ?? catalogEntry?.releaseStage ?? "none",
+    );
+    const badgeLabel = getProductOSBadgeLabel(releaseStage);
+    const badgeTranslationKey = getProductOSBadgeTranslationKey(releaseStage);
+    const localizedBadge = badgeTranslationKey && badgeLabel
+      ? tx(badgeTranslationKey, badgeLabel)
+      : undefined;
+
+    return {
+      id: `${prefix}-${code}`,
+      label: resolveProductLabel(code, metadata?.name),
+      onSelect,
+      icon: getProductAppIconByCode(code, metadata?.icon, 16),
+      shortcut: localizedBadge,
+    };
+  };
+
+  const discoverableCodes = PRODUCT_OS_CATALOG
+    .map((entry) => entry.code)
+    .filter((code) => Boolean(productAppActions[code]));
+
+  const popularChildren = PRODUCT_OS_POPULAR_CODES
+    .map((code) => buildProductMenuItem(code, "popular"))
+    .filter((item) => item !== null) as TopNavMenuItem[];
+
+  const newChildren = PRODUCT_OS_NEW_CODES
+    .map((code) => buildProductMenuItem(code, "new"))
+    .filter((item) => item !== null) as TopNavMenuItem[];
+
+  const categoryMenuSections = PRODUCT_OS_CATEGORIES
+    .map((category) => {
+      const categoryCodes = PRODUCT_OS_CATALOG
+        .filter((entry) => entry.category === category)
+        .map((entry) => entry.code)
+        .filter((code) => Boolean(productAppActions[code]));
+
+      if (categoryCodes.length === 0) {
+        return null;
+      }
+
+      const children = categoryCodes
+        .map((code) => buildProductMenuItem(code, `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`))
+        .filter((item) => item !== null) as TopNavMenuItem[];
+      const categoryLabel = tx(getProductOSCategoryTranslationKey(category), category);
+
+      return {
+        id: `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        label: tx("ui.product_os.menu.category_count", "{category} ({count})", {
+          category: categoryLabel,
+          count: children.length,
+        }),
+        icon: getWindowIconById(PRODUCT_OS_CATEGORY_ICON_ID[category], undefined, 16),
+        submenu: true,
+        children,
+      } satisfies TopNavMenuItem;
+    })
+    .filter((item) => item !== null) as TopNavMenuItem[];
+
   const productMenuItems: TopNavMenuItem[] = [
-    { id: "browse-all-apps", label: t("ui.app.all_applications"), onSelect: requireAuth(openAllAppsWindow), icon: <ShellGridIcon size={16} tone="muted" /> },
+    {
+      id: "browse-all-apps",
+      label: tx("ui.product_os.menu.browse_all_apps", "Browse all apps ({count})", {
+        count: discoverableCodes.length,
+      }),
+      onSelect: requireAuth(() => openAllAppsWindow("browse")),
+      icon: <ShellGridIcon size={16} tone="muted" />,
+    },
+    {
+      id: "search-apps",
+      label: tx("ui.product_os.menu.search_apps", "Search apps"),
+      onSelect: requireAuth(() => openAllAppsWindow("search")),
+      icon: <ShellFinderIcon size={16} tone="muted" />,
+    },
     { id: "divider-main", divider: true },
-    { id: "app-ai-assistant", label: t("ui.app.ai_assistant"), onSelect: requireAuth(openAIAssistantWindow), icon: <ShellBotIcon size={16} tone="muted" /> },
-    { id: "app-ai-agents", label: "AI Agents", onSelect: requireAuth(openAgentsBrowserWindow), icon: <ShellPeopleIcon size={16} tone="muted" /> },
-    { id: "app-ai-builder", label: "AI Builder", onSelect: requireAuth(openBuilderBrowserWindow), icon: <ShellBuilderIcon size={16} tone="muted" /> },
-    { id: "app-crm", label: t("ui.app.crm"), onSelect: requireAuth(openCRMWindow), icon: <ShellPeopleIcon size={16} tone="muted" /> },
-    { id: "app-projects", label: t("ui.app.projects"), onSelect: requireAuth(openProjectsWindow), icon: <ShellBriefcaseIcon size={16} tone="muted" /> },
-    { id: "app-payments", label: t("ui.app.payments"), onSelect: requireAuth(openPaymentsWindow), icon: <ShellPaymentsIcon size={16} tone="muted" /> },
-    { id: "app-workflows", label: t("ui.app.workflows"), onSelect: requireAuth(openWorkflowsWindow), icon: <ShellWorkflowIcon size={16} tone="muted" /> },
-    { id: "app-finder", label: t("ui.windows.finder.title"), onSelect: requireAuth(openFinderWindow), icon: <ShellFinderIcon size={16} tone="muted" /> },
-    { id: "app-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
+    {
+      id: "popular-products",
+      label: tx("ui.product_os.menu.popular_products", "Popular products ({count})", {
+        count: popularChildren.length,
+      }),
+      icon: getWindowIconById("ai-assistant", undefined, 16),
+      submenu: true,
+      children: popularChildren,
+    },
+    {
+      id: "new-products",
+      label: tx("ui.product_os.menu.new_products", "New products ({count})", {
+        count: newChildren.length,
+      }),
+      icon: getWindowIconById("benefits", undefined, 16),
+      submenu: true,
+      children: newChildren,
+    },
+    { id: "divider-categories", divider: true },
+    ...categoryMenuSections,
+    { id: "divider-roadmap", divider: true },
+    {
+      id: "product-roadmap",
+      label: tx("ui.product_os.menu.roadmap", "Roadmap"),
+      onSelect: requireAuth(() => openAllAppsWindow("roadmap")),
+      icon: getWindowIconById("web-publishing", undefined, 16),
+    },
   ];
 
-  const moreMenuItems: TopNavMenuItem[] = [
+  const avatarInitialSource = (user?.email || currentOrg?.name || "U").trim()
+  const avatarInitial = avatarInitialSource.length > 0 ? avatarInitialSource.charAt(0).toUpperCase() : "U"
+  const userAvatarUrl = typeof user?.avatarUrl === "string" && user.avatarUrl.length > 0 ? user.avatarUrl : null
+  const openCurrentUserProfile = () =>
+    routeToShellState({
+      app: "manage",
+      panel: "users",
+      entity: user?.id ? String(user.id) : "self",
+      context: "current-user",
+    })
+  const organizationSubmenuItems: TopNavMenuItem[] = isSignedIn
+    ? [
+        ...activeOrganizations.map((org) => ({
+          id: `avatar-org-${org.id}`,
+          label: truncateOrgName(org.name, 22),
+          onSelect: () => {
+            if (org.id !== currentOrg?.id) {
+              void switchOrganization(org.id)
+            }
+          },
+          icon: <ShellPeopleIcon size={16} tone="muted" />,
+          shortcut: currentOrg?.id === org.id ? "Current" : undefined,
+        })),
+        { id: "avatar-org-divider", divider: true },
+        {
+          id: "avatar-org-manage",
+          label: t("ui.start_menu.organizations"),
+          onSelect: openOrganizationSwitcherWindow,
+          icon: <ShellSettingsIcon size={16} tone="muted" />,
+        },
+      ]
+    : []
+
+  const languageSubmenuItems: TopNavMenuItem[] = availableLocales.map((localeCode) => ({
+    id: `avatar-language-${localeCode}`,
+    label: getLocaleLabel(localeCode),
+    onSelect: () => setLocale(localeCode),
+    icon: <ShellTranslationsIcon size={16} tone="muted" />,
+    shortcut: locale === localeCode ? "Current" : undefined,
+  }))
+
+  const avatarMenuItems: TopNavMenuItem[] = [
     ...(isSignedIn && activeOrganizations.length > 0 ? [{
-      id: "menu-org",
+      id: "avatar-org",
       label: currentOrg ? truncateOrgName(currentOrg.name, 18) : t("ui.start_menu.organizations"),
-      onSelect: openOrganizationSwitcherWindow,
       icon: <ShellPeopleIcon size={16} tone="muted" />,
+      submenu: true,
+      children: organizationSubmenuItems,
     }] : []),
-    { id: "menu-store", label: t("ui.start_menu.store"), onSelect: openStoreWindow, icon: <ShellStoreIcon size={16} tone="muted" /> },
-    { id: "menu-settings", label: t("ui.start_menu.settings"), onSelect: requireAuth(openSettingsWindow), icon: <ShellSettingsIcon size={16} tone="muted" /> },
-    { id: "menu-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
-    { id: "menu-divider-auth", divider: true },
     {
-      id: "menu-auth",
+      id: "avatar-language",
+      label: "Language",
+      icon: <ShellTranslationsIcon size={16} tone="muted" />,
+      submenu: true,
+      children: languageSubmenuItems,
+    },
+    { id: "avatar-store", label: t("ui.start_menu.store"), onSelect: openStoreWindow, icon: <ShellStoreIcon size={16} tone="muted" /> },
+    { id: "avatar-settings", label: t("ui.start_menu.settings"), onSelect: requireAuth(openSettingsWindow), icon: <ShellSettingsIcon size={16} tone="muted" /> },
+    {
+      id: "avatar-user-profile",
+      label: "User Profile",
+      onSelect: requireAuth(openCurrentUserProfile),
+      icon: <ShellProfileIcon size={16} tone="muted" />,
+    },
+    { id: "avatar-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
+    { id: "avatar-divider-auth", divider: true },
+    {
+      id: "avatar-auth",
       label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
       onSelect: isSignedIn ? handleLogout : openLoginWindow,
       icon: isSignedIn ? <ShellLogoutIcon size={16} tone="muted" /> : <ShellLoginIcon size={16} tone="muted" />,
@@ -695,6 +1165,8 @@ export default function HomePage() {
     );
   }
 
+  const openDesktopWindows = windows.filter((window) => window.isOpen)
+
   return (
     <div className="min-h-screen relative" style={{
       background: desktopBackground
@@ -715,7 +1187,7 @@ export default function HomePage() {
       <ClientOnly>
 
       {/* Desktop Icons */}
-      <div className={isMobile ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,48px)+12px)] space-y-4 z-10 desktop-only"}>
+      <div className={isMobileShellFallback ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,48px)+12px)] space-y-4 z-10 desktop-only"}>
         {/* <DesktopIcon icon="episodes" label="Episodes" onClick={openEpisodesWindow} /> */}
         {/* <DesktopIcon icon="about" label="About" onClick={openAboutWindow} /> */}
       </div>
@@ -735,31 +1207,18 @@ export default function HomePage() {
         ) : null,
       )}
 
-      {!isMobile ? (
+      {!isMobileShellFallback ? (
         <header
           className="fixed top-0 left-0 right-0 retro-window desktop-taskbar px-2 py-1"
           style={{ zIndex: 9999, borderTopLeftRadius: 0, borderTopRightRadius: 0, overflow: "visible" }}
         >
           <div className="flex min-w-0 items-center">
             <div className="flex items-center gap-1 pr-2">
-              <TopNavMenu label="Product" items={productMenuItems} />
-              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={openStoreWindow}>
-                Pricing
-              </button>
-              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={() => openTutorialsDocsWindow()}>
-                Docs
-              </button>
-              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={requireAuth(openBenefitsWindow)}>
-                Community
-              </button>
-              <button className="desktop-topbar-link px-2 py-1 text-xs font-semibold" onClick={openWelcomeWindow}>
-                Company
-              </button>
-              <TopNavMenu label="More" items={moreMenuItems} />
+              <TopNavMenu label={tx("ui.product_os.title", "Product OS")} items={productMenuItems} />
             </div>
 
-            <div className="mx-2 flex min-w-0 flex-1 gap-1 overflow-x-auto">
-              {windows.filter(w => w.isOpen).map((window) => {
+	            <div className="mx-2 flex min-w-0 flex-1 gap-1 overflow-x-auto">
+	              {openDesktopWindows.map((window) => {
                 const displayTitle = window.titleKey ? t(window.titleKey) : window.title;
                 return (
                   <button
@@ -818,9 +1277,9 @@ export default function HomePage() {
               )}
 
               {isSuperAdmin && (
-                <div className={`${!isSignedIn ? 'ml-auto' : ''} retro-button-small px-3 py-1 flex items-center gap-2`}>
+                <div className={`${!isSignedIn ? 'ml-auto ' : ''}desktop-taskbar-action border-l-2 px-3 py-1 flex items-center gap-2`}>
                   <ShellShieldIcon size={16} tone="active" />
-                  <span className="text-[10px] font-pixel">ADMIN</span>
+                  <span className="text-xs font-medium tracking-[0.04em]">ADMIN</span>
                 </div>
               )}
 
@@ -832,10 +1291,34 @@ export default function HomePage() {
                 {isDarkAppearance ? <ShellMoonIcon size={16} tone="active" /> : <ShellSepiaIcon size={16} tone="active" />}
               </button>
 
-              <div className="retro-button-small px-3 py-1 flex items-center gap-2">
-                <ShellClockIcon size={14} tone="active" />
-                <SystemClock />
-              </div>
+              <TopNavMenu
+                label={(
+                  <span className="flex items-center gap-2 whitespace-nowrap">
+                    {userAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={userAvatarUrl}
+                        alt="User avatar"
+                        className="h-5 w-5 rounded-full border border-[var(--window-shell-border)] object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--window-shell-border)] bg-[var(--window-document-bg-elevated)] text-[10px] font-semibold leading-none">
+                        {avatarInitial}
+                      </span>
+                    )}
+                    <span className="flex h-4 w-4 items-center justify-center">
+                      <ShellProfileIcon size={14} tone="active" />
+                    </span>
+                  </span>
+                )}
+                items={avatarMenuItems}
+                align="right"
+                submenuDirection="left"
+                menuLabel="Avatar"
+                triggerAriaLabel="Open avatar menu"
+                className="shrink-0"
+                buttonClassName="desktop-taskbar-action border-l-2 px-3 py-1 shrink-0 relative z-10"
+              />
             </div>
           </div>
         </header>
@@ -843,21 +1326,21 @@ export default function HomePage() {
         <footer
           className="fixed bottom-0 left-0 right-0 retro-window desktop-taskbar px-4 py-2"
           style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'visible' }}
-        >
-          <div className="flex items-center gap-2">
-            {windows.filter(w => w.isOpen).length > 0 && (
-              <WindowsMenu
-                windows={windows.filter(w => w.isOpen)}
-                onWindowClick={(id) => {
-                  const window = windows.find(w => w.id === id)
-                  if (window?.isMinimized) {
-                    restoreWindow(id)
-                  } else {
-                    focusWindow(id)
-                  }
-                }}
-              />
-            )}
+	        >
+	          <div className="flex items-center gap-2">
+	            <WindowsMenu
+	              windows={openDesktopWindows}
+	              launcherItems={mobileLauncherItems}
+	              buttonLabel="Apps"
+	              onWindowClick={(id) => {
+	                const window = windows.find((entry) => entry.id === id)
+	                if (window?.isMinimized) {
+	                  restoreWindow(id)
+	                } else {
+	                  focusWindow(id)
+	                }
+	              }}
+	            />
 
             {isSignedIn && isAppAvailable("ai-assistant") && (
               <button

@@ -70,11 +70,11 @@ export function ProjectPublishingTab({
       {/* Header */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <Globe size={18} style={{ color: "var(--win95-highlight)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <Globe size={18} style={{ color: "var(--tone-accent)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Public Project Page
           </h3>
         </div>
@@ -105,7 +105,7 @@ export function ProjectPublishingTab({
       {/* Enable Toggle */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -116,7 +116,7 @@ export function ProjectPublishingTab({
             disabled={isSaving}
           />
           <div>
-            <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               Enable Public Page
             </span>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -131,21 +131,21 @@ export function ProjectPublishingTab({
           {/* URL Configuration */}
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <ExternalLink size={14} style={{ color: "var(--win95-highlight)" }} />
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <ExternalLink size={14} style={{ color: "var(--tone-accent)" }} />
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 URL Configuration
               </h4>
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 URL Slug <span style={{ color: "var(--error)" }}>*</span>
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-2 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--neutral-gray)" }}>
+                <span className="text-xs px-2 py-2 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--neutral-gray)" }}>
                   l4yercak3.com/project/
                 </span>
                 <input
@@ -160,9 +160,9 @@ export function ProjectPublishingTab({
                   placeholder="my-project"
                   className="flex-1 px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={isSaving}
                   maxLength={50}
@@ -179,7 +179,7 @@ export function ProjectPublishingTab({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
                 Preview: l4yercak3.com/project/{publicPage.slug}
@@ -190,17 +190,17 @@ export function ProjectPublishingTab({
           {/* Password Protection */}
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Lock size={14} style={{ color: "var(--win95-highlight)" }} />
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <Lock size={14} style={{ color: "var(--tone-accent)" }} />
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Password Protection
               </h4>
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Password
               </label>
               <input
@@ -210,9 +210,9 @@ export function ProjectPublishingTab({
                 placeholder="Leave empty for no password"
                 className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 disabled={isSaving}
               />
@@ -225,11 +225,11 @@ export function ProjectPublishingTab({
           {/* Appearance */}
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Palette size={14} style={{ color: "var(--win95-highlight)" }} />
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <Palette size={14} style={{ color: "var(--tone-accent)" }} />
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Appearance
               </h4>
             </div>
@@ -237,7 +237,7 @@ export function ProjectPublishingTab({
             <div className="grid grid-cols-2 gap-4">
               {/* Theme */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Theme Color
                 </label>
                 <select
@@ -245,9 +245,9 @@ export function ProjectPublishingTab({
                   onChange={(e) => onChange({ ...publicPage, theme: e.target.value })}
                   className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={isSaving}
                 >
@@ -261,7 +261,7 @@ export function ProjectPublishingTab({
 
               {/* Template */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Page Template
                 </label>
                 <select
@@ -269,9 +269,9 @@ export function ProjectPublishingTab({
                   onChange={(e) => onChange({ ...publicPage, template: e.target.value })}
                   className="w-full px-3 py-2 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                   disabled={isSaving}
                 >
@@ -288,11 +288,11 @@ export function ProjectPublishingTab({
           {/* Template Preview Info */}
           <div
             className="p-4 border-2"
-            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Layout size={14} style={{ color: "var(--win95-highlight)" }} />
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <Layout size={14} style={{ color: "var(--tone-accent)" }} />
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Template Info
               </h4>
             </div>
@@ -323,8 +323,8 @@ export function ProjectPublishingTab({
               disabled={isSaving || !publicPage.slug || publicPage.slug.length < 3}
               className="px-4 py-2 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-highlight)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--tone-accent)",
                 color: "white",
               }}
             >

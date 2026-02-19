@@ -41,7 +41,7 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
         className="p-3 border-2 flex items-start gap-2"
         style={{
           backgroundColor: 'var(--error)',
-          borderColor: 'var(--win95-border)',
+          borderColor: 'var(--window-document-border)',
           color: 'white'
         }}
       >
@@ -60,8 +60,8 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           className="p-3 border-2 flex items-start gap-2"
           style={{
             backgroundColor: 'var(--warning)',
-            borderColor: 'var(--win95-border)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--window-document-border)',
+            color: 'var(--window-document-text)'
           }}
         >
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
@@ -77,7 +77,7 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           className="p-3 border-2 flex items-start gap-2"
           style={{
             backgroundColor: 'var(--success)',
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             color: 'white'
           }}
         >
@@ -93,7 +93,7 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
 
       {/* Header */}
       <div>
-        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
           <Key size={16} />
           API Keys Management
         </h3>
@@ -106,14 +106,14 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
       <div
         className="p-3 border-2"
         style={{
-          backgroundColor: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)',
+          backgroundColor: 'var(--window-document-bg-elevated)',
+          borderColor: 'var(--window-document-border)',
         }}
       >
         <div className="flex items-start gap-2">
           <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
           <div>
-            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Security Best Practices</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Security Best Practices</p>
             <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
               <li>• Store API keys securely - never commit them to version control</li>
               <li>• Rotate keys regularly, especially after team member departures</li>
@@ -126,16 +126,16 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
       </div>
 
       {/* API Keys List */}
-      <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+      <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
         {/* Header with Create Button */}
         <div
           className="px-3 py-2 border-b-2 flex items-center justify-between"
           style={{
-            backgroundColor: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)',
+            backgroundColor: 'var(--window-document-bg-elevated)',
+            borderColor: 'var(--window-document-border)',
           }}
         >
-          <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+          <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
             Active API Keys
           </span>
           <button
@@ -174,13 +174,13 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b" style={{ borderColor: 'var(--win95-border)' }}>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Name</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Key Preview</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Status</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Requests</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Created</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--win95-text)' }}>Actions</th>
+                <tr className="border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Name</th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Key Preview</th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Status</th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Requests</th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Created</th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -254,13 +254,13 @@ function ApiKeyRow({
   };
 
   return (
-    <tr className="border-b hover:bg-opacity-50" style={{ borderColor: 'var(--win95-border)' }}>
-      <td className="py-2" style={{ color: 'var(--win95-text)' }}>{apiKey.name}</td>
+    <tr className="border-b hover:bg-opacity-50" style={{ borderColor: 'var(--window-document-border)' }}>
+      <td className="py-2" style={{ color: 'var(--window-document-text)' }}>{apiKey.name}</td>
       <td className="py-2 font-mono text-xs">
         <button
           onClick={handleCopy}
           className="flex items-center gap-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--window-document-text)' }}
           title="Copy to clipboard"
         >
           {apiKey.keyPreview}
@@ -278,10 +278,10 @@ function ApiKeyRow({
           {apiKey.status}
         </span>
       </td>
-      <td className="py-2 text-center" style={{ color: 'var(--win95-text)' }}>
+      <td className="py-2 text-center" style={{ color: 'var(--window-document-text)' }}>
         {apiKey.requestCount.toLocaleString()}
       </td>
-      <td className="py-2" style={{ color: 'var(--win95-text)' }}>
+      <td className="py-2" style={{ color: 'var(--window-document-text)' }}>
         {new Date(apiKey.createdAt).toLocaleDateString()}
       </td>
       <td className="py-2 text-center">
@@ -358,7 +358,7 @@ function CreateApiKeyModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white border-4 shadow-lg max-w-md w-full mx-4" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="bg-white border-4 shadow-lg max-w-md w-full mx-4" style={{ borderColor: 'var(--window-document-border)' }}>
         {/* Modal Header */}
         <div
           className="px-3 py-2 flex items-center justify-between"
@@ -381,15 +381,15 @@ function CreateApiKeyModal({
         </div>
 
         {/* Modal Content */}
-        <div className="p-4" style={{ background: 'var(--win95-bg)' }}>
+        <div className="p-4" style={{ background: 'var(--window-document-bg)' }}>
           {!generatedKey ? (
             <>
-              <p className="text-xs mb-4" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs mb-4" style={{ color: 'var(--window-document-text)' }}>
                 Generate a new API key for <strong>{organizationName}</strong>. Give it a descriptive name to help track where it&apos;s used.
               </p>
 
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   API Key Name:
                 </label>
                 <input
@@ -399,9 +399,9 @@ function CreateApiKeyModal({
                   placeholder="e.g., Production Integration"
                   className="w-full px-3 py-2 text-sm border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg)',
-                    color: 'var(--win95-text)',
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)',
                   }}
                   disabled={isGenerating}
                 />
@@ -412,8 +412,8 @@ function CreateApiKeyModal({
                   onClick={onClose}
                   className="beveled-button px-3 py-1 text-xs font-bold"
                   style={{
-                    backgroundColor: 'var(--win95-button-face)',
-                    color: 'var(--win95-text)',
+                    backgroundColor: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)',
                   }}
                   disabled={isGenerating}
                 >
@@ -434,17 +434,17 @@ function CreateApiKeyModal({
             </>
           ) : (
             <>
-              <div className="mb-4 p-3 border-2" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--win95-border)' }}>
-                <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+              <div className="mb-4 p-3 border-2" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--window-document-border)' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                    Important: Copy this key now!
                 </p>
-                <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                   This is the only time you&apos;ll be able to see the full API key. Store it securely in your application or environment variables.
                 </p>
               </div>
 
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Your API Key:
                 </label>
                 <div className="flex gap-2">
@@ -454,17 +454,17 @@ function CreateApiKeyModal({
                     readOnly
                     className="flex-1 px-3 py-2 text-xs font-mono border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)',
-                      color: 'var(--win95-text)',
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg-elevated)',
+                      color: 'var(--window-document-text)',
                     }}
                   />
                   <button
                     onClick={() => navigator.clipboard.writeText(generatedKey)}
                     className="beveled-button px-3 py-1 text-xs font-bold"
                     style={{
-                      backgroundColor: 'var(--win95-button-face)',
-                      color: 'var(--win95-text)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)',
                     }}
                   >
                     <Copy size={14} />

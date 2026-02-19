@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { useState, createContext, useContext, ReactNode, useEffect } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 import { useWindowManager } from "./use-window-manager";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../convex/_generated/api") as { api: any };
 
 interface Permission {
   id: string;
@@ -34,6 +36,7 @@ interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string;
   hasPasskey: boolean; // Whether user has set up passkey authentication
   isSuperAdmin: boolean;
   globalRole?: Role | null;
@@ -42,6 +45,44 @@ interface User {
   defaultOrgId?: Id<"organizations"> | null;
   scheduledDeletionDate?: number; // Timestamp for account deletion grace period
 }
+
+type QueryPermission = {
+  id: string;
+  name: string;
+  resource: string;
+  action: string;
+} | null;
+
+type QueryRole = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+type QueryOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  role: QueryRole;
+  permissions: QueryPermission[];
+  isOwner: boolean;
+} | null;
+
+type CurrentUserQueryResult = {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+  hasPasskey?: boolean;
+  isSuperAdmin: boolean;
+  globalRole?: QueryRole;
+  organizations: QueryOrganization[];
+  currentOrganization: QueryOrganization;
+  defaultOrgId?: Id<"organizations"> | null;
+  scheduledDeletionDate?: number;
+} | null;
 
 interface AuthContextType {
   user: User | null;
@@ -71,10 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const { closeAllWindows } = useWindowManager();
-  const userQuery = useQuery(
-    api.auth.getCurrentUser,
+  // Avoid TS2589 deep type instantiation on generated Convex API types for auth payloads.
+  const unsafeUseQuery = useQuery as unknown as (queryRef: unknown, args?: unknown) => unknown;
+  const userQuery = unsafeUseQuery(
+    apiAny.auth.getCurrentUser,
     sessionId ? { sessionId } : { sessionId: undefined }
-  );
+  ) as CurrentUserQueryResult | undefined;
 
   // Proactively clear invalid sessions
   // If we have a sessionId but the query returns null, the session is invalid
@@ -86,11 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionId, userQuery]);
 
-  const signInAction = useAction(api.auth.signIn);
-  const setupPasswordAction = useAction(api.auth.setupPassword);
-  const signOutMutation = useMutation(api.auth.signOut);
-  const switchOrgMutation = useMutation(api.auth.switchOrganization);
-  const setDefaultOrgMutation = useMutation(api.auth.setDefaultOrganization);
+  const signInAction = useAction(apiAny.auth.signIn);
+  const setupPasswordAction = useAction(apiAny.auth.setupPassword);
+  const signOutMutation = useMutation(apiAny.auth.signOut);
+  const switchOrgMutation = useMutation(apiAny.auth.switchOrganization);
+  const setDefaultOrgMutation = useMutation(apiAny.auth.setDefaultOrganization);
 
   const signIn = async (email: string, password: string) => {
     const result = await signInAction({ email, password });
@@ -182,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: userQuery.email,
     firstName: userQuery.firstName,
     lastName: userQuery.lastName,
+    avatarUrl: userQuery.avatarUrl,
     hasPasskey: userQuery.hasPasskey || false,
     isSuperAdmin: userQuery.isSuperAdmin,
     globalRole: userQuery.globalRole,

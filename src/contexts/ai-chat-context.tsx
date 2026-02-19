@@ -6,6 +6,8 @@ import { useAIChat } from "@/hooks/use-ai-chat"
 import { useAuth } from "@/hooks/use-auth"
 
 interface AIChatContextType {
+  chatMode: "authenticated"
+
   // Current conversation
   currentConversationId: Id<"aiConversations"> | undefined
   setCurrentConversationId: (id: Id<"aiConversations"> | undefined) => void
@@ -64,6 +66,7 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   return (
     <AIChatContext.Provider
       value={{
+        chatMode: "authenticated",
         currentConversationId,
         setCurrentConversationId,
         organizationId,

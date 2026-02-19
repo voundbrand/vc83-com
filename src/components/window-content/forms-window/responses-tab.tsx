@@ -50,7 +50,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
   if (translationsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -63,7 +63,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
 
     return (
       <div className="p-4">
-        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
           {t("ui.forms.responses.select_form")}
         </h3>
 
@@ -89,19 +89,19 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                   onClick={() => setSelectedFormId(form._id)}
                   className="p-4 border-2 text-left transition-colors"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--win95-hover-light)";
+                    e.currentTarget.style.background = "var(--desktop-menu-hover)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--win95-bg-light)";
+                    e.currentTarget.style.background = "var(--window-document-bg-elevated)";
                   }}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {form.name}
                       </h4>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -109,7 +109,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold" style={{ color: "var(--win95-highlight)" }}>
+                      <div className="text-lg font-bold" style={{ color: "var(--tone-accent)" }}>
                         {submissionCount}
                       </div>
                       <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -132,7 +132,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
   if (responses === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -149,15 +149,15 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with back button */}
-      <div className="p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => setSelectedFormId(null)}
             className="text-xs px-3 py-1 border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             ← {t("ui.forms.responses.back_to_forms")}
@@ -165,9 +165,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
           <button
             className="text-xs px-3 py-1 border-2 flex items-center gap-2 opacity-50 cursor-not-allowed"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
             title={t("ui.forms.responses.export_csv_coming_soon")}
             disabled
@@ -177,7 +177,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
           </button>
         </div>
 
-        <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
           {selectedForm?.name}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -191,8 +191,8 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
         <div
           className="mt-3 flex items-center gap-2 border-2 px-3 py-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
           }}
         >
           <Search size={14} style={{ color: "var(--neutral-gray)" }} />
@@ -202,7 +202,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 text-xs outline-none"
-            style={{ color: "var(--win95-text)", background: "transparent" }}
+            style={{ color: "var(--window-document-text)", background: "transparent" }}
           />
         </div>
       </div>
@@ -234,28 +234,28 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                   key={response._id}
                   className="p-3 border-2 transition-colors"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--win95-hover-light)";
+                    e.currentTarget.style.background = "var(--desktop-menu-hover)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--win95-bg-light)";
+                    e.currentTarget.style.background = "var(--window-document-bg-elevated)";
                   }}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                        <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                           {name}
                         </h4>
                         {isPublic && (
                           <span
                             className="text-xs px-2 py-0.5 rounded"
                             style={{
-                              background: "var(--win95-highlight)",
-                              color: "var(--win95-titlebar-text)",
+                              background: "var(--tone-accent)",
+                              color: "var(--window-document-text)",
                             }}
                           >
                             {t("ui.forms.responses.public")}
@@ -271,7 +271,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                         {Object.entries(responseData).slice(0, 3).map(([key, value]) => (
                           <div key={key} className="flex gap-2">
                             <span style={{ color: "var(--neutral-gray)" }}>{key}:</span>
-                            <span style={{ color: "var(--win95-text)" }} className="font-semibold">
+                            <span style={{ color: "var(--window-document-text)" }} className="font-semibold">
                               {String(value).substring(0, 50)}
                               {String(value).length > 50 ? "..." : ""}
                             </span>
@@ -284,9 +284,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                       onClick={() => setViewingResponse(response)}
                       className="ml-4 px-3 py-1 border-2 flex items-center gap-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       <Eye size={12} />
@@ -310,9 +310,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
           <div
             className="border-4 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              boxShadow: "var(--win95-shadow)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              boxShadow: "var(--window-shell-shadow)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -320,17 +320,17 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
             <div
               className="px-4 py-2 flex items-center justify-between border-b-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-highlight)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--tone-accent)",
               }}
             >
-              <h3 className="text-sm font-bold" style={{ color: "var(--win95-titlebar-text)" }}>
+              <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.forms.responses.response_details")}
               </h3>
               <button
                 onClick={() => setViewingResponse(null)}
                 className="text-sm font-bold px-2 hover:bg-black/20"
-                style={{ color: "var(--win95-titlebar-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 <X size={14} />
               </button>
@@ -342,11 +342,11 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
               <div
                 className="p-3 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
                 }}
               >
-                <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <h4 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.forms.responses.submission_info")}
                 </h4>
                 <div className="text-xs space-y-1">
@@ -354,7 +354,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                     <span style={{ color: "var(--neutral-gray)" }}>
                       {t("ui.forms.responses.submitted")}:
                     </span>
-                    <span style={{ color: "var(--win95-text)" }}>
+                    <span style={{ color: "var(--window-document-text)" }}>
                       {new Date(viewingResponse.customProperties?.submittedAt || 0).toLocaleString()}
                     </span>
                   </div>
@@ -362,7 +362,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                     <span style={{ color: "var(--neutral-gray)" }}>
                       {t("ui.forms.responses.type")}:
                     </span>
-                    <span style={{ color: "var(--win95-text)" }}>
+                    <span style={{ color: "var(--window-document-text)" }}>
                       {viewingResponse.customProperties?.isPublicSubmission
                         ? t("ui.forms.responses.public_submission")
                         : t("ui.forms.responses.authenticated")}
@@ -373,7 +373,7 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                       <span style={{ color: "var(--neutral-gray)" }}>
                         {t("ui.forms.responses.ip_address")}:
                       </span>
-                      <span style={{ color: "var(--win95-text)" }}>
+                      <span style={{ color: "var(--window-document-text)" }}>
                         {viewingResponse.customProperties.ipAddress}
                       </span>
                     </div>
@@ -385,21 +385,21 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
               <div
                 className="p-3 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
                 }}
               >
-                <h4 className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <h4 className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.forms.responses.form_data")}
                 </h4>
                 <div className="text-xs space-y-3">
                   {Object.entries((viewingResponse.customProperties?.responses ?? {}) as Record<string, unknown>).map(
                     ([key, value]) => (
-                      <div key={key} className="border-b pb-2 last:border-b-0" style={{ borderColor: "var(--win95-border-light)" }}>
+                      <div key={key} className="border-b pb-2 last:border-b-0" style={{ borderColor: "var(--desktop-shell-border)" }}>
                         <div className="font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
                           {key}
                         </div>
-                        <div style={{ color: "var(--win95-text)" }}>
+                        <div style={{ color: "var(--window-document-text)" }}>
                           {Array.isArray(value) ? value.join(", ") : String(value)}
                         </div>
                       </div>
@@ -414,9 +414,9 @@ export function ResponsesTab({ forms }: ResponsesTabProps) {
                   onClick={() => setViewingResponse(null)}
                   className="px-4 py-2 border-2 text-xs"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   {t("ui.forms.responses.close")}

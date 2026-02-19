@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy, Terminal, LogIn, FolderPlus, X } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 
 interface CLISetupGuideProps {
   /** Compact mode for inline display, full mode for modals */
@@ -39,7 +39,7 @@ function CopyableCommand({ command }: { command: string }) {
     <div
       className="flex items-center justify-between gap-2 p-2 font-mono text-xs group"
       style={{
-        background: "var(--win95-text)",
+        background: "var(--window-document-text)",
         color: "#00ff00", // Terminal green
       }}
     >
@@ -69,7 +69,7 @@ function Step({ number, title, description, command, icon, note }: StepProps) {
       <div
         className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold"
         style={{
-          background: "var(--win95-highlight)",
+          background: "var(--tone-accent)",
           color: "white",
         }}
       >
@@ -79,8 +79,8 @@ function Step({ number, title, description, command, icon, note }: StepProps) {
       {/* Step content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span style={{ color: "var(--win95-highlight)" }}>{icon}</span>
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <span style={{ color: "var(--tone-accent)" }}>{icon}</span>
+          <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {title}
           </h4>
         </div>
@@ -156,12 +156,12 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
         <div
           className="w-16 h-16 mx-auto mb-3 flex items-center justify-center rounded-lg"
           style={{
-            background: "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
+            background: "linear-gradient(135deg, var(--tone-accent) 0%, var(--tone-accent-strong) 100%)",
           }}
         >
-          <Terminal size={32} className="text-white" />
+          <Terminal size={32} style={{ color: "#0f0f0f" }} />
         </div>
-        <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
           Connect Your App via CLI
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -180,11 +180,11 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
       <div
         className="mt-6 p-3 border-2 text-xs"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <p className="font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <p className="font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           Supported Frameworks
         </p>
         <div className="flex flex-wrap gap-2">
@@ -201,8 +201,8 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
               className="px-2 py-1 flex items-center gap-1"
               style={{
                 background: "white",
-                border: "1px solid var(--win95-border)",
-                color: "var(--win95-text)",
+                border: "1px solid var(--window-document-border)",
+                color: "var(--window-document-text)",
               }}
             >
               <span>{fw.icon}</span>
@@ -221,7 +221,7 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:no-underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             View CLI Documentation →
           </a>
@@ -252,8 +252,8 @@ export function CLISetupModal({ isOpen, onClose, showInstall = false }: CLISetup
       <div
         className="w-full max-w-lg border-4 shadow-lg"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -261,8 +261,8 @@ export function CLISetupModal({ isOpen, onClose, showInstall = false }: CLISetup
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            background: "var(--win95-titlebar)",
-            color: "var(--win95-titlebar-text)",
+            background: "var(--window-titlebar-bg)",
+            color: "var(--window-document-text)",
           }}
         >
           <span className="text-sm font-bold flex items-center gap-2">
@@ -285,11 +285,11 @@ export function CLISetupModal({ isOpen, onClose, showInstall = false }: CLISetup
         {/* Footer */}
         <div
           className="px-4 py-3 border-t-2 flex justify-end"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
-          <RetroButton onClick={onClose} variant="secondary">
+          <InteriorButton onClick={onClose} variant="secondary">
             Close
-          </RetroButton>
+          </InteriorButton>
         </div>
       </div>
     </div>

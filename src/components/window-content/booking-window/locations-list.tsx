@@ -112,7 +112,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`retro-button px-3 py-1.5 flex items-center gap-1 ${
+            className={`desktop-interior-button px-3 py-1.5 flex items-center gap-1 ${
               showFilters ? "shadow-inner" : ""
             }`}
             style={{
@@ -124,7 +124,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="retro-button px-3 py-1.5 flex items-center gap-1"
+            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
             style={{
               background: 'var(--win95-button-face)',
               color: 'var(--win95-text)'

@@ -304,18 +304,18 @@ export function PlatformAiModelsTab() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div className="flex-1">
-          <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Cpu size={24} style={{ color: "var(--primary)" }} />
             Platform AI Models
           </h2>
-          <p className="text-sm mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-sm mt-1" style={{ color: "var(--window-document-text-muted)" }}>
             {enabledModels} model{enabledModels !== 1 ? "s" : ""} enabled
             {systemDefaultsCount > 0 && ` • ${systemDefaultsCount} system default${systemDefaultsCount !== 1 ? "s" : ""}`}
           </p>
 
           {/* Privacy Indicators */}
           {enabledModels > 0 && (
-            <div className="mt-2 text-xs space-y-1" style={{ color: "var(--win95-text-secondary)" }}>
+            <div className="mt-2 text-xs space-y-1" style={{ color: "var(--window-document-text-muted)" }}>
               <div>
                 <strong>Location:</strong> {privacyStats.locations.join(" • ") || "None"}
               </div>
@@ -371,33 +371,33 @@ export function PlatformAiModelsTab() {
 
       {/* Stats Bar */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="p-4 rounded border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+        <div className="p-4 rounded border-2" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
           <div className="text-2xl font-bold" style={{ color: "var(--primary)" }}>{totalModels}</div>
-          <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>Total Models</div>
+          <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>Total Models</div>
         </div>
-        <div className="p-4 rounded border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+        <div className="p-4 rounded border-2" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
           <div className="text-2xl font-bold" style={{ color: "var(--success)" }}>{enabledModels}</div>
-          <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>Enabled</div>
+          <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>Enabled</div>
         </div>
-        <div className="p-4 rounded border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+        <div className="p-4 rounded border-2" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
           <div className="flex items-center gap-2">
             <Star size={20} fill="var(--warning)" style={{ color: "var(--warning)" }} />
             <div className="text-2xl font-bold" style={{ color: "var(--warning)" }}>{systemDefaultsCount}</div>
           </div>
-          <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>System Defaults</div>
+          <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>System Defaults</div>
         </div>
-        <div className="p-4 rounded border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+        <div className="p-4 rounded border-2" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
           <div className="text-2xl font-bold" style={{ color: "var(--neutral-gray)" }}>{disabledModels}</div>
-          <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>Disabled</div>
+          <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>Disabled</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 p-4 rounded border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+      <div className="mb-6 p-4 rounded border-2" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Filter size={16} style={{ color: "var(--primary)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>Filters</span>
+            <span className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>Filters</span>
           </div>
 
           {/* Selection Actions */}
@@ -432,7 +432,7 @@ export function PlatformAiModelsTab() {
         <div className="grid grid-cols-6 gap-4">
           {/* Search */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Search
             </label>
             <input
@@ -442,17 +442,17 @@ export function PlatformAiModelsTab() {
               placeholder="Model name or ID..."
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             />
           </div>
 
           {/* Provider Filter */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Provider
             </label>
             <select
@@ -460,10 +460,10 @@ export function PlatformAiModelsTab() {
               onChange={(e) => setFilterProvider(e.target.value as FilterProvider)}
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <option value="all">All Providers</option>
@@ -477,7 +477,7 @@ export function PlatformAiModelsTab() {
 
           {/* Status Filter */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Status
             </label>
             <select
@@ -485,10 +485,10 @@ export function PlatformAiModelsTab() {
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <option value="all">All Status</option>
@@ -499,7 +499,7 @@ export function PlatformAiModelsTab() {
 
           {/* Capability Filter */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Capability
             </label>
             <select
@@ -507,10 +507,10 @@ export function PlatformAiModelsTab() {
               onChange={(e) => setFilterCapability(e.target.value as FilterCapability)}
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <option value="all">All Capabilities</option>
@@ -522,7 +522,7 @@ export function PlatformAiModelsTab() {
 
           {/* Defaults Filter */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Defaults
             </label>
             <select
@@ -530,10 +530,10 @@ export function PlatformAiModelsTab() {
               onChange={(e) => setFilterDefaults(e.target.value as FilterDefaults)}
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <option value="all">All Models</option>
@@ -544,7 +544,7 @@ export function PlatformAiModelsTab() {
 
           {/* Validation Filter */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
               Validation
             </label>
             <select
@@ -552,10 +552,10 @@ export function PlatformAiModelsTab() {
               onChange={(e) => setFilterValidation(e.target.value as FilterValidation)}
               className="w-full px-2 py-1 text-xs"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <option value="all">All Status</option>
@@ -569,8 +569,8 @@ export function PlatformAiModelsTab() {
 
       {/* Batch Actions */}
       {selectedModels.size > 0 && (
-        <div className="mb-4 p-3 rounded border-2 flex items-center justify-between" style={{ borderColor: "var(--primary)", backgroundColor: "var(--win95-bg-light)" }}>
-          <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+        <div className="mb-4 p-3 rounded border-2 flex items-center justify-between" style={{ borderColor: "var(--primary)", backgroundColor: "var(--window-document-bg-elevated)" }}>
+          <span className="text-sm" style={{ color: "var(--window-document-text)" }}>
             {selectedModels.size} models selected
           </span>
           <button
@@ -598,8 +598,8 @@ export function PlatformAiModelsTab() {
               key={model.modelId}
               className="p-4 rounded border-2 transition-colors"
               style={{
-                borderColor: isSelected ? "var(--primary)" : "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: isSelected ? "var(--primary)" : "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <div className="flex items-start justify-between gap-4">
@@ -622,10 +622,10 @@ export function PlatformAiModelsTab() {
 
                     {/* Model Name */}
                     <div>
-                      <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                      <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                         {model.name}
                       </h3>
-                      <p className="text-xs font-mono" style={{ color: "var(--win95-text-secondary)" }}>
+                      <p className="text-xs font-mono" style={{ color: "var(--window-document-text-muted)" }}>
                         {model.modelId}
                       </p>
                     </div>
@@ -677,7 +677,7 @@ export function PlatformAiModelsTab() {
                   </div>
 
                   {/* Pricing & Context */}
-                  <div className="flex items-center gap-4 text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+                  <div className="flex items-center gap-4 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
                     <span>
                       Input: ${model.pricing.promptPerMToken.toFixed(3)}/M
                     </span>
@@ -725,8 +725,8 @@ export function PlatformAiModelsTab() {
                           : "Set as system default (auto-selects for new organizations)"
                       }
                       style={{
-                        backgroundColor: model.isSystemDefault ? "var(--warning)" : "var(--win95-bg)",
-                        color: model.isSystemDefault ? "white" : "var(--win95-text)",
+                        backgroundColor: model.isSystemDefault ? "var(--warning)" : "var(--window-document-bg)",
+                        color: model.isSystemDefault ? "white" : "var(--window-document-text)",
                         cursor: "pointer",
                       }}
                     >
@@ -744,7 +744,7 @@ export function PlatformAiModelsTab() {
         {filteredModels.length === 0 && (
           <div className="text-center py-12">
             <RefreshCw size={48} className="mx-auto mb-4" style={{ color: "var(--neutral-gray)" }} />
-            <p className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>
               {platformModels?.models.length === 0
                 ? "No models discovered yet. The daily cron job will fetch models from OpenRouter."
                 : "No models match your filters."}

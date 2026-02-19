@@ -18,6 +18,7 @@ import {
   ShellDocsIcon,
   ShellIntegrationsIcon,
   ShellPeopleIcon,
+  ShellProfileIcon,
   ShellSettingsIcon,
   ShellTerminalIcon,
   ShellTranslationsIcon,
@@ -51,6 +52,16 @@ export function ControlPanelWindow() {
 
   const openManageWindow = () => {
     openWindow("manage", "Manage", <ManageWindow />, { x: 200, y: 50 }, { width: 1200, height: 700 });
+  };
+
+  const openCurrentUserSettingsWindow = () => {
+    openWindow(
+      "manage",
+      "Manage",
+      <ManageWindow initialTab="users" initialUserContext="current-user" />,
+      { x: 200, y: 50 },
+      { width: 1200, height: 700 },
+    );
   };
 
   const openIntegrationsWindow = () => {
@@ -140,6 +151,13 @@ export function ControlPanelWindow() {
       label: t("ui.controlpanel.item.manage"),
       onClick: openManageWindow,
       description: "Organization settings, users, and security",
+    });
+    controlPanelItems.push({
+      id: "user-settings",
+      icon: <ShellProfileIcon size={20} />,
+      label: "User Settings",
+      onClick: openCurrentUserSettingsWindow,
+      description: "Open Manage in Users tab with current-user context",
     });
   }
 

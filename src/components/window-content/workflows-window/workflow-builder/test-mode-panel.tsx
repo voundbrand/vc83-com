@@ -325,19 +325,19 @@ export function TestModePanel({
         ? "var(--success)"
         : typedResult.status === "error"
         ? "var(--error)"
-        : "var(--win95-highlight)";
+        : "var(--tone-accent)";
 
       return (
         <div
           key={index}
           className="p-3 rounded border-2"
           style={{
-            background: "var(--win95-bg-light)",
+            background: "var(--window-document-bg-elevated)",
             borderColor: statusColor
           }}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               {index + 1}. {typedResult.behaviorType}
             </span>
             <span className="text-xs opacity-60" style={{ color: "var(--neutral-gray)" }}>{typedResult.duration}ms</span>
@@ -353,10 +353,10 @@ export function TestModePanel({
 
           {resultOutput && (
             <details className="mt-2">
-              <summary className="text-xs cursor-pointer hover:underline" style={{ color: "var(--win95-highlight)" }}>
+              <summary className="text-xs cursor-pointer hover:underline" style={{ color: "var(--tone-accent)" }}>
                 View Output
               </summary>
-              <pre className="text-[10px] mt-1 p-2 rounded overflow-auto max-h-32" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+              <pre className="text-[10px] mt-1 p-2 rounded overflow-auto max-h-32" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                 {resultOutput}
               </pre>
             </details>
@@ -372,15 +372,15 @@ export function TestModePanel({
       style={{
         bottom: "40px", // Sits above the Windows 95 taskbar (taskbar height ~40px)
         zIndex: 9998, // Below taskbar (9999) but above everything else
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
         height: isExpanded ? "65vh" : "48px", // Increased from 50vh to 65vh for better visibility
       }}
     >
       {/* Header Bar */}
       <div
         className="flex items-center justify-between px-4 py-2 border-b-2 cursor-pointer"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-highlight)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--tone-accent)" }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
@@ -434,12 +434,12 @@ export function TestModePanel({
       {isExpanded && (
         <div className="flex overflow-hidden" style={{ height: "calc(65vh - 48px)" }}>
           {/* Left: Input Data Editor */}
-          <div className="flex-1 flex flex-col border-r-2" style={{ borderColor: "var(--win95-border)" }}>
-            <div className="border-b-2 px-4 py-2 flex-shrink-0" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex-1 flex flex-col border-r-2" style={{ borderColor: "var(--window-document-border)" }}>
+            <div className="border-b-2 px-4 py-2 flex-shrink-0" style={{ borderColor: "var(--window-document-border)" }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileJson className="h-4 w-4" style={{ color: "var(--win95-highlight)" }} />
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <FileJson className="h-4 w-4" style={{ color: "var(--tone-accent)" }} />
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     Input Data (JSON)
                   </h4>
                 </div>
@@ -464,7 +464,7 @@ export function TestModePanel({
                   </select>
                   <button
                     onClick={handleClear}
-                    className="retro-button p-1"
+                    className="desktop-interior-button p-1"
                     title="Clear input"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -474,14 +474,14 @@ export function TestModePanel({
             </div>
 
             {/* Object Selectors for Test Data */}
-            <div className="px-4 py-3 border-b-2 flex-shrink-0" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-              <p className="text-[10px] font-bold mb-2 opacity-60" style={{ color: "var(--win95-text)" }}>
+            <div className="px-4 py-3 border-b-2 flex-shrink-0" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
+              <p className="text-[10px] font-bold mb-2 opacity-60" style={{ color: "var(--window-document-text)" }}>
                 SELECT TEST OBJECTS (IDs auto-inject into JSON)
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {/* Event Selector */}
                 <div>
-                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
                     Event:
                   </label>
                   <select
@@ -500,7 +500,7 @@ export function TestModePanel({
 
                 {/* Form Selector */}
                 <div>
-                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
                     Form:
                   </label>
                   <select
@@ -519,7 +519,7 @@ export function TestModePanel({
 
                 {/* CRM Organization Selector */}
                 <div>
-                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-[10px] font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
                     CRM Org:
                   </label>
                   <select
@@ -540,7 +540,7 @@ export function TestModePanel({
               {/* Multi-Product Selector */}
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] font-bold" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-[10px] font-bold" style={{ color: "var(--window-document-text)" }}>
                     Products (Multiple):
                   </label>
                   <button
@@ -549,7 +549,7 @@ export function TestModePanel({
                         setSelectedProducts([...selectedProducts, { productId: products[0]._id, quantity: 1 }]);
                       }
                     }}
-                    className="retro-button text-xs px-2 py-1"
+                    className="desktop-interior-button text-xs px-2 py-1"
                     disabled={!products || products.length === 0}
                   >
                     + Add Product
@@ -557,7 +557,7 @@ export function TestModePanel({
                 </div>
 
                 {selectedProducts.length === 0 ? (
-                  <p className="text-[10px] opacity-60 italic" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-[10px] opacity-60 italic" style={{ color: "var(--window-document-text)" }}>
                     No products selected. Click &quot;Add Product&quot; to add.
                   </p>
                 ) : (
@@ -596,7 +596,7 @@ export function TestModePanel({
                             const newProducts = selectedProducts.filter((_, i) => i !== idx);
                             setSelectedProducts(newProducts);
                           }}
-                          className="retro-button text-xs px-2 py-1 hover:bg-red-100"
+                          className="desktop-interior-button text-xs px-2 py-1 hover:bg-red-100"
                           title="Remove product"
                         >
                           
@@ -621,7 +621,7 @@ export function TestModePanel({
                 spellCheck={false}
               />
               {parseError && (
-                <div className="mt-2 p-2 border-2 rounded flex-shrink-0" style={{ background: "var(--win95-bg-light)", borderColor: "var(--error)" }}>
+                <div className="mt-2 p-2 border-2 rounded flex-shrink-0" style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--error)" }}>
                   <p className="text-xs font-bold" style={{ color: "var(--error)" }}>JSON Parse Error:</p>
                   <p className="text-xs" style={{ color: "var(--error)" }}>{parseError}</p>
                 </div>
@@ -629,11 +629,11 @@ export function TestModePanel({
             </div>
 
             {/* Execute Button - ALWAYS VISIBLE AT BOTTOM */}
-            <div className="border-t-2 p-3 flex-shrink-0" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+            <div className="border-t-2 p-3 flex-shrink-0" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
               <button
                 onClick={handleRun}
                 disabled={isExecuting || !!parseError}
-                className="retro-button-primary w-full py-2 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
+                className="desktop-interior-button desktop-interior-button-primary w-full py-2 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
               >
                 {isExecuting ? (
                   <>
@@ -652,8 +652,8 @@ export function TestModePanel({
 
           {/* Right: Execution Results */}
           <div className="w-1/2 flex flex-col">
-            <div className="border-b-2 px-4 py-2 flex-shrink-0" style={{ borderColor: "var(--win95-border)" }}>
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <div className="border-b-2 px-4 py-2 flex-shrink-0" style={{ borderColor: "var(--window-document-border)" }}>
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Execution Log
               </h4>
             </div>
@@ -672,7 +672,7 @@ export function TestModePanel({
                   <div
                     className="p-3 rounded border-2"
                     style={{
-                      background: "var(--win95-bg-light)",
+                      background: "var(--window-document-bg-elevated)",
                       borderColor: executionResults.success ? "var(--success)" : "var(--error)"
                     }}
                   >
@@ -680,7 +680,7 @@ export function TestModePanel({
                       {executionResults.success ? " Execution Successful" : " Execution Failed"}
                     </p>
                     {executionResults.message && (
-                      <p className="text-xs opacity-80" style={{ color: "var(--win95-text)" }}>{executionResults.message}</p>
+                      <p className="text-xs opacity-80" style={{ color: "var(--window-document-text)" }}>{executionResults.message}</p>
                     )}
                   </div>
 
@@ -690,9 +690,9 @@ export function TestModePanel({
 
                   {/* Final Output */}
                   {executionResults.finalOutput && (
-                    <div className="p-3 rounded border-2" style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-highlight)" }}>
-                      <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>Final Output:</p>
-                      <pre className="text-[10px] p-2 rounded overflow-auto max-h-32" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+                    <div className="p-3 rounded border-2" style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--tone-accent)" }}>
+                      <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>Final Output:</p>
+                      <pre className="text-[10px] p-2 rounded overflow-auto max-h-32" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                         {JSON.stringify(executionResults.finalOutput as Record<string, unknown>, null, 2)}
                       </pre>
                     </div>

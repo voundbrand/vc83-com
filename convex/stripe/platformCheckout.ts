@@ -45,6 +45,60 @@ const TIER_PRICE_IDS = {
   } as Record<string, string | undefined>,
 };
 
+const DEFAULT_PUBLIC_APP_URL = "https://app.l4yercak3.com";
+
+type FunnelAttribution = {
+  channel?: "webchat" | "native_guest" | "telegram" | "platform_web" | "unknown";
+  campaign?: {
+    source?: string;
+    medium?: string;
+    campaign?: string;
+    content?: string;
+    term?: string;
+    referrer?: string;
+    landingPath?: string;
+  };
+};
+
+export function resolvePublicAppUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    DEFAULT_PUBLIC_APP_URL;
+
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+export function buildPlatformCheckoutRedirectUrls(args: {
+  appBaseUrl?: string;
+  tier: "pro" | "agency";
+  billingPeriod: "monthly" | "annual";
+  attribution?: FunnelAttribution;
+}): { successUrl: string; cancelUrl: string } {
+  const baseUrl = (args.appBaseUrl || resolvePublicAppUrl()).replace(/\/+$/, "");
+  const params = new URLSearchParams({
+    purchase: "success",
+    type: "plan",
+    tier: args.tier,
+    period: args.billingPeriod,
+  });
+
+  const attribution = args.attribution;
+  if (attribution?.channel) params.set("onboardingChannel", attribution.channel);
+  if (attribution?.campaign?.source) params.set("utm_source", attribution.campaign.source);
+  if (attribution?.campaign?.medium) params.set("utm_medium", attribution.campaign.medium);
+  if (attribution?.campaign?.campaign) params.set("utm_campaign", attribution.campaign.campaign);
+  if (attribution?.campaign?.content) params.set("utm_content", attribution.campaign.content);
+  if (attribution?.campaign?.term) params.set("utm_term", attribution.campaign.term);
+  if (attribution?.campaign?.referrer) params.set("referrer", attribution.campaign.referrer);
+  if (attribution?.campaign?.landingPath) params.set("landingPath", attribution.campaign.landingPath);
+
+  return {
+    successUrl: `${baseUrl}/?${params.toString()}`,
+    cancelUrl: `${baseUrl}/?purchase=canceled&type=plan`,
+  };
+}
+
 /**
  * CREATE PLATFORM CHECKOUT SESSION
  *
@@ -65,6 +119,26 @@ export const createPlatformCheckoutSession = action({
     cancelUrl: v.string(),
     // Optional B2B fields
     isB2B: v.optional(v.boolean()),
+    funnelChannel: v.optional(
+      v.union(
+        v.literal("webchat"),
+        v.literal("native_guest"),
+        v.literal("telegram"),
+        v.literal("platform_web"),
+        v.literal("unknown")
+      )
+    ),
+    funnelCampaign: v.optional(
+      v.object({
+        source: v.optional(v.string()),
+        medium: v.optional(v.string()),
+        campaign: v.optional(v.string()),
+        content: v.optional(v.string()),
+        term: v.optional(v.string()),
+        referrer: v.optional(v.string()),
+        landingPath: v.optional(v.string()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
@@ -188,6 +262,14 @@ export const createPlatformCheckoutSession = action({
         platform: "l4yercak3",
         type: "platform-tier",
         isB2B: args.isB2B ? "true" : "false",
+        ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
+        ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
+        ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
+        ...(args.funnelCampaign?.campaign ? { utmCampaign: args.funnelCampaign.campaign } : {}),
+        ...(args.funnelCampaign?.content ? { utmContent: args.funnelCampaign.content } : {}),
+        ...(args.funnelCampaign?.term ? { utmTerm: args.funnelCampaign.term } : {}),
+        ...(args.funnelCampaign?.referrer ? { funnelReferrer: args.funnelCampaign.referrer } : {}),
+        ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
       },
       subscription_data: {
         metadata: {
@@ -196,6 +278,14 @@ export const createPlatformCheckoutSession = action({
           billingPeriod: args.billingPeriod,
           platform: "l4yercak3",
           type: "platform-tier",
+          ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
+          ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
+          ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
+          ...(args.funnelCampaign?.campaign ? { utmCampaign: args.funnelCampaign.campaign } : {}),
+          ...(args.funnelCampaign?.content ? { utmContent: args.funnelCampaign.content } : {}),
+          ...(args.funnelCampaign?.term ? { utmTerm: args.funnelCampaign.term } : {}),
+          ...(args.funnelCampaign?.referrer ? { funnelReferrer: args.funnelCampaign.referrer } : {}),
+          ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
         },
       },
     };

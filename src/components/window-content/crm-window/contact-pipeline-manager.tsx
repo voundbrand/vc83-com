@@ -154,18 +154,18 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
   }
 
   return (
-    <div className="border-2 rounded p-3" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
+    <div className="border-2 rounded p-3" style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <TrendingUp size={16} style={{ color: 'var(--win95-highlight)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--win95-highlight)' }}>
+          <TrendingUp size={16} style={{ color: 'var(--tone-accent)' }} />
+          <span className="text-xs font-pixel" style={{ color: 'var(--tone-accent)' }}>
             {t("ui.crm.contact_detail.pipelines_label") || "PIPELINES"}
           </span>
         </div>
         {pipelinesNotIn.length > 0 && !showAddPipeline && (
           <button
             onClick={() => setShowAddPipeline(true)}
-            className="retro-button px-2 py-1 flex items-center gap-1"
+            className="desktop-interior-button px-2 py-1 flex items-center gap-1"
             title="Add to pipeline"
           >
             <Plus size={12} />
@@ -208,7 +208,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
                   <button
                     onClick={() => pipeline?._id && handleRemoveFromPipeline(pipeline._id)}
                     disabled={isRemoving || !pipeline?._id}
-                    className="retro-button px-1.5 py-0.5"
+                    className="desktop-interior-button px-1.5 py-0.5"
                     title="Remove from pipeline"
                     style={{ opacity: isRemoving ? 0.5 : 1 }}
                   >
@@ -218,7 +218,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
 
                 {/* Stage selector */}
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--win95-text)' }}>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.crm.contact_detail.current_stage") || "Current Stage:"}
                   </label>
                   <select
@@ -247,10 +247,10 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
 
       {/* Add to pipeline form */}
       {showAddPipeline && (
-        <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
           <div className="space-y-2">
             <div>
-              <label className="text-xs mb-1 block" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs mb-1 block" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.crm.contact_detail.select_pipeline") || "Select Pipeline:"}
               </label>
               <select
@@ -272,7 +272,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
 
             {selectedNewPipeline && (
               <div>
-                <label className="text-xs mb-1 block" style={{ color: 'var(--win95-text)' }}>
+                <label className="text-xs mb-1 block" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.crm.contact_detail.select_stage") || "Select Stage:"}
                 </label>
                 <select
@@ -294,10 +294,10 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
               <button
                 onClick={handleAddToPipeline}
                 disabled={!selectedNewPipeline || !selectedNewStage || addingToPipeline}
-                className="retro-button px-3 py-1 text-xs flex-1"
+                className="desktop-interior-button px-3 py-1 text-xs flex-1"
                 style={{
-                  background: selectedNewPipeline && selectedNewStage ? 'var(--win95-highlight)' : 'var(--neutral-gray)',
-                  color: 'var(--win95-button-text)',
+                  background: selectedNewPipeline && selectedNewStage ? 'var(--tone-accent)' : 'var(--neutral-gray)',
+                  color: 'var(--window-document-text)',
                   opacity: addingToPipeline ? 0.5 : 1,
                 }}
               >
@@ -316,7 +316,7 @@ export function ContactPipelineManager({ contactId }: ContactPipelineManagerProp
                   setSelectedNewPipeline("");
                   setSelectedNewStage("");
                 }}
-                className="retro-button px-3 py-1 text-xs"
+                className="desktop-interior-button px-3 py-1 text-xs"
               >
                 Cancel
               </button>

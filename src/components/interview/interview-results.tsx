@@ -5,10 +5,13 @@
  *
  * Displays extracted Content DNA after interview completion.
  * Shows data organized by category (voice, expertise, audience, etc.)
+ * and renders trust artifacts used by Brain/Setup/Agents/Admin surfaces.
  */
 
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   User,
@@ -22,6 +25,10 @@ import {
   Copy,
   Check,
   AlertCircle,
+  ShieldCheck,
+  Users2,
+  Activity,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -31,19 +38,138 @@ interface InterviewResultsProps {
   className?: string;
 }
 
+interface TrustArtifactEntry {
+  fieldId: string;
+  label: string;
+  valuePreview: string;
+  phaseId: string;
+  phaseName: string;
+  questionId: string;
+  questionPrompt: string;
+}
+
+interface TrustArtifactCard {
+  cardId: "soul_card" | "guardrails_card" | "team_charter";
+  title: string;
+  summary: string;
+  identityAnchors: TrustArtifactEntry[];
+  guardrails: TrustArtifactEntry[];
+  handoffBoundaries: TrustArtifactEntry[];
+  driftCues: TrustArtifactEntry[];
+}
+
+interface MemoryLedgerArtifactCard {
+  cardId: "memory_ledger";
+  title: string;
+  summary: string;
+  identityAnchors: TrustArtifactEntry[];
+  guardrails: TrustArtifactEntry[];
+  handoffBoundaries: TrustArtifactEntry[];
+  driftCues: TrustArtifactEntry[];
+  consentScope: string;
+  consentDecision: "accepted";
+  consentPromptVersion: string;
+  ledgerEntries: TrustArtifactEntry[];
+}
+
+interface TrustArtifactsBundle {
+  version: string;
+  generatedAt: number;
+  sourceTemplateName: string;
+  soulCard: TrustArtifactCard;
+  guardrailsCard: TrustArtifactCard;
+  teamCharter: TrustArtifactCard;
+  memoryLedger: MemoryLedgerArtifactCard;
+}
+
 const CATEGORY_CONFIG = {
-  voice: { icon: MessageSquare, label: "Voice & Tone", color: "purple" },
-  expertise: { icon: Lightbulb, label: "Expertise", color: "blue" },
-  audience: { icon: Target, label: "Target Audience", color: "green" },
-  content_prefs: { icon: Palette, label: "Content Preferences", color: "orange" },
-  brand: { icon: User, label: "Brand Identity", color: "pink" },
-  goals: { icon: Flag, label: "Goals", color: "yellow" },
+  voice: {
+    icon: MessageSquare,
+    label: "Voice & Tone",
+    headerClass: "bg-purple-900/20",
+    iconClass: "text-purple-400",
+  },
+  expertise: {
+    icon: Lightbulb,
+    label: "Expertise",
+    headerClass: "bg-blue-900/20",
+    iconClass: "text-blue-400",
+  },
+  audience: {
+    icon: Target,
+    label: "Target Audience",
+    headerClass: "bg-green-900/20",
+    iconClass: "text-green-400",
+  },
+  content_prefs: {
+    icon: Palette,
+    label: "Content Preferences",
+    headerClass: "bg-orange-900/20",
+    iconClass: "text-orange-400",
+  },
+  brand: {
+    icon: User,
+    label: "Brand Identity",
+    headerClass: "bg-pink-900/20",
+    iconClass: "text-pink-400",
+  },
+  goals: {
+    icon: Flag,
+    label: "Goals",
+    headerClass: "bg-yellow-900/20",
+    iconClass: "text-yellow-400",
+  },
 } as const;
+
+const TRUST_CARD_CONFIG = {
+  soul_card: { icon: Activity, label: "Soul Card" },
+  guardrails_card: { icon: ShieldCheck, label: "Guardrails Card" },
+  team_charter: { icon: Users2, label: "Team Charter" },
+  memory_ledger: { icon: BookOpen, label: "Memory Ledger" },
+} as const;
+
+function isMemoryLedgerCard(
+  card: TrustArtifactCard | MemoryLedgerArtifactCard,
+): card is MemoryLedgerArtifactCard {
+  return card.cardId === "memory_ledger";
+}
+
+function ArtifactSection({
+  title,
+  entries,
+}: {
+  title: string;
+  entries: TrustArtifactEntry[];
+}) {
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-zinc-500 mb-2">{title}</p>
+      {entries.length === 0 ? (
+        <p className="text-sm text-zinc-500">No entries</p>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((entry) => (
+            <div key={`${entry.phaseId}:${entry.questionId}:${entry.fieldId}`} className="rounded bg-zinc-900/70 p-2">
+              <p className="text-sm text-zinc-200">{entry.valuePreview}</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {entry.phaseName} • {entry.questionId}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function InterviewResults({ contentDNAId, onClose, className = "" }: InterviewResultsProps) {
   const [copied, setCopied] = useState(false);
+  const useQueryAny = useQuery as any;
 
-  const contentDNA = useQuery(api.ontologyHelpers.getObject, { objectId: contentDNAId });
+  const contentDNA = useQueryAny(
+    (api as any).ontologyHelpers.getObject,
+    { objectId: contentDNAId },
+  ) as any;
 
   if (!contentDNA) {
     return (
@@ -67,12 +193,14 @@ export function InterviewResults({ contentDNAId, onClose, className = "" }: Inte
     extractedData: Record<string, unknown>;
     schema?: { fields: Array<{ fieldId: string; category: string; fieldName: string }> };
     extractedAt?: number;
+    sourceTemplateId?: string;
+    trustArtifacts?: TrustArtifactsBundle;
   };
 
   const extractedData = props?.extractedData || {};
   const schema = props?.schema;
+  const trustArtifacts = props?.trustArtifacts;
 
-  // Group data by category
   const categorizedData: Record<string, Array<{ key: string; value: unknown; label: string }>> = {};
 
   if (schema?.fields) {
@@ -84,7 +212,6 @@ export function InterviewResults({ contentDNAId, onClose, className = "" }: Inte
       }
     }
   } else {
-    // Fallback: show all data under "general"
     for (const [key, value] of Object.entries(extractedData)) {
       if (value !== undefined && value !== null && value !== "") {
         if (!categorizedData.general) categorizedData.general = [];
@@ -93,25 +220,42 @@ export function InterviewResults({ contentDNAId, onClose, className = "" }: Inte
     }
   }
 
+  const trustCards: Array<TrustArtifactCard | MemoryLedgerArtifactCard> =
+    trustArtifacts
+      ? [
+          trustArtifacts.soulCard,
+          trustArtifacts.guardrailsCard,
+          trustArtifacts.teamCharter,
+          trustArtifacts.memoryLedger,
+        ]
+      : [];
+
+  const exportPayload = {
+    extractedData,
+    schema: schema || null,
+    sourceTemplateId: props?.sourceTemplateId || null,
+    extractedAt: props?.extractedAt || null,
+    trustArtifacts: trustArtifacts || null,
+  };
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(extractedData, null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(exportPayload, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(extractedData, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `content-dna-${contentDNAId}.json`;
+    a.download = `content-dna-trust-${contentDNAId}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* Header */}
       <div className="p-4 border-b border-zinc-700 bg-zinc-800/50">
         <div className="flex items-center justify-between">
           <div>
@@ -139,22 +283,76 @@ export function InterviewResults({ contentDNAId, onClose, className = "" }: Inte
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {trustArtifacts && (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-800/40 overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-700">
+                <h3 className="font-medium text-zinc-100">Trust Artifacts</h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Version {trustArtifacts.version} • Template: {trustArtifacts.sourceTemplateName}
+                </p>
+              </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {trustCards.map((card) => {
+                  const config = TRUST_CARD_CONFIG[card.cardId];
+                  const Icon = config.icon;
+
+                  return (
+                    <div key={card.cardId} className="rounded-lg border border-zinc-700 bg-zinc-900/40 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-purple-300" />
+                        <h4 className="text-sm font-medium text-zinc-100">{config.label}</h4>
+                      </div>
+                      <p className="text-sm text-zinc-400">{card.summary}</p>
+
+                      <ArtifactSection title="Identity Anchors" entries={card.identityAnchors} />
+                      <ArtifactSection title="Guardrails" entries={card.guardrails} />
+                      <ArtifactSection title="Handoff Boundaries" entries={card.handoffBoundaries} />
+                      <ArtifactSection title="Drift Cues" entries={card.driftCues} />
+
+                      {isMemoryLedgerCard(card) && (
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Ledger Entries</p>
+                          <p className="text-xs text-zinc-500 mb-2">
+                            Consent: {card.consentDecision} ({card.consentScope})
+                          </p>
+                          <div className="space-y-2">
+                            {card.ledgerEntries.slice(0, 8).map((entry) => (
+                              <div
+                                key={`ledger:${entry.phaseId}:${entry.questionId}:${entry.fieldId}`}
+                                className="rounded bg-zinc-900/70 p-2"
+                              >
+                                <p className="text-sm text-zinc-200">{entry.valuePreview}</p>
+                                <p className="text-xs text-zinc-500 mt-1">
+                                  {entry.phaseName} • {entry.questionId}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {Object.entries(categorizedData).map(([category, fields]) => {
             const config = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG] || {
               icon: Lightbulb,
               label: category.replace(/_/g, " "),
-              color: "zinc",
+              headerClass: "bg-zinc-900/20",
+              iconClass: "text-zinc-400",
             };
             const Icon = config.icon;
 
             return (
               <div key={category} className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
-                <div className={`px-4 py-3 bg-${config.color}-900/20 border-b border-zinc-700`}>
+                <div className={`px-4 py-3 ${config.headerClass} border-b border-zinc-700`}>
                   <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 text-${config.color}-400`} />
+                    <Icon className={`w-4 h-4 ${config.iconClass}`} />
                     <h3 className="font-medium text-zinc-200 capitalize">{config.label}</h3>
                     <span className="ml-auto text-xs text-zinc-500">{fields.length} fields</span>
                   </div>
@@ -189,7 +387,6 @@ export function InterviewResults({ contentDNAId, onClose, className = "" }: Inte
         </div>
       </div>
 
-      {/* Footer */}
       {onClose && (
         <div className="p-4 border-t border-zinc-700 bg-zinc-800/50">
           <div className="flex justify-end">

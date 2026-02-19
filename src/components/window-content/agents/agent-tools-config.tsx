@@ -25,7 +25,7 @@ const TOOL_CATEGORIES: Record<string, string> = {
   tag_in_specialist: "Team", list_team_agents: "Team",
   escalate_to_parent: "Coordination", delegate_to_child: "Coordination", share_insight_upward: "Coordination",
   transcribe_audio: "Media", analyze_image: "Media", parse_document: "Media", download_media: "Media",
-  create_client_org: "Agency", list_client_orgs: "Agency", get_client_org_stats: "Agency", deploy_telegram_bot: "Agency",
+  create_client_org: "Scale", list_client_orgs: "Scale", get_client_org_stats: "Scale", deploy_telegram_bot: "Scale",
   propose_soul_update: "Soul", review_own_soul: "Soul", view_pending_proposals: "Soul",
   request_feature: "Meta", check_oauth_connection: "Meta",
   create_web_app: "Builder", deploy_web_app: "Builder", check_deploy_status: "Builder",

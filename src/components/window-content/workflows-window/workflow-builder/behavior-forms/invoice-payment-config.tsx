@@ -29,14 +29,14 @@ export function InvoicePaymentConfigForm({
   };
 
   if (translationsLoading) {
-    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+    return <div className="p-4" style={{ color: "var(--window-document-text)" }}>Loading...</div>;
   }
 
   return (
     <div className="space-y-4">
       {/* Payment Terms */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_payment.payment_terms.title")} <span className="text-red-500">{t("ui.workflows.invoice_payment.payment_terms.required")}</span>
         </label>
 
@@ -116,8 +116,8 @@ export function InvoicePaymentConfigForm({
       </div>
 
       {/* CRM Integration */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_payment.crm.title")}
         </label>
 
@@ -165,8 +165,8 @@ export function InvoicePaymentConfigForm({
       </div>
 
       {/* Invoice Details */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_payment.details.title")}
         </label>
 
@@ -204,8 +204,8 @@ export function InvoicePaymentConfigForm({
       </div>
 
       {/* Email Notifications */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_payment.email.title")}
         </label>
 
@@ -251,8 +251,8 @@ export function InvoicePaymentConfigForm({
       </div>
 
       {/* Payment Instructions */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.invoice_payment.payment_instructions.title")}
         </label>
 

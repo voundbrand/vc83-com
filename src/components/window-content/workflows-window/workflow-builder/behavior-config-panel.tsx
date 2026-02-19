@@ -307,15 +307,15 @@ export function BehaviorConfigPanel({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div
             className="border-2 shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-auto"
-            style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+            style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
           >
             {/* Modal Header */}
-            <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+            <div className="border-b-2 p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.behaviorConfig.addModal.title")}</h3>
+                <h3 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{t("ui.workflows.behaviorConfig.addModal.title")}</h3>
                 <button
                   onClick={() => setShowAddMenu(false)}
-                  className="retro-button p-1 text-xs"
+                  className="desktop-interior-button p-1 text-xs"
                 >
                   
                 </button>
@@ -332,14 +332,14 @@ export function BehaviorConfigPanel({
                   key={behaviorType.type}
                   onClick={() => handleAddBehavior(behaviorType)}
                   className="p-3 text-left border-2 hover:shadow-md transition-all group"
-                  style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}
+                  style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}
                 >
                   <div className="flex items-start gap-2">
-                    <div className="border p-1.5 mt-0.5" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-                      <Zap className="h-4 w-4 group-hover:scale-110 transition-transform" style={{ color: 'var(--win95-highlight)' }} />
+                    <div className="border p-1.5 mt-0.5" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+                      <Zap className="h-4 w-4 group-hover:scale-110 transition-transform" style={{ color: 'var(--tone-accent)' }} />
                     </div>
                     <div className="flex-1">
-                      <div className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                      <div className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                         {t(`ui.workflows.behaviorTypes.${behaviorType.translationKey}.name`)}
                       </div>
                       <div className="text-[10px] leading-relaxed" style={{ color: 'var(--neutral-gray)' }}>
@@ -356,17 +356,17 @@ export function BehaviorConfigPanel({
 
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <div className="border-b-2 p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.workflows.behaviorConfig.title")}</h3>
+              <h3 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>{t("ui.workflows.behaviorConfig.title")}</h3>
               <p className="mt-1 text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
                 {t("ui.workflows.behaviorConfig.description")}
               </p>
             </div>
             <button
               onClick={() => setShowAddMenu(!showAddMenu)}
-              className="retro-button p-1"
+              className="desktop-interior-button p-1"
             >
               <Plus className="h-3 w-3" />
             </button>
@@ -392,16 +392,16 @@ export function BehaviorConfigPanel({
                   <div
                     key={behavior.id}
                     className="border-2 mb-2"
-                    style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+                    style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
                   >
                     <div className="p-2">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 flex-1">
-                          <div className="border p-1" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-                            <Zap className="h-3 w-3" style={{ color: 'var(--win95-highlight)' }} />
+                          <div className="border p-1" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
+                            <Zap className="h-3 w-3" style={{ color: 'var(--tone-accent)' }} />
                           </div>
                           <div className="flex-1">
-                            <div className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                            <div className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                               {getBehaviorName(behavior.type)}
                             </div>
                             <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
@@ -412,14 +412,14 @@ export function BehaviorConfigPanel({
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleEditBehavior(behavior)}
-                            className="retro-button p-1"
+                            className="desktop-interior-button p-1"
                             title="Configure"
                           >
                             <Settings className="h-3 w-3" />
                           </button>
                           <button
                             onClick={() => onRemoveBehavior(behavior.id)}
-                            className="retro-button p-1"
+                            className="desktop-interior-button p-1"
                             title="Remove"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -436,7 +436,7 @@ export function BehaviorConfigPanel({
       </div>
 
         {/* Behavior Count */}
-        <div className="border-t-2 p-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <div className="border-t-2 p-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
           <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.workflows.behaviorConfig.behaviorCount", { count: selectedBehaviors.length })}
           </div>

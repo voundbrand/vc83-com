@@ -122,14 +122,14 @@ export function EmployerDetectionConfigForm({
     <div
       className="space-y-4 p-4 border-2 rounded"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Building2 size={16} />
             Employer Detection
           </h3>
@@ -141,7 +141,7 @@ export function EmployerDetectionConfigForm({
 
       {/* Employer Source Field */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
           Form Field Containing Employer Info
         </label>
         <select
@@ -154,9 +154,9 @@ export function EmployerDetectionConfigForm({
           }
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <option value="">-- Select Field --</option>
@@ -173,10 +173,10 @@ export function EmployerDetectionConfigForm({
 
       {/* Employer Mapping - Only show if field selected */}
       {config.employerSourceField && (
-        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                 Form Value → Organization Mapping
               </label>
             </div>
@@ -211,7 +211,7 @@ export function EmployerDetectionConfigForm({
                 style={{
                   color: "var(--warning)",
                   borderColor: "var(--warning)",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                  No CRM organizations found. Create organizations in the CRM app first to enable mapping.
@@ -221,16 +221,16 @@ export function EmployerDetectionConfigForm({
 
           {/* Behavior Options */}
           <div>
-            <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--window-document-text)" }}>
               Behavior Options
             </label>
 
             <label
               className="flex items-center justify-between p-2 border-2 cursor-pointer hover:bg-gray-50"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div>
-                <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   Auto-fill Billing Address
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -252,10 +252,10 @@ export function EmployerDetectionConfigForm({
 
             <label
               className="flex items-center justify-between p-2 border-2 cursor-pointer hover:bg-gray-50 mt-2"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div>
-                <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   Require Organization
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -277,10 +277,10 @@ export function EmployerDetectionConfigForm({
 
             <label
               className="flex items-center justify-between p-2 border-2 cursor-pointer hover:bg-gray-50 mt-2"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--window-document-border)" }}
             >
               <div>
-                <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                    Skip Payment & Create Tickets Immediately
                 </div>
                 <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -303,7 +303,7 @@ export function EmployerDetectionConfigForm({
 
           {/* Payment Terms */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               Default Payment Terms
             </label>
             <select
@@ -316,9 +316,9 @@ export function EmployerDetectionConfigForm({
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <option value="net30">NET 30 (Due in 30 days)</option>
@@ -336,8 +336,8 @@ export function EmployerDetectionConfigForm({
       <div
         className="p-3 border-2 rounded"
         style={{
-          background: "var(--win95-input-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>

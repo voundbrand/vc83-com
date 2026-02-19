@@ -33,7 +33,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
     planning: "var(--info)",
     active: "var(--success)",
     on_hold: "var(--warning)",
-    completed: "var(--win95-text)",
+    completed: "var(--window-document-text)",
     cancelled: "var(--error)",
   };
 
@@ -70,18 +70,18 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
     <div
       className="border-2 p-4 hover:shadow-md transition-shadow"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Briefcase size={16} style={{ color: "var(--win95-highlight)" }} />
+            <Briefcase size={16} style={{ color: "var(--tone-accent)" }} />
             <h3
               className="text-sm font-bold truncate"
-              style={{ color: "var(--win95-text)" }}
+              style={{ color: "var(--window-document-text)" }}
               title={project.name}
             >
               {project.name}
@@ -100,7 +100,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
           style={{
             borderColor: priorityColors[priority],
             color: priorityColors[priority],
-            background: "var(--win95-bg)",
+            background: "var(--window-document-bg)",
           }}
         >
           {priority.toUpperCase()}
@@ -111,7 +111,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
       {project.description && (
         <p
           className="text-xs mb-3 line-clamp-2"
-          style={{ color: "var(--win95-text)" }}
+          style={{ color: "var(--window-document-text)" }}
         >
           {project.description}
         </p>
@@ -122,7 +122,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
         {/* Type */}
         <div className="flex items-center gap-1.5">
           <Building2 size={12} style={{ color: "var(--neutral-gray)" }} />
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
             {subtypeLabels[project.subtype || "other"]}
           </span>
         </div>
@@ -133,7 +133,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
             className="w-2 h-2 rounded-full"
             style={{ background: statusColors[project.status || "draft"] }}
           />
-          <span className="text-xs capitalize" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs capitalize" style={{ color: "var(--window-document-text)" }}>
             {(project.status || "draft").replace("_", " ")}
           </span>
         </div>
@@ -141,7 +141,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
         {/* Start Date */}
         <div className="flex items-center gap-1.5">
           <Calendar size={12} style={{ color: "var(--neutral-gray)" }} />
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
             {formatDate(startDate)}
           </span>
         </div>
@@ -149,7 +149,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
         {/* Budget */}
         <div className="flex items-center gap-1.5">
           <DollarSign size={12} style={{ color: "var(--neutral-gray)" }} />
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
             {formatBudget(budget)}
           </span>
         </div>
@@ -162,26 +162,26 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
             <TrendingUp size={12} />
             Progress
           </span>
-          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             {progress}%
           </span>
         </div>
         <div
           className="w-full h-2 border"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
         >
           <div
             className="h-full"
             style={{
               width: `${progress}%`,
-              background: "var(--win95-highlight)",
+              background: "var(--tone-accent)",
             }}
           />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--window-document-border)" }}>
         {onView && (
           <button
             onClick={(e) => {
@@ -190,8 +190,8 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
             }}
             className="flex-1 px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 border-2 transition-colors hover:opacity-80"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-highlight)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--tone-accent)",
               color: "white",
             }}
           >
@@ -206,9 +206,9 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
           }}
           className="flex-1 px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 border-2 transition-colors hover:opacity-80"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <Edit size={12} />
@@ -221,8 +221,8 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
           }}
           className="flex-1 px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 border-2 transition-colors hover:opacity-80"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
             color: "var(--error)",
           }}
         >
@@ -233,7 +233,7 @@ export function ProjectCard({ project, onEdit, onArchive, onView }: ProjectCardP
 
       {/* Target End Date (if different from start) */}
       {targetEndDate && targetEndDate !== startDate && (
-        <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
           <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             Target: {formatDate(targetEndDate)}
           </span>

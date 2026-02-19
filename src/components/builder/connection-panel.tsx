@@ -48,7 +48,7 @@ const ItemTypeIcon = ({ type }: { type: DetectedItem["type"] }) => {
   const icons: Record<DetectedItem["type"], React.ReactNode> = {
     product: <Package className="h-4 w-4 text-emerald-400" />,
     event: <Calendar className="h-4 w-4 text-blue-400" />,
-    contact: <User className="h-4 w-4 text-purple-400" />,
+    contact: <User className="h-4 w-4 text-amber-400" />,
     form: <FileText className="h-4 w-4 text-orange-400" />,
     invoice: <Receipt className="h-4 w-4 text-yellow-400" />,
     ticket: <Ticket className="h-4 w-4 text-pink-400" />,
@@ -78,13 +78,13 @@ function ChoiceButton({ active, onClick, icon, label, variant }: ChoiceButtonPro
   const variantClasses = {
     create: active
       ? "bg-emerald-600 text-white"
-      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+      : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200",
     link: active
       ? "bg-blue-600 text-white"
-      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+      : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200",
     skip: active
-      ? "bg-zinc-600 text-white"
-      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200",
+      ? "bg-neutral-600 text-white"
+      : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200",
   };
 
   return (
@@ -121,26 +121,26 @@ function RecordSelector({ matches, selectedId, onSelect, itemType }: RecordSelec
     <div className="relative mt-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-left hover:bg-zinc-750 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-sm text-left hover:bg-neutral-700 transition-colors"
       >
-        <span className={selectedRecord ? "text-zinc-100" : "text-zinc-500"}>
+        <span className={selectedRecord ? "text-neutral-100" : "text-neutral-500"}>
           {selectedRecord ? selectedRecord.name : `Select existing ${itemType}...`}
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-md shadow-lg max-h-48 overflow-hidden">
+        <div className="absolute z-10 mt-1 w-full bg-neutral-900 border border-neutral-700 rounded-md shadow-lg max-h-48 overflow-hidden">
           {/* Search input */}
-          <div className="p-2 border-b border-zinc-700">
+          <div className="p-2 border-b border-neutral-700">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-full pl-7 pr-2 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                className="w-full pl-7 pr-2 py-1.5 text-xs bg-neutral-800 border border-neutral-700 rounded text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
               />
             </div>
           </div>
@@ -148,7 +148,7 @@ function RecordSelector({ matches, selectedId, onSelect, itemType }: RecordSelec
           {/* Options */}
           <div className="max-h-32 overflow-y-auto">
             {filteredMatches.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-zinc-500">No matches found</div>
+              <div className="px-3 py-2 text-xs text-neutral-500">No matches found</div>
             ) : (
               filteredMatches.map((match) => (
                 <button
@@ -157,16 +157,16 @@ function RecordSelector({ matches, selectedId, onSelect, itemType }: RecordSelec
                     onSelect(match.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-800 transition-colors ${selectedId === match.id ? "bg-zinc-800" : ""
+                  className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-neutral-800 transition-colors ${selectedId === match.id ? "bg-neutral-800" : ""
                     }`}
                 >
                   <div>
-                    <div className="text-sm text-zinc-100">{match.name}</div>
+                    <div className="text-sm text-neutral-100">{match.name}</div>
                     {match.isExactMatch && (
                       <div className="text-xs text-emerald-400">Exact match</div>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-neutral-500">
                     {Math.round(match.similarity * 100)}% match
                   </div>
                 </button>
@@ -217,17 +217,17 @@ function DetectedItemRow({ item, sectionId, onChoiceChange }: DetectedItemRowPro
   };
 
   return (
-    <div className="py-3 border-b border-zinc-800 last:border-b-0">
+    <div className="py-3 border-b border-neutral-800 last:border-b-0">
       {/* Item header */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2">
           <ItemTypeIcon type={item.type} />
           <div>
-            <div className="text-sm font-medium text-zinc-100">
+            <div className="text-sm font-medium text-neutral-100">
               {item.placeholderData.name || "Unnamed"}
             </div>
             {item.placeholderData.price && (
-              <div className="text-xs text-zinc-500">{item.placeholderData.price}</div>
+              <div className="text-xs text-neutral-500">{item.placeholderData.price}</div>
             )}
           </div>
         </div>
@@ -281,7 +281,7 @@ function DetectedItemRow({ item, sectionId, onChoiceChange }: DetectedItemRowPro
 
       {/* No matches warning */}
       {item.connectionChoice === "link" && item.existingMatches.length === 0 && (
-        <div className="mt-2 px-3 py-2 bg-zinc-800 rounded-md text-xs text-zinc-400">
+        <div className="mt-2 px-3 py-2 bg-neutral-800 rounded-md text-xs text-neutral-400">
           No existing {item.type}s found. Consider creating a new one instead.
         </div>
       )}
@@ -317,7 +317,7 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
     pricing: "product", products: "product", team: "contact", crm: "contact",
     forms: "form", events: "event", hero: "event", cta: "event",
     invoices: "invoice", tickets: "ticket", bookings: "booking",
-    workflows: "workflow", checkout: "checkout",
+    workflows: "workflow", checkout: "checkout", agent: "agent",
   };
   const itemTypeForSection = sectionTypeToItemType[connection.sectionType] || "form";
 
@@ -336,22 +336,23 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
     bookings: <CalendarCheck className="h-4 w-4" />,
     workflows: <Zap className="h-4 w-4" />,
     checkout: <CreditCard className="h-4 w-4" />,
+    agent: <User className="h-4 w-4" />,
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
       {/* Section header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-850 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-850 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="text-zinc-400">
+          <div className="text-neutral-400">
             {sectionIcons[connection.sectionType] || <Package className="h-4 w-4" />}
           </div>
           <div className="text-left">
-            <div className="text-sm font-medium text-zinc-100">{connection.sectionLabel}</div>
-            <div className="text-xs text-zinc-500">
+            <div className="text-sm font-medium text-neutral-100">{connection.sectionLabel}</div>
+            <div className="text-xs text-neutral-500">
               {connection.detectedItems.length > 0
                 ? `${connection.detectedItems.length} item${connection.detectedItems.length !== 1 ? "s" : ""} detected`
                 : "No items detected"}
@@ -362,21 +363,21 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
         <div className="flex items-center gap-3">
           {/* Progress indicator */}
           <div className="flex items-center gap-2">
-            <div className="w-16 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="w-16 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-500 transition-all"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-neutral-500">
               {completedItems.length}/{connection.detectedItems.length}
             </span>
           </div>
 
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-zinc-500" />
+            <ChevronDown className="h-4 w-4 text-neutral-500" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-zinc-500" />
+            <ChevronRight className="h-4 w-4 text-neutral-500" />
           )}
         </div>
       </button>
@@ -385,11 +386,11 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
       {isExpanded && (
         <div className="px-4 pb-3">
           {connection.detectedItems.length === 0 ? (
-            <div className="text-center py-4 text-zinc-500">
+            <div className="text-center py-4 text-neutral-500">
               <p className="text-sm mb-2">No items auto-detected</p>
               <button
                 onClick={() => addManualConnectionItem(connection.sectionId, itemTypeForSection)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 hover:text-neutral-100 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add manually
@@ -407,7 +408,7 @@ function SectionConnectionCard({ connection, onChoiceChange }: SectionConnection
               ))}
               <button
                 onClick={() => addManualConnectionItem(connection.sectionId, itemTypeForSection)}
-                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
               >
                 <Plus className="h-3 w-3" />
                 Add another
@@ -436,6 +437,8 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
     executeConnections,
     addManualConnectionItem,
     isAnalyzingConnections,
+    generationError,
+    clearError,
     setBuilderMode,
   } = useBuilder();
 
@@ -469,32 +472,32 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-zinc-950">
+    <div className="h-full flex flex-col bg-neutral-950">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-neutral-800">
         <div>
-          <h2 className="text-lg font-semibold text-zinc-100">Connect to Data</h2>
-          <p className="text-xs text-zinc-500">
+          <h2 className="text-lg font-semibold text-neutral-100">Connect to Data</h2>
+          <p className="text-xs text-neutral-500">
             Link your design to real products, events, and contacts
           </p>
         </div>
         <button
           onClick={onClose}
-          className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors"
+          className="p-2 text-neutral-400 hover:text-neutral-200 transition-colors"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-800 bg-neutral-900/50">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-zinc-400">Configuration Progress</span>
-          <span className="text-sm font-medium text-zinc-200">
+          <span className="text-sm text-neutral-400">Configuration Progress</span>
+          <span className="text-sm font-medium text-neutral-200">
             {completedItems} / {totalItems} items
           </span>
         </div>
-        <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
           <div
             className={`h-full transition-all ${allItemsConfigured ? "bg-emerald-500" : "bg-blue-500"
               }`}
@@ -503,14 +506,33 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
         </div>
       </div>
 
+      {generationError && (
+        <div className="mx-4 mt-3 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5 font-medium text-rose-300">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Connect validation issue
+            </div>
+            <button
+              onClick={clearError}
+              className="text-rose-300/80 hover:text-rose-100 transition-colors"
+              aria-label="Dismiss connect error"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap font-sans">{generationError}</pre>
+        </div>
+      )}
+
       {/* Connections list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {pendingConnections.length === 0 ? (
-          <div className="text-center py-8 text-zinc-500">
+          <div className="text-center py-8 text-neutral-500">
             {isAnalyzingConnections ? (
               <>
                 <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
-                <p className="text-zinc-300">Analyzing pages for connections...</p>
+                <p className="text-neutral-300">Analyzing pages for connections...</p>
               </>
             ) : (
               <>
@@ -532,10 +554,10 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
       </div>
 
       {/* Footer actions */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-zinc-800 bg-zinc-900/50">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-neutral-800 bg-neutral-900/50">
         <button
           onClick={handleCancel}
-          className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+          className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
         >
           Cancel
         </button>
@@ -545,7 +567,7 @@ export function ConnectionPanel({ onClose, onComplete }: ConnectionPanelProps) {
           disabled={!allItemsConfigured || isExecuting}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${allItemsConfigured && !isExecuting
               ? "bg-emerald-600 text-white hover:bg-emerald-500"
-              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+              : "bg-neutral-800 text-neutral-500 cursor-not-allowed"
             }`}
         >
           {isExecuting ? (

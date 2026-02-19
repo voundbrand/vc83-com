@@ -226,7 +226,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
         <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={() => setShowDeleteDialog(true)}
-            className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
             style={{ background: 'var(--win95-error-bg)', color: 'white' }}
           >
             <Trash2 size={14} /> Archive
@@ -256,14 +256,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
             <div className="flex gap-2">
               <button
                 onClick={handleArchive}
-                className="retro-button px-4 py-2 text-xs flex-1"
+                className="desktop-interior-button px-4 py-2 text-xs flex-1"
                 style={{ background: 'var(--win95-error-bg)', color: 'white' }}
               >
                 Archive Location
               </button>
               <button
                 onClick={() => setShowDeleteDialog(false)}
-                className="retro-button px-4 py-2 text-xs"
+                className="desktop-interior-button px-4 py-2 text-xs"
                 style={{ background: 'var(--win95-button-face)' }}
               >
                 Cancel

@@ -58,6 +58,16 @@ export const apps = defineTable({
     v.literal("rejected"),
     v.literal("active")  // For system/built-in apps
   ),
+
+  // Rollout stage badges shown in Product OS surfaces
+  releaseStage: v.optional(
+    v.union(
+      v.literal("none"),
+      v.literal("new"),
+      v.literal("beta"),
+      v.literal("wip")
+    )
+  ),
   
   // Pricing
   price: v.optional(v.number()),

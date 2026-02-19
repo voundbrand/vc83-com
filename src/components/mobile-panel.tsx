@@ -23,7 +23,7 @@ export function MobilePanel({ windowType, title, children, className = "" }: Mob
       bottom: 'var(--taskbar-height, 48px)' // Reserve space for taskbar, default 48px if not set
     }}>
       {/* Mobile Title Bar */}
-      <div className="flex items-center justify-between px-4 h-12" style={{ background: 'var(--win95-titlebar)', color: 'var(--win95-titlebar-text)' }}>
+      <div className="flex items-center justify-between px-4 h-12" style={{ background: 'var(--shell-titlebar-gradient)', color: 'var(--shell-titlebar-text)' }}>
         <h2 className="font-pixel-retro text-sm">{title}</h2>
         <button
           onClick={handleClose}
@@ -35,7 +35,7 @@ export function MobilePanel({ windowType, title, children, className = "" }: Mob
       </div>
 
       {/* Mobile Content */}
-      <div className={`flex-1 overflow-y-auto ${className}`} style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
+      <div className={`flex-1 overflow-y-auto ${className}`} style={{ background: 'var(--shell-surface)', color: 'var(--shell-text)' }}>
         {children}
       </div>
     </div>

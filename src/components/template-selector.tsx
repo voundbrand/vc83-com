@@ -108,7 +108,7 @@ export function TemplateSelector({
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
             <FileText size={14} className="inline mr-1" />
             {label}
             {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -127,7 +127,7 @@ export function TemplateSelector({
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
             <FileText size={14} className="inline mr-1" />
             {label}
             {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -161,7 +161,7 @@ export function TemplateSelector({
   return (
     <div className="mb-4">
       {label && (
-        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
           <FileText size={14} className="inline mr-1" />
           {label}
           {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -196,7 +196,7 @@ export function TemplateSelector({
 
       {/* Show selected template info */}
       {value && templates && (
-        <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
+        <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
           {(() => {
             const selected = templates.find((t: {_id: string}) => t._id === value) as {
               _id: string;
@@ -221,7 +221,7 @@ export function TemplateSelector({
                 <div className="mt-1 font-mono text-xs opacity-75">
                   Code: {selected.templateCode} | v{selected.version}
                   {selected.isSchemaTemplate && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'color-mix(in srgb, var(--win95-gradient-end) 20%, transparent)', color: 'var(--win95-gradient-end)' }}>
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'color-mix(in srgb, var(--primary-gradient-end) 20%, transparent)', color: 'var(--primary-gradient-end)' }}>
                       Schema-driven
                     </span>
                   )}

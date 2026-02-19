@@ -133,12 +133,12 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
             onClick={onClose}
             className="p-0.5 hover:opacity-80"
             style={{
-              backgroundColor: "var(--win95-button-face)",
+              backgroundColor: "var(--window-document-bg)",
               border: "1px solid",
-              borderColor: "var(--win95-button-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
@@ -184,7 +184,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="email"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Mail size={14} className="inline mr-1" />
                   {t("ui.manage.invite.email_address")}
@@ -197,10 +197,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   required
                   className="w-full px-2 py-1 text-sm"
                   style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                   }}
                   placeholder="user@example.com"
                 />
@@ -211,7 +211,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="firstName"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.first_name")}
                 </label>
@@ -222,10 +222,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-2 py-1 text-sm"
                   style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                   }}
                   placeholder="John"
                 />
@@ -236,7 +236,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="lastName"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.last_name")}
                 </label>
@@ -247,10 +247,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-2 py-1 text-sm"
                   style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                   }}
                   placeholder="Doe"
                 />
@@ -261,7 +261,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="role"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Shield size={14} className="inline mr-1" />
                   {t("ui.manage.users.role")}
@@ -273,10 +273,10 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   required
                   className="w-full px-2 py-1 text-sm"
                   style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                   }}
                 >
                   <option value="">{t("ui.manage.invite.select_role")}</option>
@@ -304,7 +304,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="sendEmail"
                   className="text-sm cursor-pointer"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Mail size={14} className="inline mr-1" />
                   {t("ui.manage.invite.send_email")}
@@ -319,8 +319,8 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   disabled={isSubmitting}
                   className="beveled-button px-4 py-1.5 text-sm font-semibold"
                   style={{
-                    backgroundColor: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   {t("ui.manage.org.cancel")}

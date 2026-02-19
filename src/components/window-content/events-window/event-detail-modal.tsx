@@ -143,11 +143,11 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   };
 
   const handleViewTicketDetail = (ticketId: Id<"objects">) => {
-    // Open the tickets window focused on this specific ticket
+    // Open the tickets window pre-focused on this specific ticket detail
     openWindow(
       `ticket-detail-${ticketId}`,
       t("ui.events.detail.button.ticket_details"),
-      <TicketsWindow initialEventId={event._id} />,
+      <TicketsWindow initialEventId={event._id} initialTicketId={ticketId} />,
       undefined,
       { width: 1000, height: 700 }
     );

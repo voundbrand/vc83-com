@@ -100,9 +100,9 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
         disabled={disabled}
         className="w-full px-3 py-2 text-sm border-2 disabled:opacity-50"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
+          color: 'var(--window-document-text)',
         }}
       />
 
@@ -111,18 +111,18 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
         <div
           className="flex items-center gap-3 p-3 border-2 rounded"
           style={{
-            borderColor: 'var(--win95-highlight)',
-            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--tone-accent)',
+            background: 'var(--window-document-bg-elevated)',
           }}
         >
           <div
             className="text-2xl w-10 h-10 flex items-center justify-center rounded"
-            style={{ background: 'var(--win95-bg)', color: 'var(--win95-highlight)' }}
+            style={{ background: 'var(--window-document-bg)', color: 'var(--tone-accent)' }}
           >
             <i className={selectedIcon} />
           </div>
           <div>
-            <div className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+            <div className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
               Selected Icon
             </div>
             <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -136,8 +136,8 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
       <div
         className="border-2 rounded max-h-64 overflow-y-auto"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
       >
         {hasResults ? (
@@ -151,9 +151,9 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
                 disabled={disabled}
                 className="w-full px-3 py-2 flex items-center justify-between text-xs font-bold border-b disabled:opacity-50"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)',
                 }}
               >
                 <span>{category}</span>
@@ -170,13 +170,13 @@ export function FAIconPicker({ selectedIcon, onSelect, disabled }: FAIconPickerP
                       disabled={disabled}
                       className="p-2 rounded flex flex-col items-center gap-1 transition-colors disabled:opacity-50"
                       style={{
-                        background: selectedIcon === icon.class ? 'var(--win95-highlight)' : 'transparent',
-                        color: selectedIcon === icon.class ? '#ffffff' : 'var(--win95-text)',
+                        background: selectedIcon === icon.class ? 'var(--tone-accent)' : 'transparent',
+                        color: selectedIcon === icon.class ? '#ffffff' : 'var(--window-document-text)',
                       }}
                       title={icon.name}
                       onMouseEnter={(e) => {
                         if (selectedIcon !== icon.class && !disabled) {
-                          e.currentTarget.style.background = 'var(--win95-bg-light)';
+                          e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                         }
                       }}
                       onMouseLeave={(e) => {

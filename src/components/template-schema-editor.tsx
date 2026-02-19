@@ -342,9 +342,9 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
               onClick={onClose}
               className="mt-3 px-3 py-1.5 text-xs font-bold border-2"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-button-surface)',
+                color: 'var(--shell-text)',
               }}
             >
               Go Back
@@ -361,12 +361,12 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
       <div
         className="flex items-center justify-between p-4 border-b-2"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         <div>
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
             Template Schema Editor
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -378,7 +378,7 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
             onClick={onClose}
             className="transition-colors"
             style={{ color: "var(--neutral-gray)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--win95-text)")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--shell-text)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--neutral-gray)")}
           >
             <X size={24} />
@@ -390,20 +390,20 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
       <div
         className="flex items-center gap-2 p-3 border-b-2"
         style={{
-          backgroundColor: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--shell-surface-elevated)",
+          borderColor: "var(--shell-border)",
         }}
       >
         <button
           onClick={handleFormat}
           className="px-3 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-text)",
+            backgroundColor: "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
+            color: "var(--shell-text)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg-dark)")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg)")}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface-strong)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface)")}
         >
           <Code size={14} />
           Format
@@ -413,12 +413,12 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
           onClick={handleValidate}
           className="px-3 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-text)",
+            backgroundColor: "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
+            color: "var(--shell-text)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg-dark)")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg)")}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface-strong)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface)")}
         >
           <CheckCircle size={14} />
           Validate
@@ -428,12 +428,12 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
           onClick={handleCopy}
           className="px-3 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-text)",
+            backgroundColor: "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
+            color: "var(--shell-text)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg-dark)")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg)")}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface-strong)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface)")}
         >
           <Copy size={14} />
           Copy
@@ -444,15 +444,15 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
           disabled={!isDirty}
           className="px-3 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: isDirty ? "var(--win95-text)" : "var(--neutral-gray)",
+            backgroundColor: "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
+            color: isDirty ? "var(--shell-text)" : "var(--neutral-gray)",
             cursor: isDirty ? "pointer" : "not-allowed",
           }}
           onMouseEnter={(e) =>
-            isDirty && (e.currentTarget.style.backgroundColor = "var(--win95-bg-dark)")
+            isDirty && (e.currentTarget.style.backgroundColor = "var(--shell-surface-strong)")
           }
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--win95-bg)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--shell-surface)")}
         >
           <RefreshCw size={14} />
           Reset
@@ -462,15 +462,15 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
           onClick={() => setShowPreview(!showPreview)}
           className="px-3 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: showPreview ? "var(--win95-highlight)" : "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            color: showPreview ? "white" : "var(--win95-text)",
+            backgroundColor: showPreview ? "var(--shell-accent)" : "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
+            color: showPreview ? "white" : "var(--shell-text)",
           }}
           onMouseEnter={(e) =>
-            !showPreview && (e.currentTarget.style.backgroundColor = "var(--win95-bg-dark)")
+            !showPreview && (e.currentTarget.style.backgroundColor = "var(--shell-surface-strong)")
           }
           onMouseLeave={(e) =>
-            !showPreview && (e.currentTarget.style.backgroundColor = "var(--win95-bg)")
+            !showPreview && (e.currentTarget.style.backgroundColor = "var(--shell-surface)")
           }
         >
           <Eye size={14} />
@@ -484,8 +484,8 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
           disabled={!isDirty || isSaving}
           className="px-4 py-1.5 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            backgroundColor: isDirty && !isSaving ? "var(--win95-highlight)" : "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
+            backgroundColor: isDirty && !isSaving ? "var(--shell-accent)" : "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
             color: isDirty && !isSaving ? "white" : "var(--neutral-gray)",
             cursor: isDirty && !isSaving ? "pointer" : "not-allowed",
           }}
@@ -497,7 +497,7 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
 
       {/* Status messages */}
       {(error || success) && (
-        <div className="p-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="p-3 border-b-2" style={{ borderColor: "var(--shell-border)" }}>
           {error && (
             <div
               className="flex items-start gap-2 p-3 border-2"
@@ -537,13 +537,13 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
       {/* Main content area */}
       <div className="flex flex-1 overflow-hidden">
         {/* JSON Editor */}
-        <div className={`flex flex-col ${showPreview ? "w-1/2" : "w-full"} border-r-2`} style={{ borderColor: "var(--win95-border)" }}>
+        <div className={`flex flex-col ${showPreview ? "w-1/2" : "w-full"} border-r-2`} style={{ borderColor: "var(--shell-border)" }}>
           <div
             className="p-2 border-b-2 text-xs font-bold"
             style={{
-              backgroundColor: "var(--win95-bg-light)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--shell-surface-elevated)",
+              borderColor: "var(--shell-border)",
+              color: "var(--shell-text)",
             }}
           >
             <FileJson size={14} className="inline mr-1" />
@@ -554,8 +554,8 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
             onChange={(e) => setSchemaJson(e.target.value)}
             className="flex-1 p-4 font-mono text-xs resize-none focus:outline-none"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--shell-input-surface)",
+              color: "var(--shell-text)",
               fontFamily: "Monaco, Courier, monospace",
               lineHeight: "1.5",
             }}
@@ -569,9 +569,9 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
             <div
               className="p-2 border-b-2 text-xs font-bold"
               style={{
-                backgroundColor: "var(--win95-bg-light)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--shell-surface-elevated)",
+                borderColor: "var(--shell-border)",
+                color: "var(--shell-text)",
               }}
             >
               <Eye size={14} className="inline mr-1" />
@@ -598,7 +598,7 @@ export function TemplateSchemaEditor({ templateId, onClose }: TemplateSchemaEdit
                     style={{
                       width: '100%',
                       height: '800px',
-                      border: '2px solid var(--win95-border)',
+                      border: '2px solid var(--shell-border)',
                       background: 'white',
                     }}
                   />

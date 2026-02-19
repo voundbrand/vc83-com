@@ -32,15 +32,15 @@ export function ContactCard({ contact }: ContactCardProps) {
       ref={setNodeRef}
       style={{
         ...style,
-        background: 'var(--win95-bg)',
-        borderColor: 'var(--win95-border)'
+        background: 'var(--window-document-bg)',
+        borderColor: 'var(--window-document-border)'
       }}
       {...listeners}
       {...attributes}
       className="p-3 border-2 cursor-move hover:shadow-md transition-shadow"
     >
       {/* Name */}
-      <div className="font-semibold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="font-semibold text-sm mb-2" style={{ color: 'var(--window-document-text)' }}>
         {fullName}
       </div>
 
@@ -76,9 +76,9 @@ export function ContactCard({ contact }: ContactCardProps) {
               key={idx}
               className="px-1.5 py-0.5 text-[10px] border"
               style={{
-                background: 'var(--win95-bg-light)',
-                borderColor: 'var(--win95-border)',
-                color: 'var(--win95-highlight)'
+                background: 'var(--window-document-bg-elevated)',
+                borderColor: 'var(--window-document-border)',
+                color: 'var(--tone-accent)'
               }}
             >
               {tag}

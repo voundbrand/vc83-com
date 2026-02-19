@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation with large integration modules
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -136,16 +136,16 @@ export function V0Settings({ onBack }: V0SettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -153,7 +153,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
           <div className="flex items-center gap-2">
             <Sparkles size={24} style={{ color: "#000000" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 v0 by Vercel
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -168,9 +168,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
           {isLoading ? (
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading settings...
               </p>
@@ -181,7 +181,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
               {/* Status */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
@@ -190,7 +190,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     API Key
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -202,9 +202,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
               {/* Available Features */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Available Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -230,9 +230,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
               {/* Update API Key */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Update API Key
                 </p>
                 <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
@@ -246,9 +246,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                     placeholder="New v0 API key"
                     className="w-full px-2 py-1 border-2 text-xs pr-8"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                   <button
@@ -260,7 +260,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                     {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-                <RetroButton
+                <InteriorButton
                   onClick={handleUpdateKey}
                   disabled={isSaving || !apiKey.trim()}
                   className="w-full"
@@ -273,23 +273,23 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                   ) : (
                     "Update Key"
                   )}
-                </RetroButton>
+                </InteriorButton>
               </div>
 
               {/* Actions */}
-              <RetroButton variant="secondary" onClick={handleDisconnect} className="w-full">
+              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Disable v0 Integration
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : (
             /* Not Connected State */
             <div className="space-y-4">
               <div
                 className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <Sparkles size={48} className="mx-auto mb-4" style={{ color: "#000000" }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Not Configured
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -300,9 +300,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
               {/* Features */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -328,9 +328,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
               {/* Connection Form */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Enter your v0 API key
                 </p>
 
@@ -350,7 +350,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                 <div>
                   <label
                     className="text-xs font-bold block mb-1"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     API Key
                   </label>
@@ -365,9 +365,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                       placeholder="v0_..."
                       className="w-full px-2 py-1 border-2 text-xs pr-8"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                     <button
@@ -391,14 +391,14 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs flex items-center gap-1 hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
                 v0 documentation
               </a>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isSaving || !user}
                 className="w-full"
@@ -414,7 +414,7 @@ export function V0Settings({ onBack }: V0SettingsProps) {
                     Enable v0 Integration
                   </>
                 )}
-              </RetroButton>
+              </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>

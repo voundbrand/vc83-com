@@ -57,9 +57,9 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     disabled={disabled}
     className={`p-1.5 border-2 ${isActive ? 'shadow-inner' : ''} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
     style={{
-      borderColor: "var(--win95-border)",
-      background: isActive ? "var(--win95-border)" : "var(--win95-button-face)",
-      color: "var(--win95-text)",
+      borderColor: "var(--shell-border)",
+      background: isActive ? "var(--shell-border)" : "var(--shell-button-surface)",
+      color: "var(--shell-text)",
       cursor: disabled ? "not-allowed" : "pointer",
     }}
     title={title}
@@ -69,7 +69,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
 );
 
 const Divider: React.FC = () => (
-  <div className="w-px h-6 mx-1" style={{ background: "var(--win95-border)" }} />
+  <div className="w-px h-6 mx-1" style={{ background: "var(--shell-border)" }} />
 );
 
 /**
@@ -118,8 +118,8 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, isCodeView, onCodeViewToggle 
     <div
       className="border-b-2 p-1 flex flex-wrap gap-1"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-button-face)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-button-surface)",
       }}
     >
       {/* Text formatting */}
@@ -364,8 +364,8 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
     <div
       className="border-2 overflow-hidden"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-input-bg)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-input-surface)",
       }}
     >
       {/* Toolbar */}
@@ -386,15 +386,15 @@ const SimpleTiptapEditor: React.FC<SimpleTiptapEditorProps> = ({
           className="w-full p-3 font-mono text-sm border-0 focus:outline-none"
           style={{
             minHeight,
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
             fontFamily: 'monospace',
             resize: 'vertical'
           }}
           placeholder="Enter HTML code here..."
         />
       ) : (
-        <div style={{ background: "var(--win95-input-bg)", color: "var(--win95-input-text)" }}>
+        <div style={{ background: "var(--shell-input-surface)", color: "var(--shell-input-text)" }}>
           <EditorContent editor={editor} placeholder={placeholder} />
         </div>
       )}

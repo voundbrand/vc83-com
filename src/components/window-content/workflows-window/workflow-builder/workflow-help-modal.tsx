@@ -19,17 +19,17 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
       <div
         className="max-w-3xl w-full max-h-[90vh] overflow-auto border-4 shadow-2xl"
-        style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+        style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
       >
         {/* Header */}
-        <div className="border-b-2 p-4 flex items-center justify-between" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-highlight)' }}>
+        <div className="border-b-2 p-4 flex items-center justify-between" style={{ borderColor: 'var(--window-document-border)', background: 'var(--tone-accent)' }}>
           <div className="flex items-center gap-2">
             <HelpCircle className="h-5 w-5 text-white" />
             <h2 className="text-sm font-bold text-white">How to Build Workflows</h2>
           </div>
           <button
             onClick={onClose}
-            className="retro-button p-1 hover:bg-red-500 hover:text-white"
+            className="desktop-interior-button p-1 hover:bg-red-500 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
@@ -39,7 +39,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
         <div className="p-6 space-y-6">
           {/* Overview */}
           <section>
-            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                What is a Workflow?
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -50,19 +50,19 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
           </section>
 
           {/* Step-by-Step Guide */}
-          <section className="border-2 p-4 rounded" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-            <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+          <section className="border-2 p-4 rounded" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
+            <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
                Step-by-Step Guide
             </h3>
 
             <div className="space-y-4">
               {/* Step 1 */}
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--win95-highlight)' }}>
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--tone-accent)' }}>
                   1
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Add Objects (Left Panel)
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -81,11 +81,11 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
 
               {/* Step 2 */}
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--win95-highlight)' }}>
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--tone-accent)' }}>
                   2
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Watch Arrows Auto-Connect
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -106,18 +106,18 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
 
               {/* Step 3 */}
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--win95-highlight)' }}>
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--tone-accent)' }}>
                   3
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Add Behaviors (Right Panel)
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
                     Behaviors add intelligence to your workflow. Each behavior works with specific objects:
                   </p>
                   <div className="space-y-2">
-                    <div className="p-2 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                    <div className="p-2 rounded border" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
                       <div className="font-bold text-xs mb-1" style={{ color: '#059669' }}> Form Linking</div>
                       <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
                         <strong>What it does:</strong> Shows a form during checkout<br/>
@@ -126,7 +126,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
                       </div>
                     </div>
 
-                    <div className="p-2 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                    <div className="p-2 rounded border" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
                       <div className="font-bold text-xs mb-1" style={{ color: '#dc2626' }}> Add-on Calculation</div>
                       <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
                         <strong>What it does:</strong> Adds extra items based on form responses<br/>
@@ -135,7 +135,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
                       </div>
                     </div>
 
-                    <div className="p-2 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                    <div className="p-2 rounded border" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
                       <div className="font-bold text-xs mb-1" style={{ color: '#f59e0b' }}> Employer Detection</div>
                       <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
                         <strong>What it does:</strong> Auto-fills billing from CRM<br/>
@@ -144,7 +144,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
                       </div>
                     </div>
 
-                    <div className="p-2 rounded border" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+                    <div className="p-2 rounded border" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
                       <div className="font-bold text-xs mb-1" style={{ color: '#8b5cf6' }}> Invoice Mapping</div>
                       <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
                         <strong>What it does:</strong> Creates B2B invoices<br/>
@@ -158,11 +158,11 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
 
               {/* Step 4 */}
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--win95-highlight)' }}>
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white" style={{ background: 'var(--tone-accent)' }}>
                   4
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Configure Each Behavior
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -182,7 +182,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
                   <CheckCircle className="h-4 w-4" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Save and Activate
                   </h4>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -233,7 +233,7 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
 
           {/* Common Issues */}
           <section>
-            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                Common Issues
             </h3>
             <div className="space-y-2 text-xs">
@@ -254,10 +254,10 @@ export function WorkflowHelpModal({ onClose }: WorkflowHelpModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="border-t-2 p-4 flex justify-end" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="border-t-2 p-4 flex justify-end" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={onClose}
-            className="retro-button px-4 py-2 text-xs font-bold"
+            className="desktop-interior-button px-4 py-2 text-xs font-bold"
           >
             Got it! Let's build
           </button>

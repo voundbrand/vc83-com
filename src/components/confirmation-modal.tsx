@@ -60,7 +60,7 @@ export function ConfirmationModal({
         className="border-2 max-w-md w-full mx-4"
         style={{
           background: "var(--modal-bg)",
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--shell-border)",
           boxShadow: "var(--modal-shadow)",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -69,19 +69,19 @@ export function ConfirmationModal({
         <div
           className="px-2 py-1 flex items-center justify-between border-b-2"
           style={{
-            background: "var(--win95-titlebar)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-titlebar-gradient)",
+            borderColor: "var(--shell-border)",
           }}
         >
           <div className="flex items-center gap-2">
             <div
               className="w-4 h-4 border"
               style={{
-                background: "var(--win95-window-icon-bg)",
-                borderColor: "var(--win95-window-icon-border)",
+                background: "var(--shell-window-icon-bg)",
+                borderColor: "var(--shell-window-icon-border)",
               }}
             />
-            <span className="text-xs font-bold" style={{ color: "var(--win95-titlebar-text)" }}>
+            <span className="text-xs font-bold" style={{ color: "var(--shell-titlebar-text)" }}>
               {title}
             </span>
           </div>
@@ -89,10 +89,10 @@ export function ConfirmationModal({
             onClick={onClose}
             className="beveled-button w-5 h-5 flex items-center justify-center hover:opacity-80"
             style={{
-              background: "var(--win95-button-face)",
+              background: "var(--shell-button-surface)",
             }}
           >
-            <X size={12} style={{ color: "var(--win95-text)" }} />
+            <X size={12} style={{ color: "var(--shell-text)" }} />
           </button>
         </div>
 
@@ -103,7 +103,7 @@ export function ConfirmationModal({
               <AlertTriangle size={32} style={{ color: iconColor }} />
             </div>
             <div className="flex-1">
-              <p className="text-sm whitespace-pre-line" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm whitespace-pre-line" style={{ color: "var(--shell-text)" }}>
                 {message}
               </p>
             </div>
@@ -117,8 +117,8 @@ export function ConfirmationModal({
             disabled={isLoading}
             className="beveled-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             {cancelText}

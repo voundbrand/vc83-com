@@ -35,8 +35,8 @@ export function StripePaymentConfigForm({
   return (
     <div className="space-y-4">
       {/* Stripe Elements Styling */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
            Stripe Elements Styling
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -104,8 +104,8 @@ export function StripePaymentConfigForm({
       </div>
 
       {/* Payment Intent Options */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
            Payment Intent Options
         </label>
 
@@ -154,8 +154,8 @@ export function StripePaymentConfigForm({
       </div>
 
       {/* Billing Details Collection */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
            Billing Details to Collect
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -206,8 +206,8 @@ export function StripePaymentConfigForm({
       </div>
 
       {/* Error Handling */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
            Error Handling
         </label>
 
@@ -242,8 +242,8 @@ export function StripePaymentConfigForm({
       </div>
 
       {/* Custom Metadata */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
            Custom Metadata (Optional)
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>

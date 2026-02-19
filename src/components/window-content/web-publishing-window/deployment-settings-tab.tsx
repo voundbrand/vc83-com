@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Settings, Github, ExternalLink, Key, Copy, Plus, History, Save, Edit2, Sparkles } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -144,7 +144,7 @@ export function DeploymentSettingsTab({
     <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
           <Settings size={16} />
           Settings: {deployment.name}
         </h3>
@@ -157,18 +157,18 @@ export function DeploymentSettingsTab({
       <div
         className="border-2 p-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
-        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--window-document-text)' }}>
           <Github size={16} />
           GitHub Configuration
         </h4>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-bold block mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="text-xs font-bold block mb-1" style={{ color: 'var(--window-document-text)' }}>
               Repository URL
             </label>
             <input
@@ -178,9 +178,9 @@ export function DeploymentSettingsTab({
               placeholder="https://github.com/username/repo"
               className="w-full px-2 py-1 text-xs border-2"
               style={{
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
                 background: 'white',
-                color: 'var(--win95-text)'
+                color: 'var(--window-document-text)'
               }}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -190,7 +190,7 @@ export function DeploymentSettingsTab({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Branch
               </label>
               <input
@@ -199,14 +199,14 @@ export function DeploymentSettingsTab({
                 readOnly
                 className="w-full px-2 py-1 text-xs border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
                   color: 'var(--neutral-gray)'
                 }}
               />
             </div>
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs font-bold block mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Directory
               </label>
               <input
@@ -215,15 +215,15 @@ export function DeploymentSettingsTab({
                 readOnly
                 className="w-full px-2 py-1 text-xs border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
                   color: 'var(--neutral-gray)'
                 }}
               />
             </div>
           </div>
 
-          <RetroButton
+          <InteriorButton
             onClick={handleSave}
             variant="primary"
             size="sm"
@@ -232,7 +232,7 @@ export function DeploymentSettingsTab({
           >
             <Save size={14} />
             {isSaving ? "Saving..." : "Save Changes"}
-          </RetroButton>
+          </InteriorButton>
         </div>
       </div>
 
@@ -240,25 +240,25 @@ export function DeploymentSettingsTab({
       <div
         className="border-2 p-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
-        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--window-document-text)' }}>
           <ExternalLink size={16} />
           Deployment Target
         </h4>
 
         <div className="space-y-2 text-xs">
-          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
             <span style={{ color: 'var(--neutral-gray)' }}>Provider:</span>
-            <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+            <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
               {deployment.provider === 'vercel' ? 'Vercel' : deployment.provider}
             </span>
           </div>
-          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
             <span style={{ color: 'var(--neutral-gray)' }}>Environment:</span>
-            <span className="font-bold" style={{ color: 'var(--win95-text)' }}>Production</span>
+            <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>Production</span>
           </div>
           {deployment.deployedUrl && (
             <div className="flex items-center justify-between py-2">
@@ -268,7 +268,7 @@ export function DeploymentSettingsTab({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono hover:underline"
-                style={{ color: 'var(--win95-highlight)' }}
+                style={{ color: 'var(--tone-accent)' }}
               >
                 {deployment.deployedUrl}
               </a>
@@ -281,17 +281,17 @@ export function DeploymentSettingsTab({
       <div
         className="border-2 p-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Key size={16} />
             Environment Variables ({envVars && Array.isArray(envVars) ? envVars.length : 0})
           </h4>
           <div className="flex items-center gap-2">
-            <RetroButton
+            <InteriorButton
               onClick={handleAutoDetectEnvVars}
               variant="outline"
               size="sm"
@@ -301,8 +301,8 @@ export function DeploymentSettingsTab({
             >
               <Sparkles size={14} />
               {isAutoDetecting ? "Detecting..." : "Auto-Detect"}
-            </RetroButton>
-            <RetroButton
+            </InteriorButton>
+            <InteriorButton
               onClick={onOpenEnvVarsModal}
               variant="secondary"
               size="sm"
@@ -310,7 +310,7 @@ export function DeploymentSettingsTab({
             >
               <Plus size={14} />
               Add Variable
-            </RetroButton>
+            </InteriorButton>
           </div>
         </div>
 
@@ -327,13 +327,13 @@ export function DeploymentSettingsTab({
                 key={envVar._id}
                 className="flex items-center justify-between p-2 border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                   background: 'white'
                 }}
               >
                 <div className="flex-1 font-mono text-xs overflow-hidden">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
                       {envVar.key}
                     </span>
                     {envVar.required && (
@@ -362,16 +362,16 @@ export function DeploymentSettingsTab({
                     onClick={onOpenEnvVarsModal}
                     className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)',
-                      color: 'var(--win95-highlight)'
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg-elevated)',
+                      color: 'var(--tone-accent)'
                     }}
                     title="Edit environment variables"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-bg-light)';
+                      e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                     }}
                   >
                     <Edit2 size={12} />
@@ -385,16 +385,16 @@ export function DeploymentSettingsTab({
                     }}
                     className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)',
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg-elevated)',
                       color: 'var(--info)'
                     }}
                     title={`Copy ${envVar.key}`}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-bg-light)';
+                      e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                     }}
                   >
                     <Copy size={12} />
@@ -411,11 +411,11 @@ export function DeploymentSettingsTab({
       <div
         className="border-2 p-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
-        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="text-sm font-bold flex items-center gap-2 mb-3" style={{ color: 'var(--window-document-text)' }}>
           <History size={16} />
           Recent Deployments
         </h4>

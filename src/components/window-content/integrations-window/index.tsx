@@ -2,7 +2,9 @@
 
 import React, { useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2, Plus, ShoppingBag, Sparkles, Lock, X, LogIn, Building, ArrowLeft, Maximize2 } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +16,7 @@ import { ApiKeysPanel } from "./api-keys-panel";
 import { ActiveCampaignSettings } from "./activecampaign-settings";
 import { TelegramSettings } from "./telegram-settings";
 import { GoogleSettings } from "./google-settings";
+import { SlackSettings } from "./slack-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -114,7 +117,7 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
       light: "/integrations-logos/slack-light.svg",
       dark: "/integrations-logos/slack-dark.svg",
     },
-    status: "coming_soon",
+    status: "available",
     type: "builtin",
     // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
     accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
@@ -247,8 +250,8 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -256,8 +259,8 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            background: 'var(--win95-titlebar)',
-            color: 'var(--win95-titlebar-text)',
+            background: 'var(--window-titlebar-bg)',
+            color: 'var(--window-document-text)',
           }}
         >
           <span className="text-sm font-bold flex items-center gap-2">
@@ -283,7 +286,7 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
             }}
           >
             <Lock size={40} className="mx-auto mb-3" style={{ color: 'var(--warning)' }} />
-            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
               {feature}
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -295,11 +298,11 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
           <div
             className="p-3 border-2 rounded mb-4"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
             }}
           >
-            <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
               This feature requires <strong>{requiredTier}</strong> or higher.
             </p>
             <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -310,20 +313,20 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
           {/* Benefits */}
           <div className="mb-4 space-y-2">
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Connect up to 5 platform integrations (Microsoft, Google, Slack, Zapier, Make)
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Sync email, calendar, and automate workflows
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Create up to 2 custom OAuth apps for external services
               </span>
             </div>
@@ -333,17 +336,17 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
           <div className="flex gap-2">
             <button
               onClick={handleUpgradeClick}
-              className="beveled-button-primary flex-1 px-4 py-2 text-sm font-bold flex items-center justify-center gap-2"
+              className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold flex items-center justify-center gap-2"
             >
               <ShoppingBag size={16} />
               View Plans
             </button>
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               Maybe Later
@@ -399,8 +402,8 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -408,7 +411,7 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            background: 'linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
+            background: 'linear-gradient(90deg, var(--tone-accent) 0%, var(--tone-accent-strong) 100%)',
             color: 'white',
           }}
         >
@@ -430,12 +433,12 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
           <div
             className="p-4 border-2 rounded mb-4 text-center"
             style={{
-              borderColor: 'var(--win95-highlight)',
-              background: 'linear-gradient(180deg, color-mix(in srgb, var(--win95-gradient-end) 10%, transparent) 0%, transparent 100%)',
+              borderColor: 'var(--tone-accent)',
+              background: 'linear-gradient(180deg, color-mix(in srgb, var(--tone-accent-strong) 10%, transparent) 0%, transparent 100%)',
             }}
           >
-            <LogIn size={40} className="mx-auto mb-3" style={{ color: 'var(--win95-highlight)' }} />
-            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--win95-text)' }}>
+            <LogIn size={40} className="mx-auto mb-3" style={{ color: 'var(--tone-accent)' }} />
+            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
               {feature}
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -445,24 +448,24 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
 
           {/* Benefits */}
           <div className="mb-4 space-y-2">
-            <p className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
               Create a free account to:
             </p>
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Generate API keys for direct integrations
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Create 1 custom OAuth app for external services
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
-              <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+              <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                 Upgrade to Starter for Microsoft, Google, Slack, Zapier & Make
               </span>
             </div>
@@ -472,17 +475,17 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
           <div className="flex gap-2">
             <button
               onClick={handleSignInClick}
-              className="beveled-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
+              className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
             >
               <LogIn size={16} />
               Sign In / Sign Up
             </button>
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               Just Browsing
@@ -528,8 +531,8 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -537,7 +540,7 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            background: 'linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
+            background: 'linear-gradient(90deg, var(--tone-accent) 0%, var(--tone-accent-strong) 100%)',
             color: 'white',
           }}
         >
@@ -558,11 +561,11 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
           <div className="text-center mb-4">
             <div
               className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'color-mix(in srgb, var(--win95-gradient-end) 10%, transparent)' }}
+              style={{ background: 'color-mix(in srgb, var(--tone-accent-strong) 10%, transparent)' }}
             >
-              <Building size={32} style={{ color: 'var(--win95-highlight)' }} />
+              <Building size={32} style={{ color: 'var(--tone-accent)' }} />
             </div>
-            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
               Create an Organization
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -573,8 +576,8 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
           <div
             className="p-3 border-2 rounded mb-4"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
             }}
           >
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -586,9 +589,9 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
           <div className="flex gap-2">
             <button
               onClick={handleCreateOrgClick}
-              className="beveled-button flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
+              className="desktop-interior-button flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
               style={{
-                background: 'var(--win95-highlight)',
+                background: 'var(--tone-accent)',
               }}
             >
               <Building size={16} />
@@ -596,10 +599,10 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
             </button>
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               Close
@@ -636,8 +639,8 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -670,7 +673,7 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
             >
               <Lock size={32} style={{ color: 'var(--warning)' }} />
             </div>
-            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
               Custom Integration Limit Reached
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -681,11 +684,11 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
           <div
             className="p-3 border-2 rounded mb-4"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
             }}
           >
-            <p className="text-sm" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
               Upgrade to <strong>{nextTier}</strong> to create more custom OAuth integrations and unlock additional features.
             </p>
           </div>
@@ -694,9 +697,9 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
           <div className="flex gap-2">
             <button
               onClick={handleUpgradeClick}
-              className="beveled-button flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
+              className="desktop-interior-button flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
               style={{
-                background: 'var(--win95-highlight)',
+                background: 'var(--tone-accent)',
               }}
             >
               <ShoppingBag size={16} />
@@ -704,10 +707,10 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
             </button>
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               Close
@@ -724,6 +727,15 @@ interface IntegrationsWindowProps {
   /** When true, shows back-to-desktop navigation (for /integrations route) */
   fullScreen?: boolean;
 }
+
+type IntegrationLicenseSnapshot = {
+  name?: string;
+  planTier?: string;
+  features?: Record<string, unknown>;
+  limits?: Record<string, unknown> & {
+    maxCustomOAuthApps?: number;
+  };
+};
 
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
@@ -753,16 +765,25 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     feature: string;
   } | null>(null);
 
+  // TS2589 workaround: keep generated Convex API query inference from expanding too deeply in this large component.
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown,
+  ) => unknown;
+  const apiUntyped = api as any;
+  const getLicenseQuery = apiUntyped.licensing.helpers.getLicense;
+  const listOAuthApplicationsQuery = apiUntyped.oauth.applications.listOAuthApplications;
+
   // Query license/tier information - gracefully handle missing org
-  const license = useQuery(
-    api.licensing.helpers.getLicense,
-    currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
-  );
+  const license = unsafeUseQuery(
+    getLicenseQuery,
+    currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip",
+  ) as IntegrationLicenseSnapshot | undefined;
 
   // Query custom OAuth applications - gracefully returns empty array if no auth/org
-  const customApps = useQuery(
-    api.oauth.applications.listOAuthApplications,
-    currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
+  const customApps = unsafeUseQuery(
+    listOAuthApplicationsQuery,
+    currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip",
   ) as CustomOAuthApplication[] | undefined;
 
   // Query Microsoft connection status
@@ -774,6 +795,12 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   // Query Telegram integration status
   const telegramStatus = useQuery(
     api.integrations.telegram.getTelegramIntegrationStatus,
+    isSignedIn && sessionId ? { sessionId } : "skip"
+  );
+
+  // Query Slack connection status
+  const slackConnection = useQuery(
+    api.oauth.slack.getSlackConnectionStatus,
     isSignedIn && sessionId ? { sessionId } : "skip"
   );
 
@@ -843,7 +870,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     const upgradePath: Record<string, string> = {
       free: "Starter (€199/month)",
       starter: "Professional (€399/month)",
-      professional: "Agency (€599/month)",
+      professional: "Scale (€599/month)",
       agency: "Enterprise (€1,500+/month)",
     };
     return upgradePath[tier] || "a higher tier";
@@ -930,10 +957,10 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   // Not signed in
   if (!isSignedIn) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--window-document-bg)' }}>
         <div className="text-center space-y-4">
-          <i className="fas fa-lock text-4xl" style={{ color: 'var(--win95-text)' }} />
-          <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+          <i className="fas fa-lock text-4xl" style={{ color: 'var(--window-document-text)' }} />
+          <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
             Sign In Required
           </h3>
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -947,49 +974,86 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   // Show selected integration settings
   if (selectedIntegration) {
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "github") {
-      return <GitHubSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <GitHubSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "vercel") {
-      return <VercelSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <VercelSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "microsoft") {
-      return <MicrosoftSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <MicrosoftSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "google") {
-      return <GoogleSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <GoogleSettings onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "slack") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <SlackSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "activecampaign") {
-      return <ActiveCampaignSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <ActiveCampaignSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "builtin" && selectedIntegration.id === "telegram") {
-      return <TelegramSettings onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <TelegramSettings onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "api-keys") {
-      return <ApiKeysPanel onBack={handleBack} />;
+      return (
+        <div className="integration-ui-scope h-full">
+          <ApiKeysPanel onBack={handleBack} />
+        </div>
+      );
     }
     if (selectedIntegration.type === "custom") {
       return (
-        <CustomIntegrationModal
-          app={selectedIntegration.app}
-          onBack={handleBack}
-          onDeleted={handleBack}
-        />
+        <div className="integration-ui-scope h-full">
+          <CustomIntegrationModal
+            app={selectedIntegration.app}
+            onBack={handleBack}
+            onDeleted={handleBack}
+          />
+        </div>
       );
     }
     // Placeholder for verified integrations (Zapier, Make)
     if (selectedIntegration.type === "verified") {
       const integration = BUILT_IN_INTEGRATIONS.find(i => i.id === selectedIntegration.id);
       return (
-        <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
-          <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="integration-ui-scope flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
+          <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--window-document-border)' }}>
             <button
               onClick={handleBack}
               className="text-sm hover:underline"
-              style={{ color: 'var(--win95-highlight)' }}
+              style={{ color: 'var(--tone-accent)' }}
             >
               &larr; Back
             </button>
-            <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+            <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
               {integration?.name}
             </span>
           </div>
@@ -1004,10 +1068,10 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                     className="h-16 w-16 object-contain pointer-events-none select-none"
                   />
                 ) : (
-                  <i className="fas fa-plug text-5xl" style={{ color: "var(--win95-text)" }} aria-hidden="true" />
+                  <i className="fas fa-plug text-5xl" style={{ color: "var(--window-document-text)" }} aria-hidden="true" />
                 )}
               </div>
-              <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
                 {integration?.name} Integration
               </h3>
               <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -1016,11 +1080,11 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
               <div
                 className="p-4 border-2 rounded text-left"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Steps to connect:
                 </p>
                 <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: 'var(--neutral-gray)' }}>
@@ -1035,9 +1099,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                   handleBack();
                   handleAddNewClick();
                 }}
-                className="beveled-button px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2 mx-auto"
+                className="desktop-interior-button px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2 mx-auto"
                 style={{
-                  background: 'var(--win95-highlight)',
+                  background: 'var(--tone-accent)',
                 }}
               >
                 <Plus size={16} />
@@ -1050,12 +1114,12 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     }
     // Placeholder for other built-in integrations
     return (
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
-        <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="integration-ui-scope flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
+        <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={handleBack}
             className="text-sm hover:underline"
-            style={{ color: 'var(--win95-highlight)' }}
+            style={{ color: 'var(--tone-accent)' }}
           >
             &larr; Back
           </button>
@@ -1070,9 +1134,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="integration-ui-scope flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
         <div className="flex items-center justify-between">
           {/* Back to desktop link (full-screen mode only) */}
           {fullScreen && (
@@ -1080,9 +1144,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
               href="/"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               title="Back to Desktop"
             >
@@ -1090,7 +1154,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             </Link>
           )}
           <div>
-            <h2 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+            <h2 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
               Integrations & API
             </h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -1102,9 +1166,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             <div
               className="px-3 py-1 rounded text-xs font-bold"
               style={{
-                background: isFreeTier ? 'var(--win95-bg-light)' : 'linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
-                color: isFreeTier ? 'var(--neutral-gray)' : 'white',
-                border: isFreeTier ? '1px solid var(--win95-border)' : 'none',
+                background: isFreeTier ? 'var(--window-document-bg-elevated)' : 'linear-gradient(135deg, var(--tone-accent) 0%, var(--tone-accent-strong) 100%)',
+                color: isFreeTier ? 'var(--neutral-gray)' : '#0f0f0f',
+                border: isFreeTier ? '1px solid var(--window-document-border)' : 'none',
               }}
             >
               {license.name || planTier.charAt(0).toUpperCase() + planTier.slice(1)} Plan
@@ -1117,9 +1181,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
               href="/integrations"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors ml-3"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               title="Open Full Screen"
             >
@@ -1133,7 +1197,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+            <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
               Loading integrations...
             </p>
@@ -1145,7 +1209,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           <div className="flex-1 overflow-y-auto p-4">
             {/* Built-in Integrations Section */}
             <div className="mb-6">
-              <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+              <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--window-document-text)' }}>
                 Platform Integrations
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -1165,6 +1229,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                           ? "locked"
                           : integration.id === "microsoft" && microsoftConnection?.status === "active"
                           ? "connected"
+                          : integration.id === "slack" && slackConnection?.connected
+                          ? "connected"
                           : integration.id === "telegram" && telegramStatus?.platformBot?.connected
                           ? "connected"
                           : integration.status
@@ -1180,7 +1246,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             {/* Custom Integrations Section */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--win95-text)' }}>
+                <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--window-document-text)' }}>
                   Custom Integrations
                 </h3>
                 {/* Usage indicator */}
@@ -1197,7 +1263,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                     description={app.description || "Custom OAuth application"}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     icon={(app as any).icon || "fas fa-globe"}
-                    iconColor="var(--win95-gradient-end)"
+                    iconColor="var(--tone-accent-strong)"
                     status={app.isActive ? "connected" : "available"}
                     onClick={() => handleCustomAppClick(app)}
                   />
@@ -1210,19 +1276,19 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                   style={{
                     borderColor: currentCustomAppsCount >= maxCustomOAuthApps && maxCustomOAuthApps !== -1
                       ? 'var(--warning)'
-                      : 'var(--win95-border)',
+                      : 'var(--window-document-border)',
                     background: 'transparent',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = currentCustomAppsCount >= maxCustomOAuthApps && maxCustomOAuthApps !== -1
                       ? '#d97706'
-                      : 'var(--win95-highlight)';
-                    e.currentTarget.style.background = 'var(--win95-bg-light)';
+                      : 'var(--tone-accent)';
+                    e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = currentCustomAppsCount >= maxCustomOAuthApps && maxCustomOAuthApps !== -1
                       ? 'var(--warning)'
-                      : 'var(--win95-border)';
+                      : 'var(--window-document-border)';
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
@@ -1250,14 +1316,14 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
               <div
                 className="mt-6 p-4 border-2 rounded"
                 style={{
-                  borderColor: 'var(--win95-highlight)',
+                  borderColor: 'var(--tone-accent)',
                   background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(245, 158, 11, 0.05) 100%)',
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <Sparkles size={24} className="flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
+                  <Sparkles size={24} className="flex-shrink-0" style={{ color: 'var(--tone-accent)' }} />
                   <div>
-                    <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
                       Unlock Platform Integrations
                     </h4>
                     <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -1269,9 +1335,9 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                         requiredTier: "Starter (€199/month)",
                         description: "Connect Microsoft 365, Google, Slack, Zapier, Make, and more",
                       })}
-                      className="beveled-button beveled-button-sm px-3 py-1 text-xs font-bold text-white"
+                      className="desktop-interior-button px-3 py-1 text-xs font-bold text-white"
                       style={{
-                        background: 'var(--win95-highlight)',
+                        background: 'var(--tone-accent)',
                       }}
                     >
                       View Plans
@@ -1286,7 +1352,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           <div
             className="px-4 py-2 border-t-2 text-xs"
             style={{
-              borderColor: 'var(--win95-border)',
+              borderColor: 'var(--window-document-border)',
               color: 'var(--neutral-gray)'
             }}
           >

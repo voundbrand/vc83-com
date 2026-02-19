@@ -439,7 +439,7 @@ export function AISettingsTab() {
               className="p-4 border-2 flex items-start gap-3"
               style={{
                 backgroundColor: 'var(--success)',
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
                 color: 'white'
               }}
             >
@@ -468,8 +468,8 @@ export function AISettingsTab() {
               className="p-4 border-2 flex items-start gap-3"
               style={{
                 backgroundColor: 'var(--warning)',
-                borderColor: 'var(--win95-border)',
-                color: 'var(--win95-text)'
+                borderColor: 'var(--window-document-border)',
+                color: 'var(--window-document-text)'
               }}
             >
               <XCircle size={20} className="flex-shrink-0 mt-0.5" />
@@ -496,8 +496,8 @@ export function AISettingsTab() {
         className="p-4 border-2 flex items-start gap-3"
         style={{
           backgroundColor: 'var(--info)',
-          borderColor: 'var(--win95-border)',
-          color: 'var(--win95-text)'
+          borderColor: 'var(--window-document-border)',
+          color: 'var(--window-document-text)'
         }}
       >
         <Brain size={20} className="flex-shrink-0 mt-0.5" />
@@ -513,8 +513,8 @@ export function AISettingsTab() {
       <div
         className="p-4 border-2"
         style={{
-          backgroundColor: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)',
+          backgroundColor: 'var(--window-document-bg-elevated)',
+          borderColor: 'var(--window-document-border)',
         }}
       >
         <label className="flex items-center gap-3 cursor-pointer">
@@ -525,7 +525,7 @@ export function AISettingsTab() {
             className="w-4 h-4"
           />
           <div>
-            <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+            <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.ai.enable_features")}
             </span>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -541,11 +541,11 @@ export function AISettingsTab() {
           <div
             className="p-4 border-2"
             style={{
-              backgroundColor: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)',
+              backgroundColor: 'var(--window-document-bg-elevated)',
+              borderColor: 'var(--window-document-border)',
             }}
           >
-            <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.ai.data_privacy_level")}
             </h3>
 
@@ -556,8 +556,8 @@ export function AISettingsTab() {
                 <label
                   className="flex items-start gap-3 cursor-pointer p-3 border-2"
                   style={{
-                    borderColor: tier === "standard" ? 'var(--primary)' : 'var(--win95-border)',
-                    backgroundColor: tier === "standard" ? 'var(--win95-bg-light)' : 'transparent'
+                    borderColor: tier === "standard" ? 'var(--primary)' : 'var(--window-document-border)',
+                    backgroundColor: tier === "standard" ? 'var(--window-document-bg-elevated)' : 'transparent'
                   }}
                 >
                 <input
@@ -570,7 +570,7 @@ export function AISettingsTab() {
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.ai.tier.standard.name")}
                     </span>
                     <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -592,8 +592,8 @@ export function AISettingsTab() {
                 <label
                   className="flex items-start gap-3 cursor-pointer p-3 border-2"
                   style={{
-                    borderColor: tier === "privacy-enhanced" ? 'var(--primary)' : 'var(--win95-border)',
-                    backgroundColor: tier === "privacy-enhanced" ? 'var(--win95-bg-light)' : 'transparent'
+                    borderColor: tier === "privacy-enhanced" ? 'var(--primary)' : 'var(--window-document-border)',
+                    backgroundColor: tier === "privacy-enhanced" ? 'var(--window-document-bg-elevated)' : 'transparent'
                   }}
                 >
                 <input
@@ -607,7 +607,7 @@ export function AISettingsTab() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Lock size={14} />
-                    <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                    <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.ai.tier.privacy_enhanced.name")}
                     </span>
                     <span
@@ -642,7 +642,7 @@ export function AISettingsTab() {
 
               {/* Private LLM Tiers Section Header */}
               <div>
-                <h4 className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <h4 className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.ai.private_llm.hosting_title")}
                 </h4>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -655,12 +655,12 @@ export function AISettingsTab() {
                   <div
                     className="p-3 border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg-light)',
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg-elevated)',
                     }}
                   >
                 <div className="text-center mb-3">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -674,7 +674,7 @@ export function AISettingsTab() {
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--window-document-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
                     <span>{t("ui.manage.ai.private_llm.feature.self_hosted")}</span>
@@ -698,7 +698,7 @@ export function AISettingsTab() {
                         setEnterpriseTier("starter");
                         setShowEnterpriseModal(true);
                       }}
-                      className="retro-button w-full py-2 text-xs font-pixel"
+                      className="desktop-interior-button w-full py-2 text-xs font-pixel"
                     >
                       {t("ui.manage.ai.contact_sales")}
                     </button>
@@ -708,12 +708,12 @@ export function AISettingsTab() {
                   <div
                     className="p-3 border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg-light)',
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg-elevated)',
                     }}
                   >
                 <div className="text-center mb-3">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -727,7 +727,7 @@ export function AISettingsTab() {
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--window-document-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
                     <span>Dedicated GPU infrastructure</span>
@@ -751,7 +751,7 @@ export function AISettingsTab() {
                         setEnterpriseTier("professional");
                         setShowEnterpriseModal(true);
                       }}
-                      className="retro-button w-full py-2 text-xs font-pixel"
+                      className="desktop-interior-button w-full py-2 text-xs font-pixel"
                     >
                       {t("ui.manage.ai.contact_sales")}
                     </button>
@@ -761,12 +761,12 @@ export function AISettingsTab() {
                   <div
                     className="p-3 border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg-light)',
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg-elevated)',
                     }}
                   >
                 <div className="text-center mb-3">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.manage.ai.private_llm.name")}
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -780,7 +780,7 @@ export function AISettingsTab() {
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--win95-text)' }}>
+                <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--window-document-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
                     <span>Custom infrastructure</span>
@@ -804,7 +804,7 @@ export function AISettingsTab() {
                         setEnterpriseTier("enterprise");
                         setShowEnterpriseModal(true);
                       }}
-                      className="retro-button w-full py-2 text-xs font-pixel"
+                      className="desktop-interior-button w-full py-2 text-xs font-pixel"
                     >
                       {t("ui.manage.ai.contact_sales")}
                     </button>
@@ -819,8 +819,8 @@ export function AISettingsTab() {
                 className="p-3 mt-3 border-2 text-xs"
                 style={{
                   backgroundColor: 'var(--info)',
-                  borderColor: 'var(--win95-border)',
-                  color: 'var(--win95-text)'
+                  borderColor: 'var(--window-document-border)',
+                  color: 'var(--window-document-text)'
                 }}
               >
                 <div className="flex gap-2">
@@ -840,12 +840,12 @@ export function AISettingsTab() {
           <div
             className="p-4 border-2"
             style={{
-              backgroundColor: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)',
+              backgroundColor: 'var(--window-document-bg-elevated)',
+              borderColor: 'var(--window-document-border)',
             }}
           >
             <div className="mb-4">
-              <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+              <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.ai.enabled_models")}
               </h3>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -854,14 +854,14 @@ export function AISettingsTab() {
             </div>
 
             {/* Filters */}
-            <div className="mb-4 p-3 border-2" style={{ borderColor: 'var(--win95-border)', backgroundColor: 'var(--win95-bg)' }}>
-              <div className="mb-2 text-xs" style={{ color: 'var(--win95-text-secondary)' }}>
+            <div className="mb-4 p-3 border-2" style={{ borderColor: 'var(--window-document-border)', backgroundColor: 'var(--window-document-bg)' }}>
+              <div className="mb-2 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
                 Showing {availableModels.length} of {allAvailableModels.length} models
               </div>
               <div className="grid grid-cols-5 gap-3">
                 {/* Search */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Search
                   </label>
                   <input
@@ -871,17 +871,17 @@ export function AISettingsTab() {
                     placeholder="Model name..."
                     className="w-full px-2 py-1 text-xs"
                     style={{
-                      backgroundColor: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)',
                       border: '2px inset',
-                      borderColor: 'var(--win95-input-border-dark)',
+                      borderColor: 'var(--window-document-border)',
                     }}
                   />
                 </div>
 
                 {/* Provider Filter */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Provider
                   </label>
                   <select
@@ -889,10 +889,10 @@ export function AISettingsTab() {
                     onChange={(e) => setFilterProvider(e.target.value)}
                     className="w-full px-2 py-1 text-xs"
                     style={{
-                      backgroundColor: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)',
                       border: '2px inset',
-                      borderColor: 'var(--win95-input-border-dark)',
+                      borderColor: 'var(--window-document-border)',
                     }}
                   >
                     <option value="all">All Providers</option>
@@ -906,7 +906,7 @@ export function AISettingsTab() {
 
                 {/* Capability Filter */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Capability
                   </label>
                   <select
@@ -914,10 +914,10 @@ export function AISettingsTab() {
                     onChange={(e) => setFilterCapability(e.target.value as "all" | "tool_calling" | "multimodal" | "vision")}
                     className="w-full px-2 py-1 text-xs"
                     style={{
-                      backgroundColor: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)',
                       border: '2px inset',
-                      borderColor: 'var(--win95-input-border-dark)',
+                      borderColor: 'var(--window-document-border)',
                     }}
                   >
                     <option value="all">All Capabilities</option>
@@ -929,7 +929,7 @@ export function AISettingsTab() {
 
                 {/* Recommended Filter */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Recommended
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -939,13 +939,13 @@ export function AISettingsTab() {
                       onChange={(e) => setShowOnlyRecommended(e.target.checked)}
                       className="w-4 h-4"
                     />
-                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>Only show</span>
                   </label>
                 </div>
 
                 {/* Enabled Filter */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Enabled
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -955,7 +955,7 @@ export function AISettingsTab() {
                       onChange={(e) => setShowOnlyEnabled(e.target.checked)}
                       className="w-4 h-4"
                     />
-                    <span className="text-xs" style={{ color: 'var(--win95-text)' }}>Only show</span>
+                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>Only show</span>
                   </label>
                 </div>
               </div>
@@ -971,8 +971,8 @@ export function AISettingsTab() {
                     key={model.id}
                     className="p-3 border-2"
                     style={{
-                      borderColor: isDefault ? 'var(--primary)' : 'var(--win95-border)',
-                      backgroundColor: enabled ? 'var(--win95-bg-light)' : 'transparent'
+                      borderColor: isDefault ? 'var(--primary)' : 'var(--window-document-border)',
+                      backgroundColor: enabled ? 'var(--window-document-bg-elevated)' : 'transparent'
                     }}
                   >
                     <div className="flex items-start gap-3">
@@ -987,7 +987,7 @@ export function AISettingsTab() {
                       {/* Model Details */}
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-xs" style={{ color: 'var(--win95-text)' }}>
+                          <span className="font-bold text-xs" style={{ color: 'var(--window-document-text)' }}>
                             {model.name}
                           </span>
 
@@ -1030,7 +1030,7 @@ export function AISettingsTab() {
                         {enabled && !isDefault && (
                           <button
                             onClick={() => setAsDefaultModel(model.id)}
-                            className="retro-button py-1.5 px-3 text-xs font-pixel"
+                            className="desktop-interior-button py-1.5 px-3 text-xs font-pixel"
                           >
                             Set as Default
                           </button>
@@ -1044,11 +1044,11 @@ export function AISettingsTab() {
 
             {/* Summary */}
             <div className="mt-4 p-3 border-2 text-xs" style={{
-              backgroundColor: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)',
+              backgroundColor: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)',
               color: 'var(--neutral-gray)'
             }}>
-              <p style={{ color: 'var(--win95-text)' }}>
+              <p style={{ color: 'var(--window-document-text)' }}>
                 <span className="font-bold">{enabledModels.length} models enabled</span>
                 {defaultModelId && (
                   <span> • Default: {availableModels.find(m => m.id === defaultModelId)?.name}</span>
@@ -1058,11 +1058,11 @@ export function AISettingsTab() {
 
             {/* Legend */}
             <div className="mt-4 p-3 border-2 text-xs" style={{
-              backgroundColor: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)',
+              backgroundColor: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)',
               color: 'var(--neutral-gray)'
             }}>
-              <p className="font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+              <p className="font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.manage.ai.privacy_indicators")}
               </p>
               <ul className="space-y-1">
@@ -1087,7 +1087,7 @@ export function AISettingsTab() {
                   </li>
                 )}
               </ul>
-              <p className="mt-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+              <p className="mt-2 text-xs" style={{ color: 'var(--window-document-text)' }}>
                 <strong>{t("ui.manage.ai.smart_defaults")}:</strong> {t("ui.manage.ai.smart_defaults_desc", { count: enabledModelCount })}
               </p>
             </div>
@@ -1099,10 +1099,10 @@ export function AISettingsTab() {
               className="p-4 border-2"
               style={{
                 backgroundColor: 'var(--warning)',
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
               }}
             >
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
                 <AlertTriangle size={16} />
                 Super Admin Only: Bring Your Own Key
               </h3>
@@ -1115,7 +1115,7 @@ export function AISettingsTab() {
                   className="w-4 h-4"
                 />
                 <div>
-                  <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                  <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                     Use My Own OpenRouter API Key
                   </span>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -1126,7 +1126,7 @@ export function AISettingsTab() {
 
               {useBYOK && (
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     OpenRouter API Key
                   </label>
                   <input
@@ -1136,9 +1136,9 @@ export function AISettingsTab() {
                     placeholder="sk-or-v1-..."
                     className="w-full p-2 text-xs border-2 font-mono"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg-light)',
-                      color: 'var(--win95-text)'
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg-elevated)',
+                      color: 'var(--window-document-text)'
                     }}
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -1167,7 +1167,7 @@ export function AISettingsTab() {
         <button
           onClick={handleSave}
           disabled={isSaving || !organizationId}
-          className="retro-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="desktop-interior-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           {isSaving ? t("ui.manage.ai.saving") : t("ui.manage.ai.save_settings")}

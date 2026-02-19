@@ -82,7 +82,7 @@ const LANGUAGE_COLORS: Record<string, string> = {
   Python: "bg-green-500",
   Go: "bg-cyan-500",
   Rust: "bg-orange-500",
-  CSS: "bg-purple-500",
+  CSS: "bg-amber-500",
   HTML: "bg-red-500",
 };
 
@@ -214,31 +214,31 @@ export function GitHubRepoPicker({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
+      <div className="w-full max-w-xl bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
           <div className="flex items-center gap-2">
             <FolderGit2 className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-lg font-medium text-zinc-100">Import from GitHub</h2>
+            <h2 className="text-lg font-medium text-neutral-100">Import from GitHub</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition-colors"
+            className="p-1.5 text-neutral-500 hover:text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-5 py-3 border-b border-zinc-800">
+        <div className="px-5 py-3 border-b border-neutral-800">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search repositories..."
-              className="w-full pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+              className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
               autoFocus
             />
           </div>
@@ -248,14 +248,14 @@ export function GitHubRepoPicker({
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
-              <span className="ml-2 text-sm text-zinc-500">Loading repositories...</span>
+              <Loader2 className="w-6 h-6 text-neutral-500 animate-spin" />
+              <span className="ml-2 text-sm text-neutral-500">Loading repositories...</span>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <AlertCircle className="w-8 h-8 text-red-400 mb-3" />
-              <p className="text-sm text-zinc-300 mb-1">Failed to load repositories</p>
-              <p className="text-xs text-zinc-500">{error}</p>
+              <p className="text-sm text-neutral-300 mb-1">Failed to load repositories</p>
+              <p className="text-xs text-neutral-500">{error}</p>
               {error.includes("not connected") && (
                 <p className="text-xs text-emerald-400 mt-3">
                   Connect GitHub in Integrations settings first.
@@ -264,57 +264,57 @@ export function GitHubRepoPicker({
             </div>
           ) : filteredRepos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <FolderGit2 className="w-8 h-8 text-zinc-600 mb-3" />
-              <p className="text-sm text-zinc-400">
+              <FolderGit2 className="w-8 h-8 text-neutral-600 mb-3" />
+              <p className="text-sm text-neutral-400">
                 {search ? "No repositories match your search" : "No repositories found"}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-neutral-800">
               {filteredRepos.map((repo) => {
                 const isSelected = selectedRepo?.id === repo.id;
                 return (
                   <div key={repo.id}>
                     <button
                       onClick={() => handleSelectRepo(repo)}
-                      className={`w-full px-5 py-3 text-left hover:bg-zinc-800/50 transition-colors ${
-                        isSelected ? "bg-zinc-800/70" : ""
+                      className={`w-full px-5 py-3 text-left hover:bg-neutral-800/50 transition-colors ${
+                        isSelected ? "bg-neutral-800/70" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
                           {repo.isPrivate ? (
-                            <Lock className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                            <Lock className="w-4 h-4 text-neutral-500 flex-shrink-0" />
                           ) : (
-                            <Globe className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                            <Globe className="w-4 h-4 text-neutral-500 flex-shrink-0" />
                           )}
-                          <span className="text-sm font-medium text-zinc-200 truncate">
+                          <span className="text-sm font-medium text-neutral-200 truncate">
                             {repo.name}
                           </span>
                           {repo.language && (
-                            <span className="flex items-center gap-1 text-xs text-zinc-500">
+                            <span className="flex items-center gap-1 text-xs text-neutral-500">
                               <span
                                 className={`w-2 h-2 rounded-full ${
-                                  LANGUAGE_COLORS[repo.language] || "bg-zinc-500"
+                                  LANGUAGE_COLORS[repo.language] || "bg-neutral-500"
                                 }`}
                               />
                               {repo.language}
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-zinc-600 flex-shrink-0 ml-2">
+                        <span className="text-xs text-neutral-600 flex-shrink-0 ml-2">
                           {formatRelativeTime(repo.pushedAt)}
                         </span>
                       </div>
                       {repo.description && (
-                        <p className="text-xs text-zinc-500 mt-1 truncate">{repo.description}</p>
+                        <p className="text-xs text-neutral-500 mt-1 truncate">{repo.description}</p>
                       )}
                     </button>
 
                     {/* Expanded selection details */}
                     {isSelected && (
-                      <div className="px-5 py-3 bg-zinc-800/40 border-t border-zinc-800">
-                        <div className="flex items-center gap-4 text-xs text-zinc-400">
+                      <div className="px-5 py-3 bg-neutral-800/40 border-t border-neutral-800">
+                        <div className="flex items-center gap-4 text-xs text-neutral-400">
                           <span className="flex items-center gap-1">
                             <GitBranch className="w-3.5 h-3.5" />
                             {repo.defaultBranch}
@@ -347,7 +347,7 @@ export function GitHubRepoPicker({
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="w-full px-5 py-3 text-center text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors disabled:opacity-50"
+                  className="w-full px-5 py-3 text-center text-xs text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50 transition-colors disabled:opacity-50"
                 >
                   {loadingMore ? (
                     <span className="flex items-center justify-center gap-2">
@@ -364,10 +364,10 @@ export function GitHubRepoPicker({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-zinc-800 flex items-center justify-between">
+        <div className="px-5 py-4 border-t border-neutral-800 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
           >
             Cancel
           </button>

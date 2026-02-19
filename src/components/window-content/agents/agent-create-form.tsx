@@ -35,8 +35,10 @@ export function AgentCreateForm({
 }: AgentCreateFormProps) {
   const { openWindow } = useWindowManager();
 
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this form component.
+  const getAgentQuery = (api as any).agentOntology.getAgent;
   const existingAgent = useQuery(
-    api.agentOntology.getAgent,
+    getAgentQuery,
     editingAgentId ? { sessionId, agentId: editingAgentId } : "skip"
   );
 
@@ -130,7 +132,7 @@ export function AgentCreateForm({
   };
 
   const openAgentBuilder = () => {
-    openWindow("builder-browser", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, "🤖", { initialSetupMode: true });
+    openWindow("builder", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, "🤖", { initialSetupMode: true });
   };
 
   const sections: Array<{ id: FormSection; label: string }> = [

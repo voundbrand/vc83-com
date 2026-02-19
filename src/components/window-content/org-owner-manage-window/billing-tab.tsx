@@ -21,7 +21,7 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 const TIER_DISPLAY: Record<string, { label: string; color: string; price: string }> = {
   free: { label: "Free", color: "var(--neutral-gray)", price: "€0" },
   pro: { label: "Pro", color: "var(--primary)", price: "€29/mo" },
-  agency: { label: "Agency", color: "var(--win95-highlight)", price: "€299/mo" },
+  agency: { label: "Scale", color: "var(--tone-accent)", price: "€299/mo" },
   enterprise: { label: "Enterprise", color: "var(--success)", price: "Custom" },
 };
 
@@ -107,11 +107,11 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
       {/* Current Plan */}
       <div
         className="border-2 p-4"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <div className="flex items-center gap-2 mb-3">
           <Crown size={16} style={{ color: tierInfo.color }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Current Plan
           </h3>
         </div>
@@ -138,14 +138,14 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
                   </span>
                 )}
               </div>
-              <span className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+              <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 {tierInfo.price}
               </span>
             </div>
 
             {/* Renewal date */}
             {subscriptionStatus?.currentPeriodEnd && (
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--win95-text)" }}>
+              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--window-document-text)" }}>
                 <Calendar size={12} />
                 <span>
                   {subscriptionStatus.cancelAtPeriodEnd ? "Expires" : "Renews"}{" "}
@@ -201,7 +201,7 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
             {tier === "free" && (
               <button
                 onClick={handleOpenStore}
-                className="retro-button-primary w-full py-2 text-xs font-bold flex items-center justify-center gap-2"
+                className="desktop-interior-button desktop-interior-button-primary w-full py-2 text-xs font-bold flex items-center justify-center gap-2"
               >
                 <ArrowUpCircle size={14} />
                 Upgrade Plan
@@ -214,11 +214,11 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
       {/* Credit Balance */}
       <div
         className="border-2 p-4"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <div className="flex items-center gap-2 mb-3">
           <Zap size={16} style={{ color: "var(--primary)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Credit Balance
           </h3>
         </div>
@@ -243,11 +243,11 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
       {/* Manage Billing - Stripe Portal */}
       <div
         className="border-2 p-4"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <div className="flex items-center gap-2 mb-3">
-          <ExternalLink size={16} style={{ color: "var(--win95-text)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <ExternalLink size={16} style={{ color: "var(--window-document-text)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Billing & Invoices
           </h3>
         </div>
@@ -260,7 +260,7 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
             <button
               onClick={handleOpenPortal}
               disabled={isOpeningPortal}
-              className="retro-button w-full py-2 text-xs font-bold flex items-center justify-center gap-2"
+              className="desktop-interior-button w-full py-2 text-xs font-bold flex items-center justify-center gap-2"
             >
               {isOpeningPortal ? (
                 <>
@@ -277,7 +277,7 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
           </div>
         ) : (
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Billing management is available after subscribing to a paid plan. Upgrade to Pro or Agency to access invoices and payment settings.
+            Billing management is available after subscribing to a paid plan. Upgrade to Pro or Scale to access invoices and payment settings.
           </p>
         )}
       </div>

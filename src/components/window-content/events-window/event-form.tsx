@@ -520,8 +520,8 @@ export function EventForm({
       {eventId && (
         <div className="absolute top-2 right-2 px-2 py-1 text-xs font-mono border"
           style={{
-            background: "var(--win95-bg-light)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-surface-elevated)",
+            borderColor: "var(--shell-border)",
             color: "var(--neutral-gray)",
           }}
           title="Event ID"
@@ -532,7 +532,7 @@ export function EventForm({
 
       {/* Event Type */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.events.form.event_type")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <select
@@ -540,9 +540,9 @@ export function EventForm({
           onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
           required
         >
@@ -555,7 +555,7 @@ export function EventForm({
 
       {/* Event Format */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.events.form.event_format")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <select
@@ -563,9 +563,9 @@ export function EventForm({
           onChange={(e) => setFormData({ ...formData, format: e.target.value })}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
           required
         >
@@ -580,7 +580,7 @@ export function EventForm({
 
       {/* Event Name */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.events.form.event_name")} <span style={{ color: "var(--error)" }}>{t("ui.events.form.required")}</span>
         </label>
         <input
@@ -590,9 +590,9 @@ export function EventForm({
           placeholder={t("ui.events.form.event_name_placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
           required
         />
@@ -602,7 +602,7 @@ export function EventForm({
 
       {/* Location with Address Validation */}
       <div className="space-y-2">
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.events.form.location")}
         </label>
         <div className="flex gap-2">
@@ -616,9 +616,9 @@ export function EventForm({
             placeholder={t("ui.events.form.location_placeholder")}
             className="flex-1 px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           />
           <button
@@ -627,9 +627,9 @@ export function EventForm({
             disabled={validatingAddress || !formData.location.trim()}
             className="px-3 py-2 text-sm font-bold border-2 flex items-center gap-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: validatingAddress ? "var(--win95-button-face)" : "var(--primary)",
-              color: validatingAddress ? "var(--win95-text)" : "white",
+              borderColor: "var(--shell-border)",
+              background: validatingAddress ? "var(--shell-button-surface)" : "var(--primary)",
+              color: validatingAddress ? "var(--shell-text)" : "white",
             }}
             title={t("ui.events.form.validation_help")}
           >
@@ -659,7 +659,7 @@ export function EventForm({
                     <p className="font-bold" style={{ color: "var(--success)" }}>
                       {t("ui.events.form.address_verified")}
                     </p>
-                    <p style={{ color: "var(--win95-text)" }}>
+                    <p style={{ color: "var(--shell-text)" }}>
                       {addressValidation.formattedAddress}
                     </p>
                     {addressValidation.confidence && (
@@ -672,14 +672,14 @@ export function EventForm({
 
                 {/* Directions Links */}
                 {addressValidation.googleMapsUrl && (
-                  <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--shell-border)" }}>
                     <a
                       href={addressValidation.googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors inline-flex items-center gap-1"
                       style={{
-                        borderColor: "var(--win95-border)",
+                        borderColor: "var(--shell-border)",
                         color: "var(--primary)",
                       }}
                     >
@@ -693,7 +693,7 @@ export function EventForm({
                         rel="noopener noreferrer"
                         className="px-2 py-1 text-xs border-2 hover:bg-blue-50 transition-colors inline-flex items-center gap-1"
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--shell-border)",
                           color: "var(--primary)",
                         }}
                       >
@@ -711,7 +711,7 @@ export function EventForm({
                   <p className="font-bold mb-1" style={{ color: "var(--error)" }}>
                     {t("ui.events.form.address_not_verified")}
                   </p>
-                  <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs" style={{ color: "var(--shell-text)" }}>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(addressValidation as any).error || addressValidation.formattedAddress || t("ui.events.form.validation_failed")}
                   </p>
@@ -732,7 +732,7 @@ export function EventForm({
       {/* Start Date & Time */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             {t("ui.events.form.start_date")}
           </label>
           <input
@@ -741,14 +741,14 @@ export function EventForm({
             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             {t("ui.events.form.start_time")}
           </label>
           <input
@@ -757,9 +757,9 @@ export function EventForm({
             onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           />
         </div>
@@ -768,7 +768,7 @@ export function EventForm({
       {/* End Date & Time */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             {t("ui.events.form.end_date")}
           </label>
           <input
@@ -777,14 +777,14 @@ export function EventForm({
             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             {t("ui.events.form.end_time")}
           </label>
           <input
@@ -793,9 +793,9 @@ export function EventForm({
             onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           />
         </div>
@@ -809,7 +809,7 @@ export function EventForm({
 
       {/* Capacity */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.events.form.capacity")}
         </label>
         <input
@@ -820,9 +820,9 @@ export function EventForm({
           placeholder={t("ui.events.form.capacity_placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -869,9 +869,9 @@ export function EventForm({
           onClick={() => setShowSponsors(!showSponsors)}
           className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <span className="text-sm font-bold flex items-center gap-1">
@@ -882,10 +882,10 @@ export function EventForm({
         </button>
 
           {showSponsors && (
-            <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
               {/* Add Sponsor */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold" style={{ color: "var(--shell-text)" }}>
                   {t("ui.events.form.add_sponsor")}
                 </label>
                 <div className="flex gap-2 items-center">
@@ -894,9 +894,9 @@ export function EventForm({
                     onChange={(e) => handleSponsorOrgChange(e.target.value)}
                     className="flex-1 px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--shell-border)",
+                      background: "var(--shell-input-surface)",
+                      color: "var(--shell-input-text)",
                     }}
                   >
                     <option value="">{t("ui.events.form.sponsor_org")}</option>
@@ -925,7 +925,7 @@ export function EventForm({
                     disabled={addingSponsor || !selectedSponsorOrgId}
                     className="px-3 py-1.5 text-sm font-bold border-2 flex-shrink-0"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       background: "var(--primary)",
                       color: "white",
                     }}
@@ -945,7 +945,7 @@ export function EventForm({
               {/* Current Sponsors List */}
               {currentSponsors && currentSponsors.length > 0 && (
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold" style={{ color: "var(--shell-text)" }}>
                     {t("ui.events.form.current_sponsors", { count: currentSponsors.length })}
                   </label>
                   <div className="space-y-1">
@@ -957,13 +957,13 @@ export function EventForm({
                           key={sponsor._id}
                           className="flex items-center justify-between gap-2 p-2 border-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-bg-light)",
+                            borderColor: "var(--shell-border)",
+                            background: "var(--shell-surface-elevated)",
                           }}
                         >
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <Building2 size={16} style={{ color: "var(--primary)" }} className="flex-shrink-0" />
-                            <span className="text-sm font-semibold truncate" style={{ color: "var(--win95-text)" }}>
+                            <span className="text-sm font-semibold truncate" style={{ color: "var(--shell-text)" }}>
                               {sponsor.name}
                             </span>
                           </div>
@@ -980,7 +980,7 @@ export function EventForm({
                               onClick={() => setEditingSponsorId(sponsor._id)}
                               className="px-2 py-1 text-xs border-2 hover:bg-blue-100 transition-colors"
                               style={{
-                                borderColor: "var(--win95-border)",
+                                borderColor: "var(--shell-border)",
                                 color: "var(--primary)",
                               }}
                               title={t("ui.events.form.edit_sponsor")}
@@ -992,7 +992,7 @@ export function EventForm({
                               onClick={() => handleRemoveSponsor(sponsor._id)}
                               className="px-2 py-1 text-xs border-2 hover:bg-red-100 transition-colors"
                               style={{
-                                borderColor: "var(--win95-border)",
+                                borderColor: "var(--shell-border)",
                                 color: "var(--error)",
                               }}
                               title={t("ui.events.form.remove_sponsor_title")}
@@ -1011,8 +1011,8 @@ export function EventForm({
                 <div
                   className="text-center py-4 border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-surface-elevated)",
                   }}
                 >
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1028,8 +1028,8 @@ export function EventForm({
       <div
         className="p-3 border-2 rounded"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--shell-border)",
         }}
       >
         <p className="text-xs flex items-center gap-1" style={{ color: "var(--neutral-gray)" }}>
@@ -1040,16 +1040,16 @@ export function EventForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
         <button
           type="button"
           onClick={onCancel}
           disabled={saving}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-button-surface)",
+            color: "var(--shell-text)",
           }}
         >
           <X size={14} />
@@ -1061,9 +1061,9 @@ export function EventForm({
           disabled={saving}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-button-surface)",
+            color: "var(--shell-text)",
           }}
         >
           {saving ? (

@@ -293,9 +293,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
@@ -308,9 +308,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             onChange={(e) => setStatusFilter(e.target.value as TransactionStatus)}
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="all">{t("ui.payments.transactions.filter_all_payment")}</option>
@@ -328,9 +328,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             onChange={(e) => setInvoicingStatusFilter(e.target.value as InvoicingStatus)}
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="all">{t("ui.payments.transactions.filter_all_invoicing")}</option>
@@ -347,9 +347,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
             className="px-4 py-2 text-sm border-2 cursor-pointer"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="7d">{t("ui.payments.transactions.date_7d")}</option>
@@ -364,8 +364,8 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
         <button
           className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
           style={{
-            backgroundColor: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            backgroundColor: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <Download size={14} />
@@ -377,7 +377,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       {dateRange === "custom" && (
         <div className="flex gap-3 items-center">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.transactions.date_from")}:
             </label>
             <input
@@ -386,14 +386,14 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               onChange={(e) => setCustomDateFrom(e.target.value)}
               className="px-3 py-1.5 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.transactions.date_to")}:
             </label>
             <input
@@ -402,9 +402,9 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               onChange={(e) => setCustomDateTo(e.target.value)}
               className="px-3 py-1.5 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             />
           </div>
@@ -415,7 +415,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 size={20} style={{ color: "var(--success)" }} />
@@ -423,7 +423,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               {t("ui.payments.transactions.stat_revenue")}
             </span>
           </div>
-          <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
+          <p className="text-2xl font-bold" style={{ color: "var(--window-document-text)" }}>
             {formatCurrency(stats?.completedRevenue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -433,7 +433,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <div className="flex items-center gap-2 mb-2">
             <Clock size={20} style={{ color: "var(--warning)" }} />
@@ -441,7 +441,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               {t("ui.payments.transactions.stat_pending")}
             </span>
           </div>
-          <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
+          <p className="text-2xl font-bold" style={{ color: "var(--window-document-text)" }}>
             {formatCurrency(stats?.pendingRevenue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -451,7 +451,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <div className="flex items-center gap-2 mb-2">
             <DollarSign size={20} style={{ color: "var(--primary)" }} />
@@ -459,7 +459,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               {t("ui.payments.transactions.stat_avg")}
             </span>
           </div>
-          <p className="text-2xl font-bold" style={{ color: "var(--win95-text)" }}>
+          <p className="text-2xl font-bold" style={{ color: "var(--window-document-text)" }}>
             {formatCurrency(stats?.averageTransactionValue || 0)} {/* Uses org currency */}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -471,12 +471,12 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
       {/* Transactions Table */}
       <div
         className="border-2 overflow-hidden"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
       >
         {/* Table Header */}
         <div
           className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-2 border-b-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <button
             onClick={() => {
@@ -488,7 +488,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               }
             }}
             className="flex items-center gap-1 text-xs font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             <Calendar size={12} />
             {t("ui.payments.transactions.table_date")}
@@ -505,7 +505,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               }
             }}
             className="flex items-center gap-1 text-xs font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             <User size={12} />
             {t("ui.payments.transactions.table_customer")}
@@ -522,24 +522,24 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
               }
             }}
             className="flex items-center gap-1 text-xs font-bold justify-end"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             <DollarSign size={12} />
             {t("ui.payments.transactions.table_amount")}
             {sortField === "amount" && <ArrowUpDown size={12} />}
           </button>
 
-          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             <Filter size={12} />
             {t("ui.payments.transactions.table_payment")}
           </div>
 
-          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             <Receipt size={12} />
             {t("ui.payments.transactions.table_invoicing")}
           </div>
 
-          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <div className="flex items-center gap-1 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             <CreditCard size={12} />
             {t("ui.payments.transactions.table_method")}
           </div>
@@ -549,7 +549,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
         {!filteredTransactions || filteredTransactions.length === 0 ? (
           <div className="py-12 text-center">
             <DollarSign size={48} className="mx-auto mb-4 opacity-50" style={{ color: "var(--neutral-gray)" }} />
-            <p className="text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.transactions.empty_title")}
             </p>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -559,7 +559,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
             </p>
           </div>
         ) : (
-          <div className="divide-y-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="divide-y-2" style={{ borderColor: "var(--window-document-border)" }}>
             {filteredTransactions.map((tx) => {
               const paymentStatus = (tx.customProperties?.paymentStatus as string) || "pending";
               const invoicingStatus = (tx.customProperties?.invoicingStatus as string) || "pending";
@@ -580,7 +580,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
                   style={{
                     backgroundColor: 'transparent',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)'}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--desktop-menu-hover)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   {/* Date */}
@@ -591,7 +591,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
                   {/* Customer & Product */}
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                         {customerName}
                       </p>
                       {payerType === "organization" && (
@@ -613,7 +613,7 @@ export function TransactionsSection({ organizationId }: TransactionsSectionProps
 
                   {/* Amount */}
                   <div className="text-right">
-                    <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                       {formatCurrency(totalPriceInCents, txCurrency)}
                     </p>
                   </div>

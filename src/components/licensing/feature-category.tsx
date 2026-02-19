@@ -78,9 +78,9 @@ export function FeatureCategory({
       <span
         className="px-2 py-1 text-xs font-mono"
         style={{
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
-          border: "1px solid var(--win95-border)",
+          background: "var(--shell-surface-elevated)",
+          color: "var(--shell-text)",
+          border: "1px solid var(--shell-border)",
         }}
       >
         {value}
@@ -92,8 +92,8 @@ export function FeatureCategory({
     <div
       className="border-2"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-surface)",
       }}
     >
       {/* Header */}
@@ -101,25 +101,25 @@ export function FeatureCategory({
         onClick={() => setExpanded(!expanded)}
         className="w-full px-4 py-2.5 flex items-center justify-between border-b-2 hover:bg-opacity-80 transition-colors"
         style={{
-          borderColor: expanded ? "var(--win95-border)" : "transparent",
-          background: "var(--win95-bg-light)",
+          borderColor: expanded ? "var(--shell-border)" : "transparent",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-center gap-2">
           {expanded ? (
-            <ChevronDown size={14} style={{ color: "var(--win95-text)" }} />
+            <ChevronDown size={14} style={{ color: "var(--shell-text)" }} />
           ) : (
-            <ChevronRight size={14} style={{ color: "var(--win95-text)" }} />
+            <ChevronRight size={14} style={{ color: "var(--shell-text)" }} />
           )}
-          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
             {title}
           </span>
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{
-              background: "var(--win95-bg)",
+              background: "var(--shell-surface)",
               color: "var(--neutral-gray)",
-              border: "1px solid var(--win95-border)",
+              border: "1px solid var(--shell-border)",
             }}
           >
             {features.length} {features.length === 1 ? "feature" : "features"}
@@ -134,9 +134,9 @@ export function FeatureCategory({
             <div
               key={feature.key}
               className="flex items-center justify-between py-2 border-b"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--shell-border)" }}
             >
-              <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+              <span className="text-xs" style={{ color: "var(--shell-text)" }}>
                 {feature.label}
               </span>
               {renderFeatureValue(feature)}

@@ -37,9 +37,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
       <pre
         className="text-xs p-3 rounded overflow-x-auto font-mono"
         style={{
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
-          border: '2px solid var(--win95-border)'
+          background: 'var(--shell-input-surface)',
+          color: 'var(--shell-text)',
+          border: '2px solid var(--shell-border)'
         }}
       >
         {JSON.stringify(formData, null, 2)}
@@ -54,7 +54,7 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
         <label
           htmlFor="project-name"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <FileText className="w-3.5 h-3.5" />
           Project Name *
@@ -67,9 +67,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
           required
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Enter project name..."
         />
@@ -80,7 +80,7 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
         <label
           htmlFor="project-description"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <FileText className="w-3.5 h-3.5" />
           Description
@@ -92,9 +92,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
           rows={4}
           className="w-full px-2 py-1.5 text-sm border-2 rounded resize-none"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Enter project description..."
         />
@@ -105,7 +105,7 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
         <label
           htmlFor="project-status"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Tag className="w-3.5 h-3.5" />
           Status
@@ -116,9 +116,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
         >
           <option value="active">Active</option>
@@ -133,7 +133,7 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
         <label
           htmlFor="project-start-date"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Calendar className="w-3.5 h-3.5" />
           Start Date
@@ -145,9 +145,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
           onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
         />
       </div>
@@ -157,7 +157,7 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
         <label
           htmlFor="project-end-date"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Calendar className="w-3.5 h-3.5" />
           End Date
@@ -169,9 +169,9 @@ export function ProjectForm({ initialValues, onChange, showJson }: ProjectFormPr
           onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
         />
       </div>

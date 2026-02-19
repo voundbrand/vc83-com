@@ -64,18 +64,18 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
       {/* Header with Back Button */}
-      <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--window-document-border)' }}>
         <button
           onClick={onBack}
           className="p-1 hover:bg-opacity-80 transition-colors"
-          style={{ color: 'var(--win95-highlight)' }}
+          style={{ color: 'var(--tone-accent)' }}
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h2 className="font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h2 className="font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Key size={18} />
             API Keys
           </h2>
@@ -93,8 +93,8 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
             className="p-3 border-2 flex items-start gap-2"
             style={{
               backgroundColor: '#fef3c7',
-              borderColor: 'var(--win95-border)',
-              color: 'var(--win95-text)'
+              borderColor: 'var(--window-document-border)',
+              color: 'var(--window-document-text)'
             }}
           >
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
@@ -111,14 +111,14 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
         <div
           className="p-3 border-2"
           style={{
-            backgroundColor: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)',
+            backgroundColor: 'var(--window-document-bg-elevated)',
+            borderColor: 'var(--window-document-border)',
           }}
         >
           <div className="flex items-start gap-2">
-            <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
+            <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--tone-accent)' }} />
             <div>
-              <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                 Security Best Practices
               </p>
               <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -132,23 +132,23 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
         </div>
 
         {/* API Keys List */}
-        <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+        <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
           {/* Header with Create Button */}
           <div
             className="px-3 py-2 border-b-2 flex items-center justify-between"
             style={{
-              backgroundColor: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)',
+              backgroundColor: 'var(--window-document-bg-elevated)',
+              borderColor: 'var(--window-document-border)',
             }}
           >
-            <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+            <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
               Your API Keys
             </span>
             <PermissionGuard permission="manage_organization">
               <button
                 onClick={() => setShowCreateDialog(true)}
                 disabled={!isApiKeysEnabled}
-                className="beveled-button flex items-center gap-1 px-2 py-1 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor: '#10b981',
                   color: 'white',
@@ -169,7 +169,7 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
             ) : apiKeys.length === 0 ? (
               <div className="text-center py-8">
                 <Key size={48} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--neutral-gray)' }} />
-                <p className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                   No API Keys
                 </p>
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -183,14 +183,14 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
                     key={key.id}
                     className="p-3 border-2 rounded"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)',
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg-elevated)',
                     }}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                          <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                             {key.name}
                           </span>
                           <span
@@ -241,8 +241,8 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
                                   key={scope}
                                   className="px-1.5 py-0.5 rounded text-[10px]"
                                   style={{
-                                    backgroundColor: 'var(--win95-bg)',
-                                    color: 'var(--win95-text)',
+                                    backgroundColor: 'var(--window-document-bg)',
+                                    color: 'var(--window-document-text)',
                                   }}
                                 >
                                   {formatScopeLabel(scope)}
@@ -253,7 +253,7 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
                               <span
                                 className="px-1.5 py-0.5 rounded text-[10px]"
                                 style={{
-                                  backgroundColor: 'var(--win95-bg)',
+                                  backgroundColor: 'var(--window-document-bg)',
                                   color: 'var(--neutral-gray)',
                                 }}
                               >
@@ -276,7 +276,7 @@ export function ApiKeysPanel({ onBack }: ApiKeysPanelProps) {
                         <PermissionGuard permission="manage_organization">
                           <button
                             onClick={() => handleRevoke(key)}
-                            className="beveled-button p-2 text-xs font-bold text-white"
+                            className="desktop-interior-button p-2 text-xs font-bold text-white"
                             style={{
                               backgroundColor: '#ef4444',
                             }}

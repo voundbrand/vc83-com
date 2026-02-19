@@ -68,10 +68,10 @@ export function CustomEdgeWithAdd({
         <div className="flex items-center justify-center">
           <button
             onClick={handleAddClick}
-            className="retro-button p-1 shadow-lg hover:scale-110 transition-transform"
+            className="desktop-interior-button p-1 shadow-lg hover:scale-110 transition-transform"
             style={{
-              background: 'var(--win95-bg-light)',
-              border: '2px solid var(--win95-border)',
+              background: 'var(--window-document-bg-elevated)',
+              border: '2px solid var(--window-document-border)',
               width: 24,
               height: 24,
               display: 'flex',
@@ -80,7 +80,7 @@ export function CustomEdgeWithAdd({
             }}
             title="Insert behavior here"
           >
-            <Plus className="h-3 w-3" style={{ color: 'var(--win95-highlight)' }} />
+            <Plus className="h-3 w-3" style={{ color: 'var(--tone-accent)' }} />
           </button>
         </div>
       </foreignObject>

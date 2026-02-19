@@ -1,0 +1,51 @@
+name: legacy-style-guard
+
+on:
+  pull_request:
+    paths:
+      - "src/components/window-content/**"
+      - "src/components/taskbar/**"
+      - "src/components/windows-menu.tsx"
+      - "src/components/floating-window.tsx"
+      - "src/app/page.tsx"
+      - "src/app/globals.css"
+      - "scripts/ci/check-legacy-style-introductions.sh"
+      - ".github/workflows/legacy-style-guard.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "src/components/window-content/**"
+      - "src/components/taskbar/**"
+      - "src/components/windows-menu.tsx"
+      - "src/components/floating-window.tsx"
+      - "src/app/page.tsx"
+      - "src/app/globals.css"
+      - "scripts/ci/check-legacy-style-introductions.sh"
+      - ".github/workflows/legacy-style-guard.yml"
+
+jobs:
+  legacy-style-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run legacy style introduction guard
+        shell: bash
+        run: |
+          bash scripts/ci/check-legacy-style-introductions.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"

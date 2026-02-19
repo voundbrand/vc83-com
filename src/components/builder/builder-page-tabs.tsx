@@ -95,8 +95,8 @@ function PageTab({
     <div
       className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg cursor-pointer transition-all ${
         isActive
-          ? "bg-zinc-800 text-white border-t border-l border-r border-zinc-600"
-          : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+          ? "bg-neutral-800 text-white border-t border-l border-r border-neutral-600"
+          : "bg-neutral-900 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
       }`}
       onClick={onSelect}
     >
@@ -117,7 +117,7 @@ function PageTab({
           onBlur={handleSaveRename}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
-          className="bg-zinc-700 text-white text-sm px-1 py-0.5 rounded border border-zinc-500 focus:outline-none focus:border-purple-500 w-24"
+          className="bg-neutral-700 text-white text-sm px-1 py-0.5 rounded border border-neutral-500 focus:outline-none focus:border-amber-500 w-24"
         />
       ) : (
         <span
@@ -138,7 +138,7 @@ function PageTab({
           e.stopPropagation();
           setShowMenu(!showMenu);
         }}
-        className={`p-0.5 rounded hover:bg-zinc-600 transition-colors ${
+        className={`p-0.5 rounded hover:bg-neutral-600 transition-colors ${
           isActive || showMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
       >
@@ -149,7 +149,7 @@ function PageTab({
       {showMenu && (
         <div
           ref={menuRef}
-          className="absolute top-full left-0 mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[140px]"
+          className="absolute top-full left-0 mt-1 z-50 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[140px]"
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -157,7 +157,7 @@ function PageTab({
               setIsEditing(true);
               setShowMenu(false);
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-neutral-300 hover:bg-neutral-700 flex items-center gap-2"
           >
             <Edit2 className="w-3.5 h-3.5" />
             Rename
@@ -167,20 +167,20 @@ function PageTab({
               onDuplicate();
               setShowMenu(false);
             }}
-            className="w-full px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+            className="w-full px-3 py-1.5 text-left text-sm text-neutral-300 hover:bg-neutral-700 flex items-center gap-2"
           >
             <Copy className="w-3.5 h-3.5" />
             Duplicate
           </button>
           {canDelete && (
             <>
-              <div className="my-1 border-t border-zinc-700" />
+              <div className="my-1 border-t border-neutral-700" />
               <button
                 onClick={() => {
                   onDelete();
                   setShowMenu(false);
                 }}
-                className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-zinc-700 flex items-center gap-2"
+                className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-neutral-700 flex items-center gap-2"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete
@@ -239,7 +239,7 @@ export function BuilderPageTabs() {
   }
 
   return (
-    <div className="flex items-end gap-1 px-2 pt-1 bg-zinc-900 border-b border-zinc-700 overflow-x-auto">
+    <div className="flex items-end gap-1 px-2 pt-1 bg-neutral-900 border-b border-neutral-700 overflow-x-auto">
       {/* Page tabs */}
       {pages.map((page) => (
         <PageTab
@@ -272,7 +272,7 @@ export function BuilderPageTabs() {
             }}
             onKeyDown={handleKeyDown}
             placeholder="Page name..."
-            className="bg-zinc-700 text-white text-sm px-2 py-1 rounded border border-zinc-500 focus:outline-none focus:border-purple-500 w-28"
+            className="bg-neutral-700 text-white text-sm px-2 py-1 rounded border border-neutral-500 focus:outline-none focus:border-amber-500 w-28"
           />
           <button
             onClick={handleAddPage}
@@ -286,7 +286,7 @@ export function BuilderPageTabs() {
               setNewPageName("");
               setShowNewPageInput(false);
             }}
-            className="p-1 text-zinc-400 hover:text-zinc-300"
+            className="p-1 text-neutral-400 hover:text-neutral-300"
           >
             <X className="w-4 h-4" />
           </button>
@@ -294,7 +294,7 @@ export function BuilderPageTabs() {
       ) : (
         <button
           onClick={() => setShowNewPageInput(true)}
-          className="flex items-center gap-1 px-2 py-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-1 px-2 py-1.5 text-neutral-500 hover:text-neutral-300 transition-colors"
           title="Add new page"
         >
           <Plus className="w-4 h-4" />

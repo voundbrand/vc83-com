@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -208,11 +208,11 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={step === "choose" ? onBack : () => {
@@ -223,7 +223,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               else onBack();
             }}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -231,7 +231,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
           <div className="flex items-center gap-2">
             <MessageCircle size={24} style={{ color: "#7c3aed" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 L4YERCAK3 SMS
               </h2>
               <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
@@ -247,11 +247,11 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Loading...</p>
             </div>
           ) : isConfigured && smsConfig?.senderType === "alphanumeric" ? (
@@ -259,7 +259,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
@@ -269,10 +269,10 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 </div>
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       Sender Name
                     </p>
-                    <p className="text-sm font-mono" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm font-mono" style={{ color: "var(--window-document-text)" }}>
                       {smsConfig.alphanumericSender}
                     </p>
                   </div>
@@ -284,27 +284,27 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
 
               <div
                 className="p-3 border-2 rounded flex items-center gap-2"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <AlertCircle size={14} style={{ color: "var(--win95-highlight)" }} />
+                <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   Per-message cost: <strong>2 credits</strong> per outbound SMS
                 </p>
               </div>
 
-              <RetroButton variant="secondary" onClick={() => setStep("choose")} className="w-full">
+              <InteriorButton variant="secondary" onClick={() => setStep("choose")} className="w-full">
                 Change Sender
-              </RetroButton>
-              <RetroButton variant="secondary" onClick={handleDisconnect} className="w-full">
+              </InteriorButton>
+              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Disconnect
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : isConfigured && smsConfig?.senderType === "vln" ? (
             /* ======== VLN ACTIVE / PENDING ======== */
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   {smsConfig.vlnStatus === "active" ? (
@@ -330,17 +330,17 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 <div className="space-y-2">
                   {smsConfig.vlnNumber && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Number
                       </p>
-                      <p className="text-sm font-mono" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-mono" style={{ color: "var(--window-document-text)" }}>
                         {smsConfig.vlnNumber}
                       </p>
                     </div>
                   )}
                   {smsConfig.vlnCountry && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Country
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -350,7 +350,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   )}
                   {smsConfig.vlnOurMonthlyFee && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Monthly Fee
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -363,17 +363,17 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
 
               <div
                 className="p-3 border-2 rounded flex items-center gap-2"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <AlertCircle size={14} style={{ color: "var(--win95-highlight)" }} />
+                <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   Per-message cost: <strong>2 credits</strong> per outbound SMS (in addition to number subscription)
                 </p>
               </div>
 
-              <RetroButton variant="secondary" onClick={handleDisconnect} className="w-full">
+              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Cancel Number
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : step === "choose" ? (
             /* ======== CHOOSE SENDER TYPE ======== */
@@ -381,14 +381,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               {/* Hero */}
               <div
                 className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <MessageCircle
                   size={48}
                   className="mx-auto mb-4"
                   style={{ color: "#7c3aed" }}
                 />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Set Up SMS Sender
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -400,15 +400,15 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               <div
                 className="w-full text-left p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-start gap-3">
                   <Type size={24} style={{ color: "#7c3aed", flexShrink: 0, marginTop: 2 }} />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                         Alphanumeric Sender
                       </p>
                       <span
@@ -424,7 +424,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   </div>
                 </div>
                 {/* Inline alphanumeric form */}
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -434,12 +434,12 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       maxLength={11}
                       className="flex-1 p-2 border-2 rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
-                    <RetroButton
+                    <InteriorButton
                       onClick={() => {
                         handleSaveAlphanumeric();
                       }}
@@ -451,7 +451,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       ) : (
                         "Activate"
                       )}
-                    </RetroButton>
+                    </InteriorButton>
                   </div>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                     Max 11 characters, alphanumeric only. Instant activation.
@@ -463,8 +463,8 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               <button
                 className="w-full text-left p-4 border-2 rounded hover:opacity-90 transition-opacity"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
                 onClick={() => setStep("country")}
               >
@@ -472,7 +472,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   <Phone size={24} style={{ color: "#7c3aed", flexShrink: 0, marginTop: 2 }} />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                         Dedicated Number
                       </p>
                       <span
@@ -485,7 +485,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                       Get a real phone number for two-way SMS. Recipients can reply. Separate monthly subscription.
                     </p>
-                    <div className="flex items-center gap-1 mt-2" style={{ color: "var(--win95-highlight)" }}>
+                    <div className="flex items-center gap-1 mt-2" style={{ color: "var(--tone-accent)" }}>
                       <span className="text-xs font-bold">Browse Numbers</span>
                       <ChevronRight size={14} />
                     </div>
@@ -496,9 +496,9 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               {/* Per-message cost note */}
               <div
                 className="p-3 border-2 rounded flex items-center gap-2"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <AlertCircle size={14} style={{ color: "var(--win95-highlight)" }} />
+                <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   Both options charge <strong>2 credits per outbound SMS</strong> for message delivery.
                 </p>
@@ -509,12 +509,12 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Step 1 of 4
                 </p>
-                <p className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Select Country
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -529,17 +529,17 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       style={{
                         borderColor:
                           selectedCountry === c.code
-                            ? "var(--win95-highlight)"
-                            : "var(--win95-border)",
+                            ? "var(--tone-accent)"
+                            : "var(--window-document-border)",
                         background:
                           selectedCountry === c.code
-                            ? "var(--win95-bg)"
+                            ? "var(--window-document-bg)"
                             : "transparent",
                       }}
                       onClick={() => setSelectedCountry(c.code)}
                     >
                       <span className="text-lg">{c.flag}</span>
-                      <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         {c.name} ({c.code})
                       </span>
                     </button>
@@ -547,27 +547,27 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 </div>
               </div>
 
-              <RetroButton onClick={handleBrowseNumbers} className="w-full">
+              <InteriorButton onClick={handleBrowseNumbers} className="w-full">
                 Browse Available Numbers
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : step === "offers" ? (
             /* ======== VLN STEP 2: OFFERS ======== */
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Step 2 of 4
                 </p>
-                <p className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Available Numbers
                 </p>
 
                 {isLoadingNumbers ? (
                   <div className="flex flex-col items-center gap-2 py-8">
-                    <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+                    <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       Loading offers from Infobip...
                     </p>
@@ -585,14 +585,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                         key={offer.numberKey}
                         className="w-full text-left p-3 border-2 rounded hover:opacity-90"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg)",
                         }}
                         onClick={() => handleSelectOffer(offer)}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-mono font-bold" style={{ color: "var(--win95-text)" }}>
+                            <p className="text-sm font-mono font-bold" style={{ color: "var(--window-document-text)" }}>
                               {offer.number}
                             </p>
                             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -600,7 +600,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                            <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                               {offer.currency} {offer.ourSetupPrice?.toFixed(2)} setup
                             </p>
                             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -608,7 +608,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 mt-1" style={{ color: "var(--win95-highlight)" }}>
+                        <div className="flex items-center gap-1 mt-1" style={{ color: "var(--tone-accent)" }}>
                           <span className="text-xs">Select</span>
                           <ChevronRight size={12} />
                         </div>
@@ -623,12 +623,12 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Step 3 of 4
                 </p>
-                <p className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Registration Details
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -638,9 +638,9 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 {selectedOffer && (
                   <div
                     className="p-2 mb-4 border-2 rounded"
-                    style={{ borderColor: "var(--win95-highlight)", background: "var(--win95-bg)" }}
+                    style={{ borderColor: "var(--tone-accent)", background: "var(--window-document-bg)" }}
                   >
-                    <p className="text-xs font-mono font-bold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-mono font-bold" style={{ color: "var(--window-document-text)" }}>
                       {selectedOffer.number}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -651,7 +651,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Company Name *
                     </label>
                     <input
@@ -661,14 +661,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       placeholder="Your company name"
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Use Case *
                     </label>
                     <input
@@ -678,14 +678,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       placeholder="e.g., Appointment reminders, marketing campaigns"
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Opt-In Flow *
                     </label>
                     <input
@@ -695,14 +695,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       placeholder="How do users opt in to receive SMS?"
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Opt-Out Flow *
                     </label>
                     <input
@@ -712,14 +712,14 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       placeholder="How can users unsubscribe?"
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Example Message *
                     </label>
                     <textarea
@@ -729,16 +729,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       rows={3}
                       className="w-full p-2 border-2 rounded text-xs resize-none"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                 </div>
               </div>
 
-              <RetroButton
+              <InteriorButton
                 onClick={handleSubmitVlnOrder}
                 disabled={isSubmittingOrder}
                 className="w-full"
@@ -751,43 +751,43 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 ) : (
                   "Continue to Summary"
                 )}
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : step === "checkout" ? (
             /* ======== VLN STEP 4: CHECKOUT SUMMARY ======== */
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Step 4 of 4
                 </p>
-                <p className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Order Summary
                 </p>
 
                 {selectedOffer && (
                   <div className="space-y-3">
-                    <div className="flex justify-between text-xs" style={{ color: "var(--win95-text)" }}>
+                    <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
                       <span>Number</span>
                       <span className="font-mono font-bold">{selectedOffer.number}</span>
                     </div>
-                    <div className="flex justify-between text-xs" style={{ color: "var(--win95-text)" }}>
+                    <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
                       <span>Country</span>
                       <span>{selectedCountry}</span>
                     </div>
                     <div
                       className="border-t pt-2"
-                      style={{ borderColor: "var(--win95-border)" }}
+                      style={{ borderColor: "var(--window-document-border)" }}
                     >
-                      <div className="flex justify-between text-xs" style={{ color: "var(--win95-text)" }}>
+                      <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
                         <span>One-time setup fee</span>
                         <span className="font-bold">
                           {selectedOffer.currency} {selectedOffer.ourSetupPrice?.toFixed(2)}
                         </span>
                       </div>
-                      <div className="flex justify-between text-xs mt-1" style={{ color: "var(--win95-text)" }}>
+                      <div className="flex justify-between text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
                         <span>Monthly subscription</span>
                         <span className="font-bold">
                           {selectedOffer.currency} {selectedOffer.ourMonthlyPrice?.toFixed(2)}/mo
@@ -796,7 +796,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                     </div>
                     <div
                       className="border-t pt-2"
-                      style={{ borderColor: "var(--win95-border)" }}
+                      style={{ borderColor: "var(--window-document-border)" }}
                     >
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         + 2 credits per outbound SMS (message delivery cost)
@@ -808,7 +808,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
 
               <div
                 className="p-3 border-2 rounded"
-                style={{ borderColor: "#f59e0b", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "#f59e0b", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <strong>Note:</strong> Number registration takes approximately 30 days.
@@ -817,7 +817,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 </p>
               </div>
 
-              <RetroButton
+              <InteriorButton
                 onClick={async () => {
                   if (!sessionId || !user?.currentOrganization?.id) return;
                   setIsSubmittingCheckout(true);
@@ -862,7 +862,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                     Subscribe &amp; Purchase
                   </>
                 )}
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : null}
         </div>

@@ -83,6 +83,19 @@ export function LoginWindow() {
     return allProviders;
   };
 
+  const getProviderButtonClass = (provider: "microsoft" | "google" | "github") => {
+    const base = "w-full flex items-center justify-center gap-2 px-4 py-2 rounded beveled-button transition-colors";
+    if (provider === "github") return `${base} bg-[#24292e] hover:bg-[#1a1e22] text-white`;
+    if (provider === "microsoft") return `${base} bg-[#0078d4] hover:bg-[#006cbe] text-white`;
+    return `${base} bg-white hover:bg-gray-50 text-gray-700 border border-gray-300`;
+  };
+
+  const getLastUsedBadgeClass = (provider: "microsoft" | "google" | "github") => {
+    if (provider === "github") return "bg-[#24292e] text-white border-white";
+    if (provider === "microsoft") return "bg-[#0078d4] text-white border-white";
+    return "bg-white text-gray-700 border-gray-300";
+  };
+
   const handleCheckEmail = async () => {
     if (!email) {
       setError(t('ui.login.error_email_required'));
@@ -403,7 +416,7 @@ export function LoginWindow() {
           <label className="block text-xs font-pixel mb-2 retro-text">
             Your API Key
           </label>
-          <div className="p-3 font-mono text-sm break-all" style={{background: 'var(--win95-button-face)', border: '2px inset var(--win95-border)'}}>
+          <div className="p-3 font-mono text-sm break-all" style={{background: 'var(--shell-button-surface)', border: '2px inset var(--shell-border)'}}>
             {signupSuccess.apiKey}
           </div>
         </div>
@@ -414,7 +427,7 @@ export function LoginWindow() {
               navigator.clipboard.writeText(signupSuccess.apiKey);
               // Could add a toast notification here
             }}
-            className="flex-1 retro-button py-2"
+            className="flex-1 beveled-button py-2"
           >
             <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
               <Clipboard className="w-3.5 h-3.5" />
@@ -437,7 +450,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="flex-1 retro-button py-2"
+            className="flex-1 beveled-button py-2"
           >
             <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
               <Download className="w-3.5 h-3.5" />
@@ -467,7 +480,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             // Reload page to trigger auth context update
             window.location.reload();
           }}
-          className="w-full retro-button py-3"
+          className="w-full beveled-button py-3"
         >
           <span className="font-pixel">Continue to Dashboard →</span>
         </button>
@@ -527,7 +540,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
           <button
             onClick={() => signOut()}
-            className="retro-button px-6 py-2"
+            className="beveled-button px-6 py-2"
           >
             <span className="font-pixel text-xs">{t('ui.login.button_sign_out')}</span>
           </button>
@@ -579,10 +592,10 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <button
                   type="button"
                   onClick={() => handleOAuth(lastUsedProvider)}
-                  className="relative w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#9F7AEA] hover:bg-[#8B6BC7] text-white rounded retro-button transition-colors font-semibold"
+                  className={`relative ${getProviderButtonClass(lastUsedProvider)} font-semibold`}
                 >
                   {/* Last Used Badge */}
-                  <span className="absolute -top-2 -right-2 bg-[#9F7AEA] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-md">
+                  <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProvider)}`}>
                     {t('ui.login.last_used')}
                   </span>
                   {lastUsedProvider === "github" && (
@@ -615,13 +628,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   key={provider}
                   type="button"
                   onClick={() => handleOAuth(provider)}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded retro-button transition-colors ${
-                    provider === "github"
-                      ? "bg-[#24292e] hover:bg-[#1a1e22] text-white"
-                      : provider === "microsoft"
-                      ? "bg-[#0078d4] hover:bg-[#006cbe] text-white"
-                      : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
-                  }`}
+                  className={getProviderButtonClass(provider)}
                 >
                   {provider === "github" && (
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -674,7 +681,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <button
                 onClick={handleCheckEmail}
                 disabled={loading || !email}
-                className="w-full retro-button py-2"
+                className="w-full beveled-button py-2"
               >
                 <span className="font-pixel text-xs">
                   {loading ? t('ui.login.button_checking') : t('ui.login.button_continue')}
@@ -688,7 +695,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               </p>
               <button
                 onClick={() => setMode("signup")}
-                className="retro-button-small"
+                className="beveled-button beveled-button-sm"
               >
                 <span className="font-pixel text-xs">Create Free Account →</span>
               </button>
@@ -751,10 +758,10 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <button
                     type="button"
                     onClick={() => handleOAuth(lastUsedProvider)}
-                    className="relative w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#9F7AEA] hover:bg-[#8B6BC7] text-white rounded retro-button transition-colors font-semibold"
+                    className={`relative ${getProviderButtonClass(lastUsedProvider)} font-semibold`}
                   >
                     {/* Last Used Badge */}
-                    <span className="absolute -top-2 -right-2 bg-[#9F7AEA] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-md">
+                    <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProvider)}`}>
                       {t('ui.login.last_used')}
                     </span>
                     {lastUsedProvider === "github" && (
@@ -787,13 +794,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     key={provider}
                     type="button"
                     onClick={() => handleOAuth(provider)}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded retro-button transition-colors ${
-                      provider === "github"
-                        ? "bg-[#24292e] hover:bg-[#1a1e22] text-white"
-                        : provider === "microsoft"
-                        ? "bg-[#0078d4] hover:bg-[#006cbe] text-white"
-                        : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
-                    }`}
+                    className={getProviderButtonClass(provider)}
                   >
                     {provider === "github" && (
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -950,7 +951,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <button
                 type="submit"
                 disabled={loading || !agreedToTerms || !passwordMatch}
-                className="w-full retro-button py-2"
+                className="w-full beveled-button py-2"
               >
                 <span className="font-pixel text-xs">
                   {loading ? "Creating Account..." : "Create Free Account"}
@@ -963,7 +964,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 setMode("check");
                 resetForm();
               }}
-              className="mt-4 retro-button-small"
+              className="mt-4 beveled-button beveled-button-sm"
             >
               <span>←</span>
               <span className="font-pixel">Back</span>
@@ -1078,7 +1079,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full retro-button py-2"
+                className="w-full beveled-button py-2"
               >
                 <span className="font-pixel text-xs">
                   {loading ? t('ui.login.button_setting_up') : t('ui.login.button_set_password')}
@@ -1097,7 +1098,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 setShowConfirmPassword(false);
                 setPasswordMatch(null);
               }}
-              className="mt-4 retro-button-small"
+              className="mt-4 beveled-button beveled-button-sm"
             >
               <span>←</span>
               <span className="font-pixel">{t('ui.login.button_back')}</span>
@@ -1142,10 +1143,10 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <button
                   type="button"
                   onClick={() => handleOAuth(lastUsedProviderSignin)}
-                  className="relative w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#9F7AEA] hover:bg-[#8B6BC7] text-white rounded retro-button transition-colors font-semibold"
+                  className={`relative ${getProviderButtonClass(lastUsedProviderSignin)} font-semibold`}
                 >
                   {/* Last Used Badge */}
-                  <span className="absolute -top-2 -right-2 bg-[#9F7AEA] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-md">
+                  <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProviderSignin)}`}>
                     {t('ui.login.last_used')}
                   </span>
                   {lastUsedProviderSignin === "github" && (
@@ -1178,13 +1179,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   key={provider}
                   type="button"
                   onClick={() => handleOAuth(provider)}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded retro-button transition-colors ${
-                    provider === "github"
-                      ? "bg-[#24292e] hover:bg-[#1a1e22] text-white"
-                      : provider === "microsoft"
-                      ? "bg-[#0078d4] hover:bg-[#006cbe] text-white"
-                      : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
-                  }`}
+                  className={getProviderButtonClass(provider)}
                 >
                   {provider === "github" && (
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -1228,8 +1223,8 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div
                   className="border-4 max-w-md w-full mx-4"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-bg)',
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-surface)',
                     boxShadow: "var(--modal-shadow)",
                   }}
                   onClick={(e) => e.stopPropagation()}
@@ -1238,19 +1233,19 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <div
                     className="px-3 py-2 flex items-center justify-between border-b-2"
                     style={{
-                      background: "var(--win95-titlebar)",
-                      borderColor: "var(--win95-border)",
+                      background: "var(--shell-titlebar-gradient)",
+                      borderColor: "var(--shell-border)",
                     }}
                   >
                     <div className="flex items-center gap-2">
                       <div
                         className="w-4 h-4 border"
                         style={{
-                          background: "var(--win95-window-icon-bg)",
-                          borderColor: "var(--win95-window-icon-border)",
+                          background: "var(--shell-window-icon-bg)",
+                          borderColor: "var(--shell-window-icon-border)",
                         }}
                       />
-                      <span className="text-xs font-bold" style={{ color: "var(--win95-titlebar-text)" }}>
+                      <span className="text-xs font-bold" style={{ color: "var(--shell-titlebar-text)" }}>
                         {t('ui.login.passkey_setup_required.title')}
                       </span>
                     </div>
@@ -1258,20 +1253,20 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                       onClick={() => setShowPasskeySetupPrompt(false)}
                       className="beveled-button w-5 h-5 flex items-center justify-center hover:opacity-80"
                       style={{
-                        background: "var(--win95-button-face)",
+                        background: "var(--shell-button-surface)",
                       }}
                     >
-                      <X className="w-3 h-3" style={{ color: "var(--win95-text)" }} />
+                      <X className="w-3 h-3" style={{ color: "var(--shell-text)" }} />
                     </button>
                   </div>
 
                   {/* Content */}
-                  <div className="p-6 space-y-4" style={{ background: 'var(--win95-bg)' }}>
+                  <div className="p-6 space-y-4" style={{ background: 'var(--shell-surface)' }}>
                     <div className="text-center">
                       <div className="mb-3 flex justify-center">
                         <Lock className="w-12 h-12" />
                       </div>
-                      <h3 className="font-pixel text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+                      <h3 className="font-pixel text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
                         {t('ui.login.passkey_setup_required.heading')}
                       </h3>
                       <p className="text-xs leading-relaxed" style={{ color: 'var(--neutral-gray)' }}>
@@ -1284,7 +1279,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                         onClick={() => setShowPasskeySetupPrompt(false)}
                         className="beveled-button flex-1 px-4 py-2 text-xs font-bold"
                         style={{
-                          background: "var(--win95-highlight)",
+                          background: "var(--shell-accent)",
                           color: "white",
                         }}
                       >
@@ -1295,9 +1290,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     <div
                       className="p-3 border-l-4 text-xs"
                       style={{
-                        background: 'var(--win95-button-face)',
+                        background: 'var(--shell-button-surface)',
                         borderColor: 'var(--info)',
-                        color: 'var(--win95-text)'
+                        color: 'var(--shell-text)'
                       }}
                     >
                       <strong>{t('ui.login.passkey_setup_required.tip_title')}</strong> {t('ui.login.passkey_setup_required.tip_description')}
@@ -1334,7 +1329,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <button
               type="submit"
               disabled={loading || passkeyLoading}
-              className="w-full retro-button py-2"
+              className="w-full beveled-button py-2"
             >
               <span className="font-pixel text-xs">
                 {loading ? t('ui.login.button_signing_in') : t('ui.login.button_sign_in')}
@@ -1346,7 +1341,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           <div className="mt-4">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t" style={{ borderColor: 'var(--win95-border)' }}></div>
+                <div className="w-full border-t" style={{ borderColor: 'var(--shell-border)' }}></div>
               </div>
               <div className="relative flex justify-center text-xs">
                 <span className="px-2 retro-bg retro-text-secondary">or</span>
@@ -1356,7 +1351,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <button
               onClick={handlePasskeyLogin}
               disabled={loading || passkeyLoading}
-              className="w-full retro-button py-2 mt-4"
+              className="w-full beveled-button py-2 mt-4"
               style={{ background: 'var(--info)' }}
             >
               <span className="font-pixel text-xs flex items-center justify-center gap-2">
@@ -1374,7 +1369,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               setError("");
               setShowPassword(false);
             }}
-            className="mt-4 retro-button-small"
+            className="mt-4 beveled-button beveled-button-sm"
           >
             <span>←</span>
             <span className="font-pixel">{t('ui.login.button_use_different_email')}</span>

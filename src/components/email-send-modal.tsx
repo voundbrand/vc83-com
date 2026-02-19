@@ -258,15 +258,15 @@ export function EmailSendModal({
       <div
         className="border-4 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
           boxShadow: "4px 4px 0 rgba(0,0,0,0.2)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold" style={{ color: "var(--win95-highlight)" }}>
+          <h3 className="text-lg font-bold" style={{ color: "var(--shell-accent)" }}>
             <Send size={20} className="inline mr-2" />
             {translations.title || `Send ${documentType} Email`}
           </h3>
@@ -274,28 +274,28 @@ export function EmailSendModal({
             onClick={onClose}
             className="p-1 border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
             }}
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--shell-text)" }} />
           </button>
         </div>
 
         {/* Recipient Info */}
-        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-          <p className="text-sm font-bold mb-1 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+          <p className="text-sm font-bold mb-1 flex items-center gap-1" style={{ color: "var(--shell-text)" }}>
             <Mail size={14} />
             Recipient
           </p>
-          <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+          <p className="text-sm" style={{ color: "var(--shell-text)" }}>
             {recipientName} ({recipientEmail})
           </p>
         </div>
 
         {/* Domain Config Selector */}
-        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
             {translations.domainLabel || "Email Domain Configuration"}
           </label>
           <select
@@ -303,9 +303,9 @@ export function EmailSendModal({
             onChange={(e) => setSelectedDomainId(e.target.value as Id<"objects">)}
             className="w-full px-3 py-2 border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-text)",
             }}
           >
             <option value="">
@@ -326,7 +326,7 @@ export function EmailSendModal({
             )}
           </select>
           {!selectedDomainId && (
-            <p className="text-xs mt-2 flex items-center gap-1" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-xs mt-2 flex items-center gap-1" style={{ color: "var(--shell-text-muted)" }}>
               <Info size={12} />
               Using platform defaults: Gold branding, luxury template
             </p>
@@ -363,8 +363,8 @@ export function EmailSendModal({
 
         {/* Attachment Controls */}
         {(allowPdfAttachment || allowIcsAttachment) && (
-          <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               {translations.attachmentsLabel || "Email Attachments"}
             </label>
             <div className="space-y-2">
@@ -376,7 +376,7 @@ export function EmailSendModal({
                     onChange={(e) => setIncludePdfAttachment(e.target.checked)}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                  <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                     {translations.pdfAttachmentLabel || `Include PDF ${documentType} (${selectedPdfTemplateId ? 'Custom' : 'Default'} template)`}
                   </span>
                 </label>
@@ -389,7 +389,7 @@ export function EmailSendModal({
                     onChange={(e) => setIncludeIcsAttachment(e.target.checked)}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                  <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                     {translations.icsAttachmentLabel || "Include ICS Calendar File"}
                   </span>
                 </label>
@@ -402,8 +402,8 @@ export function EmailSendModal({
         )}
 
         {/* Language Selector */}
-        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
             {translations.languageLabel || "Email Language"}
           </label>
           <select
@@ -411,9 +411,9 @@ export function EmailSendModal({
             onChange={(e) => setSelectedLanguage(e.target.value as "de" | "en" | "es" | "fr")}
             className="w-full px-3 py-2 border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-text)",
             }}
           >
             {languageOptions.map((lang) => (
@@ -429,8 +429,8 @@ export function EmailSendModal({
 
         {/* Email Preview */}
         {emailAction === "preview" && emailPreviewHtml && (
-          <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+          <div className="mb-4 border-2" style={{ borderColor: "var(--shell-border)", background: "white", maxHeight: "400px", overflow: "auto" }}>
+            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--shell-accent)", color: "var(--shell-titlebar-text)" }}>
               <Mail size={12} />
               Email Preview
             </div>
@@ -450,8 +450,8 @@ export function EmailSendModal({
 
         {/* PDF Preview */}
         {emailAction === "previewPdf" && pdfPreviewUrl && (
-          <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)", background: "white", maxHeight: "500px", overflow: "auto" }}>
-            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+          <div className="mb-4 border-2" style={{ borderColor: "var(--shell-border)", background: "white", maxHeight: "500px", overflow: "auto" }}>
+            <div className="p-2 text-xs font-bold flex items-center gap-1" style={{ background: "var(--shell-accent)", color: "var(--shell-titlebar-text)" }}>
               <FileText size={12} />
               PDF Preview
             </div>
@@ -471,7 +471,7 @@ export function EmailSendModal({
         {/* Test Email Input */}
         {emailAction === "test" && (
           <div className="mb-4">
-            <label className="block text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               {translations.testEmailLabel || "Test Email Address"}
             </label>
             <input
@@ -481,9 +481,9 @@ export function EmailSendModal({
               placeholder={translations.testEmailPlaceholder || "your.email@example.com"}
               className="w-full px-3 py-2 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-input-surface)",
+                color: "var(--shell-text)",
               }}
             />
           </div>
@@ -494,7 +494,7 @@ export function EmailSendModal({
           <div
             className="mb-4 p-3 border-2"
             style={{
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--shell-border)",
               background: emailResult.success ? "var(--success)" : "var(--error)",
               color: "white",
             }}
@@ -524,9 +524,9 @@ export function EmailSendModal({
             disabled={isSendingEmail}
             className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
           >
             {isSendingEmail && emailAction === "preview" ? (
@@ -542,9 +542,9 @@ export function EmailSendModal({
             disabled={isSendingEmail || !includePdfAttachment || !onPreviewPdf}
             className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)",
+              color: "var(--shell-text)",
             }}
             title={!includePdfAttachment ? "Enable 'Include PDF' to preview" : !onPreviewPdf ? "PDF preview not available" : "Preview PDF attachment"}
           >
@@ -583,9 +583,9 @@ export function EmailSendModal({
             disabled={isSendingEmail}
             className="px-4 py-2 border-2 flex items-center justify-center gap-2 hover:bg-opacity-90 disabled:opacity-50 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--shell-border)",
               background: "var(--success)",
-              color: "var(--win95-titlebar-text)",
+              color: "var(--shell-titlebar-text)",
             }}
           >
             {isSendingEmail && emailAction === "send" ? (

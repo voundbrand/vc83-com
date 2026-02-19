@@ -60,8 +60,8 @@ export function SubscriptionModal({
         <div
           className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto border-4"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
+            backgroundColor: "var(--shell-surface)",
+            borderColor: "var(--shell-border)",
           }}
         >
           {/* Window Title Bar */}
@@ -69,7 +69,7 @@ export function SubscriptionModal({
             className="flex items-center justify-between px-3 py-2 border-b-2"
             style={{
               backgroundColor: "var(--primary)",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--shell-border)",
             }}
           >
             <span className="text-sm font-bold" style={{ color: "white" }}>
@@ -80,7 +80,7 @@ export function SubscriptionModal({
               disabled={isProcessing}
               className="beveled-button w-6 h-6 flex items-center justify-center"
               style={{
-                backgroundColor: "var(--win95-button-face)",
+                backgroundColor: "var(--shell-button-surface)",
               }}
             >
               <X size={14} />
@@ -90,7 +90,7 @@ export function SubscriptionModal({
           {/* Content */}
           <div className="p-6">
             <div className="mb-6 text-center">
-              <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <h2 className="text-xl font-bold mb-2" style={{ color: "var(--shell-text)" }}>
                 Choose Your AI Plan
               </h2>
               <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
@@ -100,15 +100,15 @@ export function SubscriptionModal({
 
             {/* B2B Toggle */}
             <div className="mb-6 flex justify-center">
-              <div className="inline-flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="inline-flex border-2" style={{ borderColor: "var(--shell-border)" }}>
                 <button
                   onClick={() => setIsB2B(false)}
                   className="px-4 py-2 text-sm font-bold flex items-center gap-2"
                   style={{
-                    backgroundColor: !isB2B ? "var(--primary)" : "var(--win95-button-face)",
-                    color: !isB2B ? "white" : "var(--win95-text)",
+                    backgroundColor: !isB2B ? "var(--primary)" : "var(--shell-button-surface)",
+                    color: !isB2B ? "white" : "var(--shell-text)",
                     borderRight: "2px solid",
-                    borderRightColor: "var(--win95-border)",
+                    borderRightColor: "var(--shell-border)",
                   }}
                 >
                   <User size={14} />
@@ -118,8 +118,8 @@ export function SubscriptionModal({
                   onClick={() => setIsB2B(true)}
                   className="px-4 py-2 text-sm font-bold flex items-center gap-2"
                   style={{
-                    backgroundColor: isB2B ? "var(--primary)" : "var(--win95-button-face)",
-                    color: isB2B ? "white" : "var(--win95-text)",
+                    backgroundColor: isB2B ? "var(--primary)" : "var(--shell-button-surface)",
+                    color: isB2B ? "white" : "var(--shell-text)",
                   }}
                 >
                   <Building2 size={14} />
@@ -134,13 +134,13 @@ export function SubscriptionModal({
               <div
                 className="p-4 border-4 cursor-pointer transition-all"
                 style={{
-                  borderColor: selectedTier === "standard" ? "var(--primary)" : "var(--win95-border)",
-                  backgroundColor: selectedTier === "standard" ? "var(--info)" : "var(--win95-bg-light)",
+                  borderColor: selectedTier === "standard" ? "var(--primary)" : "var(--shell-border)",
+                  backgroundColor: selectedTier === "standard" ? "var(--info)" : "var(--shell-surface-elevated)",
                 }}
                 onClick={() => setSelectedTier("standard")}
               >
                 <div className="text-center mb-4">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                     Standard
                   </h3>
                   <p className="text-2xl font-bold mb-2" style={{ color: "var(--primary)" }}>
@@ -151,7 +151,7 @@ export function SubscriptionModal({
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--win95-text)" }}>
+                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--shell-text)" }}>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                     <span>All 16 AI models</span>
@@ -187,8 +187,8 @@ export function SubscriptionModal({
               <div
                 className="p-4 border-4 cursor-pointer transition-all relative"
                 style={{
-                  borderColor: selectedTier === "privacy-enhanced" ? "var(--primary)" : "var(--win95-border)",
-                  backgroundColor: selectedTier === "privacy-enhanced" ? "var(--info)" : "var(--win95-bg-light)",
+                  borderColor: selectedTier === "privacy-enhanced" ? "var(--primary)" : "var(--shell-border)",
+                  backgroundColor: selectedTier === "privacy-enhanced" ? "var(--info)" : "var(--shell-surface-elevated)",
                 }}
                 onClick={() => setSelectedTier("privacy-enhanced")}
               >
@@ -205,7 +205,7 @@ export function SubscriptionModal({
                 <div className="text-center mb-4 mt-2">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <Lock size={14} style={{ color: "var(--primary)" }} />
-                    <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                    <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                       Privacy-Enhanced
                     </h3>
                   </div>
@@ -217,7 +217,7 @@ export function SubscriptionModal({
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--win95-text)" }}>
+                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--shell-text)" }}>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                     <span>6 GDPR-compliant models</span>
@@ -266,12 +266,12 @@ export function SubscriptionModal({
               <div
                 className="p-4 border-4 opacity-90"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  borderColor: "var(--shell-border)",
+                  backgroundColor: "var(--shell-surface-elevated)",
                 }}
               >
                 <div className="text-center mb-4">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                     Private LLM
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
@@ -285,7 +285,7 @@ export function SubscriptionModal({
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--win95-text)" }}>
+                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--shell-text)" }}>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                     <span>Self-hosted AI</span>
@@ -320,12 +320,12 @@ export function SubscriptionModal({
               <div
                 className="p-4 border-4 opacity-90"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  borderColor: "var(--shell-border)",
+                  backgroundColor: "var(--shell-surface-elevated)",
                 }}
               >
                 <div className="text-center mb-4">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                     Private LLM
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
@@ -339,7 +339,7 @@ export function SubscriptionModal({
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--win95-text)" }}>
+                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--shell-text)" }}>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                     <span>Dedicated GPU infrastructure</span>
@@ -374,12 +374,12 @@ export function SubscriptionModal({
               <div
                 className="p-4 border-4 opacity-90"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  borderColor: "var(--shell-border)",
+                  backgroundColor: "var(--shell-surface-elevated)",
                 }}
               >
                 <div className="text-center mb-4">
-                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h3 className="text-sm font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                     Private LLM
                   </h3>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
@@ -393,7 +393,7 @@ export function SubscriptionModal({
                   </p>
                 </div>
 
-                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--win95-text)" }}>
+                <ul className="text-xs space-y-2 mb-4" style={{ color: "var(--shell-text)" }}>
                   <li className="flex items-start gap-2">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                     <span>Custom infrastructure</span>
@@ -427,14 +427,14 @@ export function SubscriptionModal({
 
             {/* B2B Info Note */}
             {isB2B && selectedTier && (
-              <div className="mb-6 p-4 border-2" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--info)" }}>
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <div className="mb-6 p-4 border-2" style={{ borderColor: "var(--shell-border)", backgroundColor: "var(--info)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
                   <span className="inline-flex items-center gap-1">
                     <Building2 size={12} />
                     Business Checkout Selected
                   </span>
                 </p>
-                <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs" style={{ color: "var(--shell-text)" }}>
                   You'll be able to enter your VAT/Tax ID on the next page. If you provide a valid EU VAT number, the reverse charge mechanism applies and you'll pay €0 VAT.
                 </p>
               </div>
@@ -446,11 +446,11 @@ export function SubscriptionModal({
                 className="p-3 mb-4 border-2 flex items-start gap-2"
                 style={{
                   backgroundColor: "var(--warning)",
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--shell-border)",
                 }}
               >
                 <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-                <div className="text-xs" style={{ color: "var(--win95-text)" }}>
+                <div className="text-xs" style={{ color: "var(--shell-text)" }}>
                   <p className="font-bold mb-1">Plan Change</p>
                   <p>
                     You currently have the <strong>{currentTier}</strong> plan.
@@ -467,8 +467,8 @@ export function SubscriptionModal({
                 disabled={isProcessing}
                 className="beveled-button px-4 py-2 text-sm font-bold"
                 style={{
-                  backgroundColor: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  backgroundColor: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
               >
                 Cancel

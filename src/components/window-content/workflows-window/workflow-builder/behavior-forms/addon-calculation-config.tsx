@@ -163,7 +163,7 @@ export function AddonCalculationConfigForm({
       <div>
         <label
           className="text-xs font-bold block mb-1"
-          style={{ color: "var(--win95-text)" }}
+          style={{ color: "var(--window-document-text)" }}
         >
           Calculation Strategy
         </label>
@@ -198,7 +198,7 @@ export function AddonCalculationConfigForm({
         <label className="flex items-center justify-between">
           <span
             className="text-xs font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             Require All Fields
           </span>
@@ -222,16 +222,16 @@ export function AddonCalculationConfigForm({
       {/* Add-ons List */}
       <div
         className="border-t-2 pt-3"
-        style={{ borderColor: "var(--win95-border)" }}
+        style={{ borderColor: "var(--window-document-border)" }}
       >
         <div className="flex items-center justify-between mb-2">
           <div
             className="text-xs font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             Add-ons ({config.addons.length})
           </div>
-          <button onClick={handleAddAddon} className="retro-button p-1">
+          <button onClick={handleAddAddon} className="desktop-interior-button p-1">
             <Plus className="h-3 w-3" />
           </button>
         </div>
@@ -252,8 +252,8 @@ export function AddonCalculationConfigForm({
                   key={addon.id}
                   className="border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
                   }}
                 >
                   {/* Addon Header */}
@@ -261,7 +261,7 @@ export function AddonCalculationConfigForm({
                     <div className="flex-1">
                       <div
                         className="text-xs font-bold"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         {addon.icon} {addon.name}
                       </div>
@@ -277,7 +277,7 @@ export function AddonCalculationConfigForm({
                         onClick={() =>
                           setExpandedAddon(expanded ? null : addon.id)
                         }
-                        className="retro-button p-1"
+                        className="desktop-interior-button p-1"
                       >
                         {expanded ? (
                           <ChevronUp className="h-3 w-3" />
@@ -287,7 +287,7 @@ export function AddonCalculationConfigForm({
                       </button>
                       <button
                         onClick={() => handleRemoveAddon(addon.id)}
-                        className="retro-button p-1"
+                        className="desktop-interior-button p-1"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -298,14 +298,14 @@ export function AddonCalculationConfigForm({
                   {expanded && (
                     <div
                       className="border-t-2 p-2 space-y-3"
-                      style={{ borderColor: "var(--win95-border)" }}
+                      style={{ borderColor: "var(--window-document-border)" }}
                     >
                       {/* Basic Info */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label
                             className="text-xs block mb-1"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Name *
                           </label>
@@ -323,7 +323,7 @@ export function AddonCalculationConfigForm({
                         <div>
                           <label
                             className="text-xs block mb-1"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Icon
                           </label>
@@ -345,7 +345,7 @@ export function AddonCalculationConfigForm({
                       <div>
                         <label
                           className="text-xs block mb-1"
-                          style={{ color: "var(--win95-text)" }}
+                          style={{ color: "var(--window-document-text)" }}
                         >
                           Description
                         </label>
@@ -366,7 +366,7 @@ export function AddonCalculationConfigForm({
                         <div>
                           <label
                             className="text-xs block mb-1"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Price (cents) *
                           </label>
@@ -386,7 +386,7 @@ export function AddonCalculationConfigForm({
                         <div>
                           <label
                             className="text-xs block mb-1"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Currency *
                           </label>
@@ -421,7 +421,7 @@ export function AddonCalculationConfigForm({
                           />
                           <span
                             className="text-xs"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Taxable
                           </span>
@@ -450,7 +450,7 @@ export function AddonCalculationConfigForm({
                       <div>
                         <label
                           className="text-xs block mb-1"
-                          style={{ color: "var(--win95-text)" }}
+                          style={{ color: "var(--window-document-text)" }}
                         >
                           Form Fields *
                         </label>
@@ -458,8 +458,8 @@ export function AddonCalculationConfigForm({
                           <div
                             className="border-2 px-2 py-2 space-y-1 overflow-y-auto"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-input-bg)",
+                              borderColor: "var(--window-document-border)",
+                              background: "var(--window-document-bg-elevated)",
                               maxHeight: "150px",
                             }}
                           >
@@ -470,12 +470,12 @@ export function AddonCalculationConfigForm({
                                   key={field.id}
                                   className="flex items-center gap-2 py-1 cursor-pointer"
                                   style={{
-                                    backgroundColor: isSelected ? "var(--win95-selected-bg)" : "transparent",
-                                    color: isSelected ? "var(--win95-selected-text)" : "var(--win95-text)",
+                                    backgroundColor: isSelected ? "var(--desktop-menu-hover)" : "transparent",
+                                    color: isSelected ? "var(--window-document-text)" : "var(--window-document-text)",
                                   }}
                                   onMouseEnter={(e) => {
                                     if (!isSelected) {
-                                      e.currentTarget.style.backgroundColor = "var(--win95-hover-light)";
+                                      e.currentTarget.style.backgroundColor = "var(--desktop-menu-hover)";
                                     }
                                   }}
                                   onMouseLeave={(e) => {
@@ -500,7 +500,7 @@ export function AddonCalculationConfigForm({
                                 />
                                 <span
                                   className="text-xs flex-1"
-                                  style={{ color: "var(--win95-text)" }}
+                                  style={{ color: "var(--window-document-text)" }}
                                 >
                                   {field.label} <span style={{ color: "var(--neutral-gray)" }}>({field.id})</span>
                                 </span>
@@ -539,7 +539,7 @@ export function AddonCalculationConfigForm({
                         <div className="flex items-center justify-between mb-2">
                           <label
                             className="text-xs font-bold"
-                            style={{ color: "var(--win95-text)" }}
+                            style={{ color: "var(--window-document-text)" }}
                           >
                             Value → Quantity Mapping *
                           </label>
@@ -547,7 +547,7 @@ export function AddonCalculationConfigForm({
                             {addon.formFieldIds.length > 0 && (
                               <button
                                 onClick={() => handleAutoPopulateMapping(addon.id)}
-                                className="retro-button px-2 py-1 text-[10px]"
+                                className="desktop-interior-button px-2 py-1 text-[10px]"
                                 title="Auto-populate from form field options"
                               >
                                 Auto
@@ -555,7 +555,7 @@ export function AddonCalculationConfigForm({
                             )}
                             <button
                               onClick={() => handleAddMapping(addon.id)}
-                              className="retro-button p-1"
+                              className="desktop-interior-button p-1"
                             >
                               <Plus className="h-3 w-3" />
                             </button>
@@ -606,7 +606,7 @@ export function AddonCalculationConfigForm({
                                   onClick={() =>
                                     handleRemoveMapping(addon.id, key)
                                   }
-                                  className="retro-button p-1"
+                                  className="desktop-interior-button p-1"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>

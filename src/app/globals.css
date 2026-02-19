@@ -2,8 +2,8 @@
 
 :root {
   /* Canonical shell shape defaults */
-  --button-radius: 0px;
-  --button-radius-sm: 0px;
+  --button-radius: 8px;
+  --button-radius-sm: 6px;
 
   /* Shared shell/system constants */
   --glass-blur: 20px;
@@ -48,55 +48,56 @@
   --background: var(--tone-canvas);
   --foreground: var(--tone-text);
 
-  --win95-bg: var(--tone-surface);
-  --win95-bg-light: var(--tone-surface-elevated);
-  --win95-bg-dark: #0c0c0c;
-  --win95-border: var(--tone-border);
-  --win95-border-dark: var(--tone-border-strong);
-  --win95-border-light: var(--tone-border-soft);
-  --win95-text: var(--tone-text);
-  --win95-text-secondary: var(--tone-text-muted);
-  --win95-highlight: var(--tone-accent);
-  --win95-highlight-bg: var(--tone-accent-soft);
+  --shell-surface: var(--tone-surface);
+  --shell-surface-elevated: var(--tone-surface-elevated);
+  --shell-surface-strong: #0c0c0c;
+  --shell-border: var(--tone-border);
+  --shell-border-strong: var(--tone-border-strong);
+  --shell-border-soft: var(--tone-border-soft);
+  --shell-text: var(--tone-text);
+  --shell-text-muted: var(--tone-text-muted);
+  --shell-accent: var(--tone-accent);
+  --shell-accent-soft: var(--tone-accent-soft);
 
   --primary: var(--tone-accent);
   --primary-gradient-end: #d6d6d6;
-  --win95-gradient-end: var(--tone-accent-strong);
+  --shell-accent-strong: var(--tone-accent-strong);
 
-  --win95-hover-bg: var(--tone-accent);
-  --win95-hover-text: #0f0f0f;
-  --win95-hover-light: #212121;
+  --shell-hover-bg: var(--tone-accent);
+  --shell-hover-text: #0f0f0f;
+  --shell-hover-surface: #212121;
+  --shell-on-accent: var(--shell-hover-text);
 
-  --win95-selected-bg: var(--tone-accent);
-  --win95-selected-text: #101010;
-  --win95-active-border: #000000;
+  --shell-selection-bg: var(--tone-accent);
+  --shell-selection-text: #101010;
+  --shell-active-border: #000000;
 
-  --win95-button-face: #181818;
-  --win95-button-light: var(--tone-border-soft);
-  --win95-button-dark: var(--tone-border-strong);
-  --win95-button-darkest: #020202;
-  --win95-button-hover: #232323;
+  --shell-button-surface: #181818;
+  --shell-bevel-light: var(--tone-border-soft);
+  --shell-bevel-dark: var(--tone-border-strong);
+  --shell-bevel-deep: #020202;
+  --shell-button-hover: #232323;
 
-  --win95-button-primary-gradient: linear-gradient(135deg, var(--win95-highlight) 0%, var(--primary-gradient-end) 100%);
+  --shell-button-primary-gradient: linear-gradient(135deg, var(--shell-accent) 0%, var(--primary-gradient-end) 100%);
 
-  --win95-titlebar: linear-gradient(180deg, #202020 0%, #171717 100%);
-  --win95-titlebar-inactive: linear-gradient(180deg, #161616 0%, #111111 100%);
-  --win95-titlebar-text: #f6f6f6;
-  --win95-window-icon-bg: #1f1f1f;
-  --win95-window-icon-border: #080808;
+  --shell-titlebar-gradient: linear-gradient(180deg, #202020 0%, #171717 100%);
+  --shell-titlebar-gradient-inactive: linear-gradient(180deg, #161616 0%, #111111 100%);
+  --shell-titlebar-text: #f6f6f6;
+  --shell-window-icon-bg: #1f1f1f;
+  --shell-window-icon-border: #080808;
 
-  --win95-input-bg: #101010;
-  --win95-input-text: var(--tone-text);
-  --win95-input-border-dark: #050505;
-  --win95-input-border-light: var(--tone-border-soft);
-  --win95-input-placeholder: #8b8b8b;
-  --win95-input-focus-outline: var(--tone-accent-strong);
+  --shell-input-surface: #101010;
+  --shell-input-text: var(--tone-text);
+  --shell-input-border-strong: #050505;
+  --shell-input-border-soft: var(--tone-border-soft);
+  --shell-input-placeholder: #8b8b8b;
+  --shell-input-focus: var(--tone-accent-strong);
   --focus-ring: #ffffff;
   --focus-ring-offset: #050505;
 
-  --win95-scrollbar-track: #111111;
-  --win95-scrollbar-thumb: #373737;
-  --win95-scrollbar-button: #1b1b1b;
+  --shell-scrollbar-track: #111111;
+  --shell-scrollbar-thumb: #373737;
+  --shell-scrollbar-button: #1b1b1b;
 
   --desktop-icon-text: #efefef;
   --desktop-icon-hover-bg: rgba(255, 255, 255, 0.08);
@@ -131,8 +132,8 @@
   --audio-player-track-bg: #0d1016;
   --audio-player-progress: #53d88b;
 
-  --win95-text-muted: #808a9b;
-  --win95-title-bg: #202734;
+  --shell-text-dim: #808a9b;
+  --shell-title-bg: #202734;
 
   --neutral-gray: #8f98a8;
   --error: var(--tone-danger);
@@ -154,7 +155,7 @@
   --stage-partner-bg: rgba(152, 141, 214, 0.11);
   --stage-partner-border: rgba(152, 141, 214, 0.28);
 
-  --win95-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+  --shell-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
 
   --glass-bg: rgba(12, 16, 22, 0.82);
   --glass-bg-light: rgba(20, 26, 35, 0.9);
@@ -171,7 +172,7 @@
 
   --modal-overlay-bg: rgba(2, 4, 7, 0.85);
   --modal-bg: #1a212c;
-  --modal-header-bg: linear-gradient(90deg, #2b3e5c 0%, var(--win95-gradient-end) 100%);
+  --modal-header-bg: linear-gradient(90deg, #2b3e5c 0%, var(--shell-accent-strong) 100%);
   --modal-header-text: #e8edf5;
   --modal-border: #0f141d;
   --modal-shadow: 4px 4px 12px rgba(0, 0, 0, 0.7);
@@ -204,7 +205,7 @@
   --notification-info-text: #a9c3e8;
 
   --finder-accent: var(--tone-accent);
-  --finder-selection-bg: var(--win95-highlight-bg);
+  --finder-selection-bg: var(--shell-accent-soft);
   --finder-selection-text: #f7faff;
   --finder-selection-border: var(--tone-accent-strong);
   --window-resize-grip: repeating-linear-gradient(
@@ -241,55 +242,56 @@
   --background: var(--tone-canvas);
   --foreground: var(--tone-text);
 
-  --win95-bg: var(--tone-surface);
-  --win95-bg-light: var(--tone-surface-elevated);
-  --win95-bg-dark: #e2d8c3;
-  --win95-border: var(--tone-border);
-  --win95-border-dark: var(--tone-border-strong);
-  --win95-border-light: var(--tone-border-soft);
-  --win95-text: var(--tone-text);
-  --win95-text-secondary: var(--tone-text-muted);
-  --win95-highlight: var(--tone-accent);
-  --win95-highlight-bg: var(--tone-accent-soft);
+  --shell-surface: var(--tone-surface);
+  --shell-surface-elevated: var(--tone-surface-elevated);
+  --shell-surface-strong: #e2d8c3;
+  --shell-border: var(--tone-border);
+  --shell-border-strong: var(--tone-border-strong);
+  --shell-border-soft: var(--tone-border-soft);
+  --shell-text: var(--tone-text);
+  --shell-text-muted: var(--tone-text-muted);
+  --shell-accent: var(--tone-accent);
+  --shell-accent-soft: var(--tone-accent-soft);
 
   --primary: var(--tone-accent);
   --primary-gradient-end: #db8f08;
-  --win95-gradient-end: var(--tone-accent-strong);
+  --shell-accent-strong: var(--tone-accent-strong);
 
-  --win95-hover-bg: #e3d7bc;
-  --win95-hover-text: #2a241b;
-  --win95-hover-light: #ece3d0;
+  --shell-hover-bg: #e3d7bc;
+  --shell-hover-text: #2a241b;
+  --shell-hover-surface: #ece3d0;
+  --shell-on-accent: var(--shell-hover-text);
 
-  --win95-selected-bg: #e5d9bc;
-  --win95-selected-text: #2e281e;
-  --win95-active-border: #9c8d71;
+  --shell-selection-bg: #e5d9bc;
+  --shell-selection-text: #2e281e;
+  --shell-active-border: #9c8d71;
 
-  --win95-button-face: #eadfc8;
-  --win95-button-light: #f8f1e1;
-  --win95-button-dark: #ab9b81;
-  --win95-button-darkest: #7f7058;
-  --win95-button-hover: #eee4d0;
+  --shell-button-surface: #eadfc8;
+  --shell-bevel-light: #f8f1e1;
+  --shell-bevel-dark: #ab9b81;
+  --shell-bevel-deep: #7f7058;
+  --shell-button-hover: #eee4d0;
 
-  --win95-button-primary-gradient: linear-gradient(135deg, var(--win95-highlight) 0%, var(--primary-gradient-end) 100%);
+  --shell-button-primary-gradient: linear-gradient(135deg, var(--shell-accent) 0%, var(--primary-gradient-end) 100%);
 
-  --win95-titlebar: linear-gradient(180deg, #f4efdf 0%, #ebe4d3 100%);
-  --win95-titlebar-inactive: linear-gradient(180deg, #ece4d0 0%, #e2d8bf 100%);
-  --win95-titlebar-text: #2e281d;
-  --win95-window-icon-bg: #ebe1ca;
-  --win95-window-icon-border: #b8a98e;
+  --shell-titlebar-gradient: linear-gradient(180deg, #f4efdf 0%, #ebe4d3 100%);
+  --shell-titlebar-gradient-inactive: linear-gradient(180deg, #ece4d0 0%, #e2d8bf 100%);
+  --shell-titlebar-text: #2e281d;
+  --shell-window-icon-bg: #ebe1ca;
+  --shell-window-icon-border: #b8a98e;
 
-  --win95-input-bg: #fff9ee;
-  --win95-input-text: var(--tone-text);
-  --win95-input-border-dark: #b09f83;
-  --win95-input-border-light: #f7ecd9;
-  --win95-input-placeholder: #8a7b63;
-  --win95-input-focus-outline: #d79010;
+  --shell-input-surface: #fff9ee;
+  --shell-input-text: var(--tone-text);
+  --shell-input-border-strong: #b09f83;
+  --shell-input-border-soft: #f7ecd9;
+  --shell-input-placeholder: #8a7b63;
+  --shell-input-focus: #d79010;
   --focus-ring: #d79010;
   --focus-ring-offset: #f8efde;
 
-  --win95-scrollbar-track: #ece2cd;
-  --win95-scrollbar-thumb: #baa88a;
-  --win95-scrollbar-button: #e4d5bb;
+  --shell-scrollbar-track: #ece2cd;
+  --shell-scrollbar-thumb: #baa88a;
+  --shell-scrollbar-button: #e4d5bb;
 
   --desktop-icon-text: #352a1d;
   --desktop-icon-hover-bg: rgba(163, 124, 63, 0.16);
@@ -324,8 +326,8 @@
   --audio-player-track-bg: #2a2014;
   --audio-player-progress: #b8dd8f;
 
-  --win95-text-muted: #6f5f49;
-  --win95-title-bg: #dfcfb4;
+  --shell-text-dim: #6f5f49;
+  --shell-title-bg: #dfcfb4;
 
   --neutral-gray: #7a6a53;
   --error: var(--tone-danger);
@@ -347,7 +349,7 @@
   --stage-partner-bg: rgba(157, 140, 183, 0.16);
   --stage-partner-border: rgba(122, 103, 150, 0.3);
 
-  --win95-shadow: 2px 2px 0 rgba(94, 74, 50, 0.24);
+  --shell-shadow: 2px 2px 0 rgba(94, 74, 50, 0.24);
 
   --glass-bg: rgba(250, 241, 225, 0.78);
   --glass-bg-light: rgba(254, 248, 238, 0.9);
@@ -364,7 +366,7 @@
 
   --modal-overlay-bg: rgba(40, 29, 16, 0.35);
   --modal-bg: #f5e9d5;
-  --modal-header-bg: linear-gradient(90deg, #9b6c47 0%, var(--win95-gradient-end) 100%);
+  --modal-header-bg: linear-gradient(90deg, #9b6c47 0%, var(--shell-accent-strong) 100%);
   --modal-header-text: #fff8ef;
   --modal-border: #9e8769;
   --modal-shadow: 4px 4px 12px rgba(108, 84, 56, 0.28);
@@ -419,12 +421,56 @@
   border-top-right-radius: 10px;
 }
 
+.desktop-shell-window.start-menu-container,
 .retro-window.start-menu-container,
 .retro-window-dark.start-menu-container {
   overflow: visible;
 }
 
 body {
+  /* Compatibility bridge for unmigrated surfaces still reading legacy token names. */
+  --win95-bg: var(--shell-surface);
+  --win95-bg-light: var(--shell-surface-elevated);
+  --win95-bg-dark: var(--shell-surface-strong);
+  --win95-border: var(--shell-border);
+  --win95-border-dark: var(--shell-border-strong);
+  --win95-border-light: var(--shell-border-soft);
+  --win95-text: var(--shell-text);
+  --win95-text-secondary: var(--shell-text-muted);
+  --win95-highlight: var(--shell-accent);
+  --win95-highlight-bg: var(--shell-accent-soft);
+  --win95-gradient-end: var(--shell-accent-strong);
+  --win95-hover-bg: var(--shell-hover-bg);
+  --win95-hover-text: var(--shell-hover-text);
+  --win95-hover-light: var(--shell-hover-surface);
+  --win95-on-highlight: var(--shell-on-accent);
+  --win95-selected-bg: var(--shell-selection-bg);
+  --win95-selected-text: var(--shell-selection-text);
+  --win95-active-border: var(--shell-active-border);
+  --win95-button-face: var(--shell-button-surface);
+  --win95-button-light: var(--shell-bevel-light);
+  --win95-button-dark: var(--shell-bevel-dark);
+  --win95-button-darkest: var(--shell-bevel-deep);
+  --win95-button-hover: var(--shell-button-hover);
+  --win95-button-primary-gradient: var(--shell-button-primary-gradient);
+  --win95-titlebar: var(--shell-titlebar-gradient);
+  --win95-titlebar-inactive: var(--shell-titlebar-gradient-inactive);
+  --win95-titlebar-text: var(--shell-titlebar-text);
+  --win95-window-icon-bg: var(--shell-window-icon-bg);
+  --win95-window-icon-border: var(--shell-window-icon-border);
+  --win95-input-bg: var(--shell-input-surface);
+  --win95-input-text: var(--shell-input-text);
+  --win95-input-border-dark: var(--shell-input-border-strong);
+  --win95-input-border-light: var(--shell-input-border-soft);
+  --win95-input-placeholder: var(--shell-input-placeholder);
+  --win95-input-focus-outline: var(--shell-input-focus);
+  --win95-scrollbar-track: var(--shell-scrollbar-track);
+  --win95-scrollbar-thumb: var(--shell-scrollbar-thumb);
+  --win95-scrollbar-button: var(--shell-scrollbar-button);
+  --win95-text-muted: var(--shell-text-dim);
+  --win95-title-bg: var(--shell-title-bg);
+  --win95-shadow: var(--shell-shadow);
+
   background: var(--background);
   color: var(--foreground);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -450,76 +496,96 @@ body {
   }
 
   /* Window shell styling */
+  .desktop-shell-window,
   .retro-window {
     background: var(--window-shell-bg);
     border: 1px solid var(--window-shell-border);
     box-shadow: var(--window-shell-shadow);
-    color: var(--win95-text);
+    color: var(--shell-text);
   }
 
+  .desktop-shell-window-alt,
   .retro-window-dark {
     background: var(--window-shell-bg);
     border: 1px solid var(--window-shell-border);
     box-shadow: var(--window-shell-shadow);
-    color: var(--win95-text);
+    color: var(--shell-text);
   }
 
   /* Window title bar */
+  .desktop-shell-titlebar,
   .retro-titlebar {
     background: var(--window-titlebar-bg);
     border-bottom: 1px solid var(--window-titlebar-border);
     padding: 6px 8px;
-    color: var(--win95-titlebar-text);
+    color: var(--shell-titlebar-text);
     font-weight: 600;
     font-size: 0.875rem;
   }
 
   /* Glass theme titlebar - dark text on light background */
+  .glass-theme:not(.dark) .desktop-shell-titlebar,
   .glass-theme:not(.dark) .retro-titlebar {
     color: #1f2937 !important; /* Dark text for light glass theme */
   }
 
   /* Override any inline text-white classes in glass light theme */
+  .glass-theme:not(.dark) .desktop-shell-titlebar .text-white,
+  .glass-theme:not(.dark) .desktop-shell-titlebar span,
   .glass-theme:not(.dark) .retro-titlebar .text-white,
   .glass-theme:not(.dark) .retro-titlebar span {
     color: #1f2937 !important; /* Dark text for light glass theme */
   }
 
   /* Glass theme dark - keep white text */
+  .glass-theme.dark .desktop-shell-titlebar,
   .glass-theme.dark .retro-titlebar {
     color: #ffffff !important; /* White text for dark glass theme */
   }
 
+  .glass-theme.dark .desktop-shell-titlebar .text-white,
+  .glass-theme.dark .desktop-shell-titlebar span,
   .glass-theme.dark .retro-titlebar .text-white,
   .glass-theme.dark .retro-titlebar span {
     color: #ffffff !important; /* White text for dark glass theme */
   }
 
+  .desktop-shell-titlebar-inactive,
   .retro-titlebar-inactive {
     background: var(--window-titlebar-bg-inactive);
   }
 
   /* Buttons */
+  .desktop-shell-button,
   .retro-button {
-    border: 1px solid var(--win95-border);
-    background: var(--win95-bg-light);
+    border: 1px solid var(--desktop-shell-border);
+    background: var(--desktop-shell-accent);
     box-shadow: none;
     transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
-    color: var(--win95-text);
+    color: var(--desktop-menu-text);
     padding: 4px 12px;
     font-weight: 600;
     font-size: 0.875rem;
     border-radius: 6px;
   }
 
-  /* Beveled button utility class - Win95 style borders with adaptive radius */
+  /* Legacy compatibility alias: keep class name, use modern flat controls */
   .beveled-button {
-    border: 2px solid;
-    border-top-color: var(--win95-button-light);
-    border-left-color: var(--win95-button-light);
-    border-bottom-color: var(--win95-button-dark);
-    border-right-color: var(--win95-button-dark);
+    border: 1px solid var(--desktop-shell-border);
+    background: var(--desktop-shell-accent);
+    box-shadow: none;
+    color: var(--desktop-menu-text);
     border-radius: var(--button-radius);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  }
+
+  .beveled-button:hover {
+    background: var(--shell-hover-surface);
+    border-color: var(--shell-border-soft);
+  }
+
+  .beveled-button:active {
+    transform: translateY(1px);
   }
 
   .beveled-button-sm {
@@ -528,9 +594,10 @@ body {
 
   /* Canonical shell override: keep beveled buttons legible across states */
   .beveled-button[style*="primary"],
-  .beveled-button[style*="win95-button-face"],
-  .beveled-button[style*="win95-bg"] {
-    color: var(--win95-hover-text) !important;
+  .beveled-button[style*="shell-button-surface"],
+  .beveled-button[style*="shell-surface"],
+  .beveled-button[style*="shell-accent"] {
+    color: var(--shell-on-accent) !important;
   }
 
   .beveled-button[style*="error"],
@@ -539,31 +606,51 @@ body {
     color: #ffffff !important;
   }
 
-  /* Primary beveled button with gradient */
+  /* Primary compatibility alias */
   .beveled-button-primary {
-    border: 2px solid;
-    border-top-color: var(--win95-button-light);
-    border-left-color: var(--win95-button-light);
-    border-bottom-color: var(--win95-button-dark);
-    border-right-color: var(--win95-button-dark);
+    border: 1px solid var(--shell-accent-strong);
     border-radius: var(--button-radius);
-    background: linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%);
-    color: white;
+    background: var(--shell-accent);
+    color: var(--shell-on-accent) !important;
+    box-shadow: none;
   }
 
+  .beveled-button-primary:hover {
+    background: var(--shell-accent-strong);
+    border-color: var(--shell-accent-strong);
+  }
+
+  /*
+   * Guard against white-on-white text when accent surfaces are light in dark mode.
+   * This catches inline-style accent fills used throughout window UIs.
+   */
+  [style*="background: var(--shell-accent)"],
+  [style*="background-color: var(--shell-accent)"],
+  [style*="background: linear-gradient(90deg, var(--shell-accent)"],
+  [style*="background: linear-gradient(90deg,var(--shell-accent)"],
+  [style*="background: linear-gradient(135deg, var(--shell-accent)"],
+  [style*="background: linear-gradient(135deg,var(--shell-accent)"] {
+    color: var(--shell-on-accent) !important;
+  }
+
+  .desktop-shell-button:hover,
   .retro-button:hover {
-    background: var(--win95-hover-light);
-    border-color: var(--win95-border-light);
+    background: var(--shell-hover-surface);
+    border-color: var(--shell-border-soft);
   }
 
+  .desktop-shell-button:active,
   .retro-button:active {
     transform: scale(0.98);
   }
 
+  .desktop-shell-button:focus-visible,
+  .desktop-shell-button-small:focus-visible,
   .retro-button:focus-visible,
   .retro-button-small:focus-visible,
   .desktop-taskbar-action:focus-visible,
   .desktop-taskbar-warning:focus-visible,
+  .desktop-shell-control-button:focus-visible,
   .retro-control-button:focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
@@ -572,44 +659,86 @@ body {
       0 0 0 4px var(--focus-ring);
   }
 
+  .desktop-shell-button:focus:not(:focus-visible),
+  .desktop-shell-button-small:focus:not(:focus-visible),
   .retro-button:focus:not(:focus-visible),
   .retro-button-small:focus:not(:focus-visible),
   .desktop-taskbar-action:focus:not(:focus-visible),
   .desktop-taskbar-warning:focus:not(:focus-visible),
+  .desktop-shell-control-button:focus:not(:focus-visible),
   .retro-control-button:focus:not(:focus-visible) {
     outline: none;
     box-shadow: none;
   }
 
+  .desktop-shell-button-primary,
   .retro-button-primary {
-    background: var(--win95-highlight);
-    color: var(--win95-hover-text) !important; /* Use hover text color (white) for button text */
-    border-color: var(--win95-highlight);
+    background: var(--shell-accent);
+    color: var(--shell-hover-text) !important; /* Use hover text color (white) for button text */
+    border-color: var(--shell-accent);
   }
 
+  .desktop-shell-button-primary:hover,
   .retro-button-primary:hover {
-    background: var(--win95-hover-bg);
-    color: var(--win95-hover-text) !important;
+    background: var(--shell-hover-bg);
+    color: var(--shell-hover-text) !important;
   }
 
+  .desktop-shell-button-primary:active,
   .retro-button-primary:active {
-    border-color: var(--win95-highlight);
-    color: var(--win95-hover-text) !important;
+    border-color: var(--shell-accent);
+    color: var(--shell-hover-text) !important;
+  }
+
+  /*
+   * Integrations UI dark mode: avoid bright white primary buttons.
+   * Keep only integration CTAs as black with white outline/text.
+   */
+  :root.dark .integration-ui-scope .desktop-shell-button-primary,
+  :root[data-reading-mode="dark"] .integration-ui-scope .desktop-shell-button-primary,
+  :root.dark .integration-ui-scope .retro-button-primary,
+  :root[data-reading-mode="dark"] .integration-ui-scope .retro-button-primary,
+  :root.dark .integration-ui-scope .beveled-button-primary,
+  :root[data-reading-mode="dark"] .integration-ui-scope .beveled-button-primary,
+  :root.dark .integration-ui-scope .beveled-button[style*="shell-accent"],
+  :root[data-reading-mode="dark"] .integration-ui-scope .beveled-button[style*="shell-accent"] {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid #ffffff !important;
+    border-radius: 6px !important;
+  }
+
+  :root.dark .integration-ui-scope .desktop-shell-button-primary:hover,
+  :root[data-reading-mode="dark"] .integration-ui-scope .desktop-shell-button-primary:hover,
+  :root.dark .integration-ui-scope .retro-button-primary:hover,
+  :root[data-reading-mode="dark"] .integration-ui-scope .retro-button-primary:hover,
+  :root.dark .integration-ui-scope .beveled-button-primary:hover,
+  :root[data-reading-mode="dark"] .integration-ui-scope .beveled-button-primary:hover,
+  :root.dark .integration-ui-scope .beveled-button[style*="shell-accent"]:hover,
+  :root[data-reading-mode="dark"] .integration-ui-scope .beveled-button[style*="shell-accent"]:hover {
+    background: #111111 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
   }
 
   /* Glass light theme - ensure dark text on light buttons */
+  .glass-theme:not(.dark) .desktop-shell-button,
   .glass-theme:not(.dark) .retro-button {
     color: #1f2937 !important; /* Dark text for light glass theme buttons */
   }
 
   /* Glass theme button text - ensure proper contrast on primary buttons */
+  .glass-theme .desktop-shell-button-primary,
+  .glass-theme .desktop-shell-button.desktop-shell-button-primary,
   .glass-theme .retro-button-primary,
   .glass-theme .retro-button.retro-button-primary {
     color: #ffffff !important; /* White text on primary buttons in glass theme */
-    background: var(--win95-highlight) !important;
+    background: var(--shell-accent) !important;
   }
 
   /* Ensure primary button text is always white in glass theme, even with font-pixel */
+  .glass-theme .desktop-shell-button-primary.font-pixel,
+  .glass-theme button.desktop-shell-button-primary,
   .glass-theme .retro-button-primary.font-pixel,
   .glass-theme button.retro-button-primary {
     color: #ffffff !important;
@@ -628,15 +757,15 @@ body {
   /* Form Inputs */
   .retro-input {
     border: 2px solid;
-    border-color: var(--win95-input-border-dark) var(--win95-input-border-light) var(--win95-input-border-light) var(--win95-input-border-dark);
-    background: var(--win95-input-bg);
+    border-color: var(--shell-input-border-strong) var(--shell-input-border-soft) var(--shell-input-border-soft) var(--shell-input-border-strong);
+    background: var(--shell-input-surface);
     padding: 4px 6px;
     font-size: 0.875rem;
-    color: var(--win95-input-text);
+    color: var(--shell-input-text);
   }
 
   .retro-input:focus {
-    outline: 1px solid var(--win95-input-focus-outline);
+    outline: 1px solid var(--shell-input-focus);
     outline-offset: -2px;
   }
 
@@ -649,16 +778,16 @@ body {
   }
 
   .retro-input::placeholder {
-    color: var(--win95-input-placeholder);
+    color: var(--shell-input-placeholder);
   }
 
   /* Text Colors */
   .retro-text {
-    color: var(--win95-text);
+    color: var(--shell-text);
   }
 
   .retro-text-secondary {
-    color: var(--win95-text-secondary);
+    color: var(--shell-text-muted);
   }
 
   .retro-text-primary {
@@ -667,20 +796,20 @@ body {
 
   /* Backgrounds */
   .retro-bg {
-    background: var(--win95-bg);
+    background: var(--shell-surface);
   }
 
   .retro-bg-light {
-    background: var(--win95-bg-light);
+    background: var(--shell-surface-elevated);
   }
 
   /* Borders */
   .retro-border {
-    border-color: var(--win95-border);
+    border-color: var(--shell-border);
   }
 
   .retro-border-light {
-    border-color: var(--win95-border-light);
+    border-color: var(--shell-border-soft);
   }
 
   /* Error styles */
@@ -694,10 +823,10 @@ body {
 
   /* Note/Info box */
   .retro-note {
-    border: 1px solid var(--win95-border-light);
+    border: 1px solid var(--shell-border-soft);
     padding: 12px;
     font-size: 0.75rem;
-    color: var(--win95-text-secondary);
+    color: var(--shell-text-muted);
   }
 
   /* Input with icon wrapper */
@@ -724,14 +853,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--win95-text-secondary);
+    color: var(--shell-text-muted);
     transition: all 0.15s ease;
     width: 20px;
     height: 20px;
   }
 
   .retro-eye-toggle:hover {
-    color: var(--win95-text);
+    color: var(--shell-text);
   }
 
   .retro-eye-toggle:active {
@@ -752,12 +881,13 @@ body {
   }
 
   /* Small back button */
+  .desktop-shell-button-small,
   .retro-button-small {
     border: 1px solid var(--desktop-shell-border);
     background: var(--desktop-shell-accent);
     box-shadow: none;
     transition: background 0.15s ease, border-color 0.15s ease;
-    color: var(--win95-text);
+    color: var(--shell-text);
     padding: 2px 8px;
     font-weight: 600;
     font-size: 0.75rem;
@@ -767,16 +897,19 @@ body {
     gap: 4px;
   }
 
+  .desktop-shell-button-small:hover,
   .retro-button-small:hover {
-    background: var(--win95-hover-light);
-    border-color: var(--win95-border-light);
+    background: var(--shell-hover-surface);
+    border-color: var(--shell-border-soft);
   }
 
+  .desktop-shell-button-small:active,
   .retro-button-small:active {
     transform: scale(0.98);
   }
 
   /* Window control buttons */
+  .desktop-shell-control-button,
   .retro-control-button {
     width: 26px;
     height: 24px;
@@ -784,7 +917,7 @@ body {
     background: transparent;
     border-radius: 6px;
     font-size: 12px;
-    color: var(--win95-titlebar-text);
+    color: var(--shell-titlebar-text);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -795,6 +928,7 @@ body {
   }
 
   /* Ensure all button icons are centered */
+  .desktop-shell-control-button .window-btn-icon,
   .retro-control-button .window-btn-icon {
     display: flex;
     align-items: center;
@@ -803,17 +937,20 @@ body {
     height: 100%;
   }
 
+  .desktop-shell-control-button:hover,
   .retro-control-button:hover {
     background: var(--window-control-hover);
     border-color: var(--window-titlebar-border);
   }
 
+  .desktop-window-close-btn:hover,
   .retro-close-btn:hover {
     background: var(--window-control-close-hover);
     border-color: transparent;
     color: var(--window-control-close-text);
   }
 
+  .desktop-shell-control-button:active,
   .retro-control-button:active {
     transform: scale(0.95);
   }
@@ -826,6 +963,7 @@ body {
   }
 
   /* Minimize button - underscore at bottom of button */
+  .desktop-window-minimize-btn .window-btn-icon,
   .retro-minimize-btn .window-btn-icon {
     font-size: 18px;
     font-weight: 700;
@@ -833,6 +971,7 @@ body {
   }
 
   /* Maximize button - square icon centered */
+  .desktop-window-maximize-btn .window-btn-icon,
   .retro-maximize-btn .window-btn-icon {
     font-size: 24px;
     font-weight: 400;
@@ -840,6 +979,7 @@ body {
   }
 
   /* Close button - X centered */
+  .desktop-window-close-btn .window-btn-icon,
   .retro-close-btn .window-btn-icon {
     font-size: 14px;
     font-weight: 600;
@@ -848,8 +988,8 @@ body {
   /* Panel/Group Box */
   .retro-panel {
     border: 2px solid;
-    border-color: var(--win95-input-border-dark) var(--win95-input-border-light) var(--win95-input-border-light) var(--win95-input-border-dark);
-    background: var(--win95-bg);
+    border-color: var(--shell-input-border-strong) var(--shell-input-border-soft) var(--shell-input-border-soft) var(--shell-input-border-strong);
+    background: var(--shell-surface);
     padding: 8px;
     border-radius: 0px;
   }
@@ -889,7 +1029,7 @@ body {
 
   .desktop-topbar-link:hover,
   .desktop-topbar-link-active {
-    background: var(--win95-hover-light);
+    background: var(--shell-hover-surface);
     border-color: var(--desktop-shell-border);
   }
 
@@ -924,24 +1064,24 @@ body {
   .desktop-taskbar-action {
     border: 1px solid var(--desktop-shell-border);
     background: var(--desktop-shell-accent);
-    color: var(--win95-text);
+    color: var(--shell-text);
     border-radius: 6px;
   }
 
   .desktop-taskbar-action:hover {
-    background: var(--win95-hover-light);
-    border-color: var(--win95-border-light);
+    background: var(--shell-hover-surface);
+    border-color: var(--shell-border-soft);
   }
 
   .desktop-taskbar-warning {
     border: 1px solid var(--desktop-shell-border);
     background: var(--error-bg);
-    color: var(--win95-text);
+    color: var(--shell-text);
     border-radius: 6px;
   }
 
   .desktop-taskbar-warning:hover {
-    background: var(--win95-hover-light);
+    background: var(--shell-hover-surface);
   }
 
   .desktop-window-shell {
@@ -969,8 +1109,8 @@ body {
   }
 
   .desktop-window-tab:hover {
-    background: var(--win95-hover-light);
-    border-color: var(--win95-border-light);
+    background: var(--shell-hover-surface);
+    border-color: var(--shell-border-soft);
   }
 
   .desktop-window-tab-active {
@@ -1065,9 +1205,9 @@ body {
     justify-content: center;
     gap: 0.4rem;
     border: 1px solid var(--desktop-shell-border);
-    border-radius: 8px;
-    background: var(--window-document-bg);
-    color: var(--window-document-text);
+    border-radius: 6px;
+    background: var(--desktop-shell-accent);
+    color: var(--desktop-menu-text);
     font-weight: 600;
     line-height: 1;
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
@@ -1183,9 +1323,96 @@ body {
     transform: translateY(-1px);
   }
 
+  .manage-org-avatar-uploader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid var(--window-document-border);
+    border-radius: 10px;
+    background: var(--window-document-bg);
+    padding: 0.75rem;
+  }
+
+  .manage-org-avatar-preview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    border: 1px solid var(--window-document-border);
+    background: var(--desktop-shell-accent);
+    color: var(--desktop-menu-text-muted);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .manage-window-modern {
+    --shell-surface: var(--window-document-bg);
+    --shell-surface-elevated: var(--window-document-bg-elevated);
+    --shell-border: var(--window-document-border);
+    --shell-border-soft: var(--window-document-border);
+    --shell-border-strong: var(--window-document-border);
+    --shell-text: var(--window-document-text);
+    --shell-text-muted: var(--window-document-text-muted);
+    --shell-accent: var(--tone-accent);
+    --shell-accent-soft: var(--desktop-shell-accent);
+    --shell-button-surface: var(--window-document-bg);
+    --shell-bevel-light: var(--window-document-border);
+    --shell-bevel-dark: var(--window-document-border);
+    --shell-input-surface: var(--window-document-bg);
+    --shell-input-text: var(--window-document-text);
+    --shell-input-border-strong: var(--window-document-border);
+    --shell-input-border-soft: var(--window-document-border);
+  }
+
+  .manage-window-modern .beveled-button,
+  .manage-window-modern .desktop-shell-button,
+  .manage-window-modern .retro-button,
+  .manage-window-modern .desktop-shell-button-small,
+  .manage-window-modern .retro-button-small {
+    border: 1px solid var(--window-document-border) !important;
+    border-radius: 8px;
+    background: var(--window-document-bg) !important;
+    color: var(--window-document-text) !important;
+    box-shadow: none !important;
+    font-family: inherit;
+  }
+
+  .manage-window-modern .beveled-button:hover,
+  .manage-window-modern .desktop-shell-button:hover,
+  .manage-window-modern .retro-button:hover,
+  .manage-window-modern .desktop-shell-button-small:hover,
+  .manage-window-modern .retro-button-small:hover {
+    background: var(--desktop-shell-accent) !important;
+    border-color: var(--tone-accent) !important;
+  }
+
+  .manage-window-modern .beveled-button-primary,
+  .manage-window-modern .desktop-shell-button-primary,
+  .manage-window-modern .retro-button-primary {
+    background: var(--tone-accent) !important;
+    border-color: var(--tone-accent) !important;
+    color: var(--desktop-menu-text-inverse) !important;
+  }
+
+  .manage-window-modern input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+  .manage-window-modern select,
+  .manage-window-modern textarea {
+    border: 1px solid var(--window-document-border) !important;
+    border-radius: 8px;
+    background: var(--window-document-bg) !important;
+    color: var(--window-document-text) !important;
+    box-shadow: none;
+  }
+
+  .manage-window-modern [style*="2px inset"] {
+    border: 1px solid var(--window-document-border) !important;
+  }
+
   .finder-shell {
-    background: var(--win95-bg);
-    color: var(--win95-text);
+    background: var(--shell-surface);
+    color: var(--shell-text);
   }
 
   .finder-sidebar-divider {
@@ -1206,13 +1433,13 @@ body {
 
   /* Menu Hover State - Proper dark mode support */
   .hover-menu-item:hover {
-    background: var(--win95-hover-bg) !important;
-    color: var(--win95-hover-text) !important;
+    background: var(--shell-hover-bg) !important;
+    color: var(--shell-hover-text) !important;
   }
 
   /* Ensure text stays readable in dark mode */
   .dark .hover-menu-item:hover {
-    background: var(--win95-hover-bg) !important;
+    background: var(--shell-hover-bg) !important;
     color: #ffffff !important; /* Always white text on dark hover */
   }
 
@@ -1221,7 +1448,7 @@ body {
     background: rgba(255, 255, 255, 0.2) !important;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    color: var(--win95-text) !important; /* Keep text visible */
+    color: var(--shell-text) !important; /* Keep text visible */
   }
 
   /* Glass theme dark hover */
@@ -1262,19 +1489,19 @@ body {
   }
 
   .retro-scrollbar::-webkit-scrollbar-track {
-    background: var(--win95-scrollbar-track);
+    background: var(--shell-scrollbar-track);
   }
 
   .retro-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--win95-scrollbar-thumb);
+    background: var(--shell-scrollbar-thumb);
     border: 2px solid;
-    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
+    border-color: var(--shell-bevel-light) var(--shell-bevel-deep) var(--shell-bevel-deep) var(--shell-bevel-light);
   }
 
   .retro-scrollbar::-webkit-scrollbar-button {
-    background: var(--win95-scrollbar-button);
+    background: var(--shell-scrollbar-button);
     border: 2px solid;
-    border-color: var(--win95-button-light) var(--win95-button-darkest) var(--win95-button-darkest) var(--win95-button-light);
+    border-color: var(--shell-bevel-light) var(--shell-bevel-deep) var(--shell-bevel-deep) var(--shell-bevel-light);
     height: 16px;
   }
 
@@ -1322,6 +1549,7 @@ body {
 
 /* Mobile-specific styles */
 @media (max-width: 767px) {
+  .desktop-shell-window,
   .retro-window {
     border-radius: 0;
   }
@@ -1358,10 +1586,11 @@ body {
 
 .glass-button:hover {
   background: var(--glass-bg-light);
-  border-color: var(--win95-highlight);
+  border-color: var(--shell-accent);
 }
 
 /* Apply glass effect to windows when glass-theme is active */
+.glass-theme .desktop-shell-window,
 .glass-theme .retro-window {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -1370,6 +1599,7 @@ body {
   box-shadow: var(--glass-shadow);
 }
 
+.glass-theme .desktop-shell-window-alt,
 .glass-theme .retro-window-dark {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -1387,6 +1617,7 @@ body {
 }
 
 /* Glass theme buttons */
+.glass-theme .desktop-shell-button,
 .glass-theme .retro-button {
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
@@ -1395,11 +1626,13 @@ body {
   box-shadow: var(--glass-shadow);
 }
 
+.glass-theme .desktop-shell-button:hover,
 .glass-theme .retro-button:hover {
   background: var(--glass-bg-light);
 }
 
 /* Glass theme titlebar - make it transparent like the window */
+.glass-theme .desktop-shell-titlebar,
 .glass-theme .retro-titlebar {
   background: var(--glass-bg) !important;
   backdrop-filter: blur(10px);
@@ -1408,6 +1641,7 @@ body {
 }
 
 /* Glass theme - remove colored gradients from titlebar */
+.glass-theme .desktop-shell-titlebar-inactive,
 .glass-theme .retro-titlebar-inactive {
   background: var(--glass-bg) !important;
 }
@@ -1463,8 +1697,8 @@ body {
 }
 
 /* Checkout buttons should use their own styling, not admin retro-button styles */
-.behavior-driven-checkout button:not(.retro-button),
-.checkout-isolation button:not(.retro-button) {
+.behavior-driven-checkout button:not(.retro-button):not(.desktop-shell-button),
+.checkout-isolation button:not(.retro-button):not(.desktop-shell-button) {
   border: revert !important;
   border-color: revert !important;
   background: revert !important;

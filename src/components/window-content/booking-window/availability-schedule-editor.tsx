@@ -283,7 +283,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
         className="p-4 border-b-2 flex items-center gap-3"
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
-        <button className="retro-button p-1.5" onClick={onBack} title="Back">
+        <button className="desktop-interior-button p-1.5" onClick={onBack} title="Back">
           <ArrowLeft size={14} />
         </button>
 
@@ -332,13 +332,13 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
         </label>
 
         {scheduleId && (
-          <button className="retro-button p-1.5" onClick={handleDelete} title="Delete schedule">
+          <button className="desktop-interior-button p-1.5" onClick={handleDelete} title="Delete schedule">
             <Trash2 size={14} />
           </button>
         )}
 
         <button
-          className="retro-button px-4 py-1.5 font-pixel text-xs"
+          className="desktop-interior-button px-4 py-1.5 font-pixel text-xs"
           style={{
             background: "var(--win95-selected-bg)",
             color: "var(--win95-selected-text)",
@@ -434,7 +434,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                           {rangeIndex === 0 ? (
                             <>
                               <button
-                                className="retro-button p-1"
+                                className="desktop-interior-button p-1"
                                 onClick={() => addTimeRange(dayIndex)}
                                 title="Add time range"
                               >
@@ -442,7 +442,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                               </button>
                               <div className="relative">
                                 <button
-                                  className="retro-button p-1"
+                                  className="desktop-interior-button p-1"
                                   onClick={() =>
                                     setCopyPopoverDay(copyPopoverDay === dayIndex ? null : dayIndex)
                                   }
@@ -461,7 +461,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                             </>
                           ) : (
                             <button
-                              className="retro-button p-1"
+                              className="desktop-interior-button p-1"
                               onClick={() => removeTimeRange(dayIndex, rangeIndex)}
                               title="Remove time range"
                             >
@@ -491,7 +491,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                 Add dates when your availability changes from your daily hours.
               </p>
               <button
-                className="retro-button px-3 py-1.5 font-pixel text-xs opacity-50 cursor-not-allowed"
+                className="desktop-interior-button px-3 py-1.5 font-pixel text-xs opacity-50 cursor-not-allowed"
                 disabled
                 title="Coming soon"
               >

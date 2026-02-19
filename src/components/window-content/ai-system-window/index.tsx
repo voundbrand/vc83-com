@@ -692,7 +692,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={handleGenerateSynthetic}
                   disabled={isGenerating || isClearing || isImporting}
-                  className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--success)",
                     color: "white",
@@ -709,7 +709,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={handleClearSynthetic}
                   disabled={isGenerating || isClearing || isImporting || (syntheticStats?.totalSynthetic || 0) === 0}
-                  className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--error)",
                     color: "white",
@@ -730,7 +730,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={handleDownloadFullJsonl}
                   disabled={isDownloading || isImporting}
-                  className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-3 py-1.5 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--info)",
                     color: "white",
@@ -747,7 +747,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isGenerating || isClearing || isImporting}
-                  className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-3 py-1.5 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
@@ -804,7 +804,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={() => handleExport(true)}
                   disabled={isExporting || (trainingStats?.readyForTraining || 0) === 0}
-                  className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--primary)",
                     color: "white",
@@ -820,7 +820,7 @@ export function AiSystemWindow() {
                 <button
                   onClick={() => handleExport(false)}
                   disabled={isExporting || (trainingStats?.export.not_exported || 0) === 0}
-                  className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "var(--neutral-gray)",
                     color: "white",
@@ -946,7 +946,7 @@ export function AiSystemWindow() {
                       }
                     }}
                     disabled={isAutoTrainExporting || (trainingStats?.total || 0) === 0}
-                    className="w-full beveled-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full desktop-interior-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: "#FFD21E", color: "#000" }}
                   >
                     {isAutoTrainExporting ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
@@ -981,7 +981,7 @@ export function AiSystemWindow() {
                       }
                     }}
                     disabled={isAutoTrainExporting || (trainingStats?.total || 0) === 0}
-                    className="w-full beveled-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full desktop-interior-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: "var(--win95-bg)", color: "var(--win95-text)", border: "1px solid var(--win95-border)" }}
                   >
                     <Download size={14} />
@@ -1045,7 +1045,7 @@ export function AiSystemWindow() {
                       }
                     }}
                     disabled={isAutoTrainExporting || (trainingStats?.total || 0) === 0}
-                    className="w-full beveled-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full desktop-interior-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: "#6366F1", color: "white" }}
                   >
                     {isAutoTrainExporting ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
@@ -1109,7 +1109,7 @@ export function AiSystemWindow() {
                       }
                     }}
                     disabled={isAutoTrainExporting || (trainingStats?.total || 0) === 0}
-                    className="w-full beveled-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full desktop-interior-button px-3 py-2 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: "#F97316", color: "white" }}
                   >
                     {isAutoTrainExporting ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}

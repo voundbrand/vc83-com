@@ -37,6 +37,13 @@ export interface AgentDetectionResult {
   section: SectionConnection | null;
   config: AgentConfigJson | null;
   kbFiles: Array<{ path: string; content: string }>;
+  detectedArtifacts: string[];
+  validationErrors: string[];
+  warnings: string[];
+}
+
+function normalizePath(path: string): string {
+  return path.trim().replace(/^\.?\//, "");
 }
 
 /**
@@ -46,32 +53,75 @@ export interface AgentDetectionResult {
 export function detectAgentConfig(
   files: Array<{ path: string; content: string }>
 ): AgentDetectionResult {
-  const configFile = files.find(
-    (f) => f.path === "agent-config.json" || f.path.endsWith("/agent-config.json")
+  const normalizedFiles = files.map((file) => ({
+    ...file,
+    path: normalizePath(file.path),
+  }));
+  const detectedArtifacts = normalizedFiles
+    .map((file) => file.path)
+    .sort((a, b) => a.localeCompare(b));
+  const validationErrors: string[] = [];
+  const warnings: string[] = [];
+
+  const kbFiles = normalizedFiles.filter(
+    (file) =>
+      (file.path.startsWith("kb/") || file.path.includes("/kb/")) &&
+      file.path.endsWith(".md")
+  );
+
+  const configFile = normalizedFiles.find(
+    (file) => file.path === "agent-config.json" || file.path.endsWith("/agent-config.json")
   );
 
   if (!configFile) {
-    return { section: null, config: null, kbFiles: [] };
+    if (kbFiles.length > 0) {
+      validationErrors.push(
+        "Found `kb/*.md` documents but `agent-config.json` is missing."
+      );
+    }
+    return {
+      section: null,
+      config: null,
+      kbFiles,
+      detectedArtifacts,
+      validationErrors,
+      warnings,
+    };
   }
 
   let config: AgentConfigJson;
   try {
     config = JSON.parse(configFile.content) as AgentConfigJson;
   } catch {
-    return { section: null, config: null, kbFiles: [] };
+    validationErrors.push("`agent-config.json` is not valid JSON.");
+    return {
+      section: null,
+      config: null,
+      kbFiles,
+      detectedArtifacts,
+      validationErrors,
+      warnings,
+    };
   }
 
   // Require at minimum a name
   if (!config.name || typeof config.name !== "string") {
-    return { section: null, config: null, kbFiles: [] };
+    validationErrors.push("`agent-config.json` must include a non-empty `name` field.");
+    return {
+      section: null,
+      config: null,
+      kbFiles,
+      detectedArtifacts,
+      validationErrors,
+      warnings,
+    };
   }
 
-  // Collect kb/*.md files
-  const kbFiles = files.filter(
-    (f) =>
-      (f.path.startsWith("kb/") || f.path.includes("/kb/")) &&
-      f.path.endsWith(".md")
-  );
+  if (kbFiles.length === 0) {
+    warnings.push(
+      "No `kb/*.md` files were found; connect can still create the agent, but knowledge import will be skipped."
+    );
+  }
 
   const enabledChannels = (config.channelBindings || [])
     .filter((b) => b.enabled)
@@ -85,7 +135,7 @@ export function detectAgentConfig(
       description: `${config.subtype || "general"} agent · ${kbFiles.length} KB docs${enabledChannels.length > 0 ? ` · ${enabledChannels.join(", ")}` : ""}`,
     },
     existingMatches: [],
-    connectionChoice: null,
+    connectionChoice: "create",
     linkedRecordId: null,
     createdRecordId: null,
   };
@@ -98,7 +148,14 @@ export function detectAgentConfig(
     connectionStatus: "pending",
   };
 
-  return { section, config, kbFiles };
+  return {
+    section,
+    config,
+    kbFiles,
+    detectedArtifacts,
+    validationErrors,
+    warnings,
+  };
 }
 
 /**

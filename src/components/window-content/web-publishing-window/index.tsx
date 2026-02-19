@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box, ArrowLeft, Maximize2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box, ArrowLeft, Maximize2, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
@@ -9,6 +9,7 @@ import { DeploymentsTab } from "./deployments-tab";
 import { DeploymentSettingsTab } from "./deployment-settings-tab";
 import { ApplicationsTab } from "./applications-tab";
 import { ApplicationDetailsTab } from "./application-details-tab";
+import { WebchatDeploymentTab } from "./webchat-deployment-tab";
 import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
@@ -29,7 +30,15 @@ import type { Id } from "../../../../convex/_generated/dataModel";
  * - Analytics: Page views, conversions (future)
  */
 
-type TabType = "pages" | "create" | "deployments" | "settings" | "applications" | "application-details" | "analytics";
+type TabType =
+  | "pages"
+  | "create"
+  | "deployments"
+  | "settings"
+  | "applications"
+  | "application-details"
+  | "webchat-deployment"
+  | "analytics";
 
 interface SelectedApplication {
   _id: Id<"objects">;
@@ -71,10 +80,38 @@ interface SelectedDeployment {
 interface WebPublishingWindowProps {
   /** When true, shows back-to-desktop navigation (for /publish route) */
   fullScreen?: boolean;
+  initialTab?: TabType | string;
+  initialPanel?: string;
 }
 
-export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowProps = {}) {
-  const [activeTab, setActiveTab] = useState<TabType>("pages");
+function resolveInitialTab(input?: string): TabType {
+  if (input === "webchat" || input === "webchat-deployment") {
+    return "webchat-deployment";
+  }
+  if (
+    input === "pages" ||
+    input === "create" ||
+    input === "deployments" ||
+    input === "settings" ||
+    input === "applications" ||
+    input === "application-details" ||
+    input === "analytics"
+  ) {
+    return input;
+  }
+  return "pages";
+}
+
+export function WebPublishingWindow({
+  fullScreen = false,
+  initialTab,
+  initialPanel,
+}: WebPublishingWindowProps = {}) {
+  const requestedInitialTab = useMemo(
+    () => resolveInitialTab(initialTab || initialPanel),
+    [initialPanel, initialTab]
+  );
+  const [activeTab, setActiveTab] = useState<TabType>(requestedInitialTab);
   const [editMode, setEditMode] = useState<EditMode | null>(null);
   const [selectedPage, setSelectedPage] = useState<SelectedPage | null>(null);
   const [selectedDeployment, setSelectedDeployment] = useState<SelectedDeployment | null>(null);
@@ -82,6 +119,10 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
   const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<SelectedApplication | null>(null);
   const { t } = useNamespaceTranslations("ui.web_publishing");
+
+  useEffect(() => {
+    setActiveTab(requestedInitialTab);
+  }, [requestedInitialTab]);
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -93,9 +134,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
   if (guard) return guard;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
@@ -104,9 +145,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
                 href="/"
                 className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                 }}
                 title="Back to Desktop"
               >
@@ -114,7 +155,7 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
                 <Globe size={16} />
                 {t("ui.web_publishing.header.title")}
               </h2>
@@ -130,9 +171,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
               href="/publish"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               title="Open Full Screen"
             >
@@ -143,14 +184,14 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="flex border-b-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
         {/* Pages Tab */}
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "pages" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "pages" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "pages" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "pages" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("pages")}
         >
@@ -162,9 +203,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "create" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "create" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "create" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "create" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => {
             setEditMode(null);
@@ -175,15 +216,28 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
           {t("ui.web_publishing.tab.create_page")}
         </button>
 
+        <button
+          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
+          style={{
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "webchat-deployment" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "webchat-deployment" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
+          }}
+          onClick={() => setActiveTab("webchat-deployment")}
+        >
+          <MessageSquare size={14} />
+          Webchat Deployment
+        </button>
+
         {/* Deployment Tabs (only show when page is selected) */}
         {selectedPage && (
           <>
             <button
               className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: activeTab === "deployments" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: activeTab === "deployments" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+                borderColor: 'var(--window-document-border)',
+                background: activeTab === "deployments" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                color: activeTab === "deployments" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
               }}
               onClick={() => setActiveTab("deployments")}
               title={`Deployments for ${selectedPage.name}`}
@@ -195,9 +249,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
               <button
                 className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: activeTab === "settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                  color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+                  borderColor: 'var(--window-document-border)',
+                  background: activeTab === "settings" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                  color: activeTab === "settings" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
                 }}
                 onClick={() => setActiveTab("settings")}
                 title={`Settings for ${selectedDeployment.name}`}
@@ -213,9 +267,9 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "applications" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "applications" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "applications" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "applications" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("applications")}
         >
@@ -227,8 +281,8 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
         <button
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg)',
             color: 'var(--neutral-gray)'
           }}
           disabled
@@ -279,7 +333,14 @@ export function WebPublishingWindow({ fullScreen = false }: WebPublishingWindowP
             onAddDeployment={() => {
               setShowDeployModal(true);
             }}
+            onOpenWebchatDeployment={() => {
+              setActiveTab("webchat-deployment");
+            }}
           />
+        )}
+
+        {activeTab === "webchat-deployment" && (
+          <WebchatDeploymentTab />
         )}
 
         {/* Deployment Settings */}

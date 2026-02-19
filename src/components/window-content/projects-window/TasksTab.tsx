@@ -140,7 +140,7 @@ export default function TasksTab({ projectId, sessionId }: TasksTabProps) {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-2 py-1 text-xs border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-            style={{ border: "var(--win95-border)" }}
+            style={{ border: "var(--window-document-border)" }}
           >
             <option value="all">All Tasks</option>
             <option value="todo">To Do</option>
@@ -151,7 +151,7 @@ export default function TasksTab({ projectId, sessionId }: TasksTabProps) {
         <button
           onClick={() => setShowForm(true)}
           className="px-3 py-1.5 text-xs font-bold border-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1"
-          style={{ border: "var(--win95-border)" }}
+          style={{ border: "var(--window-document-border)" }}
         >
           <Plus size={14} />
           Add Task
@@ -163,8 +163,8 @@ export default function TasksTab({ projectId, sessionId }: TasksTabProps) {
         <div
           className="p-8 text-center border-2 rounded"
           style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            border: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           <p className="text-sm text-gray-600 mb-2">

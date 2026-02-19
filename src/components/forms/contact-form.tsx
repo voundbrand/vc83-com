@@ -38,9 +38,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
       <pre
         className="text-xs p-3 rounded overflow-x-auto font-mono"
         style={{
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
-          border: '2px solid var(--win95-border)'
+          background: 'var(--shell-input-surface)',
+          color: 'var(--shell-text)',
+          border: '2px solid var(--shell-border)'
         }}
       >
         {JSON.stringify(formData, null, 2)}
@@ -55,7 +55,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-name"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <User className="w-3.5 h-3.5" />
           Name *
@@ -68,9 +68,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           required
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Enter contact name..."
         />
@@ -81,7 +81,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-email"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Mail className="w-3.5 h-3.5" />
           Email
@@ -93,9 +93,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="contact@example.com"
         />
@@ -106,7 +106,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-phone"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Phone className="w-3.5 h-3.5" />
           Phone
@@ -118,9 +118,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="+1 (555) 123-4567"
         />
@@ -131,7 +131,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-organization"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Building2 className="w-3.5 h-3.5" />
           Organization
@@ -143,9 +143,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Company name..."
         />
@@ -156,7 +156,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-job-title"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Briefcase className="w-3.5 h-3.5" />
           Job Title
@@ -168,9 +168,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Position..."
         />
@@ -181,7 +181,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-location"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <MapPin className="w-3.5 h-3.5" />
           Location
@@ -193,9 +193,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="City, Country"
         />
@@ -206,7 +206,7 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
         <label
           htmlFor="contact-notes"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           Notes
         </label>
@@ -217,9 +217,9 @@ export function ContactForm({ initialValues, onChange, showJson }: ContactFormPr
           rows={3}
           className="w-full px-2 py-1.5 text-sm border-2 rounded resize-none"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Additional notes..."
         />

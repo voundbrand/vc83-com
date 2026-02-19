@@ -5,11 +5,15 @@
  * Split view: session list (left) + conversation messages (right).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare, User, Bot, PhoneForwarded } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { buildSessionHandoffPayload } from "./session-handoff";
+
+const generatedApi = (
+  require("../../../../convex/_generated/api")
+).api;
 
 interface AgentSessionsViewerProps {
   agentId: Id<"objects">;
@@ -17,25 +21,92 @@ interface AgentSessionsViewerProps {
   organizationId: Id<"organizations">;
 }
 
+interface AgentSessionListItem {
+  _id: Id<"agentSessions">;
+  agentId: Id<"objects">;
+  externalContactIdentifier: string;
+  channel: string;
+  messageCount: number;
+  costUsd?: number;
+  lastMessageAt: number;
+}
+
+interface SessionMessageItem {
+  _id: string;
+  role: "assistant" | "user" | "system";
+  content: string;
+  timestamp: number;
+  agentName?: string;
+}
+
 export function AgentSessionsViewer({ agentId, sessionId, organizationId }: AgentSessionsViewerProps) {
   const [selectedSession, setSelectedSession] = useState<Id<"agentSessions"> | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [handOffToUserId, setHandOffToUserId] = useState<string>("");
+  const [isHandingOff, setIsHandingOff] = useState(false);
+  const [handOffError, setHandOffError] = useState<string | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessions = useQuery(api.ai.agentSessions.getActiveSessions, {
+  const sessions = useQuery(generatedApi.ai.agentSessions.getActiveSessions, {
     sessionId, organizationId, status: statusFilter,
-  }) as any[] | undefined;
+  }) as AgentSessionListItem[] | undefined;
 
   // Filter to this agent's sessions
   const agentSessions = sessions?.filter((s) => s.agentId === agentId) || [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const messages = useQuery(
-    selectedSession ? api.ai.agentSessions.getSessionMessagesAuth : ("skip" as any),
-    selectedSession ? { sessionId, agentSessionId: selectedSession, limit: 50 } : undefined,
-  ) as any[] | undefined;
+    generatedApi.ai.agentSessions.getSessionMessagesAuth,
+    selectedSession ? { sessionId, agentSessionId: selectedSession, limit: 50 } : "skip",
+  ) as SessionMessageItem[] | undefined;
 
-  const handOffSession = useMutation(api.ai.agentSessions.handOffSession);
+  const handoffCandidates = useQuery(generatedApi.projectOntology.getOrganizationUsers, {
+    sessionId,
+    organizationId,
+  }) as Array<{
+    _id: Id<"users">;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  }> | undefined;
+
+  const handOffSession = useMutation(generatedApi.ai.agentSessions.handOffSession);
+
+  useEffect(() => {
+    const candidateIds = (handoffCandidates || []).map((candidate) => String(candidate._id));
+    if (candidateIds.length === 0) {
+      if (handOffToUserId !== "") {
+        setHandOffToUserId("");
+      }
+      return;
+    }
+
+    if (!candidateIds.includes(handOffToUserId)) {
+      setHandOffToUserId(candidateIds[0]);
+    }
+  }, [handoffCandidates, handOffToUserId]);
+
+  const handleHandOff = async () => {
+    const payload = buildSessionHandoffPayload({
+      sessionId,
+      agentSessionId: selectedSession,
+      handOffToUserId,
+    });
+
+    if (!payload) {
+      setHandOffError("Select a team member before handing off.");
+      return;
+    }
+
+    setHandOffError(null);
+    setIsHandingOff(true);
+    try {
+      await handOffSession(payload);
+      setSelectedSession(null);
+    } catch (error) {
+      setHandOffError(error instanceof Error ? error.message : "Failed to hand off session.");
+    } finally {
+      setIsHandingOff(false);
+    }
+  };
 
   return (
     <div className="flex h-full" style={{ minHeight: 400 }}>
@@ -123,14 +194,45 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
                 {messages?.length || 0} messages
               </span>
               {statusFilter === "active" && (
-                <button
-                  onClick={() => handOffSession({ sessionId, agentSessionId: selectedSession, handOffToUserId: "" as Id<"users"> })}
-                  className="flex items-center gap-1 px-2 py-0.5 border text-[10px] hover:bg-yellow-50"
-                  style={{ borderColor: "var(--win95-border)" }}>
-                  <PhoneForwarded size={10} /> Hand Off
-                </button>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={handOffToUserId}
+                    onChange={(event) => {
+                      setHandOffToUserId(event.target.value);
+                      setHandOffError(null);
+                    }}
+                    disabled={isHandingOff || !handoffCandidates || handoffCandidates.length === 0}
+                    className="border px-1.5 py-0.5 text-[10px] max-w-[220px]"
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+                  >
+                    {(handoffCandidates || []).map((candidate) => {
+                      const fullName = `${candidate.firstName || ""} ${candidate.lastName || ""}`.trim();
+                      const label = fullName ? `${fullName} (${candidate.email})` : candidate.email;
+                      return (
+                        <option key={candidate._id} value={candidate._id}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <button
+                    onClick={() => {
+                      void handleHandOff();
+                    }}
+                    disabled={isHandingOff || !handOffToUserId}
+                    className="flex items-center gap-1 px-2 py-0.5 border text-[10px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50"
+                    style={{ borderColor: "var(--win95-border)" }}>
+                    <PhoneForwarded size={10} />
+                    {isHandingOff ? "Handing Off..." : "Hand Off"}
+                  </button>
+                </div>
               )}
             </div>
+            {statusFilter === "active" && handOffError && (
+              <div className="px-3 py-1 border-b text-[10px]" style={{ borderColor: "var(--win95-border)", color: "#b42318" }}>
+                {handOffError}
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">

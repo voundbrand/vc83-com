@@ -128,7 +128,7 @@ export function UpgradePrompt({
             >
               {limit === -1 ? "Unlimited" : `${resource} Limit Reached`}
             </h4>
-            <p className={`${config.text} mb-3`} style={{ color: "var(--win95-text)" }}>
+            <p className={`${config.text} mb-3`} style={{ color: "var(--shell-text)" }}>
               {message || (
                 <>
                   You've reached your limit of <strong>{limit}</strong> {resource} (
@@ -144,7 +144,7 @@ export function UpgradePrompt({
                 className={`retro-button ${config.button} font-bold inline-flex items-center gap-2`}
                 style={{
                   background: "var(--primary)",
-                  color: "var(--win95-button-text)",
+                  color: "var(--shell-on-accent)",
                 }}
               >
                 <ShoppingBag size={14} />
@@ -153,7 +153,7 @@ export function UpgradePrompt({
 
               <span
                 className={`${config.text} italic`}
-                style={{ color: "var(--win95-text-secondary)" }}
+                style={{ color: "var(--shell-text-muted)" }}
               >
                 or contact your admin
               </span>
@@ -166,8 +166,8 @@ export function UpgradePrompt({
       <div
         className="mt-3 border-2 p-3"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-start gap-2">
@@ -177,10 +177,10 @@ export function UpgradePrompt({
             className="flex-shrink-0 mt-0.5"
           />
           <div>
-            <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <p className="text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
               Why upgrade?
             </p>
-            <ul className="text-xs space-y-1" style={{ color: "var(--win95-text-secondary)" }}>
+            <ul className="text-xs space-y-1" style={{ color: "var(--shell-text-muted)" }}>
               <li>• Higher limits for all resources</li>
               <li>• Advanced features and integrations</li>
               <li>• Priority support and assistance</li>
@@ -326,7 +326,7 @@ export function UpgradeModal({
   // Header configuration based on type
   const headerConfig = {
     feature: {
-      gradient: "linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
+      gradient: "linear-gradient(90deg, var(--shell-accent) 0%, var(--primary-gradient-end) 100%)",
       icon: <Sparkles size={16} />,
       title: "Upgrade to Unlock",
     },
@@ -353,8 +353,8 @@ export function UpgradeModal({
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4 animate-in fade-in zoom-in-95 duration-200"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -384,11 +384,11 @@ export function UpgradeModal({
           <div
             className="p-4 border-2 rounded mb-4 text-center"
             style={{
-              borderColor: type === "limit" ? "var(--warning)" : "var(--win95-highlight)",
+              borderColor: type === "limit" ? "var(--warning)" : "var(--shell-accent)",
               background:
                 type === "limit"
                   ? "linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, transparent 100%)"
-                  : "linear-gradient(180deg, color-mix(in srgb, var(--win95-gradient-end) 10%, transparent) 0%, transparent 100%)",
+                  : "linear-gradient(180deg, color-mix(in srgb, var(--primary-gradient-end) 10%, transparent) 0%, transparent 100%)",
             }}
           >
             {icon || (
@@ -398,7 +398,7 @@ export function UpgradeModal({
                   background:
                     type === "limit"
                       ? "rgba(245, 158, 11, 0.1)"
-                      : "color-mix(in srgb, var(--win95-gradient-end) 10%, transparent)",
+                      : "color-mix(in srgb, var(--primary-gradient-end) 10%, transparent)",
                 }}
               >
                 {type === "limit" ? (
@@ -406,13 +406,13 @@ export function UpgradeModal({
                 ) : type === "premium" ? (
                   <Crown size={32} style={{ color: "#f59e0b" }} />
                 ) : (
-                  <Zap size={32} style={{ color: "var(--win95-highlight)" }} />
+                  <Zap size={32} style={{ color: "var(--shell-accent)" }} />
                 )}
               </div>
             )}
             <h3
               className="font-bold text-lg mb-1"
-              style={{ color: "var(--win95-text)" }}
+              style={{ color: "var(--shell-text)" }}
             >
               {feature}
             </h3>
@@ -433,11 +433,11 @@ export function UpgradeModal({
           <div
             className="p-3 border-2 rounded mb-4"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface-elevated)",
             }}
           >
-            <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="text-sm" style={{ color: "var(--shell-text)" }}>
               {type === "limit" ? (
                 <>
                   Upgrade to <strong>{requiredTier}</strong> to increase your limits
@@ -458,9 +458,9 @@ export function UpgradeModal({
                 <Sparkles
                   size={14}
                   className="mt-0.5 flex-shrink-0"
-                  style={{ color: "var(--win95-highlight)" }}
+                  style={{ color: "var(--shell-accent)" }}
                 />
-                <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                <span className="text-xs" style={{ color: "var(--shell-text)" }}>
                   {benefit}
                 </span>
               </div>
@@ -480,8 +480,8 @@ export function UpgradeModal({
               onClick={onClose}
               className="beveled-button px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
             >
               Maybe Later
@@ -721,7 +721,7 @@ export function getNextTierName(
   const tierUpgradePath: Record<string, string> = {
     free: "Starter (€199/month)",
     starter: "Professional (€399/month)",
-    professional: "Agency (€599/month)",
+    professional: "Scale (€599/month)",
     agency: "Enterprise (€1,500+/month)",
     enterprise: "Enterprise (contact sales)",
   };

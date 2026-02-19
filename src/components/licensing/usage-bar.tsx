@@ -44,7 +44,7 @@ export function UsageBar({
     return (
       <div className="space-y-1.5">
         <div className="flex justify-between items-center">
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs" style={{ color: "var(--shell-text)" }}>
             {label}
           </span>
           <span
@@ -69,7 +69,7 @@ export function UsageBar({
     return (
       <div className="space-y-1.5">
         <div className="flex justify-between items-center">
-          <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs" style={{ color: "var(--shell-text)" }}>
             {label}
           </span>
           <span
@@ -103,7 +103,7 @@ export function UsageBar({
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between items-center">
-        <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+        <span className="text-xs" style={{ color: "var(--shell-text)" }}>
           {label}
         </span>
         {editable && !isEditing ? (
@@ -114,7 +114,7 @@ export function UsageBar({
             <button
               onClick={() => setIsEditing(true)}
               className="p-1 hover:bg-opacity-80 transition-colors"
-              style={{ color: "var(--win95-highlight)" }}
+              style={{ color: "var(--shell-accent)" }}
               title="Edit limit"
             >
               <Edit2 size={12} />
@@ -129,9 +129,9 @@ export function UsageBar({
               placeholder="-1 for unlimited"
               className="w-24 px-2 py-1 text-xs border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface)",
+                color: "var(--shell-text)",
               }}
               min="-1"
             />
@@ -163,8 +163,8 @@ export function UsageBar({
       <div
         className="w-full h-4 border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface)",
         }}
       >
         <div

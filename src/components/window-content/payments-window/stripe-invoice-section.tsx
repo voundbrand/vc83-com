@@ -89,7 +89,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
 
   // Show loading state while translations load
   if (translationsLoading) {
-    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+    return <div className="p-4" style={{ color: "var(--window-document-text)" }}>Loading...</div>;
   }
 
   // Not connected to Stripe
@@ -99,13 +99,13 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         <div
           className="p-4 border-2 flex items-start gap-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--info-light)",
           }}
         >
           <Info size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--info)" }} />
           <div>
-            <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.invoicing.connection_required.title")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -124,13 +124,13 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         <div
           className="p-4 border-2 flex items-start gap-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--warning-light)",
           }}
         >
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warning)" }} />
           <div className="flex-1">
-            <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.invoicing.not_setup.title")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -138,8 +138,8 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             </p>
 
             {/* What's needed */}
-            <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.payments.invoicing.requirements.title")}
               </p>
               <ul className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
@@ -159,7 +159,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
               <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--success)", background: "var(--success-light)" }}>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
-                  <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.payments.invoicing.success.title")}
                   </p>
                 </div>
@@ -174,7 +174,7 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
               <div className="mt-3 p-3 border-2" style={{ borderColor: "var(--danger)", background: "var(--danger-light)" }}>
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} style={{ color: "var(--error)" }} />
-                  <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.payments.invoicing.error.title")}
                   </p>
                 </div>
@@ -214,8 +214,8 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 rel="noopener noreferrer"
                 className="beveled-button inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold"
                 style={{
-                  backgroundColor: "var(--win95-bg)",
-                  color: "var(--win95-text)",
+                  backgroundColor: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
                   textDecoration: "none",
                 }}
               >
@@ -233,9 +233,9 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
         {/* How to enable instructions */}
         <div
           className="p-4 border-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
-          <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Info size={14} />
             {t("ui.payments.invoicing.how_to.title")}
           </h3>
@@ -258,14 +258,14 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       <div
         className="p-4 border-2"
         style={{
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--window-document-border)",
           background: "var(--success-light)",
         }}
       >
         <div className="flex items-start gap-3">
           <CheckCircle2 style={{ color: "var(--success)" }} className="flex-shrink-0" size={20} />
           <div className="flex-1">
-            <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
+            <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
               {t("ui.payments.invoicing.status.enabled.title")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -278,9 +278,9 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       {/* Configuration Details */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.payments.invoicing.config.title")}
         </h3>
         <div className="space-y-2">
@@ -292,19 +292,19 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.collection_method")}</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {invoiceSettings?.collectionMethod || "send_invoice"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.payment_terms")}</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {invoiceSettings?.paymentTerms || "net_30"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>{t("ui.payments.invoicing.config.days_until_due")}</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {invoiceSettings?.daysUntilDue || 30}
             </span>
           </div>
@@ -328,9 +328,9 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       {/* Stripe Invoicing Features */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.payments.invoicing.features.title")}
         </h3>
         <ul className="space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -360,9 +360,9 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       {/* Manage in Stripe Dashboard */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.payments.invoicing.manage.title")}
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -391,8 +391,8 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             rel="noopener noreferrer"
             className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
             style={{
-              backgroundColor: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
               textDecoration: "none",
             }}
           >
@@ -406,9 +406,9 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
       <div
         className="p-3 border-2 text-xs"
         style={{
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--window-document-border)",
           background: "var(--info-light)",
-          color: "var(--win95-text)",
+          color: "var(--window-document-text)",
         }}
       >
         <p className="font-semibold mb-2 flex items-center gap-2">

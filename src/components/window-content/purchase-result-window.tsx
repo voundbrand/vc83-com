@@ -40,7 +40,7 @@ export interface PurchaseResultWindowProps {
 // Tier display config
 const TIER_DISPLAY: Record<string, { name: string; price: string; icon: string }> = {
   pro: { name: "Pro", price: "29", icon: "rocket" },
-  agency: { name: "Agency", price: "299", icon: "rocket" },
+  agency: { name: "Scale", price: "299", icon: "rocket" },
   standard: { name: "AI Standard", price: "", icon: "bot" },
   "privacy-enhanced": { name: "AI Privacy Enhanced", price: "", icon: "bot" },
 };
@@ -309,7 +309,10 @@ export function PurchaseResultWindow({
     }
   };
 
-  const tierLabel = (t: string) => t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  const tierLabel = (t: string) => {
+    if (t === "agency") return "Scale";
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  };
   const formatDateLong = (ts: number) => new Date(ts).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   const getCanceledContent = () => {
@@ -585,7 +588,7 @@ export function PurchaseResultWindow({
             className="px-6 py-2.5 rounded text-sm font-medium transition-colors"
             style={{
               background: "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
-              color: "white",
+              color: "var(--win95-on-highlight)",
               border: "none",
             }}
           >

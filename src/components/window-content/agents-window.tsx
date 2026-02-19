@@ -8,10 +8,9 @@
  */
 
 import { useState } from "react";
-import { Bot, Plus, Sparkles, Maximize2, ArrowLeft } from "lucide-react";
+import { Bot, Sparkles, Maximize2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { CreditWall } from "@/components/credit-wall";
 import { CreditBalance } from "@/components/credit-balance";
@@ -21,6 +20,9 @@ import { AgentListPanel } from "./agents/agent-list-panel";
 import { AgentDetailPanel } from "./agents/agent-detail-panel";
 import { AgentCreateForm } from "./agents/agent-create-form";
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const apiAny: any = require("../../../convex/_generated/api").api;
+
 interface AgentsWindowProps {
   fullScreen?: boolean;
 }
@@ -29,13 +31,17 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [selectedAgentId, setSelectedAgentId] = useState<Id<"objects"> | null>(null);
-  const [activeTab, setActiveTab] = useState<AgentTab>("soul");
+  const [activeTab, setActiveTab] = useState<AgentTab>("trust");
   const [showCreate, setShowCreate] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<Id<"objects"> | null>(null);
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => unknown;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const creditBalance = useQuery(
-    (api as any).credits.index.getCreditBalance,
+  const creditBalance = unsafeUseQuery(
+    apiAny.credits.index.getCreditBalance,
     currentOrg?.id
       ? { organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
@@ -52,20 +58,32 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const isUnlimited = creditBalance?.monthlyCreditsTotal === -1;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agents = useQuery(
-    api.agentOntology.getAgents,
+  const agents = unsafeUseQuery(
+    apiAny.agentOntology.getAgents,
     sessionId && currentOrg?.id
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
   ) as any[] | undefined;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const stats = useQuery(
-    api.ai.agentSessions.getAgentStats,
+  const stats = unsafeUseQuery(
+    apiAny.ai.agentSessions.getAgentStats,
     sessionId && currentOrg?.id
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
   ) as any[] | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlCenterThreads = unsafeUseQuery(
+    apiAny.ai.agentSessions.getControlCenterThreadRows,
+    sessionId && currentOrg?.id
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+          limit: 120,
+        }
+      : "skip"
+  ) as Array<{ waitingOnHuman: boolean }> | undefined;
+  const waitingOnHumanCount = controlCenterThreads?.filter((thread) => thread.waitingOnHuman).length || 0;
 
   if (!currentOrg || !sessionId) {
     return (
@@ -111,6 +129,17 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
           {agents && (
             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--win95-bg-dark)", color: "var(--neutral-gray)" }}>
               {agents.length} agent{agents.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          {controlCenterThreads && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{
+                background: waitingOnHumanCount > 0 ? "#fee2e2" : "var(--win95-bg-dark)",
+                color: waitingOnHumanCount > 0 ? "#991b1b" : "var(--neutral-gray)",
+              }}
+            >
+              {waitingOnHumanCount} waiting on human
             </span>
           )}
         </div>

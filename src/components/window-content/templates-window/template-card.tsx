@@ -1,6 +1,17 @@
 "use client";
 
-import { Eye, Download } from "lucide-react";
+import {
+  Award,
+  Download,
+  Eye,
+  FileInput,
+  FileText,
+  Globe,
+  Mail,
+  ShoppingCart,
+  Ticket,
+  type LucideIcon,
+} from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateThumbnail } from "@/components/template-thumbnail";
@@ -37,20 +48,20 @@ interface TemplateCardProps {
 export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProps) {
   const { t } = useNamespaceTranslations("ui.templates");
 
-  const categoryEmojis: Record<string, string> = {
-    ticket: "🎫",
-    invoice: "💰",
-    receipt: "🧾",
-    certificate: "🏆",
-    email: "📧",
-    web: "🌐",
-    form: "📝",
-    checkout: "🛒",
-    events: "🎉",
+  const categoryIcons: Record<string, LucideIcon> = {
+    ticket: Ticket,
+    invoice: FileText,
+    receipt: FileText,
+    certificate: Award,
+    email: Mail,
+    web: Globe,
+    form: FileInput,
+    checkout: ShoppingCart,
+    events: Award,
   };
 
   const category = template.customProperties?.category || "general";
-  const emoji = categoryEmojis[category] || "📄";
+  const CategoryIcon = categoryIcons[category] || FileText;
 
   // Get translated category name
   const getCategoryName = (cat: string) => {
@@ -86,16 +97,16 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
     <div
       className="border-2 flex flex-col h-full"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg)",
       }}
     >
       {/* Live Template Preview */}
       <div
         className="h-32 flex items-center justify-center border-b-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-dark)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--desktop-shell-accent)",
         }}
       >
         {templateCode ? (
@@ -109,7 +120,7 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
           />
         ) : (
           <div className="text-center">
-            <div className="text-4xl mb-2">{emoji}</div>
+            <CategoryIcon size={36} className="mx-auto mb-2" style={{ color: "var(--window-document-text)" }} />
             <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
               {t("ui.templates.card.no_preview")}
             </div>
@@ -122,21 +133,22 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
         {/* Category Badge */}
         <div className="mb-2">
           <span
-            className="text-xs px-2 py-1 border"
+            className="inline-flex items-center gap-1.5 text-xs px-2 py-1 border"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
-            {emoji} {getCategoryName(category)}
+            <CategoryIcon size={12} />
+            {getCategoryName(category)}
           </span>
         </div>
 
         {/* Name */}
         <h4
           className="text-sm font-bold mb-1"
-          style={{ color: "var(--win95-text)" }}
+          style={{ color: "var(--window-document-text)" }}
         >
           {template.name}
         </h4>
@@ -158,8 +170,8 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
           <code
             className="text-xs px-1 py-0.5 mb-2 border inline-block"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-dark)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--desktop-shell-accent)",
               color: "var(--neutral-gray)",
             }}
           >
@@ -183,9 +195,9 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
             onClick={onPreview}
             className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <Eye size={12} />
@@ -196,7 +208,7 @@ export function TemplateCard({ template, onPreview, onSelect }: TemplateCardProp
               onClick={onSelect}
               className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
               style={{
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--window-document-border)",
                 background: "var(--success)",
                 color: "white",
               }}

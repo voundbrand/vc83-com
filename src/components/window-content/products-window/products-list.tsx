@@ -150,8 +150,8 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
       key={product._id}
       className="border-2 p-4"
       style={{
-        borderColor: isArchived ? "var(--warning)" : "var(--win95-border)",
-        background: isArchived ? "rgba(245, 158, 11, 0.05)" : "var(--win95-bg-light)",
+        borderColor: isArchived ? "var(--warning)" : "var(--shell-border)",
+        background: isArchived ? "rgba(245, 158, 11, 0.05)" : "var(--shell-surface-elevated)",
         opacity: isArchived ? 0.8 : 1,
       }}
     >
@@ -162,7 +162,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
             <span className="text-xs">{getSubtypeLabel(product.subtype || "")}</span>
             {getStatusBadge(product.status || "draft")}
           </div>
-          <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+          <h3 className="font-bold text-sm" style={{ color: "var(--shell-text)" }}>
             {product.name}
           </h3>
         </div>
@@ -179,7 +179,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
       <div className="mb-3 space-y-1">
         <div className="flex items-center justify-between text-xs">
           <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.price")}</span>
-          <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="font-bold" style={{ color: "var(--shell-text)" }}>
             {formatPrice(
               product.customProperties?.price || 0,
               product.customProperties?.currency || "EUR"
@@ -189,7 +189,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
         {product.customProperties?.inventory !== null && product.customProperties?.inventory !== undefined && (
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.inventory")}</span>
-            <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+            <span className="font-bold" style={{ color: "var(--shell-text)" }}>
               {product.customProperties.inventory} {t("ui.products.list.label.available")}
             </span>
           </div>
@@ -197,7 +197,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
         {product.customProperties?.sold !== undefined && (
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>{t("ui.products.list.label.sold")}</span>
-            <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+            <span className="font-bold" style={{ color: "var(--shell-text)" }}>
               {product.customProperties.sold}
             </span>
           </div>
@@ -205,7 +205,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
         {isArchived ? (
           // Archived product actions: Restore and Permanent Delete
           <>
@@ -213,8 +213,8 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               onClick={() => handleRestore(product._id)}
               className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
                 color: "var(--success)",
               }}
               title={t("ui.products.list.button.restore") || "Restore"}
@@ -226,8 +226,8 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               onClick={() => handleDelete(product._id)}
               className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
                 color: "var(--error)",
               }}
               title={t("ui.products.list.button.permanentDelete") || "Delete Permanently"}
@@ -242,9 +242,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               onClick={() => onEdit(product._id)}
               className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title={t("ui.products.list.button.edit")}
             >
@@ -256,9 +256,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
                 onClick={() => handlePublish(product._id)}
                 className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors hover:brightness-95"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
                 title={t("ui.products.list.button.publish")}
               >
@@ -271,9 +271,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               onClick={() => handleDuplicate(product._id)}
               className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title={t("ui.products.list.button.duplicate") || "Duplicate"}
             >
@@ -284,8 +284,8 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
               onClick={() => handleArchive(product._id)}
               className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
                 color: "var(--warning)",
               }}
               title={t("ui.products.list.button.archive") || "Archive"}
@@ -307,9 +307,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
           onChange={(e) => setFilter({ ...filter, subtype: e.target.value || undefined })}
           className="px-3 py-1.5 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <option value="">{t("ui.products.list.filter.allTypes")}</option>
@@ -323,9 +323,9 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
           onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
           className="px-3 py-1.5 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <option value="">{t("ui.products.list.filter.allStatuses")}</option>
@@ -352,7 +352,7 @@ export function ProductsList({ sessionId, organizationId, onEdit }: ProductsList
 
       {/* Archived Section */}
       {archivedProducts.length > 0 && (
-        <div className="mt-8 border-t-2 pt-4" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="mt-8 border-t-2 pt-4" style={{ borderColor: "var(--shell-border)" }}>
           <button
             onClick={() => setShowArchived(!showArchived)}
             className="flex items-center gap-2 mb-4 text-xs font-bold"

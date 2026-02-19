@@ -92,8 +92,10 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
   const [emailError, setEmailError] = useState("");
 
   // Query existing contact if editing
+  // @ts-ignore TS2589: Convex generated query type may exceed instantiation depth in this component.
+  const getContactQuery = api.crmOntology.getContact;
   const existingContact = useQuery(
-    api.crmOntology.getContact,
+    getContactQuery,
     editId && sessionId ? { sessionId, contactId: editId } : "skip"
   );
 
@@ -498,13 +500,13 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-48px)] p-6 space-y-4">
           {/* Basic Information */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
+            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--window-document-text)", borderColor: "var(--window-document-border)" }}>
               {t("ui.crm.contact_form.sections.basic_information")}
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.contact_form.labels.first_name")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
@@ -513,15 +515,15 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.contact_form.labels.last_name")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
@@ -530,9 +532,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                   required
                 />
@@ -540,7 +542,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.contact_form.labels.email")} <span style={{ color: "var(--error)" }}>*</span>
               </label>
               <input
@@ -552,9 +554,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 }}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: emailError ? "var(--error)" : "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: emailError ? "var(--error)" : "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
                 required
               />
@@ -566,7 +568,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.contact_form.labels.phone")}
               </label>
               <input
@@ -575,15 +577,15 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.contact_form.labels.job_title")}
               </label>
               <input
@@ -592,9 +594,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               />
             </div>
@@ -602,12 +604,12 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
 
           {/* Source */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
+            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--window-document-text)", borderColor: "var(--window-document-border)" }}>
               {t("ui.crm.contact_form.sections.contact_type")}
             </h3>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.contact_form.labels.source")}
               </label>
               <select
@@ -615,9 +617,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 onChange={(e) => setFormData({ ...formData, source: e.target.value as typeof formData.source })}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <option value="manual">{t("ui.crm.contact_form.sources.manual")}</option>
@@ -635,9 +637,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
               onClick={() => setShowPipelines(!showPipelines)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">
@@ -647,11 +649,11 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </button>
 
             {showPipelines && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 {/* Current pipelines (for editing) */}
                 {editId && currentContactPipelines && currentContactPipelines.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       Current Pipelines:
                     </p>
                     {(currentContactPipelines as ContactPipelineItem[]).map((item) => (
@@ -659,12 +661,12 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         key={item.pipeline?._id}
                         className="flex items-center justify-between p-2 border-2 rounded"
                         style={{
-                          background: "var(--win95-bg-light)",
-                          borderColor: "var(--win95-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          borderColor: "var(--window-document-border)",
                         }}
                       >
                         <div>
-                          <div className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                          <div className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                             {item.pipeline?.name}
                           </div>
                           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -679,7 +681,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 {/* New pipeline selections */}
                 {pipelineSelections.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       {editId ? "Add to Pipelines:" : "Add to Pipelines:"}
                     </p>
                     {pipelineSelections.map((selection, index) => (
@@ -687,12 +689,12 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         key={index}
                         className="flex items-center justify-between p-2 border-2 rounded"
                         style={{
-                          background: "var(--win95-bg-light)",
-                          borderColor: "var(--win95-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          borderColor: "var(--window-document-border)",
                         }}
                       >
                         <div>
-                          <div className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                          <div className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                             {selection.pipelineName}
                           </div>
                           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -720,9 +722,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     disabled={!availableToAdd || availableToAdd.length === 0}
                     className="flex items-center gap-2 px-3 py-2 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: availableToAdd && availableToAdd.length > 0 ? "var(--win95-button-face)" : "var(--neutral-gray)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: availableToAdd && availableToAdd.length > 0 ? "var(--window-document-bg-elevated)" : "var(--neutral-gray)",
+                      color: "var(--window-document-text)",
                       opacity: availableToAdd && availableToAdd.length > 0 ? 1 : 0.5,
                     }}
                   >
@@ -730,9 +732,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     {t("ui.crm.contact_form.buttons.add_to_pipeline") || "Add to Pipeline"}
                   </button>
                 ) : (
-                  <div className="space-y-2 p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="space-y-2 p-3 border-2 rounded" style={{ borderColor: "var(--window-document-border)" }}>
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         Select Pipeline:
                       </label>
                       <select
@@ -743,9 +745,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         }}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <option value="">-- Select Pipeline --</option>
@@ -759,7 +761,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
 
                     {newPipelineId && newPipelineStages?.stages && (
                       <div>
-                        <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                        <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                           Select Stage:
                         </label>
                         <select
@@ -767,9 +769,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                           onChange={(e) => setNewStageId(e.target.value as Id<"objects">)}
                           className="w-full px-2 py-1.5 text-sm border-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-input-bg)",
-                            color: "var(--win95-input-text)",
+                            borderColor: "var(--window-document-border)",
+                            background: "var(--window-document-bg-elevated)",
+                            color: "var(--window-document-text)",
                           }}
                         >
                           <option value="">-- Select Stage --</option>
@@ -789,7 +791,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         disabled={!newPipelineId || !newStageId}
                         className="px-3 py-1.5 text-sm font-bold border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--window-document-border)",
                           background: newPipelineId && newStageId ? "var(--primary)" : "var(--neutral-gray)",
                           color: "white",
                           opacity: newPipelineId && newStageId ? 1 : 0.5,
@@ -806,9 +808,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         }}
                         className="px-3 py-1.5 text-sm font-bold border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-button-face)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         Cancel
@@ -863,9 +865,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
               onClick={() => setShowCompany(!showCompany)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">
@@ -876,7 +878,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </button>
 
             {showCompany && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -885,7 +887,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                       checked={formData.companyAssociation === "none"}
                       onChange={() => setFormData({ ...formData, companyAssociation: "none" })}
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.crm.contact_form.company.no_affiliation")}
                     </span>
                   </label>
@@ -897,7 +899,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                       checked={formData.companyAssociation === "existing"}
                       onChange={() => setFormData({ ...formData, companyAssociation: "existing" })}
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.crm.contact_form.company.link_existing")}
                     </span>
                   </label>
@@ -909,9 +911,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         onChange={(e) => setFormData({ ...formData, existingOrgId: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <option value="">{t("ui.crm.contact_form.company.select_organization")}</option>
@@ -931,7 +933,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                       checked={formData.companyAssociation === "new"}
                       onChange={() => setFormData({ ...formData, companyAssociation: "new" })}
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.crm.contact_form.company.create_new")}
                     </span>
                   </label>
@@ -945,9 +947,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         onChange={(e) => setFormData({ ...formData, newOrgName: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <input
@@ -957,9 +959,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         onChange={(e) => setFormData({ ...formData, newOrgIndustry: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <input
@@ -969,9 +971,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         onChange={(e) => setFormData({ ...formData, newOrgWebsite: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
@@ -988,9 +990,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
               onClick={() => setShowAddress(!showAddress)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.address")}</span>
@@ -998,7 +1000,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </button>
 
             {showAddress && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <input
                   type="text"
                   placeholder={t("ui.crm.contact_form.placeholders.street")}
@@ -1006,9 +1008,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <input
@@ -1018,9 +1020,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <div className="grid grid-cols-2 gap-3">
@@ -1031,9 +1033,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                   <input
@@ -1043,9 +1045,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
@@ -1054,9 +1056,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <option value="United States">{t("ui.crm.contact_form.countries.united_states")}</option>
@@ -1075,9 +1077,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
               onClick={() => setShowTagsNotes(!showTagsNotes)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.contact_form.sections.tags_notes")}</span>
@@ -1085,9 +1087,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
             </button>
 
             {showTagsNotes && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.contact_form.labels.tags")}
                   </label>
                   <div className="flex gap-2 mb-2">
@@ -1104,9 +1106,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                       placeholder={t("ui.crm.contact_form.placeholders.tag_input")}
                       className="flex-1 px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                     <button
@@ -1114,9 +1116,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                       onClick={handleAddTag}
                       className="px-3 py-1.5 text-sm font-bold border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       {t("ui.crm.contact_form.buttons.add_tag")}
@@ -1129,7 +1131,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs border-2"
                         style={{
                           borderColor: "var(--primary)",
-                          background: "var(--win95-bg-light)",
+                          background: "var(--window-document-bg-elevated)",
                           color: "var(--primary)",
                         }}
                       >
@@ -1147,7 +1149,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.contact_form.labels.notes")}
                   </label>
                   <textarea
@@ -1157,9 +1159,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                     placeholder={t("ui.crm.contact_form.placeholders.notes")}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
@@ -1168,7 +1170,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
           </div>
 
           {/* Actions */}
-          <div className="flex justify-between items-center gap-2 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex justify-between items-center gap-2 pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             {/* Delete button - only show when editing */}
             {editId ? (
               <button
@@ -1194,9 +1196,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 disabled={saving}
                 className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               >
                 {t("ui.crm.contact_form.buttons.cancel")}
@@ -1206,7 +1208,7 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 disabled={saving}
                 className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                   background: "var(--primary)",
                   color: "white",
                 }}
@@ -1237,14 +1239,14 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
           <div
             className="border-4 p-6 max-w-md mx-4 shadow-lg"
             style={{
-              background: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)'
             }}
           >
-            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--window-document-text)' }}>
               Delete Contact?
             </h3>
-            <p className="text-sm mb-6" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm mb-6" style={{ color: 'var(--window-document-text)' }}>
               Are you sure you want to delete this contact? This action cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
@@ -1253,9 +1255,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 disabled={saving}
                 className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-button-face)',
-                  color: 'var(--win95-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
               >
                 Cancel

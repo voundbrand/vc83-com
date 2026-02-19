@@ -69,14 +69,14 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
       <div
         className="border-2 p-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-start justify-between mb-3">
           <h3
             className="text-sm font-bold flex items-center gap-2"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--shell-text)" }}
           >
             <ScrollText className="w-4 h-4" />
             Current License Configuration
@@ -111,9 +111,9 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
             <span
               className="px-3 py-1.5 text-xs font-bold"
               style={{
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
-                border: "2px solid var(--win95-border)",
+                background: "var(--shell-surface)",
+                color: "var(--shell-text)",
+                border: "2px solid var(--shell-border)",
               }}
             >
               {formatPrice()}/month
@@ -125,7 +125,7 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
           {license.currentPeriodStart && license.currentPeriodEnd && (
             <div>
               <span style={{ color: "var(--neutral-gray)" }}>Billing Period:</span>
-              <p style={{ color: "var(--win95-text)" }} className="font-mono mt-1">
+              <p style={{ color: "var(--shell-text)" }} className="font-mono mt-1">
                 {formatDate(license.currentPeriodStart)} - {formatDate(license.currentPeriodEnd)}
               </p>
             </div>
@@ -133,7 +133,7 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
 
           <div>
             <span style={{ color: "var(--neutral-gray)" }}>Support Level:</span>
-            <p style={{ color: "var(--win95-text)" }} className="font-mono mt-1">
+            <p style={{ color: "var(--shell-text)" }} className="font-mono mt-1">
               {license.supportLevel.replace(/_/g, " ").toUpperCase()}
             </p>
           </div>
@@ -154,7 +154,7 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
             <div className="flex-1">
               <h4
                 className="text-xs font-bold mb-1"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--shell-text)" }}
               >
                 Trial Period Active
               </h4>

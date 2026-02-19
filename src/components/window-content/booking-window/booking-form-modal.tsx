@@ -503,7 +503,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="retro-button flex-1 py-2 text-sm"
+              className="desktop-interior-button flex-1 py-2 text-sm"
               style={{
                 background: 'var(--win95-selected-bg)',
                 color: 'var(--win95-selected-text)',
@@ -515,7 +515,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <button
               type="button"
               onClick={onClose}
-              className="retro-button px-4 py-2 text-sm"
+              className="desktop-interior-button px-4 py-2 text-sm"
               style={{ background: 'var(--win95-button-face)' }}
             >
               Cancel

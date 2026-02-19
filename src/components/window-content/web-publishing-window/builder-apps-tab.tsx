@@ -21,7 +21,7 @@ import {
   FolderGit2,
   RefreshCw,
 } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -249,7 +249,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Builder Apps
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -263,9 +263,9 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-2 py-1 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "white",
-            color: "var(--win95-text)",
+            color: "var(--window-document-text)",
           }}
         >
           <option value="all">All Status</option>
@@ -281,12 +281,12 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
         <div
           className="border-2 p-6 text-center"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
           }}
         >
           <Sparkles size={48} className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
-          <h4 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             No Builder Apps Yet
           </h4>
           <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -309,7 +309,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                 key={app._id}
                 className="border-2 p-4 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                   background: "white",
                 }}
               >
@@ -318,7 +318,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles size={18} style={{ color: "var(--primary)" }} />
-                      <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                      <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                         {app.name}
                       </h4>
                       <span
@@ -334,9 +334,9 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                         <span
                           className="px-2 py-0.5 text-xs"
                           style={{
-                            background: "var(--win95-bg-light)",
+                            background: "var(--window-document-bg-elevated)",
                             color: "var(--neutral-gray)",
-                            border: "1px solid var(--win95-border)",
+                            border: "1px solid var(--window-document-border)",
                           }}
                         >
                           {props.appCode}
@@ -402,7 +402,8 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                             href={props.v0WebUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-purple-600 hover:underline"
+                            className="hover:underline"
+                            style={{ color: "var(--tone-accent)" }}
                           >
                             View in v0.dev
                           </a>
@@ -437,7 +438,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                   <div className="flex items-center gap-2 ml-4">
                     {/* Create GitHub Repo (if not created) */}
                     {!deployment?.githubRepo && app.status === "ready" && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => handleCreateRepo(app)}
                         variant="primary"
                         size="sm"
@@ -450,12 +451,12 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                           <Github size={14} />
                         )}
                         {isCreatingRepo === app._id ? "Creating..." : "Create Repo"}
-                      </RetroButton>
+                      </InteriorButton>
                     )}
 
                     {/* Deploy to Vercel (if repo exists) */}
                     {deployment?.githubRepo && !deployment?.productionUrl && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => handleDeployToVercel(app)}
                         variant="primary"
                         size="sm"
@@ -463,12 +464,12 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                       >
                         <Rocket size={14} />
                         Deploy
-                      </RetroButton>
+                      </InteriorButton>
                     )}
 
                     {/* View Live (if deployed) */}
                     {deployment?.productionUrl && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => window.open(deployment.productionUrl!, "_blank")}
                         variant="secondary"
                         size="sm"
@@ -476,12 +477,12 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                       >
                         <ExternalLink size={14} />
                         View Live
-                      </RetroButton>
+                      </InteriorButton>
                     )}
 
                     {/* Archive */}
                     {app.status !== "archived" && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => {
                           if (confirm(`Archive "${app.name}"? It can be restored later.`)) {
                             handleArchive(app._id);
@@ -493,11 +494,11 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                         title="Archive app"
                       >
                         <Archive size={14} />
-                      </RetroButton>
+                      </InteriorButton>
                     )}
 
                     {/* Delete */}
-                    <RetroButton
+                    <InteriorButton
                       onClick={() => {
                         if (confirm(`Permanently delete "${app.name}"? This cannot be undone.`)) {
                           handleDelete(app._id);
@@ -509,7 +510,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
                       title="Delete permanently"
                     >
                       <Trash2 size={14} />
-                    </RetroButton>
+                    </InteriorButton>
                   </div>
                 </div>
               </div>

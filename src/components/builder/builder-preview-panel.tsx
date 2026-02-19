@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useBuilder } from "@/contexts/builder-context";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { PageRenderer } from "./page-renderer";
 import { SectionPropertiesPanel } from "./section-properties-panel";
 import {
@@ -27,11 +28,18 @@ import {
 } from "lucide-react";
 import type { DetectedItem, SectionConnection } from "@/contexts/builder-context";
 import { useQuery } from "convex/react";
-import { api } from "@/../convex/_generated/api";
+import type { FunctionReference } from "convex/server";
 import { FileExplorerPanel } from "./file-explorer-panel";
+const generatedApi = require("../../../convex/_generated/api") as {
+  api: {
+    fileSystemOntology: {
+      getFilesByApp: unknown;
+    };
+  };
+};
 
 // Thinking phrases that cycle during generation (matches chat panel)
-const thinkingPhrases = [
+const loadingPhraseFallbacks = [
   "Thinking...",
   "Building...",
   "Designing...",
@@ -48,16 +56,23 @@ const deviceWidths: Record<DeviceMode, string> = {
 };
 
 // Enhanced loading state component for the preview panel
-function PreviewLoadingState() {
+function PreviewLoadingState({
+  phrases,
+  subtitle,
+}: {
+  phrases: string[];
+  subtitle: string;
+}) {
   const [phraseIndex, setPhraseIndex] = useState(0);
+  const safePhrases = phrases.length > 0 ? phrases : loadingPhraseFallbacks;
 
   // Cycle through phrases
   useEffect(() => {
     const interval = setInterval(() => {
-      setPhraseIndex((prev) => (prev + 1) % thinkingPhrases.length);
+      setPhraseIndex((prev) => (prev + 1) % safePhrases.length);
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [safePhrases.length]);
 
   return (
     <div className="h-full flex items-center justify-center">
@@ -65,9 +80,9 @@ function PreviewLoadingState() {
         {/* Animated rings around logo */}
         <div className="relative w-32 h-32 mx-auto mb-6">
           {/* Outer pulsing ring */}
-          <div className="absolute inset-0 rounded-full border-2 border-purple-500/20 animate-ping" />
+          <div className="absolute inset-0 rounded-full border-2 border-amber-500/20 animate-ping" />
           {/* Middle pulsing ring */}
-          <div className="absolute inset-4 rounded-full border-2 border-purple-500/30 animate-pulse" />
+          <div className="absolute inset-4 rounded-full border-2 border-amber-500/30 animate-pulse" />
           {/* Inner circle with spinning logo */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="relative">
@@ -78,20 +93,20 @@ function PreviewLoadingState() {
                 style={{ animationDuration: "3s" }}
               />
               {/* Glow effect */}
-              <div className="absolute inset-0 rounded-lg bg-purple-500/20 blur-xl animate-pulse" />
+              <div className="absolute inset-0 rounded-lg bg-amber-500/20 blur-xl animate-pulse" />
             </div>
           </div>
         </div>
         {/* Shimmering text */}
         <p
-          className="text-xl font-medium bg-gradient-to-r from-purple-400 via-zinc-200 to-purple-400 bg-clip-text text-transparent bg-[length:200%_100%] mb-2"
+          className="text-xl font-medium bg-gradient-to-r from-amber-400 via-neutral-200 to-amber-400 bg-clip-text text-transparent bg-[length:200%_100%] mb-2"
           style={{
             animation: "shimmer 2s linear infinite",
           }}
         >
-          {thinkingPhrases[phraseIndex]}
+          {safePhrases[phraseIndex]}
         </p>
-        <p className="text-zinc-500 text-sm">This usually takes a minute or two</p>
+        <p className="text-neutral-500 text-sm">{subtitle}</p>
       </div>
       {/* Inline keyframes for shimmer animation */}
       <style jsx>{`
@@ -194,17 +209,32 @@ export function BuilderPreviewPanel() {
     pendingConnections,
     setPendingConnections,
   } = useBuilder();
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
 
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
+  const previewLoadingPhrases = [
+    tx("ui.builder.preview.loading.phrases.thinking", "Thinking..."),
+    tx("ui.builder.preview.loading.phrases.building", "Building..."),
+    tx("ui.builder.preview.loading.phrases.designing", "Designing..."),
+    tx("ui.builder.preview.loading.phrases.creating", "Creating..."),
+    tx("ui.builder.preview.loading.phrases.generating", "Generating..."),
+  ];
+
+  type BuilderFile = {
+    path: string;
+    content: string;
+    language: string;
+  };
 
   // Query builder files for code view
   const builderFilesRaw = useQuery(
-    api.fileSystemOntology.getFilesByApp,
+    generatedApi.api.fileSystemOntology.getFilesByApp as FunctionReference<"query">,
     sessionId && builderAppId
       ? { sessionId, appId: builderAppId }
       : "skip"
-  );
+  ) as BuilderFile[] | undefined;
   const generatedFiles = useMemo(() => {
     if (!builderFilesRaw) return [];
     return builderFilesRaw.map((f) => ({ path: f.path, content: f.content, language: f.language }));
@@ -393,17 +423,17 @@ export function BuilderPreviewPanel() {
   }, [pageSchema, isGenerating, pages.length, currentPageId]);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-neutral-900 overflow-hidden">
       {/* Toolbar - fixed at top */}
-      <div className="flex-shrink-0 px-4 py-2 border-b border-zinc-700 flex items-center justify-between">
+      <div className="flex-shrink-0 px-4 py-2 border-b border-neutral-700 flex items-center justify-between">
         {/* Device toggles */}
-        <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
           <button
             onClick={() => setDeviceMode("desktop")}
             className={`p-2 rounded-md transition-colors ${
               deviceMode === "desktop"
-                ? "bg-zinc-700 text-purple-400 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-neutral-700 text-amber-400 shadow-sm"
+                : "text-neutral-500 hover:text-neutral-300"
             }`}
             title="Desktop view"
           >
@@ -413,8 +443,8 @@ export function BuilderPreviewPanel() {
             onClick={() => setDeviceMode("tablet")}
             className={`p-2 rounded-md transition-colors ${
               deviceMode === "tablet"
-                ? "bg-zinc-700 text-purple-400 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-neutral-700 text-amber-400 shadow-sm"
+                : "text-neutral-500 hover:text-neutral-300"
             }`}
             title="Tablet view"
           >
@@ -424,8 +454,8 @@ export function BuilderPreviewPanel() {
             onClick={() => setDeviceMode("mobile")}
             className={`p-2 rounded-md transition-colors ${
               deviceMode === "mobile"
-                ? "bg-zinc-700 text-purple-400 shadow-sm"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "bg-neutral-700 text-amber-400 shadow-sm"
+                : "text-neutral-500 hover:text-neutral-300"
             }`}
             title="Mobile view"
           >
@@ -437,13 +467,13 @@ export function BuilderPreviewPanel() {
         <div className="flex items-center gap-2">
           {/* Preview/Code toggle - only for v0 apps with files */}
           {aiProvider === "v0" && (v0DemoUrl || productionUrl) && generatedFiles.length > 0 && (
-            <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
               <button
                 onClick={() => setViewMode("preview")}
                 className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
                   viewMode === "preview"
-                    ? "bg-zinc-700 text-purple-400 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    ? "bg-neutral-700 text-amber-400 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-300"
                 }`}
                 title="Preview"
               >
@@ -454,8 +484,8 @@ export function BuilderPreviewPanel() {
                 onClick={() => setViewMode("code")}
                 className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
                   viewMode === "code"
-                    ? "bg-zinc-700 text-purple-400 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    ? "bg-neutral-700 text-amber-400 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-300"
                 }`}
                 title="View source code"
               >
@@ -467,13 +497,13 @@ export function BuilderPreviewPanel() {
 
           {/* Edit/Preview toggle */}
           {pageSchema && (
-            <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
               <button
                 onClick={() => setIsEditMode(false)}
                 className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
                   !isEditMode
-                    ? "bg-zinc-700 text-purple-400 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    ? "bg-neutral-700 text-amber-400 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-300"
                 }`}
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -483,8 +513,8 @@ export function BuilderPreviewPanel() {
                 onClick={() => setIsEditMode(true)}
                 className={`px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1.5 ${
                   isEditMode
-                    ? "bg-zinc-700 text-purple-400 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    ? "bg-neutral-700 text-amber-400 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-300"
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
@@ -497,7 +527,7 @@ export function BuilderPreviewPanel() {
           {pageSchema && conversationId && (
             <button
               onClick={() => window.open(`/preview/${conversationId}`, '_blank')}
-              className="p-2 text-zinc-500 hover:text-purple-400 transition-colors"
+              className="p-2 text-neutral-500 hover:text-amber-400 transition-colors"
               title="Open preview in new tab"
             >
               <ExternalLink className="w-4 h-4" />
@@ -507,7 +537,7 @@ export function BuilderPreviewPanel() {
       </div>
 
       {/* Preview area - scrollable content */}
-      <div className="flex-1 min-h-0 overflow-auto bg-zinc-900 relative">
+      <div className="flex-1 min-h-0 overflow-auto bg-neutral-900 relative">
         {/* Completion toast notification */}
         {showCompletionToast && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -515,17 +545,19 @@ export function BuilderPreviewPanel() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="font-medium">Design updated!</span>
+              <span className="font-medium">
+                {tx("ui.builder.preview.status.designUpdated", "Design updated!")}
+              </span>
             </div>
           </div>
         )}
 
         {/* Loading overlay for when editing existing page */}
         {isGenerating && pageSchema && (
-          <div className="absolute inset-0 z-40 bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center">
             <div className="text-center">
               <div className="relative w-20 h-20 mx-auto mb-4">
-                <div className="absolute inset-0 rounded-full border-2 border-purple-500/30 animate-ping" />
+                <div className="absolute inset-0 rounded-full border-2 border-amber-500/30 animate-ping" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <img
                     src="/android-chrome-512x512.png"
@@ -535,27 +567,32 @@ export function BuilderPreviewPanel() {
                   />
                 </div>
               </div>
-              <p className="text-purple-400 font-medium animate-pulse">Updating design...</p>
+              <p className="text-amber-400 font-medium animate-pulse">
+                {tx("ui.builder.preview.loading.updatingDesign", "Updating design...")}
+              </p>
             </div>
           </div>
         )}
 
         {/* Loading state - enhanced with spinning logo and shimmering text */}
         {isGenerating && !pageSchema && !v0DemoUrl && (
-          <PreviewLoadingState />
+          <PreviewLoadingState
+            phrases={previewLoadingPhrases}
+            subtitle={tx("ui.builder.preview.loading.timingHint", "This usually takes a minute or two")}
+          />
         )}
 
         {/* Empty state - engaging design */}
         {!isGenerating && !pageSchema && !v0DemoUrl && (
           <div className="h-full flex items-center justify-center relative overflow-hidden">
             {/* Animated background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-zinc-900 to-blue-900/10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-900/10 via-neutral-900 to-blue-900/10" />
 
             {/* Floating shapes animation */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               {/* Shape 1 */}
               <div
-                className="absolute w-64 h-64 rounded-full bg-purple-500/5 blur-3xl"
+                className="absolute w-64 h-64 rounded-full bg-amber-500/5 blur-3xl"
                 style={{
                   top: '20%',
                   left: '10%',
@@ -586,7 +623,7 @@ export function BuilderPreviewPanel() {
             <div className="text-center p-8 relative z-10">
               {/* Logo with glow */}
               <div className="relative w-20 h-20 mx-auto mb-8">
-                <div className="absolute inset-0 rounded-2xl bg-purple-500/20 blur-xl animate-pulse" />
+                <div className="absolute inset-0 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
                 <img
                   src="/android-chrome-512x512.png"
                   alt="l4yercak3"
@@ -594,30 +631,32 @@ export function BuilderPreviewPanel() {
                 />
               </div>
 
-              <h3 className="text-2xl font-semibold text-zinc-100 mb-3">
-                Ready to create
+              <h3 className="text-2xl font-semibold text-neutral-100 mb-3">
+                {tx("ui.builder.preview.empty.readyToCreate", "Ready to create")}
               </h3>
-              <p className="text-zinc-400 text-sm max-w-sm mx-auto mb-6">
-                Describe your landing page in the chat and watch it come to life.
-                The AI will design and build it for you.
+              <p className="text-neutral-400 text-sm max-w-sm mx-auto mb-6">
+                {tx(
+                  "ui.builder.preview.empty.description",
+                  "Describe your landing page in the chat and watch it come to life. The AI will design and build it for you."
+                )}
               </p>
 
               {/* Feature hints */}
               <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
-                <span className="px-3 py-1 bg-zinc-800/50 border border-zinc-700/50 rounded-full text-xs text-zinc-400">
-                  Hero sections
+                <span className="px-3 py-1 bg-neutral-800/50 border border-neutral-700/50 rounded-full text-xs text-neutral-400">
+                  {tx("ui.builder.preview.empty.hints.heroSections", "Hero sections")}
                 </span>
-                <span className="px-3 py-1 bg-zinc-800/50 border border-zinc-700/50 rounded-full text-xs text-zinc-400">
-                  Features
+                <span className="px-3 py-1 bg-neutral-800/50 border border-neutral-700/50 rounded-full text-xs text-neutral-400">
+                  {tx("ui.builder.preview.empty.hints.features", "Features")}
                 </span>
-                <span className="px-3 py-1 bg-zinc-800/50 border border-zinc-700/50 rounded-full text-xs text-zinc-400">
-                  Pricing tables
+                <span className="px-3 py-1 bg-neutral-800/50 border border-neutral-700/50 rounded-full text-xs text-neutral-400">
+                  {tx("ui.builder.preview.empty.hints.pricingTables", "Pricing tables")}
                 </span>
-                <span className="px-3 py-1 bg-zinc-800/50 border border-zinc-700/50 rounded-full text-xs text-zinc-400">
-                  Contact forms
+                <span className="px-3 py-1 bg-neutral-800/50 border border-neutral-700/50 rounded-full text-xs text-neutral-400">
+                  {tx("ui.builder.preview.empty.hints.contactForms", "Contact forms")}
                 </span>
-                <span className="px-3 py-1 bg-zinc-800/50 border border-zinc-700/50 rounded-full text-xs text-zinc-400">
-                  Testimonials
+                <span className="px-3 py-1 bg-neutral-800/50 border border-neutral-700/50 rounded-full text-xs text-neutral-400">
+                  {tx("ui.builder.preview.empty.hints.testimonials", "Testimonials")}
                 </span>
               </div>
             </div>
@@ -639,19 +678,21 @@ export function BuilderPreviewPanel() {
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${iframeLoaded ? "bg-green-500" : "bg-amber-500"} animate-pulse`} />
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-neutral-400">
                   {iframeLoaded
-                    ? (previewSource === "live" ? "Live production" : "v0 preview")
-                    : "Loading preview..."}
+                    ? (previewSource === "live"
+                      ? tx("ui.builder.preview.loading.source.liveProduction", "Live production")
+                      : tx("ui.builder.preview.loading.source.v0Preview", "v0 preview"))
+                    : tx("ui.builder.preview.loading.iframe", "Loading preview...")}
                 </span>
 
                 {/* v0 / Live source toggle */}
                 {productionUrl && (
-                  <div className="flex items-center gap-0.5 bg-zinc-800 rounded p-0.5 text-xs ml-2">
+                  <div className="flex items-center gap-0.5 bg-neutral-800 rounded p-0.5 text-xs ml-2">
                     <button
                       onClick={() => { setPreviewSource("v0"); setInspectorMode(false); setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
                       className={`px-2 py-0.5 rounded transition-colors ${
-                        previewSource === "v0" ? "bg-zinc-700 text-purple-400" : "text-zinc-500 hover:text-zinc-300"
+                        previewSource === "v0" ? "bg-neutral-700 text-amber-400" : "text-neutral-500 hover:text-neutral-300"
                       }`}
                     >
                       v0
@@ -659,7 +700,7 @@ export function BuilderPreviewPanel() {
                     <button
                       onClick={() => { setPreviewSource("live"); setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
                       className={`px-2 py-0.5 rounded transition-colors ${
-                        previewSource === "live" ? "bg-zinc-700 text-purple-400" : "text-zinc-500 hover:text-zinc-300"
+                        previewSource === "live" ? "bg-neutral-700 text-amber-400" : "text-neutral-500 hover:text-neutral-300"
                       }`}
                     >
                       Live
@@ -672,7 +713,7 @@ export function BuilderPreviewPanel() {
                   <button
                     onClick={() => setInspectorMode(!inspectorMode)}
                     className={`p-1 rounded transition-colors ${
-                      inspectorMode ? "bg-purple-600 text-white" : "text-zinc-500 hover:text-zinc-300"
+                      inspectorMode ? "bg-amber-600 text-white" : "text-neutral-500 hover:text-neutral-300"
                     }`}
                     title={inspectorMode ? "Exit element selector" : "Select elements to connect"}
                   >
@@ -682,7 +723,7 @@ export function BuilderPreviewPanel() {
               </div>
               <button
                 onClick={() => { setIframeLoaded(false); setIframeKey((prev) => prev + 1); }}
-                className="text-xs text-zinc-500 hover:text-zinc-300 p-1 rounded transition-colors"
+                className="text-xs text-neutral-500 hover:text-neutral-300 p-1 rounded transition-colors"
                 title="Reload preview"
               >
                 <RefreshCw className="h-3 w-3" />
@@ -713,19 +754,19 @@ export function BuilderPreviewPanel() {
                 }}
               />
               {!iframeLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/50">
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/50">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 </div>
               )}
 
               {/* Element type prompt — appears when inspector selects an element */}
               {selectedElement && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-800 border border-zinc-700 rounded-lg p-4 shadow-2xl max-w-sm w-full">
-                  <p className="text-sm text-zinc-300 mb-1">
-                    Selected: <code className="text-purple-400">&lt;{selectedElement.tag}&gt;</code>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-neutral-800 border border-neutral-700 rounded-lg p-4 shadow-2xl max-w-sm w-full">
+                  <p className="text-sm text-neutral-300 mb-1">
+                    Selected: <code className="text-amber-400">&lt;{selectedElement.tag}&gt;</code>
                   </p>
-                  <p className="text-xs text-zinc-500 truncate mb-3">{selectedElement.text}</p>
-                  <p className="text-xs text-zinc-400 mb-2">What type of element is this?</p>
+                  <p className="text-xs text-neutral-500 truncate mb-3">{selectedElement.text}</p>
+                  <p className="text-xs text-neutral-400 mb-2">What type of element is this?</p>
                   <div className="flex gap-2">
                     {(["form", "product", "contact"] as const).map((type) => (
                       <button
@@ -733,8 +774,8 @@ export function BuilderPreviewPanel() {
                         onClick={() => handleElementTyped(type, selectedElement)}
                         className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                           selectedElement.suggestedType === type
-                            ? "bg-purple-600 text-white"
-                            : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                            ? "bg-amber-600 text-white"
+                            : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"
                         }`}
                       >
                         {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -743,7 +784,7 @@ export function BuilderPreviewPanel() {
                     ))}
                     <button
                       onClick={() => setSelectedElement(null)}
-                      className="px-3 py-1.5 rounded text-xs bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
+                      className="px-3 py-1.5 rounded text-xs bg-neutral-700 text-neutral-400 hover:bg-neutral-600"
                     >
                       Skip
                     </button>
@@ -769,7 +810,7 @@ export function BuilderPreviewPanel() {
               <div className="mb-2 flex justify-start">
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-sm transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back
@@ -780,8 +821,8 @@ export function BuilderPreviewPanel() {
             {/* Current page indicator (when multiple pages exist) */}
             {pages.length > 1 && currentPageId && (
               <div className="mb-2 text-center">
-                <span className="text-xs text-zinc-500">
-                  Viewing: <span className="text-zinc-400">{pages.find(p => p.id === currentPageId)?.name || "Unknown"}</span>
+                <span className="text-xs text-neutral-500">
+                  Viewing: <span className="text-neutral-400">{pages.find(p => p.id === currentPageId)?.name || "Unknown"}</span>
                   {" "}({pages.find(p => p.id === currentPageId)?.slug})
                 </span>
               </div>
@@ -812,10 +853,10 @@ export function BuilderPreviewPanel() {
       {selectedSectionId && pageSchema && isEditMode ? (
         <SectionPropertiesPanel />
       ) : selectedSectionId && pageSchema ? (
-        <div className="px-4 py-2 border-t border-zinc-700 bg-purple-900/30 flex items-center justify-between">
+        <div className="px-4 py-2 border-t border-neutral-700 bg-amber-900/30 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-purple-500" />
-            <span className="text-sm text-purple-200">
+            <div className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-sm text-amber-200">
               Section selected:{" "}
               <span className="font-medium">
                 {pageSchema.sections.find((s) => s.id === selectedSectionId)
@@ -825,7 +866,7 @@ export function BuilderPreviewPanel() {
           </div>
           <button
             onClick={() => setSelectedSectionId(null)}
-            className="text-sm text-purple-400 hover:text-purple-300"
+            className="text-sm text-amber-400 hover:text-amber-300"
           >
             Clear selection
           </button>

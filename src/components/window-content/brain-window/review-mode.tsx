@@ -7,19 +7,18 @@
  * Shows all extracted knowledge, Content DNA profiles, and uploaded sources.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
   Library,
   Search,
-  Filter,
   FileText,
-  Headphones,
   Link2,
   AlignLeft,
-  User,
   Calendar,
   ChevronRight,
   Loader2,
@@ -27,14 +26,51 @@ import {
   Sparkles,
   ExternalLink,
   MoreHorizontal,
+  AlertCircle,
 } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  InteriorButton,
+  InteriorHeader,
+  InteriorHelperText,
+  InteriorInput,
+  InteriorPanel,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
+import type { BrainTranslate } from "./index";
 
 interface ReviewModeProps {
   sessionId: string;
   organizationId: Id<"organizations">;
+  tr: BrainTranslate;
 }
 
 type KnowledgeCategory = "all" | "content_dna" | "documents" | "links" | "notes";
+type ReviewKnowledgeItem = {
+  id: string;
+  category: Exclude<KnowledgeCategory, "all">;
+  title: string;
+  description: string;
+  source: string;
+  createdAt: number;
+  linkUrl?: string;
+  sourceObjectIds: string[];
+};
+
+type ReviewKnowledgeResponse =
+  | {
+      status: "ok";
+      items: ReviewKnowledgeItem[];
+      counts: Record<KnowledgeCategory, number>;
+    }
+  | {
+      status: "error";
+      error: string;
+      items: ReviewKnowledgeItem[];
+      counts: Record<KnowledgeCategory, number>;
+    };
 
 const CATEGORY_CONFIG: Record<KnowledgeCategory, { icon: typeof Library; label: string }> = {
   all: { icon: Library, label: "All Knowledge" },
@@ -44,84 +80,59 @@ const CATEGORY_CONFIG: Record<KnowledgeCategory, { icon: typeof Library; label: 
   notes: { icon: AlignLeft, label: "Notes" },
 };
 
-// Mock data for demonstration - replace with real Convex queries
-const MOCK_KNOWLEDGE_ITEMS = [
-  {
-    id: "dna-1",
-    category: "content_dna",
-    title: "Sarah's Content DNA",
-    description: "Voice: Professional, warm. Expertise: AI, SaaS. Audience: Tech leaders.",
-    createdAt: Date.now() - 86400000 * 2,
-    source: "Interview",
-  },
-  {
-    id: "doc-1",
-    category: "documents",
-    title: "Product Positioning Guide.pdf",
-    description: "Internal guide for product messaging and value props",
-    createdAt: Date.now() - 86400000 * 5,
-    source: "Uploaded PDF",
-  },
-  {
-    id: "link-1",
-    category: "links",
-    title: "competitor analysis article",
-    description: "https://techcrunch.com/2024/competitor-landscape",
-    createdAt: Date.now() - 86400000 * 7,
-    source: "Web Link",
-  },
-  {
-    id: "note-1",
-    category: "notes",
-    title: "Brand Voice Guidelines",
-    description: "Key phrases to use: 'effortless', 'intelligent', 'trusted partner'",
-    createdAt: Date.now() - 86400000 * 10,
-    source: "Manual Note",
-  },
-];
-
-export function ReviewMode({ sessionId, organizationId }: ReviewModeProps) {
+export function ReviewMode({ sessionId, organizationId, tr }: ReviewModeProps) {
   const [category, setCategory] = useState<KnowledgeCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const { t } = useNamespaceTranslations("ui.brain");
+  const trLocal = useMemo(
+    () =>
+      (key: string, fallback: string, params?: Record<string, string | number>) => {
+        const value = t(key, params);
+        return value === key ? fallback : value;
+      },
+    [t],
+  );
+  const tx = tr ?? trLocal;
 
-  // TODO: Replace with actual Convex query
-  // const knowledgeItems = useQuery(api.knowledge.listByOrganization, {
-  //   sessionId,
-  //   organizationId,
-  //   category: category === "all" ? undefined : category,
-  // });
+  const listReviewKnowledgeQuery = api.brainKnowledge.listReviewKnowledge;
+  const reviewData = useQuery(listReviewKnowledgeQuery, {
+    sessionId,
+    organizationId,
+    category,
+    searchQuery: searchQuery.trim() || undefined,
+    refreshToken,
+  }) as ReviewKnowledgeResponse | undefined;
 
-  const knowledgeItems = MOCK_KNOWLEDGE_ITEMS;
-  const isLoading = false;
+  const isLoading = reviewData === undefined;
+  const isError = reviewData?.status === "error";
+  const errorMessage = reviewData?.status === "error"
+    ? reviewData.error
+    : "Unable to load knowledge items.";
 
-  // Filter items
-  const filteredItems = knowledgeItems.filter((item) => {
-    const matchesCategory = category === "all" || item.category === category;
-    const matchesSearch =
-      !searchQuery ||
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  // Count by category
-  const categoryCounts = {
-    all: knowledgeItems.length,
-    content_dna: knowledgeItems.filter((i) => i.category === "content_dna").length,
-    documents: knowledgeItems.filter((i) => i.category === "documents").length,
-    links: knowledgeItems.filter((i) => i.category === "links").length,
-    notes: knowledgeItems.filter((i) => i.category === "notes").length,
-  };
+  const filteredItems = useMemo(
+    () => (reviewData?.status === "ok" ? reviewData.items : []),
+    [reviewData],
+  );
+  const categoryCounts = useMemo(
+    () =>
+      reviewData?.status === "ok"
+        ? reviewData.counts
+        : { all: 0, content_dna: 0, documents: 0, links: 0, notes: 0 },
+    [reviewData],
+  );
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
 
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays === 0) return tx("ui.brain.review.date.today", "Today");
+    if (diffDays === 1) return tx("ui.brain.review.date.yesterday", "Yesterday");
+    if (diffDays < 7) {
+      return tx("ui.brain.review.date.days_ago", `${diffDays} days ago`, { count: diffDays });
+    }
     return date.toLocaleDateString();
   };
 
@@ -141,18 +152,20 @@ export function ReviewMode({ sessionId, organizationId }: ReviewModeProps) {
   };
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar with categories */}
-      <div className="w-56 border-r border-zinc-700 bg-zinc-800/30 flex flex-col">
-        <div className="p-3 border-b border-zinc-700">
+    <InteriorRoot className="flex h-full">
+      <div
+        className="flex w-60 flex-col border-r"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+      >
+        <div className="border-b p-3" style={{ borderColor: "var(--window-document-border)" }}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--desktop-menu-text-muted)" }} />
+            <InteriorInput
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search knowledge..."
-              className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+              placeholder={tx("ui.brain.review.search.placeholder", "Search knowledge...")}
+              className="pl-9"
             />
           </div>
         </div>
@@ -163,124 +176,141 @@ export function ReviewMode({ sessionId, organizationId }: ReviewModeProps) {
             const Icon = config.icon;
             const count = categoryCounts[cat];
             const isActive = category === cat;
-
+            const label = tx(`ui.brain.review.category.${cat}`, config.label);
             return (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
-                  isActive
-                    ? "bg-purple-900/30 text-purple-200 border-r-2 border-purple-500"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                }`}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors"
+                style={{
+                  color: isActive ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)",
+                  background: isActive ? "var(--window-document-bg)" : "transparent",
+                  borderRight: isActive ? "2px solid var(--tone-accent-strong)" : "2px solid transparent",
+                }}
               >
-                <Icon className="w-4 h-4" />
-                <span className="flex-1 text-sm">{config.label}</span>
-                <span className="text-xs text-zinc-500">{count}</span>
+                <Icon className="h-4 w-4" />
+                <span className="flex-1 truncate">{label}</span>
+                <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>{count}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Stats footer */}
-        <div className="p-4 border-t border-zinc-700">
-          <div className="text-xs text-zinc-500">
-            <div className="flex items-center gap-2 mb-1">
-              <Database className="w-3 h-3" />
-              <span>{knowledgeItems.length} total items</span>
-            </div>
+        <div className="border-t px-3 py-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+            <Database className="h-3.5 w-3.5" />
+            <span>
+              {tx("ui.brain.review.stats.total_items", "{count} total items", {
+                count: categoryCounts.all,
+              })}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-zinc-700 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-zinc-100">
-              {CATEGORY_CONFIG[category].label}
-            </h2>
-            <p className="text-sm text-zinc-500">
-              {filteredItems.length} item{filteredItems.length !== 1 ? "s" : ""}
-              {searchQuery && ` matching "${searchQuery}"`}
-            </p>
-          </div>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <InteriorHeader className="px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <InteriorTitle className="text-base">
+                {tx(`ui.brain.review.category.${category}`, CATEGORY_CONFIG[category].label)}
+              </InteriorTitle>
+              <InteriorSubtitle className="mt-1">
+                {tx(
+                  "ui.brain.review.stats.visible_items",
+                  `${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""}`,
+                  { count: filteredItems.length },
+                )}
+                {searchQuery
+                  ? ` ${tx("ui.brain.review.stats.matching", `matching "${searchQuery}"`, {
+                      query: searchQuery,
+                    })}`
+                  : ""}
+              </InteriorSubtitle>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <button className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded">
-              <Filter className="w-4 h-4" />
-            </button>
+            <InteriorButton onClick={() => setRefreshToken((value) => value + 1)} variant="subtle" size="sm">
+              {tx("ui.brain.review.actions.refresh", "Refresh")}
+            </InteriorButton>
           </div>
-        </div>
+        </InteriorHeader>
 
-        {/* Items list */}
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-              <span className="ml-2 text-zinc-400">Loading knowledge base...</span>
+            <div className="flex h-full items-center justify-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+              <InteriorHelperText>
+                {tx("ui.brain.review.state.loading", "Loading knowledge base...")}
+              </InteriorHelperText>
+            </div>
+          ) : isError ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <AlertCircle className="mb-3 h-10 w-10" style={{ color: "var(--error)" }} />
+              <InteriorTitle className="text-sm">
+                {tx("ui.brain.review.state.error.title", "Could not load the knowledge base.")}
+              </InteriorTitle>
+              <InteriorHelperText className="mt-1">{errorMessage}</InteriorHelperText>
+              <InteriorButton
+                onClick={() => setRefreshToken((value) => value + 1)}
+                variant="subtle"
+                size="sm"
+                className="mt-3"
+              >
+                {tx("ui.brain.review.actions.retry", "Retry")}
+              </InteriorButton>
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center text-zinc-500">
-              <Library className="w-12 h-12 mb-4 opacity-30" />
-              <p className="text-sm">
-                {searchQuery ? "No items match your search." : "No knowledge items yet."}
-              </p>
-              <p className="text-xs mt-1">
-                Use Learn or Teach mode to add knowledge.
-              </p>
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <Library className="mb-3 h-10 w-10" style={{ color: "var(--desktop-menu-text-muted)" }} />
+              <InteriorTitle className="text-sm">
+                {searchQuery
+                  ? tx("ui.brain.review.state.empty_search", "No items match your search.")
+                  : tx("ui.brain.review.state.empty", "No knowledge items yet.")}
+              </InteriorTitle>
+              <InteriorHelperText className="mt-1">
+                {tx("ui.brain.review.state.empty_hint", "Use Learn or Teach mode to add knowledge.")}
+              </InteriorHelperText>
             </div>
           ) : (
-            <div className="space-y-2 max-w-3xl">
+            <div className="mx-auto max-w-4xl space-y-2">
               {filteredItems.map((item) => {
                 const Icon = getCategoryIcon(item.category);
                 const isSelected = selectedItem === item.id;
-
                 return (
-                  <button
+                  <InteriorPanel
                     key={item.id}
+                    className="cursor-pointer p-4 transition-colors"
+                    style={isSelected ? { borderColor: "var(--tone-accent-strong)" } : undefined}
                     onClick={() => setSelectedItem(isSelected ? null : item.id)}
-                    className={`w-full text-left p-4 rounded-lg border transition-all ${
-                      isSelected
-                        ? "border-purple-500 bg-purple-900/20"
-                        : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
-                    }`}
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className={`p-2 rounded ${
-                          item.category === "content_dna"
-                            ? "bg-purple-900/30"
-                            : "bg-zinc-700"
-                        }`}
+                        className="rounded border p-2"
+                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
                       >
-                        <Icon
-                          className={`w-4 h-4 ${
-                            item.category === "content_dna"
-                              ? "text-purple-400"
-                              : "text-zinc-400"
-                          }`}
-                        />
+                        <Icon className="h-4 w-4" style={{ color: "var(--tone-accent-strong)" }} />
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-zinc-100 truncate">
+                          <h3 className="truncate text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                             {item.title}
                           </h3>
                           {item.category === "content_dna" && (
-                            <span className="px-2 py-0.5 text-xs bg-purple-900/50 text-purple-300 rounded">
-                              DNA
+                            <span
+                              className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                              style={{ border: "1px solid var(--window-document-border)", color: "var(--desktop-menu-text-muted)" }}
+                            >
+                              {tx("ui.brain.review.badge.dna", "DNA")}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-zinc-400 mt-1 line-clamp-2">
+                        <p className="mt-1 line-clamp-2 text-sm" style={{ color: "var(--desktop-menu-text-muted)" }}>
                           {item.description}
                         </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
+                        <div className="mt-2 flex items-center gap-4 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
                             {formatDate(item.createdAt)}
                           </span>
                           <span>{item.source}</span>
@@ -288,59 +318,70 @@ export function ReviewMode({ sessionId, organizationId }: ReviewModeProps) {
                       </div>
 
                       <div className="flex items-center gap-1">
-                        {item.category === "links" && (
-                          <button
+                        {item.category === "links" && item.linkUrl && (
+                          <InteriorButton
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(item.description, "_blank");
+                              window.open(item.linkUrl, "_blank");
                             }}
-                            className="p-1 text-zinc-500 hover:text-zinc-300"
-                            title="Open link"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            title={tx("ui.brain.review.actions.open_link", "Open link")}
                           >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
+                            <ExternalLink className="h-4 w-4" />
+                          </InteriorButton>
                         )}
-                        <button
+                        <InteriorButton
                           onClick={(e) => e.stopPropagation()}
-                          className="p-1 text-zinc-500 hover:text-zinc-300"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
                         >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </InteriorButton>
                         <ChevronRight
-                          className={`w-4 h-4 text-zinc-500 transition-transform ${
-                            isSelected ? "rotate-90" : ""
-                          }`}
+                          className={`h-4 w-4 transition-transform ${isSelected ? "rotate-90" : ""}`}
+                          style={{ color: "var(--desktop-menu-text-muted)" }}
                         />
                       </div>
                     </div>
 
-                    {/* Expanded view */}
                     {isSelected && (
-                      <div className="mt-4 pt-4 border-t border-zinc-700">
-                        <div className="text-sm text-zinc-300">
-                          <p className="mb-2">
-                            <strong>Full content:</strong>
+                      <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--window-document-border)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                          {tx("ui.brain.review.expanded.full_content", "Full content:")}
+                        </p>
+                        <p className="mt-1 text-sm" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                          {item.description}
+                        </p>
+                        {item.sourceObjectIds.length > 0 && (
+                          <p className="mt-2 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                            {tx(
+                              "ui.brain.review.expanded.source_ids",
+                              `Source IDs: ${item.sourceObjectIds.join(", ")}`,
+                              { ids: item.sourceObjectIds.join(", ") },
+                            )}
                           </p>
-                          <p className="text-zinc-400">{item.description}</p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4">
-                          <button className="px-3 py-1.5 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded">
-                            Edit
-                          </button>
-                          <button className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded">
-                            Delete
-                          </button>
+                        )}
+                        <div className="mt-3 flex items-center gap-2">
+                          <InteriorButton size="sm" variant="subtle">
+                            {tx("ui.brain.review.actions.edit", "Edit")}
+                          </InteriorButton>
+                          <InteriorButton size="sm" variant="danger">
+                            {tx("ui.brain.review.actions.delete", "Delete")}
+                          </InteriorButton>
                         </div>
                       </div>
                     )}
-                  </button>
+                  </InteriorPanel>
                 );
               })}
             </div>
           )}
         </div>
       </div>
-    </div>
+    </InteriorRoot>
   );
 }
 

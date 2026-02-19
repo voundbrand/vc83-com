@@ -587,8 +587,8 @@ export function ProductForm({
       {productId && (
         <div className="absolute top-2 right-2 px-2 py-1 text-xs font-mono border"
           style={{
-            background: "var(--win95-bg-light)",
-            borderColor: "var(--win95-border)",
+            background: "var(--shell-surface-elevated)",
+            borderColor: "var(--shell-border)",
             color: "var(--neutral-gray)",
           }}
           title="Product ID"
@@ -599,7 +599,7 @@ export function ProductForm({
 
       {/* Product Type */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.type.label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <select
@@ -622,9 +622,9 @@ export function ProductForm({
           disabled={!!productId}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
           required
         >
@@ -656,7 +656,7 @@ export function ProductForm({
 
       {/* Category Label */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           Category Label
         </label>
         <input
@@ -666,9 +666,9 @@ export function ProductForm({
           placeholder={getDefaultCategoryLabel(formData.subtype)}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -678,7 +678,7 @@ export function ProductForm({
 
       {/* Product Name */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.name.label")} <span style={{ color: "var(--error)" }}>*</span>
         </label>
         <input
@@ -688,9 +688,9 @@ export function ProductForm({
           placeholder={t("ui.products.form.name.placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
           required
         />
@@ -698,7 +698,7 @@ export function ProductForm({
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.description.label")}
         </label>
         <textarea
@@ -708,16 +708,16 @@ export function ProductForm({
           rows={4}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
         />
       </div>
 
       {/* Price */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.price.label")} {formData.subtype === "ticket" && formData.ticketType === "paid" && <span style={{ color: "var(--error)" }}>*</span>}
           {formData.subtype !== "ticket" && <span style={{ color: "var(--error)" }}>*</span>}
         </label>
@@ -739,9 +739,9 @@ export function ProductForm({
               disabled={formData.subtype === "ticket" && formData.ticketType === "free"}
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: formData.subtype === "ticket" && formData.ticketType === "free" ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--shell-border)",
+                background: formData.subtype === "ticket" && formData.ticketType === "free" ? "var(--shell-surface-elevated)" : "var(--shell-input-surface)",
+                color: "var(--shell-input-text)",
               }}
               required={formData.subtype === "ticket" ? formData.ticketType === "paid" : true}
             />
@@ -751,9 +751,9 @@ export function ProductForm({
             onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
             className="px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
             disabled={formData.subtype === "ticket" && formData.ticketType === "free"}
           >
@@ -772,7 +772,7 @@ export function ProductForm({
 
       {/* Inventory */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.inventory.label")}
         </label>
         <input
@@ -783,9 +783,9 @@ export function ProductForm({
           placeholder={t("ui.products.form.inventory.placeholder")}
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -794,8 +794,8 @@ export function ProductForm({
       </div>
 
       {/* TAX SETTINGS - Applies to all product types */}
-      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.tax.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -803,9 +803,9 @@ export function ProductForm({
         </p>
 
         {/* Taxable Toggle */}
-        <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+        <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
           <div className="flex-1">
-            <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
               {t("ui.products.form.tax.taxable")}
             </label>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -827,9 +827,9 @@ export function ProductForm({
 
         {/* Tax Code - Only show if taxable */}
         {formData.taxable && (
-          <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 {t("ui.products.form.tax.taxCode.label")}
               </label>
               <select
@@ -837,9 +837,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, taxCode: e.target.value })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               >
                 <option value="">
@@ -874,7 +874,7 @@ export function ProductForm({
 
             {/* Tax Behavior */}
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 {t("ui.products.form.tax.behavior.label")}
               </label>
               <select
@@ -882,9 +882,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, taxBehavior: e.target.value as "exclusive" | "inclusive" | "automatic" })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               >
                 <option value="exclusive">{t("ui.products.form.tax.behavior.exclusive")}</option>
@@ -902,8 +902,8 @@ export function ProductForm({
       </div>
 
       {/* FORM LINKING - Generalized for all product types */}
-      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+      <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.form.formLink.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -912,7 +912,7 @@ export function ProductForm({
 
         {/* Form Selection */}
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             {t("ui.products.form.formLink.select")}
           </label>
           <select
@@ -920,9 +920,9 @@ export function ProductForm({
             onChange={(e) => setFormData({ ...formData, formId: e.target.value })}
             className="w-full px-3 py-2 text-sm border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+              color: "var(--shell-input-text)",
             }}
           >
             <option value="">{t("ui.products.form.formLink.none")}</option>
@@ -939,10 +939,10 @@ export function ProductForm({
 
         {/* Form Timing & Requirements - Only show if form is selected */}
         {formData.formId && (
-          <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
             {/* Form Timing */}
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 {t("ui.products.form.formLink.timing.label")}
               </label>
               <select
@@ -950,9 +950,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, formTiming: e.target.value as "duringCheckout" | "afterPurchase" | "standalone" })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               >
                 <option value="duringCheckout">{t("ui.products.form.formLink.timing.duringCheckout")}</option>
@@ -967,9 +967,9 @@ export function ProductForm({
             </div>
 
             {/* Form Required */}
-            <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+            <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
               <div className="flex-1">
-                <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
                   {t("ui.products.form.formLink.required.label")}
                 </label>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -1022,15 +1022,15 @@ export function ProductForm({
 
       {/* TICKET-SPECIFIC SETTINGS - Only show when subtype is "ticket" */}
       {formData.subtype === "ticket" && (
-        <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
             Ticket Settings
           </h3>
 
           {/* Event Association - Only if Events app is available */}
           {isEventsAppAvailable ? (
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 Associated Event (Optional)
               </label>
               <select
@@ -1038,9 +1038,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               >
                 <option value="">-- No Event (Standalone Ticket) --</option>
@@ -1055,11 +1055,11 @@ export function ProductForm({
               </p>
             </div>
           ) : (
-            <div className="p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+            <div className="p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface)" }}>
               <div className="flex items-start gap-3">
-                <CalendarDays className="h-6 w-6 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+                <CalendarDays className="h-6 w-6 mt-0.5" style={{ color: "var(--shell-accent)" }} />
                 <div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-sm font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                     Event Linking Unavailable
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1077,8 +1077,8 @@ export function ProductForm({
           )}
 
           {/* Template Set Selector (NEW - Unified Branding) */}
-          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--win95-border)' }}>
-            <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+          <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
+            <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--shell-text)' }}>
               Branding Templates (Optional Override)
             </h4>
             <TemplateSetSelector
@@ -1093,7 +1093,7 @@ export function ProductForm({
               showDetails={true}
             />
 
-            <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--win95-highlight)' }}>
+            <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--shell-accent)' }}>
               <div className="font-bold mb-1">Template Precedence:</div>
               <ul className="space-y-1 ml-4">
                 <li>• <strong>Product Template Set</strong>: Highest priority (if set)</li>
@@ -1105,10 +1105,10 @@ export function ProductForm({
 
           {/* Legacy: Individual Ticket Template Selector */}
           <details className="mb-4">
-            <summary className="cursor-pointer text-xs font-bold p-2 rounded" style={{ backgroundColor: 'rgba(107, 70, 193, 0.05)', color: 'var(--win95-text)' }}>
+            <summary className="cursor-pointer text-xs font-bold p-2 rounded" style={{ backgroundColor: 'rgba(107, 70, 193, 0.05)', color: 'var(--shell-text)' }}>
               Advanced: Override Ticket Template Only
             </summary>
-            <div className="mt-2 p-3 border-2 rounded" style={{ borderColor: 'var(--win95-border)' }}>
+            <div className="mt-2 p-3 border-2 rounded" style={{ borderColor: 'var(--shell-border)' }}>
               <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
                 Override ONLY the ticket template (not recommended - use Template Set for consistent branding).
               </p>
@@ -1127,9 +1127,9 @@ export function ProductForm({
           </details>
 
           {/* Active/Inactive Status Toggle */}
-          <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+          <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
             <div className="flex-1">
-              <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
                 Ticket Status
               </label>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -1151,7 +1151,7 @@ export function ProductForm({
 
           {/* Ticket Type */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
               Ticket Type
             </label>
             <select
@@ -1167,9 +1167,9 @@ export function ProductForm({
               }}
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-input-surface)",
+                color: "var(--shell-input-text)",
               }}
             >
               <option value="paid">Paid - Standard ticket with price</option>
@@ -1181,7 +1181,7 @@ export function ProductForm({
           {/* Sales Schedule */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 Sales Start
               </label>
               <input
@@ -1190,14 +1190,14 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, startSaleDateTime: e.target.value })}
                 className="w-full px-3 py-2 text-xs border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 Sales End
               </label>
               <input
@@ -1206,9 +1206,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, endSaleDateTime: e.target.value })}
                 className="w-full px-3 py-2 text-xs border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               />
             </div>
@@ -1217,7 +1217,7 @@ export function ProductForm({
           {/* Order Limits */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 Min Per Order
               </label>
               <input
@@ -1227,14 +1227,14 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, minPerOrder: e.target.value })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                 Max Per Order
               </label>
               <input
@@ -1244,9 +1244,9 @@ export function ProductForm({
                 onChange={(e) => setFormData({ ...formData, maxPerOrder: e.target.value })}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               />
             </div>
@@ -1257,13 +1257,13 @@ export function ProductForm({
           </p>
 
           {/* Advanced Settings - Collapsible Section */}
-          <div className="pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="pt-4 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
             <button
               type="button"
               onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
               className="flex items-center justify-between w-full text-left mb-3"
             >
-              <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+              <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                 Advanced Settings
               </h4>
               <ChevronDown
@@ -1271,7 +1271,7 @@ export function ProductForm({
                 className="transition-transform"
                 style={{
                   transform: showAdvancedSettings ? "rotate(180deg)" : "rotate(0deg)",
-                  color: "var(--win95-text)",
+                  color: "var(--shell-text)",
                 }}
               />
             </button>
@@ -1280,7 +1280,7 @@ export function ProductForm({
               <div className="space-y-4 mt-3">
                 {/* Visibility Settings */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                     Visibility
                   </label>
                   <select
@@ -1288,9 +1288,9 @@ export function ProductForm({
                     onChange={(e) => setFormData({ ...formData, visibility: e.target.value as "visible" | "invisible" | "invisibleNotForSale" | "customSchedule" })}
                     className="w-full px-3 py-2 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--shell-border)",
+                      background: "var(--shell-input-surface)",
+                      color: "var(--shell-input-text)",
                     }}
                   >
                     <option value="visible">Visible - Show on event page</option>
@@ -1305,10 +1305,10 @@ export function ProductForm({
 
                 {/* Custom Schedule Dates - Only show when customSchedule selected */}
                 {formData.visibility === "customSchedule" && (
-                  <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                           Show From
                         </label>
                         <input
@@ -1317,14 +1317,14 @@ export function ProductForm({
                           onChange={(e) => setFormData({ ...formData, visibilityStartDateTime: e.target.value })}
                           className="w-full px-2 py-1 text-xs border-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-input-bg)",
-                            color: "var(--win95-input-text)",
+                            borderColor: "var(--shell-border)",
+                            background: "var(--shell-input-surface)",
+                            color: "var(--shell-input-text)",
                           }}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                           Hide After
                         </label>
                         <input
@@ -1333,9 +1333,9 @@ export function ProductForm({
                           onChange={(e) => setFormData({ ...formData, visibilityEndDateTime: e.target.value })}
                           className="w-full px-2 py-1 text-xs border-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-input-bg)",
-                            color: "var(--win95-input-text)",
+                            borderColor: "var(--shell-border)",
+                            background: "var(--shell-input-surface)",
+                            color: "var(--shell-input-text)",
                           }}
                         />
                       </div>
@@ -1345,7 +1345,7 @@ export function ProductForm({
 
                 {/* Distribution Channel */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                     Distribution Channel
                   </label>
                   <select
@@ -1353,9 +1353,9 @@ export function ProductForm({
                     onChange={(e) => setFormData({ ...formData, distributionChannel: e.target.value as "onlineOnly" | "atVenueOnly" | "onlineAndVenue" })}
                     className="w-full px-3 py-2 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--shell-border)",
+                      background: "var(--shell-input-surface)",
+                      color: "var(--shell-input-text)",
                     }}
                     disabled={formData.ticketType === "donation"}
                   >
@@ -1370,7 +1370,7 @@ export function ProductForm({
 
                 {/* Delivery Methods */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                     Delivery Methods
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1381,7 +1381,7 @@ export function ProductForm({
                       disabled={formData.distributionChannel === "atVenueOnly"}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       E-Ticket (Email/Mobile)
                     </span>
                   </label>
@@ -1393,7 +1393,7 @@ export function ProductForm({
                       disabled={formData.distributionChannel === "onlineOnly"}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Will Call Pickup (At Venue)
                     </span>
                   </label>
@@ -1401,7 +1401,7 @@ export function ProductForm({
 
                 {/* Display Options */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
                     Display Options
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1411,7 +1411,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, showSalesEndStatus: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Show &quot;Sales end in X hours&quot; countdown
                     </span>
                   </label>
@@ -1423,7 +1423,7 @@ export function ProductForm({
                         onChange={(e) => setFormData({ ...formData, deductFees: e.target.checked })}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                         Deduct fees from donation amount
                       </span>
                     </label>
@@ -1431,8 +1431,8 @@ export function ProductForm({
                 </div>
 
                 {/* NEW: Logistics Settings */}
-                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
-                  <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
+                  <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                     Event Logistics
                   </h4>
 
@@ -1443,7 +1443,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, accommodationRequired: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Accommodation Required
                     </span>
                   </label>
@@ -1455,7 +1455,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, collectAccommodationNotes: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Collect Accommodation Notes/Requests
                     </span>
                   </label>
@@ -1467,7 +1467,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, mealIncluded: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Meal Included
                     </span>
                   </label>
@@ -1479,7 +1479,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, collectDietaryRequirements: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Collect Dietary Requirements/Allergies
                     </span>
                   </label>
@@ -1491,15 +1491,15 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, collectArrivalTime: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Collect Planned Arrival Time
                     </span>
                   </label>
                 </div>
 
                 {/* NEW: Companion/Guest Settings */}
-                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
-                  <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
+                  <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                     Companion/Guest Settings
                   </h4>
 
@@ -1510,7 +1510,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, allowCompanions: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Allow Companions/Guests
                     </span>
                   </label>
@@ -1519,7 +1519,7 @@ export function ProductForm({
                     <div className="pl-6 space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                          <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                             Max Companions
                           </label>
                           <input
@@ -1530,14 +1530,14 @@ export function ProductForm({
                             onChange={(e) => setFormData({ ...formData, maxCompanions: e.target.value })}
                             className="w-full px-2 py-1 text-sm border-2"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-input-bg)",
-                              color: "var(--win95-input-text)",
+                              borderColor: "var(--shell-border)",
+                              background: "var(--shell-input-surface)",
+                              color: "var(--shell-input-text)",
                             }}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                          <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                             Cost Per Companion
                           </label>
                           <input
@@ -1549,9 +1549,9 @@ export function ProductForm({
                             placeholder="Optional"
                             className="w-full px-2 py-1 text-sm border-2"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-input-bg)",
-                              color: "var(--win95-input-text)",
+                              borderColor: "var(--shell-border)",
+                              background: "var(--shell-input-surface)",
+                              color: "var(--shell-input-text)",
                             }}
                           />
                         </div>
@@ -1564,8 +1564,8 @@ export function ProductForm({
                 </div>
 
                 {/* NEW: Activity/Workshop Selection */}
-                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
-                  <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
+                  <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                     Activity/Workshop Selection
                   </h4>
 
@@ -1576,7 +1576,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, includesActivitySelection: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Include Activity/Workshop Selection
                     </span>
                   </label>
@@ -1584,7 +1584,7 @@ export function ProductForm({
                   {formData.includesActivitySelection && (
                     <div className="pl-6 space-y-3">
                       <div>
-                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--win95-text)" }}>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
                           Activity Options (one per line)
                         </label>
                         <textarea
@@ -1594,9 +1594,9 @@ export function ProductForm({
                           rows={4}
                           className="w-full px-2 py-1 text-xs border-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-input-bg)",
-                            color: "var(--win95-input-text)",
+                            borderColor: "var(--shell-border)",
+                            background: "var(--shell-input-surface)",
+                            color: "var(--shell-input-text)",
                           }}
                         />
                       </div>
@@ -1607,7 +1607,7 @@ export function ProductForm({
                           onChange={(e) => setFormData({ ...formData, activityRequired: e.target.checked })}
                           className="w-4 h-4"
                         />
-                        <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                        <span className="text-xs" style={{ color: "var(--shell-text)" }}>
                           Activity selection required
                         </span>
                       </label>
@@ -1616,8 +1616,8 @@ export function ProductForm({
                 </div>
 
                 {/* NEW: Billing Address */}
-                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
-                  <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
+                  <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                     Billing and Invoicing
                   </h4>
 
@@ -1628,7 +1628,7 @@ export function ProductForm({
                       onChange={(e) => setFormData({ ...formData, requiresBillingAddress: e.target.checked })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Require Full Billing Address
                     </span>
                   </label>
@@ -1645,7 +1645,7 @@ export function ProductForm({
       {/* Event Association (only shown when Events app is available and creating new product) */}
       {!productId && (
         <div>
-          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
             Associate with Event (Optional)
           </label>
           {isEventsAppAvailable ? (
@@ -1677,9 +1677,9 @@ export function ProductForm({
                 }}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-input-text)",
                 }}
               >
                 <option value="">-- No Event --</option>
@@ -1692,7 +1692,7 @@ export function ProductForm({
 
               {/* Date Takeover Option */}
               {formData.eventId && (
-                <div className="mt-3 p-3 border-2 rounded" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+                <div className="mt-3 p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1721,7 +1721,7 @@ export function ProductForm({
                       }}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-sm" style={{ color: "var(--shell-text)" }}>
                       Use event dates for ticket sales schedule
                     </span>
                   </label>
@@ -1748,8 +1748,8 @@ export function ProductForm({
       <div
         className="p-3 border-2 rounded"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface-elevated)",
+          borderColor: "var(--shell-border)",
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1758,16 +1758,16 @@ export function ProductForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
         <button
           type="button"
           onClick={onCancel}
           disabled={saving}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-button-surface)",
+            color: "var(--shell-text)",
           }}
         >
           <X size={14} />
@@ -1778,9 +1778,9 @@ export function ProductForm({
           disabled={saving}
           className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2 transition-colors"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-button-surface)",
+            color: "var(--shell-text)",
           }}
         >
           {saving ? (

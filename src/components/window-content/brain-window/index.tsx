@@ -11,13 +11,12 @@
  * Think NotebookLM - multi-modal knowledge capture and retrieval.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
-  Brain,
   GraduationCap,
   Upload,
   Library,
@@ -27,6 +26,17 @@ import {
   Maximize2,
 } from "lucide-react";
 import Link from "next/link";
+import { ShellBrainIcon } from "@/components/icons/shell-icons";
+import {
+  InteriorHeader,
+  InteriorHelperText,
+  InteriorPanel,
+  InteriorRoot,
+  InteriorSubtitle,
+  InteriorTabButton,
+  InteriorTabRow,
+  InteriorTitle,
+} from "@/components/window-content/shared/interior-primitives";
 
 // Sub-components
 import { LearnMode } from "./learn-mode";
@@ -35,29 +45,20 @@ import { ReviewMode } from "./review-mode";
 
 type BrainMode = "learn" | "teach" | "review";
 
-const MODE_CONFIG = {
-  learn: {
-    icon: GraduationCap,
-    label: "Learn",
-    description: "AI interviews you to extract knowledge",
-  },
-  teach: {
-    icon: Upload,
-    label: "Teach",
-    description: "Upload PDFs, audio, links, and text",
-  },
-  review: {
-    icon: Library,
-    label: "Review",
-    description: "Browse your knowledge base",
-  },
-} as const;
+export type BrainTranslate = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>,
+) => string;
 
 interface BrainWindowProps {
   initialMode?: BrainMode;
   /** When true, shows back-to-desktop navigation (for /brain route) */
   fullScreen?: boolean;
 }
+
+const INTERNAL_BRAIN_WINDOW_ENABLED =
+  process.env.NEXT_PUBLIC_INTERNAL_BRAIN_WINDOW === "true";
 
 export function BrainWindow({ initialMode = "learn", fullScreen = false }: BrainWindowProps) {
   const { sessionId, isLoading: authLoading } = useAuth();
@@ -70,37 +71,115 @@ export function BrainWindow({ initialMode = "learn", fullScreen = false }: Brain
   const [mode, setMode] = useState<BrainMode>(initialMode);
   const [interviewSessionId, setInterviewSessionId] = useState<Id<"agentSessions"> | null>(null);
 
+  const tr: BrainTranslate = useMemo(
+    () =>
+      (key, fallback, params) => {
+        const value = t(key, params);
+        return value === key ? fallback : value;
+      },
+    [t],
+  );
+
+  const modeConfig = useMemo(
+    () => ({
+      learn: {
+        icon: GraduationCap,
+        label: tr("ui.brain.mode.learn.label", "Learn"),
+        description: tr("ui.brain.mode.learn.description", "AI interviews you to extract knowledge"),
+      },
+      teach: {
+        icon: Upload,
+        label: tr("ui.brain.mode.teach.label", "Teach"),
+        description: tr("ui.brain.mode.teach.description", "Upload PDFs, audio, links, and text"),
+      },
+      review: {
+        icon: Library,
+        label: tr("ui.brain.mode.review.label", "Review"),
+        description: tr("ui.brain.mode.review.description", "Browse your knowledge base"),
+      },
+    }),
+    [tr],
+  );
+
+  if (!INTERNAL_BRAIN_WINDOW_ENABLED) {
+    return (
+      <InteriorRoot className="flex h-full items-center justify-center p-8">
+        <div className="w-full max-w-lg">
+          <div className="mb-3 flex items-center gap-2">
+            <ShellBrainIcon size={18} tone="muted" />
+            <InteriorTitle className="text-base">Brain Window Archived</InteriorTitle>
+          </div>
+          <InteriorPanel className="space-y-3">
+            <InteriorHelperText>
+              The Brain window is now internal-only during lifecycle consolidation.
+              Use AI Agents for daily operator workflows.
+            </InteriorHelperText>
+            <div>
+              <Link
+                href="/agents"
+                className="desktop-interior-button desktop-interior-button-secondary inline-flex h-9 items-center px-3"
+              >
+                Open AI Agents
+              </Link>
+            </div>
+          </InteriorPanel>
+        </div>
+      </InteriorRoot>
+    );
+  }
+
   // Loading state
   if (authLoading || appLoading) {
     return (
-      <div className="flex items-center justify-center h-full bg-zinc-900">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-        <span className="ml-2 text-zinc-400">Loading Brain...</span>
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center gap-2 p-6">
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+        <InteriorHelperText>{tr("ui.brain.state.loading", "Loading Brain...")}</InteriorHelperText>
+      </InteriorRoot>
     );
   }
 
   // Auth check
   if (!sessionId || !currentOrg) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-zinc-900 p-8">
-        <AlertCircle className="w-12 h-12 text-yellow-500 mb-4" />
-        <h2 className="text-lg font-medium text-zinc-100 mb-2">Authentication Required</h2>
-        <p className="text-zinc-400 text-center">Please sign in to access the Brain.</p>
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="mb-3 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" style={{ color: "var(--warning)" }} />
+            <InteriorTitle className="text-base">
+              {tr("ui.brain.state.auth_required.title", "Authentication Required")}
+            </InteriorTitle>
+          </div>
+          <InteriorPanel className="space-y-2">
+            <InteriorHelperText>
+              {tr("ui.brain.state.auth_required.body", "Please sign in to access the Brain.")}
+            </InteriorHelperText>
+          </InteriorPanel>
+        </div>
+      </InteriorRoot>
     );
   }
 
   // App availability check
   if (!isAvailable) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-zinc-900 p-8">
-        <Brain className="w-12 h-12 text-zinc-600 mb-4" />
-        <h2 className="text-lg font-medium text-zinc-100 mb-2">Brain Not Available</h2>
-        <p className="text-zinc-400 text-center">
-          This feature is not enabled for your organization.
-        </p>
-      </div>
+      <InteriorRoot className="flex h-full items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="mb-3 flex items-center gap-2">
+            <ShellBrainIcon size={18} tone="muted" />
+            <InteriorTitle className="text-base">
+              {tr("ui.brain.state.unavailable.title", "Brain Not Available")}
+            </InteriorTitle>
+          </div>
+          <InteriorPanel>
+            <InteriorHelperText>
+              {tr(
+                "ui.brain.state.unavailable.body",
+                "This feature is not enabled for your organization.",
+              )}
+            </InteriorHelperText>
+          </InteriorPanel>
+        </div>
+      </InteriorRoot>
     );
   }
 
@@ -123,62 +202,59 @@ export function BrainWindow({ initialMode = "learn", fullScreen = false }: Brain
   };
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900">
-      {/* Header with mode tabs */}
-      <div className="border-b border-zinc-700 bg-zinc-800/50">
-        <div className="flex items-center gap-2 p-2">
-          {/* Back to desktop link (full-screen mode only) */}
+    <InteriorRoot className="flex h-full flex-col">
+      <InteriorHeader className="px-3 py-2">
+        <div className="flex items-center gap-2">
           {fullScreen && (
             <Link
               href="/"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
-              title="Back to Desktop"
+              className="desktop-interior-button desktop-interior-button-ghost inline-flex h-8 items-center justify-center px-2"
+              title={tr("ui.brain.nav.back_to_desktop", "Back to Desktop")}
+              aria-label={tr("ui.brain.nav.back_to_desktop", "Back to Desktop")}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4" />
             </Link>
           )}
 
-          <div className="flex items-center gap-2 px-3 py-1">
-            <Brain className="w-5 h-5 text-purple-400" />
-            <span className="font-medium text-zinc-100">Brain</span>
+          <div className="flex items-center gap-2">
+            <ShellBrainIcon size={18} />
+            <InteriorTitle className="text-sm">{tr("ui.windows.brain.title", "Brain")}</InteriorTitle>
           </div>
 
-          <div className="flex-1 flex items-center gap-1 ml-4">
-            {(Object.keys(MODE_CONFIG) as BrainMode[]).map((modeKey) => {
-              const config = MODE_CONFIG[modeKey];
-              const Icon = config.icon;
-              const isActive = mode === modeKey;
-
-              return (
-                <button
-                  key={modeKey}
-                  onClick={() => setMode(modeKey)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${
-                    isActive
-                      ? "bg-zinc-900 text-zinc-100 border-t border-l border-r border-zinc-700"
-                      : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800/50"
-                  }`}
-                  title={config.description}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{config.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Open full screen link (window mode only) */}
           {!fullScreen && (
             <Link
               href="/brain"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
-              title="Open Full Screen"
+              className="desktop-interior-button desktop-interior-button-ghost ml-auto inline-flex h-8 items-center justify-center px-2"
+              title={tr("ui.brain.nav.open_fullscreen", "Open Full Screen")}
+              aria-label={tr("ui.brain.nav.open_fullscreen", "Open Full Screen")}
             >
-              <Maximize2 className="w-4 h-4" />
+              <Maximize2 className="h-4 w-4" />
             </Link>
           )}
         </div>
-      </div>
+        <InteriorSubtitle className="mt-1">
+          {tr("ui.brain.subtitle", "Trust knowledge hub for learn, teach, and review workflows.")}
+        </InteriorSubtitle>
+      </InteriorHeader>
+
+      <InteriorTabRow className="px-3 py-2">
+        {(Object.keys(modeConfig) as BrainMode[]).map((modeKey) => {
+          const config = modeConfig[modeKey];
+          const Icon = config.icon;
+          return (
+            <InteriorTabButton
+              key={modeKey}
+              active={mode === modeKey}
+              onClick={() => setMode(modeKey)}
+              title={config.description}
+              className="flex items-center gap-2"
+            >
+              <Icon className="h-4 w-4" />
+              <span>{config.label}</span>
+            </InteriorTabButton>
+          );
+        })}
+      </InteriorTabRow>
 
       {/* Mode content */}
       <div className="flex-1 overflow-hidden">
@@ -190,6 +266,7 @@ export function BrainWindow({ initialMode = "learn", fullScreen = false }: Brain
             onInterviewStart={handleInterviewStart}
             onInterviewComplete={handleInterviewComplete}
             onInterviewExit={handleInterviewExit}
+            tr={tr}
           />
         )}
 
@@ -197,6 +274,7 @@ export function BrainWindow({ initialMode = "learn", fullScreen = false }: Brain
           <TeachMode
             sessionId={sessionId}
             organizationId={organizationId}
+            tr={tr}
           />
         )}
 
@@ -204,10 +282,11 @@ export function BrainWindow({ initialMode = "learn", fullScreen = false }: Brain
           <ReviewMode
             sessionId={sessionId}
             organizationId={organizationId}
+            tr={tr}
           />
         )}
       </div>
-    </div>
+    </InteriorRoot>
   );
 }
 

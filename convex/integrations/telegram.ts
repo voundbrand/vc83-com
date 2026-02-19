@@ -28,6 +28,16 @@ function getInternal(): any {
   return _internalCache;
 }
 
+/**
+ * Build plain Telegram-safe CTA copy without markdown links.
+ * Telegram/webhook delivery paths can safely render this as plain text.
+ */
+export function buildTelegramPlainLinkText(label: string, url: string): string {
+  const safeLabel = label.trim().replace(/\s+/g, " ");
+  const safeUrl = url.trim();
+  return `${safeLabel}\n${safeUrl}`;
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================

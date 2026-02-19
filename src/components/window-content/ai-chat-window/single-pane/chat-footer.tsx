@@ -19,7 +19,7 @@ export function ChatFooter() {
     let inputTokens = 0
     let outputTokens = 0
 
-    messages.forEach((message) => {
+    messages.forEach((message: any) => {
       // Estimate tokens: ~4 characters per token
       const messageTokens = Math.ceil(message.content.length / 4)
       if (message.role === "user") {

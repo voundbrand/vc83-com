@@ -63,7 +63,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
         <div
           className="relative w-full aspect-[16/9] overflow-hidden cursor-pointer group border-2"
           onClick={() => currentMedia?.type !== 'video' && openModal(currentIndex)}
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--shell-border)" }}
         >
           {/* Image Display */}
           {currentMedia?.type !== 'video' && currentMedia?.url && (
@@ -95,7 +95,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
               {/* Video Type Indicator */}
               <div className="absolute top-2 left-2 px-2 py-1 text-xs font-bold border-2 flex items-center gap-1" style={{
                 background: "var(--primary)",
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--shell-border)",
                 color: "white"
               }}>
                 <Video size={12} />
@@ -109,7 +109,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
               <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold px-2 py-1 border-2" style={{
                 background: "var(--primary)",
-                borderColor: "var(--win95-border)"
+                borderColor: "var(--shell-border)"
               }}>
                 Click to view fullscreen
               </div>
@@ -126,12 +126,12 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 }}
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-2 border-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{
-                  background: "var(--win95-button-face)",
-                  borderColor: "var(--win95-border)"
+                  background: "var(--shell-button-surface)",
+                  borderColor: "var(--shell-border)"
                 }}
                 aria-label="Previous image"
               >
-                <ChevronLeft size={20} style={{ color: "var(--win95-text)" }} />
+                <ChevronLeft size={20} style={{ color: "var(--shell-text)" }} />
               </button>
               <button
                 onClick={(e) => {
@@ -140,12 +140,12 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 border-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{
-                  background: "var(--win95-button-face)",
-                  borderColor: "var(--win95-border)"
+                  background: "var(--shell-button-surface)",
+                  borderColor: "var(--shell-border)"
                 }}
                 aria-label="Next image"
               >
-                <ChevronRight size={20} style={{ color: "var(--win95-text)" }} />
+                <ChevronRight size={20} style={{ color: "var(--shell-text)" }} />
               </button>
             </>
           )}
@@ -154,7 +154,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
           {validMedia.length > 1 && (
             <div className="absolute bottom-2 right-2 px-3 py-1 text-xs font-bold border-2" style={{
               background: "var(--primary)",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--shell-border)",
               color: "white"
             }}>
               {currentIndex + 1} / {validMedia.length}
@@ -175,7 +175,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                   index === currentIndex ? 'shadow-lg' : ''
                 }`}
                 style={{
-                  borderColor: index === currentIndex ? "var(--primary)" : "var(--win95-border)"
+                  borderColor: index === currentIndex ? "var(--primary)" : "var(--shell-border)"
                 }}
               >
                 {/* Image Thumbnail */}
@@ -193,7 +193,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 {item.type === 'video' && (
                   <div
                     className="w-full h-full flex items-center justify-center"
-                    style={{ background: "var(--win95-bg-light)" }}
+                    style={{ background: "var(--shell-surface-elevated)" }}
                   >
                     <Video size={20} style={{ color: "var(--primary)" }} />
                   </div>
@@ -212,12 +212,12 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
             onClick={() => setIsModalOpen(false)}
             className="absolute top-4 right-4 p-2 border-2"
             style={{
-              background: "var(--win95-button-face)",
-              borderColor: "var(--win95-border)"
+              background: "var(--shell-button-surface)",
+              borderColor: "var(--shell-border)"
             }}
             aria-label="Close"
           >
-            <X size={20} style={{ color: "var(--win95-text)" }} />
+            <X size={20} style={{ color: "var(--shell-text)" }} />
           </button>
 
           {/* Navigation Arrows */}
@@ -227,23 +227,23 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
                 onClick={goToPrevious}
                 className="absolute left-4 top-1/2 -translate-y-1/2 p-3 border-2"
                 style={{
-                  background: "var(--win95-button-face)",
-                  borderColor: "var(--win95-border)"
+                  background: "var(--shell-button-surface)",
+                  borderColor: "var(--shell-border)"
                 }}
                 aria-label="Previous image"
               >
-                <ChevronLeft size={24} style={{ color: "var(--win95-text)" }} />
+                <ChevronLeft size={24} style={{ color: "var(--shell-text)" }} />
               </button>
               <button
                 onClick={goToNext}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-3 border-2"
                 style={{
-                  background: "var(--win95-button-face)",
-                  borderColor: "var(--win95-border)"
+                  background: "var(--shell-button-surface)",
+                  borderColor: "var(--shell-border)"
                 }}
                 aria-label="Next image"
               >
-                <ChevronRight size={24} style={{ color: "var(--win95-text)" }} />
+                <ChevronRight size={24} style={{ color: "var(--shell-text)" }} />
               </button>
             </>
           )}
@@ -268,7 +268,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
 
               return (
                 <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-full max-w-5xl aspect-video border-2" style={{ borderColor: "var(--win95-border)" }}>
+                  <div className="w-full max-w-5xl aspect-video border-2" style={{ borderColor: "var(--shell-border)" }}>
                     <iframe
                       src={getVideoEmbedUrl(videoId, currentMedia.videoProvider, currentMedia.loop, currentMedia.autostart)}
                       className="w-full h-full"
@@ -285,7 +285,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media, className = '
           {validMedia.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 border-2" style={{
               background: "var(--primary)",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--shell-border)",
               color: "white"
             }}>
               {currentIndex + 1} / {validMedia.length}

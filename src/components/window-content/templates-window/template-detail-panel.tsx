@@ -258,7 +258,7 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold capitalize"
-                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
+                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                   >
                     {category}
                   </span>
@@ -286,7 +286,7 @@ export function TemplateDetailPanel({
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold flex items-center gap-1 inline-flex"
-                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
+                    style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                   >
                     <Star size={10} fill="currentColor" />
                     Default for "{category}" category
@@ -375,7 +375,7 @@ export function TemplateDetailPanel({
                       {set.isDefault && (
                         <span
                           className="px-1 py-0.5 text-[10px] font-bold"
-                          style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--win95-titlebar-text)" }}
+                          style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                         >
                           DEFAULT
                         </span>
@@ -517,7 +517,7 @@ export function TemplateDetailPanel({
                   </div>
                 </div>
                 <button
-                  className="retro-button text-xs"
+                  className="desktop-interior-button text-xs"
                   onClick={() => {
                     const schema = template.customProperties?.templateSchema || template.customProperties?.emailTemplateSchema;
                     const schemaJson = JSON.stringify(schema, null, 2);
@@ -599,7 +599,7 @@ export function TemplateDetailPanel({
             borderColor: "var(--window-document-border)",
           }}
         >
-          <button className="retro-button text-xs" onClick={onClose}>
+          <button className="desktop-interior-button text-xs" onClick={onClose}>
             Close
           </button>
         </div>

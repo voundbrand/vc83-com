@@ -63,7 +63,7 @@ export function ChatMessages() {
         </div>
       )}
 
-      {displayMessages.map((message) => {
+      {displayMessages.map((message: any) => {
         if (message.role === "system") {
           return <SystemMessage key={message._id} content={message.content} />
         }

@@ -112,13 +112,13 @@ export function InvoicingConfigSection({
     <div
       className="space-y-4 p-4 border-2 rounded"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-surface-elevated)",
       }}
     >
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <CreditCard size={16} />
             {t("ui.products.invoicing.title")}
           </h3>
@@ -130,7 +130,7 @@ export function InvoicingConfigSection({
 
       {/* Employer Source Field */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           {t("ui.products.invoicing.sourceField.label")}
         </label>
         <select
@@ -144,9 +144,9 @@ export function InvoicingConfigSection({
           }
           className="w-full px-3 py-2 text-sm border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-input-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
+            color: "var(--shell-input-text)",
           }}
         >
           <option value="">-- Not Configured (No Invoice Mapping) --</option>
@@ -163,10 +163,10 @@ export function InvoicingConfigSection({
 
       {/* Employer Mapping Table - Only show if field selected */}
       {config?.employerSourceField && (
-        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
                 {t("ui.products.invoicing.mapping.label")}
               </label>
             </div>
@@ -176,8 +176,8 @@ export function InvoicingConfigSection({
               <div
                 className="p-2 mb-2 border-2 rounded text-xs"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
                   color: "var(--neutral-gray)",
                 }}
               >
@@ -194,8 +194,8 @@ export function InvoicingConfigSection({
                   key={index}
                   className="flex items-center gap-2 p-2 border-2 rounded"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-input-surface)",
                   }}
                 >
                   {/* Form Value */}
@@ -206,7 +206,7 @@ export function InvoicingConfigSection({
                         onChange={(e) => updateMapping(index, "formValue", e.target.value)}
                         className="w-full px-2 py-1 text-xs border"
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--shell-border)",
                           background: "white",
                         }}
                       >
@@ -225,7 +225,7 @@ export function InvoicingConfigSection({
                         placeholder="Form value (e.g., ameos)"
                         className="w-full px-2 py-1 text-xs border"
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--shell-border)",
                           background: "white",
                         }}
                       />
@@ -233,7 +233,7 @@ export function InvoicingConfigSection({
                   </div>
 
                   {/* Arrow */}
-                  <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
                     →
                   </span>
 
@@ -244,7 +244,7 @@ export function InvoicingConfigSection({
                       onChange={(e) => updateMapping(index, "orgName", e.target.value)}
                       className="w-full px-2 py-1 text-xs border"
                       style={{
-                        borderColor: "var(--win95-border)",
+                        borderColor: "var(--shell-border)",
                         background: "white",
                       }}
                     >
@@ -263,14 +263,14 @@ export function InvoicingConfigSection({
                     onClick={() => removeMapping(index)}
                     className="p-1 border-2 transition-colors"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-button-face)",
+                      borderColor: "var(--shell-border)",
+                      background: "var(--shell-button-surface)",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "var(--win95-button-hover)";
+                      e.currentTarget.style.background = "var(--shell-button-hover)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "var(--win95-button-face)";
+                      e.currentTarget.style.background = "var(--shell-button-surface)";
                     }}
                     title="Remove mapping"
                   >
@@ -285,9 +285,9 @@ export function InvoicingConfigSection({
                 onClick={addMapping}
                 className="w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2 border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
               >
                 <Plus size={14} />
@@ -300,7 +300,7 @@ export function InvoicingConfigSection({
               Map form values to CRM organizations. Select an organization from your CRM to enable invoice payment, or leave empty to disable invoicing for that value.
             </p>
             {crmOrganizations && crmOrganizations.length === 0 && (
-              <p className="text-xs mt-1 p-2 border-2 rounded inline-flex items-center gap-1" style={{ color: "#f59e0b", borderColor: "#f59e0b", background: "var(--win95-bg-light)" }}>
+              <p className="text-xs mt-1 p-2 border-2 rounded inline-flex items-center gap-1" style={{ color: "#f59e0b", borderColor: "#f59e0b", background: "var(--shell-surface-elevated)" }}>
                 <AlertTriangle size={12} />
                 No CRM organizations found. Create organizations in the CRM app first to enable invoice mapping.
               </p>
@@ -309,7 +309,7 @@ export function InvoicingConfigSection({
 
           {/* Payment Terms */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
               {t("ui.products.invoicing.paymentTerms.label")}
             </label>
             <select
@@ -322,9 +322,9 @@ export function InvoicingConfigSection({
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-input-surface)",
+                color: "var(--shell-input-text)",
               }}
             >
               <option value="net30">{t("ui.products.invoicing.paymentTerms.net30")}</option>
@@ -342,8 +342,8 @@ export function InvoicingConfigSection({
       <div
         className="p-3 border-2 rounded"
         style={{
-          background: "var(--win95-input-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-input-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         <p className="text-xs inline-flex items-start gap-1" style={{ color: "var(--neutral-gray)" }}>

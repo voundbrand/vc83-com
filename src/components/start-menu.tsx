@@ -61,20 +61,20 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         position: 'fixed',
         bottom: 'calc(var(--taskbar-height) - 14px)',
         left: '4px',
-        background: 'var(--win95-bg)'
+        background: 'var(--shell-surface)'
       }}
     >
       {/* Windows 95-style vertical stripe */}
       <div
         className="w-10 flex items-center justify-center retro-border py-6"
         style={{
-          background: 'var(--win95-border)',
+          background: 'var(--shell-border)',
           minHeight: '180px'
         }}
       >
         <div
           className="transform -rotate-90 whitespace-nowrap font-serif italic text-lg tracking-wider"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           l4yercak3
         </div>
@@ -86,7 +86,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
             {item.divider ? (
               <div
                 className="h-[1px] mx-1 my-0.5 retro-border"
-                style={{ background: 'var(--win95-border)' }}
+                style={{ background: 'var(--shell-border)' }}
               />
             ) : (
               <>
@@ -106,13 +106,13 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     }
                   }}
                   className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors font-pixel hover-menu-item retro-text"
-                  style={{ color: 'var(--win95-text)' }}
+                  style={{ color: 'var(--shell-text)' }}
                 >
                   <div className="flex items-center gap-2">
                     {item.icon && <span className="text-base">{item.icon}</span>}
                     <span className="text-xs">{item.label || ""}</span>
                   </div>
-                  {item.submenu && <span className="text-xs" style={{ color: 'var(--win95-text)' }}>►</span>}
+                  {item.submenu && <span className="text-xs" style={{ color: 'var(--shell-text)' }}>►</span>}
                 </button>
 
                 {/* Submenu - Two Column Grid with Separator */}
@@ -121,7 +121,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                     className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
                     style={{
                       zIndex: 50001,
-                      background: 'var(--win95-bg)',
+                      background: 'var(--shell-surface)',
                     }}
                   >
                     <div className="py-1 flex">
@@ -146,7 +146,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                                   "w-full px-3 py-2 text-left flex items-center gap-2 transition-colors font-pixel retro-text",
                                   subitem.disabled ? "opacity-40 cursor-not-allowed" : "hover-menu-item"
                                 )}
-                                style={{ color: 'var(--win95-text)' }}
+                                style={{ color: 'var(--shell-text)' }}
                                 title={subitem.disabled ? "Coming soon" : (subitem.fullLabel || subitem.label)}
                               >
                                 {subitem.icon && (
@@ -160,7 +160,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                           {colIndex < 2 && (
                             <div
                               className="w-[1px] mx-1 my-2"
-                              style={{ background: 'var(--win95-border)' }}
+                              style={{ background: 'var(--shell-border)' }}
                             />
                           )}
                         </div>

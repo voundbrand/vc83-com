@@ -39,8 +39,8 @@ export default function MilestoneCard({
     <div
       className="p-4 border-2 rounded bg-white"
       style={{
-        border: "var(--win95-border)",
-        backgroundColor: "var(--win95-bg-light)",
+        border: "var(--window-document-border)",
+        backgroundColor: "var(--window-document-bg-elevated)",
       }}
     >
       <div className="flex items-start justify-between gap-3">

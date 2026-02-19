@@ -13,6 +13,7 @@ import { useBuilder } from "@/contexts/builder-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "@/../convex/_generated/dataModel";
 import {
   X,
@@ -56,6 +57,14 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   CalendarCheck,
 };
 
+function useBuilderTx() {
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  return useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
+}
+
 interface V0ConnectionPanelProps {
   onClose: () => void;
   /** Callback to switch UI to Publish mode after successful connection */
@@ -73,6 +82,7 @@ interface ConnectionResult {
 export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPanelProps) {
   const { sessionId, organizationId, v0ChatId, v0DemoUrl, v0WebUrl, conversationId, builderAppId, setBuilderAppId } = useBuilder();
   const { sessionId: authSessionId } = useAuth();
+  const tx = useBuilderTx();
 
   const effectiveSessionId = authSessionId || sessionId;
 
@@ -330,17 +340,19 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Plug className="h-5 w-5 text-emerald-400" />
-            <h2 className="text-lg font-semibold text-white">Connected</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {tx("ui.builder.connection.connected", "Connected")}
+            </h2>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setConnectionResult(null)}
-              className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-              title="Edit connected APIs"
+              className="px-2 py-1 text-xs text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
+              title={tx("ui.builder.connection.editConnectedApisTitle", "Edit connected APIs")}
             >
-              Edit APIs
+              {tx("ui.builder.connection.editApis", "Edit APIs")}
             </button>
-            <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+            <button onClick={onClose} className="p-1 rounded hover:bg-neutral-800 text-neutral-400">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -350,39 +362,50 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
         <div className="bg-emerald-950/50 border border-emerald-800 rounded-lg p-3 flex items-start gap-3">
           <Check className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-emerald-200 text-sm font-medium">App connected successfully</p>
+            <p className="text-emerald-200 text-sm font-medium">
+              {tx("ui.builder.connection.appConnectedSuccessfully", "App connected successfully")}
+            </p>
             <p className="text-emerald-400/70 text-xs mt-1">
-              App code: {connectionResult.appCode} &middot; {connectionResult.selectedCategories.length} API {connectionResult.selectedCategories.length === 1 ? "category" : "categories"} enabled
+              {tx("ui.builder.connection.appCode", "App code:")} {connectionResult.appCode} <span aria-hidden="true">·</span>{" "}
+              {connectionResult.selectedCategories.length} {tx("ui.builder.connection.api", "API")}{" "}
+              {connectionResult.selectedCategories.length === 1
+                ? tx("ui.builder.connection.category", "category")
+                : tx("ui.builder.connection.categories", "categories")}{" "}
+              {tx("ui.builder.connection.enabled", "enabled")}
             </p>
           </div>
         </div>
 
         {/* API Key */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+          <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
             <Key className="h-3.5 w-3.5" />
-            API Key
+            {tx("ui.builder.connection.apiKey", "API Key")}
           </label>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 flex items-center justify-between gap-2">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-3 flex items-center justify-between gap-2">
             <code className="text-sm text-amber-300 font-mono truncate">{connectionResult.apiKey}</code>
             <button
               onClick={() => copyToClipboard(connectionResult.apiKey, "apiKey")}
-              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 flex-shrink-0"
+              className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 flex-shrink-0"
             >
               {copiedField === "apiKey" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-amber-500/80">Save this key now - it won&apos;t be shown again.</p>
+          <p className="text-xs text-amber-500/80">
+            {tx("ui.builder.connection.saveKeyNow", "Save this key now - it won't be shown again.")}
+          </p>
         </div>
 
         {/* Base URL */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Base URL</label>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 flex items-center justify-between gap-2">
-            <code className="text-sm text-zinc-300 font-mono">{connectionResult.baseUrl}</code>
+          <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            {tx("ui.builder.connection.baseUrl", "Base URL")}
+          </label>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-3 flex items-center justify-between gap-2">
+            <code className="text-sm text-neutral-300 font-mono">{connectionResult.baseUrl}</code>
             <button
               onClick={() => copyToClipboard(connectionResult.baseUrl, "baseUrl")}
-              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 flex-shrink-0"
+              className="p-1.5 rounded hover:bg-neutral-700 text-neutral-400 flex-shrink-0"
             >
               {copiedField === "baseUrl" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
             </button>
@@ -397,12 +420,14 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
           />
         ) : (
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Environment Variables</label>
-            <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 relative">
-              <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">{envSnippet}</pre>
+            <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+              {tx("ui.builder.connection.environmentVariables", "Environment Variables")}
+            </label>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-3 relative">
+              <pre className="text-xs text-neutral-300 font-mono whitespace-pre-wrap">{envSnippet}</pre>
               <button
                 onClick={() => copyToClipboard(envSnippet, "env")}
-                className="absolute top-2 right-2 p-1.5 rounded hover:bg-zinc-700 text-zinc-400"
+                className="absolute top-2 right-2 p-1.5 rounded hover:bg-neutral-700 text-neutral-400"
               >
                 {copiedField === "env" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
               </button>
@@ -412,13 +437,15 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
 
         {/* Connected categories */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Enabled APIs</label>
+          <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
+            {tx("ui.builder.connection.enabledApis", "Enabled APIs")}
+          </label>
           <div className="flex flex-wrap gap-2">
             {connectionResult.selectedCategories.map((catId) => {
               const cat = API_CATEGORIES.find((c) => c.id === catId);
               if (!cat) return null;
               return (
-                <span key={catId} className="px-2.5 py-1 bg-purple-950/50 border border-purple-800 rounded-full text-xs text-purple-300">
+                <span key={catId} className="px-2.5 py-1 bg-amber-950/50 border border-amber-800 rounded-full text-xs text-amber-300">
                   {cat.label}
                 </span>
               );
@@ -431,35 +458,41 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
           <div className="bg-emerald-950/30 border border-emerald-800 rounded-lg p-3 flex items-center gap-3">
             <Check className="h-4 w-4 text-emerald-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-emerald-200 font-medium">{saveFileName} saved</p>
-              <p className="text-xs text-emerald-400/70">Saved to your organization&apos;s Media Library</p>
+              <p className="text-sm text-emerald-200 font-medium">
+                {saveFileName} {tx("ui.builder.connection.saved", "saved")}
+              </p>
+              <p className="text-xs text-emerald-400/70">
+                {tx("ui.builder.connection.savedToMediaLibrary", "Saved to your organization's Media Library")}
+              </p>
             </div>
           </div>
         ) : showSaveDialog ? (
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-4 space-y-3">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2 mb-1">
-              <Save className="h-4 w-4 text-purple-400" />
-              <p className="text-sm font-medium text-white">Save Connection File</p>
+              <Save className="h-4 w-4 text-amber-400" />
+              <p className="text-sm font-medium text-white">
+                {tx("ui.builder.connection.saveConnectionFile", "Save Connection File")}
+              </p>
             </div>
 
             <div>
-              <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider block mb-1">
-                Filename
+              <label className="text-[10px] font-medium text-neutral-500 uppercase tracking-wider block mb-1">
+                {tx("ui.builder.connection.filename", "Filename")}
               </label>
               <input
                 type="text"
                 value={saveFileName}
                 onChange={(e) => setSaveFileName(e.target.value)}
-                className="w-full px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
               />
-              <p className="text-[10px] text-zinc-600 mt-1">
-                Saves to your organization&apos;s Media Library
+              <p className="text-[10px] text-neutral-600 mt-1">
+                {tx("ui.builder.connection.savesToMediaLibrary", "Saves to your organization's Media Library")}
               </p>
             </div>
 
             {/* Preview */}
-            <div className="bg-zinc-950 border border-zinc-800 rounded p-2.5">
-              <pre className="text-[11px] text-zinc-400 font-mono whitespace-pre-wrap">{envContent}</pre>
+            <div className="bg-neutral-950 border border-neutral-800 rounded p-2.5">
+              <pre className="text-[11px] text-neutral-400 font-mono whitespace-pre-wrap">{envContent}</pre>
             </div>
 
             {/* Error */}
@@ -471,50 +504,50 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
               <button
                 onClick={handleSaveToMediaLibrary}
                 disabled={isSaving || !saveFileName.trim()}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Saving...
+                    {tx("ui.builder.connection.saving", "Saving...")}
                   </>
                 ) : (
                   <>
                     <Save className="h-3.5 w-3.5" />
-                    Save to Media Library
+                    {tx("ui.builder.connection.saveToMediaLibrary", "Save to Media Library")}
                   </>
                 )}
               </button>
               <button
                 onClick={handleDownloadFile}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 text-zinc-300 rounded text-xs font-medium hover:bg-zinc-700 transition-colors border border-zinc-700"
-                title="Download file to your computer"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-800 text-neutral-300 rounded text-xs font-medium hover:bg-neutral-700 transition-colors border border-neutral-700"
+                title={tx("ui.builder.connection.downloadToComputer", "Download file to your computer")}
               >
                 <Download className="h-3.5 w-3.5" />
-                Download
+                {tx("ui.builder.connection.download", "Download")}
               </button>
             </div>
 
             <button
               onClick={() => setShowSaveDialog(false)}
-              className="w-full text-xs text-zinc-500 hover:text-zinc-400 transition-colors pt-1"
+              className="w-full text-xs text-neutral-500 hover:text-neutral-400 transition-colors pt-1"
             >
-              Skip for now
+              {tx("ui.builder.connection.skipForNow", "Skip for now")}
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSaveDialog(true)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm"
             >
               <Save className="h-4 w-4" />
-              Save Connection File
+              {tx("ui.builder.connection.saveConnectionFile", "Save Connection File")}
             </button>
             <button
               onClick={handleDownloadFile}
-              className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
-              title="Download .env.example"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors border border-neutral-700"
+              title={tx("ui.builder.connection.downloadEnvExample", "Download .env.example")}
             >
               <Download className="h-4 w-4" />
             </button>
@@ -522,20 +555,20 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
         )}
 
         {/* Publish CTA - highlights the header Publish button */}
-        <div className="pt-2 border-t border-zinc-800">
+        <div className="pt-2 border-t border-neutral-800">
           <button
             onClick={() => {
               // Dispatch event to highlight the header Publish button
               window.dispatchEvent(new CustomEvent("highlight-publish-button"));
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors font-medium text-sm border border-zinc-700"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors font-medium text-sm border border-neutral-700"
           >
-            <Rocket className="h-4 w-4 text-purple-400" />
-            Ready to publish?
-            <ArrowRight className="h-3.5 w-3.5 text-zinc-400" />
+            <Rocket className="h-4 w-4 text-amber-400" />
+            {tx("ui.builder.connection.readyToPublish", "Ready to publish?")}
+            <ArrowRight className="h-3.5 w-3.5 text-neutral-400" />
           </button>
-          <p className="text-[10px] text-zinc-600 text-center mt-1.5">
-            Use the Publish button in the top right to deploy
+          <p className="text-[10px] text-neutral-600 text-center mt-1.5">
+            {tx("ui.builder.connection.publishHint", "Use the Publish button in the top right to deploy")}
           </p>
         </div>
       </div>
@@ -559,12 +592,14 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Plug className={`h-5 w-5 ${isAlreadyConnected ? "text-emerald-400" : "text-purple-400"}`} />
+          <Plug className={`h-5 w-5 ${isAlreadyConnected ? "text-emerald-400" : "text-amber-400"}`} />
           <h2 className="text-lg font-semibold text-white">
-            {isAlreadyConnected ? "Connected APIs" : "Connect to Platform"}
+            {isAlreadyConnected
+              ? tx("ui.builder.connection.connectedApis", "Connected APIs")
+              : tx("ui.builder.connection.connectToPlatform", "Connect to Platform")}
           </h2>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400">
+        <button onClick={onClose} className="p-1 rounded hover:bg-neutral-800 text-neutral-400">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -574,18 +609,29 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
         <div className="bg-emerald-950/50 border border-emerald-800 rounded-lg p-3 flex items-start gap-3">
           <Check className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-emerald-200 text-sm font-medium">App already connected</p>
+            <p className="text-emerald-200 text-sm font-medium">
+              {tx("ui.builder.connection.appAlreadyConnected", "App already connected")}
+            </p>
             <p className="text-emerald-400/70 text-xs mt-0.5">
-              Select additional APIs and reconnect, or press Next to view your connection details.
+              {tx(
+                "ui.builder.connection.appAlreadyConnectedDetail",
+                "Select additional APIs and reconnect, or press Next to view your connection details.",
+              )}
             </p>
           </div>
         </div>
       )}
 
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-neutral-400">
         {isAlreadyConnected
-          ? "Change your API selections and reconnect to generate a new key, or continue to your connection details."
-          : "Select the API capabilities your app needs. We\u0027ll generate a scoped API key with access to only what you select."
+          ? tx(
+              "ui.builder.connection.connectedDescription",
+              "Change your API selections and reconnect to generate a new key, or continue to your connection details.",
+            )
+          : tx(
+              "ui.builder.connection.selectApiCapabilities",
+              "Select the API capabilities your app needs. We'll generate a scoped API key with access to only what you select.",
+            )
         }
       </p>
 
@@ -618,9 +664,14 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm text-amber-200 font-medium">Regenerate API key?</p>
+                <p className="text-sm text-amber-200 font-medium">
+                  {tx("ui.builder.connection.regenerateApiKeyQuestion", "Regenerate API key?")}
+                </p>
                 <p className="text-xs text-amber-400/70 mt-0.5">
-                  This will create a new API key and revoke the current one. Your deployed app will need to be updated with the new key.
+                  {tx(
+                    "ui.builder.connection.regenerateApiKeyWarning",
+                    "This will create a new API key and revoke the current one. Your deployed app will need to be updated with the new key.",
+                  )}
                 </p>
               </div>
             </div>
@@ -634,16 +685,19 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors text-sm font-medium"
               >
                 {isConnecting ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Regenerating...</>
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                    {tx("ui.builder.connection.regenerating", "Regenerating...")}
+                  </>
                 ) : (
-                  <>Yes, regenerate</>
+                  <>{tx("ui.builder.connection.yesRegenerate", "Yes, regenerate")}</>
                 )}
               </button>
               <button
                 onClick={() => setShowRegenConfirm(false)}
-                className="flex-1 px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors text-sm border border-zinc-700"
+                className="flex-1 px-3 py-2 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors text-sm border border-neutral-700"
               >
-                Cancel
+                {tx("ui.builder.connection.cancel", "Cancel")}
               </button>
             </div>
           </div>
@@ -673,9 +727,9 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
                   });
                 }
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
             >
-              Next
+              {tx("ui.builder.connection.next", "Next")}
               <ArrowRight className="h-4 w-4" />
             </button>
 
@@ -684,12 +738,15 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
               <button
                 onClick={handleUpdateCategories}
                 disabled={selectedCategories.size === 0 || isUpdatingCategories}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-zinc-700"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 text-neutral-200 rounded-lg hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-neutral-700"
               >
                 {isUpdatingCategories ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Updating...</>
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                    {tx("ui.builder.connection.updating", "Updating...")}
+                  </>
                 ) : (
-                  <>Update Categories (keep existing key)</>
+                  <>{tx("ui.builder.connection.updateCategories", "Update Categories (keep existing key)")}</>
                 )}
               </button>
             )}
@@ -698,10 +755,10 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
             <button
               onClick={() => setShowRegenConfirm(true)}
               disabled={selectedCategories.size === 0}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-neutral-500 hover:text-neutral-300 text-xs transition-colors disabled:opacity-50"
             >
               <Key className="h-3 w-3" />
-              Regenerate API key
+              {tx("ui.builder.connection.regenerateApiKey", "Regenerate API key")}
             </button>
           </>
         )}
@@ -712,17 +769,28 @@ export function V0ConnectionPanel({ onClose, onSwitchToPublish }: V0ConnectionPa
             <button
               onClick={handleConnect}
               disabled={selectedCategories.size === 0 || isConnecting}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {isConnecting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Connecting...</>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                  {tx("ui.builder.connection.connecting", "Connecting...")}
+                </>
               ) : (
-                <><Plug className="h-4 w-4" /> Connect ({selectedCategories.size} {selectedCategories.size === 1 ? "category" : "categories"})</>
+                <>
+                  <Plug className="h-4 w-4" /> {tx("ui.builder.connection.connect", "Connect")} (
+                  {selectedCategories.size}{" "}
+                  {selectedCategories.size === 1
+                    ? tx("ui.builder.connection.category", "category")
+                    : tx("ui.builder.connection.categories", "categories")}
+                  )
+                </>
               )}
             </button>
             {selectedCategories.size > 0 && (
-              <p className="text-xs text-zinc-500 text-center">
-                {getScopesForCategories(Array.from(selectedCategories)).length} scopes will be granted
+              <p className="text-xs text-neutral-500 text-center">
+                {getScopesForCategories(Array.from(selectedCategories)).length}{" "}
+                {tx("ui.builder.connection.scopesWillBeGranted", "scopes will be granted")}
               </p>
             )}
           </>
@@ -749,14 +817,15 @@ function CategoryCard({
   onToggleSelect: () => void;
   onToggleExpand: () => void;
 }) {
+  const tx = useBuilderTx();
   const IconComponent = ICON_MAP[category.icon] || FileText;
 
   return (
     <div
       className={`border rounded-lg transition-colors ${
         isSelected
-          ? "border-purple-700 bg-purple-950/30"
-          : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-600"
+          ? "border-amber-700 bg-amber-950/30"
+          : "border-neutral-700 bg-neutral-900/50 hover:border-neutral-600"
       }`}
     >
       {/* Main row */}
@@ -766,8 +835,8 @@ function CategoryCard({
           onClick={onToggleSelect}
           className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
             isSelected
-              ? "bg-purple-600 border-purple-600"
-              : "border-zinc-600 hover:border-zinc-500"
+              ? "bg-amber-600 border-amber-600"
+              : "border-neutral-600 hover:border-neutral-500"
           }`}
         >
           {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
@@ -776,18 +845,18 @@ function CategoryCard({
         {/* Icon + info */}
         <div className="flex-1 min-w-0" onClick={onToggleSelect} role="button" tabIndex={0}>
           <div className="flex items-center gap-2">
-            <IconComponent className={`h-4 w-4 flex-shrink-0 ${isSelected ? "text-purple-400" : "text-zinc-500"}`} />
-            <span className={`text-sm font-medium ${isSelected ? "text-white" : "text-zinc-300"}`}>
+            <IconComponent className={`h-4 w-4 flex-shrink-0 ${isSelected ? "text-amber-400" : "text-neutral-500"}`} />
+            <span className={`text-sm font-medium ${isSelected ? "text-white" : "text-neutral-300"}`}>
               {category.label}
             </span>
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5 ml-6">{category.description}</p>
+          <p className="text-xs text-neutral-500 mt-0.5 ml-6">{category.description}</p>
         </div>
 
         {/* Expand toggle */}
         <button
           onClick={onToggleExpand}
-          className="p-1 rounded hover:bg-zinc-800 text-zinc-500"
+          className="p-1 rounded hover:bg-neutral-800 text-neutral-500"
         >
           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -795,7 +864,7 @@ function CategoryCard({
 
       {/* Expanded endpoint list */}
       {isExpanded && (
-        <div className="border-t border-zinc-800 px-3 py-2 space-y-1">
+        <div className="border-t border-neutral-800 px-3 py-2 space-y-1">
           {category.endpoints.map((endpoint, idx) => (
             <div key={idx} className="flex items-center gap-2 text-xs">
               <span
@@ -808,19 +877,21 @@ function CategoryCard({
                         ? "bg-amber-950 text-amber-400"
                         : endpoint.method === "DELETE"
                           ? "bg-red-950 text-red-400"
-                          : "bg-zinc-800 text-zinc-400"
+                          : "bg-neutral-800 text-neutral-400"
                 }`}
               >
                 {endpoint.method}
               </span>
-              <span className="text-zinc-500 font-mono">{endpoint.path}</span>
-              <span className="text-zinc-600 ml-auto hidden sm:inline">{endpoint.description}</span>
+              <span className="text-neutral-500 font-mono">{endpoint.path}</span>
+              <span className="text-neutral-600 ml-auto hidden sm:inline">{endpoint.description}</span>
             </div>
           ))}
-          <div className="flex gap-1 mt-1.5 pt-1.5 border-t border-zinc-800/50">
-            <span className="text-[10px] text-zinc-600">Scopes:</span>
+          <div className="flex gap-1 mt-1.5 pt-1.5 border-t border-neutral-800/50">
+            <span className="text-[10px] text-neutral-600">
+              {tx("ui.builder.connection.scopes", "Scopes:")}
+            </span>
             {category.scopes.map((scope) => (
-              <span key={scope} className="text-[10px] px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-500 font-mono">
+              <span key={scope} className="text-[10px] px-1.5 py-0.5 bg-neutral-800 rounded text-neutral-500 font-mono">
                 {scope}
               </span>
             ))}

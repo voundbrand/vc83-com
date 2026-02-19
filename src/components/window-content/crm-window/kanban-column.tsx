@@ -83,8 +83,8 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
         ref={setNodeRef}
         className="flex-1 min-w-[280px] flex flex-col border-2"
         style={{
-          background: isOver ? stageColors.light : 'var(--win95-bg-light)',
-          borderColor: isOver ? stageColors.border : 'var(--win95-border)',
+          background: isOver ? stageColors.light : 'var(--window-document-bg-elevated)',
+          borderColor: isOver ? stageColors.border : 'var(--window-document-border)',
           opacity: isOver ? 0.9 : 1,
         }}
       >
@@ -98,7 +98,7 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <div className="font-pixel text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+            <div className="font-pixel text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
               {stageLabel}
             </div>
             <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -111,8 +111,8 @@ export function KanbanColumn({ stageId, stageLabel, contacts, isEditMode = false
           {isEditMode && (
             <button
               onClick={handleDeleteStage}
-              className="retro-button p-1.5 hover:bg-red-500 transition-colors"
-              style={{ background: "var(--win95-button-face)" }}
+              className="desktop-interior-button p-1.5 hover:bg-red-500 transition-colors"
+              style={{ background: "var(--window-document-bg-elevated)" }}
               title={t("ui.crm.pipeline.delete_stage") || "Delete stage"}
             >
               <Trash2 size={12} style={{ color: "var(--error)" }} />

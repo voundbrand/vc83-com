@@ -86,7 +86,7 @@ export function TemplatesTab() {
   if (!auditData || !organizations) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -128,7 +128,7 @@ export function TemplatesTab() {
   return (
     <div
       className="p-4 space-y-8 overflow-y-auto max-h-[calc(100vh-200px)]"
-      style={{ background: "var(--win95-bg)" }}
+      style={{ background: "var(--window-document-bg)" }}
     >
       {/* SECTION 1: CRUD - Template Management */}
       <TemplateCRUDSection templates={allTemplates} sessionId={sessionId} />
@@ -184,7 +184,7 @@ function TemplateCRUDSection({
     <div>
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <FileText size={16} />
           System Templates Management
         </h3>
@@ -209,9 +209,9 @@ function TemplateCRUDSection({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs border-2 focus:outline-none"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           />
         </div>
@@ -224,9 +224,9 @@ function TemplateCRUDSection({
             onChange={(e) => setTypeFilter(e.target.value)}
             className="text-xs border-2 px-2 py-1.5 focus:outline-none"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="all">All Types</option>
@@ -245,9 +245,9 @@ function TemplateCRUDSection({
           onChange={(e) => setSchemaFilter(e.target.value)}
           className="text-xs border-2 px-2 py-1.5 focus:outline-none"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <option value="all">All Templates</option>
@@ -257,49 +257,49 @@ function TemplateCRUDSection({
       </div>
 
       {/* Templates Table */}
-      <div className="border-2 overflow-x-auto" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="border-2 overflow-x-auto" style={{ borderColor: "var(--window-document-border)" }}>
         <table className="w-full text-xs">
           <thead>
             <tr
               className="border-b-2"
               style={{
-                background: "var(--win95-bg-light)",
-                borderColor: "var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                borderColor: "var(--window-document-border)",
               }}
             >
               <th
                 className="px-3 py-2 text-left font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Name
               </th>
               <th
                 className="px-3 py-2 text-left font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Code
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Type
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Schema
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Status
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 Actions
               </th>
@@ -348,12 +348,12 @@ function TemplateCRUDRow({
     <tr
       className="border-b hover:bg-opacity-50 transition-colors"
       style={{
-        borderColor: "var(--win95-border-light)",
+        borderColor: "var(--window-document-border)",
         background: "transparent",
       }}
     >
       {/* Name */}
-      <td className="px-3 py-2" style={{ color: "var(--win95-text)" }}>
+      <td className="px-3 py-2" style={{ color: "var(--window-document-text)" }}>
         {template.name}
       </td>
 
@@ -362,7 +362,7 @@ function TemplateCRUDRow({
         <code
           className="text-xs px-1 py-0.5"
           style={{
-            background: "var(--win95-bg-light)",
+            background: "var(--window-document-bg-elevated)",
             color: "var(--neutral-gray)",
           }}
         >
@@ -394,7 +394,7 @@ function TemplateCRUDRow({
         <span
           className={`inline-block px-2 py-0.5 text-xs font-semibold`}
           style={{
-            background: template.status === "published" ? "#dcfce7" : "var(--win95-bg-light)",
+            background: template.status === "published" ? "#dcfce7" : "var(--window-document-bg-elevated)",
             color: template.status === "published" ? "#166534" : "var(--neutral-gray)",
           }}
         >
@@ -408,8 +408,8 @@ function TemplateCRUDRow({
           <button
             className="p-1 border transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text)",
             }}
             title="Edit template"
           >
@@ -418,8 +418,8 @@ function TemplateCRUDRow({
           <button
             className="p-1 border transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text)",
             }}
             title="Duplicate template"
           >
@@ -428,7 +428,7 @@ function TemplateCRUDRow({
           <button
             className="p-1 border transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
               color: "#ef4444",
             }}
             title="Delete template"
@@ -597,7 +597,7 @@ function TemplateAvailabilitySection({
     <div>
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Package size={16} />
           Template Availability Management
         </h3>
@@ -608,7 +608,7 @@ function TemplateAvailabilitySection({
 
       {/* Organization Selector */}
       <div className="mb-4">
-        <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           Select Organization:
         </label>
         <select
@@ -616,9 +616,9 @@ function TemplateAvailabilitySection({
           onChange={(e) => setSelectedOrgId(e.target.value as Id<"organizations">)}
           className="w-full max-w-md text-xs border-2 px-3 py-2 focus:outline-none"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           {organizations.map((org) => (
@@ -632,15 +632,15 @@ function TemplateAvailabilitySection({
       {/* Templates List with Checkboxes */}
       {selectedOrg && (
         <>
-          <div className="mb-3 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <div className="mb-3 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             Available Templates for "{selectedOrg.name}":
           </div>
 
           <div
             className="border-2 max-h-[400px] overflow-y-auto"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
-            <div className="divide-y" style={{ borderColor: "var(--win95-border-light)" }}>
+            <div className="divide-y" style={{ borderColor: "var(--window-document-border)" }}>
               {templates.map((template) => {
                 const isAvailable = isTemplateAvailable(template);
                 const isLoading = loadingTemplates.has(template.code);
@@ -663,9 +663,9 @@ function TemplateAvailabilitySection({
                           isLoading ? "opacity-50" : ""
                         }`}
                         style={{
-                          borderColor: "var(--win95-border)",
+                          borderColor: "var(--window-document-border)",
                           backgroundColor: isLoading
-                            ? "var(--win95-border-light)"
+                            ? "var(--window-document-border)"
                             : isAvailable
                             ? "#22c55e"
                             : "transparent",
@@ -680,13 +680,13 @@ function TemplateAvailabilitySection({
 
                       <div className="flex items-center gap-2">
                         <span className="text-xs">{typeIcon}</span>
-                        <span className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
+                        <span className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
                           {template.name}
                         </span>
                         <code
                           className="text-xs px-1"
                           style={{
-                            background: "var(--win95-bg-light)",
+                            background: "var(--window-document-bg-elevated)",
                             color: "var(--neutral-gray)",
                           }}
                         >

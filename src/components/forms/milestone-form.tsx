@@ -36,9 +36,9 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
       <pre
         className="text-xs p-3 rounded overflow-x-auto font-mono"
         style={{
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
-          border: '2px solid var(--win95-border)'
+          background: 'var(--shell-input-surface)',
+          color: 'var(--shell-text)',
+          border: '2px solid var(--shell-border)'
         }}
       >
         {JSON.stringify(formData, null, 2)}
@@ -53,7 +53,7 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
         <label
           htmlFor="milestone-name"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Flag className="w-3.5 h-3.5" />
           Milestone Name *
@@ -66,9 +66,9 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
           required
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Enter milestone name..."
         />
@@ -79,7 +79,7 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
         <label
           htmlFor="milestone-description"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <FileText className="w-3.5 h-3.5" />
           Description
@@ -91,9 +91,9 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
           rows={3}
           className="w-full px-2 py-1.5 text-sm border-2 rounded resize-none"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
           placeholder="Enter milestone description..."
         />
@@ -104,7 +104,7 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
         <label
           htmlFor="milestone-due-date"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Calendar className="w-3.5 h-3.5" />
           Due Date
@@ -116,9 +116,9 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
           onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
         />
       </div>
@@ -128,7 +128,7 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
         <label
           htmlFor="milestone-status"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Flag className="w-3.5 h-3.5" />
           Status
@@ -139,9 +139,9 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
           className="w-full px-2 py-1.5 text-sm border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-input-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-input-surface)',
+            color: 'var(--shell-text)'
           }}
         >
           <option value="not_started">Not Started</option>
@@ -156,7 +156,7 @@ export function MilestoneForm({ initialValues, onChange, showJson }: MilestoneFo
         <label
           htmlFor="milestone-progress"
           className="flex items-center gap-2 text-xs font-semibold mb-1"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Percent className="w-3.5 h-3.5" />
           Progress: {formData.progress || 0}%

@@ -93,13 +93,13 @@ export function CreateApiKeyDialog({
   if (createdKey) {
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-        <div className="rounded-lg shadow-xl max-w-2xl w-full p-6" style={{ background: 'var(--win95-bg)' }}>
+        <div className="rounded-lg shadow-xl max-w-2xl w-full p-6" style={{ background: 'var(--shell-surface)' }}>
           <div className="space-y-4">
             {/* Success Header */}
             <div className="flex items-center gap-3" style={{ color: 'var(--success)' }}>
               <CheckCircle2 className="w-8 h-8" />
               <div>
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h2 className="text-2xl font-bold" style={{ color: 'var(--shell-text)' }}>
                   API Key Created!
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -110,13 +110,13 @@ export function CreateApiKeyDialog({
 
             {/* Key Display */}
             <div className="border-2 rounded-lg p-4" style={{
-              background: 'var(--win95-bg-light)',
+              background: 'var(--shell-surface-elevated)',
               borderColor: 'var(--error)'
             }}>
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 mt-0.5" style={{ color: 'var(--error)' }} />
                 <div className="flex-1">
-                  <h3 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+                  <h3 className="font-semibold mb-2" style={{ color: 'var(--shell-text)' }}>
                     Save Your API Key Now
                   </h3>
                   <p className="text-sm mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -138,10 +138,10 @@ export function CreateApiKeyDialog({
                       className="retro-button px-4 py-2 rounded font-semibold transition-colors"
                       style={copied ? {
                         background: 'var(--success)',
-                        color: 'var(--win95-titlebar-text)'
+                        color: 'var(--shell-titlebar-text)'
                       } : {
-                        background: 'var(--win95-highlight)',
-                        color: 'var(--win95-titlebar-text)'
+                        background: 'var(--shell-accent)',
+                        color: 'var(--shell-titlebar-text)'
                       }}
                     >
                       {copied ? "Copied!" : "Copy"}
@@ -153,10 +153,10 @@ export function CreateApiKeyDialog({
 
             {/* Usage Instructions */}
             <div className="border-2 rounded-lg p-4" style={{
-              background: 'var(--win95-bg-light)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--shell-surface-elevated)',
+              borderColor: 'var(--shell-border)'
             }}>
-              <h4 className="font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+              <h4 className="font-semibold mb-2" style={{ color: 'var(--shell-text)' }}>
                 Using Your API Key
               </h4>
               <p className="text-sm mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -176,8 +176,8 @@ export function CreateApiKeyDialog({
                 onClick={onClose}
                 className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors"
                 style={{
-                  background: 'var(--win95-highlight)',
-                  color: 'var(--win95-titlebar-text)'
+                  background: 'var(--shell-accent)',
+                  color: 'var(--shell-titlebar-text)'
                 }}
               >
                 Done - I've Saved My Key
@@ -192,11 +192,11 @@ export function CreateApiKeyDialog({
   // Otherwise, show the creation form
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-      <div className="rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--win95-bg)' }}>
+      <div className="rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--shell-surface)' }}>
         <div className="p-6 space-y-6">
           {/* Header */}
           <div>
-            <h2 className="text-2xl font-bold" style={{ color: 'var(--win95-text)' }}>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--shell-text)' }}>
               Create API Key
             </h2>
             <p className="text-sm mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -206,7 +206,7 @@ export function CreateApiKeyDialog({
 
           {/* Name Input */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--shell-text)' }}>
               API Key Name
             </label>
             <input
@@ -224,7 +224,7 @@ export function CreateApiKeyDialog({
 
           {/* Scope Selection */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--shell-text)' }}>
               Permissions
             </label>
             <ScopeSelector
@@ -236,10 +236,10 @@ export function CreateApiKeyDialog({
 
           {/* Security Best Practices */}
           <div className="border-2 rounded-lg p-4" style={{
-            background: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--shell-surface-elevated)',
+            borderColor: 'var(--shell-border)'
           }}>
-            <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+            <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
               <ShieldCheck className="w-4 h-4" />
               Security Best Practices
             </h4>
@@ -259,9 +259,9 @@ export function CreateApiKeyDialog({
               disabled={isCreating}
               className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
               style={{
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)',
-                borderColor: 'var(--win95-border)'
+                background: 'var(--shell-surface-elevated)',
+                color: 'var(--shell-text)',
+                borderColor: 'var(--shell-border)'
               }}
             >
               Cancel
@@ -271,8 +271,8 @@ export function CreateApiKeyDialog({
               disabled={isCreating || !name.trim() || selectedScopes.length === 0}
               className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                background: 'var(--win95-highlight)',
-                color: 'var(--win95-titlebar-text)'
+                background: 'var(--shell-accent)',
+                color: 'var(--shell-titlebar-text)'
               }}
             >
               {isCreating ? "Creating..." : "Create API Key"}

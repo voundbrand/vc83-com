@@ -268,8 +268,8 @@ export default function MeetingCardAdmin({
     <div
       className="border-2 rounded bg-white overflow-hidden"
       style={{
-        border: "var(--win95-border)",
-        backgroundColor: "var(--win95-bg-light)",
+        border: "var(--window-document-border)",
+        backgroundColor: "var(--window-document-bg-elevated)",
       }}
     >
       {/* Main Card Header */}
@@ -374,7 +374,7 @@ export default function MeetingCardAdmin({
 
       {/* Expanded Content */}
       {expanded && (
-        <div className="border-t-2 p-4 space-y-4" style={{ borderTop: "var(--win95-border)" }}>
+        <div className="border-t-2 p-4 space-y-4" style={{ borderTop: "var(--window-document-border)" }}>
           {/* Notes Section */}
           {notes && (
             <div>

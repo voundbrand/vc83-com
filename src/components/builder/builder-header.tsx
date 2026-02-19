@@ -16,6 +16,7 @@ import { BuilderLogoMenu } from "./builder-logo-menu";
 import { BuilderUserMenu } from "./builder-user-menu";
 import { PublishDropdown } from "./publish-dropdown";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { BookingWindow } from "@/components/window-content/booking-window";
 
 interface BuilderHeaderProps {
@@ -32,6 +33,8 @@ export function BuilderHeader({
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [publishHighlight, setPublishHighlight] = useState(false);
   const { openWindow } = useWindowManager();
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
 
   // Listen for highlight-publish-button event from connection panel
   const handleHighlight = useCallback(() => {
@@ -49,13 +52,13 @@ export function BuilderHeader({
 
   return (
     <>
-      <header className="h-14 flex items-center relative z-50 bg-zinc-950">
+      <header className="h-14 flex items-center relative z-50 bg-neutral-950">
         {/* Left: Exit button + Logo area */}
         <div className="flex items-center h-full flex-shrink-0">
           <Link
             href="/"
-            className="p-2 ml-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
-            title="Exit to dashboard"
+            className="p-2 ml-1 text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
+            title={tx("ui.builder.chrome.header.exitToDashboard", "Exit to dashboard")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
@@ -64,11 +67,11 @@ export function BuilderHeader({
             onMouseEnter={() => setIsLogoMenuOpen(true)}
           >
             <button
-              className="flex items-center p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="flex items-center p-2 rounded-lg hover:bg-neutral-800 transition-colors"
             >
               <Image
                 src="/android-chrome-512x512.png"
-                alt="l4yercak3"
+                alt={tx("ui.builder.chrome.brand", "l4yercak3")}
                 width={28}
                 height={28}
                 className="rounded"
@@ -83,10 +86,10 @@ export function BuilderHeader({
           <div className="flex items-center gap-2">
             {/* Share button */}
             <button
-              className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 text-sm rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-neutral-400 text-sm rounded-lg hover:bg-neutral-800 hover:text-neutral-200 transition-colors"
             >
               <Share2 className="w-4 h-4" />
-              Share
+              {tx("ui.builder.chrome.header.share", "Share")}
             </button>
 
             {/* Publish Dropdown */}
@@ -95,11 +98,11 @@ export function BuilderHeader({
                 onClick={() => setIsPublishOpen(!isPublishOpen)}
                 className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   publishHighlight
-                    ? "bg-purple-500 text-white ring-2 ring-purple-400 ring-offset-2 ring-offset-zinc-950 animate-pulse shadow-lg shadow-purple-500/30"
-                    : "bg-zinc-100 text-zinc-900 hover:bg-white"
+                    ? "bg-amber-500 text-white ring-2 ring-amber-400 ring-offset-2 ring-offset-neutral-950 animate-pulse shadow-lg shadow-amber-500/30"
+                    : "bg-neutral-100 text-neutral-900 hover:bg-white"
                 }`}
               >
-                Publish
+                {tx("ui.builder.chrome.header.publish", "Publish")}
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
 
@@ -121,7 +124,7 @@ export function BuilderHeader({
               onClick={() => {
                 openWindow(
                   "booking-settings",
-                  "Booking Settings",
+                  tx("ui.builder.chrome.header.bookingSettings", "Booking Settings"),
                   <BookingWindow initialTab="settings" />,
                   { x: 150, y: 100 },
                   { width: 1100, height: 700 },
@@ -129,8 +132,8 @@ export function BuilderHeader({
                   undefined
                 );
               }}
-              className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
-              title="Booking Settings"
+              className="p-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
+              title={tx("ui.builder.chrome.header.bookingSettings", "Booking Settings")}
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -167,7 +170,7 @@ export function BuilderHeader({
         }`}
         onMouseLeave={() => setIsLogoMenuOpen(false)}
       >
-        <div className="h-full bg-zinc-950 shadow-2xl shadow-black/50">
+        <div className="h-full bg-neutral-950 shadow-2xl shadow-black/50">
           <BuilderLogoMenu onClose={() => setIsLogoMenuOpen(false)} />
         </div>
       </div>

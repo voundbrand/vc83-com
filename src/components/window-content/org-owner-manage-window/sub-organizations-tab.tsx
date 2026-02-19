@@ -117,7 +117,7 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--primary)' }} />
-        <span className="ml-2 text-sm" style={{ color: 'var(--win95-text)' }}>
+        <span className="ml-2 text-sm" style={{ color: 'var(--window-document-text)' }}>
           Loading sub-organizations...
         </span>
       </div>
@@ -129,7 +129,7 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Network className="w-5 h-5" />
             Sub-Organizations
           </h3>
@@ -142,9 +142,9 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
         <div
           className="px-3 py-1.5 text-xs font-semibold border-2"
           style={{
-            backgroundColor: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)',
-            color: 'var(--win95-text)',
+            backgroundColor: 'var(--window-document-bg-elevated)',
+            borderColor: 'var(--window-document-border)',
+            color: 'var(--window-document-text)',
           }}
         >
           {currentCount} / {maxSubOrgs === -1 ? "Unlimited" : maxSubOrgs} Sub-Orgs
@@ -179,7 +179,7 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
           disabled={!canCreateMore}
           className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
           style={{
-            backgroundColor: canCreateMore ? 'var(--success)' : 'var(--win95-bg)',
+            backgroundColor: canCreateMore ? 'var(--success)' : 'var(--window-document-bg)',
             color: canCreateMore ? 'white' : 'var(--neutral-gray)',
             opacity: canCreateMore ? 1 : 0.6,
             cursor: canCreateMore ? 'pointer' : 'not-allowed',
@@ -192,11 +192,11 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
         <div
           className="p-4 border-2"
           style={{
-            backgroundColor: 'var(--win95-bg-light)',
-            borderColor: 'var(--win95-border)',
+            backgroundColor: 'var(--window-document-bg-elevated)',
+            borderColor: 'var(--window-document-border)',
           }}
         >
-          <h4 className="text-sm font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="text-sm font-bold mb-4" style={{ color: 'var(--window-document-text)' }}>
             Create New Sub-Organization
           </h4>
 
@@ -217,7 +217,7 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Business Name *
               </label>
               <input
@@ -227,15 +227,15 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                 placeholder="Enter business name"
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  backgroundColor: 'var(--win95-input-bg)',
-                  borderColor: 'var(--win95-input-border-dark)',
-                  color: 'var(--win95-input-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Contact Email
               </label>
               <input
@@ -245,15 +245,15 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                 placeholder="contact@example.com"
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  backgroundColor: 'var(--win95-input-bg)',
-                  borderColor: 'var(--win95-input-border-dark)',
-                  color: 'var(--win95-input-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Contact Phone
               </label>
               <input
@@ -263,15 +263,15 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                 placeholder="+1 (555) 123-4567"
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  backgroundColor: 'var(--win95-input-bg)',
-                  borderColor: 'var(--win95-input-border-dark)',
-                  color: 'var(--win95-input-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Description
               </label>
               <textarea
@@ -281,9 +281,9 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                 rows={2}
                 className="w-full px-2 py-1.5 text-sm border-2 resize-none"
                 style={{
-                  backgroundColor: 'var(--win95-input-bg)',
-                  borderColor: 'var(--win95-input-border-dark)',
-                  color: 'var(--win95-input-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  borderColor: 'var(--window-document-border)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
@@ -325,8 +325,8 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
               disabled={isCreating}
               className="beveled-button px-4 py-1.5 text-sm font-semibold flex items-center gap-2"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               <X className="w-4 h-4" />
@@ -361,8 +361,8 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
       <div
         className="border-2"
         style={{
-          borderColor: 'var(--win95-border)',
-          backgroundColor: 'var(--win95-bg-light)',
+          borderColor: 'var(--window-document-border)',
+          backgroundColor: 'var(--window-document-bg-elevated)',
         }}
       >
         {/* Table Header */}
@@ -370,7 +370,7 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
           className="grid grid-cols-12 gap-2 px-4 py-2 border-b-2 text-xs font-bold"
           style={{
             backgroundColor: 'var(--table-header-bg)',
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             color: 'var(--table-header-text)',
           }}
         >
@@ -408,11 +408,11 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                 className="grid grid-cols-12 gap-2 px-4 py-3 border-b items-center"
                 style={{
                   backgroundColor: index % 2 === 0 ? 'var(--table-row-even-bg)' : 'var(--table-row-odd-bg)',
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                 }}
               >
                 <div className="col-span-4">
-                  <p className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
                     {org.name}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -423,9 +423,9 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold"
                     style={{
-                      backgroundColor: 'var(--win95-bg)',
-                      border: '1px solid var(--win95-border)',
-                      color: 'var(--win95-text)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      border: '1px solid var(--window-document-border)',
+                      color: 'var(--window-document-text)',
                     }}
                   >
                     <Users className="w-3 h-3" />
@@ -461,11 +461,11 @@ export function SubOrganizationsTab({ organizationId, sessionId, license }: SubO
       <div
         className="p-4 border-2"
         style={{
-          backgroundColor: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)',
+          backgroundColor: 'var(--window-document-bg)',
+          borderColor: 'var(--window-document-border)',
         }}
       >
-        <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
           About Sub-Organizations
         </h4>
         <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>

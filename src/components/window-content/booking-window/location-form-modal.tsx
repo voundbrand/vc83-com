@@ -148,7 +148,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   key={type}
                   type="button"
                   onClick={() => setSubtype(type)}
-                  className={`retro-button flex-1 py-2 flex items-center justify-center gap-2 text-xs ${
+                  className={`desktop-interior-button flex-1 py-2 flex items-center justify-center gap-2 text-xs ${
                     subtype === type ? "shadow-inner" : ""
                   }`}
                   style={{
@@ -321,7 +321,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
             <button
               type="submit"
               disabled={isSubmitting}
-              className="retro-button flex-1 py-2 text-sm"
+              className="desktop-interior-button flex-1 py-2 text-sm"
               style={{
                 background: 'var(--win95-selected-bg)',
                 color: 'var(--win95-selected-text)',
@@ -333,7 +333,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
             <button
               type="button"
               onClick={onClose}
-              className="retro-button px-4 py-2 text-sm"
+              className="desktop-interior-button px-4 py-2 text-sm"
               style={{ background: 'var(--win95-button-face)' }}
             >
               Cancel

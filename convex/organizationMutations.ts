@@ -338,6 +338,7 @@ export const updateUserProfile = mutation({
       firstName: v.optional(v.string()),
       lastName: v.optional(v.string()),
       title: v.optional(v.string()),
+      avatarUrl: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args) => {

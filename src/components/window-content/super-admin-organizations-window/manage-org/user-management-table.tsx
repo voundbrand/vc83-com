@@ -97,7 +97,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
         <div className="flex justify-between items-center">
           <h3
             className="text-lg font-semibold flex items-center gap-2"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             <User size={20} />
             {t("ui.manage.users.team_members")} ({sortedMembers?.length || 0})
@@ -125,7 +125,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
           style={{
             border: "2px inset",
             borderColor: "var(--table-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           <table className="w-full">
@@ -200,7 +200,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                 >
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     {member.user?.firstName || member.user?.lastName
                       ? `${member.user.firstName || ""} ${member.user.lastName || ""}`.trim()
@@ -208,7 +208,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   </td>
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     {member.user?.email || "—"}
                   </td>
@@ -217,7 +217,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   </td>
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text-secondary)" }}
+                    style={{ color: "var(--window-document-text-muted)" }}
                   >
                     {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"}
                   </td>
@@ -292,7 +292,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   <td
                     colSpan={6}
                     className="px-3 py-8 text-center text-sm"
-                    style={{ color: "var(--win95-text-secondary)" }}
+                    style={{ color: "var(--window-document-text-muted)" }}
                   >
                     {t("ui.manage.users.no_members")}
                   </td>

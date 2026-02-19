@@ -229,12 +229,12 @@ export function UserEditModal({
             onClick={onClose}
             className="p-0.5 hover:opacity-80"
             style={{
-              backgroundColor: "var(--win95-button-face)",
+              backgroundColor: "var(--window-document-bg)",
               border: "1px solid",
-              borderColor: "var(--win95-button-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
@@ -311,7 +311,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.email_address")}
                 </label>
@@ -322,10 +322,10 @@ export function UserEditModal({
                   disabled
                   className="w-full px-2 py-1 text-sm"
                   style={{
-                    backgroundColor: "var(--win95-bg)",
-                    color: "var(--win95-text-secondary)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text-muted)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                     opacity: 0.7,
                   }}
                 />
@@ -334,7 +334,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.first_name")}
                 </label>
@@ -346,11 +346,11 @@ export function UserEditModal({
                   className="w-full px-2 py-1 text-sm"
                   style={{
                     backgroundColor: canEditProfile
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
+                      ? "var(--window-document-bg)"
+                      : "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                     opacity: canEditProfile ? 1 : 0.7,
                   }}
                   placeholder="John"
@@ -360,7 +360,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.last_name")}
                 </label>
@@ -372,11 +372,11 @@ export function UserEditModal({
                   className="w-full px-2 py-1 text-sm"
                   style={{
                     backgroundColor: canEditProfile
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
+                      ? "var(--window-document-bg)"
+                      : "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                     opacity: canEditProfile ? 1 : 0.7,
                   }}
                   placeholder="Doe"
@@ -386,7 +386,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Shield size={14} className="inline mr-1" />
                   Role
@@ -398,11 +398,11 @@ export function UserEditModal({
                   className="w-full px-2 py-1 text-sm"
                   style={{
                     backgroundColor: canEditRole
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
+                      ? "var(--window-document-bg)"
+                      : "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                     opacity: canEditRole ? 1 : 0.7,
                   }}
                 >
@@ -477,7 +477,7 @@ export function UserEditModal({
                     </>
                   ) : (
                     <>
-                      <p className="text-xs mb-3" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs mb-3" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.manage.delete_account.button_description")}
                       </p>
                       <button
@@ -506,7 +506,7 @@ export function UserEditModal({
                       disabled={isResending}
                       className="beveled-button px-4 py-1.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
                       style={{
-                        backgroundColor: "var(--win95-highlight)",
+                        backgroundColor: "var(--tone-accent)",
                         color: "white",
                       }}
                     >
@@ -523,8 +523,8 @@ export function UserEditModal({
                     disabled={isSubmitting}
                     className="beveled-button px-4 py-1.5 text-sm font-semibold"
                     style={{
-                      backgroundColor: "var(--win95-button-face)",
-                      color: "var(--win95-text)",
+                      backgroundColor: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     Cancel

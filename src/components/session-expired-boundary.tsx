@@ -95,9 +95,9 @@ export class SessionExpiredBoundary extends Component<Props, State> {
             <div
               className="border-4 p-8 max-w-md text-center"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                boxShadow: "var(--win95-shadow)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
+                boxShadow: "var(--shell-shadow)",
               }}
             >
               <div className="mb-4">
@@ -124,11 +124,11 @@ export class SessionExpiredBoundary extends Component<Props, State> {
               </div>
               <h2
                 className="text-lg font-bold mb-3"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--shell-accent)" }}
               >
                 Session Invalid
               </h2>
-              <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm mb-4" style={{ color: "var(--shell-text)" }}>
                 Your session is no longer valid. Redirecting to sign in page...
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -147,9 +147,9 @@ export class SessionExpiredBoundary extends Component<Props, State> {
           <div
             className="border-4 p-8 max-w-md text-center"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              boxShadow: "var(--win95-shadow)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface-elevated)",
+              boxShadow: "var(--shell-shadow)",
             }}
           >
             <h2
@@ -158,16 +158,16 @@ export class SessionExpiredBoundary extends Component<Props, State> {
             >
               An Error Occurred
             </h2>
-            <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
+            <p className="text-sm mb-4" style={{ color: "var(--shell-text)" }}>
               {this.state.error?.message || "Something went wrong"}
             </p>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 border-2 text-sm font-bold"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
             >
               Reload Page

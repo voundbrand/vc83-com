@@ -232,7 +232,7 @@ export function CalendarSettings() {
         </div>
         <button
           onClick={handleAddCalendar}
-          className="retro-button px-3 py-1.5 flex items-center gap-1.5"
+          className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
           style={{ color: 'var(--win95-text)' }}
         >
           <Plus size={12} />
@@ -331,7 +331,7 @@ export function CalendarSettings() {
           </div>
           <button
             onClick={handleAddCalendar}
-            className="retro-button px-2 py-1 flex items-center gap-1"
+            className="desktop-interior-button px-2 py-1 flex items-center gap-1"
             style={{ color: 'var(--win95-text)' }}
           >
             <Plus size={10} />
@@ -404,7 +404,7 @@ export function CalendarSettings() {
                   <div className="relative">
                     <button
                       onClick={() => setMenuOpenFor(menuOpenFor === cal.connectionId ? null : cal.connectionId)}
-                      className="retro-button p-1.5"
+                      className="desktop-interior-button p-1.5"
                       style={{ color: 'var(--win95-text)' }}
                       title="Options"
                     >
@@ -503,7 +503,7 @@ export function CalendarSettings() {
                           <button
                             onClick={handleRefreshSubCalendars}
                             disabled={refreshing}
-                            className="retro-button px-3 py-1.5 flex items-center gap-1.5"
+                            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
                             style={{ color: 'var(--win95-text)' }}
                           >
                             <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
@@ -513,7 +513,7 @@ export function CalendarSettings() {
                           </button>
                           <button
                             onClick={handleAddCalendar}
-                            className="retro-button px-3 py-1.5 flex items-center gap-1.5"
+                            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
                             style={{ color: 'var(--win95-text)' }}
                           >
                             <Globe size={12} />

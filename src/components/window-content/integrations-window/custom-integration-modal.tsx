@@ -118,25 +118,25 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
   const scopesList = app.scopes.split(" ").filter(Boolean);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--window-document-border)' }}>
         <button
           onClick={onBack}
           className="p-1 hover:bg-opacity-80 transition-colors"
-          style={{ color: 'var(--win95-highlight)' }}
+          style={{ color: 'var(--tone-accent)' }}
         >
           <ArrowLeft size={20} />
         </button>
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded flex items-center justify-center"
-            style={{ background: 'var(--win95-bg-light)' }}
+            style={{ background: 'var(--window-document-bg-elevated)' }}
           >
-            <i className={`${app.icon || "fas fa-globe"} text-xl`} style={{ color: 'var(--win95-gradient-end)' }} />
+            <i className={`${app.icon || "fas fa-globe"} text-xl`} style={{ color: 'var(--tone-accent-strong)' }} />
           </div>
           <div>
-            <h2 className="font-bold" style={{ color: 'var(--win95-text)' }}>
+            <h2 className="font-bold" style={{ color: 'var(--window-document-text)' }}>
               {app.name}
             </h2>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -174,14 +174,14 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                 style={{
                   borderColor: '#ef4444',
                   background: '#fee2e2',
-                  color: 'var(--win95-text)',
+                  color: 'var(--window-document-text)',
                 }}
               />
               <button
                 onClick={() => handleCopy(newSecret, "secret")}
-                className="beveled-button px-3 py-2 font-bold text-xs"
+                className="desktop-interior-button px-3 py-2 font-bold text-xs"
                 style={{
-                  backgroundColor: copied === "secret" ? '#10b981' : 'var(--win95-highlight)',
+                  backgroundColor: copied === "secret" ? '#10b981' : 'var(--tone-accent)',
                   color: 'white',
                 }}
               >
@@ -202,15 +202,15 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
         <div
           className="p-3 border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)',
           }}
         >
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
             Client ID
           </label>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs font-mono truncate" style={{ color: 'var(--win95-text)' }}>
+            <code className="flex-1 text-xs font-mono truncate" style={{ color: 'var(--window-document-text)' }}>
               {app.clientId}
             </code>
             <button
@@ -232,11 +232,11 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
           <div
             className="p-3 border-2 rounded"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
             }}
           >
-            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
               Client Secret
             </label>
             <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -245,7 +245,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
             <button
               onClick={handleRegenerateSecret}
               disabled={isRegenerating}
-              className="beveled-button flex items-center gap-1 px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+              className="desktop-interior-button flex items-center gap-1 px-3 py-1.5 text-xs font-bold disabled:opacity-50"
               style={{
                 backgroundColor: '#f59e0b',
                 color: 'white',
@@ -265,7 +265,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
         {isEditing ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Name
               </label>
               <input
@@ -274,15 +274,15 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 text-sm border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-text)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Description
               </label>
               <textarea
@@ -291,22 +291,22 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                 rows={2}
                 className="w-full px-3 py-2 text-sm border-2 resize-none"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-text)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg)',
+                  color: 'var(--window-document-text)',
                 }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Icon
               </label>
               <FAIconPicker selectedIcon={icon} onSelect={setIcon} />
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Redirect URIs
               </label>
               <div className="space-y-2">
@@ -318,9 +318,9 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                       onChange={(e) => handleUriChange(index, e.target.value)}
                       className="flex-1 px-3 py-2 text-sm border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        background: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)',
+                        borderColor: 'var(--window-document-border)',
+                        background: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)',
                       }}
                     />
                     {redirectUris.length > 1 && (
@@ -337,7 +337,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                 <button
                   onClick={handleAddUri}
                   className="text-xs font-bold flex items-center gap-1"
-                  style={{ color: 'var(--win95-highlight)' }}
+                  style={{ color: 'var(--tone-accent)' }}
                 >
                   <Plus size={12} /> Add URI
                 </button>
@@ -345,7 +345,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                 Scopes
               </label>
               <ScopeSelector selectedScopes={selectedScopes} onChange={setSelectedScopes} />
@@ -362,10 +362,10 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                   setRedirectUris(app.redirectUris);
                   setSelectedScopes(app.scopes.split(" ").filter(Boolean));
                 }}
-                className="beveled-button px-4 py-2 text-xs font-bold"
+                className="desktop-interior-button px-4 py-2 text-xs font-bold"
                 style={{
-                  backgroundColor: 'var(--win95-button-face)',
-                  color: 'var(--win95-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  color: 'var(--window-document-text)',
                 }}
               >
                 Cancel
@@ -373,9 +373,9 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
               <button
                 onClick={handleSave}
                 disabled={isSaving || !name.trim()}
-                className="beveled-button px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                className="desktop-interior-button px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
                 style={{
-                  backgroundColor: 'var(--win95-highlight)',
+                  backgroundColor: 'var(--tone-accent)',
                 }}
               >
                 {isSaving ? "Saving..." : "Save Changes"}
@@ -388,13 +388,13 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
             <div
               className="p-3 border-2 rounded space-y-3"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
               }}
             >
               {app.description && (
                 <div>
-                  <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--window-document-text)' }}>
                     Description
                   </label>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -404,7 +404,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
               )}
 
               <div>
-                <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--window-document-text)' }}>
                   Type
                 </label>
                 <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -413,7 +413,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-0.5" style={{ color: 'var(--window-document-text)' }}>
                   Created
                 </label>
                 <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -422,7 +422,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   Redirect URIs
                 </label>
                 <div className="space-y-1">
@@ -430,7 +430,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                     <code
                       key={i}
                       className="block text-xs font-mono truncate px-2 py-1 rounded"
-                      style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}
+                      style={{ background: 'var(--window-document-bg)', color: 'var(--window-document-text)' }}
                     >
                       {uri}
                     </code>
@@ -439,7 +439,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   Scopes
                 </label>
                 <div className="flex flex-wrap gap-1">
@@ -448,8 +448,8 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
                       key={scope}
                       className="px-2 py-0.5 rounded text-xs"
                       style={{
-                        background: 'var(--win95-bg)',
-                        color: 'var(--win95-text)',
+                        background: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)',
                       }}
                     >
                       {formatScopeLabel(scope)}
@@ -462,10 +462,10 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
             {/* Edit Button */}
             <button
               onClick={() => setIsEditing(true)}
-              className="beveled-button w-full px-4 py-2 text-xs font-bold"
+              className="desktop-interior-button w-full px-4 py-2 text-xs font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               Edit Integration
@@ -490,7 +490,7 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="beveled-button flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+            className="desktop-interior-button flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
             style={{
               backgroundColor: '#ef4444',
             }}

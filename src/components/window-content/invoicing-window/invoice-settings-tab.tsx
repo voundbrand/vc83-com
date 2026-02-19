@@ -263,7 +263,7 @@ export function InvoiceSettingsTab() {
   if (translationsLoading) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <Loader2 className="animate-spin" size={24} style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 className="animate-spin" size={24} style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -272,7 +272,7 @@ export function InvoiceSettingsTab() {
     <div className="p-4 space-y-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
       {/* Header */}
       <div>
-        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Settings size={16} />
           Invoice Settings
         </h3>
@@ -285,18 +285,18 @@ export function InvoiceSettingsTab() {
       <div
         className="p-3 rounded border-2 flex items-start gap-3"
         style={{
-          borderColor: "var(--win95-highlight)",
+          borderColor: "var(--tone-accent)",
           background: "rgba(99, 91, 255, 0.05)",
         }}
       >
-        <Receipt size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+        <Receipt size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
         <div>
-          <h5 className="text-xs font-bold mb-1" style={{ color: "var(--win95-highlight)" }}>
+          <h5 className="text-xs font-bold mb-1" style={{ color: "var(--tone-accent)" }}>
             What Appears on Your Invoices
           </h5>
           <div className="grid grid-cols-2 gap-x-4 text-[11px]" style={{ color: "var(--neutral-gray)" }}>
             <div>
-              <p className="font-semibold" style={{ color: "var(--win95-text)" }}>Header:</p>
+              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>Header:</p>
               <ul className="space-y-0.5 ml-2">
                 <li>• Company logo</li>
                 <li>• Company name</li>
@@ -304,7 +304,7 @@ export function InvoiceSettingsTab() {
               </ul>
             </div>
             <div>
-              <p className="font-semibold" style={{ color: "var(--win95-text)" }}>Footer:</p>
+              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>Footer:</p>
               <ul className="space-y-0.5 ml-2">
                 <li>• Phone & email</li>
                 <li>• VAT/Tax ID</li>
@@ -338,18 +338,18 @@ export function InvoiceSettingsTab() {
       <div
         className="p-4 rounded border-2"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Building2 size={16} style={{ color: "var(--win95-highlight)" }} />
-            <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <Building2 size={16} style={{ color: "var(--tone-accent)" }} />
+            <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               Business Profile Preview
             </h4>
           </div>
-          <span className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--win95-highlight)", color: "white" }}>
+          <span className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--tone-accent)", color: "white" }}>
             Read-only
           </span>
         </div>
@@ -358,14 +358,14 @@ export function InvoiceSettingsTab() {
           {/* Logo - Read-only with button */}
           <div className="col-span-2">
             <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Image size={12} />
                 Company Logo
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "branding" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
-                style={{ background: "var(--win95-highlight)", color: "white" }}
+                style={{ background: "var(--tone-accent)", color: "white" }}
               >
                 Edit in Manage Org
               </button>
@@ -374,8 +374,8 @@ export function InvoiceSettingsTab() {
               <div
                 className="w-24 h-24 rounded border-2 flex items-center justify-center overflow-hidden"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg)",
                 }}
               >
                 {logoUrl ? (
@@ -400,11 +400,11 @@ export function InvoiceSettingsTab() {
 
           {/* Company Name */}
           <div>
-            <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               <Building2 size={12} />
               Company Name
             </label>
-            <p className="text-sm px-3 py-2 rounded border-2" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
+            <p className="text-sm px-3 py-2 rounded border-2" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
               {companyName || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
             </p>
           </div>
@@ -412,19 +412,19 @@ export function InvoiceSettingsTab() {
           {/* Legal Info - VAT & Tax ID with button */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <CreditCard size={12} />
                 VAT & Tax ID
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "legal_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
-                style={{ background: "var(--win95-highlight)", color: "white" }}
+                style={{ background: "var(--tone-accent)", color: "white" }}
               >
                 Edit in Manage Org
               </button>
             </div>
-            <p className="text-sm px-3 py-2 rounded border-2 font-mono" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
+            <p className="text-sm px-3 py-2 rounded border-2 font-mono" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
               {vatNumber || taxId ? (
                 <>
                   {vatNumber && <span>VAT: {vatNumber}</span>}
@@ -440,14 +440,14 @@ export function InvoiceSettingsTab() {
           {/* Contact Info with button */}
           <div className="col-span-2">
             <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Mail size={12} />
                 Contact Information
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "contact_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
-                style={{ background: "var(--win95-highlight)", color: "white" }}
+                style={{ background: "var(--tone-accent)", color: "white" }}
               >
                 Edit in Manage Org
               </button>
@@ -455,25 +455,25 @@ export function InvoiceSettingsTab() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Contact Email:</p>
-                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)" }}>
+                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
                   {email || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Billing Email:</p>
-                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)" }}>
+                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
                   {billingEmail || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Phone:</p>
-                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)" }}>
+                <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
                   {phone || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Website:</p>
-                <p className="text-xs px-2 py-1 rounded border truncate" style={{ background: "var(--win95-bg)", borderColor: "var(--win95-border)", color: "var(--win95-text)" }}>
+                <p className="text-xs px-2 py-1 rounded border truncate" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
                   {website || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
                 </p>
               </div>
@@ -486,14 +486,14 @@ export function InvoiceSettingsTab() {
       <div
         className="p-4 rounded border-2"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <MapPin size={16} style={{ color: "var(--win95-highlight)" }} />
-            <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <MapPin size={16} style={{ color: "var(--tone-accent)" }} />
+            <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               Business Address
             </h4>
           </div>
@@ -514,11 +514,11 @@ export function InvoiceSettingsTab() {
             <div
               className="p-3 rounded border-2"
               style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
+                background: "var(--window-document-bg)",
+                borderColor: "var(--window-document-border)",
               }}
             >
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {street}
                 {street2 && <><br />{street2}</>}
                 <br />
@@ -542,7 +542,7 @@ export function InvoiceSettingsTab() {
                   );
                 }}
                 className="font-bold hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 open Manage Organization → Addresses
               </button>{" "}
@@ -579,9 +579,9 @@ export function InvoiceSettingsTab() {
               }}
               className="px-4 py-2 text-xs font-bold rounded hover:opacity-90 transition-opacity"
               style={{
-                background: "var(--win95-highlight)",
-                color: "var(--win95-titlebar-text)",
-                border: "2px solid var(--win95-border)",
+                background: "var(--tone-accent)",
+                color: "var(--window-document-text)",
+                border: "2px solid var(--window-document-border)",
               }}
             >
               Set Tax Origin Address
@@ -594,14 +594,14 @@ export function InvoiceSettingsTab() {
       <div
         className="p-4 rounded border-2"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Hash size={16} style={{ color: "var(--win95-highlight)" }} />
-            <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <Hash size={16} style={{ color: "var(--tone-accent)" }} />
+            <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               Invoice Numbering
             </h4>
           </div>
@@ -611,13 +611,13 @@ export function InvoiceSettingsTab() {
         <div
           className="p-3 mb-4 rounded border-2 flex items-start gap-3"
           style={{
-            borderColor: "var(--win95-highlight)",
+            borderColor: "var(--tone-accent)",
             background: "rgba(99, 91, 255, 0.05)",
           }}
         >
-          <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+          <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
           <div>
-            <h5 className="text-xs font-bold mb-1" style={{ color: "var(--win95-highlight)" }}>
+            <h5 className="text-xs font-bold mb-1" style={{ color: "var(--tone-accent)" }}>
               Sequential Numbering (Stripe Compatible)
             </h5>
             <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -630,7 +630,7 @@ export function InvoiceSettingsTab() {
         <div className="grid grid-cols-2 gap-4">
           {/* Invoice Prefix */}
           <div>
-            <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               <FileText size={12} />
               Invoice Prefix
             </label>
@@ -641,9 +641,9 @@ export function InvoiceSettingsTab() {
               placeholder="INV"
               className="w-full px-3 py-2 text-sm font-mono rounded border-2"
               style={{
-                background: "var(--win95-bg)",
-                borderColor: "var(--win95-border)",
-                color: "var(--win95-text)",
+                background: "var(--window-document-bg)",
+                borderColor: "var(--window-document-border)",
+                color: "var(--window-document-text)",
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -654,7 +654,7 @@ export function InvoiceSettingsTab() {
           {/* Next Invoice Number */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+              <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Hash size={12} />
                 Next Invoice Number
               </label>
@@ -670,7 +670,7 @@ export function InvoiceSettingsTab() {
                 <button
                   onClick={() => setIsEditingInvoiceNumber(false)}
                   className="text-[10px] px-2 py-1 rounded hover:opacity-80"
-                  style={{ background: "var(--win95-border)", color: "var(--win95-text)" }}
+                  style={{ background: "var(--window-document-border)", color: "var(--window-document-text)" }}
                 >
                   Cancel Edit
                 </button>
@@ -700,16 +700,16 @@ export function InvoiceSettingsTab() {
               min="1"
               className="w-full px-3 py-2 text-sm rounded border-2"
               style={{
-                background: isEditingInvoiceNumber ? "var(--win95-bg)" : "var(--win95-bg-light)",
-                borderColor: isEditingInvoiceNumber ? "var(--warning)" : "var(--win95-border)",
-                color: isEditingInvoiceNumber ? "var(--win95-text)" : "var(--neutral-gray)",
+                background: isEditingInvoiceNumber ? "var(--window-document-bg)" : "var(--window-document-bg-elevated)",
+                borderColor: isEditingInvoiceNumber ? "var(--warning)" : "var(--window-document-border)",
+                color: isEditingInvoiceNumber ? "var(--window-document-text)" : "var(--neutral-gray)",
                 cursor: isEditingInvoiceNumber ? "text" : "not-allowed",
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
               Next invoice: <strong className="font-mono">{invoicePrefix}-{String(nextInvoiceNumber).padStart(4, '0')}</strong>
               {currentCounter && currentCounter.nextNumber > 1 && (
-                <span className="ml-2 text-[9px]" style={{ color: "var(--win95-highlight)" }}>
+                <span className="ml-2 text-[9px]" style={{ color: "var(--tone-accent)" }}>
                   (based on {currentCounter.nextNumber - 1} existing {currentCounter.nextNumber - 1 === 1 ? 'invoice' : 'invoices'})
                 </span>
               )}
@@ -722,19 +722,19 @@ export function InvoiceSettingsTab() {
       <div
         className="p-4 rounded border-2"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         <div className="flex items-center gap-2 mb-4">
-          <Calendar size={16} style={{ color: "var(--win95-highlight)" }} />
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <Calendar size={16} style={{ color: "var(--tone-accent)" }} />
+          <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             Payment Terms
           </h4>
         </div>
 
         <div>
-          <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             Default Payment Terms
           </label>
           <select
@@ -742,9 +742,9 @@ export function InvoiceSettingsTab() {
             onChange={(e) => setDefaultPaymentTerms(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded border-2"
             style={{
-              background: "var(--win95-bg)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              background: "var(--window-document-bg)",
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text)",
             }}
           >
             <option value="due_on_receipt">Due on Receipt</option>
@@ -764,13 +764,13 @@ export function InvoiceSettingsTab() {
       <div
         className="p-3 rounded border-2 flex items-start gap-3"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
         <Info size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
         <div>
-          <h5 className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+          <h5 className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
             Single Source of Truth
           </h5>
           <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
@@ -786,15 +786,15 @@ export function InvoiceSettingsTab() {
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end sticky bottom-0 pt-4 pb-2" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex justify-end sticky bottom-0 pt-4 pb-2" style={{ background: "var(--window-document-bg)" }}>
         <button
           onClick={handleSave}
           disabled={isSaving}
           className="flex items-center gap-2 px-6 py-2 text-sm font-bold rounded hover:opacity-90 transition-opacity"
           style={{
-            background: "var(--win95-highlight)",
-            color: "var(--win95-titlebar-text)",
-            border: "2px solid var(--win95-border)",
+            background: "var(--tone-accent)",
+            color: "var(--window-document-text)",
+            border: "2px solid var(--window-document-border)",
             opacity: isSaving ? 0.6 : 1,
           }}
         >

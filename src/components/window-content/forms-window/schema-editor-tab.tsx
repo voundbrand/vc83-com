@@ -159,7 +159,7 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
   if (!sessionId || !form) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--win95-highlight)" }} />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -167,11 +167,11 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+      <div className="border-b-2 p-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Code size={20} style={{ color: "var(--win95-highlight)" }} />
-            <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+            <Code size={20} style={{ color: "var(--tone-accent)" }} />
+            <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
               Schema Editor
             </h3>
             {isDirty && (
@@ -186,8 +186,8 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
               onClick={handleCopy}
               className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-1 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
                 color: "var(--success)",
               }}
               title="Copy schema to clipboard"
@@ -200,9 +200,9 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
               onClick={handleFormat}
               className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-1 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
               title="Format JSON (prettify)"
             >
@@ -214,9 +214,9 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
               onClick={handleValidate}
               className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-1 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
               title="Validate schema structure"
             >
@@ -229,9 +229,9 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
               disabled={!isDirty}
               className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-1 transition-colors hover:brightness-95 disabled:opacity-50"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
               title="Reset to saved schema"
             >
@@ -244,9 +244,9 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
               disabled={!isDirty || isSaving}
               className="px-4 py-1.5 text-xs font-bold border-2 flex items-center gap-1 transition-colors hover:brightness-95 disabled:opacity-50"
               style={{
-                borderColor: "var(--win95-border)",
-                background: isDirty && !isSaving ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: isDirty && !isSaving ? "white" : "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: isDirty && !isSaving ? "var(--tone-accent)" : "var(--window-document-bg-elevated)",
+                color: isDirty && !isSaving ? "white" : "var(--window-document-text)",
               }}
             >
               <Save size={14} />
@@ -285,9 +285,9 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
           onChange={(e) => setSchemaJson(e.target.value)}
           className="w-full h-full border-2 p-3 font-mono text-xs resize-none"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
             fontFamily: "'Courier New', monospace",
             lineHeight: "1.5",
           }}
@@ -296,13 +296,13 @@ export function SchemaEditorTab({ formId }: SchemaEditorTabProps) {
       </div>
 
       {/* Footer Help */}
-      <div className="border-t-2 p-3 text-xs" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)", color: "var(--neutral-gray)" }}>
+      <div className="border-t-2 p-3 text-xs" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)", color: "var(--neutral-gray)" }}>
         <p className="mb-2"><strong>Quick Tips:</strong></p>
         <ul className="space-y-1 ml-4">
-          <li>• Add <code className="px-1 py-0.5" style={{ background: "var(--win95-bg)" }}>text_block</code> fields for static text/introductions</li>
-          <li>• Use <code className="px-1 py-0.5" style={{ background: "var(--win95-bg)" }}>content</code> property for HTML content</li>
+          <li>• Add <code className="px-1 py-0.5" style={{ background: "var(--window-document-bg)" }}>text_block</code> fields for static text/introductions</li>
+          <li>• Use <code className="px-1 py-0.5" style={{ background: "var(--window-document-bg)" }}>content</code> property for HTML content</li>
           <li>• Click "Format" to prettify JSON | "Validate" to check structure | "Save" to apply changes</li>
-          <li>• Example: <code className="px-1 py-0.5" style={{ background: "var(--win95-bg)" }}>{`{"id": "intro", "type": "text_block", "label": "", "content": "<p>Welcome!</p>"}`}</code></li>
+          <li>• Example: <code className="px-1 py-0.5" style={{ background: "var(--window-document-bg)" }}>{`{"id": "intro", "type": "text_block", "label": "", "content": "<p>Welcome!</p>"}`}</code></li>
         </ul>
       </div>
     </div>

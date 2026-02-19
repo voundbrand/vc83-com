@@ -89,7 +89,7 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
         <Loader2
           size={32}
           className="animate-spin"
-          style={{ color: "var(--win95-highlight)" }}
+          style={{ color: "var(--shell-accent)" }}
         />
       </div>
     );
@@ -813,13 +813,13 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
         <div
           className="border-2 p-4"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
           }}
         >
           <h3
             className="text-sm font-bold mb-3"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--shell-text)" }}
           >
             <span className="inline-flex items-center gap-2">
               <Target className="w-4 h-4" />
@@ -844,9 +844,9 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
                   onClick={() => handleChangePlanTier(tier)}
                   className="p-3 border-2 text-center transition-all hover:opacity-80"
                   style={{
-                    borderColor: isActive ? "var(--win95-highlight)" : "var(--win95-border)",
-                    background: isActive ? "var(--win95-highlight)" : "var(--win95-bg)",
-                    color: isActive ? "white" : "var(--win95-text)",
+                    borderColor: isActive ? "var(--shell-accent)" : "var(--shell-border)",
+                    background: isActive ? "var(--shell-accent)" : "var(--shell-surface)",
+                    color: isActive ? "white" : "var(--shell-text)",
                     fontWeight: "bold",
                   }}
                 >
@@ -871,16 +871,16 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
       <div>
         <h3
           className="text-sm font-bold mb-3 flex items-center gap-2"
-          style={{ color: "var(--win95-text)" }}
+          style={{ color: "var(--shell-text)" }}
         >
           <BarChart3 className="w-4 h-4" />
           Resource Limits
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{
-              background: "var(--win95-bg-light)",
+              background: "var(--shell-surface-elevated)",
               color: "var(--neutral-gray)",
-              border: "1px solid var(--win95-border)",
+              border: "1px solid var(--shell-border)",
             }}
           >
             86 total limits
@@ -904,16 +904,16 @@ export function LicenseOverview({ organizationId, sessionId, editable = false }:
       <div>
         <h3
           className="text-sm font-bold mb-3 flex items-center gap-2"
-          style={{ color: "var(--win95-text)" }}
+          style={{ color: "var(--shell-text)" }}
         >
           <Zap className="w-4 h-4" />
           Feature Access
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{
-              background: "var(--win95-bg-light)",
+              background: "var(--shell-surface-elevated)",
               color: "var(--neutral-gray)",
-              border: "1px solid var(--win95-border)",
+              border: "1px solid var(--shell-border)",
             }}
           >
             48 total features

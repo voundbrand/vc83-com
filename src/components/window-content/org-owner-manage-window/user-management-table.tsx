@@ -1,47 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserPlus, ChevronUp, ChevronDown, User, Shield, Mail, Calendar, Edit2, Trash2 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { InviteUserModal } from "./invite-user-modal";
 import { UserEditModal } from "./user-edit-modal";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 interface UserManagementTableProps {
   organizationId: Id<"organizations">;
+  initialUserEntity?: string;
 }
 
 type SortField = "name" | "email" | "role" | "joinedAt";
 type SortDirection = "asc" | "desc";
 
-export function UserManagementTable({ organizationId }: UserManagementTableProps) {
+export function UserManagementTable({ organizationId, initialUserEntity }: UserManagementTableProps) {
   const { t } = useNamespaceTranslations("ui.manage");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
-    user: { id: Id<"users">; email: string; firstName?: string; lastName?: string };
+    user: { id: Id<"users">; email: string; firstName?: string; lastName?: string; avatarUrl?: string };
     currentRoleId: Id<"roles">;
     roleName: string;
     invitationPending: boolean;
   } | null>(null);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [hasAutoOpenedUserEdit, setHasAutoOpenedUserEdit] = useState(false);
 
   // Get session and permissions from auth context
   const { sessionId, user: currentUser } = useAuth();
   const { hasPermission } = usePermissions();
-  const removeUser = useMutation(api.organizationMutations.removeUserFromOrganization);
+  // Avoid deep generated type instantiation in this table path.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseMutation = useMutation as any;
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args?: unknown
+  ) => unknown;
+
+  const removeUser = unsafeUseMutation(apiAny.organizationMutations.removeUserFromOrganization);
 
   // Get organization with members
-  const organization = useQuery(api.organizations.getById,
+  const organization = unsafeUseQuery(apiAny.organizations.getById,
     organizationId && sessionId ? { organizationId, sessionId } : "skip"
-  );
+  ) as {
+    members?: Array<{
+      _id: string;
+      user?: { id: Id<"users">; email: string; firstName?: string; lastName?: string; avatarUrl?: string };
+      role: Id<"roles">;
+      roleName?: string;
+      joinedAt?: number;
+      isActive: boolean;
+      acceptedAt?: number;
+    }>;
+  } | undefined;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -83,6 +103,38 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
     return 0;
   });
 
+  useEffect(() => {
+    if (hasAutoOpenedUserEdit || !initialUserEntity || !organization?.members?.length) {
+      return;
+    }
+
+    const targetUserId = initialUserEntity === "self"
+      ? currentUser?.id
+      : initialUserEntity;
+
+    if (!targetUserId) {
+      return;
+    }
+
+    const targetMember = organization.members.find((member) => {
+      const memberUserId = member.user?.id ? String(member.user.id) : "";
+      return memberUserId === String(targetUserId);
+    });
+
+    if (!targetMember?.user) {
+      return;
+    }
+
+    setSelectedUser({
+      user: targetMember.user,
+      currentRoleId: targetMember.role,
+      roleName: targetMember.roleName || "",
+      invitationPending: !targetMember.acceptedAt && targetMember.isActive,
+    });
+    setShowEditModal(true);
+    setHasAutoOpenedUserEdit(true);
+  }, [hasAutoOpenedUserEdit, initialUserEntity, organization?.members, currentUser?.id]);
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return <ChevronUp size={12} style={{ opacity: 0.3 }} />;
@@ -97,7 +149,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
         <div className="flex justify-between items-center">
           <h3
             className="text-lg font-semibold flex items-center gap-2"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             <User size={20} />
             {t("ui.manage.users.team_members")} ({sortedMembers?.length || 0})
@@ -107,11 +159,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
             <PermissionButton
               permission="manage_users"
               onClick={() => setShowInviteModal(true)}
-              className="beveled-button flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
-              style={{
-                backgroundColor: "var(--primary)",
-                color: "white",
-              }}
+              className="desktop-interior-button desktop-interior-button-primary flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
             >
               <UserPlus size={16} />
               {t("ui.manage.users.invite_user")}
@@ -121,16 +169,15 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
 
         {/* Table */}
         <div
-          className="overflow-auto"
+          className="overflow-auto rounded-lg border"
           style={{
-            border: "2px inset",
-            borderColor: "var(--table-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            borderColor: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg)",
           }}
         >
           <table className="w-full">
             <thead>
-              <tr style={{ backgroundColor: "var(--table-header-bg)" }}>
+              <tr style={{ backgroundColor: "var(--desktop-shell-accent)" }}>
                 <th
                   className="px-3 py-2 text-left text-sm font-semibold cursor-pointer hover:opacity-80"
                   style={{ color: "var(--table-header-text)" }}
@@ -195,12 +242,12 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   key={member._id}
                   className="hover:opacity-90 transition-opacity"
                   style={{
-                    backgroundColor: index % 2 === 0 ? "var(--table-row-even-bg)" : "var(--table-row-odd-bg)",
+                    backgroundColor: index % 2 === 0 ? "var(--window-document-bg)" : "var(--window-document-bg-elevated)",
                   }}
                 >
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     {member.user?.firstName || member.user?.lastName
                       ? `${member.user.firstName || ""} ${member.user.lastName || ""}`.trim()
@@ -208,7 +255,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   </td>
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text)" }}
+                    style={{ color: "var(--window-document-text)" }}
                   >
                     {member.user?.email || "—"}
                   </td>
@@ -217,7 +264,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   </td>
                   <td
                     className="px-3 py-2 text-sm"
-                    style={{ color: "var(--win95-text-secondary)" }}
+                    style={{ color: "var(--window-document-text-muted)" }}
                   >
                     {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"}
                   </td>
@@ -240,13 +287,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                             });
                             setShowEditModal(true);
                           }}
-                          className="p-1 hover:opacity-80"
-                          style={{
-                            backgroundColor: "var(--primary)",
-                            color: "white",
-                            border: "1px solid",
-                            borderColor: "var(--primary)",
-                          }}
+                          className="desktop-interior-button desktop-interior-button-primary p-1"
                           title={t("ui.manage.users.edit_user")}
                         >
                           <Edit2 size={14} />
@@ -270,13 +311,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                               }
                             }
                           }}
-                          className="p-1 hover:opacity-80"
-                          style={{
-                            backgroundColor: "var(--error)",
-                            color: "white",
-                            border: "1px solid",
-                            borderColor: "var(--error)",
-                          }}
+                          className="desktop-interior-button desktop-interior-button-danger p-1"
                           title={t("ui.manage.users.remove_user")}
                         >
                           <Trash2 size={14} />
@@ -292,7 +327,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                   <td
                     colSpan={6}
                     className="px-3 py-8 text-center text-sm"
-                    style={{ color: "var(--win95-text-secondary)" }}
+                    style={{ color: "var(--window-document-text-muted)" }}
                   >
                     {t("ui.manage.users.no_members")}
                   </td>
@@ -323,6 +358,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
             email: selectedUser.user.email,
             firstName: selectedUser.user.firstName,
             lastName: selectedUser.user.lastName,
+            avatarUrl: selectedUser.user.avatarUrl,
           }}
           organizationId={organizationId}
           currentRoleId={selectedUser.currentRoleId}

@@ -142,8 +142,8 @@ export function WorkflowCanvas({
         target: `behavior-${sortedBehaviors[0].id}`,
         type: "customEdgeWithAdd",
         animated: true,
-        style: { stroke: "var(--win95-highlight)", strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "var(--win95-highlight)" },
+        style: { stroke: "var(--tone-accent)", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "var(--tone-accent)" },
         data: {
           onAddBehavior: handleEdgeAddBehavior,
         },
@@ -159,8 +159,8 @@ export function WorkflowCanvas({
           target: `behavior-${sortedBehaviors[index + 1].id}`,
           type: "customEdgeWithAdd",
           animated: true,
-          style: { stroke: "var(--win95-highlight)", strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--win95-highlight)" },
+          style: { stroke: "var(--tone-accent)", strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--tone-accent)" },
           data: {
             onAddBehavior: handleEdgeAddBehavior,
           },
@@ -307,11 +307,11 @@ export function WorkflowCanvas({
       </ReactFlow>
 
       {/* Legend - bottom right to not block zoom controls */}
-      <div className="absolute bottom-4 right-4 rounded border-2 p-2 shadow-lg" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <div className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>Behavior Pipeline</div>
+      <div className="absolute bottom-4 right-4 rounded border-2 p-2 shadow-lg" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <div className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>Behavior Pipeline</div>
         <div className="space-y-1 text-[10px]">
           <div className="flex items-center gap-2">
-            <div className="h-0.5 w-4" style={{ background: 'var(--win95-highlight)' }} />
+            <div className="h-0.5 w-4" style={{ background: 'var(--tone-accent)' }} />
             <span style={{ color: 'var(--neutral-gray)' }}>Execution flow (by priority)</span>
           </div>
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
@@ -325,7 +325,7 @@ export function WorkflowCanvas({
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="max-w-md text-center pointer-events-auto">
             <Zap className="mx-auto h-16 w-16" style={{ color: 'var(--neutral-gray)', opacity: 0.3 }} />
-            <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="mt-4 text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
               Add Your First Behavior
             </h3>
             <p className="mt-2 text-xs" style={{ color: 'var(--neutral-gray)' }}>

@@ -21,6 +21,11 @@ export interface AgentCustomProps {
   modelId?: string;
   temperature?: number;
   maxTokens?: number;
+  escalationPolicy?: {
+    triggers?: Record<string, { enabled?: boolean } | undefined>;
+    holdMessage?: string;
+    resumeMessage?: string;
+  };
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
   totalMessages?: number;
   totalCostUsd?: number;
@@ -59,4 +64,11 @@ export const MODELS = [
   { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5" },
 ] as const;
 
-export type AgentTab = "soul" | "tools" | "sessions" | "approvals" | "escalations" | "analytics";
+export type AgentTab =
+  | "trust"
+  | "soul"
+  | "tools"
+  | "sessions"
+  | "approvals"
+  | "escalations"
+  | "analytics";

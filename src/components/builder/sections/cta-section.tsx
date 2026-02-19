@@ -24,7 +24,7 @@ export function CTASection({
   description,
   titleClassName = "text-3xl sm:text-4xl font-bold text-white",
   descriptionClassName = "text-indigo-100 mt-4 max-w-xl mx-auto text-lg",
-  backgroundClassName = "bg-gradient-to-r from-indigo-600 to-purple-600 py-16 sm:py-20",
+  backgroundClassName = "bg-gradient-to-r from-indigo-600 to-amber-600 py-16 sm:py-20",
   alignment = "center",
   primaryCta,
   secondaryCta,

@@ -113,41 +113,41 @@ export default function MediaLibraryDropbox({
   }
 
   return (
-    <div className="h-full flex" style={{ background: "var(--win95-bg)" }}>
+    <div className="h-full flex" style={{ background: "var(--shell-surface)" }}>
       {/* Left Sidebar */}
       <div
         className="w-56 flex-shrink-0 border-r-2 flex flex-col"
-        style={{ borderColor: "var(--win95-border)" }}
+        style={{ borderColor: "var(--shell-border)" }}
       >
         {/* Full Screen Navigation */}
         {fullScreen && (
-          <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{ borderColor: "var(--shell-border)" }}>
             <Link
               href="/"
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title="Back to Desktop"
             >
               <ArrowLeft size={14} />
             </Link>
-            <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Media Library</span>
+            <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>Media Library</span>
           </div>
         )}
         {/* Open full screen link (window mode only) */}
         {!fullScreen && (
-          <div className="px-3 py-2 border-b-2 flex items-center justify-between" style={{ borderColor: "var(--win95-border)" }}>
-            <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Media Library</span>
+          <div className="px-3 py-2 border-b-2 flex items-center justify-between" style={{ borderColor: "var(--shell-border)" }}>
+            <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>Media Library</span>
             <Link
               href="/media"
               className="px-2 py-1 text-xs font-bold flex items-center gap-1 border-2 transition-colors"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
               }}
               title="Open Full Screen"
             >
@@ -253,7 +253,7 @@ export default function MediaLibraryDropbox({
               <div
                 onMouseDown={handleResizeStart}
                 className="w-1.5 flex-shrink-0 cursor-col-resize group relative"
-                style={{ background: "var(--win95-border)" }}
+                style={{ background: "var(--shell-border)" }}
               >
                 <div
                   className="absolute inset-y-0 -left-1 -right-1 z-10"

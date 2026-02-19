@@ -313,14 +313,14 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           <>
             <button
               onClick={handleConfirm}
-              className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
               style={{ background: 'var(--win95-success-bg)', color: 'white' }}
             >
               <CheckCircle size={14} /> Confirm
             </button>
             <button
               onClick={() => setShowCancelDialog(true)}
-              className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
               style={{ background: 'var(--win95-error-bg)', color: 'white' }}
             >
               <XCircle size={14} /> Decline
@@ -332,21 +332,21 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           <>
             <button
               onClick={handleCheckIn}
-              className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
               style={{ background: 'var(--win95-success-bg)', color: 'white' }}
             >
               <User size={14} /> Check In
             </button>
             <button
               onClick={handleNoShow}
-              className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
               style={{ background: 'var(--win95-warning-bg)', color: 'white' }}
             >
               <AlertCircle size={14} /> No Show
             </button>
             <button
               onClick={() => setShowCancelDialog(true)}
-              className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
               style={{ background: 'var(--win95-error-bg)', color: 'white' }}
             >
               <XCircle size={14} /> Cancel
@@ -357,7 +357,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
         {booking.status === "checked_in" && (
           <button
             onClick={handleComplete}
-            className="retro-button px-3 py-1.5 flex items-center gap-1 text-xs"
+            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
             style={{ background: 'var(--win95-success-bg)', color: 'white' }}
           >
             <CheckCircle size={14} /> Complete
@@ -395,7 +395,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
             <div className="flex gap-2 mt-3">
               <button
                 onClick={handleCancel}
-                className="retro-button px-4 py-2 text-xs flex-1"
+                className="desktop-interior-button px-4 py-2 text-xs flex-1"
                 style={{ background: 'var(--win95-error-bg)', color: 'white' }}
               >
                 Cancel Booking
@@ -405,7 +405,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
                   setShowCancelDialog(false)
                   setCancellationReason("")
                 }}
-                className="retro-button px-4 py-2 text-xs"
+                className="desktop-interior-button px-4 py-2 text-xs"
                 style={{ background: 'var(--win95-button-face)' }}
               >
                 Keep Booking

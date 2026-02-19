@@ -139,7 +139,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
   if (checkoutInstances === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--shell-accent)' }} />
       </div>
     );
   }
@@ -149,7 +149,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
             <ShoppingCart size={16} />
             {translationsLoading ? "Your Checkouts" : t("ui.checkout_window.list.title")}
           </h3>
@@ -164,9 +164,9 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
           onClick={onCreateNew}
           className="px-3 py-2 text-xs font-bold border-2 transition-colors flex items-center gap-1"
           style={{
-            borderColor: 'var(--win95-highlight)',
-            background: 'var(--win95-highlight)',
-            color: 'var(--win95-titlebar-text)'
+            borderColor: 'var(--shell-accent)',
+            background: 'var(--shell-accent)',
+            color: 'var(--shell-titlebar-text)'
           }}
         >
           <Plus size={14} />
@@ -176,11 +176,11 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
 
       {/* Empty State */}
       {checkoutInstances.length === 0 ? (
-        <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+        <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface)' }}>
           <div className="mb-4" style={{ color: 'var(--neutral-gray)' }}>
             <ShoppingCart size={64} className="mx-auto" />
           </div>
-          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
             {translationsLoading ? "No Checkouts Yet" : t("ui.checkout_window.list.empty.title")}
           </h4>
           <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
@@ -190,9 +190,9 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
             onClick={onCreateNew}
             className="px-4 py-2 text-xs font-bold border-2 transition-colors inline-flex items-center gap-2"
             style={{
-              borderColor: 'var(--win95-highlight)',
-              background: 'var(--win95-highlight)',
-              color: 'var(--win95-titlebar-text)'
+              borderColor: 'var(--shell-accent)',
+              background: 'var(--shell-accent)',
+              color: 'var(--shell-titlebar-text)'
             }}
           >
             <Plus size={14} />
@@ -201,26 +201,26 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
         </div>
       ) : (
         /* Checkouts Table */
-        <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+        <div className="border-2" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface-elevated)' }}>
           <table className="w-full">
             <thead>
-              <tr className="border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              <tr className="border-b-2" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Name" : t("ui.checkout_window.list.table.name")}
                 </th>
-                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Template" : t("ui.checkout_window.list.table.template")}
                 </th>
-                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Status" : t("ui.checkout_window.list.table.status")}
                 </th>
-                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Products" : t("ui.checkout_window.list.table.products")}
                 </th>
-                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <th className="text-left p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Updated" : t("ui.checkout_window.list.table.updated")}
                 </th>
-                <th className="text-right p-3 text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <th className="text-right p-3 text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
                   {translationsLoading ? "Actions" : t("ui.checkout_window.list.table.actions")}
                 </th>
               </tr>
@@ -235,13 +235,13 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                   <tr
                     key={instance._id}
                     className="border-b transition-colors"
-                    style={{ borderColor: 'var(--win95-border)' }}
+                    style={{ borderColor: 'var(--shell-border)' }}
                   >
                     {/* Name */}
                     <td className="p-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <div className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>{instance.name}</div>
+                          <div className="text-sm font-bold" style={{ color: 'var(--shell-text)' }}>{instance.name}</div>
                           <button
                             onClick={() => handleCopyId(instance._id)}
                             className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono border transition-colors hover:bg-opacity-20"
@@ -291,7 +291,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                               : status === "draft"
                               ? "var(--warning)"
                               : "var(--neutral-gray)",
-                          color: "var(--win95-titlebar-text)",
+                          color: "var(--shell-titlebar-text)",
                         }}
                       >
                         {translationsLoading
@@ -329,7 +329,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         <button
                           onClick={() => handleTogglePublish(instance._id, status)}
                           className="p-1.5 transition-colors rounded"
-                          style={{ background: 'var(--win95-button-face)' }}
+                          style={{ background: 'var(--shell-button-surface)' }}
                           title={translationsLoading
                             ? (status === "published" ? "Unpublish" : "Publish")
                             : (status === "published" ? t("ui.checkout_window.list.actions.unpublish") : t("ui.checkout_window.list.actions.publish"))
@@ -346,7 +346,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                           <button
                             onClick={() => window.open(getPreviewUrl(config.publicSlug as string), "_blank")}
                             className="p-1.5 transition-colors rounded"
-                            style={{ background: 'var(--win95-button-face)' }}
+                            style={{ background: 'var(--shell-button-surface)' }}
                             title={translationsLoading ? "View live checkout" : t("ui.checkout_window.list.actions.preview")}
                           >
                             <ExternalLink size={14} style={{ color: 'var(--info)' }} />
@@ -358,7 +358,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                           <button
                             onClick={() => onEdit(instance._id)}
                             className="p-1.5 transition-colors rounded"
-                            style={{ background: 'var(--win95-button-face)' }}
+                            style={{ background: 'var(--shell-button-surface)' }}
                             title={translationsLoading ? "Preview in editor" : t("ui.checkout_window.list.actions.preview_editor")}
                           >
                             <Eye size={14} style={{ color: 'var(--neutral-gray)' }} />
@@ -369,7 +369,7 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
                         <button
                           onClick={() => onEdit(instance._id)}
                           className="p-1.5 transition-colors rounded"
-                          style={{ background: 'var(--win95-button-face)' }}
+                          style={{ background: 'var(--shell-button-surface)' }}
                           title={translationsLoading ? "Edit configuration" : t("ui.checkout_window.list.actions.edit")}
                         >
                           <Edit size={14} style={{ color: 'var(--neutral-gray)' }} />
@@ -402,11 +402,11 @@ export function CheckoutsListTab({ onCreateNew, onEdit }: CheckoutsListTabProps)
       {/* Help Section */}
       {checkoutInstances.length > 0 && (
         <div className="mt-4 p-4 border-2" style={{ borderColor: 'var(--info-border)', background: 'rgba(147, 51, 234, 0.1)' }}>
-          <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
             <AlertCircle size={16} />
             {translationsLoading ? "Quick Actions" : t("ui.checkout_window.list.help.title")}
           </h4>
-          <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
+          <ul className="text-xs space-y-1" style={{ color: 'var(--shell-text)' }}>
             <li>• <CheckCircle size={12} className="inline" style={{ color: 'var(--success)' }} /> <strong>{translationsLoading ? "Publish/Unpublish - Toggle checkout availability" : t("ui.checkout_window.list.help.publish")}</strong></li>
             <li>• <ExternalLink size={12} className="inline" style={{ color: 'var(--info)' }} /> <strong>{translationsLoading ? "Preview - View published checkout in new tab" : t("ui.checkout_window.list.help.preview")}</strong></li>
             <li>• <Edit size={12} className="inline" style={{ color: 'var(--neutral-gray)' }} /> <strong>{translationsLoading ? "Edit - Modify checkout configuration" : t("ui.checkout_window.list.help.edit")}</strong></li>

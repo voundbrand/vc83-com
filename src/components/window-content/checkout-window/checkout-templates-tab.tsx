@@ -60,7 +60,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
   if (availableTemplates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--shell-accent)' }} />
       </div>
     );
   }
@@ -83,13 +83,13 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
   const getComplexityColor = (complexity: string) => {
     switch (complexity) {
       case "beginner":
-        return { bg: "var(--success)", text: "var(--win95-titlebar-text)" };
+        return { bg: "var(--success)", text: "var(--shell-titlebar-text)" };
       case "intermediate":
-        return { bg: "#F59E0B", text: "var(--win95-titlebar-text)" };
+        return { bg: "#F59E0B", text: "var(--shell-titlebar-text)" };
       case "advanced":
-        return { bg: "var(--error)", text: "var(--win95-titlebar-text)" };
+        return { bg: "var(--error)", text: "var(--shell-titlebar-text)" };
       default:
-        return { bg: "var(--neutral-gray)", text: "var(--win95-titlebar-text)" };
+        return { bg: "var(--neutral-gray)", text: "var(--shell-titlebar-text)" };
     }
   };
 
@@ -99,7 +99,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
     <div className="p-4">
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
           <FileText size={16} />
           {translationsLoading ? "Available Checkout Templates" : t("ui.checkout_window.templates.title")}
         </h3>
@@ -113,11 +113,11 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
 
       {/* Empty State */}
       {availableTemplates.length === 0 ? (
-        <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
-          <div className="mb-4" style={{ color: 'var(--win95-border)' }}>
+        <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface)' }}>
+          <div className="mb-4" style={{ color: 'var(--shell-border)' }}>
             <FileText size={64} className="mx-auto" />
           </div>
-          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
             {translationsLoading ? "No Templates Available" : t("ui.checkout_window.templates.empty.title")}
           </h4>
           <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
@@ -160,8 +160,8 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 key={template._id}
                 className="border-2 p-4 hover:shadow-lg transition-all"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-surface-elevated)',
                   opacity: comingSoon ? 0.7 : 1
                 }}
               >
@@ -170,7 +170,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                   <div className="text-3xl">{icon}</div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-bold text-sm leading-tight" style={{ color: 'var(--win95-text)' }}>
+                      <h4 className="font-bold text-sm leading-tight" style={{ color: 'var(--shell-text)' }}>
                         {template.name}
                       </h4>
                       <span
@@ -245,7 +245,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 {/* Features (collapsible) */}
                 {features.length > 0 && (
                   <details className="mb-3">
-                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--win95-text)' }}>
+                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--shell-text)' }}>
                       <FileText size={12} />
                       {translationsLoading ? `Features (${features.length})` : t("ui.checkout_window.templates.sections.features", { count: features.length })}
                     </summary>
@@ -256,7 +256,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                         </li>
                       ))}
                       {features.length > 5 && (
-                        <li className="italic" style={{ color: 'var(--win95-border)' }}>
+                        <li className="italic" style={{ color: 'var(--shell-border)' }}>
                           +{features.length - 5} more...
                         </li>
                       )}
@@ -267,7 +267,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 {/* Use Cases (collapsible) */}
                 {useCases.length > 0 && (
                   <details className="mb-3">
-                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--win95-text)' }}>
+                    <summary className="text-xs font-bold cursor-pointer hover:opacity-80 inline-flex items-center gap-1" style={{ color: 'var(--shell-text)' }}>
                       <Lightbulb size={12} />
                       {translationsLoading ? `Use Cases (${useCases.length})` : t("ui.checkout_window.templates.sections.use_cases", { count: useCases.length })}
                     </summary>
@@ -278,7 +278,7 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                         </li>
                       ))}
                       {useCases.length > 4 && (
-                        <li className="italic" style={{ color: 'var(--win95-border)' }}>
+                        <li className="italic" style={{ color: 'var(--shell-border)' }}>
                           +{useCases.length - 4} more...
                         </li>
                       )}
@@ -287,13 +287,13 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+                <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: 'var(--shell-border)' }}>
                   {comingSoon ? (
                     <button
                       className="flex-1 px-3 py-2 text-xs font-bold border-2 cursor-not-allowed"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        background: 'var(--win95-bg)',
+                        borderColor: 'var(--shell-border)',
+                        background: 'var(--shell-surface)',
                         color: 'var(--neutral-gray)'
                       }}
                       disabled
@@ -305,9 +305,9 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                       <button
                         className="flex-1 px-3 py-2 text-xs font-bold border-2 hover:opacity-90 transition-opacity flex items-center justify-center gap-1"
                         style={{
-                          borderColor: 'var(--win95-highlight)',
-                          background: 'var(--win95-highlight)',
-                          color: 'var(--win95-titlebar-text)'
+                          borderColor: 'var(--shell-accent)',
+                          background: 'var(--shell-accent)',
+                          color: 'var(--shell-titlebar-text)'
                         }}
                         onClick={() => {
                           // For now, direct users to Web Publishing
@@ -323,9 +323,9 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
                       <button
                         className="px-3 py-2 text-xs font-bold border-2 hover:opacity-90 transition-opacity flex items-center gap-1"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-bg-light)',
-                          color: 'var(--win95-text)'
+                          borderColor: 'var(--shell-border)',
+                          background: 'var(--shell-surface-elevated)',
+                          color: 'var(--shell-text)'
                         }}
                         onClick={() => {
                           // TODO: Show template documentation/preview
@@ -349,11 +349,11 @@ export function CheckoutTemplatesTab({}: CheckoutTemplatesTabProps) {
 
       {/* Help Section */}
       <div className="mt-6 p-4 border-2" style={{ borderColor: 'var(--info-border)', background: 'rgba(59, 130, 246, 0.1)' }}>
-        <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
           <AlertCircle size={16} />
           {translationsLoading ? "How to Use Checkout Templates" : t("ui.checkout_window.templates.help.title")}
         </h4>
-        <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
+        <ul className="text-xs space-y-1" style={{ color: 'var(--shell-text)' }}>
           <li>{translationsLoading ? "1. Choose a template that fits your use case" : `1. ${t("ui.checkout_window.templates.help.step1")}`}</li>
           <li>{translationsLoading ? "2. Create products/tickets in the Products window" : `2. ${t("ui.checkout_window.templates.help.step2")}`}</li>
           <li>{translationsLoading ? "3. Use Web Publishing to create a page and link products" : `3. ${t("ui.checkout_window.templates.help.step3")}`}</li>

@@ -58,11 +58,11 @@ export function ManualGrantsHistory({
       <div
         className="border-2 p-4 flex items-center justify-center"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -77,11 +77,11 @@ export function ManualGrantsHistory({
     <div
       className="border-2 p-4"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg-elevated)",
       }}
     >
-      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+      <h4 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
         <History size={14} />
         Manual Grants History
       </h4>
@@ -103,17 +103,17 @@ export function ManualGrantsHistory({
       <div
         className="mb-4 p-3 border-2 grid grid-cols-3 gap-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
         }}
       >
         <div>
           <div className="text-xs font-bold" style={{ color: "var(--neutral-gray)" }}>Total Grants</div>
-          <div className="text-lg font-bold" style={{ color: "var(--win95-text)" }}>{grants.length}</div>
+          <div className="text-lg font-bold" style={{ color: "var(--window-document-text)" }}>{grants.length}</div>
         </div>
         <div>
           <div className="text-xs font-bold" style={{ color: "var(--neutral-gray)" }}>Retail Value</div>
-          <div className="text-lg font-bold" style={{ color: "var(--win95-text)" }}>
+          <div className="text-lg font-bold" style={{ color: "var(--window-document-text)" }}>
             €{(totalRetailValue / 100).toFixed(2)}
           </div>
         </div>
@@ -127,8 +127,8 @@ export function ManualGrantsHistory({
       <div
         className="max-h-96 overflow-y-auto border-2 mb-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
         }}
       >
         {grants.length === 0 ? (
@@ -140,17 +140,17 @@ export function ManualGrantsHistory({
             <thead
               className="sticky top-0"
               style={{
-                background: "var(--win95-bg-light)",
-                borderBottom: "2px solid var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                borderBottom: "2px solid var(--window-document-border)",
               }}
             >
               <tr>
-                <th className="p-2 text-left font-bold" style={{ color: "var(--win95-text)" }}></th>
-                <th className="p-2 text-left font-bold" style={{ color: "var(--win95-text)" }}>Date</th>
-                <th className="p-2 text-left font-bold" style={{ color: "var(--win95-text)" }}>Type</th>
-                <th className="p-2 text-left font-bold" style={{ color: "var(--win95-text)" }}>Details</th>
-                <th className="p-2 text-right font-bold" style={{ color: "var(--win95-text)" }}>Value</th>
-                <th className="p-2 text-left font-bold" style={{ color: "var(--win95-text)" }}>Status</th>
+                <th className="p-2 text-left font-bold" style={{ color: "var(--window-document-text)" }}></th>
+                <th className="p-2 text-left font-bold" style={{ color: "var(--window-document-text)" }}>Date</th>
+                <th className="p-2 text-left font-bold" style={{ color: "var(--window-document-text)" }}>Type</th>
+                <th className="p-2 text-left font-bold" style={{ color: "var(--window-document-text)" }}>Details</th>
+                <th className="p-2 text-right font-bold" style={{ color: "var(--window-document-text)" }}>Value</th>
+                <th className="p-2 text-left font-bold" style={{ color: "var(--window-document-text)" }}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -161,7 +161,7 @@ export function ManualGrantsHistory({
                   <tr
                     key={grant._id}
                     style={{
-                      borderTop: "1px solid var(--win95-border)",
+                      borderTop: "1px solid var(--window-document-border)",
                     }}
                   >
                     <td className="p-2">
@@ -182,17 +182,17 @@ export function ManualGrantsHistory({
                         />
                       )}
                     </td>
-                    <td className="p-2" style={{ color: "var(--win95-text)" }}>
+                    <td className="p-2" style={{ color: "var(--window-document-text)" }}>
                       {new Date(grant.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="p-2 font-bold" style={{ color: "var(--win95-text)" }}>
+                    <td className="p-2 font-bold" style={{ color: "var(--window-document-text)" }}>
                       {props?.grantType === "subscription" ? "Subscription" : "Token Pack"}
                     </td>
-                    <td className="p-2" style={{ color: "var(--win95-text)" }}>
+                    <td className="p-2" style={{ color: "var(--window-document-text)" }}>
                       {props?.tier && `Tier: ${props.tier}`}
                       {props?.tokensAmount && `${(props.tokensAmount / 1_000_000).toFixed(1)}M tokens`}
                     </td>
-                    <td className="p-2 text-right font-mono" style={{ color: "var(--win95-text)" }}>
+                    <td className="p-2 text-right font-mono" style={{ color: "var(--window-document-text)" }}>
                       €{((props?.retailValueInCents || 0) / 100).toFixed(2)}
                     </td>
                     <td className="p-2">
@@ -236,7 +236,7 @@ export function ManualGrantsHistory({
             background: "rgba(251, 191, 36, 0.1)",
           }}
         >
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Mark {selectedGrants.size} grant{selectedGrants.size > 1 ? "s" : ""} as invoiced:
           </label>
           <div className="flex gap-2">
@@ -247,9 +247,9 @@ export function ManualGrantsHistory({
               placeholder="Invoice ID (e.g., INV-2025-001)"
               className="flex-1 px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             />
             <button
@@ -257,7 +257,7 @@ export function ManualGrantsHistory({
               disabled={isMarking || !invoiceId.trim()}
               className="beveled-button px-4 py-2 text-sm font-bold flex items-center gap-2"
               style={{
-                background: isMarking || !invoiceId.trim() ? "var(--win95-bg-light)" : "var(--success)",
+                background: isMarking || !invoiceId.trim() ? "var(--window-document-bg-elevated)" : "var(--success)",
                 color: isMarking || !invoiceId.trim() ? "var(--neutral-gray)" : "white",
                 cursor: isMarking || !invoiceId.trim() ? "not-allowed" : "pointer",
               }}

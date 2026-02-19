@@ -68,18 +68,18 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
   return (
     <div
       className="h-full flex flex-col border-l-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+      style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface)" }}
     >
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 border-b-2 flex-shrink-0"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span style={{ color: "var(--win95-highlight)" }}>{getFileIcon()}</span>
+          <span style={{ color: "var(--shell-accent)" }}>{getFileIcon()}</span>
           <span
             className="text-xs font-bold truncate"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--shell-text)" }}
             title={item.filename}
           >
             {item.filename}
@@ -123,7 +123,7 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
         {/* Image Preview */}
         {isImage && item.url && (
           <div className="p-4">
-            <div className="relative w-full aspect-auto rounded overflow-hidden border-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="relative w-full aspect-auto rounded overflow-hidden border-2" style={{ borderColor: "var(--shell-border)" }}>
               <Image
                 src={item.url}
                 alt={item.filename}
@@ -143,7 +143,7 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
               src={item.url}
               controls
               className="w-full rounded border-2"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--shell-border)" }}
             >
               Your browser does not support video playback.
             </video>
@@ -155,7 +155,7 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
           <div className="p-4">
             <div
               className="flex flex-col items-center gap-4 p-8 rounded border-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               <Music size={48} style={{ color: "var(--neutral-gray)" }} />
               <audio src={item.url} controls className="w-full">
@@ -171,7 +171,7 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
             <iframe
               src={item.url}
               className="w-full h-full min-h-[400px] rounded border-2"
-              style={{ borderColor: "var(--win95-border)" }}
+              style={{ borderColor: "var(--shell-border)" }}
               title={item.filename}
             />
           </div>
@@ -183,9 +183,9 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
             <div
               className="prose prose-sm max-w-none p-4 rounded border-2 text-xs leading-relaxed"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
+                color: "var(--shell-text)",
               }}
             >
               <MarkdownPreview content={item.documentContent} />
@@ -198,10 +198,10 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
           <div className="p-4">
             <div
               className="flex flex-col items-center gap-4 p-12 rounded border-2 text-center"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               <File size={64} style={{ color: "var(--neutral-gray)" }} />
-              <p className="text-sm font-medium" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm font-medium" style={{ color: "var(--shell-text)" }}>
                 Preview not available
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -214,8 +214,8 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 text-xs font-bold border-2 rounded transition-colors"
                   style={{
-                    background: "var(--win95-highlight)",
-                    borderColor: "var(--win95-border)",
+                    background: "var(--shell-accent)",
+                    borderColor: "var(--shell-border)",
                     color: "white",
                   }}
                 >
@@ -231,7 +231,7 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
       {/* File Details Footer */}
       <div
         className="flex-shrink-0 px-4 py-3 border-t-2 space-y-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         <DetailRow label="Size" value={formatBytes(item.sizeBytes)} />
         <DetailRow label="Created" value={new Date(item.createdAt).toLocaleString()} />
@@ -244,9 +244,9 @@ export function FilePreviewPanel({ item, sessionId, onClose }: FilePreviewPanelP
                 key={tag}
                 className="px-2 py-0.5 text-xs rounded border"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-highlight-bg)",
-                  color: "var(--win95-highlight)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-accent-soft)",
+                  color: "var(--shell-accent)",
                 }}
               >
                 {tag}
@@ -265,7 +265,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="font-bold flex-shrink-0 w-16" style={{ color: "var(--neutral-gray)" }}>
         {label}:
       </span>
-      <span className="break-all" style={{ color: "var(--win95-text)" }}>
+      <span className="break-all" style={{ color: "var(--shell-text)" }}>
         {value}
       </span>
     </div>
@@ -314,13 +314,13 @@ function simpleMarkdownToHtml(md: string): string {
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--win95-highlight); text-decoration: underline;">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--shell-accent); text-decoration: underline;">$1</a>')
     // Unordered lists
     .replace(/^[*-] (.+)$/gm, '<li style="margin-left: 16px; list-style-type: disc;">$1</li>')
     // Ordered lists
     .replace(/^\d+\. (.+)$/gm, '<li style="margin-left: 16px; list-style-type: decimal;">$1</li>')
     // Horizontal rules
-    .replace(/^---$/gm, '<hr style="border: none; border-top: 1px solid var(--win95-border); margin: 12px 0;" />')
+    .replace(/^---$/gm, '<hr style="border: none; border-top: 1px solid var(--shell-border); margin: 12px 0;" />')
     // Paragraphs (double newlines)
     .replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
 

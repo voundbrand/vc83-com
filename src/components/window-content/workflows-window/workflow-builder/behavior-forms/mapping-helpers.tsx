@@ -101,8 +101,8 @@ export function MappingList({
         <div
           className="p-4 border-2 rounded text-center text-sm"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
             color: "var(--neutral-gray)",
           }}
         >
@@ -115,8 +115,8 @@ export function MappingList({
               key={index}
               className="flex items-center gap-2 p-3 border-2 rounded"
               style={{
-                borderColor: isMappingComplete(mapping) ? "var(--success)" : "var(--win95-border)",
-                background: "var(--win95-input-bg)",
+                borderColor: isMappingComplete(mapping) ? "var(--success)" : "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
               {/* Status Indicator */}
@@ -143,7 +143,7 @@ export function MappingList({
                     onChange={(e) => updateMapping(index, "formValue", e.target.value)}
                     className="w-full px-2 py-1 text-xs border"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: "white",
                     }}
                   >
@@ -162,7 +162,7 @@ export function MappingList({
                     placeholder="Form value"
                     className="w-full px-2 py-1 text-xs border"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: "white",
                     }}
                   />
@@ -170,7 +170,7 @@ export function MappingList({
               </div>
 
               {/* Arrow */}
-              <ArrowRight size={16} style={{ color: "var(--win95-text)", flexShrink: 0 }} />
+              <ArrowRight size={16} style={{ color: "var(--window-document-text)", flexShrink: 0 }} />
 
               {/* Organization */}
               <div className="flex-1">
@@ -179,7 +179,7 @@ export function MappingList({
                   onChange={(e) => updateMapping(index, "orgId", e.target.value || null)}
                   className="w-full px-2 py-1 text-xs border"
                   style={{
-                    borderColor: "var(--win95-border)",
+                    borderColor: "var(--window-document-border)",
                     background: "white",
                   }}
                 >
@@ -200,8 +200,8 @@ export function MappingList({
                 onClick={() => removeMapping(index)}
                 className="p-1 border-2 hover:bg-red-100 transition-colors flex-shrink-0"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
                 title="Remove mapping"
               >
@@ -218,9 +218,9 @@ export function MappingList({
         onClick={addMapping}
         className="w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2 border-2 transition-colors"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-button-face)",
-          color: "var(--win95-text)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
+          color: "var(--window-document-text)",
         }}
       >
         <Plus size={14} />
@@ -232,8 +232,8 @@ export function MappingList({
         <div
           className="p-2 border-2 rounded text-xs"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
             color: "var(--neutral-gray)",
           }}
         >

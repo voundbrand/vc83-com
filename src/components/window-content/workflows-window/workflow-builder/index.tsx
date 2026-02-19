@@ -246,8 +246,8 @@ export function WorkflowBuilder({
 
   if (workflowId && existingWorkflow === undefined) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+      <div className="flex h-full items-center justify-center" style={{ background: 'var(--window-document-bg)' }}>
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--tone-accent)' }} />
       </div>
     );
   }
@@ -255,17 +255,17 @@ export function WorkflowBuilder({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b-2 px-4 py-3" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="border-b-2 px-4 py-3" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
+              className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-xs"
             >
               <ArrowLeft className="h-3 w-3" />
               {t("ui.workflows.builder.header.back")}
             </button>
-            <div className="h-4 w-px" style={{ background: 'var(--win95-border)' }} />
+            <div className="h-4 w-px" style={{ background: 'var(--window-document-border)' }} />
             <div>
               <input
                 type="text"
@@ -287,8 +287,8 @@ export function WorkflowBuilder({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTestMode(!showTestMode)}
-              className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
-              style={{ background: showTestMode ? "var(--win95-highlight)" : undefined, color: showTestMode ? "var(--win95-titlebar-text)" : undefined }}
+              className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-xs"
+              style={{ background: showTestMode ? "var(--tone-accent)" : undefined, color: showTestMode ? "var(--window-document-text)" : undefined }}
               title="Test Workflow with Sample Data"
             >
               <Play className="h-3 w-3" />
@@ -297,7 +297,7 @@ export function WorkflowBuilder({
 
             <button
               onClick={() => setShowHelp(true)}
-              className="retro-button flex items-center gap-1 px-2 py-1 text-xs"
+              className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-xs"
               title={t("ui.workflows.builder.header.helpTooltip")}
             >
               <HelpCircle className="h-3 w-3" />
@@ -314,7 +314,7 @@ export function WorkflowBuilder({
             />
 
             <div className="flex items-center gap-2">
-              <label className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.workflows.builder.header.triggerLabel")}:
               </label>
               <select
@@ -337,7 +337,7 @@ export function WorkflowBuilder({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold disabled:opacity-50"
+              className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -358,7 +358,7 @@ export function WorkflowBuilder({
       {/* Builder Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Center: Canvas (Behavior Pipeline) */}
-        <div className="flex-1" style={{ background: 'var(--win95-bg)' }}>
+        <div className="flex-1" style={{ background: 'var(--window-document-bg)' }}>
           <WorkflowCanvas
             behaviors={selectedBehaviors}
             triggerOn={triggerOn}
@@ -369,7 +369,7 @@ export function WorkflowBuilder({
         </div>
 
         {/* Right Panel: Behavior Config */}
-        <div className="w-96 border-l-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+        <div className="w-96 border-l-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
           <BehaviorConfigPanel
             selectedBehaviors={selectedBehaviors}
             onAddBehavior={handleAddBehavior}

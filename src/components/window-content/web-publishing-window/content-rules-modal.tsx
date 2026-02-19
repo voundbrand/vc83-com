@@ -178,17 +178,17 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
       <div
         className="w-full max-w-2xl max-h-[90vh] overflow-hidden border-4 shadow-xl"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b-2"
           style={{
-            background: "var(--win95-highlight)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-titlebar-text)",
+            background: "var(--tone-accent)",
+            borderColor: "var(--window-document-border)",
+            color: "var(--window-document-text)",
           }}
         >
           <div className="flex items-center gap-2">
@@ -209,12 +209,12 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
           <div className="p-4 space-y-6">
             {/* Event Filters Section */}
             <div>
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                  Event Display Rules
               </h4>
 
               {/* Enable/Disable Events Toggle */}
-              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+              <div className="mb-4 p-3 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -223,7 +223,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                     className="w-4 h-4"
                   />
                   <div>
-                    <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       Show events on this page
                     </span>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -236,7 +236,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               {/* Time Filter - Only show if events are enabled */}
               {eventsEnabled && (
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Show Events:
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -246,9 +246,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                       onClick={() => setEventFilter(filter)}
                       className="px-3 py-1.5 text-xs font-bold border-2 transition-colors"
                       style={{
-                        borderColor: eventFilter === filter ? "var(--win95-highlight)" : "var(--win95-border)",
-                        background: eventFilter === filter ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                        color: eventFilter === filter ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+                        borderColor: eventFilter === filter ? "var(--tone-accent)" : "var(--window-document-border)",
+                        background: eventFilter === filter ? "var(--tone-accent)" : "var(--window-document-bg)",
+                        color: eventFilter === filter ? "var(--window-document-text)" : "var(--window-document-text)",
                       }}
                     >
                       {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -261,7 +261,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               {/* Visibility Filter - Only show if events are enabled */}
               {eventsEnabled && (
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Visibility:
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -271,9 +271,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                       onClick={() => setEventVisibility(visibility)}
                       className="px-3 py-1.5 text-xs font-bold border-2 transition-colors"
                       style={{
-                        borderColor: eventVisibility === visibility ? "var(--win95-highlight)" : "var(--win95-border)",
-                        background: eventVisibility === visibility ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                        color: eventVisibility === visibility ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+                        borderColor: eventVisibility === visibility ? "var(--tone-accent)" : "var(--window-document-border)",
+                        background: eventVisibility === visibility ? "var(--tone-accent)" : "var(--window-document-bg)",
+                        color: eventVisibility === visibility ? "var(--window-document-text)" : "var(--window-document-text)",
                       }}
                     >
                       {visibility.charAt(0).toUpperCase() + visibility.slice(1)}
@@ -286,7 +286,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               {/* Event Types - Only show if events are enabled */}
               {eventsEnabled && (
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Event Types (optional):
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -296,9 +296,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                       onClick={() => handleSubtypeToggle(subtype)}
                       className="px-3 py-1.5 text-xs font-bold border-2 transition-colors"
                       style={{
-                        borderColor: eventSubtypes.includes(subtype) ? "var(--win95-highlight)" : "var(--win95-border)",
-                        background: eventSubtypes.includes(subtype) ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                        color: eventSubtypes.includes(subtype) ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+                        borderColor: eventSubtypes.includes(subtype) ? "var(--tone-accent)" : "var(--window-document-border)",
+                        background: eventSubtypes.includes(subtype) ? "var(--tone-accent)" : "var(--window-document-bg)",
+                        color: eventSubtypes.includes(subtype) ? "var(--window-document-text)" : "var(--window-document-text)",
                       }}
                     >
                       {subtype.charAt(0).toUpperCase() + subtype.slice(1)}
@@ -314,7 +314,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               {/* Limit - Only show if events are enabled */}
               {eventsEnabled && (
               <div className="mb-4">
-                <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Maximum Events:
                 </label>
                 <input
@@ -343,9 +343,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   }}
                   className="w-24 px-2 py-1 text-xs border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
               </div>
@@ -355,7 +355,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               {eventsEnabled && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                     Sort By:
                   </label>
                   <select
@@ -363,9 +363,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                     onChange={(e) => setEventSortBy(e.target.value)}
                     className="w-full px-2 py-1.5 text-xs border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg-light)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     <option value="startDate">Start Date</option>
@@ -373,7 +373,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                     Order:
                   </label>
                   <select
@@ -381,9 +381,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                     onChange={(e) => setEventSortOrder(e.target.value as "asc" | "desc")}
                     className="w-full px-2 py-1.5 text-xs border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg-light)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     <option value="asc">Ascending</option>
@@ -394,14 +394,14 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               )}
             </div>
 
-            <div className="border-t-2" style={{ borderColor: "var(--win95-border)" }} />
+            <div className="border-t-2" style={{ borderColor: "var(--window-document-border)" }} />
 
             {/* Checkout Selection */}
             <div>
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                  Primary Checkout
               </h4>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Checkout Instance (optional):
               </label>
               <select
@@ -409,9 +409,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                 onChange={(e) => setSelectedCheckoutId(e.target.value)}
                 className="w-full px-2 py-1.5 text-xs border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <option value="">-- None --</option>
@@ -426,14 +426,14 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
               </p>
             </div>
 
-            <div className="border-t-2" style={{ borderColor: "var(--win95-border)" }} />
+            <div className="border-t-2" style={{ borderColor: "var(--window-document-border)" }} />
 
             {/* Forms Selection */}
             <div>
-              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+              <h4 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                  Available Forms
               </h4>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Forms (optional):
               </label>
               {forms && forms.length > 0 ? (
@@ -443,8 +443,8 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                       key={form._id}
                       className="flex items-center gap-2 p-2 border-2 cursor-pointer hover:bg-opacity-50"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: selectedFormIds.includes(form._id) ? "rgba(107, 70, 193, 0.1)" : "var(--win95-bg-light)",
+                        borderColor: "var(--window-document-border)",
+                        background: selectedFormIds.includes(form._id) ? "rgba(107, 70, 193, 0.1)" : "var(--window-document-bg-elevated)",
                       }}
                     >
                       <input
@@ -453,7 +453,7 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
                         onChange={() => handleFormToggle(form._id)}
                         className="w-4 h-4"
                       />
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {form.name}
                       </span>
                     </label>
@@ -471,16 +471,16 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
         {/* Footer */}
         <div
           className="flex items-center justify-end gap-2 px-4 py-3 border-t-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
           <button
             onClick={onClose}
             disabled={isSaving}
             className="px-4 py-2 text-xs font-bold border-2 transition-colors disabled:opacity-50"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
             }}
           >
             Cancel
@@ -490,9 +490,9 @@ export function ContentRulesModal({ page, onClose, onSaveRules }: ContentRulesMo
             disabled={isSaving}
             className="px-4 py-2 text-xs font-bold border-2 transition-colors disabled:opacity-50 flex items-center gap-2"
             style={{
-              borderColor: "var(--win95-highlight)",
-              background: "var(--win95-highlight)",
-              color: "var(--win95-titlebar-text)",
+              borderColor: "var(--tone-accent)",
+              background: "var(--tone-accent)",
+              color: "var(--window-document-text)",
             }}
           >
             {isSaving ? (

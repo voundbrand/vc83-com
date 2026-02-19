@@ -120,13 +120,13 @@ export function MultiStepPreview({
       <div
         className="px-4 py-3 border-b-2 flex items-center justify-between"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-center gap-3">
-          <Eye size={16} style={{ color: "var(--win95-text)" }} />
-          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <Eye size={16} style={{ color: "var(--shell-text)" }} />
+          <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
             Multi-Step Checkout Preview
           </span>
         </div>
@@ -134,9 +134,9 @@ export function MultiStepPreview({
           <button
             className="px-3 py-1 text-xs font-bold border-2 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: previewMode === "static" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: previewMode === "static" ? "var(--shell-surface-elevated)" : "var(--shell-surface)",
+              color: "var(--shell-text)",
             }}
             onClick={() => setPreviewMode("static")}
           >
@@ -145,9 +145,9 @@ export function MultiStepPreview({
           <button
             className="px-3 py-1 text-xs font-bold border-2 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: previewMode === "live" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: previewMode === "live" ? "var(--shell-surface-elevated)" : "var(--shell-surface)",
+              color: "var(--shell-text)",
             }}
             onClick={() => setPreviewMode("live")}
           >
@@ -157,7 +157,7 @@ export function MultiStepPreview({
       </div>
 
       {/* Preview Content */}
-      <div className="flex-1 overflow-auto p-4" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex-1 overflow-auto p-4" style={{ background: "var(--shell-surface)" }}>
         <div
           className="checkout-preview-container"
           style={{

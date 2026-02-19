@@ -129,7 +129,7 @@ export default function TeamTab({
         <button
           onClick={() => setShowAddForm(!showAddForm)}
           className="px-3 py-1.5 text-xs font-bold border-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1"
-          style={{ border: "var(--win95-border)" }}
+          style={{ border: "var(--window-document-border)" }}
         >
           <Plus size={14} />
           Add Member
@@ -141,8 +141,8 @@ export default function TeamTab({
         <div
           className="p-3 border-2 rounded space-y-3"
           style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            border: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           {/* Type Selector */}
@@ -161,7 +161,7 @@ export default function TeamTab({
                     ? "bg-purple-600 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 <Users size={14} />
                 Internal Team
@@ -176,7 +176,7 @@ export default function TeamTab({
                     ? "bg-purple-600 text-white"
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 <Building2 size={14} />
                 Client Team
@@ -194,7 +194,7 @@ export default function TeamTab({
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
                 className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 <option value="">Select...</option>
                 {selectedType === "internal"
@@ -220,7 +220,7 @@ export default function TeamTab({
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
                 className="w-full px-2 py-1 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               >
                 <option value="member">Member</option>
                 <option value="lead">Lead</option>
@@ -234,7 +234,7 @@ export default function TeamTab({
             <button
               onClick={() => setShowAddForm(false)}
               className="px-3 py-1 text-xs border-2 rounded hover:bg-gray-100"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             >
               Cancel
             </button>
@@ -242,7 +242,7 @@ export default function TeamTab({
               onClick={handleAdd}
               disabled={!selectedId || loading}
               className="px-3 py-1 text-xs border-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-              style={{ border: "var(--win95-border)" }}
+              style={{ border: "var(--window-document-border)" }}
             >
               {loading ? "Adding..." : "Add"}
             </button>
@@ -260,8 +260,8 @@ export default function TeamTab({
           <div
             className="p-4 text-center border-2 rounded"
             style={{
-              border: "var(--win95-border)",
-              backgroundColor: "var(--win95-bg-light)",
+              border: "var(--window-document-border)",
+              backgroundColor: "var(--window-document-bg-elevated)",
             }}
           >
             <p className="text-xs text-gray-500">No internal team members yet</p>
@@ -273,8 +273,8 @@ export default function TeamTab({
                 key={member.id}
                 className="p-3 border-2 rounded bg-white flex items-center justify-between"
                 style={{
-                  border: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  border: "var(--window-document-border)",
+                  backgroundColor: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center gap-3">
@@ -327,8 +327,8 @@ export default function TeamTab({
           <div
             className="p-4 text-center border-2 rounded"
             style={{
-              border: "var(--win95-border)",
-              backgroundColor: "var(--win95-bg-light)",
+              border: "var(--window-document-border)",
+              backgroundColor: "var(--window-document-bg-elevated)",
             }}
           >
             <p className="text-xs text-gray-500">No client team members yet</p>
@@ -340,8 +340,8 @@ export default function TeamTab({
                 key={member.id}
                 className="p-3 border-2 rounded bg-white flex items-center justify-between"
                 style={{
-                  border: "var(--win95-border)",
-                  backgroundColor: "var(--win95-bg-light)",
+                  border: "var(--window-document-border)",
+                  backgroundColor: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center gap-3">

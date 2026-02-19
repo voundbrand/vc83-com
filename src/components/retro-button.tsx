@@ -14,10 +14,10 @@ interface RetroButtonProps {
 }
 
 export function RetroButton({ children, onClick, variant = "primary", size = "md", className, disabled = false, title }: RetroButtonProps) {
-  const baseClasses = "retro-button font-pixel"
+  const baseClasses = "desktop-shell-button font-pixel"
 
   const variantClasses = {
-    primary: "retro-button-primary",
+    primary: "desktop-shell-button-primary",
     secondary: "",
     outline: "bg-transparent border-2",
   }

@@ -227,7 +227,7 @@ export function TemplatesList({
     if (template.subtype === "email" || isValidEmailTemplateType(template.subtype)) {
       // If it's just "email", show generic mail icon
       if (template.subtype === "email") return <Mail size={18} />;
-      // Otherwise, show the specific template type icon as emoji
+      // Otherwise, show the specific template type icon
       const icon = getTemplateTypeIcon("email", template.subtype);
       return <span className="text-base">{icon}</span>;
     }
@@ -236,7 +236,7 @@ export function TemplatesList({
     if (template.subtype === "pdf" || template.subtype === "pdf_ticket" || isValidPdfTemplateType(template.subtype)) {
       // If it's just "pdf" or "pdf_ticket", show generic PDF icon
       if (template.subtype === "pdf" || template.subtype === "pdf_ticket") return <FileImage size={18} />;
-      // Otherwise, show the specific template type icon as emoji
+      // Otherwise, show the specific template type icon
       const icon = getTemplateTypeIcon("pdf", template.subtype);
       return <span className="text-base">{icon}</span>;
     }

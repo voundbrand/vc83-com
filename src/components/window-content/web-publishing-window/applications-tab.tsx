@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plug, RefreshCw, Trash2, Archive, Clock, ExternalLink, Settings as SettingsIcon, Terminal } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
@@ -160,7 +160,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
             Connected Applications
           </h3>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -174,9 +174,9 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-2 py-1 text-xs border-2"
           style={{
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             background: 'white',
-            color: 'var(--win95-text)'
+            color: 'var(--window-document-text)'
           }}
         >
           <option value="active">Active</option>
@@ -192,8 +192,8 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
         <div
           className="border-2 p-6"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)'
           }}
         >
           <CLISetupGuide variant="full" showInstall={true} />
@@ -213,7 +213,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                 key={app._id}
                 className="border-2 p-4 transition-colors"
                 style={{
-                  borderColor: 'var(--win95-border)',
+                  borderColor: 'var(--window-document-border)',
                   background: 'white'
                 }}
               >
@@ -222,7 +222,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">{getFrameworkIcon(source.framework)}</span>
-                      <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                      <h4 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                         {app.name}
                       </h4>
                       <span
@@ -238,9 +238,9 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                         <span
                           className="px-2 py-0.5 text-xs"
                           style={{
-                            background: 'var(--win95-bg-light)',
+                            background: 'var(--window-document-bg-elevated)',
                             color: 'var(--neutral-gray)',
-                            border: '1px solid var(--win95-border)'
+                            border: '1px solid var(--window-document-border)'
                           }}
                         >
                           {source.type}
@@ -258,7 +258,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                     <div className="space-y-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
                       <div className="flex items-center gap-2">
                         <span>Framework:</span>
-                        <span className="font-bold" style={{ color: 'var(--win95-text)' }}>
+                        <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
                           {source.framework || 'Unknown'}
                           {source.frameworkVersion && ` v${source.frameworkVersion}`}
                           {source.hasTypeScript && ' (TypeScript)'}
@@ -273,7 +273,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                               key={feature}
                               className="px-1.5 py-0.5 text-xs"
                               style={{
-                                background: 'var(--win95-highlight)',
+                                background: 'var(--tone-accent)',
                                 color: 'white'
                               }}
                             >
@@ -322,7 +322,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                   {/* Right: Action buttons */}
                   <div className="flex items-center gap-2 ml-4">
                     {connection.backendUrl && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => window.open(connection.backendUrl, '_blank')}
                         variant="secondary"
                         size="sm"
@@ -330,10 +330,10 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                         title="Open Backend"
                       >
                         <ExternalLink size={14} />
-                      </RetroButton>
+                      </InteriorButton>
                     )}
                     {onSelectApplication && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => onSelectApplication(app)}
                         variant="secondary"
                         size="sm"
@@ -341,10 +341,10 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                       >
                         <SettingsIcon size={14} />
                         Details
-                      </RetroButton>
+                      </InteriorButton>
                     )}
                     {app.status !== 'archived' && (
-                      <RetroButton
+                      <InteriorButton
                         onClick={() => {
                           if (confirm(`Archive "${app.name}"? The application will be disconnected but can be restored.`)) {
                             handleArchive(app._id);
@@ -356,9 +356,9 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                         title="Archive application"
                       >
                         <Archive size={14} />
-                      </RetroButton>
+                      </InteriorButton>
                     )}
-                    <RetroButton
+                    <InteriorButton
                       onClick={() => {
                         if (confirm(`Permanently delete "${app.name}"? This action cannot be undone.`)) {
                           handleDelete(app._id);
@@ -370,7 +370,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                       title="Delete permanently"
                     >
                       <Trash2 size={14} />
-                    </RetroButton>
+                    </InteriorButton>
                   </div>
                 </div>
               </div>
@@ -384,8 +384,8 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
         <div
           className="mt-4 p-4 border-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)',
           }}
         >
           <div className="flex items-center justify-between">
@@ -393,13 +393,13 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
               <div
                 className="w-10 h-10 flex items-center justify-center rounded"
                 style={{
-                  background: 'linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)',
+                  background: 'linear-gradient(135deg, var(--tone-accent) 0%, var(--tone-accent-strong) 100%)',
                 }}
               >
-                <Terminal size={20} className="text-white" />
+                <Terminal size={20} style={{ color: "#0f0f0f" }} />
               </div>
               <div>
-                <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h4 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                   Connect Another App
                 </h4>
                 <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -407,7 +407,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
                 </p>
               </div>
             </div>
-            <RetroButton
+            <InteriorButton
               onClick={() => setShowConnectModal(true)}
               variant="primary"
               size="sm"
@@ -415,7 +415,7 @@ export function ApplicationsTab({ onSelectApplication }: ApplicationsTabProps) {
             >
               <Plug size={14} />
               View Instructions
-            </RetroButton>
+            </InteriorButton>
           </div>
         </div>
       )}

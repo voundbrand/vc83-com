@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation with large integration modules
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -238,16 +238,16 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -255,7 +255,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
           <div className="flex items-center gap-2">
             <Headset size={24} style={{ color: "#1F93FF" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 Chatwoot
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -270,9 +270,9 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
           {isLoading ? (
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Loading...</p>
             </div>
           ) : isConfigured ? (
@@ -281,7 +281,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Status */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
@@ -291,13 +291,13 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                 <div className="space-y-2">
                   {settings?.accountName && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Account</p>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>Account</p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>{settings.accountName}</p>
                     </div>
                   )}
                   {settings?.chatwootUrl && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>Instance URL</p>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>Instance URL</p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>{settings.chatwootUrl}</p>
                     </div>
                   )}
@@ -307,9 +307,9 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Webhook URL */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Webhook URL
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -318,7 +318,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                 <div className="flex items-center gap-2">
                   <div
                     className="flex-1 p-2 border rounded font-mono text-xs break-all"
-                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                   >
                     {webhookUrl}
                   </div>
@@ -331,9 +331,9 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Channel Bindings */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Active Channels
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -343,8 +343,8 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                       className="flex items-center gap-2 p-2 border rounded cursor-pointer"
                       style={{
                         borderColor: enabledChannels.has(ch.id)
-                          ? "var(--win95-highlight)"
-                          : "var(--win95-border)",
+                          ? "var(--tone-accent)"
+                          : "var(--window-document-border)",
                         background: enabledChannels.has(ch.id)
                           ? "rgba(0, 120, 215, 0.05)"
                           : "transparent",
@@ -357,13 +357,13 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                         className="w-3.5 h-3.5"
                       />
                       <span style={{ color: ch.color }}>{ch.icon}</span>
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {ch.label}
                       </span>
                     </label>
                   ))}
                 </div>
-                <RetroButton
+                <InteriorButton
                   onClick={handleSaveChannels}
                   disabled={isSaving}
                   className="w-full mt-3"
@@ -373,7 +373,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                   ) : (
                     "Save Channel Config"
                   )}
-                </RetroButton>
+                </InteriorButton>
               </div>
 
               {/* Open Chatwoot */}
@@ -383,17 +383,17 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <RetroButton variant="secondary" className="w-full">
+                  <InteriorButton variant="secondary" className="w-full">
                     <ExternalLink size={14} className="mr-1" />
                     Open Chatwoot Dashboard
-                  </RetroButton>
+                  </InteriorButton>
                 </a>
               )}
 
               {/* Disconnect */}
-              <RetroButton variant="secondary" onClick={handleDisconnect} className="w-full">
+              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Disconnect
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : (
             /* ======== NOT CONNECTED STATE ======== */
@@ -401,10 +401,10 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Info */}
               <div
                 className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <Headset size={48} className="mb-4" style={{ color: "#1F93FF" }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Connect Chatwoot
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -415,14 +415,14 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Connection Form */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Connection Details
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Instance URL *
                     </label>
                     <input
@@ -431,12 +431,12 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                       onChange={(e) => setChatwootUrl(e.target.value)}
                       placeholder="https://chatwoot.yourdomain.com"
                       className="w-full px-2 py-1 border-2 text-xs"
-                      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       API Access Token *
                     </label>
                     <div className="relative">
@@ -446,7 +446,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                         onChange={(e) => setApiToken(e.target.value)}
                         placeholder="Your Chatwoot API token"
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
-                        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                       />
                       <button
                         type="button"
@@ -463,7 +463,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Account ID *
                     </label>
                     <input
@@ -472,7 +472,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                       onChange={(e) => setAccountId(e.target.value)}
                       placeholder="1"
                       className="w-full px-2 py-1 border-2 text-xs"
-                      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                       The numeric ID of your Chatwoot account
@@ -480,7 +480,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Webhook Secret (optional)
                     </label>
                     <input
@@ -489,7 +489,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                       onChange={(e) => setWebhookSecret(e.target.value)}
                       placeholder="Optional shared secret for webhook verification"
                       className="w-full px-2 py-1 border-2 text-xs"
-                      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                     />
                   </div>
                 </div>
@@ -498,9 +498,9 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
               {/* Channel Selection */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Enable Channels
                 </p>
                 <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
@@ -512,7 +512,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                       key={ch.id}
                       className="flex items-center gap-2 p-2 border rounded cursor-pointer"
                       style={{
-                        borderColor: enabledChannels.has(ch.id) ? "var(--win95-highlight)" : "var(--win95-border)",
+                        borderColor: enabledChannels.has(ch.id) ? "var(--tone-accent)" : "var(--window-document-border)",
                         background: enabledChannels.has(ch.id) ? "rgba(0, 120, 215, 0.05)" : "transparent",
                       }}
                     >
@@ -523,7 +523,7 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
                         className="w-3.5 h-3.5"
                       />
                       <span style={{ color: ch.color }}>{ch.icon}</span>
-                      <span className="text-xs" style={{ color: "var(--win95-text)" }}>{ch.label}</span>
+                      <span className="text-xs" style={{ color: "var(--window-document-text)" }}>{ch.label}</span>
                     </label>
                   ))}
                 </div>
@@ -531,20 +531,20 @@ export function ChatwootSettings({ onBack }: ChatwootSettingsProps) {
 
               {/* Actions */}
               <div className="flex gap-2">
-                <RetroButton variant="secondary" onClick={handleTest} disabled={isTesting} className="flex-1">
+                <InteriorButton variant="secondary" onClick={handleTest} disabled={isTesting} className="flex-1">
                   {isTesting ? (
                     <><Loader2 size={14} className="mr-1 animate-spin" />Testing...</>
                   ) : (
                     "Test Connection"
                   )}
-                </RetroButton>
-                <RetroButton onClick={handleConnect} disabled={isConnecting} className="flex-1">
+                </InteriorButton>
+                <InteriorButton onClick={handleConnect} disabled={isConnecting} className="flex-1">
                   {isConnecting ? (
                     <><Loader2 size={14} className="mr-1 animate-spin" />Connecting...</>
                   ) : (
                     "Connect"
                   )}
-                </RetroButton>
+                </InteriorButton>
               </div>
             </div>
           )}

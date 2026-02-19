@@ -28,7 +28,7 @@ export function HeroSection({
   badge,
   title,
   subtitle,
-  backgroundClassName = "bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-16 sm:py-24",
+  backgroundClassName = "bg-gradient-to-br from-indigo-50 via-white to-amber-50 py-16 sm:py-24",
   titleClassName = "text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 tracking-tight",
   subtitleClassName = "text-lg sm:text-xl text-gray-600 mt-6 max-w-2xl mx-auto",
   alignment = "center",

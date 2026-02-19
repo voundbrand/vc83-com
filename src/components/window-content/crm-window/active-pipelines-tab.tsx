@@ -279,8 +279,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
   if (pipelines === undefined) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <Loader2 className="animate-spin" size={24} style={{ color: "var(--win95-highlight)" }} />
-        <p className="ml-3 text-sm" style={{ color: "var(--win95-text)" }}>
+        <Loader2 className="animate-spin" size={24} style={{ color: "var(--tone-accent)" }} />
+        <p className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.loading") || "Loading pipelines..."}
         </p>
       </div>
@@ -294,7 +294,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
         <confirmDialog.Dialog />
         <div className="flex flex-col items-center justify-center flex-1 p-4 text-center">
           <TrendingUp size={48} className="mb-4 opacity-30" style={{ color: "var(--neutral-gray)" }} />
-          <p className="font-pixel text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+          <p className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.crm.pipeline.no_pipelines") || "No Pipelines Found"}
           </p>
           <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -305,7 +305,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
           {/* New Pipeline Button */}
           <button
             onClick={() => setIsCreatingPipeline(true)}
-            className="retro-button px-4 py-2 flex items-center gap-2 text-sm"
+            className="desktop-interior-button px-4 py-2 flex items-center gap-2 text-sm"
             style={{ background: "var(--success)", color: "white" }}
           >
             <Plus size={16} />
@@ -316,13 +316,13 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
           {isCreatingPipeline && (
             <div
               className="mt-6 w-full max-w-md p-4 border-2 space-y-3"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
             >
-              <h3 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+              <h3 className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.create_new") || "Create New Pipeline"}
               </h3>
               <div>
-                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.pipeline.name") || "Pipeline Name"} *
                 </label>
                 <input
@@ -330,20 +330,20 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
                   value={newPipelineName}
                   onChange={(e) => setNewPipelineName(e.target.value)}
                   className="w-full retro-input px-3 py-2 text-sm"
-                  style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                  style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                   placeholder={t("ui.crm.pipeline.name_placeholder") || "Enter pipeline name"}
                   autoFocus
                 />
               </div>
               <div>
-                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+                <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.pipeline.description") || "Description"}
                 </label>
                 <textarea
                   value={newPipelineDescription}
                   onChange={(e) => setNewPipelineDescription(e.target.value)}
                   className="w-full retro-input px-3 py-2 text-sm"
-                  style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                  style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                   placeholder={t("ui.crm.pipeline.description_placeholder") || "Enter pipeline description"}
                   rows={2}
                 />
@@ -351,14 +351,14 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               <div className="flex gap-2">
                 <button
                   onClick={handleCreatePipeline}
-                  className="retro-button px-4 py-2 text-xs font-pixel"
+                  className="desktop-interior-button px-4 py-2 text-xs font-pixel"
                   style={{ background: "var(--success)", color: "white" }}
                 >
                   {t("ui.crm.pipeline.create") || "Create Pipeline"}
                 </button>
                 <button
                   onClick={handleCancelCreate}
-                  className="retro-button px-4 py-2 text-xs font-pixel"
+                  className="desktop-interior-button px-4 py-2 text-xs font-pixel"
                   style={{ background: "var(--neutral-gray)", color: "white" }}
                 >
                   {t("ui.crm.pipeline.cancel") || "Cancel"}
@@ -373,23 +373,23 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
 
   // Single Column Layout with Header Controls
   return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--win95-bg)' }}>
+    <div className="h-full flex flex-col" style={{ background: 'var(--window-document-bg)' }}>
       <confirmDialog.Dialog />
       {/* Header: Pipeline Selector + Actions */}
       <div
         className="p-3 border-b-2 flex items-center justify-between gap-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
         <div className="flex items-center gap-3 flex-1">
           {/* Pipeline Dropdown */}
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} style={{ color: "var(--win95-text)" }} />
+            <TrendingUp size={16} style={{ color: "var(--window-document-text)" }} />
             <select
               className="retro-input px-3 py-1.5 text-sm"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
               value={selectedPipelineId || ""}
               onChange={(e) => setSelectedPipelineId(e.target.value as Id<"objects">)}
             >
@@ -407,7 +407,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
             {/* Create New Pipeline Button */}
             <button
               onClick={() => setIsCreatingPipeline(true)}
-              className="retro-button px-3 py-1.5 flex items-center gap-2 text-xs"
+              className="desktop-interior-button px-3 py-1.5 flex items-center gap-2 text-xs"
               style={{ background: "var(--success)", color: "white" }}
               title={t("ui.crm.pipeline.create_new") || "Create new pipeline"}
             >
@@ -433,8 +433,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               <>
                 <button
                   onClick={handleEditPipeline}
-                  className="retro-button px-3 py-1.5 flex items-center gap-2 text-xs"
-                  style={{ background: "var(--win95-highlight)", color: "var(--win95-button-text)" }}
+                  className="desktop-interior-button px-3 py-1.5 flex items-center gap-2 text-xs"
+                  style={{ background: "var(--tone-accent)", color: "var(--window-document-text)" }}
                   title={t("ui.crm.pipeline.edit") || "Edit pipeline"}
                 >
                   <Edit2 size={14} />
@@ -442,7 +442,7 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
                 </button>
                 <button
                   onClick={handleDeletePipeline}
-                  className="retro-button px-3 py-1.5 flex items-center gap-2 text-xs"
+                  className="desktop-interior-button px-3 py-1.5 flex items-center gap-2 text-xs"
                   style={{ background: "var(--error)", color: "white" }}
                   title={t("ui.crm.pipeline.delete") || "Delete pipeline"}
                 >
@@ -454,14 +454,14 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               <>
                 <button
                   onClick={handleSaveEdit}
-                  className="retro-button px-3 py-1.5 text-xs font-pixel"
+                  className="desktop-interior-button px-3 py-1.5 text-xs font-pixel"
                   style={{ background: "var(--success)", color: "white" }}
                 >
                   {t("ui.crm.pipeline.save") || "Save"}
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  className="retro-button px-3 py-1.5 text-xs font-pixel"
+                  className="desktop-interior-button px-3 py-1.5 text-xs font-pixel"
                   style={{ background: "var(--neutral-gray)", color: "white" }}
                 >
                   {t("ui.crm.pipeline.cancel") || "Cancel"}
@@ -474,12 +474,12 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
 
       {/* Create Mode: New Pipeline Form */}
       {isCreatingPipeline && (
-        <div className="p-4 border-b-2 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-          <h3 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+        <div className="p-4 border-b-2 space-y-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
+          <h3 className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
             {t("ui.crm.pipeline.create_new") || "Create New Pipeline"}
           </h3>
           <div>
-            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.name") || "Pipeline Name"} *
             </label>
             <input
@@ -487,20 +487,20 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               value={newPipelineName}
               onChange={(e) => setNewPipelineName(e.target.value)}
               className="w-full retro-input px-3 py-2 text-sm"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
               placeholder={t("ui.crm.pipeline.name_placeholder") || "Enter pipeline name"}
               autoFocus
             />
           </div>
           <div>
-            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.description") || "Description"}
             </label>
             <textarea
               value={newPipelineDescription}
               onChange={(e) => setNewPipelineDescription(e.target.value)}
               className="w-full retro-input px-3 py-2 text-sm"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
               placeholder={t("ui.crm.pipeline.description_placeholder") || "Enter pipeline description"}
               rows={2}
             />
@@ -508,14 +508,14 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
           <div className="flex gap-2">
             <button
               onClick={handleCreatePipeline}
-              className="retro-button px-4 py-2 text-xs font-pixel"
+              className="desktop-interior-button px-4 py-2 text-xs font-pixel"
               style={{ background: "var(--success)", color: "white" }}
             >
               {t("ui.crm.pipeline.create") || "Create Pipeline"}
             </button>
             <button
               onClick={handleCancelCreate}
-              className="retro-button px-4 py-2 text-xs font-pixel"
+              className="desktop-interior-button px-4 py-2 text-xs font-pixel"
               style={{ background: "var(--neutral-gray)", color: "white" }}
             >
               {t("ui.crm.pipeline.cancel") || "Cancel"}
@@ -526,9 +526,9 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
 
       {/* Edit Mode: Pipeline Details Form */}
       {isEditingPipeline && pipelineWithStages && (
-        <div className="p-4 border-b-2 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+        <div className="p-4 border-b-2 space-y-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
           <div>
-            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.name") || "Pipeline Name"}
             </label>
             <input
@@ -536,19 +536,19 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               value={editPipelineName}
               onChange={(e) => setEditPipelineName(e.target.value)}
               className="w-full retro-input px-3 py-2 text-sm"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
               placeholder={t("ui.crm.pipeline.name_placeholder") || "Enter pipeline name"}
             />
           </div>
           <div>
-            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--win95-text)" }}>
+            <label className="text-xs font-bold mb-1 block" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.description") || "Description"}
             </label>
             <textarea
               value={editPipelineDescription}
               onChange={(e) => setEditPipelineDescription(e.target.value)}
               className="w-full retro-input px-3 py-2 text-sm"
-              style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
               placeholder={t("ui.crm.pipeline.description_placeholder") || "Enter pipeline description"}
               rows={2}
             />
@@ -566,8 +566,8 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
           </div>
         ) : !pipelineWithStages ? (
           <div className="flex items-center justify-center h-full p-4">
-            <Loader2 className="animate-spin" size={24} style={{ color: "var(--win95-highlight)" }} />
-            <p className="ml-3 text-sm" style={{ color: "var(--win95-text)" }}>
+            <Loader2 className="animate-spin" size={24} style={{ color: "var(--tone-accent)" }} />
+            <p className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.loading_stages") || "Loading pipeline stages..."}
             </p>
           </div>
@@ -593,9 +593,9 @@ export function ActivePipelinesTab({ initialPipelineId }: ActivePipelinesTabProp
               <div
                 className="w-[280px] flex-shrink-0 border-2 rounded-lg p-4 flex items-center justify-center cursor-pointer hover:bg-opacity-80 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                   borderStyle: "dashed",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="text-center">

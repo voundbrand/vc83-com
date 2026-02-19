@@ -67,8 +67,8 @@ export class PermissionErrorBoundary extends Component<Props, State> {
             className="p-4 border-2 m-4"
             style={{
               backgroundColor: "var(--warning)",
-              borderColor: "var(--win95-border)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              color: "var(--shell-text)",
             }}
           >
             <div className="flex items-start gap-3">
@@ -81,8 +81,8 @@ export class PermissionErrorBoundary extends Component<Props, State> {
                 <div
                   className="p-3 mb-3 border-2"
                   style={{
-                    backgroundColor: "var(--win95-bg)",
-                    borderColor: "var(--win95-border)",
+                    backgroundColor: "var(--shell-surface)",
+                    borderColor: "var(--shell-border)",
                   }}
                 >
                   <p className="text-xs font-semibold mb-1">Required Permission:</p>
@@ -124,7 +124,7 @@ export class PermissionErrorBoundary extends Component<Props, State> {
           className="p-4 border-2 m-4"
           style={{
             backgroundColor: "var(--error)",
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--shell-border)",
             color: "white",
           }}
         >

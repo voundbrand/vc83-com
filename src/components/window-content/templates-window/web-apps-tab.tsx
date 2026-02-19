@@ -5,8 +5,8 @@ import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Loader2, Download, ExternalLink, Globe, Code, Settings, AlertCircle } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { useMemo, useState } from "react";
-import { RetroButton } from "@/components/retro-button";
+import { type ComponentProps, useMemo, useState } from "react";
+import { InteriorButton } from "@/components/window-content/shared/interior-primitives";
 
 /** Web app template interface */
 interface WebAppTemplate {
@@ -37,6 +37,14 @@ interface WebAppsTabProps {
   onViewSchema?: (templateId: string) => void;
 }
 
+type WebAppsButtonProps = Omit<ComponentProps<typeof InteriorButton>, "variant"> & {
+  variant?: "primary" | "outline";
+};
+
+function WebAppsButton({ variant = "outline", ...props }: WebAppsButtonProps) {
+  return <InteriorButton size="sm" variant={variant === "primary" ? "primary" : "neutral"} {...props} />;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
   const { sessionId } = useAuth();
@@ -60,7 +68,7 @@ export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
   if (webAppTemplates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
       </div>
     );
   }
@@ -71,7 +79,7 @@ export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
         <div className="flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <Globe size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
-            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
               No Web App Templates Available
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -155,8 +163,8 @@ function WebAppCard({
     <div
       className="border-2 rounded p-4 flex flex-col h-full"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg)',
+        borderColor: 'var(--window-document-border)',
+        background: 'var(--window-document-bg)',
       }}
     >
       {/* Header */}
@@ -164,22 +172,22 @@ function WebAppCard({
         <div
           className="p-2 border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)',
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)',
           }}
         >
-          <Globe size={24} style={{ color: 'var(--win95-highlight)' }} />
+          <Globe size={24} style={{ color: 'var(--tone-accent)' }} />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
             {template.name}
           </h3>
           <div className="flex items-center gap-2">
             <span
               className="text-xs px-2 py-0.5 border rounded"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
                 color: 'var(--neutral-gray)',
               }}
             >
@@ -209,7 +217,7 @@ function WebAppCard({
       {/* Features */}
       {features.length > 0 && (
         <div className="mb-3">
-          <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
             Features:
           </h4>
           <ul className="text-xs space-y-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -236,8 +244,8 @@ function WebAppCard({
               key={tag}
               className="text-xs px-2 py-0.5 border rounded"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
                 color: 'var(--neutral-gray)',
               }}
             >
@@ -258,10 +266,10 @@ function WebAppCard({
       )}
 
       {/* Actions */}
-      <div className="flex flex-col gap-2 pt-3 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="flex flex-col gap-2 pt-3 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
         {/* Primary Actions Row */}
         <div className="flex gap-2">
-          <RetroButton
+          <WebAppsButton
             onClick={handleDeployClick}
             variant={isDeploymentReady ? "primary" : "outline"}
             size="sm"
@@ -269,9 +277,9 @@ function WebAppCard({
           >
             <Download size={14} />
             <span>Deploy to Vercel</span>
-          </RetroButton>
+          </WebAppsButton>
 
-          <RetroButton
+          <WebAppsButton
             onClick={handleEditSettingsClick}
             variant="outline"
             size="sm"
@@ -279,13 +287,13 @@ function WebAppCard({
           >
             <Settings size={14} />
             <span>Edit Settings</span>
-          </RetroButton>
+          </WebAppsButton>
         </div>
 
         {/* Secondary Actions Row */}
         <div className="flex gap-2">
           {deployment.demoUrl && (
-            <RetroButton
+            <WebAppsButton
               onClick={handleDemoClick}
               variant="outline"
               size="sm"
@@ -293,10 +301,10 @@ function WebAppCard({
             >
               <ExternalLink size={14} />
               <span>View Demo</span>
-            </RetroButton>
+            </WebAppsButton>
           )}
 
-          <RetroButton
+          <WebAppsButton
             onClick={onView}
             variant="outline"
             size="sm"
@@ -304,7 +312,7 @@ function WebAppCard({
           >
             <Code size={14} />
             <span>Details</span>
-          </RetroButton>
+          </WebAppsButton>
         </div>
       </div>
 
@@ -352,12 +360,12 @@ function TemplateSettingsEditorModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10001]" onClick={onClose}>
       <div
         className="bg-white border-2 rounded p-6 max-w-2xl w-full mx-4"
-        style={{ borderColor: 'var(--win95-border)' }}
+        style={{ borderColor: 'var(--window-document-border)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between mb-4 pb-3 border-b" style={{ borderColor: 'var(--win95-border)' }}>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--win95-text)' }}>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--window-document-text)' }}>
             Edit Template Settings: {template.name}
           </h2>
           <button onClick={onClose} className="text-2xl hover:opacity-70" style={{ color: 'var(--neutral-gray)' }}>
@@ -369,7 +377,7 @@ function TemplateSettingsEditorModal({
         <div className="space-y-4">
           {/* GitHub Repository URL */}
           <div>
-            <label className="block text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
               GitHub Repository URL
             </label>
             <input
@@ -378,7 +386,7 @@ function TemplateSettingsEditorModal({
               onChange={(e) => setGithubRepo(e.target.value)}
               placeholder="https://github.com/your-org/your-repo"
               className="w-full p-2 border-2 rounded text-sm"
-              style={{ borderColor: 'var(--win95-border)' }}
+              style={{ borderColor: 'var(--window-document-border)' }}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
               The GitHub repository URL for this template (e.g., https://github.com/l4yercak3/freelancer-portal-template)
@@ -387,7 +395,7 @@ function TemplateSettingsEditorModal({
 
           {/* Vercel Deploy Button URL */}
           <div>
-            <label className="block text-sm font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-sm font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
               Vercel Deploy Button URL
             </label>
             <textarea
@@ -396,7 +404,7 @@ function TemplateSettingsEditorModal({
               placeholder="https://vercel.com/new/clone?repository-url=..."
               rows={3}
               className="w-full p-2 border-2 rounded text-sm font-mono"
-              style={{ borderColor: 'var(--win95-border)' }}
+              style={{ borderColor: 'var(--window-document-border)' }}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
               The Vercel deploy button URL with pre-configured environment variables
@@ -413,13 +421,13 @@ function TemplateSettingsEditorModal({
         </div>
 
         {/* Modal Actions */}
-        <div className="flex gap-2 mt-6 pt-4 border-t" style={{ borderColor: 'var(--win95-border)' }}>
-          <RetroButton onClick={handleSave} variant="primary" size="sm" className="flex-1">
+        <div className="flex gap-2 mt-6 pt-4 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
+          <WebAppsButton onClick={handleSave} variant="primary" size="sm" className="flex-1">
             Save Settings
-          </RetroButton>
-          <RetroButton onClick={onClose} variant="outline" size="sm" className="flex-1">
+          </WebAppsButton>
+          <WebAppsButton onClick={onClose} variant="outline" size="sm" className="flex-1">
             Cancel
-          </RetroButton>
+          </WebAppsButton>
         </div>
       </div>
     </div>

@@ -121,7 +121,7 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
   return (
     <div className="flex flex-col h-full">
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
+      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--window-document-bg)', borderColor: 'var(--window-document-border)' }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -131,9 +131,9 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
               placeholder={t("ui.crm.contacts.search_placeholder")}
               className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
+                color: 'var(--window-document-text)'
               }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -141,19 +141,19 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`retro-button px-3 py-1.5 flex items-center gap-1 ${
+            className={`desktop-interior-button px-3 py-1.5 flex items-center gap-1 ${
               showFilters ? "shadow-inner" : ""
             }`}
             style={{
-              background: showFilters ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-              color: showFilters ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+              background: showFilters ? 'var(--desktop-menu-hover)' : 'var(--window-document-bg-elevated)',
+              color: showFilters ? 'var(--window-document-text)' : 'var(--window-document-text)'
             }}
             title="Toggle filters"
           >
             <Filter size={14} />
           </button>
           <button
-            className="retro-button px-3 py-1.5 flex items-center gap-1"
+            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
             title="Add new contact"
             onClick={() => setShowAddModal(true)}
           >
@@ -163,17 +163,17 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
 
         {/* Filters */}
         {showFilters && (
-          <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
             <div>
-              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.crm.contacts.filter_label_source")}
               </label>
               <select
                 className="w-full px-2 py-1 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value as SourceType)}
@@ -186,15 +186,15 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
               </select>
             </div>
             <div>
-              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-xs font-pixel mb-1 block" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.crm.contacts.filter_label_stage")}
               </label>
               <select
                 className="w-full px-2 py-1 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
                 value={stageFilter}
                 onChange={(e) => setStageFilter(e.target.value as LifecycleStage)}
@@ -232,14 +232,14 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                   setStageFilter("")
                 }}
                 className="mt-2 text-xs hover:underline"
-                style={{ color: 'var(--win95-highlight)' }}
+                style={{ color: 'var(--tone-accent)' }}
               >
                 {t("ui.crm.contacts.clear_filters")}
               </button>
             )}
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--window-document-border)' }}>
             {filteredContacts?.map((contact) => {
               const props = contact.customProperties || {}
               const fullName = props.fullName || `${props.firstName || ""} ${props.lastName || ""}`.trim() || "Unnamed Contact"
@@ -254,13 +254,13 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                   key={contact._id}
                   className="w-full text-left p-3 transition-colors group relative"
                   style={{
-                    background: selectedId === contact._id ? 'var(--win95-selected-bg)' : 'transparent',
-                    color: selectedId === contact._id ? 'var(--win95-selected-text)' : 'var(--win95-text)',
-                    borderLeft: selectedId === contact._id ? '4px solid var(--win95-highlight)' : 'none'
+                    background: selectedId === contact._id ? 'var(--desktop-menu-hover)' : 'transparent',
+                    color: selectedId === contact._id ? 'var(--window-document-text)' : 'var(--window-document-text)',
+                    borderLeft: selectedId === contact._id ? '4px solid var(--tone-accent)' : 'none'
                   }}
                   onMouseEnter={(e) => {
                     if (selectedId !== contact._id) {
-                      e.currentTarget.style.background = 'var(--win95-hover-light)'
+                      e.currentTarget.style.background = 'var(--desktop-menu-hover)'
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -292,8 +292,8 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                       <span
                         className="px-1.5 py-0.5 text-[10px] border"
                         style={{
-                          background: 'var(--win95-bg-light)',
-                          borderColor: 'var(--win95-border)',
+                          background: 'var(--window-document-bg-elevated)',
+                          borderColor: 'var(--window-document-border)',
                           color: 'var(--neutral-gray)'
                         }}
                       >
@@ -305,9 +305,9 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                           key={idx}
                           className="px-1.5 py-0.5 text-[10px] border-2"
                           style={{
-                            background: 'var(--win95-bg-light)',
-                            borderColor: 'var(--win95-highlight)',
-                            color: 'var(--win95-highlight)'
+                            background: 'var(--window-document-bg-elevated)',
+                            borderColor: 'var(--tone-accent)',
+                            color: 'var(--tone-accent)'
                           }}
                         >
                           {tag.toUpperCase()}
@@ -328,12 +328,12 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                       }}
                       className="p-1.5 border-2 hover:opacity-80"
                       style={{
-                        background: 'var(--win95-bg-light)',
-                        borderColor: 'var(--win95-border)'
+                        background: 'var(--window-document-bg-elevated)',
+                        borderColor: 'var(--window-document-border)'
                       }}
                       title="Edit contact"
                     >
-                      <Edit size={14} style={{ color: 'var(--win95-text)' }} />
+                      <Edit size={14} style={{ color: 'var(--window-document-text)' }} />
                     </button>
                     <button
                       onClick={(e) => {
@@ -342,7 +342,7 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                       }}
                       className="p-1.5 border-2 hover:opacity-80"
                       style={{
-                        background: 'var(--win95-bg-light)',
+                        background: 'var(--window-document-bg-elevated)',
                         borderColor: 'var(--error)'
                       }}
                       title="Delete contact"
@@ -391,14 +391,14 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
           <div
             className="border-4 p-6 max-w-md mx-4 shadow-lg"
             style={{
-              background: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--window-document-bg)',
+              borderColor: 'var(--window-document-border)'
             }}
           >
-            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.crm.contacts.delete_confirm_title")}
             </h3>
-            <p className="text-sm mb-6" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm mb-6" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.crm.contacts.delete_confirm_message")}
             </p>
             <div className="flex gap-3 justify-end">
@@ -406,9 +406,9 @@ export function ContactsList({ selectedId, onSelect, onNavigateToPipelines }: Co
                 onClick={() => setDeletingId(null)}
                 className="px-4 py-2 border-2 hover:opacity-80 transition-colors"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-button-face)',
-                  color: 'var(--win95-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
               >
                 {t("ui.crm.buttons.cancel")}

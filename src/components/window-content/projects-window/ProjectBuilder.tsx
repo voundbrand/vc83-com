@@ -226,7 +226,7 @@ export function ProjectBuilder({
   if (mode === "edit" && existingProject === undefined) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 size={48} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={48} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -237,23 +237,23 @@ export function ProjectBuilder({
   return (
     <div className="flex flex-col h-full">
       {/* Header with Back Button */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onCancel}
               className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <ArrowLeft size={12} />
               Back
             </button>
             <div>
-              <h2 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+              <h2 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 {isNewProject ? "Create New Project" : projectName}
                 {createdProjectId && (
                   <span
@@ -281,8 +281,8 @@ export function ProjectBuilder({
                 onClick={handleFinish}
                 className="px-4 py-2 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-highlight)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--tone-accent)",
                   color: "white",
                 }}
               >
@@ -296,9 +296,9 @@ export function ProjectBuilder({
                   disabled={isSubmitting}
                   className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-80 disabled:opacity-50"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <X size={12} />
@@ -309,8 +309,8 @@ export function ProjectBuilder({
                   disabled={isSubmitting || !formData.name}
                   className="px-4 py-2 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:opacity-90 disabled:opacity-50"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-highlight)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--tone-accent)",
                     color: "white",
                   }}
                 >
@@ -350,14 +350,14 @@ export function ProjectBuilder({
       {/* Builder Tabs */}
       <div
         className="flex border-b-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "details" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "details" ? "var(--win95-text)" : "var(--neutral-gray)",
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "details" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "details" ? "var(--window-document-text)" : "var(--neutral-gray)",
           }}
           onClick={() => setActiveTab("details")}
         >
@@ -367,9 +367,9 @@ export function ProjectBuilder({
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "meetings" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "meetings" ? "var(--win95-text)" : "var(--neutral-gray)",
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "meetings" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "meetings" ? "var(--window-document-text)" : "var(--neutral-gray)",
             opacity: effectiveProjectId ? 1 : 0.5,
           }}
           onClick={() => effectiveProjectId && setActiveTab("meetings")}
@@ -387,9 +387,9 @@ export function ProjectBuilder({
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: activeTab === "publishing" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: activeTab === "publishing" ? "var(--win95-text)" : "var(--neutral-gray)",
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "publishing" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "publishing" ? "var(--window-document-text)" : "var(--neutral-gray)",
             opacity: effectiveProjectId ? 1 : 0.5,
           }}
           onClick={() => effectiveProjectId && setActiveTab("publishing")}

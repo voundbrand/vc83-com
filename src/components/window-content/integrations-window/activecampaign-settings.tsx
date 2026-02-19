@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -263,13 +263,13 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
         {/* Header with Back Button */}
-        <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: 'var(--win95-highlight)' }}
+            style={{ color: 'var(--tone-accent)' }}
           >
             <ArrowLeft size={16} />
             Back
@@ -277,7 +277,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
           <div className="flex items-center gap-2">
             <i className="fas fa-envelope-open-text text-2xl" style={{ color: '#356ae6' }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+              <h2 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                 ActiveCampaign
               </h2>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -289,14 +289,14 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
         {/* Tabs - Only show when connected */}
         {isConnected && (
-          <div className="px-4 pt-3 flex gap-1" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="px-4 pt-3 flex gap-1" style={{ borderColor: 'var(--window-document-border)' }}>
             <button
               onClick={() => setActiveTab("connection")}
               className="px-3 py-1 text-xs border-2 border-b-0 -mb-[2px] relative z-10"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: activeTab === "connection" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: 'var(--win95-text)',
+                borderColor: 'var(--window-document-border)',
+                background: activeTab === "connection" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
                 fontWeight: activeTab === "connection" ? 'bold' : 'normal',
               }}
             >
@@ -306,9 +306,9 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               onClick={() => setActiveTab("sync")}
               className="px-3 py-1 text-xs border-2 border-b-0 -mb-[2px] relative z-10"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: activeTab === "sync" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                color: 'var(--win95-text)',
+                borderColor: 'var(--window-document-border)',
+                background: activeTab === "sync" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
                 fontWeight: activeTab === "sync" ? 'bold' : 'normal',
               }}
             >
@@ -324,11 +324,11 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading connection status...
               </p>
@@ -339,8 +339,8 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 {isConnected && (
@@ -366,7 +366,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
                         Connection Error
                       </p>
-                      <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {connection.lastSyncError}
                       </p>
                     </div>
@@ -376,7 +376,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 {/* Connected Account Info */}
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       Account
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -385,7 +385,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   </div>
 
                   <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       Email
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -395,7 +395,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                   {connection.apiUrl && (
                     <div>
-                      <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         API URL
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -406,7 +406,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                   {connection.connectedAt && (
                     <div>
-                      <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         Connected
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -427,11 +427,11 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Available Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -460,26 +460,26 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <RetroButton
+                <InteriorButton
                   variant="secondary"
                   onClick={handleDisconnect}
                   className="flex-1"
                 >
                   Disconnect
-                </RetroButton>
+                </InteriorButton>
                 <a
                   href={connection.apiUrl ? `${connection.apiUrl.replace('.api-us1.com', '.activehosted.com')}/admin` : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1"
                 >
-                  <RetroButton
+                  <InteriorButton
                     variant="secondary"
                     className="w-full"
                   >
                     <ExternalLink size={14} className="mr-1" />
                     Open Dashboard
-                  </RetroButton>
+                  </InteriorButton>
                 </a>
               </div>
             </div>
@@ -490,12 +490,12 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     <Clock size={12} className="inline mr-1" />
                     Sync Status
                   </p>
@@ -526,8 +526,8 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 </div>
 
                 {/* Manual Sync Button */}
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--win95-border)" }}>
-                  <RetroButton
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--window-document-border)" }}>
+                  <InteriorButton
                     variant="secondary"
                     onClick={handleManualSync}
                     disabled={isSyncing}
@@ -544,7 +544,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                         Sync Now
                       </>
                     )}
-                  </RetroButton>
+                  </InteriorButton>
                 </div>
               </div>
 
@@ -552,11 +552,11 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   <Settings size={12} className="inline mr-1" />
                   Sync Configuration
                 </p>
@@ -570,7 +570,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       onChange={(e) => setSyncEnabled(e.target.checked)}
                       className="w-4 h-4"
                     />
-                    <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                    <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
                       Enable automatic sync
                     </span>
                   </label>
@@ -578,7 +578,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                 {/* Sync Direction */}
                 <div className="mb-4">
-                  <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
                     <ArrowRightLeft size={12} className="inline mr-1" />
                     Sync Direction
                   </label>
@@ -588,7 +588,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                         key={option.value}
                         className="flex items-start gap-2 cursor-pointer p-2 border rounded"
                         style={{
-                          borderColor: syncDirection === option.value ? "var(--win95-highlight)" : "var(--win95-border)",
+                          borderColor: syncDirection === option.value ? "var(--tone-accent)" : "var(--window-document-border)",
                           background: syncDirection === option.value ? "rgba(0, 120, 215, 0.05)" : "transparent",
                         }}
                       >
@@ -602,7 +602,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                           disabled={option.value === "bidirectional"}
                         />
                         <div>
-                          <span className="text-xs font-bold block" style={{ color: "var(--win95-text)" }}>
+                          <span className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
                             {option.label}
                             {option.value === "bidirectional" && (
                               <span className="ml-1 text-xs font-normal" style={{ color: "var(--neutral-gray)" }}>
@@ -621,7 +621,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                 {/* Sync Interval */}
                 <div className="mb-4">
-                  <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
                     <Clock size={12} className="inline mr-1" />
                     Sync Interval
                   </label>
@@ -631,9 +631,9 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     disabled={!syncEnabled}
                     className="w-full px-2 py-1 border-2 text-xs"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: syncEnabled ? "var(--win95-bg)" : "var(--win95-bg-light)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: syncEnabled ? "var(--window-document-bg)" : "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                       opacity: syncEnabled ? 1 : 0.5,
                     }}
                   >
@@ -649,7 +649,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 </div>
 
                 {/* Save Button */}
-                <RetroButton
+                <InteriorButton
                   onClick={handleSaveSyncConfig}
                   disabled={isSavingConfig}
                   className="w-full"
@@ -662,18 +662,18 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   ) : (
                     "Save Sync Settings"
                   )}
-                </RetroButton>
+                </InteriorButton>
               </div>
 
               {/* Webhook Info */}
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Webhook Integration
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -682,9 +682,9 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div
                   className="p-2 border rounded font-mono text-xs break-all"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/activecampaign` : '/api/webhooks/activecampaign'}
@@ -700,12 +700,12 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-6 border-2 rounded text-center"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <i className="fas fa-envelope-open-text text-5xl mb-4" style={{ color: '#356ae6' }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Not Connected
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -717,11 +717,11 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -752,11 +752,11 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Enter your ActiveCampaign credentials
                 </p>
 
@@ -775,7 +775,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       API URL
                     </label>
                     <input
@@ -788,9 +788,9 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       placeholder="https://youraccountname.api-us1.com"
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -799,7 +799,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       API Key
                     </label>
                     <div className="relative">
@@ -813,9 +813,9 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                         placeholder="Your API key"
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <button
@@ -840,14 +840,14 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs flex items-center gap-1 hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
                 How to find your API credentials
               </a>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isConnecting || !user}
                 className="w-full"
@@ -863,7 +863,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     Connect ActiveCampaign
                   </>
                 )}
-              </RetroButton>
+              </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>

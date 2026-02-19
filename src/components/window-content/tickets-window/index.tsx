@@ -14,11 +14,12 @@ type ViewMode = "list" | "create" | "edit";
 
 interface TicketsWindowProps {
   initialEventId?: Id<"objects">;
+  initialTicketId?: Id<"objects">;
   /** When true, shows back-to-desktop navigation (for /tickets route) */
   fullScreen?: boolean;
 }
 
-export function TicketsWindow({ initialEventId, fullScreen = false }: TicketsWindowProps = {}) {
+export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = false }: TicketsWindowProps = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTicketId, setSelectedTicketId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
@@ -194,6 +195,7 @@ export function TicketsWindow({ initialEventId, fullScreen = false }: TicketsWin
             organizationId={organizationId as Id<"organizations">}
             onEdit={handleEdit}
             initialEventId={initialEventId}
+            initialTicketId={initialTicketId}
           />
         )}
 

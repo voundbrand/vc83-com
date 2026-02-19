@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Save, Loader2, Github, ExternalLink, RefreshCw } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -150,8 +150,8 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
       <div
         className="border-4 shadow-lg max-w-2xl w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
           boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -160,7 +160,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
         <div
           className="px-4 py-2 flex items-center justify-between"
           style={{
-            background: 'var(--win95-highlight)',
+            background: 'var(--tone-accent)',
             color: 'white'
           }}
         >
@@ -182,11 +182,11 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
           <div
             className="mb-6 p-4 border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)'
             }}
           >
-            <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs" style={{ color: 'var(--window-document-text)' }}>
               Configure your deployment URLs to enable one-click deployment to Vercel.
               These URLs should point to your GitHub template repository and Vercel deploy button.
             </p>
@@ -194,7 +194,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
 
           {/* GitHub Repository URL */}
           <div className="mb-4">
-            <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
               <Github size={14} className="inline mr-1" />
               GitHub Repository URL
             </label>
@@ -205,9 +205,9 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
               placeholder="https://github.com/your-username/your-repo"
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: githubError ? 'var(--error)' : 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)'
+                borderColor: githubError ? 'var(--error)' : 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
+                color: 'var(--window-document-text)'
               }}
             />
             {githubError && (
@@ -223,7 +223,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
           {/* Vercel Deploy Button URL (Auto-generated from GitHub) */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+              <label className="block text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                 <ExternalLink size={14} className="inline mr-1" />
                 Vercel Deploy Button URL
               </label>
@@ -232,18 +232,18 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
                 disabled={!githubRepo || isGenerating}
                 className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors disabled:opacity-50"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg)',
-                  color: 'var(--win95-highlight)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg)',
+                  color: 'var(--tone-accent)'
                 }}
                 title="Auto-generate from GitHub repo URL"
                 onMouseEnter={(e) => {
                   if (githubRepo && !isGenerating) {
-                    e.currentTarget.style.background = 'var(--win95-hover-light)';
+                    e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg)';
+                  e.currentTarget.style.background = 'var(--window-document-bg)';
                 }}
               >
                 {isGenerating ? (
@@ -266,7 +266,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
               placeholder="Click 'Auto-Generate' after entering GitHub URL"
               className="w-full px-3 py-2 text-sm border-2 cursor-not-allowed"
               style={{
-                borderColor: 'var(--win95-border)',
+                borderColor: 'var(--window-document-border)',
                 background: '#F9FAFB',
                 color: 'var(--neutral-gray)'
               }}
@@ -279,16 +279,16 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2">
-            <RetroButton
+            <InteriorButton
               onClick={onClose}
               variant="outline"
               size="sm"
               disabled={isSaving}
             >
               Cancel
-            </RetroButton>
+            </InteriorButton>
 
-            <RetroButton
+            <InteriorButton
               onClick={handleSave}
               variant="primary"
               size="sm"
@@ -305,7 +305,7 @@ export function DeploymentSettingsModal({ page, onClose, onSaved }: DeploymentSe
                   Save Settings
                 </>
               )}
-            </RetroButton>
+            </InteriorButton>
           </div>
         </div>
       </div>

@@ -177,7 +177,7 @@ export default function MeetingsTab({
             setShowForm(true);
           }}
           className="px-3 py-1.5 text-xs font-bold border-2 rounded bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1"
-          style={{ border: "var(--win95-border)" }}
+          style={{ border: "var(--window-document-border)" }}
         >
           <Plus size={14} />
           Add Meeting
@@ -188,7 +188,7 @@ export default function MeetingsTab({
       <div
         className="p-3 border-2 rounded text-xs"
         style={{
-          border: "var(--win95-border)",
+          border: "var(--window-document-border)",
           backgroundColor: "#e0e7ff",
         }}
       >
@@ -208,8 +208,8 @@ export default function MeetingsTab({
         <div
           className="p-8 text-center border-2 rounded"
           style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            border: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           <p className="text-sm text-gray-600 mb-2">No meetings yet</p>

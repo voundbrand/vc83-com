@@ -95,8 +95,8 @@ export function PaymentProviderSelectionConfigForm({
   return (
     <div className="space-y-4">
       {/* Default Providers */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           Default Payment Providers <span className="text-red-500">*</span>
         </label>
         <p className="text-[10px] mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -120,12 +120,12 @@ export function PaymentProviderSelectionConfigForm({
       {/* Conditional Rules */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <label className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             Conditional Rules
           </label>
           <button
             onClick={addRule}
-            className="retro-button px-2 py-1 text-[10px] flex items-center gap-1"
+            className="desktop-interior-button px-2 py-1 text-[10px] flex items-center gap-1"
           >
             <Plus size={12} /> Add Rule
           </button>
@@ -136,12 +136,12 @@ export function PaymentProviderSelectionConfigForm({
 
         <div className="space-y-3">
           {(config.rules || []).map((rule, index) => (
-            <div key={index} className="p-3 rounded border-2" style={{ borderColor: 'var(--accent-purple)', background: 'var(--win95-bg)' }}>
+            <div key={index} className="p-3 rounded border-2" style={{ borderColor: 'var(--accent-purple)', background: 'var(--window-document-bg)' }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold">Rule {index + 1}</span>
                 <button
                   onClick={() => removeRule(index)}
-                  className="retro-button px-2 py-1 text-[10px] flex items-center gap-1"
+                  className="desktop-interior-button px-2 py-1 text-[10px] flex items-center gap-1"
                   style={{ background: '#ff4444' }}
                 >
                   <Trash2 size={10} /> Remove
@@ -150,7 +150,7 @@ export function PaymentProviderSelectionConfigForm({
 
               {/* Conditions */}
               <div className="space-y-2 mb-3">
-                <div className="text-[10px] font-bold" style={{ color: "var(--win95-text)" }}>
+                <div className="text-[10px] font-bold" style={{ color: "var(--window-document-text)" }}>
                   WHEN (Conditions):
                 </div>
 
@@ -189,7 +189,7 @@ export function PaymentProviderSelectionConfigForm({
                 {availableCrmOrganizations.length > 0 && (
                   <div>
                     <label className="text-[10px] block mb-1">Specific Employers (CRM Orgs)</label>
-                    <div className="max-h-24 overflow-y-auto space-y-1 p-2 rounded" style={{ background: 'var(--win95-bg-light)' }}>
+                    <div className="max-h-24 overflow-y-auto space-y-1 p-2 rounded" style={{ background: 'var(--window-document-bg-elevated)' }}>
                       {availableCrmOrganizations.map((org) => (
                         <label key={org._id} className="flex items-center gap-2">
                           <input
@@ -241,8 +241,8 @@ export function PaymentProviderSelectionConfigForm({
               </div>
 
               {/* Actions */}
-              <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border)' }}>
-                <div className="text-[10px] font-bold" style={{ color: "var(--win95-text)" }}>
+              <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
+                <div className="text-[10px] font-bold" style={{ color: "var(--window-document-text)" }}>
                   THEN (Actions):
                 </div>
 
@@ -342,8 +342,8 @@ export function PaymentProviderSelectionConfigForm({
       </div>
 
       {/* Settings */}
-      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-        <label className="text-xs font-bold block mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="p-3 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+        <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
           Additional Settings
         </label>
         <div className="space-y-2">

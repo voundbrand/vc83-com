@@ -3,34 +3,46 @@
 import { useState } from "react";
 import { X, UserPlus, Mail, Shield, AlertCircle } from "lucide-react";
 import { useAction, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { usePostHog } from "posthog-js/react";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 interface InviteUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  organizationId: Id<"organizations">;
+  organizationId: string;
 }
 
 export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserModalProps) {
   const { t } = useNamespaceTranslations("ui.manage");
   const posthog = usePostHog();
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args?: unknown
+  ) => unknown;
+  // Avoid deep generated type instantiation for this modal query/action path.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseAction = useAction as any;
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [selectedRole, setSelectedRole] = useState<Id<"roles"> | "">("");
+  const [selectedRole, setSelectedRole] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   const { sessionId } = useAuth();
-  const inviteUser = useAction(api.organizations.inviteUser);
-  const roles = useQuery(api.rbac.getRoles);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inviteUser = unsafeUseAction(apiAny.organizations.inviteUser);
+  const roles = unsafeUseQuery(apiAny.rbac.getRoles) as Array<{
+    _id: string;
+    name: string;
+    description?: string;
+  }> | undefined;
 
   if (!isOpen) return null;
 
@@ -54,7 +66,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
         sessionId,
         email,
         organizationId,
-        roleId: selectedRole as Id<"roles">,
+        roleId: selectedRole,
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         sendEmail,
@@ -124,10 +136,9 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
 
       {/* Modal */}
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 min-w-[500px]"
+        className="fixed top-1/2 left-1/2 z-50 w-[min(500px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border"
         style={{
           backgroundColor: "var(--modal-bg)",
-          border: "2px solid",
           borderColor: "var(--modal-border)",
           boxShadow: "var(--modal-shadow)",
         }}
@@ -153,14 +164,9 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
           </div>
           <button
             onClick={onClose}
-            className="p-0.5 hover:opacity-80"
-            style={{
-              backgroundColor: "var(--win95-button-face)",
-              border: "1px solid",
-              borderColor: "var(--win95-button-dark)",
-            }}
+            className="desktop-interior-button p-1"
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
@@ -206,7 +212,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="email"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Mail size={14} className="inline mr-1" />
                   {t("ui.manage.invite.email_address")}
@@ -217,13 +223,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-2 py-1 text-sm"
-                  style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
-                  }}
+                  className="desktop-interior-input"
                   placeholder="user@example.com"
                 />
               </div>
@@ -233,7 +233,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="firstName"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.first_name")}
                 </label>
@@ -242,13 +242,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-2 py-1 text-sm"
-                  style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
-                  }}
+                  className="desktop-interior-input"
                   placeholder="John"
                 />
               </div>
@@ -258,7 +252,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="lastName"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.last_name")}
                 </label>
@@ -267,13 +261,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-2 py-1 text-sm"
-                  style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
-                  }}
+                  className="desktop-interior-input"
                   placeholder="Doe"
                 />
               </div>
@@ -283,7 +271,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="role"
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Shield size={14} className="inline mr-1" />
                   {t("ui.manage.users.role")}
@@ -291,15 +279,9 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <select
                   id="role"
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as Id<"roles">)}
+                  onChange={(e) => setSelectedRole(e.target.value)}
                   required
-                  className="w-full px-2 py-1 text-sm"
-                  style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
-                  }}
+                  className="desktop-interior-select"
                 >
                   <option value="">{t("ui.manage.invite.select_role")}</option>
                   {sortedRoles?.map((role) => (
@@ -326,7 +308,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                 <label
                   htmlFor="sendEmail"
                   className="text-sm cursor-pointer"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Mail size={14} className="inline mr-1" />
                   {t("ui.manage.invite.send_email")}
@@ -339,22 +321,14 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   type="button"
                   onClick={onClose}
                   disabled={isSubmitting}
-                  className="beveled-button px-4 py-1.5 text-sm font-semibold"
-                  style={{
-                    backgroundColor: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                  }}
+                  className="desktop-interior-button px-4 py-1.5 text-sm font-semibold"
                 >
                   {t("ui.manage.org.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !email || !selectedRole}
-                  className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
-                  }}
+                  className="desktop-interior-button desktop-interior-button-primary px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
                 >
                   {isSubmitting ? t("ui.manage.invite.inviting") : t("ui.manage.invite.send_invitation")}
                 </button>
@@ -366,4 +340,3 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
     </>
   );
 }
-

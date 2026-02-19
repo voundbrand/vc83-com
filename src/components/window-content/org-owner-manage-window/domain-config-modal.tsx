@@ -223,17 +223,17 @@ export function DomainConfigModal({
       <div
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2"
         style={{
-          backgroundColor: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)',
+          backgroundColor: 'var(--window-document-bg)',
+          borderColor: 'var(--window-document-border)',
         }}
       >
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center justify-between"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-titlebar)',
-            color: 'var(--win95-titlebar-text)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-titlebar-bg)',
+            color: 'var(--window-document-text)'
           }}
         >
           <h3 className="text-sm font-bold flex items-center gap-2">
@@ -249,13 +249,13 @@ export function DomainConfigModal({
         </div>
 
         {/* Section Tabs */}
-        <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', backgroundColor: 'var(--win95-bg-light)' }}>
+        <div className="flex border-b-2" style={{ borderColor: 'var(--window-document-border)', backgroundColor: 'var(--window-document-bg-elevated)' }}>
           <button
             className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: activeSection === "core" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
-              color: activeSection === "core" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              borderColor: 'var(--window-document-border)',
+              background: activeSection === "core" ? 'var(--window-document-bg)' : 'var(--window-document-bg-elevated)',
+              color: activeSection === "core" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
             }}
             onClick={() => setActiveSection("core")}
           >
@@ -265,9 +265,9 @@ export function DomainConfigModal({
           <button
             className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: activeSection === "email" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
-              color: activeSection === "email" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              borderColor: 'var(--window-document-border)',
+              background: activeSection === "email" ? 'var(--window-document-bg)' : 'var(--window-document-bg-elevated)',
+              color: activeSection === "email" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
             }}
             onClick={() => setActiveSection("email")}
           >
@@ -277,9 +277,9 @@ export function DomainConfigModal({
           <button
             className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: activeSection === "web" ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
-              color: activeSection === "web" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+              borderColor: 'var(--window-document-border)',
+              background: activeSection === "web" ? 'var(--window-document-bg)' : 'var(--window-document-bg-elevated)',
+              color: activeSection === "web" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
             }}
             onClick={() => setActiveSection("web")}
           >
@@ -294,7 +294,7 @@ export function DomainConfigModal({
           {activeSection === "core" && (
             <>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.domains.modal.field.domain_name")} *
                 </label>
                 <input
@@ -306,15 +306,15 @@ export function DomainConfigModal({
                   disabled={!!config} // Can't change domain name on edit
                   className="w-full px-2 py-1 text-xs border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: config ? 'var(--win95-bg-light)' : 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)'
+                    borderColor: 'var(--window-document-border)',
+                    backgroundColor: config ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)'
                   }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.domains.modal.field.logo_url")}
                 </label>
                 <div className="flex gap-2">
@@ -325,9 +325,9 @@ export function DomainConfigModal({
                     placeholder={t("ui.manage.domains.modal.field.logo_url.placeholder")}
                     className="flex-1 px-2 py-1 text-xs border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-input-bg)',
-                      color: 'var(--win95-text)'
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)'
                     }}
                   />
                   <button
@@ -348,9 +348,9 @@ export function DomainConfigModal({
                     }}
                     className="px-3 py-1 text-xs font-bold border-2 hover:bg-opacity-90 flex items-center gap-1"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      backgroundColor: 'var(--win95-bg-light)',
-                      color: 'var(--win95-text)'
+                      borderColor: 'var(--window-document-border)',
+                      backgroundColor: 'var(--window-document-bg-elevated)',
+                      color: 'var(--window-document-text)'
                     }}
                   >
                     <Upload size={12} />
@@ -365,7 +365,7 @@ export function DomainConfigModal({
                       src={formData.logoUrl}
                       alt="Domain Logo Preview"
                       className="max-w-xs max-h-20 border-2"
-                      style={{ borderColor: 'var(--win95-border)' }}
+                      style={{ borderColor: 'var(--window-document-border)' }}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -376,7 +376,7 @@ export function DomainConfigModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.manage.domains.modal.field.primary_color")} *
                   </label>
                   <div className="flex gap-2">
@@ -385,7 +385,7 @@ export function DomainConfigModal({
                       value={formData.primaryColor}
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       className="w-12 h-8 border-2"
-                      style={{ borderColor: 'var(--win95-border)' }}
+                      style={{ borderColor: 'var(--window-document-border)' }}
                     />
                     <input
                       type="text"
@@ -393,16 +393,16 @@ export function DomainConfigModal({
                       onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
                       className="flex-1 px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.manage.domains.modal.field.secondary_color")} *
                   </label>
                   <div className="flex gap-2">
@@ -411,7 +411,7 @@ export function DomainConfigModal({
                       value={formData.secondaryColor}
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       className="w-12 h-8 border-2"
-                      style={{ borderColor: 'var(--win95-border)' }}
+                      style={{ borderColor: 'var(--window-document-border)' }}
                     />
                     <input
                       type="text"
@@ -419,9 +419,9 @@ export function DomainConfigModal({
                       onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
                       className="flex-1 px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
@@ -429,7 +429,7 @@ export function DomainConfigModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.domains.modal.field.font_family")}
                 </label>
                 <input
@@ -439,9 +439,9 @@ export function DomainConfigModal({
                   placeholder={t("ui.manage.domains.modal.field.font_family.placeholder")}
                   className="w-full px-2 py-1 text-xs border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    backgroundColor: 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)'
+                    borderColor: 'var(--window-document-border)',
+                    backgroundColor: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)'
                   }}
                 />
               </div>
@@ -458,7 +458,7 @@ export function DomainConfigModal({
                   checked={formData.enableEmail}
                   onChange={(e) => setFormData({ ...formData, enableEmail: e.target.checked })}
                 />
-                <label htmlFor="enableEmail" className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                <label htmlFor="enableEmail" className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.domains.modal.email.enable")}
                 </label>
               </div>
@@ -466,7 +466,7 @@ export function DomainConfigModal({
               {formData.enableEmail && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       Email Domain *
                     </label>
                     <input
@@ -476,9 +476,9 @@ export function DomainConfigModal({
                       placeholder="mail.pluseins.gg"
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                       required
                     />
@@ -488,7 +488,7 @@ export function DomainConfigModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.sender_email")}
                     </label>
                     <input
@@ -498,16 +498,16 @@ export function DomainConfigModal({
                       placeholder={t("ui.manage.domains.modal.field.sender_email.placeholder")}
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                         {t("ui.manage.domains.modal.field.system_email")}
                       </label>
                       <input
@@ -517,15 +517,15 @@ export function DomainConfigModal({
                         placeholder={t("ui.manage.domains.modal.field.system_email.placeholder")}
                         className="w-full px-2 py-1 text-xs border-2"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          backgroundColor: 'var(--win95-input-bg)',
-                          color: 'var(--win95-text)'
+                          borderColor: 'var(--window-document-border)',
+                          backgroundColor: 'var(--window-document-bg)',
+                          color: 'var(--window-document-text)'
                         }}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                         {t("ui.manage.domains.modal.field.sales_email")}
                       </label>
                       <input
@@ -535,16 +535,16 @@ export function DomainConfigModal({
                         placeholder={t("ui.manage.domains.modal.field.sales_email.placeholder")}
                         className="w-full px-2 py-1 text-xs border-2"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          backgroundColor: 'var(--win95-input-bg)',
-                          color: 'var(--win95-text)'
+                          borderColor: 'var(--window-document-border)',
+                          backgroundColor: 'var(--window-document-bg)',
+                          color: 'var(--window-document-text)'
                         }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.reply_to_email")}
                     </label>
                     <input
@@ -554,16 +554,16 @@ export function DomainConfigModal({
                       placeholder={t("ui.manage.domains.modal.field.reply_to_email.placeholder")}
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
 
                   {/* Email Template Selector */}
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       Default Email Template
                     </label>
                     <div className="flex gap-2">
@@ -572,9 +572,9 @@ export function DomainConfigModal({
                         onChange={(e) => setFormData({ ...formData, emailTemplateCode: e.target.value })}
                         className="flex-1 px-2 py-1 text-xs border-2"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          backgroundColor: 'var(--win95-input-bg)',
-                          color: 'var(--win95-text)'
+                          borderColor: 'var(--window-document-border)',
+                          backgroundColor: 'var(--window-document-bg)',
+                          color: 'var(--window-document-text)'
                         }}
                       >
                         {getAllEmailTemplateMetadata().map((template) => (
@@ -591,8 +591,8 @@ export function DomainConfigModal({
                         }}
                         className="px-3 py-1 text-xs font-semibold border-2 flex items-center gap-1 hover:bg-opacity-90 transition-colors"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          backgroundColor: 'var(--win95-highlight)',
+                          borderColor: 'var(--window-document-border)',
+                          backgroundColor: 'var(--tone-accent)',
                           color: 'white'
                         }}
                       >
@@ -619,7 +619,7 @@ export function DomainConfigModal({
                   checked={formData.enableWeb}
                   onChange={(e) => setFormData({ ...formData, enableWeb: e.target.checked })}
                 />
-                <label htmlFor="enableWeb" className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+                <label htmlFor="enableWeb" className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
                   {t("ui.manage.domains.modal.web.enable")}
                 </label>
               </div>
@@ -627,7 +627,7 @@ export function DomainConfigModal({
               {formData.enableWeb && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.site_url")}
                     </label>
                     <input
@@ -637,15 +637,15 @@ export function DomainConfigModal({
                       placeholder={t("ui.manage.domains.modal.field.site_url.placeholder")}
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.meta_title")}
                     </label>
                     <input
@@ -655,15 +655,15 @@ export function DomainConfigModal({
                       placeholder={t("ui.manage.domains.modal.field.meta_title.placeholder")}
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.meta_description")}
                     </label>
                     <textarea
@@ -673,9 +673,9 @@ export function DomainConfigModal({
                       rows={3}
                       className="w-full px-2 py-1 text-xs border-2"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        backgroundColor: 'var(--win95-input-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        backgroundColor: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
@@ -687,7 +687,7 @@ export function DomainConfigModal({
                       checked={formData.isExternal}
                       onChange={(e) => setFormData({ ...formData, isExternal: e.target.checked })}
                     />
-                    <label htmlFor="isExternal" className="text-xs" style={{ color: 'var(--win95-text)' }}>
+                    <label htmlFor="isExternal" className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                       {t("ui.manage.domains.modal.field.is_external")}
                     </label>
                   </div>
@@ -697,15 +697,15 @@ export function DomainConfigModal({
           )}
 
           {/* Footer Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="flex justify-end gap-2 pt-4 border-t-2" style={{ borderColor: 'var(--window-document-border)' }}>
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
               className="beveled-button px-4 py-2 text-xs font-semibold"
               style={{
-                backgroundColor: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               {t("ui.manage.domains.modal.actions.cancel")}

@@ -85,9 +85,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           onClick={onToggle}
           className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <div className="flex-1">
@@ -114,9 +114,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
         onClick={onToggle}
         className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
+          color: "var(--shell-text)",
         }}
       >
         <span className="text-sm font-bold flex items-center gap-1">
@@ -126,7 +126,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
         <ChevronUp size={16} />
       </button>
 
-      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {t('ui.events.form.agenda_description')}
         </p>
@@ -137,7 +137,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           onClick={handleAddItem}
           className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 w-full"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--shell-border)",
             background: "var(--primary)",
             color: "white",
           }}
@@ -151,8 +151,8 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           <div
             className="text-center py-8 border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface-elevated)",
               color: "var(--neutral-gray)",
             }}
           >
@@ -169,9 +169,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                   <div
                     className="px-2 py-1 text-xs font-bold border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg-light)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--shell-border)",
+                      background: "var(--shell-surface-elevated)",
+                      color: "var(--shell-text)",
                     }}
                   >
                     {new Date(items[0].date).toLocaleDateString('en-US', {
@@ -190,8 +190,8 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         key={item.id}
                         className="p-3 border-2 space-y-2"
                         style={{
-                          borderColor: editingItemId === item.id ? "var(--primary)" : "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
+                          borderColor: editingItemId === item.id ? "var(--primary)" : "var(--shell-border)",
+                          background: "var(--shell-input-surface)",
                         }}
                       >
                         {/* Header Row */}
@@ -199,7 +199,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                           <div className="flex-1 grid grid-cols-2 gap-2">
                             {/* Date */}
                             <div>
-                              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                              <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                                 {t('ui.events.form.agenda_date')}
                               </label>
                               <input
@@ -211,16 +211,16 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                 }}
                                 className="w-full px-2 py-1 text-xs border-2"
                                 style={{
-                                  borderColor: "var(--win95-border)",
-                                  background: "var(--win95-input-bg)",
-                                  color: "var(--win95-input-text)",
+                                  borderColor: "var(--shell-border)",
+                                  background: "var(--shell-input-surface)",
+                                  color: "var(--shell-input-text)",
                                 }}
                               />
                             </div>
 
                             {/* Time Range */}
                             <div>
-                              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                              <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                                 {t('ui.events.form.agenda_time')}
                               </label>
                               <div className="flex items-center gap-1">
@@ -230,9 +230,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                   onChange={(e) => handleUpdateItem(item.id, { startTime: e.target.value })}
                                   className="flex-1 px-2 py-1 text-xs border-2"
                                   style={{
-                                    borderColor: "var(--win95-border)",
-                                    background: "var(--win95-input-bg)",
-                                    color: "var(--win95-input-text)",
+                                    borderColor: "var(--shell-border)",
+                                    background: "var(--shell-input-surface)",
+                                    color: "var(--shell-input-text)",
                                   }}
                                 />
                                 <span className="text-xs">-</span>
@@ -242,9 +242,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                   onChange={(e) => handleUpdateItem(item.id, { endTime: e.target.value })}
                                   className="flex-1 px-2 py-1 text-xs border-2"
                                   style={{
-                                    borderColor: "var(--win95-border)",
-                                    background: "var(--win95-input-bg)",
-                                    color: "var(--win95-input-text)",
+                                    borderColor: "var(--shell-border)",
+                                    background: "var(--shell-input-surface)",
+                                    color: "var(--shell-input-text)",
                                   }}
                                 />
                               </div>
@@ -257,7 +257,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             onClick={() => handleDeleteItem(item.id)}
                             className="px-2 py-1 text-xs border-2 flex-shrink-0"
                             style={{
-                              borderColor: "var(--win95-border)",
+                              borderColor: "var(--shell-border)",
                               background: "#DC2626",
                               color: "white",
                             }}
@@ -269,7 +269,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
 
                         {/* Title */}
                         <div>
-                          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                          <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                             {t('ui.events.form.session_title')}
                           </label>
                           <input
@@ -279,9 +279,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             placeholder={t('ui.events.form.session_title_placeholder')}
                             className="w-full px-2 py-1 text-xs border-2"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-input-bg)",
-                              color: "var(--win95-input-text)",
+                              borderColor: "var(--shell-border)",
+                              background: "var(--shell-input-surface)",
+                              color: "var(--shell-input-text)",
                             }}
                           />
                         </div>
@@ -289,7 +289,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         {/* Speaker & Location */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                            <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                               {t('ui.events.form.speaker_optional')}
                             </label>
                             <input
@@ -299,15 +299,15 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                               placeholder={t('ui.events.form.speaker_placeholder')}
                               className="w-full px-2 py-1 text-xs border-2"
                               style={{
-                                borderColor: "var(--win95-border)",
-                                background: "var(--win95-input-bg)",
-                                color: "var(--win95-input-text)",
+                                borderColor: "var(--shell-border)",
+                                background: "var(--shell-input-surface)",
+                                color: "var(--shell-input-text)",
                               }}
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                            <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                               {t('ui.events.form.location_optional')}
                             </label>
                             <input
@@ -317,9 +317,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                               placeholder={t('ui.events.form.location_placeholder')}
                               className="w-full px-2 py-1 text-xs border-2"
                               style={{
-                                borderColor: "var(--win95-border)",
-                                background: "var(--win95-input-bg)",
-                                color: "var(--win95-input-text)",
+                                borderColor: "var(--shell-border)",
+                                background: "var(--shell-input-surface)",
+                                color: "var(--shell-input-text)",
                               }}
                             />
                           </div>
@@ -327,7 +327,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
 
                         {/* Description */}
                         <div>
-                          <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                          <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                             {t('ui.events.form.description_optional')}
                           </label>
                           <textarea
@@ -337,9 +337,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                             rows={2}
                             className="w-full px-2 py-1 text-xs border-2"
                             style={{
-                              borderColor: "var(--win95-border)",
-                              background: "var(--win95-input-bg)",
-                              color: "var(--win95-input-text)",
+                              borderColor: "var(--shell-border)",
+                              background: "var(--shell-input-surface)",
+                              color: "var(--shell-input-text)",
                             }}
                           />
                         </div>
@@ -348,12 +348,12 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                         <div
                           className="p-2 border-2 space-y-2"
                           style={{
-                            borderColor: "var(--win95-border)",
-                            background: "var(--win95-bg-light)",
+                            borderColor: "var(--shell-border)",
+                            background: "var(--shell-surface-elevated)",
                           }}
                         >
                           <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                            <label className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
                               {t('ui.events.form.session_badge')}
                             </label>
                             <label className="flex items-center gap-1 text-xs">
@@ -371,14 +371,14 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                 }}
                                 className="w-3 h-3"
                               />
-                              <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.show_badge')}</span>
+                              <span style={{ color: "var(--shell-text)" }}>{t('ui.events.form.show_badge')}</span>
                             </label>
                           </div>
 
                           {(item.badge?.enabled ?? false) && (
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                                   {t('ui.events.form.badge_text')}
                                 </label>
                                 <input
@@ -396,15 +396,15 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                   placeholder={t('ui.events.form.badge_text_placeholder')}
                                   className="w-full px-2 py-1 text-xs border-2"
                                   style={{
-                                    borderColor: "var(--win95-border)",
-                                    background: "var(--win95-input-bg)",
-                                    color: "var(--win95-input-text)",
+                                    borderColor: "var(--shell-border)",
+                                    background: "var(--shell-input-surface)",
+                                    color: "var(--shell-input-text)",
                                   }}
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                                <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                                   {t('ui.events.form.badge_color')}
                                 </label>
                                 <div className="flex gap-1">
@@ -422,7 +422,7 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                     }}
                                     className="w-10 h-6 border-2 cursor-pointer"
                                     style={{
-                                      borderColor: "var(--win95-border)",
+                                      borderColor: "var(--shell-border)",
                                     }}
                                   />
                                   <input
@@ -440,9 +440,9 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
                                     placeholder="#6B46C1"
                                     className="flex-1 px-2 py-1 text-xs border-2"
                                     style={{
-                                      borderColor: "var(--win95-border)",
-                                      background: "var(--win95-input-bg)",
-                                      color: "var(--win95-input-text)",
+                                      borderColor: "var(--shell-border)",
+                                      background: "var(--shell-input-surface)",
+                                      color: "var(--shell-input-text)",
                                     }}
                                   />
                                 </div>

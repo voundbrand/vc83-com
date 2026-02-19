@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
 import { useQuery, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { OrganizationSection } from "./components/organization-section";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -21,7 +23,9 @@ import {
   Hash,
   Palette,
   Languages,
-  Receipt
+  Receipt,
+  ImagePlus,
+  Trash2
 } from "lucide-react";
 import { Doc } from "../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
@@ -98,7 +102,6 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
 
-    // VAT validation
     const validateVATAction = useAction(api.vatValidation.validateVATNumber);
     const [isValidatingVAT, setIsValidatingVAT] = useState(false);
     const [vatValidationResult, setVatValidationResult] = useState<{
@@ -139,14 +142,21 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
       organizationId: organization._id,
     });
 
+    type OrganizationAddressLike = {
+      customProperties?: {
+        isTaxOrigin?: boolean;
+        country?: string;
+      };
+    };
+
     // Find tax origin address
-    const taxOriginAddress = addresses?.find(
-      (addr) => (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
+    const taxOriginAddress = (addresses as OrganizationAddressLike[] | undefined)?.find(
+      (addr) => addr.customProperties?.isTaxOrigin,
     );
 
     // Get country from tax origin address
     const taxOriginCountry = taxOriginAddress
-      ? (taxOriginAddress.customProperties as { country?: string })?.country
+      ? taxOriginAddress.customProperties?.country
       : null;
 
     // Get available legal entity types based on tax origin address country
@@ -337,6 +347,25 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     border: '1px solid var(--window-document-border)',
     borderColor: 'var(--window-document-border)',
     opacity: canEdit ? 1 : 0.7
+  };
+
+  const openBrandingMediaPicker = (windowId: string, title: string, onSelectUrl: (url: string) => void) => {
+    if (!canEdit || !isEditing) {
+      return;
+    }
+
+    openWindow(
+      windowId,
+      title,
+      <MediaLibraryWindow
+        selectionMode={true}
+        onSelect={async (media) => {
+          onSelectUrl(media.url || "");
+        }}
+      />,
+      { x: 240, y: 160 },
+      { width: 1000, height: 700 },
+    );
   };
 
   return (
@@ -722,7 +751,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       }
                     }}
                     disabled={isValidatingVAT}
-                    className="retro-button-primary px-2 py-1 text-xs font-semibold whitespace-nowrap"
+                    className="desktop-interior-button desktop-interior-button-primary h-8 px-2.5 text-[11px] font-semibold whitespace-nowrap"
                     style={{
                       opacity: isValidatingVAT ? 0.6 : 1,
                     }}
@@ -1025,77 +1054,94 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </div>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
                   {t("ui.manage.org.logo_url")}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={formData.settings.branding.logo}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      settings: {
-                        ...formData.settings,
-                        branding: { ...formData.settings.branding, logo: e.target.value }
-                      }
-                    })}
-                    readOnly={!isEditing}
-                    disabled={!canEdit || !isEditing}
-                    placeholder="https://..."
-                    className="flex-1 px-2 py-1 text-sm"
-                    style={inputStyles}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!canEdit || !isEditing) return;
-                      openWindow(
-                        "media-library-select-logo",
-                        "Select Logo",
-                        <MediaLibraryWindow
-                          selectionMode={true}
-                          onSelect={async (media) => {
-                            // Get the URL for the selected media
-                            const url = media.url || "";
-                            setFormData({
-                              ...formData,
-                              settings: {
-                                ...formData.settings,
-                                branding: { ...formData.settings.branding, logo: url }
-                              }
-                            });
-                          }}
-                        />,
-                        { x: 240, y: 160 },
-                        { width: 1000, height: 700 }
-                      );
-                    }}
-                    disabled={!canEdit || !isEditing}
-                    className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      background: 'var(--tone-accent-strong)',
-                      color: 'var(--window-document-text)',
-                      border: '1px solid var(--window-document-border)',
-                    }}
-                  >
-                    Browse
-                  </button>
-                </div>
-                {formData.settings.branding.logo && (
-                  <div className="mt-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={formData.settings.branding.logo}
-                      alt="Logo preview"
-                      className="h-16 object-contain border"
-                      style={{ borderColor: 'var(--window-document-border)' }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                <div className="manage-org-avatar-uploader">
+                  <div className="manage-org-avatar-preview">
+                    {formData.settings.branding.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={formData.settings.branding.logo}
+                        alt="Organization avatar"
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            settings: {
+                              ...previous.settings,
+                              branding: { ...previous.settings.branding, logo: "" },
+                            },
+                          }))
+                        }
+                      />
+                    ) : (
+                      <Building2 className="h-7 w-7" />
+                    )}
                   </div>
-                )}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openBrandingMediaPicker("media-library-select-logo", "Select Avatar", (url) =>
+                            setFormData((previous) => ({
+                              ...previous,
+                              settings: {
+                                ...previous.settings,
+                                branding: { ...previous.settings.branding, logo: url },
+                              },
+                            })),
+                          )
+                        }
+                        disabled={!canEdit || !isEditing}
+                        className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        Upload Avatar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            settings: {
+                              ...previous.settings,
+                              branding: { ...previous.settings.branding, logo: "" },
+                            },
+                          }))
+                        }
+                        disabled={!canEdit || !isEditing || !formData.settings.branding.logo}
+                        className="desktop-interior-button h-8 px-3 text-xs font-semibold"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={formData.settings.branding.logo}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          settings: {
+                            ...formData.settings,
+                            branding: { ...formData.settings.branding, logo: e.target.value },
+                          },
+                        })
+                      }
+                      readOnly={!isEditing}
+                      disabled={!canEdit || !isEditing}
+                      placeholder="https://..."
+                      className="flex-1 px-2 py-1 text-sm"
+                      style={inputStyles}
+                    />
+                    <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      Use a square image for the best avatar crop.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1121,37 +1167,21 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!canEdit || !isEditing) return;
-                      openWindow(
-                        "media-library-select-background",
-                        "Select Desktop Background",
-                        <MediaLibraryWindow
-                          selectionMode={true}
-                          onSelect={async (media) => {
-                            // Get the URL for the selected media
-                            const url = media.url || "";
-                            setFormData({
-                              ...formData,
-                              settings: {
-                                ...formData.settings,
-                                branding: { ...formData.settings.branding, desktopBackground: url }
-                              }
-                            });
-                          }}
-                        />,
-                        { x: 240, y: 160 },
-                        { width: 1000, height: 700 }
-                      );
-                    }}
+                    onClick={() =>
+                      openBrandingMediaPicker("media-library-select-background", "Select Desktop Background", (url) =>
+                        setFormData((previous) => ({
+                          ...previous,
+                          settings: {
+                            ...previous.settings,
+                            branding: { ...previous.settings.branding, desktopBackground: url },
+                          },
+                        })),
+                      )
+                    }
                     disabled={!canEdit || !isEditing}
-                    className="px-3 py-1 text-xs font-bold rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      background: 'var(--tone-accent-strong)',
-                      color: 'var(--window-document-text)',
-                      border: '1px solid var(--window-document-border)',
-                    }}
+                    className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
                   >
+                    <ImagePlus className="h-3.5 w-3.5" />
                     Browse
                   </button>
                 </div>

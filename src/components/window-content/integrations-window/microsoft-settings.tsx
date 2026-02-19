@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -23,9 +23,9 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
   const confirmDialog = useRetroConfirm();
 
   // Query Microsoft connection status
-  const connection = useQuery(
-    api.oauth.microsoft.getUserMicrosoftConnection,
-    sessionId ? { sessionId } : "skip"
+  const connection: any = useQuery(
+    api.oauth.microsoft.getUserMicrosoftConnection as any,
+    sessionId ? ({ sessionId } as any) : "skip"
   );
 
   // Query email sync status
@@ -261,13 +261,13 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
         {/* Header with Back Button */}
-        <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="px-4 py-3 border-b-2 flex items-center gap-3" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: 'var(--win95-highlight)' }}
+            style={{ color: 'var(--tone-accent)' }}
           >
             <ArrowLeft size={16} />
             Back
@@ -275,7 +275,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
           <div className="flex items-center gap-2">
             <i className="fab fa-microsoft text-2xl" style={{ color: '#00a4ef' }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+              <h2 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                 Microsoft 365
               </h2>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -291,11 +291,11 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading connection status...
               </p>
@@ -306,8 +306,8 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 {isConnected && (
@@ -333,7 +333,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
                         Connection Error
                       </p>
-                      <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {connection.lastSyncError}
                       </p>
                     </div>
@@ -343,7 +343,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 {/* Connected Account Info */}
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       Connected Account
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -353,7 +353,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
 
                   {connection.lastSyncAt && (
                     <div>
-                      <p className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         Last Synced
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -374,11 +374,11 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <h3 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Permissions
                 </h3>
                 <MicrosoftScopeSelector
@@ -392,11 +392,11 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   Sync Settings
                 </p>
                 <div className="space-y-2">
@@ -406,7 +406,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       checked={emailSyncStatus?.syncEnabled || false}
                       onChange={(e) => handleEmailSyncToggle(e.target.checked)}
                     />
-                    <span style={{ color: "var(--win95-text)" }}>Sync Emails</span>
+                    <span style={{ color: "var(--window-document-text)" }}>Sync Emails</span>
                     {emailSyncStatus && (
                       <span className="text-xs ml-auto" style={{ color: "var(--neutral-gray)" }}>
                         ({emailSyncStatus.totalEmails} synced, {emailSyncStatus.unreadEmails} unread)
@@ -419,7 +419,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       checked={connection?.syncSettings?.calendar || false}
                       onChange={(e) => handleCalendarSyncToggle(e.target.checked)}
                     />
-                    <span style={{ color: "var(--win95-text)" }}>Sync Calendar</span>
+                    <span style={{ color: "var(--window-document-text)" }}>Sync Calendar</span>
                   </label>
                   {calendarSyncStatus && connection?.syncSettings?.calendar && (
                     <div className="ml-5 space-y-1">
@@ -453,14 +453,14 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div className="flex gap-2">
                 {hasError ? (
                   <>
-                    <RetroButton
+                    <InteriorButton
                       variant="secondary"
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
                       Disconnect
-                    </RetroButton>
-                    <RetroButton
+                    </InteriorButton>
+                    <InteriorButton
                       variant="primary"
                       onClick={handleConnect}
                       disabled={isConnecting}
@@ -474,18 +474,18 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       ) : (
                         "Reconnect"
                       )}
-                    </RetroButton>
+                    </InteriorButton>
                   </>
                 ) : (
                   <>
-                    <RetroButton
+                    <InteriorButton
                       variant="secondary"
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
                       Disconnect
-                    </RetroButton>
-                    <RetroButton
+                    </InteriorButton>
+                    <InteriorButton
                       variant="secondary"
                       onClick={handleSyncNow}
                       disabled={isSyncing || !emailSyncStatus?.syncEnabled}
@@ -502,7 +502,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                           Sync Now
                         </>
                       )}
-                    </RetroButton>
+                    </InteriorButton>
                   </>
                 )}
               </div>
@@ -513,12 +513,12 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-6 border-2 rounded text-center"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <i className="fab fa-microsoft text-5xl mb-4" style={{ color: '#00a4ef' }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Not Connected
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -530,11 +530,11 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Features
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -561,11 +561,11 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Select Permissions
                 </p>
                 <MicrosoftScopeSelector
@@ -575,7 +575,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               </div>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isConnecting || !user}
                 className="w-full"
@@ -591,7 +591,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                     Connect Microsoft Account
                   </>
                 )}
-              </RetroButton>
+              </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>

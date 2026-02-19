@@ -84,8 +84,8 @@ export function EnterpriseContactModal({
       <div
         className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto border-4"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         {/* Window Title Bar */}
@@ -93,8 +93,8 @@ export function EnterpriseContactModal({
           className="retro-titlebar flex items-center justify-between select-none"
         >
           <div className="flex items-center gap-2">
-            <Building2 size={16} style={{ color: "var(--win95-titlebar-text)" }} />
-            <span className="font-semibold text-sm" style={{ color: "var(--win95-titlebar-text)" }}>
+            <Building2 size={16} style={{ color: "var(--shell-titlebar-text)" }} />
+            <span className="font-semibold text-sm" style={{ color: "var(--shell-titlebar-text)" }}>
               {title} - {t("ui.contact_modal.title_suffix")}
             </span>
           </div>
@@ -117,8 +117,8 @@ export function EnterpriseContactModal({
                 <div
                   className="p-4 border-2"
                   style={{
-                    backgroundColor: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)",
+                    backgroundColor: "var(--shell-surface-elevated)",
+                    borderColor: "var(--shell-border)",
                   }}
                 >
                   <div className="flex items-start gap-4 mb-4">
@@ -129,7 +129,7 @@ export function EnterpriseContactModal({
                           className="w-24 h-24 relative overflow-hidden border-2"
                           style={{
                             borderRadius: "50%",
-                            borderColor: "var(--win95-border)",
+                            borderColor: "var(--shell-border)",
                           }}
                         >
                           <Image
@@ -145,8 +145,8 @@ export function EnterpriseContactModal({
                           className="w-24 h-24 flex items-center justify-center border-2"
                           style={{
                             borderRadius: "50%",
-                            backgroundColor: "var(--win95-bg-light)",
-                            borderColor: "var(--win95-border)",
+                            backgroundColor: "var(--shell-surface-elevated)",
+                            borderColor: "var(--shell-border)",
                           }}
                         >
                           <User size={48} style={{ color: "var(--neutral-gray)" }} />
@@ -156,7 +156,7 @@ export function EnterpriseContactModal({
 
                     {/* Profile Info */}
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <h3 className="text-lg font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                         Remington Splettstoesser
                       </h3>
                       <p className="text-sm mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -164,33 +164,33 @@ export function EnterpriseContactModal({
                       </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-2">
-                          <Mail size={12} style={{ color: "var(--win95-highlight)" }} />
+                          <Mail size={12} style={{ color: "var(--shell-accent)" }} />
                           <a
                             href="mailto:sales@l4yercak3.com"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--win95-highlight)" }}
+                            style={{ color: "var(--shell-accent)" }}
                           >
                             sales@l4yercak3.com
                           </a>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Phone size={12} style={{ color: "var(--win95-highlight)" }} />
+                          <Phone size={12} style={{ color: "var(--shell-accent)" }} />
                           <a
                             href="tel:+4915140427103"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--win95-highlight)" }}
+                            style={{ color: "var(--shell-accent)" }}
                           >
                             +49 151 404 27 103
                           </a>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Calendar size={12} style={{ color: "var(--win95-highlight)" }} />
+                          <Calendar size={12} style={{ color: "var(--shell-accent)" }} />
                           <a
                             href="https://cal.com/voundbrand/open-end-meeting"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--win95-highlight)" }}
+                            style={{ color: "var(--shell-accent)" }}
                           >
                             {t("ui.contact_modal.schedule_call")}
                           </a>
@@ -203,17 +203,17 @@ export function EnterpriseContactModal({
                   <div
                     className="p-3 border-2"
                     style={{
-                      backgroundColor: "var(--win95-bg-light)",
-                      borderColor: "var(--win95-border)",
+                      backgroundColor: "var(--shell-surface-elevated)",
+                      borderColor: "var(--shell-border)",
                     }}
                   >
                     <div className="flex gap-2 mb-2">
-                      <MessageSquare size={16} style={{ color: "var(--win95-highlight)" }} />
-                      <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                      <MessageSquare size={16} style={{ color: "var(--shell-accent)" }} />
+                      <p className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
                         {t("ui.contact_modal.message_label")}
                       </p>
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--win95-text)" }}>
+                    <p className="text-sm leading-relaxed" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.message_greeting")}
                       <br />
                       <br />
@@ -224,7 +224,7 @@ export function EnterpriseContactModal({
                       <a
                         href="mailto:sales@l4yercak3.com"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--win95-highlight)" }}
+                        style={{ color: "var(--shell-accent)" }}
                       >
                         email
                       </a>
@@ -232,7 +232,7 @@ export function EnterpriseContactModal({
                       <a
                         href="tel:+4915140427103"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--win95-highlight)" }}
+                        style={{ color: "var(--shell-accent)" }}
                       >
                         phone
                       </a>
@@ -242,7 +242,7 @@ export function EnterpriseContactModal({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--win95-highlight)" }}
+                        style={{ color: "var(--shell-accent)" }}
                       >
                         calendar
                       </a>
@@ -260,13 +260,13 @@ export function EnterpriseContactModal({
 
               {/* Right Column: Contact Form */}
               <div>
-                <h3 className="text-lg font-bold mb-4" style={{ color: "var(--win95-text)" }}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: "var(--shell-text)" }}>
                   {t("ui.contact_modal.form_title")}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Name */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.form_name")} *
                     </label>
                     <input
@@ -276,9 +276,9 @@ export function EnterpriseContactModal({
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full p-2 text-sm border-2"
                       style={{
-                        backgroundColor: "var(--win95-bg-light)",
-                        borderColor: "var(--win95-border)",
-                        color: "var(--win95-text)",
+                        backgroundColor: "var(--shell-surface-elevated)",
+                        borderColor: "var(--shell-border)",
+                        color: "var(--shell-text)",
                       }}
                       placeholder={t("ui.contact_modal.form_placeholder_name")}
                     />
@@ -286,7 +286,7 @@ export function EnterpriseContactModal({
 
                   {/* Company */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.form_company")} *
                     </label>
                     <input
@@ -296,9 +296,9 @@ export function EnterpriseContactModal({
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       className="w-full p-2 text-sm border-2"
                       style={{
-                        backgroundColor: "var(--win95-bg-light)",
-                        borderColor: "var(--win95-border)",
-                        color: "var(--win95-text)",
+                        backgroundColor: "var(--shell-surface-elevated)",
+                        borderColor: "var(--shell-border)",
+                        color: "var(--shell-text)",
                       }}
                       placeholder={t("ui.contact_modal.form_placeholder_company")}
                     />
@@ -306,7 +306,7 @@ export function EnterpriseContactModal({
 
                   {/* Email */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.form_email")} *
                     </label>
                     <input
@@ -316,9 +316,9 @@ export function EnterpriseContactModal({
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full p-2 text-sm border-2"
                       style={{
-                        backgroundColor: "var(--win95-bg-light)",
-                        borderColor: "var(--win95-border)",
-                        color: "var(--win95-text)",
+                        backgroundColor: "var(--shell-surface-elevated)",
+                        borderColor: "var(--shell-border)",
+                        color: "var(--shell-text)",
                       }}
                       placeholder={t("ui.contact_modal.form_placeholder_email")}
                     />
@@ -326,7 +326,7 @@ export function EnterpriseContactModal({
 
                   {/* Phone */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.form_phone")}
                     </label>
                     <input
@@ -335,9 +335,9 @@ export function EnterpriseContactModal({
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="w-full p-2 text-sm border-2"
                       style={{
-                        backgroundColor: "var(--win95-bg-light)",
-                        borderColor: "var(--win95-border)",
-                        color: "var(--win95-text)",
+                        backgroundColor: "var(--shell-surface-elevated)",
+                        borderColor: "var(--shell-border)",
+                        color: "var(--shell-text)",
                       }}
                       placeholder={t("ui.contact_modal.form_placeholder_phone")}
                     />
@@ -345,7 +345,7 @@ export function EnterpriseContactModal({
 
                   {/* Message */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
                       {t("ui.contact_modal.form_message")}
                     </label>
                     <textarea
@@ -354,9 +354,9 @@ export function EnterpriseContactModal({
                       rows={4}
                       className="w-full p-2 text-sm border-2 resize-none"
                       style={{
-                        backgroundColor: "var(--win95-bg-light)",
-                        borderColor: "var(--win95-border)",
-                        color: "var(--win95-text)",
+                        backgroundColor: "var(--shell-surface-elevated)",
+                        borderColor: "var(--shell-border)",
+                        color: "var(--shell-text)",
                       }}
                       placeholder={t("ui.contact_modal.form_placeholder_message")}
                     />
@@ -394,7 +394,7 @@ export function EnterpriseContactModal({
               <h3 className="text-2xl font-bold mb-2" style={{ color: "var(--success)" }}>
                 {t("ui.contact_modal.success_title")}
               </h3>
-              <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm mb-4" style={{ color: "var(--shell-text)" }}>
                 {t("ui.contact_modal.success_message")}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>

@@ -36,7 +36,7 @@ export function EmailTemplatesTab({ onEditTemplate, onViewSchema }: EmailTemplat
   if (emailTemplates === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
       </div>
     );
   }

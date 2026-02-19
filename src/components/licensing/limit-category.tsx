@@ -32,8 +32,8 @@ export function LimitCategory({
     <div
       className="border-2"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-surface)",
       }}
     >
       {/* Header */}
@@ -41,25 +41,25 @@ export function LimitCategory({
         onClick={() => setExpanded(!expanded)}
         className="w-full px-4 py-2.5 flex items-center justify-between border-b-2 hover:bg-opacity-80 transition-colors"
         style={{
-          borderColor: expanded ? "var(--win95-border)" : "transparent",
-          background: "var(--win95-bg-light)",
+          borderColor: expanded ? "var(--shell-border)" : "transparent",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-center gap-2">
           {expanded ? (
-            <ChevronDown size={14} style={{ color: "var(--win95-text)" }} />
+            <ChevronDown size={14} style={{ color: "var(--shell-text)" }} />
           ) : (
-            <ChevronRight size={14} style={{ color: "var(--win95-text)" }} />
+            <ChevronRight size={14} style={{ color: "var(--shell-text)" }} />
           )}
-          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
             {title}
           </span>
           <span
             className="px-2 py-0.5 text-xs font-mono"
             style={{
-              background: "var(--win95-bg)",
+              background: "var(--shell-surface)",
               color: "var(--neutral-gray)",
-              border: "1px solid var(--win95-border)",
+              border: "1px solid var(--shell-border)",
             }}
           >
             {limits.length} {limits.length === 1 ? "limit" : "limits"}

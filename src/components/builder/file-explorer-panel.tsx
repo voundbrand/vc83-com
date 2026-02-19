@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   ChevronRight,
   ChevronDown,
@@ -108,13 +109,13 @@ function getFileIcon(name: string) {
     case "js":
       return <FileCode className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />;
     case "css":
-      return <Palette className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />;
+      return <Palette className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />;
     case "json":
       return <FileText className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />;
     case "md":
-      return <FileText className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />;
+      return <FileText className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />;
     default:
-      return <File className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />;
+      return <File className="w-3.5 h-3.5 text-neutral-500 flex-shrink-0" />;
   }
 }
 
@@ -146,7 +147,7 @@ function FileTreeNode({
       <div>
         <button
           onClick={() => onToggleFolder(node.path)}
-          className="w-full flex items-center gap-1.5 py-1 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+          className="w-full flex items-center gap-1.5 py-1 px-2 text-xs text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 transition-colors"
           style={{ paddingLeft }}
         >
           {isExpanded ? (
@@ -155,9 +156,9 @@ function FileTreeNode({
             <ChevronRight className="w-3 h-3 flex-shrink-0" />
           )}
           {isExpanded ? (
-            <FolderOpen className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+            <FolderOpen className="w-3.5 h-3.5 text-neutral-500 flex-shrink-0" />
           ) : (
-            <Folder className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+            <Folder className="w-3.5 h-3.5 text-neutral-500 flex-shrink-0" />
           )}
           <span className="truncate">{node.name}</span>
         </button>
@@ -185,8 +186,8 @@ function FileTreeNode({
       onClick={() => onSelect(node.path)}
       className={`w-full flex items-center gap-1.5 py-1 px-2 text-xs transition-colors ${
         isSelected
-          ? "bg-zinc-800 text-zinc-100"
-          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+          ? "bg-neutral-800 text-neutral-100"
+          : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
       }`}
       style={{ paddingLeft: paddingLeft + 16 }}
     >
@@ -200,25 +201,31 @@ function FileTreeNode({
 // FILE VIEWER
 // ============================================================================
 
-function FileViewer({ file }: { file: GeneratedFile | null }) {
+function FileViewer({
+  file,
+  emptyMessage,
+}: {
+  file: GeneratedFile | null;
+  emptyMessage: string;
+}) {
   if (!file) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs">
-        Select a file to view its contents
+      <div className="flex-1 flex items-center justify-center text-neutral-600 text-xs">
+        {emptyMessage}
       </div>
     );
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-zinc-800 bg-zinc-900">
-        <span className="text-xs text-zinc-400 truncate">{file.path}</span>
-        <span className="text-[10px] text-zinc-600 ml-2 flex-shrink-0">
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-neutral-800 bg-neutral-900">
+        <span className="text-xs text-neutral-400 truncate">{file.path}</span>
+        <span className="text-[10px] text-neutral-600 ml-2 flex-shrink-0">
           {file.language}
         </span>
       </div>
-      <div className="flex-1 overflow-auto bg-zinc-950 p-3">
-        <pre className="text-xs text-zinc-300 font-mono whitespace-pre overflow-x-auto leading-relaxed">
+      <div className="flex-1 overflow-auto bg-neutral-950 p-3">
+        <pre className="text-xs text-neutral-300 font-mono whitespace-pre overflow-x-auto leading-relaxed">
           <code>{file.content}</code>
         </pre>
       </div>
@@ -230,13 +237,19 @@ function FileViewer({ file }: { file: GeneratedFile | null }) {
 // EMPTY STATE
 // ============================================================================
 
-function EmptyState() {
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-zinc-500 py-12">
-      <FolderOpen className="w-10 h-10 mb-3 text-zinc-600" />
-      <p className="text-sm font-medium">No files yet</p>
-      <p className="text-xs mt-1 text-zinc-600">
-        Generate a page to see its source files
+    <div className="flex flex-col items-center justify-center h-full text-neutral-500 py-12">
+      <FolderOpen className="w-10 h-10 mb-3 text-neutral-600" />
+      <p className="text-sm font-medium">{title}</p>
+      <p className="text-xs mt-1 text-neutral-600">
+        {description}
       </p>
     </div>
   );
@@ -247,6 +260,8 @@ function EmptyState() {
 // ============================================================================
 
 export function FileExplorerPanel({ generatedFiles }: FileExplorerPanelProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set()
@@ -289,21 +304,35 @@ export function FileExplorerPanel({ generatedFiles }: FileExplorerPanelProps) {
   };
 
   if (generatedFiles.length === 0) {
-    return <EmptyState />;
+    return (
+      <EmptyState
+        title={tx("ui.builder.fileExplorer.empty.title", "No files yet")}
+        description={tx(
+          "ui.builder.fileExplorer.empty.description",
+          "Generate a page to see its source files"
+        )}
+      />
+    );
   }
+
+  const fileCountLabel = generatedFiles.length === 1
+    ? tx("ui.builder.fileExplorer.count.fileSingular", "file")
+    : tx("ui.builder.fileExplorer.count.filePlural", "files");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-        <span className="text-xs font-medium text-zinc-300">Files</span>
-        <span className="text-[10px] text-zinc-600">
-          {generatedFiles.length} file{generatedFiles.length !== 1 ? "s" : ""}
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-neutral-800">
+        <span className="text-xs font-medium text-neutral-300">
+          {tx("ui.builder.fileExplorer.header.files", "Files")}
+        </span>
+        <span className="text-[10px] text-neutral-600">
+          {generatedFiles.length} {fileCountLabel}
         </span>
       </div>
 
       {/* File tree */}
-      <div className="flex-shrink-0 overflow-y-auto border-b border-zinc-800" style={{ maxHeight: "40%" }}>
+      <div className="flex-shrink-0 overflow-y-auto border-b border-neutral-800" style={{ maxHeight: "40%" }}>
         {tree.map((node) => (
           <FileTreeNode
             key={node.path}
@@ -318,7 +347,10 @@ export function FileExplorerPanel({ generatedFiles }: FileExplorerPanelProps) {
       </div>
 
       {/* File viewer */}
-      <FileViewer file={selectedFile} />
+      <FileViewer
+        file={selectedFile}
+        emptyMessage={tx("ui.builder.fileExplorer.viewer.empty", "Select a file to view its contents")}
+      />
     </div>
   );
 }

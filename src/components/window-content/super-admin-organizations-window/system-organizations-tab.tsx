@@ -3,11 +3,16 @@
 import { useState } from "react";
 import { Building2, Save, AlertCircle, CheckCircle, Globe, Link2 } from "lucide-react";
 import { useAction, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
+const apiAny = require("../../../../convex/_generated/api").api as {
+  organizations: {
+    createOrganization: unknown;
+    listAllPaginated: unknown;
+  };
+};
 
 /**
  * System Organizations Tab - Create New Organizations
@@ -25,13 +30,39 @@ import { TIMEZONE_OPTIONS } from "@/lib/timezone-utils";
 export function SystemOrganizationsTab() {
   const { sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.organizations");
-  const createOrganization = useAction(api.organizations.createOrganization);
+  const [parentOrganizationSearch, setParentOrganizationSearch] = useState("");
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => unknown;
+  // Avoid deep generated type instantiation for this action hook path.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseAction = useAction as any;
+  const createOrganization = unsafeUseAction(apiAny.organizations.createOrganization);
 
   // Fetch all organizations (for parent org selection)
-  const allOrganizations = useQuery(
-    api.organizations.listAll,
-    sessionId ? { sessionId } : "skip"
-  );
+  const allOrganizations = unsafeUseQuery(
+    apiAny.organizations.listAllPaginated,
+    sessionId
+      ? {
+          sessionId,
+          pageSize: 50,
+          search: parentOrganizationSearch.trim() || undefined,
+        }
+      : "skip"
+  ) as
+    | {
+        organizations: Array<{
+          _id: Id<"organizations">;
+          businessName?: string;
+          name?: string;
+          slug?: string;
+          isActive?: boolean;
+          parentOrganizationId?: Id<"organizations"> | null;
+        }>;
+      }
+    | null
+    | undefined;
 
   // Form state
   const [businessName, setBusinessName] = useState("");
@@ -50,7 +81,7 @@ export function SystemOrganizationsTab() {
   const [successMessage, setSuccessMessage] = useState("");
 
   // Filter to only show orgs that can be parents (not already sub-orgs themselves)
-  const potentialParentOrgs = allOrganizations?.filter(org =>
+  const potentialParentOrgs = allOrganizations?.organizations?.filter(org =>
     org.isActive && !org.parentOrganizationId
   ) || [];
 
@@ -112,11 +143,11 @@ export function SystemOrganizationsTab() {
     <div className="h-full overflow-auto p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Building2 size={24} style={{ color: "var(--primary)" }} />
           {t('ui.organizations.create.title')}
         </h2>
-        <p className="text-sm mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+        <p className="text-sm mt-1" style={{ color: "var(--window-document-text-muted)" }}>
           {t('ui.organizations.create.subtitle')}
         </p>
       </div>
@@ -161,7 +192,7 @@ export function SystemOrganizationsTab() {
       <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
         {/* Business Name - REQUIRED */}
         <div>
-          <label htmlFor="businessName" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="businessName" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             <Building2 size={14} className="inline mr-1" />
             {t('ui.organizations.form.business_name')}
           </label>
@@ -173,21 +204,21 @@ export function SystemOrganizationsTab() {
             required
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
             placeholder={t('ui.organizations.placeholder.business_name')}
           />
-          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--window-document-text-muted)" }}>
             {t('ui.organizations.form.business_name_hint')}
           </p>
         </div>
 
         {/* Description */}
         <div>
-          <label htmlFor="description" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="description" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.form.description')}
           </label>
           <textarea
@@ -197,10 +228,10 @@ export function SystemOrganizationsTab() {
             rows={3}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
             placeholder={t('ui.organizations.placeholder.description')}
           />
@@ -208,7 +239,7 @@ export function SystemOrganizationsTab() {
 
         {/* Industry/Type */}
         <div>
-          <label htmlFor="industry" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="industry" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.form.industry')}
           </label>
           <input
@@ -218,34 +249,47 @@ export function SystemOrganizationsTab() {
             onChange={(e) => setIndustry(e.target.value)}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
             placeholder={t('ui.organizations.placeholder.industry')}
           />
-          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--window-document-text-muted)" }}>
             {t('ui.organizations.form.industry_hint')}
           </p>
         </div>
 
         {/* Parent Organization (Sub-org) Selection */}
         <div>
-          <label htmlFor="parentOrganization" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="parentOrganization" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             <Link2 size={14} className="inline mr-1" />
             Parent Organization (Optional)
           </label>
+          <input
+            type="text"
+            value={parentOrganizationSearch}
+            onChange={(e) => setParentOrganizationSearch(e.target.value)}
+            className="w-full px-3 py-2 text-sm mb-2"
+            style={{
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
+              border: "2px inset",
+              borderColor: "var(--window-document-border)",
+            }}
+            placeholder="Search parent organizations by name"
+          />
           <select
             id="parentOrganization"
             value={parentOrganizationId}
             onChange={(e) => setParentOrganizationId(e.target.value)}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <option value="">-- None (Top-level organization) --</option>
@@ -255,14 +299,14 @@ export function SystemOrganizationsTab() {
               </option>
             ))}
           </select>
-          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
-            Select a parent organization to create this as a sub-organization. Leave empty for a top-level organization.
+          <p className="text-xs mt-1" style={{ color: "var(--window-document-text-muted)" }}>
+            Showing up to 50 top-level active organizations. Refine search to find others.
           </p>
         </div>
 
         {/* Timezone Selection */}
         <div>
-          <label htmlFor="timezone" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="timezone" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             <Globe size={14} className="inline mr-1" />
             {t('ui.organizations.form.timezone')}
           </label>
@@ -272,10 +316,10 @@ export function SystemOrganizationsTab() {
             onChange={(e) => setTimezone(e.target.value)}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             {Object.entries(TIMEZONE_OPTIONS).map(([region, timezones]) => (
@@ -288,14 +332,14 @@ export function SystemOrganizationsTab() {
               </optgroup>
             ))}
           </select>
-          <p className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--window-document-text-muted)" }}>
             {t('ui.organizations.form.timezone_hint')}
           </p>
         </div>
 
         {/* Date Format Selection */}
         <div>
-          <label htmlFor="dateFormat" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="dateFormat" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.form.date_format')}
           </label>
           <select
@@ -304,10 +348,10 @@ export function SystemOrganizationsTab() {
             onChange={(e) => setDateFormat(e.target.value)}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
@@ -319,7 +363,7 @@ export function SystemOrganizationsTab() {
 
         {/* Language Selection */}
         <div>
-          <label htmlFor="language" className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="language" className="block text-sm font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.form.language')}
           </label>
           <select
@@ -328,10 +372,10 @@ export function SystemOrganizationsTab() {
             onChange={(e) => setLanguage(e.target.value)}
             className="w-full px-3 py-2 text-sm"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
-              color: "var(--win95-input-text)",
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <option value="en">English</option>
@@ -356,7 +400,7 @@ export function SystemOrganizationsTab() {
               height: "18px",
             }}
           />
-          <label htmlFor="addMeAsOwner" className="text-sm cursor-pointer" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="addMeAsOwner" className="text-sm cursor-pointer" style={{ color: "var(--window-document-text)" }}>
             {t('ui.organizations.form.add_me_owner')}
           </label>
         </div>

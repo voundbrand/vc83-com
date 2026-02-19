@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation with 25-export manychat module
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -236,17 +236,17 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
       <confirmDialog.Dialog />
       <div
         className="flex flex-col h-full"
-        style={{ background: "var(--win95-bg)" }}
+        style={{ background: "var(--window-document-bg)" }}
       >
         {/* Header with Back Button */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -256,7 +256,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
             <div>
               <h2
                 className="font-bold text-sm"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 ManyChat
               </h2>
@@ -273,14 +273,14 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
               <Loader2
                 size={24}
                 className="animate-spin"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading connection status...
@@ -293,8 +293,8 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <div className="flex items-center gap-2 mb-3">
@@ -311,7 +311,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div>
                     <p
                       className="text-xs font-bold mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       API Key
                     </p>
@@ -325,7 +325,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div>
                     <p
                       className="text-xs font-bold mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Contact Sync
                     </p>
@@ -359,13 +359,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Available Features
                 </p>
@@ -408,13 +408,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Webhook URL
                 </p>
@@ -428,9 +428,9 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div
                     className="flex-1 p-2 border rounded font-mono text-xs break-all"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     {webhookUrl}
@@ -438,10 +438,10 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <button
                     onClick={handleCopyWebhookUrl}
                     className="p-2 border-2 rounded hover:bg-gray-100"
-                    style={{ borderColor: "var(--win95-border)" }}
+                    style={{ borderColor: "var(--window-document-border)" }}
                     title="Copy webhook URL"
                   >
-                    <Copy size={14} style={{ color: "var(--win95-text)" }} />
+                    <Copy size={14} style={{ color: "var(--window-document-text)" }} />
                   </button>
                 </div>
               </div>
@@ -450,13 +450,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Default Flow Mappings
                 </p>
@@ -472,7 +472,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Order Confirmation Flow
                     </label>
@@ -483,16 +483,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       placeholder="e.g. content20250101000001_000000"
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Event Reminder Flow
                     </label>
@@ -503,16 +503,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       placeholder="Flow namespace"
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Welcome Sequence Flow
                     </label>
@@ -523,16 +523,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       placeholder="Flow namespace"
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       Abandoned Cart Flow
                     </label>
@@ -543,16 +543,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       placeholder="Flow namespace"
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <RetroButton
+                  <InteriorButton
                     onClick={handleUpdateSettings}
                     disabled={isConnecting}
                     className="w-full"
@@ -565,13 +565,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                     ) : (
                       "Save Flow Mappings"
                     )}
-                  </RetroButton>
+                  </InteriorButton>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <RetroButton
+                <InteriorButton
                   variant="secondary"
                   onClick={handleTestConnection}
                   disabled={isTesting}
@@ -585,14 +585,14 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   ) : (
                     "Test Connection"
                   )}
-                </RetroButton>
-                <RetroButton
+                </InteriorButton>
+                <InteriorButton
                   variant="secondary"
                   onClick={handleDisconnect}
                   className="flex-1"
                 >
                   Disconnect
-                </RetroButton>
+                </InteriorButton>
               </div>
             </div>
           ) : (
@@ -601,14 +601,14 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-6 border-2 rounded text-center"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <MessageSquare size={48} className="mb-4" style={{ color: "#0084FF" }} />
                 <p
                   className="text-sm font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Not Connected
                 </p>
@@ -625,13 +625,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-2"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Features
                 </p>
@@ -670,13 +670,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
               <div
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
                 }}
               >
                 <p
                   className="text-xs font-bold mb-3"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   Enter your ManyChat API key
                 </p>
@@ -698,7 +698,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div>
                     <label
                       className="text-xs font-bold block mb-1"
-                      style={{ color: "var(--win95-text)" }}
+                      style={{ color: "var(--window-document-text)" }}
                     >
                       API Key
                     </label>
@@ -713,9 +713,9 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                         placeholder="Your ManyChat API key"
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg)",
-                          color: "var(--win95-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       <button
@@ -750,7 +750,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       />
                       <span
                         className="text-xs"
-                        style={{ color: "var(--win95-text)" }}
+                        style={{ color: "var(--window-document-text)" }}
                       >
                         Enable contact sync (CRM to ManyChat)
                       </span>
@@ -765,14 +765,14 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs flex items-center gap-1 hover:underline"
-                style={{ color: "var(--win95-highlight)" }}
+                style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
                 How to find your ManyChat API key
               </a>
 
               {/* Connect Button */}
-              <RetroButton
+              <InteriorButton
                 onClick={handleConnect}
                 disabled={isConnecting || !user}
                 className="w-full"
@@ -788,7 +788,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                     Connect ManyChat
                   </>
                 )}
-              </RetroButton>
+              </InteriorButton>
 
               {!user && (
                 <p

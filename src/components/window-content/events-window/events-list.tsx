@@ -99,7 +99,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
     const badges = {
       draft: { label: t("ui.events.status.draft"), color: "var(--neutral-gray)" },
       published: { label: t("ui.events.status.published"), color: "var(--success)" },
-      in_progress: { label: t("ui.events.status.in_progress"), color: "var(--win95-highlight)" },
+      in_progress: { label: t("ui.events.status.in_progress"), color: "var(--shell-accent)" },
       completed: { label: t("ui.events.status.completed"), color: "var(--info)" },
       cancelled: { label: t("ui.events.status.cancelled"), color: "var(--error)" },
     };
@@ -137,7 +137,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
   if (events === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--shell-accent)" }} />
       </div>
     );
   }
@@ -189,9 +189,9 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
           onChange={(e) => setFilter({ ...filter, subtype: e.target.value || undefined })}
           className="px-3 py-1.5 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <option value="">{t("ui.events.list.filter.all_types")}</option>
@@ -206,9 +206,9 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
           onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
           className="px-3 py-1.5 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <option value="">{t("ui.events.list.filter.all_statuses")}</option>
@@ -228,8 +228,8 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
             onClick={() => setSelectedEvent(event)}
             className="border-2 p-4 cursor-pointer hover:shadow-lg transition-shadow"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface-elevated)",
             }}
           >
             {/* Header */}
@@ -239,7 +239,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   <span className="text-xs">{getSubtypeLabel(event.subtype || "")}</span>
                   {getStatusBadge(event.status || "draft")}
                 </div>
-                <h3 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+                <h3 className="font-bold text-sm" style={{ color: "var(--shell-text)" }}>
                   {event.name}
                 </h3>
               </div>
@@ -258,7 +258,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                 <div className="flex items-start gap-2 text-xs">
                   <Clock size={12} style={{ color: "var(--neutral-gray)", marginTop: "2px" }} />
                   <div>
-                    <div style={{ color: "var(--win95-text)" }} className="font-semibold">
+                    <div style={{ color: "var(--shell-text)" }} className="font-semibold">
                       {formatDateTime(event.customProperties.startDate)}
                     </div>
                     {event.customProperties.endDate && (
@@ -272,7 +272,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
               {event.customProperties?.location && (
                 <div className="flex items-center gap-2 text-xs">
                   <MapPin size={12} style={{ color: "var(--neutral-gray)" }} />
-                  <span style={{ color: "var(--win95-text)" }}>
+                  <span style={{ color: "var(--shell-text)" }}>
                     {event.customProperties.location}
                   </span>
                 </div>
@@ -285,7 +285,7 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -293,9 +293,9 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                 }}
                 className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
                 title={t("ui.events.action.edit")}
               >
@@ -311,9 +311,9 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   }}
                   className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-button-surface)",
+                    color: "var(--shell-text)",
                   }}
                   title={t("ui.events.action.publish")}
                 >
@@ -330,8 +330,8 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                   }}
                   className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-button-surface)",
                     color: "var(--warning)",
                   }}
                   title={t("ui.events.action.cancel")}
@@ -347,8 +347,8 @@ export function EventsList({ sessionId, organizationId, onEdit }: EventsListProp
                 }}
                 className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-button-face)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-button-surface)",
                   color: "var(--error)",
                 }}
                 title={t("ui.events.action.delete")}

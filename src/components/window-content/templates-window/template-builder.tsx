@@ -51,7 +51,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   if (template === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -71,9 +71,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             onClick={onBack}
             className="mt-3 px-3 py-1.5 text-xs font-bold border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-button-face)',
-              color: 'var(--win95-text)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
+              color: 'var(--window-document-text)',
             }}
           >
             Go Back
@@ -105,25 +105,25 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with Back Button */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
+      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
             className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:brightness-95"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-button-face)',
-              color: 'var(--win95-text)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
+              color: 'var(--window-document-text)',
             }}
           >
             <ArrowLeft size={12} />
             Back
           </button>
           <div>
-            <h2 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
               {template.name}
               {isEmailTemplate && (
-                <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-titlebar-text)' }}>
+                <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: 'var(--tone-accent)', color: 'var(--window-document-text)' }}>
                   Email
                 </span>
               )}
@@ -137,13 +137,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       </div>
 
       {/* Builder Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
+      <div className="flex border-b-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "schema" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "schema" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "schema" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "schema" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("schema")}
         >
@@ -153,9 +153,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "preview" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "preview" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "preview" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "preview" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("preview")}
         >
@@ -165,9 +165,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "settings" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "settings" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "settings" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "settings" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("settings")}
         >
@@ -177,9 +177,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: activeTab === "build" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-            color: activeTab === "build" ? 'var(--win95-text)' : 'var(--neutral-gray)'
+            borderColor: 'var(--window-document-border)',
+            background: activeTab === "build" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+            color: activeTab === "build" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
           }}
           onClick={() => setActiveTab("build")}
         >
@@ -195,8 +195,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             <TemplateSchemaEditor templateId={templateId} />
           ) : (
             <div className="p-4">
-              <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-                <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+              <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+                <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
                   {isEmailTemplate ? 'Email Template (Legacy)' : 'Template'}
                 </h3>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -206,17 +206,17 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 </p>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Template Code:</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Template Code:</span>
                     <code className="ml-2 text-xs px-2 py-1 rounded" style={{ background: '#1f2937', color: '#10b981' }}>
                       {templateCode || 'Unknown'}
                     </code>
                   </div>
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Category:</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Category:</span>
                     <span className="ml-2 text-xs">{template.customProperties?.category || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>Languages:</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Languages:</span>
                     <span className="ml-2 text-xs">{(template.customProperties?.supportedLanguages as string[])?.join(', ') || 'N/A'}</span>
                   </div>
                 </div>
@@ -229,9 +229,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           <div className="h-full overflow-auto p-4" style={{ background: '#F3F4F6' }}>
             {isEmailTemplate ? (
               <div className="max-w-4xl mx-auto">
-                <div className="border-2 p-6" style={{ borderColor: 'var(--win95-border)', background: 'white' }}>
-                  <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--win95-border)' }}>
-                    <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <div className="border-2 p-6" style={{ borderColor: 'var(--window-document-border)', background: 'white' }}>
+                  <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                       Email Preview
                     </h3>
                     <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -252,9 +252,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               </div>
             ) : template.customProperties?.html && template.customProperties?.css ? (
               <div className="max-w-4xl mx-auto">
-                <div className="border-2" style={{ borderColor: 'var(--win95-border)', background: 'white' }}>
-                  <div className="p-4 border-b" style={{ borderColor: 'var(--win95-border)' }}>
-                    <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'white' }}>
+                  <div className="p-4 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                       PDF Template Preview
                     </h3>
                     <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -279,7 +279,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       style={{
                         width: '100%',
                         height: '800px',
-                        border: '2px solid var(--win95-border)',
+                        border: '2px solid var(--window-document-border)',
                         background: 'white',
                       }}
                     />
@@ -309,8 +309,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
         {activeTab === "settings" && (
           <div className="p-4">
-            <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+            <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
                 Template Settings
               </h3>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -322,8 +322,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
         {activeTab === "build" && (
           <div className="p-4">
-            <div className="border-2 p-4" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}>
-              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--win95-text)' }}>
+            <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
+              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
                 Visual Builder
               </h3>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>

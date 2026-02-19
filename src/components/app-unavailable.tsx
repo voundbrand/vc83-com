@@ -42,20 +42,20 @@ export function AppUnavailable({
   ];
 
   return (
-    <div className="flex items-center justify-center h-full p-8" style={{ background: 'var(--win95-bg)' }}>
+    <div className="flex items-center justify-center h-full p-8" style={{ background: 'var(--shell-surface)' }}>
       <div className="max-w-md w-full">
         <div
           className="border-4 shadow-lg"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface)",
           }}
         >
           {/* Header - matching UpgradeModal style */}
           <div
             className="px-3 py-2 flex items-center justify-between"
             style={{
-              background: "linear-gradient(90deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
+              background: "linear-gradient(90deg, var(--shell-accent) 0%, var(--primary-gradient-end) 100%)",
               color: "white",
             }}
           >
@@ -71,21 +71,21 @@ export function AppUnavailable({
             <div
               className="p-4 border-2 rounded mb-4 text-center"
               style={{
-                borderColor: "var(--win95-highlight)",
-                background: "linear-gradient(180deg, color-mix(in srgb, var(--win95-gradient-end) 10%, transparent) 0%, transparent 100%)",
+                borderColor: "var(--shell-accent)",
+                background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-gradient-end) 10%, transparent) 0%, transparent 100%)",
               }}
             >
               <div
                 className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center"
                 style={{
-                  background: "color-mix(in srgb, var(--win95-gradient-end) 10%, transparent)",
+                  background: "color-mix(in srgb, var(--primary-gradient-end) 10%, transparent)",
                 }}
               >
-                <Zap size={32} style={{ color: "var(--win95-highlight)" }} />
+                <Zap size={32} style={{ color: "var(--shell-accent)" }} />
               </div>
               <h3
                 className="font-bold text-lg mb-1"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--shell-text)" }}
               >
                 {appName}
               </h3>
@@ -96,7 +96,7 @@ export function AppUnavailable({
                 className="text-xs mt-2"
                 style={{ color: "var(--neutral-gray)" }}
               >
-                App code: <code className="px-1" style={{ background: "var(--win95-bg-light)" }}>{appCode}</code>
+                App code: <code className="px-1" style={{ background: "var(--shell-surface-elevated)" }}>{appCode}</code>
               </p>
             </div>
 
@@ -104,11 +104,11 @@ export function AppUnavailable({
             <div
               className="p-3 border-2 rounded mb-4"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface-elevated)",
               }}
             >
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--shell-text)" }}>
                 Visit the <strong>Platform Store</strong> to license this app for your organization.
               </p>
             </div>
@@ -120,9 +120,9 @@ export function AppUnavailable({
                   <Sparkles
                     size={14}
                     className="mt-0.5 flex-shrink-0"
-                    style={{ color: "var(--win95-highlight)" }}
+                    style={{ color: "var(--shell-accent)" }}
                   />
-                  <span className="text-xs" style={{ color: "var(--win95-text)" }}>
+                  <span className="text-xs" style={{ color: "var(--shell-text)" }}>
                     {benefit}
                   </span>
                 </div>
@@ -142,8 +142,8 @@ export function AppUnavailable({
                 onClick={() => window.history.back()}
                 className="beveled-button px-4 py-2 text-sm font-bold"
                 style={{
-                  backgroundColor: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
+                  backgroundColor: "var(--shell-button-surface)",
+                  color: "var(--shell-text)",
                 }}
               >
                 Go Back
@@ -184,23 +184,23 @@ export function AppUnavailableInline({
     <div
       className="border-2 p-4 text-sm"
       style={{
-        borderColor: "var(--win95-highlight)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--shell-accent)",
+        background: "var(--shell-surface-elevated)",
       }}
     >
       <div className="flex items-start gap-3">
         <Lock
           className="w-5 h-5 flex-shrink-0 mt-0.5"
-          style={{ color: "var(--win95-highlight)" }}
+          style={{ color: "var(--shell-accent)" }}
         />
         <div className="flex-1">
           <p
             className="font-bold mb-1"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--shell-text)" }}
           >
             {appName} Not Licensed
           </p>
-          <p style={{ color: "var(--win95-text-secondary)" }}>
+          <p style={{ color: "var(--shell-text-muted)" }}>
             This feature requires the {appName} app, which is not currently licensed for{" "}
             {organizationName}.
           </p>
@@ -208,9 +208,9 @@ export function AppUnavailableInline({
             onClick={handleUpgradeClick}
             className="mt-2 px-3 py-1 text-xs font-bold text-white inline-flex items-center gap-1"
             style={{
-              background: "var(--win95-highlight)",
+              background: "var(--shell-accent)",
               border: "1px solid",
-              borderColor: "var(--win95-highlight)",
+              borderColor: "var(--shell-accent)",
             }}
           >
             <ShoppingBag size={12} />

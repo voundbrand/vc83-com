@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { X, User, Shield, Save, AlertCircle, Mail, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { X, User, Shield, Save, AlertCircle, Mail, Clock, ImagePlus, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { DeleteAccountModal } from "./delete-account-modal";
 import { useAuth } from "@/hooks/use-auth";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import MediaLibraryWindow from "@/components/window-content/media-library-window";
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 interface UserEditModalProps {
   isOpen: boolean;
@@ -18,6 +21,7 @@ interface UserEditModalProps {
     email: string;
     firstName?: string;
     lastName?: string;
+    avatarUrl?: string;
   };
   organizationId: Id<"organizations">;
   currentRoleId: Id<"roles">;
@@ -43,6 +47,7 @@ export function UserEditModal({
   const { t } = useNamespaceTranslations("ui.manage");
   const [firstName, setFirstName] = useState(user.firstName || "");
   const [lastName, setLastName] = useState(user.lastName || "");
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl || "");
   const [selectedRoleId, setSelectedRoleId] = useState<Id<"roles">>(currentRoleId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -50,17 +55,29 @@ export function UserEditModal({
   const [success, setSuccess] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const { user: currentUser } = useAuth();
-  const updateUserRole = useMutation(api.organizationMutations.updateUserRole);
-  const updateUserProfile = useMutation(api.organizationMutations.updateUserProfile);
-  const resendInvitation = useAction(api.organizations.resendInvitation);
-  const deleteAccountAction = useAction(api.accountManagement.deleteAccount);
-  const restoreAccountAction = useAction(api.accountManagement.restoreAccount);
-  const assignableRoles = useQuery(api.rbac.getAssignableRoles, {
+  const { openWindow } = useWindowManager();
+  // Avoid deep generated type instantiation in this modal path.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseMutation = useMutation as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseAction = useAction as any;
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args?: unknown
+  ) => unknown;
+
+  const updateUserRole = unsafeUseMutation(apiAny.organizationMutations.updateUserRole);
+  const updateUserProfile = unsafeUseMutation(apiAny.organizationMutations.updateUserProfile);
+  const resendInvitation = unsafeUseAction(apiAny.organizations.resendInvitation);
+  const deleteAccountAction = unsafeUseAction(apiAny.accountManagement.deleteAccount);
+  const restoreAccountAction = unsafeUseAction(apiAny.accountManagement.restoreAccount);
+  const assignableRoles = unsafeUseQuery(apiAny.rbac.getAssignableRoles, {
     sessionId,
     organizationId,
-  });
+  }) as Array<{ _id: string; name: string; description?: string }> | undefined;
 
   const handleDeleteAccount = async () => {
     try {
@@ -100,8 +117,6 @@ export function UserEditModal({
     }
   };
 
-  if (!isOpen) return null;
-
   const handleResendInvitation = async () => {
     setError("");
     setResendSuccess(false);
@@ -133,7 +148,10 @@ export function UserEditModal({
     try {
       const promises = [];
 
-      if (canEditProfile && (firstName !== user.firstName || lastName !== user.lastName)) {
+      if (
+        canEditProfile &&
+        (firstName !== user.firstName || lastName !== user.lastName || avatarUrl !== (user.avatarUrl || ""))
+      ) {
         promises.push(
           updateUserProfile({
             sessionId,
@@ -141,6 +159,7 @@ export function UserEditModal({
             updates: {
               firstName: firstName || undefined,
               lastName: lastName || undefined,
+              avatarUrl: avatarUrl || undefined,
             },
           })
         );
@@ -193,48 +212,61 @@ export function UserEditModal({
     return aOrder - bOrder;
   });
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setFirstName(user.firstName || "");
+    setLastName(user.lastName || "");
+    setAvatarUrl(user.avatarUrl || "");
+    setSelectedRoleId(currentRoleId);
+  }, [currentRoleId, user._id, user.avatarUrl, user.firstName, user.lastName]);
+
+  const avatarInitialSource = `${firstName} ${lastName}`.trim() || user.email || "U";
+  const avatarInitial = avatarInitialSource.charAt(0).toUpperCase();
+
+  if (!isMounted || !isOpen) return null;
+
   return (
     <>
+      {createPortal(
+        <>
       <div
-        className="fixed inset-0 z-50"
+        className="fixed inset-0 z-[12000]"
         style={{ backgroundColor: "var(--modal-overlay-bg)" }}
         onClick={onClose}
       />
 
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 min-w-[500px]"
+        className="fixed top-1/2 left-1/2 z-[12010] w-[min(560px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border"
         style={{
-          backgroundColor: "var(--modal-bg)",
-          border: "2px solid",
-          borderColor: "var(--modal-border)",
+          backgroundColor: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
           boxShadow: "var(--modal-shadow)",
         }}
       >
         <div
           className="flex items-center justify-between px-2 py-1"
           style={{
-            background: "var(--modal-header-bg)",
+            background: "var(--window-document-bg-elevated)",
+            borderBottom: "1px solid var(--window-document-border)",
           }}
         >
           <div className="flex items-center gap-2">
-            <User size={16} style={{ color: "var(--modal-header-text)" }} />
+            <User size={16} style={{ color: "var(--window-document-text)" }} />
             <span
               className="text-sm font-bold"
-              style={{ color: "var(--modal-header-text)" }}
+              style={{ color: "var(--window-document-text)" }}
             >
               {t("ui.manage.edit_user.title")}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-0.5 hover:opacity-80"
-            style={{
-              backgroundColor: "var(--win95-button-face)",
-              border: "1px solid",
-              borderColor: "var(--win95-button-dark)",
-            }}
+            className="desktop-interior-button p-1"
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
@@ -243,9 +275,9 @@ export function UserEditModal({
             <div
               className="p-4 text-center rounded"
               style={{
-                backgroundColor: "var(--success)",
-                color: "white",
-                border: "2px solid",
+                backgroundColor: "var(--success-bg)",
+                color: "var(--success)",
+                border: "1px solid",
                 borderColor: "var(--success)",
               }}
             >
@@ -258,9 +290,9 @@ export function UserEditModal({
                 <div
                   className="flex items-start gap-2 p-3 rounded"
                   style={{
-                    backgroundColor: "var(--error)",
-                    color: "white",
-                    border: "2px solid",
+                    backgroundColor: "var(--error-bg)",
+                    color: "var(--error)",
+                    border: "1px solid",
                     borderColor: "var(--error)",
                   }}
                 >
@@ -276,9 +308,9 @@ export function UserEditModal({
                 <div
                   className="flex items-start gap-2 p-3 rounded"
                   style={{
-                    backgroundColor: "var(--success)",
-                    color: "white",
-                    border: "2px solid",
+                    backgroundColor: "var(--success-bg)",
+                    color: "var(--success)",
+                    border: "1px solid",
                     borderColor: "var(--success)",
                   }}
                 >
@@ -294,9 +326,9 @@ export function UserEditModal({
                 <div
                   className="flex items-start gap-2 p-3 rounded"
                   style={{
-                    backgroundColor: "var(--warning)",
-                    color: "white",
-                    border: "2px solid",
+                    backgroundColor: "var(--warning-bg)",
+                    color: "var(--warning)",
+                    border: "1px solid",
                     borderColor: "var(--warning)",
                   }}
                 >
@@ -311,7 +343,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.email_address")}
                 </label>
@@ -320,12 +352,9 @@ export function UserEditModal({
                   value={user.email}
                   readOnly
                   disabled
-                  className="w-full px-2 py-1 text-sm"
+                  className="desktop-interior-input"
                   style={{
-                    backgroundColor: "var(--win95-bg)",
-                    color: "var(--win95-text-secondary)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    color: "var(--window-document-text-muted)",
                     opacity: 0.7,
                   }}
                 />
@@ -333,8 +362,90 @@ export function UserEditModal({
 
               <div>
                 <label
+                  className="block text-sm font-semibold mb-2"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Avatar
+                </label>
+                <div className="flex gap-3">
+                  <div
+                    className="h-16 w-16 shrink-0 overflow-hidden rounded-full border"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      backgroundColor: "var(--window-document-bg-elevated)",
+                    }}
+                  >
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatarUrl}
+                        alt="User avatar"
+                        className="h-full w-full object-cover"
+                        onError={() => setAvatarUrl("")}
+                      />
+                    ) : (
+                      <div
+                        className="flex h-full w-full items-center justify-center text-lg font-semibold"
+                        style={{ color: "var(--window-document-text-muted)" }}
+                      >
+                        {avatarInitial}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openWindow(
+                            "media-library",
+                            "Media Library",
+                            <MediaLibraryWindow
+                              selectionMode={true}
+                              onSelect={(media) => {
+                                setAvatarUrl(media.url || "");
+                              }}
+                            />,
+                            { x: 240, y: 160 },
+                            { width: 1000, height: 700 }
+                          )
+                        }
+                        disabled={!canEditProfile}
+                        className="desktop-interior-button desktop-interior-button-primary px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                      >
+                        <ImagePlus size={14} />
+                        Select from Media Library
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAvatarUrl("")}
+                        disabled={!canEditProfile || !avatarUrl}
+                        className="desktop-interior-button px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        Remove
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      disabled={!canEditProfile}
+                      placeholder="https://..."
+                      className="desktop-interior-input"
+                      style={{
+                        color: "var(--window-document-text)",
+                        opacity: canEditProfile ? 1 : 0.7,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.first_name")}
                 </label>
@@ -343,14 +454,9 @@ export function UserEditModal({
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={!canEditProfile}
-                  className="w-full px-2 py-1 text-sm"
+                  className="desktop-interior-input"
                   style={{
-                    backgroundColor: canEditProfile
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    color: "var(--window-document-text)",
                     opacity: canEditProfile ? 1 : 0.7,
                   }}
                   placeholder="John"
@@ -360,7 +466,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {t("ui.manage.invite.last_name")}
                 </label>
@@ -369,14 +475,9 @@ export function UserEditModal({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   disabled={!canEditProfile}
-                  className="w-full px-2 py-1 text-sm"
+                  className="desktop-interior-input"
                   style={{
-                    backgroundColor: canEditProfile
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    color: "var(--window-document-text)",
                     opacity: canEditProfile ? 1 : 0.7,
                   }}
                   placeholder="Doe"
@@ -386,7 +487,7 @@ export function UserEditModal({
               <div>
                 <label
                   className="block text-sm font-semibold mb-1"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   <Shield size={14} className="inline mr-1" />
                   Role
@@ -395,14 +496,9 @@ export function UserEditModal({
                   value={selectedRoleId}
                   onChange={(e) => setSelectedRoleId(e.target.value as Id<"roles">)}
                   disabled={!canEditRole}
-                  className="w-full px-2 py-1 text-sm"
+                  className="desktop-interior-select"
                   style={{
-                    backgroundColor: canEditRole
-                      ? "var(--win95-input-bg)"
-                      : "var(--win95-bg)",
-                    color: "var(--win95-input-text)",
-                    border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    color: "var(--window-document-text)",
                     opacity: canEditRole ? 1 : 0.7,
                   }}
                 >
@@ -450,10 +546,11 @@ export function UserEditModal({
                         type="button"
                         onClick={handleRestoreAccount}
                         disabled={isSubmitting}
-                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
+                        className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
                         style={{
                           backgroundColor: "var(--success)",
-                          color: "white",
+                          color: "#ffffff",
+                          borderColor: "var(--success)",
                         }}
                       >
                         <svg
@@ -477,21 +574,17 @@ export function UserEditModal({
                     </>
                   ) : (
                     <>
-                      <p className="text-xs mb-3" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs mb-3" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.manage.delete_account.button_description")}
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowDeleteAccountModal(true)}
-                        className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
-                        style={{
-                          backgroundColor: "#D97706", // Warning orange for soft delete
-                          color: "white",
-                        }}
+                        className="desktop-interior-button desktop-interior-button-danger px-4 py-2 text-sm font-semibold flex items-center gap-2"
                       >
-                    <Clock size={14} />
-                    {t("ui.manage.delete_account.button_text")}
-                  </button>
+                        <Clock size={14} />
+                        {t("ui.manage.delete_account.button_text")}
+                      </button>
                     </>
                   )}
                 </div>
@@ -504,11 +597,7 @@ export function UserEditModal({
                       type="button"
                       onClick={handleResendInvitation}
                       disabled={isResending}
-                      className="beveled-button px-4 py-1.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
-                      style={{
-                        backgroundColor: "var(--win95-highlight)",
-                        color: "white",
-                      }}
+                      className="desktop-interior-button desktop-interior-button-primary px-4 py-1.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
                     >
                       <Mail size={14} />
                       {isResending ? t("ui.manage.edit_user.resending") : t("ui.manage.edit_user.resend_invitation")}
@@ -521,22 +610,14 @@ export function UserEditModal({
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="beveled-button px-4 py-1.5 text-sm font-semibold"
-                    style={{
-                      backgroundColor: "var(--win95-button-face)",
-                      color: "var(--win95-text)",
-                    }}
+                    className="desktop-interior-button px-4 py-1.5 text-sm font-semibold"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || (!canEditProfile && !canEditRole)}
-                    className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
-                    style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                    }}
+                    className="desktop-interior-button desktop-interior-button-primary px-4 py-1.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
                   >
                     <Save size={14} />
                     {isSubmitting ? t("ui.manage.org.saving") : t("ui.manage.edit_user.save_changes")}
@@ -548,13 +629,15 @@ export function UserEditModal({
         </div>
       </div>
 
-      {/* Delete Account Modal */}
       <DeleteAccountModal
         isOpen={showDeleteAccountModal}
         onClose={() => setShowDeleteAccountModal(false)}
         onConfirm={handleDeleteAccount}
         userEmail={user.email}
       />
+      </>,
+      document.body
+      )}
     </>
   );
 }

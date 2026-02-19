@@ -349,7 +349,7 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="retro-button w-full py-2 flex items-center justify-center gap-2 text-sm"
+            className="desktop-interior-button w-full py-2 flex items-center justify-center gap-2 text-sm"
             style={{
               background: 'var(--win95-selected-bg)',
               color: 'var(--win95-selected-text)',

@@ -105,18 +105,18 @@ export function ConditionEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         className="border-2 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         {/* Header */}
         <div
           className="border-b-2 p-3"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+            <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               Edit Conditions
             </h3>
-            <button onClick={onCancel} className="retro-button p-1 text-xs">
+            <button onClick={onCancel} className="desktop-interior-button p-1 text-xs">
               
             </button>
           </div>
@@ -144,7 +144,7 @@ export function ConditionEditor({
                 <div className="flex-1 space-y-2">
                   {/* Branch name */}
                   <div>
-                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Branch Name
                     </label>
                     <input
@@ -158,7 +158,7 @@ export function ConditionEditor({
 
                   {/* Expression */}
                   <div>
-                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Condition Expression
                     </label>
                     <textarea
@@ -175,7 +175,7 @@ export function ConditionEditor({
 
                   {/* Color picker */}
                   <div>
-                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                       Branch Color
                     </label>
                     <div className="flex gap-2 flex-wrap">
@@ -208,7 +208,7 @@ export function ConditionEditor({
                 {conditions.length > 1 && (
                   <button
                     onClick={() => handleRemoveCondition(index)}
-                    className="retro-button p-1 flex-shrink-0"
+                    className="desktop-interior-button p-1 flex-shrink-0"
                     title="Remove condition"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -221,7 +221,7 @@ export function ConditionEditor({
           {/* Add condition button */}
           <button
             onClick={handleAddCondition}
-            className="retro-button w-full p-2 flex items-center justify-center gap-2 text-xs"
+            className="desktop-interior-button w-full p-2 flex items-center justify-center gap-2 text-xs"
           >
             <Plus className="h-3 w-3" />
             Add Branch
@@ -231,14 +231,14 @@ export function ConditionEditor({
         {/* Test Panel */}
         <div
           className="border-t-2 p-4"
-          style={{ borderColor: "var(--win95-border)", background: "#f9fafb" }}
+          style={{ borderColor: "var(--window-document-border)", background: "#f9fafb" }}
         >
-          <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             Test Conditions
           </h4>
           <div className="space-y-2">
             <div>
-              <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="text-[10px] font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                 Sample Input Data (JSON)
               </label>
               <textarea
@@ -251,7 +251,7 @@ export function ConditionEditor({
             </div>
             <button
               onClick={handleTestConditions}
-              className="retro-button px-3 py-1 text-xs flex items-center gap-2"
+              className="desktop-interior-button px-3 py-1 text-xs flex items-center gap-2"
             >
               <CheckCircle className="h-3 w-3" />
               Test
@@ -273,14 +273,14 @@ export function ConditionEditor({
         {/* Footer */}
         <div
           className="border-t-2 p-3 flex justify-end gap-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
-          <button onClick={onCancel} className="retro-button px-3 py-1 text-xs">
+          <button onClick={onCancel} className="desktop-interior-button px-3 py-1 text-xs">
             Cancel
           </button>
           <button
             onClick={() => onSave(conditions)}
-            className="retro-button px-3 py-1 text-xs font-bold"
+            className="desktop-interior-button px-3 py-1 text-xs font-bold"
           >
             Save Conditions
           </button>

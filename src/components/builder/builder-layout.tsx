@@ -14,6 +14,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { BuilderHeader } from "./builder-header";
 import { BuilderPageTabs } from "./builder-page-tabs";
 import { BuilderChatPanel } from "./builder-chat-panel";
@@ -26,9 +27,11 @@ interface BuilderLayoutProps {
 
 export function BuilderLayout({ hideHeader }: BuilderLayoutProps = {}) {
   const [isMobilePreviewOpen, setIsMobilePreviewOpen] = useState(false);
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-neutral-900 overflow-hidden">
       {/* Header - fixed at top */}
       {!hideHeader && (
         <div className="flex-shrink-0">
@@ -58,13 +61,17 @@ export function BuilderLayout({ hideHeader }: BuilderLayoutProps = {}) {
       )}
 
       {/* Mobile Header - shows toggle between chat and preview */}
-      <div className="flex-shrink-0 md:hidden flex items-center justify-between px-4 py-2 border-b border-zinc-700 bg-zinc-800">
-        <h1 className="text-lg font-semibold text-zinc-100">l4yercak3</h1>
+      <div className="flex-shrink-0 md:hidden flex items-center justify-between px-4 py-2 border-b border-neutral-700 bg-neutral-800">
+        <h1 className="text-lg font-semibold text-neutral-100">
+          {tx("ui.builder.chrome.brand", "l4yercak3")}
+        </h1>
         <button
           onClick={() => setIsMobilePreviewOpen(!isMobilePreviewOpen)}
-          className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-500 transition-colors"
+          className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-500 transition-colors"
         >
-          {isMobilePreviewOpen ? "Show Chat" : "Show Preview"}
+          {isMobilePreviewOpen
+            ? tx("ui.builder.chrome.mobile.showChat", "Show Chat")
+            : tx("ui.builder.chrome.mobile.showPreview", "Show Preview")}
         </button>
       </div>
 
@@ -86,9 +93,9 @@ export function BuilderLayout({ hideHeader }: BuilderLayoutProps = {}) {
           </Panel>
 
           {/* Resize Handle */}
-          <PanelResizeHandle className="w-1 bg-zinc-700 hover:bg-purple-500 transition-colors cursor-col-resize group">
+          <PanelResizeHandle className="w-1 bg-neutral-700 hover:bg-amber-500 transition-colors cursor-col-resize group">
             <div className="h-full flex items-center justify-center">
-              <div className="w-1 h-8 bg-zinc-600 rounded-full group-hover:bg-purple-400 transition-colors" />
+              <div className="w-1 h-8 bg-neutral-600 rounded-full group-hover:bg-amber-400 transition-colors" />
             </div>
           </PanelResizeHandle>
 

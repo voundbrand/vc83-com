@@ -30,7 +30,7 @@ const PurchaseResultWindow = lazy(() =>
  * PLATFORM STORE WINDOW v3
  *
  * Simplified layout:
- * - Plan cards: Free, Pro (€29/mo), Agency (€299/mo), Enterprise (custom)
+ * - Plan cards: Free, Pro (€29/mo), Scale (€299/mo), Enterprise (custom)
  * - Credit purchase section with tiered pricing
  * - Subscription management (upgrade/downgrade/cancel)
  *
@@ -39,6 +39,7 @@ const PurchaseResultWindow = lazy(() =>
 
 interface StoreWindowProps {
   fullScreen?: boolean;
+  initialSection?: "plans" | "credits";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -52,7 +53,7 @@ const cancelPendingDowngradeAction = apiRefs.stripe.platformCheckout.cancelPendi
 const createPlatformCheckoutAction = apiRefs.stripe.platformCheckout.createPlatformCheckoutSession;
 const createCreditCheckoutAction = apiRefs.stripe.creditCheckout.createCreditCheckoutSession;
 
-export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
+export function StoreWindow({ fullScreen = false, initialSection = "plans" }: StoreWindowProps = {}) {
   const { t } = useNamespaceTranslations("ui.store");
   const { openWindow } = useWindowManager();
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
@@ -102,6 +103,7 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
   } | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isCancelingPending, setIsCancelingPending] = useState(false);
+  const [activeSection, setActiveSection] = useState<"plans" | "credits">(initialSection);
 
   // Fetch subscription status
   useEffect(() => {
@@ -121,6 +123,10 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
     };
     fetchStatus();
   }, [currentOrganization?.id, getSubscriptionStatus]);
+
+  useEffect(() => {
+    setActiveSection(initialSection);
+  }, [initialSection]);
 
   // Helper to open PurchaseResultWindow with props
   const openPurchaseResult = (props: Record<string, unknown>) => {
@@ -329,28 +335,46 @@ export function StoreWindow({ fullScreen = false }: StoreWindowProps = {}) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-8" style={{ background: "var(--window-document-bg)" }}>
-          {/* Plan Cards */}
-          <StorePlanCards
-            currentPlan={currentPlan}
-            hasActiveSubscription={hasActiveSubscription}
-            onCheckout={handleCheckout}
-            onSubscriptionChange={handleSubscriptionChange}
-            onContactSales={() => {
-              setModalTitle("Enterprise Platform");
-              setShowEnterpriseModal(true);
-            }}
-            isManagingSubscription={isManagingSubscription}
-            subscriptionStatus={subscriptionStatus}
-            isLoadingStatus={isLoadingStatus}
-            onCancelPendingChange={handleCancelPendingChange}
-            isCancelingPending={isCancelingPending}
-          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection("plans")}
+              className={`desktop-interior-button px-3 py-1 text-xs ${activeSection === "plans" ? "font-bold" : ""}`}
+            >
+              Plans
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection("credits")}
+              className={`desktop-interior-button px-3 py-1 text-xs ${activeSection === "credits" ? "font-bold" : ""}`}
+            >
+              Credits
+            </button>
+          </div>
 
-          {/* Credit Purchase Section */}
-          <StoreCreditSection
-            onPurchase={handleCreditPurchase}
-            isProcessing={isCreditProcessing}
-          />
+          {/* Plan Cards */}
+          {activeSection === "plans" ? (
+            <StorePlanCards
+              currentPlan={currentPlan}
+              hasActiveSubscription={hasActiveSubscription}
+              onCheckout={handleCheckout}
+              onSubscriptionChange={handleSubscriptionChange}
+              onContactSales={() => {
+                setModalTitle("Enterprise Platform");
+                setShowEnterpriseModal(true);
+              }}
+              isManagingSubscription={isManagingSubscription}
+              subscriptionStatus={subscriptionStatus}
+              isLoadingStatus={isLoadingStatus}
+              onCancelPendingChange={handleCancelPendingChange}
+              isCancelingPending={isCancelingPending}
+            />
+          ) : (
+            <StoreCreditSection
+              onPurchase={handleCreditPurchase}
+              isProcessing={isCreditProcessing}
+            />
+          )}
         </div>
       </InteriorRoot>
 

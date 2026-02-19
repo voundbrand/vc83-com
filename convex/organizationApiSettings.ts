@@ -43,7 +43,11 @@ export const getApiSettings = query({
 
 /**
  * GET API SETTINGS FOR ALL ORGANIZATIONS (Super Admin Only)
- * Returns API settings for all organizations
+ * Returns API settings rows for organizations that have explicit API settings.
+ *
+ * NOTE: This intentionally returns an array instead of an object map.
+ * Convex limits object field counts (1024 max), which can be exceeded
+ * when using organization IDs as object keys at scale.
  */
 export const getAllApiSettings = query({
   args: {
@@ -61,27 +65,38 @@ export const getAllApiSettings = query({
       throw new Error("Not authorized: Only super admins can view API settings for all organizations");
     }
 
-    // Get all organizations
-    const organizations = await ctx.db.query("organizations").collect();
+    // Pull all API settings objects in one query and return rows.
+    const apiSettingsObjects = await ctx.db
+      .query("objects")
+      .withIndex("by_type_subtype", (q) =>
+        q.eq("type", "organization_settings").eq("subtype", "api")
+      )
+      .collect();
 
-    // Get API settings for each organization
-    const settingsMap = new Map<Id<"organizations">, boolean>();
+    // If duplicate settings rows exist for an org, keep the latest by updatedAt.
+    const latestByOrg = new Map<
+      Id<"organizations">,
+      { organizationId: Id<"organizations">; apiKeysEnabled: boolean; updatedAt: number }
+    >();
 
-    for (const org of organizations) {
-      const apiSettings = await ctx.db
-        .query("objects")
-        .withIndex("by_org_type", q =>
-          q.eq("organizationId", org._id)
-           .eq("type", "organization_settings")
-        )
-        .filter(q => q.eq(q.field("subtype"), "api"))
-        .first();
+    for (const doc of apiSettingsObjects) {
+      const customProperties = doc.customProperties as { apiKeysEnabled?: boolean } | undefined;
+      const current = latestByOrg.get(doc.organizationId);
+      if (current && current.updatedAt > doc.updatedAt) {
+        continue;
+      }
 
-      // API keys are initialized during onboarding, fallback to false if not set
-      settingsMap.set(org._id, apiSettings?.customProperties?.apiKeysEnabled ?? false);
+      latestByOrg.set(doc.organizationId, {
+        organizationId: doc.organizationId,
+        apiKeysEnabled: customProperties?.apiKeysEnabled ?? false,
+        updatedAt: doc.updatedAt,
+      });
     }
 
-    return Object.fromEntries(settingsMap);
+    return Array.from(latestByOrg.values()).map(({ organizationId, apiKeysEnabled }) => ({
+      organizationId,
+      apiKeysEnabled,
+    }));
   },
 });
 

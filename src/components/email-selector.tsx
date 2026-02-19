@@ -156,7 +156,7 @@ export function EmailSelector({
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
             <Mail size={14} className="inline mr-1" />
             {label}
             {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -173,7 +173,7 @@ export function EmailSelector({
   return (
     <div className="mb-4">
       {label && (
-        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
           <Mail size={14} className="inline mr-1" />
           {label}
           {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -203,7 +203,7 @@ export function EmailSelector({
 
           {/* Show selected email info */}
           {value && value !== "" && (
-            <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--win95-highlight)' }}>
+            <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
               <div className="font-bold">Selected: {value}</div>
             </div>
           )}
@@ -233,9 +233,9 @@ export function EmailSelector({
             }}
             className="mt-2 px-2 py-1 text-xs border-2 transition-colors"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
-              color: 'var(--win95-text)',
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-surface-elevated)',
+              color: 'var(--shell-text)',
             }}
           >
             ← Back to presets

@@ -86,13 +86,13 @@ export function InsertBehaviorModal({
     >
       <div
         className="w-full max-w-lg border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)]"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Title Bar */}
         <div
           className="flex items-center justify-between border-b-4 px-4 py-2"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-highlight)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--tone-accent)" }}
         >
           <h3 className="text-sm font-bold text-white">Insert Behavior</h3>
           <button
@@ -115,7 +115,7 @@ export function InsertBehaviorModal({
               <button
                 key={behaviorType.type}
                 onClick={() => setSelectedType(behaviorType.type)}
-                className={`retro-button w-full text-left p-3 ${
+                className={`desktop-interior-button w-full text-left p-3 ${
                   selectedType === behaviorType.type ? "shadow-inner" : ""
                 }`}
               >
@@ -123,10 +123,10 @@ export function InsertBehaviorModal({
                   <div
                     className="border p-1"
                     style={{
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--window-document-border)",
                       background: selectedType === behaviorType.type
-                        ? "var(--win95-highlight)"
-                        : "var(--win95-bg)",
+                        ? "var(--tone-accent)"
+                        : "var(--window-document-bg)",
                     }}
                   >
                     <Zap
@@ -134,12 +134,12 @@ export function InsertBehaviorModal({
                       style={{
                         color: selectedType === behaviorType.type
                           ? "white"
-                          : "var(--win95-highlight)",
+                          : "var(--tone-accent)",
                       }}
                     />
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       {behaviorType.name}
                     </div>
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -153,13 +153,13 @@ export function InsertBehaviorModal({
 
           {/* Actions */}
           <div className="mt-6 flex items-center justify-end gap-2">
-            <button onClick={onCancel} className="retro-button px-4 py-2 text-xs font-bold">
+            <button onClick={onCancel} className="desktop-interior-button px-4 py-2 text-xs font-bold">
               Cancel
             </button>
             <button
               onClick={handleInsert}
               disabled={!selectedType}
-              className="retro-button-primary px-4 py-2 text-xs font-bold disabled:opacity-50"
+              className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold disabled:opacity-50"
             >
               Insert Behavior
             </button>

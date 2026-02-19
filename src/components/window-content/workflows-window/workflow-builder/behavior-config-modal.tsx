@@ -315,7 +315,7 @@ export function BehaviorConfigModal({
 
       default:
         return (
-          <div className="p-4 rounded border-2" style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg)' }}>
+          <div className="p-4 rounded border-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg)' }}>
             <textarea
               value={JSON.stringify(config, null, 2)}
               onChange={(e) => {
@@ -326,7 +326,7 @@ export function BehaviorConfigModal({
                 }
               }}
               className="w-full h-64 p-2 font-mono text-xs"
-              style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)', border: '2px solid var(--win95-border)' }}
+              style={{ background: 'var(--window-document-bg)', color: 'var(--window-document-text)', border: '2px solid var(--window-document-border)' }}
             />
           </div>
         );
@@ -337,12 +337,12 @@ export function BehaviorConfigModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.5)' }}>
       <div
         className="w-full h-full max-w-6xl max-h-[90vh] m-4 rounded-lg shadow-2xl flex flex-col"
-        style={{ background: 'var(--win95-bg)', border: '3px solid var(--win95-border)' }}
+        style={{ background: 'var(--window-document-bg)', border: '3px solid var(--window-document-border)' }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between p-3 border-b-2"
-          style={{ background: 'var(--win95-highlight)', borderColor: 'var(--win95-border)' }}
+          style={{ background: 'var(--tone-accent)', borderColor: 'var(--window-document-border)' }}
         >
           <div>
             <h2 className="text-sm font-bold" style={{ color: 'white' }}>
@@ -362,8 +362,8 @@ export function BehaviorConfigModal({
         </div>
 
         {/* Available Objects Context */}
-        <div className="p-3 border-b-2" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
-          <div className="text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+        <div className="p-3 border-b-2" style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)' }}>
+          <div className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
             {t("behaviorConfigModal.availableObjects.title")}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -406,7 +406,7 @@ export function BehaviorConfigModal({
         {/* Footer */}
         <div
           className="flex items-center justify-between p-3 border-t-2"
-          style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}
+          style={{ background: 'var(--window-document-bg-elevated)', borderColor: 'var(--window-document-border)' }}
         >
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
             {t("behaviorConfigModal.footer.behaviorId")}: {behavior.id}
@@ -414,13 +414,13 @@ export function BehaviorConfigModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="retro-button px-4 py-2 text-xs"
+              className="desktop-interior-button px-4 py-2 text-xs"
             >
               {t("behaviorConfigModal.footer.cancel")}
             </button>
             <button
               onClick={handleSave}
-              className="retro-button-primary px-4 py-2 text-xs"
+              className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs"
             >
               {t("behaviorConfigModal.footer.save")}
             </button>

@@ -46,8 +46,14 @@ import {
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Id } from "@/../convex/_generated/dataModel";
 import { FileExplorerPanel } from "./file-explorer-panel";
+
+function useBuilderTx() {
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  return (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
+}
 
 // ============================================================================
 // COLLAPSED SIDEBAR (v0-style icon menu)
@@ -73,6 +79,7 @@ function CollapsedSidebar({
   onModeChange: (mode: BuilderUIMode) => void;
   canConnect?: boolean;
 }) {
+  const tx = useBuilderTx();
   const sidebarItems: SidebarItem[] = [
     { icon: MessageSquare, label: "Chat", active: activeTab === "chat" },
     { icon: Palette, label: "Design", active: activeTab === "design" },
@@ -94,18 +101,18 @@ function CollapsedSidebar({
       case "publish":
         return { icon: <Rocket className="w-5 h-5 mb-0.5" />, label: "Publish", color: "text-amber-400 bg-amber-500/10" };
       case "docs":
-        return { icon: <FileText className="w-5 h-5 mb-0.5" />, label: "Docs", color: "text-purple-400 bg-purple-500/10" };
+        return { icon: <FileText className="w-5 h-5 mb-0.5" />, label: "Docs", color: "text-amber-400 bg-amber-500/10" };
       case "setup":
         return { icon: <Sparkles className="w-5 h-5 mb-0.5" />, label: "Setup", color: "text-cyan-400 bg-cyan-500/10" };
       default:
-        return { icon: <Zap className="w-5 h-5 mb-0.5" />, label: "Build", color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900" };
+        return { icon: <Zap className="w-5 h-5 mb-0.5" />, label: "Build", color: "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900" };
     }
   };
 
   const modeDisplay = getModeDisplay();
 
   return (
-    <div className="w-12 h-full flex-shrink-0 bg-zinc-950 flex flex-col">
+    <div className="w-12 h-full flex-shrink-0 bg-neutral-950 flex flex-col">
       {/* Main nav items */}
       <div className="flex-1">
         {sidebarItems.map((item) => {
@@ -116,8 +123,8 @@ function CollapsedSidebar({
               onClick={() => onTabChange(item.label.toLowerCase())}
               className={`w-full flex flex-col items-center justify-center py-3 px-1 text-[10px] transition-colors ${
                 item.active
-                  ? "text-white bg-zinc-800"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
+                  ? "text-white bg-neutral-800"
+                  : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900"
               }`}
               title={item.label}
             >
@@ -128,7 +135,7 @@ function CollapsedSidebar({
         })}
 
         {/* Separator */}
-        <div className="mx-2 my-2 border-t border-zinc-800" />
+        <div className="mx-2 my-2 border-t border-neutral-800" />
 
         {/* Mode Selector - shows current mode with dropdown for all 4 modes */}
         <div className="relative group">
@@ -143,11 +150,11 @@ function CollapsedSidebar({
       {/* Support email at bottom */}
       <button
         onClick={handleContactSupport}
-        className="w-full flex flex-col items-center justify-center py-3 px-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
-        title="Contact Support"
+        className="w-full flex flex-col items-center justify-center py-3 px-1 text-[10px] text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900 transition-colors"
+        title={tx("ui.builder.chat.sidebar.contactSupportTitle", "Contact Support")}
       >
         <Mail className="w-5 h-5 mb-0.5" />
-        <span>Support</span>
+        <span>{tx("ui.builder.chat.sidebar.support", "Support")}</span>
       </button>
     </div>
   );
@@ -163,6 +170,7 @@ function SidebarModeButton({
   onModeChange: (mode: BuilderUIMode) => void;
   canConnect?: boolean;
 }) {
+  const tx = useBuilderTx();
   const [isOpen, setIsOpen] = useState(false);
 
   // Icon component for each mode (for sidebar - larger icons)
@@ -185,7 +193,7 @@ function SidebarModeButton({
     auto: {
       label: "Build",
       description: "Generate with AI",
-      color: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900",
+      color: "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900",
     },
     connect: {
       label: "Connect",
@@ -200,7 +208,7 @@ function SidebarModeButton({
     docs: {
       label: "Docs",
       description: "Editor mode",
-      color: "text-purple-400 bg-purple-500/10",
+      color: "text-amber-400 bg-amber-500/10",
     },
     setup: {
       label: "Setup",
@@ -231,7 +239,7 @@ function SidebarModeButton({
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-full top-0 ml-2 w-40 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800">
+          <div className="absolute left-full top-0 ml-2 w-40 bg-neutral-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-neutral-800">
             {(["auto", "setup", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
@@ -244,19 +252,19 @@ function SidebarModeButton({
                   disabled={isDisabled}
                   className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors ${
                     isActive
-                      ? "bg-zinc-800 text-zinc-200"
+                      ? "bg-neutral-800 text-neutral-200"
                       : isDisabled
-                      ? "text-zinc-600 cursor-not-allowed"
-                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      ? "text-neutral-600 cursor-not-allowed"
+                      : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
                   }`}
-                  title={isDisabled ? "Generate a page first" : config.description}
+                  title={isDisabled ? tx("ui.builder.chat.mode.generateFirst", "Generate a page first") : config.description}
                 >
-                  <span className={isActive && mode !== "auto" ? config.color.split(" ")[0] : isDisabled ? "text-zinc-600" : ""}>
+                  <span className={isActive && mode !== "auto" ? config.color.split(" ")[0] : isDisabled ? "text-neutral-600" : ""}>
                     {getModeIcon(mode)}
                   </span>
                   <div>
                     <div className="font-medium">{config.label}</div>
-                    <div className="text-zinc-500 text-[10px]">{config.description}</div>
+                    <div className="text-neutral-500 text-[10px]">{config.description}</div>
                   </div>
                 </button>
               );
@@ -294,6 +302,7 @@ function useRandomHeadline() {
 // ============================================================================
 
 function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: string) => void }) {
+  const tx = useBuilderTx();
   const headline = useRandomHeadline();
 
   const suggestions = [
@@ -307,19 +316,22 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
     <div className="flex justify-start">
       <div className="max-w-[90%]">
         {/* Message bubble - matches AssistantMessage style */}
-        <div className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3">
-          <h2 className="text-lg font-medium text-zinc-100 mb-3">
+        <div className="bg-neutral-800 rounded-2xl rounded-tl-md px-4 py-3">
+          <h2 className="text-lg font-medium text-neutral-100 mb-3">
             {headline}
           </h2>
-          <p className="text-sm text-zinc-400 mb-4">
-            Describe your landing page and I&apos;ll generate it for you. Try one of these:
+          <p className="text-sm text-neutral-400 mb-4">
+            {tx(
+              "ui.builder.chat.welcome.description",
+              "Describe your landing page and I'll generate it for you. Try one of these:",
+            )}
           </p>
           <div className="space-y-2">
             {suggestions.map((suggestion, i) => (
               <button
                 key={i}
                 onClick={() => onSuggestionClick(suggestion)}
-                className="block w-full text-left text-sm text-zinc-300 hover:text-zinc-100 bg-zinc-700/50 hover:bg-zinc-700 rounded-lg px-3 py-2 transition-colors"
+                className="block w-full text-left text-sm text-neutral-300 hover:text-neutral-100 bg-neutral-700/50 hover:bg-neutral-700 rounded-lg px-3 py-2 transition-colors"
               >
                 {suggestion}
               </button>
@@ -327,8 +339,8 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
           </div>
         </div>
         {/* Metadata footer - matches AssistantMessage */}
-        <div className="flex items-center gap-3 mt-1.5 px-1 text-xs text-zinc-500">
-          <span>AI Assistant</span>
+        <div className="flex items-center gap-3 mt-1.5 px-1 text-xs text-neutral-500">
+          <span>{tx("ui.builder.chat.welcome.assistantLabel", "AI Assistant")}</span>
         </div>
       </div>
     </div>
@@ -340,6 +352,13 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
 // ============================================================================
 
 type BuilderUIMode = "auto" | "connect" | "publish" | "docs" | "setup";
+
+const SETUP_MODE_KICKOFF_PROMPT = [
+  "Start the setup interview now.",
+  "Collect the minimum required business context and generate setup artifacts in this response.",
+  "Return fenced files for `agent-config.json` and all available `kb/*.md` documents.",
+  "Use deterministic file fences like ```json agent-config.json and ```markdown kb/hero-profile.md.",
+].join(" ");
 
 // ============================================================================
 // MODE SELECTOR (All 4 modes: Auto, Plan, Connect, Docs)
@@ -360,6 +379,7 @@ function ModeSelector({
   canConnect = false,
   direction = "up",
 }: ModeSelectorProps) {
+  const tx = useBuilderTx();
   const [isOpen, setIsOpen] = useState(false);
 
   const modeConfig: Record<BuilderUIMode, {
@@ -373,7 +393,7 @@ function ModeSelector({
       icon: <Zap className="w-4 h-4" />,
       label: "Build",
       description: "Generate with AI",
-      color: "text-zinc-400",
+      color: "text-neutral-400",
       bgColor: "",
     },
     connect: {
@@ -394,8 +414,8 @@ function ModeSelector({
       icon: <FileText className="w-4 h-4" />,
       label: "Docs",
       description: "Document editor mode",
-      color: "text-purple-400",
-      bgColor: "bg-purple-500/10",
+      color: "text-amber-400",
+      bgColor: "bg-amber-500/10",
     },
     setup: {
       icon: <Sparkles className="w-4 h-4" />,
@@ -426,7 +446,7 @@ function ModeSelector({
         className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
           currentMode !== "auto"
             ? `${current.color} ${current.bgColor}`
-            : "text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+            : "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         {current.icon}
@@ -441,7 +461,7 @@ function ModeSelector({
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className={`absolute ${direction === "up" ? "bottom-full mb-2" : "top-full mt-2"} left-0 w-48 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-zinc-800`}>
+          <div className={`absolute ${direction === "up" ? "bottom-full mb-2" : "top-full mt-2"} left-0 w-48 bg-neutral-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden border border-neutral-800`}>
             {(["auto", "setup", "connect", "publish", "docs"] as BuilderUIMode[]).map((mode) => {
               const config = modeConfig[mode];
               const isActive = currentMode === mode;
@@ -454,19 +474,19 @@ function ModeSelector({
                   disabled={isDisabled}
                   className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors ${
                     isActive
-                      ? "bg-zinc-800 text-zinc-200"
+                      ? "bg-neutral-800 text-neutral-200"
                       : isDisabled
-                      ? "text-zinc-600 cursor-not-allowed"
-                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      ? "text-neutral-600 cursor-not-allowed"
+                      : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
                   }`}
-                  title={isDisabled ? "Generate a page first" : config.description}
+                  title={isDisabled ? tx("ui.builder.chat.mode.generateFirst", "Generate a page first") : config.description}
                 >
-                  <span className={isActive || !isDisabled ? config.color : "text-zinc-600"}>
+                  <span className={isActive || !isDisabled ? config.color : "text-neutral-600"}>
                     {config.icon}
                   </span>
                   <div>
                     <div className="font-medium">{config.label}</div>
-                    <div className="text-zinc-500 text-[10px]">{config.description}</div>
+                    <div className="text-neutral-500 text-[10px]">{config.description}</div>
                   </div>
                 </button>
               );
@@ -485,8 +505,8 @@ function ModeSelector({
 function UserMessage({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] bg-zinc-700 rounded-2xl rounded-tr-md px-4 py-3">
-        <p className="text-sm text-zinc-100 whitespace-pre-wrap">{content}</p>
+      <div className="max-w-[85%] bg-neutral-700 rounded-2xl rounded-tr-md px-4 py-3">
+        <p className="text-sm text-neutral-100 whitespace-pre-wrap">{content}</p>
       </div>
     </div>
   );
@@ -511,6 +531,7 @@ function AssistantMessage({
   timestamp?: number;
   onCopy?: () => void;
 }) {
+  const tx = useBuilderTx();
   const [copied, setCopied] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -557,14 +578,14 @@ function AssistantMessage({
     <div className="flex justify-start group">
       <div className="max-w-[85%]">
         {/* Message bubble - no border for cleaner look */}
-        <div className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3">
+        <div className="bg-neutral-800 rounded-2xl rounded-tl-md px-4 py-3">
           {textContent && (
-            <p className="text-sm text-zinc-200 whitespace-pre-wrap">{textContent}</p>
+            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{textContent}</p>
           )}
           {hasSchema && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-green-400">
               <Sparkles className="w-3 h-3" />
-              <span>Page generated - see preview</span>
+              <span>{tx("ui.builder.chat.assistant.pageGeneratedPreview", "Page generated - see preview")}</span>
             </div>
           )}
         </div>
@@ -574,7 +595,7 @@ function AssistantMessage({
           <div className="mt-2">
             <button
               onClick={() => setShowWorkDetails(!showWorkDetails)}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-400 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
             >
               {showWorkDetails ? (
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -582,23 +603,39 @@ function AssistantMessage({
                 <ChevronRight className="w-3.5 h-3.5" />
               )}
               <Activity className="w-3.5 h-3.5" />
-              <span>Worked for {processingTime}s</span>
+              <span>
+                {tx("ui.builder.chat.assistant.workedFor", "Worked for")} {processingTime}
+                {tx("ui.builder.chat.assistant.secondsSuffix", "s")}
+              </span>
             </button>
 
             {showWorkDetails && (
-              <div className="mt-2 ml-5 p-3 bg-zinc-900 rounded-lg text-xs space-y-1.5">
+              <div className="mt-2 ml-5 p-3 bg-neutral-900 rounded-lg text-xs space-y-1.5">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Processing time</span>
-                  <span className="text-zinc-300">{processingTime}s</span>
+                  <span className="text-neutral-500">
+                    {tx("ui.builder.chat.assistant.processingTime", "Processing time")}
+                  </span>
+                  <span className="text-neutral-300">
+                    {processingTime}
+                    {tx("ui.builder.chat.assistant.secondsSuffix", "s")}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Response length</span>
-                  <span className="text-zinc-300">{content.length} chars</span>
+                  <span className="text-neutral-500">
+                    {tx("ui.builder.chat.assistant.responseLength", "Response length")}
+                  </span>
+                  <span className="text-neutral-300">
+                    {content.length} {tx("ui.builder.chat.assistant.chars", "chars")}
+                  </span>
                 </div>
                 {hasSchema && (
                   <div className="flex justify-between">
-                    <span className="text-zinc-500">Page generated</span>
-                    <span className="text-green-400">Yes</span>
+                    <span className="text-neutral-500">
+                      {tx("ui.builder.chat.assistant.pageGenerated", "Page generated")}
+                    </span>
+                    <span className="text-green-400">
+                      {tx("ui.builder.chat.assistant.yes", "Yes")}
+                    </span>
                   </div>
                 )}
               </div>
@@ -614,12 +651,12 @@ function AssistantMessage({
             disabled={feedbackGiven !== undefined}
             className={`p-1.5 rounded transition-colors ${
               feedbackGiven === 1
-                ? "text-zinc-300"
+                ? "text-neutral-300"
                 : feedbackGiven !== undefined
-                  ? "text-zinc-700 cursor-not-allowed"
-                  : "text-zinc-600 hover:text-zinc-400"
+                  ? "text-neutral-700 cursor-not-allowed"
+                  : "text-neutral-600 hover:text-neutral-400"
             }`}
-            title="Good response"
+            title={tx("ui.builder.chat.assistant.goodResponse", "Good response")}
           >
             <ThumbsUp className="w-4 h-4" />
           </button>
@@ -630,12 +667,12 @@ function AssistantMessage({
             disabled={feedbackGiven !== undefined}
             className={`p-1.5 rounded transition-colors ${
               feedbackGiven === -1
-                ? "text-zinc-300"
+                ? "text-neutral-300"
                 : feedbackGiven !== undefined
-                  ? "text-zinc-700 cursor-not-allowed"
-                  : "text-zinc-600 hover:text-zinc-400"
+                  ? "text-neutral-700 cursor-not-allowed"
+                  : "text-neutral-600 hover:text-neutral-400"
             }`}
-            title="Bad response"
+            title={tx("ui.builder.chat.assistant.badResponse", "Bad response")}
           >
             <ThumbsDown className="w-4 h-4" />
           </button>
@@ -643,8 +680,10 @@ function AssistantMessage({
           {/* Copy button */}
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded text-zinc-600 hover:text-zinc-400 transition-colors"
-            title={copied ? "Copied!" : "Copy response"}
+            className="p-1.5 rounded text-neutral-600 hover:text-neutral-400 transition-colors"
+            title={copied
+              ? tx("ui.builder.chat.assistant.copied", "Copied!")
+              : tx("ui.builder.chat.assistant.copyResponse", "Copy response")}
           >
             {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -653,30 +692,30 @@ function AssistantMessage({
           <div className="relative">
             <button
               onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="p-1.5 rounded text-zinc-600 hover:text-zinc-400 transition-colors"
-              title="More options"
+              className="p-1.5 rounded text-neutral-600 hover:text-neutral-400 transition-colors"
+              title={tx("ui.builder.chat.assistant.moreOptions", "More options")}
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {showMoreMenu && (
-              <div className="absolute top-full left-0 mt-1 w-36 bg-zinc-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <div className="absolute top-full left-0 mt-1 w-36 bg-neutral-900 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
                 <button
                   onClick={() => {
                     // TODO: Retry/Regenerate
                     setShowMoreMenu(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  className="w-full px-3 py-2 text-left text-xs text-neutral-300 hover:bg-neutral-800 transition-colors"
                 >
-                  Retry
+                  {tx("ui.builder.chat.assistant.retry", "Retry")}
                 </button>
                 <button
                   onClick={() => {
                     // TODO: Copy link
                     setShowMoreMenu(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  className="w-full px-3 py-2 text-left text-xs text-neutral-300 hover:bg-neutral-800 transition-colors"
                 >
-                  Copy link
+                  {tx("ui.builder.chat.assistant.copyLink", "Copy link")}
                 </button>
               </div>
             )}
@@ -684,7 +723,7 @@ function AssistantMessage({
 
           {/* Timestamp */}
           {timestamp && (
-            <span className="ml-2 text-xs text-zinc-600">
+            <span className="ml-2 text-xs text-neutral-600">
               <Clock className="w-3 h-3 inline mr-1" />
               {getRelativeTime(timestamp)}
             </span>
@@ -714,6 +753,7 @@ function SystemMessage({
   onRetry?: () => void;
   onDismiss?: () => void;
 }) {
+  const tx = useBuilderTx();
   const isError = errorDetails || content.toLowerCase().startsWith("error");
 
   // Get icon and color based on error type
@@ -726,7 +766,7 @@ function SystemMessage({
         return { icon: AlertCircle, bgColor: "bg-amber-900/30", borderColor: "border-amber-700", textColor: "text-amber-400" };
       case "platform_error":
         // Platform issue (OpenRouter 402) - softer color since not user's fault
-        return { icon: AlertCircle, bgColor: "bg-zinc-800", borderColor: "border-zinc-600", textColor: "text-zinc-300" };
+        return { icon: AlertCircle, bgColor: "bg-neutral-800", borderColor: "border-neutral-600", textColor: "text-neutral-300" };
       case "rate_limit":
         return { icon: Clock, bgColor: "bg-blue-900/30", borderColor: "border-blue-700", textColor: "text-blue-400" };
       case "network":
@@ -741,7 +781,7 @@ function SystemMessage({
   if (!isError) {
     return (
       <div className="flex justify-center">
-        <div className="max-w-[90%] rounded-lg px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400">
+        <div className="max-w-[90%] rounded-lg px-3 py-1.5 text-xs bg-neutral-800 text-neutral-400">
           {content}
         </div>
       </div>
@@ -768,7 +808,7 @@ function SystemMessage({
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Try again
+                    {tx("ui.builder.chat.system.tryAgain", "Try again")}
                   </button>
                 )}
                 {errorDetails.actionLabel && errorDetails.actionUrl && (
@@ -788,7 +828,7 @@ function SystemMessage({
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs opacity-60 hover:opacity-100 transition-opacity"
                   >
                     <X className="w-3 h-3" />
-                    Dismiss
+                    {tx("ui.builder.chat.system.dismiss", "Dismiss")}
                   </button>
                 )}
               </div>
@@ -812,6 +852,7 @@ function SystemMessage({
 function FileDiffViewer({ fileDiffs }: {
   fileDiffs: Array<{ filePath: string; oldContent: string; newContent: string; explanation: string }>;
 }) {
+  const tx = useBuilderTx();
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
   const [showAll, setShowAll] = useState(false);
 
@@ -828,11 +869,11 @@ function FileDiffViewer({ fileDiffs }: {
     <div className="mt-2 border-t border-white/10 pt-2">
       <button
         onClick={() => setShowAll(!showAll)}
-        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-300 mb-1"
+        className="flex items-center gap-1 text-[11px] text-neutral-400 hover:text-neutral-300 mb-1"
       >
         {showAll ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         <FileText className="w-3 h-3" />
-        Files Changed ({fileDiffs.length})
+        {tx("ui.builder.chat.diff.filesChanged", "Files Changed")} ({fileDiffs.length})
       </button>
 
       {showAll && (
@@ -846,14 +887,18 @@ function FileDiffViewer({ fileDiffs }: {
                   onClick={() => toggleFile(diff.filePath)}
                   className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-white/5 transition-colors"
                 >
-                  {isExpanded ? <ChevronDown className="w-3 h-3 text-zinc-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 flex-shrink-0" />}
-                  <span className="text-[11px] text-zinc-300 truncate font-mono">{diff.filePath}</span>
-                  {isNewFile && <span className="text-[9px] text-emerald-500 ml-auto flex-shrink-0">NEW</span>}
+                  {isExpanded ? <ChevronDown className="w-3 h-3 text-neutral-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-neutral-500 flex-shrink-0" />}
+                  <span className="text-[11px] text-neutral-300 truncate font-mono">{diff.filePath}</span>
+                  {isNewFile && (
+                    <span className="text-[9px] text-emerald-500 ml-auto flex-shrink-0">
+                      {tx("ui.builder.chat.diff.new", "NEW")}
+                    </span>
+                  )}
                 </button>
                 {isExpanded && (
                   <div className="px-2 pb-2">
-                    <p className="text-[10px] text-zinc-500 mb-1 italic">{diff.explanation}</p>
-                    <div className="max-h-60 overflow-auto rounded bg-zinc-950 p-1.5">
+                    <p className="text-[10px] text-neutral-500 mb-1 italic">{diff.explanation}</p>
+                    <div className="max-h-60 overflow-auto rounded bg-neutral-950 p-1.5">
                       <DiffLines oldContent={diff.oldContent} newContent={diff.newContent} />
                     </div>
                   </div>
@@ -900,10 +945,10 @@ function DiffLines({ oldContent, newContent }: { oldContent: string; newContent:
               ? "text-emerald-400 bg-emerald-950/30"
               : line.type === "remove"
                 ? "text-red-400 bg-red-950/30"
-                : "text-zinc-500"
+                : "text-neutral-500"
           }
         >
-          <span className="select-none inline-block w-4 text-right mr-1 text-zinc-600">
+          <span className="select-none inline-block w-4 text-right mr-1 text-neutral-600">
             {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
           </span>
           {line.text}
@@ -957,6 +1002,7 @@ function HealProgressMessage({
   healData: NonNullable<import("@/contexts/builder-context").BuilderMessage["healData"]>;
   onRetry?: () => void;
 }) {
+  const tx = useBuilderTx();
   const [showLogs, setShowLogs] = useState(false);
 
   const isStart = healData.type === "heal_start";
@@ -969,7 +1015,7 @@ function HealProgressMessage({
     ? { bg: "bg-emerald-950/30", border: "border-emerald-800", text: "text-emerald-300", icon: "text-emerald-400" }
     : isFailed
       ? { bg: "bg-red-950/30", border: "border-red-800", text: "text-red-300", icon: "text-red-400" }
-      : { bg: "bg-purple-950/30", border: "border-purple-800", text: "text-purple-300", icon: "text-purple-400" };
+      : { bg: "bg-amber-950/30", border: "border-amber-800", text: "text-amber-300", icon: "text-amber-400" };
 
   return (
     <div className="flex justify-start">
@@ -981,14 +1027,14 @@ function HealProgressMessage({
           {isSuccess && <Check className={`w-4 h-4 ${colors.icon}`} />}
           {isFailed && <AlertCircle className={`w-4 h-4 ${colors.icon}`} />}
           <span className={`text-xs font-medium ${colors.text} uppercase tracking-wider`}>
-            {isStart && "Self-Heal Started"}
-            {isProgress && "Applying Fixes"}
-            {isSuccess && "Deploy Succeeded"}
-            {isFailed && "Heal Failed"}
+            {isStart && tx("ui.builder.chat.heal.selfHealStarted", "Self-Heal Started")}
+            {isProgress && tx("ui.builder.chat.heal.applyingFixes", "Applying Fixes")}
+            {isSuccess && tx("ui.builder.chat.heal.deploySucceeded", "Deploy Succeeded")}
+            {isFailed && tx("ui.builder.chat.heal.healFailed", "Heal Failed")}
           </span>
           {healData.attemptNumber && healData.maxAttempts && (
-            <span className="text-[10px] text-zinc-500 ml-auto">
-              Attempt {healData.attemptNumber}/{healData.maxAttempts}
+            <span className="text-[10px] text-neutral-500 ml-auto">
+              {tx("ui.builder.chat.heal.attempt", "Attempt")} {healData.attemptNumber}/{healData.maxAttempts}
             </span>
           )}
         </div>
@@ -1008,10 +1054,10 @@ function HealProgressMessage({
                   <button
                     key={i}
                     onClick={() => setShowLogs(true)}
-                    className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-300 mt-1"
+                    className="flex items-center gap-1 text-[11px] text-neutral-400 hover:text-neutral-300 mt-1"
                   >
                     <FileText className="w-3 h-3" />
-                    Show build logs
+                    {tx("ui.builder.chat.heal.showBuildLogs", "Show build logs")}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 );
@@ -1036,13 +1082,18 @@ function HealProgressMessage({
         {/* Strategy badge */}
         {healData.strategy && (
           <div className="flex items-center gap-2 mt-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/20 text-[10px] text-zinc-400">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/20 text-[10px] text-neutral-400">
               <GitBranch className="w-3 h-3" />
-              {healData.strategy === "surgical" ? "Surgical Fix" : "v0 Regeneration"}
+              {healData.strategy === "surgical"
+                ? tx("ui.builder.chat.heal.strategySurgical", "Surgical Fix")
+                : tx("ui.builder.chat.heal.strategyV0Regeneration", "v0 Regeneration")}
             </span>
             {healData.fixCount !== undefined && healData.fixCount > 0 && (
-              <span className="text-[10px] text-zinc-500">
-                {healData.fixCount} file{healData.fixCount !== 1 ? "s" : ""} changed
+              <span className="text-[10px] text-neutral-500">
+                {healData.fixCount} {tx("ui.builder.chat.heal.file", "file")}
+                {healData.fixCount !== 1 ? tx("ui.builder.chat.heal.pluralSuffix", "s") : ""}
+                {" "}
+                {tx("ui.builder.chat.heal.changed", "changed")}
               </span>
             )}
           </div>
@@ -1057,10 +1108,10 @@ function HealProgressMessage({
         {isFailed && onRetry && (
           <button
             onClick={onRetry}
-            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors text-zinc-300"
+            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors text-neutral-300"
           >
             <RefreshCw className="w-3 h-3" />
-            Retry
+            {tx("ui.builder.chat.heal.retry", "Retry")}
           </button>
         )}
       </div>
@@ -1076,6 +1127,12 @@ const thinkingPhrases = [
   "Creating...",
   "Generating...",
 ];
+const shimmerKeyframes = `
+  @keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+`;
 
 function ThinkingIndicator() {
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -1090,7 +1147,7 @@ function ThinkingIndicator() {
 
   return (
     <div className="flex justify-start">
-      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl rounded-tl-md px-4 py-3">
+      <div className="bg-neutral-800 border border-neutral-700 rounded-2xl rounded-tl-md px-4 py-3">
         <div className="flex items-center gap-3">
           {/* Spinning logo */}
           <div className="relative w-6 h-6 flex-shrink-0">
@@ -1103,7 +1160,7 @@ function ThinkingIndicator() {
           </div>
           {/* Shimmering text */}
           <span
-            className="text-sm font-medium bg-gradient-to-r from-purple-400 via-zinc-200 to-purple-400 bg-clip-text text-transparent animate-shimmer bg-[length:200%_100%]"
+            className="text-sm font-medium bg-gradient-to-r from-amber-400 via-neutral-200 to-amber-400 bg-clip-text text-transparent animate-shimmer bg-[length:200%_100%]"
             style={{
               animation: "shimmer 2s linear infinite",
             }}
@@ -1113,12 +1170,7 @@ function ThinkingIndicator() {
         </div>
       </div>
       {/* Inline keyframes for shimmer animation */}
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: 100% 0; }
-          100% { background-position: -100% 0; }
-        }
-      `}</style>
+      <style jsx>{shimmerKeyframes}</style>
     </div>
   );
 }
@@ -1148,6 +1200,7 @@ function ToolApprovalCard({
   onOther: (executionId: Id<"aiToolExecutions">, instructions: string) => void;
   isProcessing: boolean;
 }) {
+  const tx = useBuilderTx();
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [otherInstructions, setOtherInstructions] = useState("");
 
@@ -1169,20 +1222,22 @@ function ToolApprovalCard({
     const params = execution.parameters;
     const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
 
-    if (entries.length === 0) return <span className="text-zinc-500 italic">No parameters</span>;
+    if (entries.length === 0) {
+      return <span className="text-neutral-500 italic">{tx("ui.builder.chat.toolApproval.noParameters", "No parameters")}</span>;
+    }
 
     return (
       <div className="space-y-1">
         {entries.slice(0, 5).map(([key, value]) => (
           <div key={key} className="flex gap-2">
-            <span className="text-zinc-500 text-xs">{key}:</span>
-            <span className="text-zinc-300 text-xs truncate max-w-[200px]">
+            <span className="text-neutral-500 text-xs">{key}:</span>
+            <span className="text-neutral-300 text-xs truncate max-w-[200px]">
               {typeof value === "object" ? JSON.stringify(value) : String(value)}
             </span>
           </div>
         ))}
         {entries.length > 5 && (
-          <span className="text-zinc-500 text-xs">+ {entries.length - 5} more...</span>
+          <span className="text-neutral-500 text-xs">+ {entries.length - 5} more...</span>
         )}
       </div>
     );
@@ -1201,18 +1256,18 @@ function ToolApprovalCard({
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle className="w-5 h-5 text-amber-500" />
-        <span className="text-sm font-medium text-zinc-200">
-          AI wants to: {getToolDisplayName(execution.toolName)}
+        <span className="text-sm font-medium text-neutral-200">
+          {tx("ui.builder.chat.toolApproval.aiWantsTo", "AI wants to:")} {getToolDisplayName(execution.toolName)}
         </span>
       </div>
 
       {/* Proposal message if any */}
       {execution.proposalMessage && (
-        <p className="text-xs text-zinc-400 mb-3">{execution.proposalMessage}</p>
+        <p className="text-xs text-neutral-400 mb-3">{execution.proposalMessage}</p>
       )}
 
       {/* Parameters */}
-      <div className="bg-zinc-900/50 rounded-lg p-3 mb-4">
+      <div className="bg-neutral-900/50 rounded-lg p-3 mb-4">
         {renderParameters()}
       </div>
 
@@ -1222,8 +1277,8 @@ function ToolApprovalCard({
           <textarea
             value={otherInstructions}
             onChange={(e) => setOtherInstructions(e.target.value)}
-            placeholder="Enter your instructions for the AI..."
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500 resize-none"
+            placeholder={tx("ui.builder.chat.toolApproval.instructionsPlaceholder", "Enter your instructions for the AI...")}
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500 resize-none"
             rows={3}
             autoFocus
           />
@@ -1231,16 +1286,16 @@ function ToolApprovalCard({
             <button
               onClick={handleSubmitOther}
               disabled={!otherInstructions.trim() || isProcessing}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
             >
               <Send className="w-3 h-3" />
-              Send Instructions
+              {tx("ui.builder.chat.toolApproval.sendInstructions", "Send Instructions")}
             </button>
             <button
               onClick={() => { setShowOtherInput(false); setOtherInstructions(""); }}
-              className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs font-medium rounded-lg transition-colors"
+              className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-200 text-xs font-medium rounded-lg transition-colors"
             >
-              Cancel
+              {tx("ui.builder.chat.toolApproval.cancel", "Cancel")}
             </button>
           </div>
         </div>
@@ -1255,23 +1310,23 @@ function ToolApprovalCard({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
           >
             <Check className="w-4 h-4" />
-            Yes
+            {tx("ui.builder.chat.toolApproval.yes", "Yes")}
           </button>
           <button
             onClick={() => onReject(execution._id)}
             disabled={isProcessing}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-200 text-sm font-medium rounded-lg transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-200 text-sm font-medium rounded-lg transition-colors"
           >
             <X className="w-4 h-4" />
-            No
+            {tx("ui.builder.chat.toolApproval.no", "No")}
           </button>
           <button
             onClick={() => setShowOtherInput(true)}
             disabled={isProcessing}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed text-purple-300 text-sm font-medium rounded-lg transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed text-amber-300 text-sm font-medium rounded-lg transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
-            Other
+            {tx("ui.builder.chat.toolApproval.other", "Other")}
           </button>
         </div>
       )}
@@ -1294,18 +1349,19 @@ function AIProviderToggle({
   disabled?: boolean;
   hasV0Preview?: boolean;
 }) {
+  const tx = useBuilderTx();
   return (
-    <div className="flex items-center bg-zinc-800 border border-zinc-700 rounded-lg p-0.5">
+    <div className="flex items-center bg-neutral-800 border border-neutral-700 rounded-lg p-0.5">
       <button
         type="button"
         onClick={() => !disabled && onProviderChange("v0")}
         disabled={disabled}
         className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
           provider === "v0"
-            ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm"
-            : "text-zinc-400 hover:text-zinc-200"
+            ? "bg-gradient-to-r from-amber-600 to-blue-600 text-white shadow-sm"
+            : "text-neutral-400 hover:text-neutral-200"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        title="Use v0.dev for live preview (Recommended)"
+        title={tx("ui.builder.chat.providerToggle.v0Title", "Use v0.dev for live preview (Recommended)")}
       >
         <span className="font-medium">v0</span>
         {hasV0Preview && provider === "v0" && (
@@ -1318,10 +1374,10 @@ function AIProviderToggle({
         disabled={disabled}
         className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
           provider === "built-in"
-            ? "bg-zinc-700 text-zinc-100 shadow-sm"
-            : "text-zinc-400 hover:text-zinc-200"
+            ? "bg-neutral-700 text-neutral-100 shadow-sm"
+            : "text-neutral-400 hover:text-neutral-200"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        title="Use built-in JSON schema renderer"
+        title={tx("ui.builder.chat.providerToggle.builtinTitle", "Use built-in JSON schema renderer")}
       >
         <span className="font-medium">JSON</span>
       </button>
@@ -1342,6 +1398,7 @@ function CompactModelSelector({
   onModelChange: (model: string | undefined) => void;
   disabled?: boolean;
 }) {
+  const tx = useBuilderTx();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -1389,7 +1446,9 @@ function CompactModelSelector({
 
   const orgDefaultModel = aiSettings?.llm.defaultModelId;
   const currentModel = selectedModel || orgDefaultModel || "claude-3-5-sonnet";
-  const currentDisplayName = selectedModel ? getModelDisplayName(currentModel) : "Auto";
+  const currentDisplayName = selectedModel
+    ? getModelDisplayName(currentModel)
+    : tx("ui.builder.chat.modelSelector.auto", "Auto");
 
   const modelList = platformModels
     ? Object.values(platformModels).flat().map((m) => ({ id: m.modelId, name: m.name }))
@@ -1402,31 +1461,35 @@ function CompactModelSelector({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${
-          disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-zinc-700"
-        } bg-zinc-800 border-zinc-700 text-zinc-300`}
+          disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-neutral-700"
+        } bg-neutral-800 border-neutral-700 text-neutral-300`}
       >
         <span className="truncate max-w-[80px]">{currentDisplayName}</span>
         <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+        <div className="absolute bottom-full left-0 mb-1 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
           <button
             type="button"
             onClick={() => { onModelChange(undefined); setIsOpen(false); }}
-            className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-700 transition-colors ${!selectedModel ? "bg-zinc-700" : ""}`}
+            className={`w-full px-3 py-2 text-left text-xs hover:bg-neutral-700 transition-colors ${!selectedModel ? "bg-neutral-700" : ""}`}
           >
-            <span className="text-zinc-200 font-medium">Auto</span>
-            <span className="text-zinc-500 ml-1">(Default)</span>
+            <span className="text-neutral-200 font-medium">
+              {tx("ui.builder.chat.modelSelector.auto", "Auto")}
+            </span>
+            <span className="text-neutral-500 ml-1">
+              {tx("ui.builder.chat.modelSelector.default", "(Default)")}
+            </span>
           </button>
           {modelList.map((model) => (
             <button
               key={model.id}
               type="button"
               onClick={() => { onModelChange(model.id); setIsOpen(false); }}
-              className={`w-full px-3 py-2 text-left text-xs hover:bg-zinc-700 transition-colors truncate ${selectedModel === model.id ? "bg-purple-900/30" : ""}`}
+              className={`w-full px-3 py-2 text-left text-xs hover:bg-neutral-700 transition-colors truncate ${selectedModel === model.id ? "bg-amber-900/30" : ""}`}
             >
-              <span className="text-zinc-200">{model.name}</span>
+              <span className="text-neutral-200">{model.name}</span>
             </button>
           ))}
         </div>
@@ -1450,6 +1513,7 @@ function SaveDialog({
   onSave: (name: string) => void;
   isSaving: boolean;
 }) {
+  const tx = useBuilderTx();
   const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1470,9 +1534,9 @@ function SaveDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <h3 className="text-lg font-semibold text-zinc-100 mb-4">
-          Save as Project
+      <div className="bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <h3 className="text-lg font-semibold text-neutral-100 mb-4">
+          {tx("ui.builder.chat.saveDialog.title", "Save as Project")}
         </h3>
         <form onSubmit={handleSubmit}>
           <input
@@ -1480,33 +1544,33 @@ function SaveDialog({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Enter project name..."
-            className="w-full px-4 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder={tx("ui.builder.chat.saveDialog.placeholder", "Enter project name...")}
+            className="w-full px-4 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             disabled={isSaving}
           />
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
               disabled={isSaving}
             >
-              Cancel
+              {tx("ui.builder.chat.saveDialog.cancel", "Cancel")}
             </button>
             <button
               type="submit"
               disabled={!name.trim() || isSaving}
-              className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isSaving ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Saving...
+                  {tx("ui.builder.chat.saveDialog.saving", "Saving...")}
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Save
+                  {tx("ui.builder.chat.saveDialog.save", "Save")}
                 </>
               )}
             </button>
@@ -1571,6 +1635,7 @@ export function BuilderChatPanel() {
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const setupKickoffInFlight = useRef(false);
 
   // Convex action for fetching URL content
   const fetchUrlContent = useAction(api.ai.webReader.fetchUrlContent);
@@ -1578,6 +1643,7 @@ export function BuilderChatPanel() {
 
   const { sessionId: authSessionId } = useAuth();
   const effectiveSessionId = authSessionId || sessionId;
+  const tx = useBuilderTx();
 
   // ── BUILDER APP FILES (for Files tab) ──
   const builderFilesRaw = useQuery(
@@ -1680,6 +1746,26 @@ export function BuilderChatPanel() {
     return "auto";
   }, [showConnectionPanel, builderMode, isDocsMode, isSetupMode]);
 
+  // Deterministic setup kickoff: avoid empty setup wizard state.
+  useEffect(() => {
+    if (!isSetupMode) {
+      setupKickoffInFlight.current = false;
+      return;
+    }
+    if (aiProvider !== "built-in") {
+      setAiProvider("built-in");
+      return;
+    }
+    if (messages.length > 0 || isGenerating || setupKickoffInFlight.current) {
+      return;
+    }
+
+    setupKickoffInFlight.current = true;
+    void sendMessage(SETUP_MODE_KICKOFF_PROMPT).finally(() => {
+      setupKickoffInFlight.current = false;
+    });
+  }, [aiProvider, isSetupMode, isGenerating, messages.length, sendMessage, setAiProvider]);
+
   // Handle unified mode change from the dropdown
   const handleUIModeChange = async (mode: BuilderUIMode) => {
     // Reset all modes first
@@ -1695,11 +1781,17 @@ export function BuilderChatPanel() {
       case "setup":
         // Setup mode = agent creation wizard with system knowledge
         setBuilderMode("prototype");
+        setAiProvider("built-in");
         setIsSetupMode(true);
         break;
       case "connect":
         if (!canSwitchToMode("connect")) return;
-        await analyzePageForConnections();
+        clearError();
+        const isConnectable = await analyzePageForConnections();
+        if (!isConnectable) {
+          setBuilderMode("prototype");
+          return;
+        }
         setBuilderMode("connect");
         setShowConnectionPanel(true);
         break;
@@ -1969,7 +2061,7 @@ export function BuilderChatPanel() {
   // PublishConfigWizard and PublishProvider removed - publishing is now via header dropdown
 
   return (
-    <div className="h-full flex bg-zinc-900 overflow-hidden">
+    <div className="h-full flex bg-neutral-900 overflow-hidden">
       {/* Collapsed Sidebar - v0 style - stays fixed */}
       <div className="h-full flex-shrink-0">
         <CollapsedSidebar
@@ -1985,7 +2077,7 @@ export function BuilderChatPanel() {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         {/* Connection Panel Drawer - overlays above the chat content */}
         {showConnectionPanel && builderMode === "connect" && (
-          <div className="absolute inset-0 z-20 bg-zinc-950/95 backdrop-blur-sm overflow-y-auto overflow-x-hidden">
+          <div className="absolute inset-0 z-20 bg-neutral-950/95 backdrop-blur-sm overflow-y-auto overflow-x-hidden">
             {aiProvider === "v0" ? (
               <V0ConnectionPanel
                 onClose={handleConnectionPanelClose}
@@ -2082,12 +2174,12 @@ export function BuilderChatPanel() {
           <div className="flex-shrink-0 px-4 pb-2 flex flex-wrap gap-2">
             {/* Attached text */}
             {attachedText && (
-              <div className="flex items-center gap-2 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs">
-                <Paperclip className="w-3 h-3 text-zinc-400" />
-                <span className="text-zinc-300 max-w-[150px] truncate">{attachedText.preview}</span>
+              <div className="flex items-center gap-2 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-xs">
+                <Paperclip className="w-3 h-3 text-neutral-400" />
+                <span className="text-neutral-300 max-w-[150px] truncate">{attachedText.preview}</span>
                 <button
                   onClick={() => setAttachedText(null)}
-                  className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="text-neutral-500 hover:text-neutral-300 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -2140,7 +2232,7 @@ export function BuilderChatPanel() {
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="https://example.com"
-              className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+              className="flex-1 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -2156,13 +2248,13 @@ export function BuilderChatPanel() {
             <button
               onClick={addUrlReference}
               disabled={!urlInput.trim() || !isValidUrl(urlInput.trim())}
-              className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 bg-amber-600 text-white text-xs rounded-lg hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Add
+              {tx("ui.builder.chat.url.add", "Add")}
             </button>
             <button
               onClick={() => { setShowUrlInput(false); setUrlInput(""); }}
-              className="p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="p-1.5 text-neutral-500 hover:text-neutral-300 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2170,7 +2262,7 @@ export function BuilderChatPanel() {
         )}
 
         {/* Input - v0 style layout - fixed at bottom */}
-        <div className="flex-shrink-0 bg-zinc-950 p-3">
+        <div className="flex-shrink-0 bg-neutral-950 p-3">
           {/* Main input row */}
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
             {/* Textarea */}
@@ -2181,9 +2273,9 @@ export function BuilderChatPanel() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder="Ask a follow-up..."
+                placeholder={tx("ui.builder.chat.input.followUpPlaceholder", "Ask a follow-up...")}
                 disabled={isGenerating}
-                className="w-full px-4 py-2.5 bg-zinc-900 rounded-xl text-zinc-100 placeholder-zinc-500 resize-none overflow-hidden min-h-[44px] max-h-[120px] focus:outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="w-full px-4 py-2.5 bg-neutral-900 rounded-xl text-neutral-100 placeholder-neutral-500 resize-none overflow-hidden min-h-[44px] max-h-[120px] focus:outline-none focus:ring-1 focus:ring-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 rows={1}
               />
             </div>
@@ -2192,8 +2284,10 @@ export function BuilderChatPanel() {
             <button
               type="submit"
               disabled={(!input.trim() && !attachedText) || isGenerating || isFetchingUrls}
-              className="p-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title={isFetchingUrls ? "Fetching URL content..." : "Send message"}
+              className="p-2.5 bg-neutral-800 text-neutral-300 rounded-xl hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title={isFetchingUrls
+                ? tx("ui.builder.chat.input.fetchingUrlContent", "Fetching URL content...")
+                : tx("ui.builder.chat.input.sendMessage", "Send message")}
             >
               {isGenerating || isFetchingUrls ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -2213,14 +2307,14 @@ export function BuilderChatPanel() {
                 onClick={() => setShowUrlInput(!showUrlInput)}
                 className={`relative p-2 rounded-lg transition-colors ${
                   showUrlInput || referenceUrls.length > 0
-                    ? "text-purple-400"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    ? "text-amber-400"
+                    : "text-neutral-500 hover:text-neutral-300"
                 }`}
-                title="Add URL reference"
+                title={tx("ui.builder.chat.url.addReference", "Add URL reference")}
               >
                 <LinkIcon className="w-4 h-4" />
                 {referenceUrls.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-purple-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-amber-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
                     {referenceUrls.length}
                   </span>
                 )}
@@ -2259,8 +2353,8 @@ export function BuilderChatPanel() {
                 <button
                   type="button"
                   onClick={() => setShowSaveDialog(true)}
-                  className="p-2 text-zinc-500 hover:text-purple-400 rounded-lg transition-colors"
-                  title="Save as project"
+                  className="p-2 text-neutral-500 hover:text-amber-400 rounded-lg transition-colors"
+                  title={tx("ui.builder.chat.actions.saveAsProjectTitle", "Save as project")}
                 >
                   <Save className="w-4 h-4" />
                 </button>
@@ -2269,8 +2363,8 @@ export function BuilderChatPanel() {
                 <button
                   type="button"
                   onClick={reset}
-                  className="p-2 text-zinc-500 hover:text-zinc-300 rounded-lg transition-colors"
-                  title="Start over"
+                  className="p-2 text-neutral-500 hover:text-neutral-300 rounded-lg transition-colors"
+                  title={tx("ui.builder.chat.actions.startOver", "Start over")}
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>

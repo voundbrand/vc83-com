@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Save, Loader2, Plus, Trash2, FileCode } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -130,8 +130,8 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
       <div
         className="border-4 shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
           boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -140,7 +140,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
         <div
           className="px-4 py-2 flex items-center justify-between sticky top-0 z-10"
           style={{
-            background: 'var(--win95-highlight)',
+            background: 'var(--tone-accent)',
             color: 'white'
           }}
         >
@@ -162,11 +162,11 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
           <div
             className="mb-6 p-4 border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)'
             }}
           >
-            <p className="text-xs mb-2" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs mb-2" style={{ color: 'var(--window-document-text)' }}>
               Document the environment variables required for deploying this page to Vercel.
               These will be shown to users during deployment setup.
             </p>
@@ -182,12 +182,12 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                 key={index}
                 className="p-4 border-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)'
                 }}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                     Environment Variable #{index + 1}
                   </h4>
                   <button
@@ -195,15 +195,15 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                     className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors"
                     style={{
                       borderColor: 'var(--error)',
-                      background: 'var(--win95-bg)',
+                      background: 'var(--window-document-bg)',
                       color: 'var(--error)'
                     }}
                     title="Remove this environment variable"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      e.currentTarget.style.background = 'var(--desktop-menu-hover)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--win95-bg)';
+                      e.currentTarget.style.background = 'var(--window-document-bg)';
                     }}
                   >
                     <Trash2 size={12} />
@@ -213,7 +213,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                   {/* Key */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       Variable Key * <span style={{ color: 'var(--error)' }}>Required</span>
                     </label>
                     <input
@@ -223,16 +223,16 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                       placeholder="NEXT_PUBLIC_API_URL"
                       className="w-full px-3 py-2 text-sm border-2 font-mono"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        background: 'var(--win95-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        background: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
 
                   {/* Default Value */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                       Default Value <span style={{ color: 'var(--neutral-gray)' }}>(Optional)</span>
                     </label>
                     <input
@@ -242,9 +242,9 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                       placeholder="https://app.l4yercak3.com/api/v1"
                       className="w-full px-3 py-2 text-sm border-2 font-mono"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        background: 'var(--win95-bg)',
-                        color: 'var(--win95-text)'
+                        borderColor: 'var(--window-document-border)',
+                        background: 'var(--window-document-bg)',
+                        color: 'var(--window-document-text)'
                       }}
                     />
                   </div>
@@ -252,7 +252,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
 
                 {/* Description */}
                 <div className="mt-3">
-                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Description * <span style={{ color: 'var(--error)' }}>Required</span>
                   </label>
                   <textarea
@@ -262,9 +262,9 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                     rows={2}
                     className="w-full px-3 py-2 text-sm border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg)',
-                      color: 'var(--win95-text)'
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg)',
+                      color: 'var(--window-document-text)'
                     }}
                   />
                 </div>
@@ -278,7 +278,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                     onChange={(e) => handleUpdateEnvVar(index, 'required', e.target.checked)}
                     className="w-4 h-4"
                   />
-                  <label htmlFor={`required-${index}`} className="text-xs" style={{ color: 'var(--win95-text)' }}>
+                  <label htmlFor={`required-${index}`} className="text-xs" style={{ color: 'var(--window-document-text)' }}>
                     This variable is required for deployment
                   </label>
                 </div>
@@ -290,15 +290,15 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
               onClick={handleAddEnvVar}
               className="w-full px-4 py-3 border-2 flex items-center justify-center gap-2 transition-colors"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-highlight)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
+                color: 'var(--tone-accent)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
+                e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
               }}
             >
               <Plus size={16} />
@@ -323,16 +323,16 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2">
-            <RetroButton
+            <InteriorButton
               onClick={onClose}
               variant="outline"
               size="sm"
               disabled={isSaving}
             >
               Cancel
-            </RetroButton>
+            </InteriorButton>
 
-            <RetroButton
+            <InteriorButton
               onClick={handleSave}
               variant="primary"
               size="sm"
@@ -349,7 +349,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                   Save Variables
                 </>
               )}
-            </RetroButton>
+            </InteriorButton>
           </div>
         </div>
       </div>

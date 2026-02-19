@@ -105,8 +105,8 @@ export function PipelineSettingsTab() {
   if (aiSettings === undefined) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <Loader2 className="animate-spin" size={24} style={{ color: "var(--win95-highlight)" }} />
-        <p className="ml-3 text-sm" style={{ color: "var(--win95-text)" }}>
+        <Loader2 className="animate-spin" size={24} style={{ color: "var(--tone-accent)" }} />
+        <p className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.settings.loading") || "Loading settings..."}
         </p>
       </div>
@@ -117,7 +117,7 @@ export function PipelineSettingsTab() {
     <div className="h-full overflow-y-auto p-4 space-y-6">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Settings size={16} />
           {t("ui.crm.pipeline.settings.title") || "AI & Automation Settings"}
         </h3>
@@ -131,11 +131,11 @@ export function PipelineSettingsTab() {
       <div
         className="border-2 rounded-lg p-4"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.settings.data_sources.title") || "Data Source Access"}
         </h4>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -160,7 +160,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.data_sources.enrichment") || "Contact Enrichment"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -186,7 +186,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.data_sources.external_apis") || "External APIs"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -212,7 +212,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.data_sources.web_search") || "Web Search"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -228,11 +228,11 @@ export function PipelineSettingsTab() {
       <div
         className="border-2 rounded-lg p-4"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.settings.communication.title") || "Communication Style"}
         </h4>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -242,7 +242,7 @@ export function PipelineSettingsTab() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.settings.communication.style_label") || "Style"}
             </label>
             <select
@@ -271,7 +271,7 @@ export function PipelineSettingsTab() {
           </div>
 
           <div>
-            <label className="block text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.crm.pipeline.settings.communication.tone_label") || "Tone"}
             </label>
             <select
@@ -305,11 +305,11 @@ export function PipelineSettingsTab() {
       <div
         className="border-2 rounded-lg p-4"
         style={{
-          background: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
           {t("ui.crm.pipeline.settings.automation.title") || "Automation Preferences"}
         </h4>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -334,7 +334,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.automation.auto_scoring") || "Automatic Contact Scoring"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -360,7 +360,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.automation.auto_progression") || "Automatic Pipeline Progression"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -386,7 +386,7 @@ export function PipelineSettingsTab() {
               }
             />
             <div>
-              <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+              <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.pipeline.settings.automation.suggest_actions") || "Suggest Next Actions"}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -399,7 +399,7 @@ export function PipelineSettingsTab() {
       </div>
 
       {/* Save Button */}
-      <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex items-center justify-between pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
         <div className="flex items-center gap-2">
           {saveSuccess && (
             <>
@@ -413,10 +413,10 @@ export function PipelineSettingsTab() {
         <button
           onClick={handleSave}
           disabled={saving || !hasChanges}
-          className="retro-button px-4 py-2 flex items-center gap-2"
+          className="desktop-interior-button px-4 py-2 flex items-center gap-2"
           style={{
-            background: hasChanges && !saving ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            color: "var(--win95-button-text)",
+            background: hasChanges && !saving ? "var(--tone-accent)" : "var(--neutral-gray)",
+            color: "var(--window-document-text)",
             opacity: hasChanges && !saving ? 1 : 0.6,
           }}
         >

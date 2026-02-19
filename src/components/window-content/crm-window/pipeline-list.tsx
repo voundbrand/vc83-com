@@ -102,16 +102,16 @@ export function PipelineList({
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--win95-bg-light)" }}>
+    <div className="h-full flex flex-col" style={{ background: "var(--window-document-bg-elevated)" }}>
       {/* Header */}
-      <div className="p-3 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="p-3 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.crm.pipeline.my_pipelines") || "My Pipelines"}
           </h3>
           <button
-            className="retro-button p-1.5"
-            style={{ background: "var(--win95-highlight)", color: "var(--win95-button-text)" }}
+            className="desktop-interior-button p-1.5"
+            style={{ background: "var(--tone-accent)", color: "var(--window-document-text)" }}
             title={t("ui.crm.pipeline.create_new") || "Create new pipeline"}
           >
             <Plus size={14} />
@@ -128,15 +128,15 @@ export function PipelineList({
           const isSelected = selectedPipelineId === pipeline._id;
           const isEditing = editingId === pipeline._id;
           const isDeleting = deletingId === pipeline._id;
-          const pipelineColor = pipeline.customProperties?.color || "var(--win95-highlight)";
+          const pipelineColor = pipeline.customProperties?.color || "var(--tone-accent)";
 
           return (
             <div
               key={pipeline._id}
               className={`border-b-2 transition-colors ${isSelected ? "shadow-inner" : ""}`}
               style={{
-                borderColor: "var(--win95-border)",
-                background: isSelected ? "var(--win95-selected-bg)" : "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: isSelected ? "var(--desktop-menu-hover)" : "var(--window-document-bg-elevated)",
               }}
             >
               {isEditing ? (
@@ -147,28 +147,28 @@ export function PipelineList({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     className="w-full retro-input px-2 py-1 text-xs"
-                    style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                    style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                     placeholder="Pipeline name"
                   />
                   <textarea
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     className="w-full retro-input px-2 py-1 text-xs"
-                    style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}
+                    style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}
                     placeholder="Description"
                     rows={2}
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleSaveEdit(pipeline._id)}
-                      className="retro-button px-2 py-1 text-xs flex-1"
+                      className="desktop-interior-button px-2 py-1 text-xs flex-1"
                       style={{ background: "var(--success)", color: "white" }}
                     >
                       Save
                     </button>
                     <button
                       onClick={handleCancelEdit}
-                      className="retro-button px-2 py-1 text-xs flex-1"
+                      className="desktop-interior-button px-2 py-1 text-xs flex-1"
                       style={{ background: "var(--neutral-gray)", color: "white" }}
                     >
                       Cancel
@@ -187,7 +187,7 @@ export function PipelineList({
                       <div
                         className="p-1.5 rounded border flex-shrink-0"
                         style={{
-                          backgroundColor: "var(--win95-bg)",
+                          backgroundColor: "var(--window-document-bg)",
                           borderColor: pipelineColor,
                           color: pipelineColor,
                         }}
@@ -198,7 +198,7 @@ export function PipelineList({
                         <div className="flex items-center gap-2 mb-1">
                           <h4
                             className="text-sm font-bold truncate"
-                            style={{ color: isSelected ? "var(--win95-selected-text)" : "var(--win95-text)" }}
+                            style={{ color: isSelected ? "var(--window-document-text)" : "var(--window-document-text)" }}
                           >
                             {pipeline.name}
                           </h4>
@@ -206,7 +206,7 @@ export function PipelineList({
                             <span
                               className="text-xs px-1.5 py-0.5 rounded"
                               style={{
-                                background: "var(--win95-highlight)",
+                                background: "var(--tone-accent)",
                                 color: "white",
                               }}
                             >
@@ -217,7 +217,7 @@ export function PipelineList({
                         {pipeline.description && (
                           <p
                             className="text-xs truncate mb-1"
-                            style={{ color: isSelected ? "var(--win95-selected-text)" : "var(--neutral-gray)" }}
+                            style={{ color: isSelected ? "var(--window-document-text)" : "var(--neutral-gray)" }}
                           >
                             {pipeline.description}
                           </p>
@@ -247,19 +247,19 @@ export function PipelineList({
                               e.stopPropagation();
                               handleEdit(pipeline);
                             }}
-                            className="retro-button p-1.5 hover:bg-blue-500 transition-colors"
-                            style={{ background: "var(--win95-button-face)" }}
+                            className="desktop-interior-button p-1.5 hover:bg-blue-500 transition-colors"
+                            style={{ background: "var(--window-document-bg-elevated)" }}
                             title="Edit pipeline"
                           >
-                            <Edit2 size={12} style={{ color: "var(--win95-text)" }} />
+                            <Edit2 size={12} style={{ color: "var(--window-document-text)" }} />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDelete(pipeline._id);
                             }}
-                            className="retro-button p-1.5 hover:bg-red-500 transition-colors"
-                            style={{ background: "var(--win95-button-face)" }}
+                            className="desktop-interior-button p-1.5 hover:bg-red-500 transition-colors"
+                            style={{ background: "var(--window-document-bg-elevated)" }}
                             title="Delete pipeline"
                           >
                             <Trash2 size={12} style={{ color: "var(--error)" }} />

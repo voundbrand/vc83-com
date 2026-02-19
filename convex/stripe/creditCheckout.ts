@@ -17,8 +17,22 @@
 import { action } from "../_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
+import { resolvePublicAppUrl } from "./platformCheckout";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+
+type FunnelAttribution = {
+  channel?: "webchat" | "native_guest" | "telegram" | "platform_web" | "unknown";
+  campaign?: {
+    source?: string;
+    medium?: string;
+    campaign?: string;
+    content?: string;
+    term?: string;
+    referrer?: string;
+    landingPath?: string;
+  };
+};
 
 const getStripe = () => {
   const apiKey = process.env.STRIPE_SECRET_KEY;
@@ -46,6 +60,36 @@ export const CREDIT_TIERS = [
  * Preset purchase amounts for quick selection
  */
 export const PRESET_AMOUNTS = [30, 60, 100, 250, 500] as const;
+
+export function buildCreditCheckoutRedirectUrls(args: {
+  appBaseUrl?: string;
+  amountEur: number;
+  credits: number;
+  attribution?: FunnelAttribution;
+}): { successUrl: string; cancelUrl: string } {
+  const baseUrl = (args.appBaseUrl || resolvePublicAppUrl()).replace(/\/+$/, "");
+  const params = new URLSearchParams({
+    purchase: "success",
+    type: "credits",
+    amount: String(Math.round(args.amountEur * 100)),
+    credits: String(args.credits),
+  });
+
+  const attribution = args.attribution;
+  if (attribution?.channel) params.set("onboardingChannel", attribution.channel);
+  if (attribution?.campaign?.source) params.set("utm_source", attribution.campaign.source);
+  if (attribution?.campaign?.medium) params.set("utm_medium", attribution.campaign.medium);
+  if (attribution?.campaign?.campaign) params.set("utm_campaign", attribution.campaign.campaign);
+  if (attribution?.campaign?.content) params.set("utm_content", attribution.campaign.content);
+  if (attribution?.campaign?.term) params.set("utm_term", attribution.campaign.term);
+  if (attribution?.campaign?.referrer) params.set("referrer", attribution.campaign.referrer);
+  if (attribution?.campaign?.landingPath) params.set("landingPath", attribution.campaign.landingPath);
+
+  return {
+    successUrl: `${baseUrl}/?${params.toString()}`,
+    cancelUrl: `${baseUrl}/?purchase=canceled&type=credits`,
+  };
+}
 
 /**
  * Calculate credits from a EUR amount
@@ -91,6 +135,26 @@ export const createCreditCheckoutSession = action({
     successUrl: v.string(),
     cancelUrl: v.string(),
     isB2B: v.optional(v.boolean()),
+    funnelChannel: v.optional(
+      v.union(
+        v.literal("webchat"),
+        v.literal("native_guest"),
+        v.literal("telegram"),
+        v.literal("platform_web"),
+        v.literal("unknown")
+      )
+    ),
+    funnelCampaign: v.optional(
+      v.object({
+        source: v.optional(v.string()),
+        medium: v.optional(v.string()),
+        campaign: v.optional(v.string()),
+        content: v.optional(v.string()),
+        term: v.optional(v.string()),
+        referrer: v.optional(v.string()),
+        landingPath: v.optional(v.string()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
@@ -216,6 +280,14 @@ export const createCreditCheckoutSession = action({
         amountEur: args.amountEur.toString(),
         platform: "l4yercak3",
         isB2B: args.isB2B ? "true" : "false",
+        ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
+        ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
+        ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
+        ...(args.funnelCampaign?.campaign ? { utmCampaign: args.funnelCampaign.campaign } : {}),
+        ...(args.funnelCampaign?.content ? { utmContent: args.funnelCampaign.content } : {}),
+        ...(args.funnelCampaign?.term ? { utmTerm: args.funnelCampaign.term } : {}),
+        ...(args.funnelCampaign?.referrer ? { funnelReferrer: args.funnelCampaign.referrer } : {}),
+        ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
       },
       payment_intent_data: {
         metadata: {
@@ -224,6 +296,14 @@ export const createCreditCheckoutSession = action({
           credits: credits.toString(),
           amountEur: args.amountEur.toString(),
           platform: "l4yercak3",
+          ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
+          ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
+          ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
+          ...(args.funnelCampaign?.campaign ? { utmCampaign: args.funnelCampaign.campaign } : {}),
+          ...(args.funnelCampaign?.content ? { utmContent: args.funnelCampaign.content } : {}),
+          ...(args.funnelCampaign?.term ? { utmTerm: args.funnelCampaign.term } : {}),
+          ...(args.funnelCampaign?.referrer ? { funnelReferrer: args.funnelCampaign.referrer } : {}),
+          ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
         },
       },
     });

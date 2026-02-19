@@ -66,13 +66,13 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
           className="border-2 p-4"
           style={{
             borderColor: 'var(--error)',
-            background: 'var(--win95-bg-light)'
+            background: 'var(--window-document-bg-elevated)'
           }}
         >
           <div className="flex items-start gap-2">
             <AlertCircle size={20} style={{ color: 'var(--error)' }} className="flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+              <h4 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                 {t("ui.web_publishing.pages.auth_required")}
               </h4>
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -88,7 +88,7 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
   if (pages === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
       </div>
     );
   }
@@ -99,12 +99,12 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
         <div
           className="border-2 p-8 text-center"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)'
           }}
         >
           <FileText size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
-          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.web_publishing.pages.no_pages_title")}
           </h4>
           <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -120,16 +120,16 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
   return (
     <div className="flex flex-col h-full">
       {/* Sub-tabs for Drafts/Published */}
-      <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+      <div className="flex border-b-2 px-4 pt-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
         <button
           onClick={() => setSubTab("drafts")}
           className={`px-4 py-2 text-xs font-semibold border-2 border-b-0 transition-colors flex items-center gap-2 ${
             subTab === "drafts" ? "-mb-0.5" : ""
           }`}
           style={{
-            backgroundColor: subTab === "drafts" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: subTab === "drafts" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            borderColor: subTab === "drafts" ? "var(--win95-border)" : "transparent",
+            backgroundColor: subTab === "drafts" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: subTab === "drafts" ? "var(--tone-accent)" : "var(--neutral-gray)",
+            borderColor: subTab === "drafts" ? "var(--window-document-border)" : "transparent",
           }}
         >
           <Edit size={12} />
@@ -141,9 +141,9 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
             subTab === "published" ? "-mb-0.5" : ""
           }`}
           style={{
-            backgroundColor: subTab === "published" ? "var(--win95-bg-light)" : "var(--win95-bg)",
-            color: subTab === "published" ? "var(--win95-highlight)" : "var(--neutral-gray)",
-            borderColor: subTab === "published" ? "var(--win95-border)" : "transparent",
+            backgroundColor: subTab === "published" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: subTab === "published" ? "var(--tone-accent)" : "var(--neutral-gray)",
+            borderColor: subTab === "published" ? "var(--window-document-border)" : "transparent",
           }}
         >
           <Eye size={12} />
@@ -172,7 +172,7 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
             {/* Header with filters */}
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                   {subTab === "drafts" ? t("ui.web_publishing.pages.your_drafts") : t("ui.web_publishing.pages.your_published")}
                 </h3>
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -183,15 +183,15 @@ export function PublishedPagesTab({ onEditPage, onSelectPageForDeployment }: Pub
               {/* Status filter - only show in published tab */}
               {subTab === "published" && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                  <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                     {t("ui.web_publishing.pages.status_label")}
                   </span>
                   <select
                     className="px-2 py-1 text-xs border-2"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-bg-light)',
-                      color: 'var(--win95-text)'
+                      borderColor: 'var(--window-document-border)',
+                      background: 'var(--window-document-bg-elevated)',
+                      color: 'var(--window-document-text)'
                     }}
                     value={selectedStatus || "all"}
                     onChange={(e) => setSelectedStatus(e.target.value === "all" ? undefined : e.target.value)}
@@ -360,21 +360,21 @@ function PageCard({
     <div
       className="border-2 p-3 transition-colors"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--window-document-border)',
+        background: 'var(--window-document-bg-elevated)'
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--win95-hover-light)';
+        e.currentTarget.style.background = 'var(--desktop-menu-hover)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'var(--win95-bg-light)';
+        e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
       }}
     >
       <div className="flex items-start justify-between">
         {/* Left: Page info */}
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+            <h4 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
               {page.name}
             </h4>
             <span
@@ -390,7 +390,7 @@ function PageCard({
             <div className="text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
               {t("ui.web_publishing.page_card.template")} <span className="font-bold">{template.name}</span>
               {template.code && (
-                <code className="ml-1 px-1" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
+                <code className="ml-1 px-1" style={{ background: 'var(--window-document-bg)', color: 'var(--window-document-text)' }}>
                   ({template.code})
                 </code>
               )}
@@ -424,7 +424,7 @@ function PageCard({
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs hover:underline mt-1 flex items-center gap-1"
-              style={{ color: 'var(--win95-highlight)' }}
+              style={{ color: 'var(--tone-accent)' }}
             >
               {publicUrl}
               <ExternalLink size={10} />
@@ -439,18 +439,18 @@ function PageCard({
             <button
               className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 transition-colors whitespace-nowrap h-[28px]"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-highlight)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
+                color: 'var(--tone-accent)'
               }}
               title="Manage deployments"
               disabled={isLoading}
               onClick={() => onSelectPageForDeployment({ _id: page._id, name: page.name })}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
+                e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
               }}
             >
               <ExternalLink size={12} />
@@ -462,18 +462,18 @@ function PageCard({
           <button
             className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 transition-colors h-[28px]"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
-              color: 'var(--win95-highlight)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
+              color: 'var(--tone-accent)'
             }}
             title="Configure content rules for external frontend"
             disabled={isLoading}
             onClick={() => setShowContentRules(true)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--win95-hover-light)';
+              e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg-light)';
+              e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
             }}
           >
             <Settings2 size={12} />
@@ -483,18 +483,18 @@ function PageCard({
           <button
             className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 transition-colors h-[28px]"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
               color: 'var(--info)'
             }}
             title={t("ui.web_publishing.page_card.action.edit")}
             disabled={isLoading}
             onClick={() => onEditPage(page)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--win95-hover-light)';
+              e.currentTarget.style.background = 'var(--desktop-menu-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg-light)';
+              e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
             }}
           >
             <Edit size={12} />
@@ -507,16 +507,16 @@ function PageCard({
               disabled={isLoading}
               className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors h-[28px]"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
+                color: 'var(--window-document-text)'
               }}
               title={t("ui.web_publishing.page_card.action.unpublish")}
               onMouseEnter={(e) => {
-                if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+                if (!isLoading) e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
               }}
             >
               {isLoading ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={12} />}
@@ -528,16 +528,16 @@ function PageCard({
               disabled={isLoading}
               className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors h-[28px]"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
                 color: 'var(--success)'
               }}
               title={t("ui.web_publishing.page_card.action.publish")}
               onMouseEnter={(e) => {
-                if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+                if (!isLoading) e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
               }}
             >
               {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
@@ -551,16 +551,16 @@ function PageCard({
               disabled={isLoading}
               className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors h-[28px]"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)',
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)',
                 color: 'var(--warning)'
               }}
               title="Archive page (can be restored later)"
               onMouseEnter={(e) => {
-                if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+                if (!isLoading) e.currentTarget.style.background = 'var(--desktop-menu-hover)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
               }}
             >
               {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
@@ -573,16 +573,16 @@ function PageCard({
             disabled={isLoading}
             className="px-2 py-1.5 text-xs border-2 flex items-center gap-1 disabled:opacity-50 transition-colors h-[28px]"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
               color: 'var(--error)'
             }}
             title="Permanently delete page (cannot be undone)"
             onMouseEnter={(e) => {
-              if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+              if (!isLoading) e.currentTarget.style.background = 'var(--desktop-menu-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg-light)';
+              e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
             }}
           >
             {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}

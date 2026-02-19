@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Cloud, Server, Code } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 
 interface DeploymentMethodModalProps {
   onClose: () => void;
@@ -26,8 +26,8 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
       <div
         className="border-4 shadow-lg max-w-2xl w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
           boxShadow: '4px 4px 0px rgba(0, 0, 0, 0.25)'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -36,7 +36,7 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
         <div
           className="px-4 py-2 flex items-center justify-between"
           style={{
-            background: 'var(--win95-highlight)',
+            background: 'var(--tone-accent)',
             color: 'white'
           }}
         >
@@ -56,7 +56,7 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
         <div className="p-6">
           {/* Intro */}
           <div className="mb-6">
-            <p className="text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-sm mb-2" style={{ color: 'var(--window-document-text)' }}>
               How would you like to deploy your web app?
             </p>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -71,30 +71,30 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
               onClick={() => onSelectMethod("vercel")}
               className="w-full text-left p-4 border-2 transition-colors"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+                e.currentTarget.style.background = 'var(--desktop-menu-hover)';
+                e.currentTarget.style.borderColor = 'var(--tone-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-border)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
+                e.currentTarget.style.borderColor = 'var(--window-document-border)';
               }}
             >
               <div className="flex items-start gap-3">
                 <div
                   className="flex-shrink-0 p-2 border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
+                    borderColor: 'var(--window-document-border)',
                     background: 'white'
                   }}
                 >
-                  <Cloud size={24} style={{ color: 'var(--win95-highlight)' }} />
+                  <Cloud size={24} style={{ color: 'var(--tone-accent)' }} />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Deploy to Vercel (Recommended)
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -123,30 +123,30 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
               onClick={() => onSelectMethod("manual")}
               className="w-full text-left p-4 border-2 transition-colors"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+                e.currentTarget.style.background = 'var(--desktop-menu-hover)';
+                e.currentTarget.style.borderColor = 'var(--tone-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-border)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
+                e.currentTarget.style.borderColor = 'var(--window-document-border)';
               }}
             >
               <div className="flex items-start gap-3">
                 <div
                   className="flex-shrink-0 p-2 border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
+                    borderColor: 'var(--window-document-border)',
                     background: 'white'
                   }}
                 >
                   <Code size={24} style={{ color: 'var(--info)' }} />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Manual Deployment
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -175,30 +175,30 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
               onClick={() => onSelectMethod("other")}
               className="w-full text-left p-4 border-2 transition-colors"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)'
+                borderColor: 'var(--window-document-border)',
+                background: 'var(--window-document-bg-elevated)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-highlight)';
+                e.currentTarget.style.background = 'var(--desktop-menu-hover)';
+                e.currentTarget.style.borderColor = 'var(--tone-accent)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--win95-bg-light)';
-                e.currentTarget.style.borderColor = 'var(--win95-border)';
+                e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
+                e.currentTarget.style.borderColor = 'var(--window-document-border)';
               }}
             >
               <div className="flex items-start gap-3">
                 <div
                   className="flex-shrink-0 p-2 border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
+                    borderColor: 'var(--window-document-border)',
                     background: 'white'
                   }}
                 >
                   <Server size={24} style={{ color: 'var(--warning)' }} />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Other Platforms (Coming Soon)
                   </h4>
                   <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -225,13 +225,13 @@ export function DeploymentMethodModal({ onClose, onSelectMethod }: DeploymentMet
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2">
-            <RetroButton
+            <InteriorButton
               onClick={onClose}
               variant="outline"
               size="sm"
             >
               Cancel
-            </RetroButton>
+            </InteriorButton>
           </div>
         </div>
       </div>

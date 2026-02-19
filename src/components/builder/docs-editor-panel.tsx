@@ -18,6 +18,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { Id } from "@/../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   FileText,
   Save,
@@ -395,29 +396,33 @@ interface ExistingDocument {
   createdAt?: number;
 }
 
+type TxFn = (key: string, fallback: string) => string;
+
 function ExistingDocumentsList({
   documents,
   onSelect,
   selectedId,
   isLoading,
+  tx,
 }: {
   documents: ExistingDocument[] | undefined;
   onSelect: (doc: ExistingDocument) => void;
   selectedId: string | null;
   isLoading: boolean;
+  tx: TxFn;
 }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+        <Loader2 className="w-5 h-5 animate-spin text-neutral-500" />
       </div>
     );
   }
 
   if (!documents || documents.length === 0) {
     return (
-      <div className="text-center py-8 text-zinc-500 text-sm">
-        No documents yet. Create one to get started.
+      <div className="text-center py-8 text-neutral-500 text-sm">
+        {tx("ui.builder.docs.existing.empty", "No documents yet. Create one to get started.")}
       </div>
     );
   }
@@ -430,8 +435,8 @@ function ExistingDocumentsList({
           onClick={() => onSelect(doc)}
           className={`w-full px-3 py-2 rounded-lg text-left flex items-center gap-2 transition-colors ${
             selectedId === doc._id
-              ? "bg-zinc-600/20 text-zinc-300 border border-zinc-500/30"
-              : "text-zinc-300 hover:bg-zinc-800"
+              ? "bg-neutral-600/20 text-neutral-300 border border-neutral-500/30"
+              : "text-neutral-300 hover:bg-neutral-800"
           }`}
         >
           <FileText className="w-4 h-4 flex-shrink-0" />
@@ -449,14 +454,18 @@ function ExistingDocumentsList({
 function TemplateSelector({
   onSelect,
   onClose,
+  tx,
 }: {
   onSelect: (template: DocumentTemplate) => void;
   onClose: () => void;
+  tx: TxFn;
 }) {
   return (
-    <div className="absolute top-full left-0 mt-2 w-72 bg-zinc-900 rounded-lg shadow-xl border border-zinc-700 py-2 z-50">
-      <div className="px-3 py-2 border-b border-zinc-700">
-        <p className="text-xs text-zinc-400 font-medium">Choose a template</p>
+    <div className="absolute top-full left-0 mt-2 w-72 bg-neutral-900 rounded-lg shadow-xl border border-neutral-700 py-2 z-50">
+      <div className="px-3 py-2 border-b border-neutral-700">
+        <p className="text-xs text-neutral-400 font-medium">
+          {tx("ui.builder.docs.template.choose", "Choose a template")}
+        </p>
       </div>
       {DOCUMENT_TEMPLATES.map((template) => (
         <button
@@ -465,12 +474,12 @@ function TemplateSelector({
             onSelect(template);
             onClose();
           }}
-          className="w-full px-3 py-2 text-left hover:bg-zinc-800 transition-colors flex items-start gap-3"
+          className="w-full px-3 py-2 text-left hover:bg-neutral-800 transition-colors flex items-start gap-3"
         >
-          <span className="text-zinc-400 mt-0.5">{template.icon}</span>
+          <span className="text-neutral-400 mt-0.5">{template.icon}</span>
           <div>
-            <div className="text-sm text-zinc-200">{template.name}</div>
-            <div className="text-xs text-zinc-500">{template.description}</div>
+            <div className="text-sm text-neutral-200">{template.name}</div>
+            <div className="text-xs text-neutral-500">{template.description}</div>
           </div>
         </button>
       ))}
@@ -491,6 +500,11 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const organizationId = currentOrg?.id;
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
 
   // Document state
   const [documentName, setDocumentName] = useState("Untitled");
@@ -519,25 +533,25 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
   // Handle template selection
   const handleTemplateSelect = useCallback((template: DocumentTemplate) => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Discard them?")) return;
+      if (!confirm(tx("ui.builder.docs.confirm.discardUnsaved", "You have unsaved changes. Discard them?"))) return;
     }
-    setDocumentName(template.name === "Blank Document" ? "Untitled" : template.name);
+    setDocumentName(template.id === "blank" ? tx("ui.builder.docs.document.untitled", "Untitled") : template.name);
     setDocumentContent(template.content);
     setCurrentDocId(null);
     setHasUnsavedChanges(false);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, tx]);
 
   // Handle existing document selection
   const handleDocumentSelect = useCallback((doc: ExistingDocument) => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Discard them?")) return;
+      if (!confirm(tx("ui.builder.docs.confirm.discardUnsaved", "You have unsaved changes. Discard them?"))) return;
     }
     setDocumentName(doc.filename.replace(/\.md$/, ""));
     setDocumentContent(doc.documentContent || "");
     setCurrentDocId(doc._id);
     setHasUnsavedChanges(false);
     setShowExisting(false);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, tx]);
 
   // Handle content change
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -576,11 +590,11 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
       console.error("Failed to save document:", error);
-      alert("Failed to save document");
+      alert(tx("ui.builder.docs.error.saveFailed", "Failed to save document"));
     } finally {
       setIsSaving(false);
     }
-  }, [sessionId, organizationId, currentDocId, documentContent, documentName, createDocument, updateDocument]);
+  }, [sessionId, organizationId, currentDocId, documentContent, documentName, createDocument, updateDocument, tx]);
 
   // Handle attach to context
   const handleAttachToContext = useCallback(() => {
@@ -592,20 +606,20 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
   // New document
   const handleNewDocument = useCallback(() => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Discard them?")) return;
+      if (!confirm(tx("ui.builder.docs.confirm.discardUnsaved", "You have unsaved changes. Discard them?"))) return;
     }
-    setDocumentName("Untitled");
+    setDocumentName(tx("ui.builder.docs.document.untitled", "Untitled"));
     setDocumentContent("# Untitled Document\n\nStart writing here...");
     setCurrentDocId(null);
     setHasUnsavedChanges(false);
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, tx]);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900">
+    <div className="h-full flex flex-col bg-neutral-900">
       {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-700 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-zinc-400" />
+          <FileText className="w-5 h-5 text-neutral-400" />
           <input
             type="text"
             value={documentName}
@@ -613,23 +627,25 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
               setDocumentName(e.target.value);
               setHasUnsavedChanges(true);
             }}
-            className="bg-transparent text-zinc-100 font-medium text-sm border-b border-transparent hover:border-zinc-600 focus:border-zinc-500 focus:outline-none px-1 py-0.5"
-            placeholder="Document name"
+            className="bg-transparent text-neutral-100 font-medium text-sm border-b border-transparent hover:border-neutral-600 focus:border-neutral-500 focus:outline-none px-1 py-0.5"
+            placeholder={tx("ui.builder.docs.input.documentName", "Document name")}
           />
           {hasUnsavedChanges && (
-            <span className="text-xs text-zinc-500">(unsaved)</span>
+            <span className="text-xs text-neutral-500">
+              {tx("ui.builder.docs.status.unsaved", "(unsaved)")}
+            </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+          className="p-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Toolbar */}
-      <div className="flex-shrink-0 px-4 py-2 border-b border-zinc-800 flex items-center gap-2">
+      <div className="flex-shrink-0 px-4 py-2 border-b border-neutral-800 flex items-center gap-2">
         {/* New from Template */}
         <div className="relative">
           <button
@@ -637,10 +653,10 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
               setShowTemplates(!showTemplates);
               setShowExisting(false);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            New
+            {tx("ui.builder.docs.button.new", "New")}
             <ChevronDown className="w-3 h-3" />
           </button>
           {showTemplates && (
@@ -649,6 +665,7 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
               <TemplateSelector
                 onSelect={handleTemplateSelect}
                 onClose={() => setShowTemplates(false)}
+                tx={tx}
               />
             </>
           )}
@@ -661,18 +678,20 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
               setShowExisting(!showExisting);
               setShowTemplates(false);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
           >
             <FolderOpen className="w-3.5 h-3.5" />
-            Open
+            {tx("ui.builder.docs.button.open", "Open")}
             <ChevronDown className="w-3 h-3" />
           </button>
           {showExisting && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowExisting(false)} />
-              <div className="absolute top-full left-0 mt-2 w-72 max-h-80 overflow-y-auto bg-zinc-900 rounded-lg shadow-xl border border-zinc-700 py-2 z-50">
-                <div className="px-3 py-2 border-b border-zinc-700">
-                  <p className="text-xs text-zinc-400 font-medium">Your Documents</p>
+              <div className="absolute top-full left-0 mt-2 w-72 max-h-80 overflow-y-auto bg-neutral-900 rounded-lg shadow-xl border border-neutral-700 py-2 z-50">
+                <div className="px-3 py-2 border-b border-neutral-700">
+                  <p className="text-xs text-neutral-400 font-medium">
+                    {tx("ui.builder.docs.existing.yourDocuments", "Your Documents")}
+                  </p>
                 </div>
                 <div className="p-2">
                   <ExistingDocumentsList
@@ -680,6 +699,7 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
                     onSelect={handleDocumentSelect}
                     selectedId={currentDocId}
                     isLoading={existingDocs === undefined}
+                    tx={tx}
                   />
                 </div>
               </div>
@@ -695,8 +715,8 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
             saveSuccess
               ? "bg-green-600/20 text-green-400"
               : hasUnsavedChanges
-              ? "bg-zinc-600 text-white hover:bg-zinc-500"
-              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+              ? "bg-neutral-600 text-white hover:bg-neutral-500"
+              : "bg-neutral-800 text-neutral-500 cursor-not-allowed"
           }`}
         >
           {isSaving ? (
@@ -706,7 +726,9 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
           ) : (
             <Save className="w-3.5 h-3.5" />
           )}
-          {saveSuccess ? "Saved!" : "Save"}
+          {saveSuccess
+            ? tx("ui.builder.docs.button.saved", "Saved!")
+            : tx("ui.builder.docs.button.save", "Save")}
         </button>
 
         <div className="flex-1" />
@@ -716,11 +738,11 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
           <button
             onClick={handleAttachToContext}
             disabled={!documentContent.trim()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-600/20 text-zinc-300 border border-zinc-500/30 hover:bg-zinc-600/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Attach this document as context for AI generation"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-neutral-600/20 text-neutral-300 border border-neutral-500/30 hover:bg-neutral-600/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={tx("ui.builder.docs.button.attachContextTitle", "Attach this document as context for AI generation")}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Use as AI Context
+            {tx("ui.builder.docs.button.attachContext", "Use as AI Context")}
           </button>
         )}
       </div>
@@ -730,17 +752,20 @@ export function DocsEditorPanel({ onClose, onAttachToContext }: DocsEditorPanelP
         <textarea
           value={documentContent}
           onChange={handleContentChange}
-          className="w-full h-full bg-zinc-800/50 text-zinc-100 text-sm font-mono leading-relaxed p-4 rounded-lg border border-zinc-700 focus:border-zinc-500 focus:outline-none resize-none"
-          placeholder="Start writing your document..."
+          className="w-full h-full bg-neutral-800/50 text-neutral-100 text-sm font-mono leading-relaxed p-4 rounded-lg border border-neutral-700 focus:border-neutral-500 focus:outline-none resize-none"
+          placeholder={tx("ui.builder.docs.input.startWriting", "Start writing your document...")}
           spellCheck={false}
         />
       </div>
 
       {/* Footer with tips */}
-      <div className="flex-shrink-0 px-4 py-2 border-t border-zinc-800 text-xs text-zinc-500">
+      <div className="flex-shrink-0 px-4 py-2 border-t border-neutral-800 text-xs text-neutral-500">
         <span className="flex items-center gap-2">
           <FileCode className="w-3.5 h-3.5" />
-          Supports Markdown formatting. Documents are saved to your Files library.
+          {tx(
+            "ui.builder.docs.footer.markdownTip",
+            "Supports Markdown formatting. Documents are saved to your Files library.",
+          )}
         </span>
       </div>
     </div>

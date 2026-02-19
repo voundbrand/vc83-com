@@ -22,6 +22,7 @@ import {
   Save,
   X,
   Code,
+  Lightbulb,
 } from "lucide-react";
 import { getFormTemplate } from "@/templates/forms/registry";
 import { webPublishingThemes } from "@/templates/themes";
@@ -43,6 +44,7 @@ interface TemplateOrTheme {
     code?: string;
     description?: string;
     category?: string;
+    formSchema?: unknown;
   };
 }
 
@@ -82,8 +84,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   const [redirectUrl, setRedirectUrl] = useState("");
 
   // Fetch available form templates for this org
+  // @ts-ignore TS2589: Convex generated query type may exceed instantiation depth in this component.
+  const getAvailableFormTemplatesQuery = api.formTemplateAvailability.getAvailableFormTemplates;
   const availableTemplates = useQuery(
-    api.formTemplateAvailability.getAvailableFormTemplates,
+    getAvailableFormTemplatesQuery,
     sessionId && currentOrg?.id
       ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
       : "skip"
@@ -259,7 +263,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   if (availableTemplates === undefined || availableThemes === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -503,15 +507,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   return (
     <div className="flex h-full">
       {/* LEFT: Form Editor (40%) */}
-      <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: "var(--window-document-border)" }}>
         {/* Back Button */}
         <button
           onClick={onBack}
           className="mb-4 px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors hover:brightness-95"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-button-face)",
-            color: "var(--win95-text)",
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
           }}
         >
           <ArrowLeft size={12} />
@@ -532,7 +536,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <FileText size={16} />
             {formId ? t("ui.forms.builder_title_edit") : t("ui.forms.builder_title_create")}
           </h3>
@@ -544,9 +548,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               onClick={() => setShowSchemaModal(true)}
               className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-2 transition-colors hover:brightness-95"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-highlight)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--tone-accent)",
               }}
               title="Edit form schema (JSON)"
             >
@@ -557,12 +561,12 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         </div>
 
         {formId && (
-          <div className="border-2 p-3 mb-4" style={{ borderColor: "var(--win95-highlight)", background: "rgba(0, 0, 128, 0.05)" }}>
+          <div className="border-2 p-3 mb-4" style={{ borderColor: "var(--tone-accent)", background: "rgba(0, 0, 128, 0.05)" }}>
             <div className="flex items-start gap-2">
-              <AlertCircle size={16} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-0.5" />
+              <AlertCircle size={16} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-xs" style={{ color: "var(--win95-highlight)" }}>{t("ui.forms.editing_mode_title")}</h4>
-                <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
+                <h4 className="font-bold text-xs" style={{ color: "var(--tone-accent)" }}>{t("ui.forms.editing_mode_title")}</h4>
+                <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.forms.editing_mode_message")}
                 </p>
               </div>
@@ -572,8 +576,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Hosting Mode Selection - AT THE TOP */}
-          <div className="border-2 p-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-            <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <div className="border-2 p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
+            <h4 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.forms.hosting_mode_title") || "Hosting Mode"}
             </h4>
 
@@ -586,8 +590,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 className="w-4 h-4"
               />
               <div className="flex items-center gap-2">
-                <Database size={16} style={{ color: "var(--win95-highlight)" }} />
-                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <Database size={16} style={{ color: "var(--tone-accent)" }} />
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.forms.internal_hosting_label") || "Internal Hosting"}
                 </span>
               </div>
@@ -605,8 +609,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 className="w-4 h-4"
               />
               <div className="flex items-center gap-2">
-                <Globe size={16} style={{ color: "var(--win95-highlight)" }} />
-                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <Globe size={16} style={{ color: "var(--tone-accent)" }} />
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.forms.external_hosting_label")}
                 </span>
               </div>
@@ -618,22 +622,23 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Template Display (Read-only when coming from Templates tab) */}
           {selectedTemplateId && (
-            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+            <div className="border-2 p-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
               <div className="flex items-start gap-2">
-                <FileText size={16} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-0.5" />
+                <FileText size={16} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h4 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.forms.label_template")}: {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
                   </h4>
                   <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
                     {availableTemplates.find((t) => t._id === selectedTemplateId)?.customProperties?.description}
                   </p>
-                  <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+                  <code className="text-xs px-2 py-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                     {availableTemplates.find((t) => t._id === selectedTemplateId)?.customProperties?.code}
                   </code>
                   {templateCode && (
-                    <p className="text-xs mt-2" style={{ color: "var(--win95-highlight)" }}>
-                      💡 {t("ui.forms.template_from_library")}
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--tone-accent)" }}>
+                      <Lightbulb size={12} />
+                      {t("ui.forms.template_from_library")}
                     </p>
                   )}
                 </div>
@@ -660,13 +665,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Theme selection - Only show if internal hosting is enabled */}
           {enableInternalHosting && (
-          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="border-2" style={{ borderColor: "var(--window-document-border)" }}>
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => setThemeAccordionOpen(!themeAccordionOpen)}
               className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
-              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg-elevated)", color: "var(--window-document-text)" }}
             >
               <div className="flex items-center gap-2">
                 <Palette size={16} />
@@ -674,7 +679,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   {t("ui.forms.section_select_theme")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
                 </span>
                 {selectedThemeId && (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--tone-accent)", color: "var(--window-document-text)" }}>
                     {availableThemes.find((t) => t._id === selectedThemeId)?.name}
                   </span>
                 )}
@@ -684,7 +689,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Accordion Content */}
             {themeAccordionOpen && (
-              <div className="p-3 space-y-2" style={{ background: "var(--win95-input-bg)" }}>
+              <div className="p-3 space-y-2" style={{ background: "var(--window-document-bg-elevated)" }}>
                 {availableThemes.map((theme: TemplateOrTheme) => (
                   <button
                     key={theme._id}
@@ -692,23 +697,23 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     onClick={() => setSelectedThemeId(theme._id)}
                     className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                     style={{
-                      borderColor: selectedThemeId === theme._id ? "var(--win95-highlight)" : "var(--win95-border)",
-                      backgroundColor: selectedThemeId === theme._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
+                      borderColor: selectedThemeId === theme._id ? "var(--tone-accent)" : "var(--window-document-border)",
+                      backgroundColor: selectedThemeId === theme._id ? "var(--window-document-bg-elevated)" : "var(--window-document-bg-elevated)",
                       borderWidth: selectedThemeId === theme._id ? "3px" : "2px",
                     }}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{theme.name}</div>
+                        <div className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>{theme.name}</div>
                         <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>
                           {theme.customProperties?.description}
                         </p>
-                        <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+                        <code className="text-xs px-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                           {theme.customProperties?.code}
                         </code>
                       </div>
                       {selectedThemeId === theme._id && (
-                        <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
+                        <Check size={20} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0" />
                       )}
                     </div>
                     {/* Color palette preview */}
@@ -717,31 +722,31 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                         className="w-8 h-8 rounded border"
                         style={{
                           background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                          borderColor: "var(--win95-border)"
+                          borderColor: "var(--window-document-border)"
                         }}
                         title={t("ui.forms.color_primary_gradient")}
                       />
                       <div
                         className="w-8 h-8 rounded border"
                         style={{
-                          background: "var(--win95-input-bg)",
-                          borderColor: "var(--win95-border)"
+                          background: "var(--window-document-bg-elevated)",
+                          borderColor: "var(--window-document-border)"
                         }}
                         title={t("ui.forms.color_background")}
                       />
                       <div
                         className="w-8 h-8 rounded border"
                         style={{
-                          background: "var(--win95-text)",
-                          borderColor: "var(--win95-border)"
+                          background: "var(--window-document-text)",
+                          borderColor: "var(--window-document-border)"
                         }}
                         title={t("ui.forms.color_text")}
                       />
                       <div
                         className="w-8 h-8 rounded border"
                         style={{
-                          background: "var(--win95-bg)",
-                          borderColor: "var(--win95-border)"
+                          background: "var(--window-document-bg)",
+                          borderColor: "var(--window-document-border)"
                         }}
                         title={t("ui.forms.color_secondary")}
                       />
@@ -755,19 +760,19 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Data Sources (Optional) - Only show if internal hosting is enabled */}
           {enableInternalHosting && (
-          <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="border-2" style={{ borderColor: "var(--window-document-border)" }}>
             {/* Accordion Header */}
             <button
               type="button"
               onClick={() => setDataSourcesAccordionOpen(!dataSourcesAccordionOpen)}
               className="w-full px-4 py-3 flex items-center justify-between transition-colors hover:brightness-95"
-              style={{ background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
+              style={{ background: "var(--window-document-bg-elevated)", color: "var(--window-document-text)" }}
             >
               <div className="flex items-center gap-2">
                 <Database size={16} />
                 <span className="text-sm font-bold">{t("ui.forms.section_link_event")}</span>
                 {selectedEventId && (
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--tone-accent)", color: "var(--window-document-text)" }}>
                     {availableEvents?.find((e) => e._id === selectedEventId)?.name}
                   </span>
                 )}
@@ -777,14 +782,14 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Accordion Content */}
             {dataSourcesAccordionOpen && (
-              <div className="p-3" style={{ background: "var(--win95-input-bg)" }}>
+              <div className="p-3" style={{ background: "var(--window-document-bg-elevated)" }}>
                 <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
                   {t("ui.forms.link_event_description")}
                 </p>
 
                 {availableEvents === undefined && (
                   <div className="flex items-center justify-center p-4">
-                    <Loader2 size={20} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+                    <Loader2 size={20} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
                   </div>
                 )}
 
@@ -804,18 +809,18 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                       onClick={() => setSelectedEventId("")}
                       className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                       style={{
-                        borderColor: selectedEventId === "" ? "var(--win95-highlight)" : "var(--win95-border)",
-                        backgroundColor: selectedEventId === "" ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
+                        borderColor: selectedEventId === "" ? "var(--tone-accent)" : "var(--window-document-border)",
+                        backgroundColor: selectedEventId === "" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg-elevated)",
                         borderWidth: selectedEventId === "" ? "3px" : "2px",
                       }}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.forms.no_event")}</div>
+                          <div className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.forms.no_event")}</div>
                           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>{t("ui.forms.no_event_description")}</p>
                         </div>
                         {selectedEventId === "" && (
-                          <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
+                          <Check size={20} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0" />
                         )}
                       </div>
                     </button>
@@ -828,21 +833,21 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                         onClick={() => setSelectedEventId(event._id)}
                         className="w-full border-2 p-3 text-left transition-all hover:shadow-md"
                         style={{
-                          borderColor: selectedEventId === event._id ? "var(--win95-highlight)" : "var(--win95-border)",
-                          backgroundColor: selectedEventId === event._id ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
+                          borderColor: selectedEventId === event._id ? "var(--tone-accent)" : "var(--window-document-border)",
+                          backgroundColor: selectedEventId === event._id ? "var(--window-document-bg-elevated)" : "var(--window-document-bg-elevated)",
                           borderWidth: selectedEventId === event._id ? "3px" : "2px",
                         }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>{event.name}</div>
+                            <div className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>{event.name}</div>
                             {event.description && (
                               <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>{event.description}</p>
                             )}
-                            <code className="text-xs px-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>ID: {event._id}</code>
+                            <code className="text-xs px-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>ID: {event._id}</code>
                           </div>
                           {selectedEventId === event._id && (
-                            <Check size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0" />
+                            <Check size={20} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0" />
                           )}
                         </div>
                       </button>
@@ -857,7 +862,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           {/* Published Page Selection (only if external hosting is enabled) */}
           {enableExternalHosting && (
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.forms.select_published_page")} <span style={{ color: "var(--error)" }}>*</span>
               </label>
 
@@ -877,9 +882,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     onChange={(e) => setSelectedPublishedPageId(e.target.value)}
                     className="w-full border-2 px-2 py-1 text-sm"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-text)"
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)"
                     }}
                     required={enableExternalHosting}
                   >
@@ -912,12 +917,12 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
                     return (
                       <div className="mt-2 p-2 border-2 rounded" style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-bg-light)"
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)"
                       }}>
                         <div className="flex items-center gap-2">
-                          <Globe size={14} style={{ color: "var(--win95-highlight)" }} />
-                          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                          <Globe size={14} style={{ color: "var(--tone-accent)" }} />
+                          <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                             External URL:
                           </span>
                         </div>
@@ -926,7 +931,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs break-all hover:underline flex items-center gap-1 mt-1"
-                          style={{ color: "var(--win95-highlight)" }}
+                          style={{ color: "var(--tone-accent)" }}
                         >
                           {externalUrl}
                           <ExternalLink size={12} />
@@ -945,7 +950,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Form Type - now editable for both new and existing forms */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               {t("ui.forms.label_form_type")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
             </label>
             <select
@@ -953,9 +958,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               onChange={(e) => setFormSubtype(e.target.value)}
               className="w-full border-2 px-2 py-1 text-sm"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)"
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)"
               }}
               required
             >
@@ -969,7 +974,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Form Name */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               {t("ui.forms.label_form_name")} <span style={{ color: "var(--error)" }}>{t("ui.forms.required_indicator")}</span>
             </label>
             <input
@@ -978,9 +983,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               onChange={(e) => setFormName(e.target.value)}
               className="w-full border-2 px-2 py-1 text-sm"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)"
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)"
               }}
               placeholder={t("ui.forms.placeholder_form_name")}
               required
@@ -989,15 +994,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Form Description */}
           <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.forms.label_description")}</label>
+            <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.forms.label_description")}</label>
             <textarea
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
               className="w-full border-2 px-2 py-1 text-sm"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-input-bg)",
-                color: "var(--win95-text)"
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)"
               }}
               placeholder={t("ui.forms.placeholder_description")}
               rows={3}
@@ -1009,15 +1014,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           </div>
 
           {/* Form Settings Section */}
-          <div className="border-2 p-4 space-y-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
-            <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <div className="border-2 p-4 space-y-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
+            <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <Database size={16} />
               Form Settings
             </h4>
 
             {/* Display Mode */}
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Display Mode
               </label>
               <select
@@ -1025,9 +1030,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 onChange={(e) => setDisplayMode(e.target.value as typeof displayMode)}
                 className="w-full border-2 px-2 py-1 text-sm"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-text)"
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)"
                 }}
               >
                 <option value="all">All Questions (Traditional)</option>
@@ -1049,7 +1054,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onChange={(e) => setShowProgressBar(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   Show Progress Bar
                 </span>
               </label>
@@ -1067,7 +1072,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onChange={(e) => setAllowMultipleSubmissions(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                   Allow Multiple Submissions
                 </span>
               </label>
@@ -1078,7 +1083,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Submit Button Text */}
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Submit Button Text
               </label>
               <input
@@ -1087,9 +1092,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 onChange={(e) => setSubmitButtonText(e.target.value)}
                 className="w-full border-2 px-2 py-1 text-sm"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-text)"
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)"
                 }}
                 placeholder="Submit"
               />
@@ -1097,7 +1102,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Success Message */}
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Success Message
               </label>
               <textarea
@@ -1105,9 +1110,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 onChange={(e) => setFormSuccessMessage(e.target.value)}
                 className="w-full border-2 px-2 py-1 text-sm"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-text)"
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)"
                 }}
                 placeholder="Thank you for your submission!"
                 rows={2}
@@ -1120,7 +1125,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Redirect URL */}
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 Redirect URL (Optional)
               </label>
               <input
@@ -1129,9 +1134,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 onChange={(e) => setRedirectUrl(e.target.value)}
                 className="w-full border-2 px-2 py-1 text-sm"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-text)"
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)"
                 }}
                 placeholder="https://example.com/thank-you"
               />
@@ -1142,7 +1147,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           </div>
 
           {/* Submit */}
-          <div className="pt-4 border-t-2 space-y-3" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="pt-4 border-t-2 space-y-3" style={{ borderColor: "var(--window-document-border)" }}>
             {/* Helpful message if form can't be saved */}
             {(!formName || (!enableInternalHosting && !enableExternalHosting) || (enableExternalHosting && !selectedPublishedPageId)) && (
               <div className="border-2 p-3" style={{ borderColor: "var(--info)", background: "rgba(59, 130, 246, 0.1)" }}>
@@ -1178,14 +1183,14 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 }
                 className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                   backgroundColor:
                     formName &&
                     !isSaving &&
                     (enableInternalHosting || enableExternalHosting) &&
                     (!enableExternalHosting || selectedPublishedPageId)
-                      ? "var(--win95-highlight)"
-                      : "var(--win95-button-face)",
+                      ? "var(--tone-accent)"
+                      : "var(--window-document-bg-elevated)",
                   color:
                     formName &&
                     !isSaving &&
@@ -1216,8 +1221,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onClick={() => setShowTemplateModal(true)}
                   className="px-3 py-1.5 text-xs font-bold border-2 flex items-center gap-2 transition-colors hover:brightness-95"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-bg-light)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
                     color: "#8b5cf6", // Purple color
                   }}
                 >
@@ -1231,9 +1236,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
       </div>
 
       {/* RIGHT: Live Preview (60%) */}
-      <div className="w-[60%] p-4 overflow-y-auto" style={{ background: "var(--win95-bg)" }}>
+      <div className="w-[60%] p-4 overflow-y-auto" style={{ background: "var(--window-document-bg)" }}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Eye size={16} />
             {t("ui.forms.live_preview")}
           </h3>
@@ -1254,15 +1259,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
           {/* Preview Mode Toggle - only show when BOTH internal AND external hosting are enabled */}
           {enableInternalHosting && enableExternalHosting && selectedPublishedPageId && selectedTemplateId && selectedThemeId && (
-            <div className="flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex border-2" style={{ borderColor: "var(--window-document-border)" }}>
               <button
                 type="button"
                 onClick={() => setPreviewMode("internal")}
                 className="px-3 py-1 text-xs font-bold transition-colors"
                 style={{
-                  background: previewMode === "internal" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                  color: previewMode === "internal" ? "white" : "var(--win95-text)",
-                  borderRight: "2px solid var(--win95-border)"
+                  background: previewMode === "internal" ? "var(--tone-accent)" : "var(--window-document-bg-elevated)",
+                  color: previewMode === "internal" ? "white" : "var(--window-document-text)",
+                  borderRight: "2px solid var(--window-document-border)"
                 }}
               >
                 {t("ui.forms.preview_internal")}
@@ -1272,8 +1277,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 onClick={() => setPreviewMode("external")}
                 className="px-3 py-1 text-xs font-bold transition-colors"
                 style={{
-                  background: previewMode === "external" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                  color: previewMode === "external" ? "white" : "var(--win95-text)"
+                  background: previewMode === "external" ? "var(--tone-accent)" : "var(--window-document-bg-elevated)",
+                  color: previewMode === "external" ? "white" : "var(--window-document-text)"
                 }}
               >
                 {t("ui.forms.preview_external")}
@@ -1335,13 +1340,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
               return (
                 /* EXTERNAL IFRAME PREVIEW */
-                <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="border-2" style={{ borderColor: "var(--window-document-border)" }}>
                   <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{
-                    background: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)"
+                    background: "var(--window-document-bg-elevated)",
+                    borderColor: "var(--window-document-border)"
                   }}>
-                    <Globe size={14} style={{ color: "var(--win95-highlight)" }} />
-                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <Globe size={14} style={{ color: "var(--tone-accent)" }} />
+                    <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.forms.external_preview")}
                     </p>
                   </div>
@@ -1352,7 +1357,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     title="External Form Preview"
                     sandbox="allow-same-origin allow-scripts"
                   />
-                  <div className="px-3 py-2 border-t-2 text-xs" style={{ borderColor: "var(--win95-border)", color: "var(--neutral-gray)" }}>
+                  <div className="px-3 py-2 border-t-2 text-xs" style={{ borderColor: "var(--window-document-border)", color: "var(--neutral-gray)" }}>
                     {t("ui.forms.showing")}: {previewUrl}
                   </div>
                 </div>
@@ -1360,13 +1365,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
             })()}
             {(previewMode === "internal" || !enableExternalHosting || !selectedPublishedPageId) && enableInternalHosting && selectedTemplateId && selectedThemeId && (
               /* INTERNAL TEMPLATE PREVIEW - Isolated from Win95 theme */
-              <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="border-2" style={{ borderColor: "var(--window-document-border)" }}>
                 {/* Label above preview */}
                 <div className="px-3 py-2 border-b-2" style={{
-                  background: "var(--win95-bg-light)",
-                  borderColor: "var(--win95-border)"
+                  background: "var(--window-document-bg-elevated)",
+                  borderColor: "var(--window-document-border)"
                 }}>
-                  <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.forms.live_preview")}
                   </p>
                 </div>
@@ -1502,24 +1507,24 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               if (!formSchema.sections?.length) return null;
 
               return (
-                <div className="border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="border-2" style={{ borderColor: "var(--window-document-border)" }}>
                   <div className="px-3 py-2 border-b-2 flex items-center gap-2" style={{
-                    background: "var(--win95-bg-light)",
-                    borderColor: "var(--win95-border)"
+                    background: "var(--window-document-bg-elevated)",
+                    borderColor: "var(--window-document-border)"
                   }}>
-                    <FileText size={14} style={{ color: "var(--win95-highlight)" }} />
-                    <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                    <FileText size={14} style={{ color: "var(--tone-accent)" }} />
+                    <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                       Schema Preview (No Template)
                     </p>
                   </div>
-                  <div className="p-4 space-y-4" style={{ background: "var(--win95-input-bg)" }}>
+                  <div className="p-4 space-y-4" style={{ background: "var(--window-document-bg-elevated)" }}>
                     <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
                       This form was created without a template. Select a template and theme above to see a styled preview, or view the form fields below:
                     </p>
                     {formSchema.sections.map((section, sectionIdx) => (
-                      <div key={section.id || sectionIdx} className="border-2 p-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}>
+                      <div key={section.id || sectionIdx} className="border-2 p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
                         {section.title && (
-                          <h4 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                          <h4 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                             {section.title}
                           </h4>
                         )}
@@ -1527,14 +1532,14 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                           {section.fields?.map((field, fieldIdx) => (
                             <div key={field.id || fieldIdx} className="flex items-start gap-2">
                               <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{
-                                background: "var(--win95-highlight)",
+                                background: "var(--tone-accent)",
                                 color: "white",
                                 fontSize: "10px"
                               }}>
                                 {field.type}
                               </span>
                               <div className="flex-1">
-                                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                                   {field.label || field.id}
                                 </span>
                                 {field.required && (
@@ -1568,8 +1573,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Template Info - only show if template is selected */}
             {selectedTemplateId && (
-            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <div className="border-2 p-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                 <FileText size={14} />
                 {t("ui.forms.label_template")}{" "}
                 {availableTemplates.find((t) => t._id === selectedTemplateId)?.name}
@@ -1580,7 +1585,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     ?.customProperties?.description
                 }
               </p>
-              <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+              <code className="text-xs px-2 py-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                 {
                   availableTemplates.find((t) => t._id === selectedTemplateId)
                     ?.customProperties?.code
@@ -1591,8 +1596,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
             {/* Theme Info - only show if theme is selected */}
             {selectedThemeId && (
-            <div className="border-2 p-4" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
-              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <div className="border-2 p-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
+              <h4 className="text-xs font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                 <Palette size={14} />
                 {t("ui.forms.label_theme")} {availableThemes.find((t) => t._id === selectedThemeId)?.name}
               </h4>
@@ -1605,44 +1610,44 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
               {/* Color swatches */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.forms.label_colors")}</span>
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.forms.label_colors")}</span>
                 <div className="flex gap-1">
                   <div
                     className="w-8 h-8 rounded border"
                     style={{
                       background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      borderColor: "var(--win95-border)"
+                      borderColor: "var(--window-document-border)"
                     }}
                     title={t("ui.forms.color_primary_gradient")}
                   />
                   <div
                     className="w-8 h-8 rounded border"
                     style={{
-                      background: "var(--win95-input-bg)",
-                      borderColor: "var(--win95-border)"
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)"
                     }}
                     title={t("ui.forms.color_background")}
                   />
                   <div
                     className="w-8 h-8 rounded border"
                     style={{
-                      background: "var(--win95-text)",
-                      borderColor: "var(--win95-border)"
+                      background: "var(--window-document-text)",
+                      borderColor: "var(--window-document-border)"
                     }}
                     title={t("ui.forms.color_text")}
                   />
                   <div
                     className="w-8 h-8 rounded border"
                     style={{
-                      background: "var(--win95-bg)",
-                      borderColor: "var(--win95-border)"
+                      background: "var(--window-document-bg)",
+                      borderColor: "var(--window-document-border)"
                     }}
                     title={t("ui.forms.color_secondary")}
                   />
                 </div>
               </div>
 
-              <code className="text-xs px-2 py-1" style={{ background: "var(--win95-bg)", color: "var(--win95-text)" }}>
+              <code className="text-xs px-2 py-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
                 {
                   availableThemes.find((t) => t._id === selectedThemeId)?.customProperties
                     ?.code
@@ -1652,9 +1657,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
             )}
           </div>
         ) : (
-          <div className="border-2 p-8 text-center" style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}>
+          <div className="border-2 p-8 text-center" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
             <FileText size={64} className="mx-auto mb-4" style={{ color: "var(--neutral-gray)", opacity: 0.3 }} />
-            <h4 className="font-bold text-sm mb-2" style={{ color: "var(--win95-text)" }}>
+            <h4 className="font-bold text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.forms.preview_select_prompt")}
             </h4>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1674,22 +1679,22 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           <div
             className="border-4 w-[90%] h-[90%] flex flex-col"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between p-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex items-start justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
               <div className="flex items-center gap-2">
-                <Code size={20} style={{ color: "var(--win95-highlight)" }} />
-                <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <Code size={20} style={{ color: "var(--tone-accent)" }} />
+                <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                   Edit Schema - {existingForm?.name}
                 </h3>
               </div>
               <button
                 onClick={() => setShowSchemaModal(false)}
                 className="p-1 hover:brightness-95"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 <X size={16} />
               </button>
@@ -1711,22 +1716,22 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           <div
             className="border-4 p-6 max-w-md w-full mx-4"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Save size={20} style={{ color: "#8b5cf6" }} />
-                <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                   Save as Template
                 </h3>
               </div>
               <button
                 onClick={() => setShowTemplateModal(false)}
                 className="p-1 hover:brightness-95"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--window-document-text)" }}
               >
                 <X size={16} />
               </button>
@@ -1735,7 +1740,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
             <form onSubmit={handleSaveAsTemplate} className="space-y-4">
               {/* Template Name */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Template Name <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
@@ -1744,9 +1749,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onChange={(e) => setNewTemplateName(e.target.value)}
                   className="w-full border-2 px-2 py-1 text-sm"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                   placeholder="e.g., Registration Form"
                   required
@@ -1755,7 +1760,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
               {/* Template Code */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Template Code <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
@@ -1764,9 +1769,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onChange={(e) => setNewTemplateCode(e.target.value)}
                   className="w-full border-2 px-2 py-1 text-sm font-mono"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                   placeholder="e.g., registration_form"
                   pattern="[a-z0-9_]+"
@@ -1779,7 +1784,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
               {/* Template Description */}
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   Description
                 </label>
                 <textarea
@@ -1787,9 +1792,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   onChange={(e) => setNewTemplateDescription(e.target.value)}
                   className="w-full border-2 px-2 py-1 text-sm"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                   placeholder="Brief description of this template"
                   rows={3}
@@ -1798,15 +1803,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="flex items-center justify-end gap-2 pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <button
                   type="button"
                   onClick={() => setShowTemplateModal(false)}
                   className="px-4 py-2 text-sm font-bold border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   Cancel
@@ -1816,8 +1821,8 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   disabled={!newTemplateName || !newTemplateCode || isSavingTemplate}
                   className="px-4 py-2 text-sm font-bold border-2 disabled:opacity-50"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: newTemplateName && newTemplateCode && !isSavingTemplate ? "#8b5cf6" : "var(--win95-button-face)",
+                    borderColor: "var(--window-document-border)",
+                    background: newTemplateName && newTemplateCode && !isSavingTemplate ? "#8b5cf6" : "var(--window-document-bg-elevated)",
                     color: newTemplateName && newTemplateCode && !isSavingTemplate ? "white" : "var(--neutral-gray)",
                   }}
                 >

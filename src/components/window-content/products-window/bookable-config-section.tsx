@@ -212,9 +212,9 @@ interface BookableConfigSectionProps {
 
 // Shared input styling
 const inputStyle = {
-  borderColor: "var(--win95-border)",
-  background: "var(--win95-input-bg)",
-  color: "var(--win95-input-text)",
+  borderColor: "var(--shell-border)",
+  background: "var(--shell-input-surface)",
+  color: "var(--shell-input-text)",
 };
 
 const inputClass = "w-full px-2 py-1 text-sm border-2";
@@ -298,11 +298,11 @@ export function BookableConfigSection({
     <div
       className="space-y-4 p-4 border-2 rounded"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg-light)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-surface-elevated)",
       }}
     >
-      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
         <Settings size={16} />
         Booking Configuration
       </h3>
@@ -312,7 +312,7 @@ export function BookableConfigSection({
 
       {/* Availability Model Selector */}
       <div>
-        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+        <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           <Calendar size={14} className="inline mr-1" />
           Availability Model
         </label>
@@ -338,7 +338,7 @@ export function BookableConfigSection({
         <>
           {/* Booking Mode */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
               Booking Mode
             </label>
             <select
@@ -356,7 +356,7 @@ export function BookableConfigSection({
           {/* Duration Settings */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 <Clock size={12} className="inline mr-1" />
                 Duration Unit
               </label>
@@ -373,7 +373,7 @@ export function BookableConfigSection({
               </select>
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Slot Increment
               </label>
               <select
@@ -392,7 +392,7 @@ export function BookableConfigSection({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Min Duration ({config.durationUnit})
               </label>
               <input
@@ -405,7 +405,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Max Duration ({config.durationUnit})
               </label>
               <input
@@ -422,7 +422,7 @@ export function BookableConfigSection({
           {/* Buffer Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Buffer Before (min)
               </label>
               <input
@@ -435,7 +435,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Buffer After (min)
               </label>
               <input
@@ -454,7 +454,7 @@ export function BookableConfigSection({
 
           {/* Capacity */}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
               <Users size={14} className="inline mr-1" />
               Capacity
             </label>
@@ -481,16 +481,16 @@ export function BookableConfigSection({
       {model === "date_range_inventory" && (
         <div
           className="space-y-3 p-3 border-2 rounded"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
+          style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}
         >
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <BedDouble size={14} />
             Inventory Settings
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Number of Units
               </label>
               <input
@@ -506,7 +506,7 @@ export function BookableConfigSection({
               </p>
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Max Occupancy per Unit
               </label>
               <input
@@ -525,7 +525,7 @@ export function BookableConfigSection({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Minimum Stay (nights)
               </label>
               <input
@@ -538,7 +538,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Maximum Stay (nights)
               </label>
               <input
@@ -554,7 +554,7 @@ export function BookableConfigSection({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Check-in Time
               </label>
               <input
@@ -566,7 +566,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Check-out Time
               </label>
               <input
@@ -580,7 +580,7 @@ export function BookableConfigSection({
           </div>
 
           <div>
-            <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+            <label className={labelClass} style={{ color: "var(--shell-text)" }}>
               Base Nightly Rate
             </label>
             <input
@@ -604,16 +604,16 @@ export function BookableConfigSection({
       {model === "event_bound_seating" && (
         <div
           className="space-y-3 p-3 border-2 rounded"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
+          style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}
         >
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <Armchair size={14} />
             Seating Configuration
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Total Seats
               </label>
               <input
@@ -629,7 +629,7 @@ export function BookableConfigSection({
               </p>
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Max Seats per Booking
               </label>
               <input
@@ -647,7 +647,7 @@ export function BookableConfigSection({
           </div>
 
           <div>
-            <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+            <label className={labelClass} style={{ color: "var(--shell-text)" }}>
               Price per Seat
             </label>
             <input
@@ -668,15 +668,15 @@ export function BookableConfigSection({
       {model === "departure_bound" && (
         <div
           className="space-y-3 p-3 border-2 rounded"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-input-bg)" }}
+          style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}
         >
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <Ship size={14} />
             Vehicle / Transport Settings
           </h4>
 
           <div>
-            <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+            <label className={labelClass} style={{ color: "var(--shell-text)" }}>
               Vehicle Type
             </label>
             <select
@@ -695,7 +695,7 @@ export function BookableConfigSection({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Total Passenger Seats
               </label>
               <input
@@ -711,7 +711,7 @@ export function BookableConfigSection({
               </p>
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Boarding Opens (min before)
               </label>
               <input
@@ -726,7 +726,7 @@ export function BookableConfigSection({
           </div>
 
           <div>
-            <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+            <label className={labelClass} style={{ color: "var(--shell-text)" }}>
               Price per Passenger
             </label>
             <input
@@ -747,12 +747,12 @@ export function BookableConfigSection({
       <div
         className="flex items-center justify-between p-3 border-2 rounded"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-input-bg)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-input-surface)",
         }}
       >
         <div className="flex-1">
-          <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
             Require Confirmation
           </label>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -780,18 +780,18 @@ export function BookableConfigSection({
         <div
           className="space-y-3 p-3 border-2 rounded"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-input-bg)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-input-surface)",
           }}
         >
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <DollarSign size={14} />
             Pricing
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Price
               </label>
               <input
@@ -806,7 +806,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Per
               </label>
               <select
@@ -830,12 +830,12 @@ export function BookableConfigSection({
       <div
         className="space-y-3 p-3 border-2 rounded"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-input-bg)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-input-surface)",
         }}
       >
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
             Deposit Required
           </h4>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -857,7 +857,7 @@ export function BookableConfigSection({
         {config.depositRequired && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Fixed Amount
               </label>
               <input
@@ -873,7 +873,7 @@ export function BookableConfigSection({
               />
             </div>
             <div>
-              <label className={labelClass} style={{ color: "var(--win95-text)" }}>
+              <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 Or Percentage %
               </label>
               <input

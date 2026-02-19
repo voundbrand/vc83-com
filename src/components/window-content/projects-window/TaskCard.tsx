@@ -52,8 +52,8 @@ export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     <div
       className="p-3 border-2 rounded bg-white hover:shadow-sm transition-shadow"
       style={{
-        border: "var(--win95-border)",
-        backgroundColor: "var(--win95-bg-light)",
+        border: "var(--window-document-border)",
+        backgroundColor: "var(--window-document-bg-elevated)",
       }}
     >
       <div className="flex items-start justify-between gap-3">

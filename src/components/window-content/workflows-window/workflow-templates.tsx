@@ -77,7 +77,7 @@ export function WorkflowTemplates({
           />
           <h3
             className="mt-4 text-sm font-bold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             No Templates Available
           </h3>
@@ -94,7 +94,7 @@ export function WorkflowTemplates({
   return (
     <div className="p-4">
       <div className="mb-4">
-        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
           Available Workflow Templates
         </h3>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -108,8 +108,8 @@ export function WorkflowTemplates({
             key={template._id}
             className="border-2 p-4 hover:border-purple-500 transition-colors"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-bg-elevated)",
             }}
           >
             {/* Template Icon */}
@@ -117,8 +117,8 @@ export function WorkflowTemplates({
               <div
                 className="w-12 h-12 flex items-center justify-center text-2xl"
                 style={{
-                  background: "var(--win95-bg)",
-                  border: "2px solid var(--win95-border)",
+                  background: "var(--window-document-bg)",
+                  border: "2px solid var(--window-document-border)",
                 }}
               >
                 {template.customProperties?.icon || ""}
@@ -126,7 +126,7 @@ export function WorkflowTemplates({
             </div>
 
             {/* Template Info */}
-            <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               {template.name}
             </h4>
 
@@ -145,8 +145,8 @@ export function WorkflowTemplates({
                 <span
                   className="text-xs px-2 py-1"
                   style={{
-                    background: "var(--win95-bg)",
-                    border: "1px solid var(--win95-border)",
+                    background: "var(--window-document-bg)",
+                    border: "1px solid var(--window-document-border)",
                   }}
                 >
                   {template.customProperties.category}
@@ -155,8 +155,8 @@ export function WorkflowTemplates({
               <span
                 className="text-xs px-2 py-1"
                 style={{
-                  background: "var(--win95-bg)",
-                  border: "1px solid var(--win95-border)",
+                  background: "var(--window-document-bg)",
+                  border: "1px solid var(--window-document-border)",
                 }}
               >
                 {template.customProperties?.code}
@@ -166,7 +166,7 @@ export function WorkflowTemplates({
             {/* Use Template Button */}
             <button
               onClick={() => handleTemplateClick(template._id)}
-              className="retro-button w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold"
+              className="desktop-interior-button w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold"
             >
               <Copy className="h-3 w-3" />
               Use Template

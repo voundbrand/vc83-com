@@ -374,12 +374,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-48px)] p-6 space-y-4">
           {/* Basic Information */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
+            <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--window-document-text)", borderColor: "var(--window-document-border)" }}>
               {t("ui.crm.organization_form.sections.organization_details")}
             </h3>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.organization_form.labels.organization_name")} <span style={{ color: "var(--error)" }}>*</span>
               </label>
               <input
@@ -388,16 +388,16 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.organization_form.labels.website")}
               </label>
               <input
@@ -410,12 +410,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                 placeholder={t("ui.crm.organization_form.placeholders.website")}
                 className="w-full px-2 py-1.5 text-sm border-2"
                 style={{
-                  borderColor: websiteError ? "var(--error)" : "var(--win95-border)",
-                  background: "var(--win95-input-bg)",
-                  color: "var(--win95-input-text)",
+                  borderColor: websiteError ? "var(--error)" : "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               />
-              <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
+              <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.crm.organization_form.helpers.website_prefix")}
               </p>
               {websiteError && (
@@ -427,7 +427,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.labels.industry")}
                 </label>
                 <select
@@ -435,9 +435,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <option value="">{t("ui.crm.organization_form.industry.select_placeholder")}</option>
@@ -454,7 +454,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.labels.organization_size")}
                 </label>
                 <select
@@ -462,9 +462,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, size: e.target.value as typeof formData.size })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <option value="">{t("ui.crm.organization_form.size.select_placeholder")}</option>
@@ -486,9 +486,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                 onClick={() => setShowPipelineStatus(!showPipelineStatus)}
                 className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                 }}
               >
                 <span className="flex items-center gap-2">
@@ -506,7 +506,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               </button>
 
               {showPipelineStatus && (
-                <div className="p-4 border-2 space-y-3" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+                <div className="p-4 border-2 space-y-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
                   {!pipelineStatus ? (
                     <div className="text-center py-4">
                       <Loader2 size={24} className="animate-spin mx-auto mb-2" style={{ color: "var(--primary)" }} />
@@ -517,7 +517,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   ) : pipelineStatus.contacts.length === 0 ? (
                     <div className="text-center py-6">
                       <Users size={32} className="mx-auto mb-2 opacity-30" style={{ color: "var(--neutral-gray)" }} />
-                      <p className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.pipeline_status.no_contacts") || "No Contacts Yet"}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -526,7 +526,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         {pipelineStatus.totalContacts} {pipelineStatus.totalContacts === 1 ? "Contact" : "Contacts"} •{" "}
                         {pipelineStatus.contactsInPipelines} in {pipelineStatus.contactsInPipelines === 1 ? "Pipeline" : "Pipelines"}
                       </div>
@@ -537,11 +537,11 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                           <div
                             key={contact.contactId}
                             className="p-2 border-2"
-                            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <p className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                                <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                                   {contact.contactName}
                                 </p>
                                 {contact.contactJobTitle && (
@@ -564,7 +564,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                                           className="w-2 h-2 rounded-full"
                                           style={{ background: pipeline.stageColor }}
                                         />
-                                        <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                                        <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                                           {pipeline.pipelineName}:
                                         </span>
                                         <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -591,7 +591,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         <button
                           type="button"
                           onClick={onNavigateToPipelines}
-                          className="retro-button w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2"
+                          className="desktop-interior-button w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2"
                           style={{ background: "var(--primary)", color: "white" }}
                         >
                           <TrendingUp size={14} />
@@ -612,9 +612,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               onClick={() => setShowContactDetails(!showContactDetails)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.contact_details")}</span>
@@ -622,9 +622,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
             </button>
 
             {showContactDetails && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.organization_form.labels.primary_phone")}
                   </label>
                   <input
@@ -633,15 +633,15 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.organization_form.labels.billing_email")}
                   </label>
                   <input
@@ -653,9 +653,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     }}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: emailError ? "var(--error)" : "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: emailError ? "var(--error)" : "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                   {emailError && (
@@ -666,7 +666,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.organization_form.labels.tax_id")}
                   </label>
                   <input
@@ -675,9 +675,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
@@ -692,9 +692,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               onClick={() => setShowAddress(!showAddress)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.address")}</span>
@@ -702,7 +702,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
             </button>
 
             {showAddress && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <input
                   type="text"
                   placeholder={t("ui.crm.organization_form.placeholders.street")}
@@ -710,9 +710,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <input
@@ -722,9 +722,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
                 <div className="grid grid-cols-2 gap-3">
@@ -735,9 +735,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                   <input
@@ -747,9 +747,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
@@ -758,9 +758,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <option value="">{t("ui.crm.organization_form.country.select_placeholder")}</option>
@@ -781,9 +781,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               onClick={() => setShowBillingSettings(!showBillingSettings)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.b2b_billing")}</span>
@@ -791,14 +791,14 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
             </button>
 
             {showBillingSettings && (
-              <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-4 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 {/* Legal Entity Information */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.legal_entity_info")}</h4>
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.crm.organization_form.b2b.legal_entity_info")}</h4>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.legal_entity_type")}
                       </label>
                       <select
@@ -806,9 +806,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         onChange={(e) => setFormData({ ...formData, legalEntityType: e.target.value as typeof formData.legalEntityType })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <option value="">{t("ui.crm.organization_form.b2b.legal_type.select")}</option>
@@ -821,7 +821,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.registration_number")}
                       </label>
                       <input
@@ -831,9 +831,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.registration_placeholder")}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
@@ -841,7 +841,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.vat_number")}
                       </label>
                       <input
@@ -851,9 +851,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.vat_placeholder")}
                         className={`w-full px-2 py-1.5 text-sm border-2 ${vatError ? "border-red-500" : ""}`}
                         style={{
-                          borderColor: vatError ? "#ef4444" : "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: vatError ? "#ef4444" : "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                       {vatError && (
@@ -869,7 +869,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                           onChange={(e) => setFormData({ ...formData, taxExempt: e.target.checked })}
                           className="mr-2"
                         />
-                        <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                        <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                           {t("ui.crm.organization_form.b2b.tax_exempt")}
                         </span>
                       </label>
@@ -879,7 +879,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
                 {/* Billing Address */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.billing_address")}</h4>
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.crm.organization_form.b2b.billing_address")}</h4>
 
                   <input
                     type="text"
@@ -888,9 +888,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, billingStreet: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
 
@@ -901,9 +901,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
 
@@ -915,9 +915,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       onChange={(e) => setFormData({ ...formData, billingState: e.target.value })}
                       className="w-full px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                     <input
@@ -927,9 +927,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       onChange={(e) => setFormData({ ...formData, billingPostalCode: e.target.value })}
                       className="w-full px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
@@ -939,9 +939,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     onChange={(e) => setFormData({ ...formData, billingCountry: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     <option value="">-- Select Country --</option>
@@ -955,11 +955,11 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
                 {/* Payment Terms */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.payment_settings")}</h4>
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.crm.organization_form.b2b.payment_settings")}</h4>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.payment_terms")}
                       </label>
                       <select
@@ -967,9 +967,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as typeof formData.paymentTerms })}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <option value="due_on_receipt">{t("ui.crm.organization_form.b2b.payment_terms.due_on_receipt")}</option>
@@ -981,7 +981,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.credit_limit")}
                       </label>
                       <input
@@ -992,16 +992,16 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         step="0.01"
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.crm.organization_form.b2b.preferred_payment_method")}
                     </label>
                     <select
@@ -1009,9 +1009,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       onChange={(e) => setFormData({ ...formData, preferredPaymentMethod: e.target.value as typeof formData.preferredPaymentMethod })}
                       className="w-full px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       <option value="">{t("ui.crm.organization_form.b2b.payment_method.select")}</option>
@@ -1025,11 +1025,11 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
                 {/* Accounting Integration */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.accounting_integration")}</h4>
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.crm.organization_form.b2b.accounting_integration")}</h4>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.accounting_reference")}
                       </label>
                       <input
@@ -1039,15 +1039,15 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.accounting_reference_placeholder")}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.cost_center")}
                       </label>
                       <input
@@ -1057,9 +1057,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.cost_center_placeholder")}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
@@ -1073,7 +1073,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         onChange={(e) => setFormData({ ...formData, purchaseOrderRequired: e.target.checked })}
                         className="mr-2"
                       />
-                      <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.purchase_order_required")}
                       </span>
                     </label>
@@ -1082,10 +1082,10 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
 
                 {/* Billing Contact */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>{t("ui.crm.organization_form.b2b.billing_contact")}</h4>
+                  <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>{t("ui.crm.organization_form.b2b.billing_contact")}</h4>
 
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                       {t("ui.crm.organization_form.b2b.billing_contact_name")}
                     </label>
                     <input
@@ -1095,16 +1095,16 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       placeholder={t("ui.crm.organization_form.b2b.billing_contact_name_placeholder")}
                       className="w-full px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.billing_contact_email")}
                       </label>
                       <input
@@ -1114,15 +1114,15 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.billing_contact_email_placeholder")}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                      <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                         {t("ui.crm.organization_form.b2b.billing_contact_phone")}
                       </label>
                       <input
@@ -1132,9 +1132,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         placeholder={t("ui.crm.organization_form.b2b.billing_contact_phone_placeholder")}
                         className="w-full px-2 py-1.5 text-sm border-2"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-input-bg)",
-                          color: "var(--win95-input-text)",
+                          borderColor: "var(--window-document-border)",
+                          background: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
                         }}
                       />
                     </div>
@@ -1147,12 +1147,12 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
           {/* Removed: Sponsorship Details section - organization types are now tracked via pipelines */}
           {false && (
             <div className="space-y-3">
-              <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--win95-text)", borderColor: "var(--win95-border)" }}>
+              <h3 className="text-sm font-bold border-b pb-2" style={{ color: "var(--window-document-text)", borderColor: "var(--window-document-border)" }}>
                 {t("ui.crm.organization_form.sections.sponsorship_details")}
               </h3>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.labels.sponsor_level")}
                 </label>
                 <select
@@ -1160,9 +1160,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   onChange={(e) => setFormData({ ...formData, sponsorLevel: e.target.value as typeof formData.sponsorLevel })}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   <option value="">{t("ui.crm.organization_form.sponsor_level.select_placeholder")}</option>
@@ -1175,7 +1175,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.labels.logo_url")}
                 </label>
                 <input
@@ -1185,18 +1185,18 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   placeholder={t("ui.crm.organization_form.placeholders.logo_url")}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
-                <p className="text-xs mt-1" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.helpers.logo_optional")}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t("ui.crm.organization_form.labels.sponsor_bio")}
                 </label>
                 <textarea
@@ -1206,9 +1206,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                   placeholder={t("ui.crm.organization_form.placeholders.sponsor_bio")}
                   className="w-full px-2 py-1.5 text-sm border-2"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
                   }}
                 />
               </div>
@@ -1222,9 +1222,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               onClick={() => setShowTagsNotes(!showTagsNotes)}
               className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               <span className="text-sm font-bold">{t("ui.crm.organization_form.sections.tags_notes")}</span>
@@ -1232,9 +1232,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
             </button>
 
             {showTagsNotes && (
-              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.organization_form.labels.tags")}
                   </label>
                   <div className="flex gap-2 mb-2">
@@ -1251,9 +1251,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       placeholder={t("ui.crm.organization_form.placeholders.tag_input")}
                       className="flex-1 px-2 py-1.5 text-sm border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-input-bg)",
-                        color: "var(--win95-input-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     />
                     <button
@@ -1261,9 +1261,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                       onClick={handleAddTag}
                       className="px-3 py-1.5 text-sm font-bold border-2"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg-elevated)",
+                        color: "var(--window-document-text)",
                       }}
                     >
                       {t("ui.crm.organization_form.buttons.add_tag")}
@@ -1276,7 +1276,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs border-2"
                         style={{
                           borderColor: "var(--primary)",
-                          background: "var(--win95-bg-light)",
+                          background: "var(--window-document-bg-elevated)",
                           color: "var(--primary)",
                         }}
                       >
@@ -1294,7 +1294,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {t("ui.crm.organization_form.labels.notes")}
                   </label>
                   <textarea
@@ -1304,9 +1304,9 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                     placeholder={t("ui.crm.organization_form.placeholders.notes")}
                     className="w-full px-2 py-1.5 text-sm border-2"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-input-bg)",
-                      color: "var(--win95-input-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
@@ -1315,16 +1315,16 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex gap-2 justify-end pt-4 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
               className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
               }}
             >
               {t("ui.crm.organization_form.buttons.cancel")}
@@ -1334,7 +1334,7 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               disabled={saving}
               className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
               style={{
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--window-document-border)",
                 background: "var(--primary)",
                 color: "white",
               }}

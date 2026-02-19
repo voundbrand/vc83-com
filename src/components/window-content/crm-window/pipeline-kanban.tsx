@@ -81,7 +81,7 @@ export function PipelineKanban() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-full flex flex-col p-4" style={{ background: 'var(--win95-bg)' }}>
+      <div className="h-full flex flex-col p-4" style={{ background: 'var(--window-document-bg)' }}>
         {/* Kanban Board */}
         <div className="flex-1 flex gap-4 overflow-x-auto">
           {stages.map(stage => (

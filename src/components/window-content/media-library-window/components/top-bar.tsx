@@ -38,7 +38,7 @@ export function TopBar({
   return (
     <div
       className="flex items-center gap-4 p-4 border-b-2"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+      style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
     >
       {/* New Button with Dropdown */}
       <div className="relative">
@@ -46,9 +46,9 @@ export function TopBar({
           onClick={onToggleNewMenu}
           className="flex items-center gap-2 px-4 py-2 text-xs font-bold border-2 rounded transition-colors"
           style={{
-            background: "var(--win95-button-face)",
-            borderColor: "var(--win95-border)",
-            color: "var(--win95-text)",
+            background: "var(--shell-button-surface)",
+            borderColor: "var(--shell-border)",
+            color: "var(--shell-text)",
           }}
         >
           <Plus size={14} />
@@ -79,22 +79,22 @@ export function TopBar({
           placeholder="Search files..."
           className="w-full pl-9 pr-3 py-2 text-xs border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface)",
+            color: "var(--shell-text)",
           }}
         />
       </div>
 
       {/* View Toggle */}
-      <div className="flex border-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex border-2" style={{ borderColor: "var(--shell-border)" }}>
         <button
           onClick={() => onViewModeChange("grid")}
           className="px-3 py-2 border-r-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: viewMode === "grid" ? "var(--win95-highlight-bg)" : "transparent",
-            color: viewMode === "grid" ? "var(--win95-highlight)" : "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: viewMode === "grid" ? "var(--shell-accent-soft)" : "transparent",
+            color: viewMode === "grid" ? "var(--shell-accent)" : "var(--shell-text)",
           }}
         >
           <Grid3x3 size={14} />
@@ -103,8 +103,8 @@ export function TopBar({
           onClick={() => onViewModeChange("list")}
           className="px-3 py-2"
           style={{
-            background: viewMode === "list" ? "var(--win95-highlight-bg)" : "transparent",
-            color: viewMode === "list" ? "var(--win95-highlight)" : "var(--win95-text)",
+            background: viewMode === "list" ? "var(--shell-accent-soft)" : "transparent",
+            color: viewMode === "list" ? "var(--shell-accent)" : "var(--shell-text)",
           }}
         >
           <List size={14} />
@@ -117,9 +117,9 @@ export function TopBar({
         onChange={(e) => onSortChange(e.target.value as "name" | "date" | "size")}
         className="px-3 py-2 text-xs border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg)",
-          color: "var(--win95-text)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface)",
+          color: "var(--shell-text)",
         }}
       >
         <option value="name">Name</option>

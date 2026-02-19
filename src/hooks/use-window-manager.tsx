@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode, Suspense } from "react"
 import { getWindowFactory } from "./window-registry"
+import { captureShellTelemetry } from "@/components/providers/posthog-provider"
 import { SHELL_MOTION } from "@/lib/motion"
 
 interface Window {
@@ -95,6 +96,22 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     return SHELL_MOTION.durationMs.base
   }
 
+  const getViewportMode = () => {
+    if (typeof window === "undefined") {
+      return "desktop"
+    }
+    return window.matchMedia("(max-width: 1023px)").matches ? "compact" : "desktop"
+  }
+
+  const getOpenWindowCount = (windowList: Window[] = windows) => {
+    return windowList.filter((window) => window.isOpen).length
+  }
+
+  const resolveStringProp = (props: Record<string, unknown> | undefined, key: string) => {
+    const value = props?.[key]
+    return typeof value === "string" ? value : undefined
+  }
+
   useEffect(() => {
     return () => {
       Object.values(closeTimersRef.current).forEach((timer) => window.clearTimeout(timer))
@@ -170,7 +187,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       // Filter out tutorial windows (they have callbacks that can't be serialized)
       const serializableWindows: SerializableWindowState[] = windows
         .filter(w => !w.id.startsWith('tutorial-')) // Tutorial windows have non-serializable callbacks
-        .filter(w => w.id !== 'builder-browser') // Builder should not persist across refreshes
+        .filter(w => w.id !== 'builder-browser' && w.id !== 'builder') // Builder should not persist across refreshes
         .map(w => ({
           id: w.id,
           title: w.title,
@@ -200,6 +217,29 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }, [windows, nextZIndex, cascadeOffset, isRestored])
 
   const openWindow = (id: string, title: string, component: ReactNode, position?: { x: number; y: number }, size?: { width: number; height: number }, titleKey?: string, icon?: string, props?: Record<string, unknown>) => {
+    const isAlreadyOpen = windows.some((window) => window.id === id && window.isOpen)
+    const activeWindowCount = isAlreadyOpen ? getOpenWindowCount() : getOpenWindowCount() + 1
+    const context = resolveStringProp(props, "openContext") || resolveStringProp(props, "context")
+    const panel = resolveStringProp(props, "initialPanel") || resolveStringProp(props, "initialTab")
+    const entity = resolveStringProp(props, "initialEntity") || resolveStringProp(props, "entity")
+
+    if (context) {
+      captureShellTelemetry("shell_deeplink_entry", {
+        windowId: id,
+        context,
+        panel,
+        entity,
+        viewportMode: getViewportMode(),
+      })
+    }
+
+    captureShellTelemetry("shell_window_opened", {
+      windowId: id,
+      source: context || (isAlreadyOpen ? "existing_window" : "desktop_runtime"),
+      viewportMode: getViewportMode(),
+      activeWindowCount,
+    })
+
     // Get the current z-index synchronously from the ref to avoid stale closure issues
     const currentZIndex = nextZIndexRef.current
     nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)
@@ -207,6 +247,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     setWindows((prev) => {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
+        const shouldRefreshExistingWindow = Boolean(props && Object.keys(props).length > 0)
         // Focus existing window, update titleKey/icon if provided (heals stale session data)
         clearCloseTimer(id)
         return prev.map((w) => (w.id === id ? {
@@ -214,6 +255,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           isOpen: true,
           isClosing: false,
           zIndex: currentZIndex,
+          ...(shouldRefreshExistingWindow ? { component, props } : {}),
           ...(titleKey && { titleKey }),
           ...(icon && { icon }),
         } : w))
@@ -262,6 +304,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const closeWindow = (id: string) => {
+    captureShellTelemetry("shell_window_closed", {
+      windowId: id,
+      viewportMode: getViewportMode(),
+      activeWindowCount: Math.max(getOpenWindowCount() - 1, 0),
+    })
+
     const closeDurationMs = getCloseDurationMs()
     clearCloseTimer(id)
 
@@ -300,6 +348,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const focusWindow = (id: string) => {
+    captureShellTelemetry("shell_window_focused", {
+      windowId: id,
+      viewportMode: getViewportMode(),
+      activeWindowCount: getOpenWindowCount(),
+    })
+
     // Get the current z-index synchronously from the ref to avoid stale closure issues
     const currentZIndex = nextZIndexRef.current
     nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)
@@ -350,6 +404,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const minimizeWindow = (id: string) => {
+    captureShellTelemetry("shell_window_minimized", {
+      windowId: id,
+      viewportMode: getViewportMode(),
+      activeWindowCount: getOpenWindowCount(),
+    })
+
     clearCloseTimer(id)
     setWindows((prev) => prev.map((w) => {
       if (w.id === id) {
@@ -366,6 +426,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }
 
   const restoreWindow = (id: string) => {
+    captureShellTelemetry("shell_window_focused", {
+      windowId: id,
+      viewportMode: getViewportMode(),
+      activeWindowCount: getOpenWindowCount(),
+    })
+
     // Get the current z-index synchronously from the ref to avoid stale closure issues
     const currentZIndex = nextZIndexRef.current
     nextZIndexRef.current = Math.min(nextZIndexRef.current + 1, MAX_WINDOW_Z_INDEX)

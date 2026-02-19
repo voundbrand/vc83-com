@@ -381,7 +381,7 @@ export function TemplateThumbnail({
     overflow: "hidden",
     position: "relative",
     backgroundColor: "#f9fafb",
-    border: "2px solid var(--win95-border)",
+    border: "2px solid var(--shell-border)",
     borderRadius: "4px",
   };
 

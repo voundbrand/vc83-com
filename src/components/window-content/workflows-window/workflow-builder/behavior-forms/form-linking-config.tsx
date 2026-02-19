@@ -41,7 +41,7 @@ export function FormLinkingConfigForm({
     <div className="space-y-3">
       {/* Form Selector */}
       <div>
-        <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+        <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
           Form to Link <span className="text-red-500">*</span>
         </label>
         <select
@@ -64,7 +64,7 @@ export function FormLinkingConfigForm({
 
       {/* Timing */}
       <div>
-        <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+        <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
           When to Collect Form <span className="text-red-500">*</span>
         </label>
         <div className="space-y-2">
@@ -113,7 +113,7 @@ export function FormLinkingConfigForm({
       {/* Required Toggle */}
       <div>
         <label className="flex items-center justify-between">
-          <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             Form Completion Required
           </span>
           <input
@@ -131,14 +131,14 @@ export function FormLinkingConfigForm({
       </div>
 
       {/* Trigger Conditions (Optional) */}
-      <div className="border-t-2 pt-3" style={{ borderColor: "var(--win95-border)" }}>
-        <div className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+      <div className="border-t-2 pt-3" style={{ borderColor: "var(--window-document-border)" }}>
+        <div className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           Trigger Conditions (Optional)
         </div>
 
         {/* Product Subtype Filter */}
         <div className="mb-3">
-          <label className="text-xs block mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="text-xs block mb-1" style={{ color: "var(--window-document-text)" }}>
             Only show for product subtypes:
           </label>
           <input
@@ -161,7 +161,7 @@ export function FormLinkingConfigForm({
 
         {/* Minimum Quantity */}
         <div className="mb-3">
-          <label className="text-xs block mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="text-xs block mb-1" style={{ color: "var(--window-document-text)" }}>
             Minimum Quantity:
           </label>
           <input
@@ -183,7 +183,7 @@ export function FormLinkingConfigForm({
 
         {/* Conditional Field (Advanced) */}
         <div>
-          <label className="text-xs block mb-1" style={{ color: "var(--win95-text)" }}>
+          <label className="text-xs block mb-1" style={{ color: "var(--window-document-text)" }}>
             Conditional Field (Advanced):
           </label>
           <div className="flex gap-2">

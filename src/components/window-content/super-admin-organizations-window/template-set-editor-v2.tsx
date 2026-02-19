@@ -150,7 +150,7 @@ export function TemplateSetEditorV2({
   if (!templateSetData || !allEmailTemplates || !allPdfTemplates) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -160,7 +160,7 @@ export function TemplateSetEditorV2({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {set?.name}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -179,7 +179,7 @@ export function TemplateSetEditorV2({
       {/* Current Templates List */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             Templates in Set
           </h4>
           <button
@@ -187,11 +187,11 @@ export function TemplateSetEditorV2({
             disabled={isUpdating}
             className="flex items-center gap-1 px-2 py-1 text-xs font-bold rounded transition-colors disabled:opacity-50"
             style={{
-              backgroundColor: "var(--win95-highlight)",
+              backgroundColor: "var(--tone-accent)",
               color: "white",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+              borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
             }}
           >
             <Plus size={12} />
@@ -200,7 +200,7 @@ export function TemplateSetEditorV2({
         </div>
 
         {currentTemplates.length === 0 ? (
-          <div className="border-2 p-8 rounded text-center" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+          <div className="border-2 p-8 rounded text-center" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
             <FileText size={32} className="mx-auto mb-2" style={{ color: "var(--neutral-gray)" }} />
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
               No templates yet. Click "Add Templates" to get started.
@@ -212,8 +212,8 @@ export function TemplateSetEditorV2({
             {emailTemplates.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Mail size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <Mail size={14} style={{ color: "var(--tone-accent)" }} />
+                  <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     Email Templates ({emailTemplates.length})
                   </span>
                 </div>
@@ -234,8 +234,8 @@ export function TemplateSetEditorV2({
             {pdfTemplates.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText size={14} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <FileText size={14} style={{ color: "var(--tone-accent)" }} />
+                  <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     PDF Templates ({pdfTemplates.length})
                   </span>
                 </div>
@@ -260,10 +260,10 @@ export function TemplateSetEditorV2({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div
             className="bg-white border-2 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b-2 sticky top-0 bg-white z-10" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex items-center justify-between p-4 border-b-2 sticky top-0 bg-white z-10" style={{ borderColor: "var(--window-document-border)" }}>
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <Plus size={16} />
                 Add Templates to Set
@@ -282,8 +282,8 @@ export function TemplateSetEditorV2({
               {availableEmailTemplates.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Mail size={18} style={{ color: "var(--win95-highlight)" }} />
-                    <h5 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                    <Mail size={18} style={{ color: "var(--tone-accent)" }} />
+                    <h5 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                       Email Templates ({availableEmailTemplates.length})
                     </h5>
                   </div>
@@ -312,8 +312,8 @@ export function TemplateSetEditorV2({
               {availablePdfTemplates.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <FileText size={18} style={{ color: "var(--win95-highlight)" }} />
-                    <h5 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+                    <FileText size={18} style={{ color: "var(--tone-accent)" }} />
+                    <h5 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                       PDF Templates ({availablePdfTemplates.length})
                     </h5>
                   </div>
@@ -341,7 +341,7 @@ export function TemplateSetEditorV2({
               {availableEmailTemplates.length === 0 && availablePdfTemplates.length === 0 && (
                 <div className="text-center py-8">
                   <CheckCircle size={48} className="mx-auto mb-4" style={{ color: "var(--success)" }} />
-                  <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                  <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                     All Templates Added!
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -352,17 +352,17 @@ export function TemplateSetEditorV2({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex gap-3 p-4 border-t-2 sticky bottom-0 bg-white" style={{ borderColor: "var(--win95-border)" }}>
+            <div className="flex gap-3 p-4 border-t-2 sticky bottom-0 bg-white" style={{ borderColor: "var(--window-document-border)" }}>
               <button
                 onClick={handleAddTemplates}
                 disabled={selectedTemplates.size === 0 || isUpdating}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded transition-colors disabled:opacity-50"
                 style={{
-                  backgroundColor: "var(--win95-highlight)",
+                  backgroundColor: "var(--tone-accent)",
                   color: "white",
                   borderWidth: "2px",
                   borderStyle: "solid",
-                  borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+                  borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
                 }}
               >
                 {isUpdating ? (
@@ -382,11 +382,11 @@ export function TemplateSetEditorV2({
                 disabled={isUpdating}
                 className="px-4 py-2 text-xs font-bold rounded transition-colors"
                 style={{
-                  backgroundColor: "var(--win95-bg-light)",
-                  color: "var(--win95-text)",
+                  backgroundColor: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
                   borderWidth: "2px",
                   borderStyle: "solid",
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--window-document-border)",
                 }}
               >
                 Cancel
@@ -417,23 +417,23 @@ function TemplateRow({
     <div
       className="flex items-center justify-between p-3 border-2 rounded"
       style={{
-        borderColor: "var(--win95-border)",
-        backgroundColor: "var(--win95-bg-light)",
+        borderColor: "var(--window-document-border)",
+        backgroundColor: "var(--window-document-bg-elevated)",
       }}
     >
       <div className="flex items-center gap-3 flex-1">
-        <span className="text-sm" style={{ color: "var(--win95-text)" }}>
+        <span className="text-sm" style={{ color: "var(--window-document-text)" }}>
           {template.name}
         </span>
         {template.customProperties?.category && (
           <span
             className="text-xs px-2 py-0.5 rounded"
             style={{
-              backgroundColor: "var(--win95-bg)",
+              backgroundColor: "var(--window-document-bg)",
               color: "var(--neutral-gray)",
               borderWidth: "1px",
               borderStyle: "solid",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             {template.customProperties.category}
@@ -448,11 +448,11 @@ function TemplateRow({
           disabled={isUpdating}
           className="px-3 py-1 text-xs font-bold rounded transition-colors disabled:opacity-50"
           style={{
-            backgroundColor: isRequired ? "var(--success)" : "var(--win95-bg)",
-            color: isRequired ? "white" : "var(--win95-text)",
+            backgroundColor: isRequired ? "var(--success)" : "var(--window-document-bg)",
+            color: isRequired ? "white" : "var(--window-document-text)",
             borderWidth: "2px",
             borderStyle: "solid",
-            borderColor: isRequired ? "var(--success)" : "var(--win95-border)",
+            borderColor: isRequired ? "var(--success)" : "var(--window-document-border)",
           }}
         >
           {isRequired ? "Required" : "Optional"}
@@ -486,8 +486,8 @@ function TemplateCheckbox({
     <label
       className="flex items-center gap-2 p-2 border-2 rounded cursor-pointer transition-colors"
       style={{
-        borderColor: isSelected ? "var(--win95-highlight)" : "var(--win95-border)",
-        backgroundColor: isSelected ? "color-mix(in srgb, var(--win95-highlight) 10%, white)" : "var(--win95-bg)",
+        borderColor: isSelected ? "var(--tone-accent)" : "var(--window-document-border)",
+        backgroundColor: isSelected ? "color-mix(in srgb, var(--tone-accent) 10%, white)" : "var(--window-document-bg)",
       }}
     >
       <input
@@ -497,7 +497,7 @@ function TemplateCheckbox({
         className="w-4 h-4"
       />
       <div className="flex-1">
-        <div className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
           {template.name}
         </div>
         {template.customProperties?.category && (

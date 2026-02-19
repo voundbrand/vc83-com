@@ -254,21 +254,21 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                             key={invoice._id}
                             className="p-3 border-2 rounded hover:shadow-sm transition-shadow cursor-pointer"
                             style={{
-                              background: "var(--win95-bg-light)",
-                              borderColor: "var(--win95-border)",
+                              background: "var(--window-document-bg-elevated)",
+                              borderColor: "var(--window-document-border)",
                             }}
                             onClick={() => setSelectedInvoice(invoice)}
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-xs font-bold truncate" style={{ color: "var(--win95-text)" }}>
+                                  <h3 className="text-xs font-bold truncate" style={{ color: "var(--window-document-text)" }}>
                                     {invoice.name}
                                   </h3>
                                   <span
                                     className="px-2 py-0.5 text-[10px] font-bold rounded border"
                                     style={{
-                                      backgroundColor: "var(--win95-bg)",
+                                      backgroundColor: "var(--window-document-bg)",
                                       color: "#f59e0b",
                                       borderColor: "#f59e0b",
                                     }}
@@ -288,7 +288,7 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                                   <span style={{ color: "var(--neutral-gray)" }}>
                                     {lineItems.length} item{lineItems.length !== 1 ? "s" : ""}
                                   </span>
-                                  <span className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                                  <span className="font-semibold" style={{ color: "var(--window-document-text)" }}>
                                     {formatCurrency(totalInCents, currency)}
                                   </span>
                                 </div>
@@ -323,26 +323,26 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                         const paymentStatus = invoice.status as string;
 
                         const statusColors = {
-                          paid: { bg: "var(--win95-bg)", text: "var(--success)", border: "var(--success)" },
-                          sent: { bg: "var(--win95-bg)", text: "var(--win95-highlight)", border: "var(--win95-highlight)" },
-                          overdue: { bg: "var(--win95-bg)", text: "var(--error)", border: "var(--error)" },
-                          awaiting_employer_payment: { bg: "var(--win95-bg)", text: "#f59e0b", border: "#f59e0b" },
-                        }[paymentStatus] || { bg: "var(--win95-bg)", text: "var(--neutral-gray)", border: "var(--win95-border)" };
+                          paid: { bg: "var(--window-document-bg)", text: "var(--success)", border: "var(--success)" },
+                          sent: { bg: "var(--window-document-bg)", text: "var(--tone-accent)", border: "var(--tone-accent)" },
+                          overdue: { bg: "var(--window-document-bg)", text: "var(--error)", border: "var(--error)" },
+                          awaiting_employer_payment: { bg: "var(--window-document-bg)", text: "#f59e0b", border: "#f59e0b" },
+                        }[paymentStatus] || { bg: "var(--window-document-bg)", text: "var(--neutral-gray)", border: "var(--window-document-border)" };
 
                         return (
                           <div
                             key={invoice._id}
                             className="p-3 border-2 rounded hover:shadow-sm transition-shadow cursor-pointer"
                             style={{
-                              background: "var(--win95-bg-light)",
-                              borderColor: "var(--win95-border)",
+                              background: "var(--window-document-bg-elevated)",
+                              borderColor: "var(--window-document-border)",
                             }}
                             onClick={() => setSelectedInvoice(invoice)}
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-xs font-bold truncate" style={{ color: "var(--win95-text)" }}>
+                                  <h3 className="text-xs font-bold truncate" style={{ color: "var(--window-document-text)" }}>
                                     {invoice.name}
                                   </h3>
                                   <span
@@ -368,7 +368,7 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
                                   <span style={{ color: "var(--neutral-gray)" }}>
                                     {lineItems.length} item{lineItems.length !== 1 ? "s" : ""}
                                   </span>
-                                  <span className="font-semibold" style={{ color: "var(--win95-text)" }}>
+                                  <span className="font-semibold" style={{ color: "var(--window-document-text)" }}>
                                     {formatCurrency(totalInCents, currency)}
                                   </span>
                                 </div>
@@ -400,8 +400,8 @@ export function InvoicingWindow({ initialTab = "create", fullScreen = false }: I
       <div
         className="px-4 py-1 border-t-2 text-xs flex items-center justify-between"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
           color: "var(--neutral-gray)",
         }}
       >
@@ -717,17 +717,17 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
       <div
         className="border-2 rounded shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--window-document-bg)",
+          borderColor: "var(--window-document-border)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center justify-between"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <FileText size={16} />
             {invoice.name}
           </h3>
@@ -737,7 +737,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             style={{
               background: 'transparent'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--win95-border)'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--window-document-border)'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <X size={16} />
@@ -779,21 +779,21 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           {/* Invoice Header Info */}
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.invoice_number")}</p>
+              <p className="font-bold mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.invoice_number")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>{invoiceNumber}</p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.status")}</p>
+              <p className="font-bold mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.status")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>{invoice.status || "draft"}</p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.invoice_date")}</p>
+              <p className="font-bold mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.invoice_date")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>
                 {invoiceDate ? new Date(invoiceDate).toLocaleDateString() : "N/A"}
               </p>
             </div>
             <div>
-              <p className="font-bold mb-1" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.due_date")}</p>
+              <p className="font-bold mb-1" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.due_date")}</p>
               <p style={{ color: "var(--neutral-gray)" }}>
                 {dueDate ? new Date(dueDate).toLocaleDateString() : "N/A"}
               </p>
@@ -803,9 +803,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           {/* Bill To */}
           <div
             className="p-3 border-2 rounded"
-            style={{ background: "var(--win95-bg-light)", borderColor: "var(--win95-border)" }}
+            style={{ background: "var(--window-document-bg-elevated)", borderColor: "var(--window-document-border)" }}
           >
-            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.bill_to")}</p>
+            <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.bill_to")}</p>
             <div className="text-xs space-y-1" style={{ color: "var(--neutral-gray)" }}>
               <p className="font-semibold">{billTo?.name || "Unknown"}</p>
               {billTo?.vatNumber && <p>VAT: {billTo.vatNumber}</p>}
@@ -820,16 +820,16 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
 
           {/* Line Items */}
           <div>
-            <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.items")}</p>
+            <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.items")}</p>
             <div className="space-y-2">
               {lineItems.map((item, idx) => (
                 <div
                   key={idx}
                   className="flex justify-between text-xs p-2 border rounded"
-                  style={{ borderColor: "var(--win95-border)" }}
+                  style={{ borderColor: "var(--window-document-border)" }}
                 >
                   <span style={{ color: "var(--neutral-gray)" }}>{item.description}</span>
-                  <span style={{ color: "var(--win95-text)" }} className="font-semibold">
+                  <span style={{ color: "var(--window-document-text)" }} className="font-semibold">
                     {currency} {((item.totalPriceInCents || 0) / 100).toFixed(2)}
                   </span>
                 </div>
@@ -838,24 +838,24 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
           </div>
 
           {/* Totals */}
-          <div className="space-y-1 text-xs pt-2 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="space-y-1 text-xs pt-2 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             <div className="flex justify-between">
               <span style={{ color: "var(--neutral-gray)" }}>{t("ui.invoicing_window.modal.subtotal")}</span>
-              <span style={{ color: "var(--win95-text)" }}>
+              <span style={{ color: "var(--window-document-text)" }}>
                 {currency} {(subtotal / 100).toFixed(2)}
               </span>
             </div>
             {tax > 0 && (
               <div className="flex justify-between">
                 <span style={{ color: "var(--neutral-gray)" }}>{t("ui.invoicing_window.modal.tax")}</span>
-                <span style={{ color: "var(--win95-text)" }}>
+                <span style={{ color: "var(--window-document-text)" }}>
                   {currency} {(tax / 100).toFixed(2)}
                 </span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-sm pt-1 border-t" style={{ borderColor: "var(--win95-border)" }}>
-              <span style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.modal.total")}</span>
-              <span style={{ color: "var(--win95-text)" }}>
+            <div className="flex justify-between font-bold text-sm pt-1 border-t" style={{ borderColor: "var(--window-document-border)" }}>
+              <span style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.modal.total")}</span>
+              <span style={{ color: "var(--window-document-text)" }}>
                 {currency} {(total / 100).toFixed(2)}
               </span>
             </div>
@@ -865,7 +865,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
         {/* Modal Footer - Actions */}
         <div
           className="px-4 py-3 border-t-2 flex items-center justify-between gap-2"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           {/* Left side - Seal button (draft only) */}
           <div>
@@ -873,9 +873,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
               <button
                 className="px-4 py-2 text-xs font-bold rounded hover:opacity-90 transition-opacity flex items-center gap-2"
                 style={{
-                  background: "var(--win95-highlight)",
-                  color: "var(--win95-titlebar-text)",
-                  border: "2px solid var(--win95-border)",
+                  background: "var(--tone-accent)",
+                  color: "var(--window-document-text)",
+                  border: "2px solid var(--window-document-border)",
                 }}
                 onClick={handleSealInvoice}
                 disabled={isSealing}
@@ -894,7 +894,7 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
                 style={{
                   background: "var(--error)",
                   color: "white",
-                  border: "2px solid var(--win95-border)",
+                  border: "2px solid var(--window-document-border)",
                 }}
                 onClick={handleRefund}
                 disabled={isRefunding}
@@ -917,9 +917,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
               <button
                 className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
                 style={{
-                  background: "var(--win95-highlight)",
-                  color: "var(--win95-titlebar-text)",
-                  border: "2px solid var(--win95-border)",
+                  background: "var(--tone-accent)",
+                  color: "var(--window-document-text)",
+                  border: "2px solid var(--window-document-border)",
                 }}
                 onClick={handleGeneratePDF}
                 disabled={isGeneratingPDF}
@@ -941,9 +941,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2"
               style={{
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
-                border: "2px solid var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
+                border: "2px solid var(--window-document-border)",
               }}
               onClick={handleDownloadPDF}
               disabled={!pdfUrl || isDraft}
@@ -955,9 +955,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity flex items-center gap-2"
               style={{
-                background: "var(--win95-bg-light)",
-                color: "var(--win95-text)",
-                border: "2px solid var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                color: "var(--window-document-text)",
+                border: "2px solid var(--window-document-border)",
               }}
               onClick={() => setShowEmailModal(true)}
               disabled={isDraft || !(billTo?.email || billTo?.billingEmail)}
@@ -969,9 +969,9 @@ function InvoiceDetailModal({ invoice, onClose, t, formatCurrency }: InvoiceDeta
             <button
               className="px-4 py-2 text-xs rounded hover:opacity-90 transition-opacity"
               style={{
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
-                border: "2px solid var(--win95-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
+                border: "2px solid var(--window-document-border)",
               }}
               onClick={onClose}
             >

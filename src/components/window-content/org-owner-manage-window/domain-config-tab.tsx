@@ -60,7 +60,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
   if (translationsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
           className="mb-4 p-3 border-2 flex items-start gap-2"
           style={{
             backgroundColor: 'var(--error)',
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             color: 'white'
           }}
         >
@@ -92,7 +92,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Globe size={16} />
             {t("ui.manage.domains.header.title")}
           </h3>
@@ -123,14 +123,14 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       <div
         className="p-3 border-2"
         style={{
-          backgroundColor: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)',
+          backgroundColor: 'var(--window-document-bg-elevated)',
+          borderColor: 'var(--window-document-border)',
         }}
       >
         <div className="flex items-start gap-2">
-          <Globe size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
+          <Globe size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--tone-accent)' }} />
           <div>
-            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
               {t("ui.manage.domains.info.title")}
             </p>
             <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -146,18 +146,18 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
       {/* Domain Configs List */}
       {!domainConfigs ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--win95-highlight)' }} />
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
         </div>
       ) : domainConfigs.length === 0 ? (
         <div
           className="text-center py-12 border-2"
           style={{
-            borderColor: 'var(--win95-border)',
-            backgroundColor: 'var(--win95-bg-light)'
+            borderColor: 'var(--window-document-border)',
+            backgroundColor: 'var(--window-document-bg-elevated)'
           }}
         >
           <Globe size={48} className="mx-auto mb-4 opacity-50" style={{ color: 'var(--neutral-gray)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
             {t("ui.manage.domains.empty.title")}
           </p>
           <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
@@ -171,7 +171,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
               }}
               className="beveled-button mt-4 px-4 py-2 text-sm font-semibold"
               style={{
-                backgroundColor: "var(--win95-highlight)",
+                backgroundColor: "var(--tone-accent)",
                 color: "white",
               }}
             >
@@ -191,16 +191,16 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                 key={config._id}
                 className="border-2 p-4"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  backgroundColor: 'var(--win95-bg-light)',
+                  borderColor: 'var(--window-document-border)',
+                  backgroundColor: 'var(--window-document-bg-elevated)',
                 }}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     {/* Domain Name */}
                     <div className="flex items-center gap-2 mb-2">
-                      <Globe size={16} style={{ color: 'var(--win95-highlight)' }} />
-                      <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                      <Globe size={16} style={{ color: 'var(--tone-accent)' }} />
+                      <h4 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                         {props.domainName}
                       </h4>
                       {config.status === "active" ? (
@@ -231,7 +231,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                     {/* Branding Info */}
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+                        <span className="font-semibold" style={{ color: 'var(--window-document-text)' }}>
                           {t("ui.manage.domains.field.branding")}
                         </span>
                         <span style={{ color: 'var(--neutral-gray)' }}> {props.branding?.primaryColor || 'Not set'}</span>
@@ -241,7 +241,7 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                       {hasEmail && (
                         <div className="flex items-center gap-2">
                           <Mail size={12} style={{ color: 'var(--success)' }} />
-                          <span style={{ color: 'var(--win95-text)' }}>
+                          <span style={{ color: 'var(--window-document-text)' }}>
                             {t("ui.manage.domains.field.email")} {props.email?.senderEmail}
                           </span>
                         </div>
@@ -250,8 +250,8 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                       {/* Web Publishing */}
                       {hasWeb && (
                         <div className="flex items-center gap-2">
-                          <Layout size={12} style={{ color: 'var(--win95-highlight)' }} />
-                          <span style={{ color: 'var(--win95-text)' }}>
+                          <Layout size={12} style={{ color: 'var(--tone-accent)' }} />
+                          <span style={{ color: 'var(--window-document-text)' }}>
                             {t("ui.manage.domains.field.web")} {props.webPublishing?.siteUrl || t("ui.manage.domains.field.configured")}
                           </span>
                         </div>
@@ -269,11 +269,11 @@ export function DomainConfigTab({ organizationId, sessionId }: DomainConfigTabPr
                         }}
                         className="beveled-button p-2 text-xs"
                         style={{
-                          backgroundColor: "var(--win95-button-face)",
+                          backgroundColor: "var(--window-document-bg)",
                         }}
                         title="Edit"
                       >
-                        <Edit2 size={12} style={{ color: 'var(--win95-text)' }} />
+                        <Edit2 size={12} style={{ color: 'var(--window-document-text)' }} />
                       </button>
                       <button
                         onClick={() => handleDelete(config)}

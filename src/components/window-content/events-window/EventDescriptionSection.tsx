@@ -39,9 +39,9 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
           onClick={onToggle}
           className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <div className="flex-1">
@@ -68,9 +68,9 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
         onClick={onToggle}
         className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
+          color: "var(--shell-text)",
         }}
       >
         <span className="text-sm font-bold flex items-center gap-1">
@@ -80,7 +80,7 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
         <ChevronUp size={16} />
       </button>
 
-      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {t('ui.events.form.description_help')}
         </p>
@@ -95,8 +95,8 @@ export const EventDescriptionSection: React.FC<EventDescriptionSectionProps> = (
 
         {/* AI Suggestion (Future Feature) */}
         <div className="flex items-center justify-between p-2 border-2" style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)"
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)"
         }}>
           <div
             className="flex items-center text-xs cursor-pointer transition-colors"

@@ -39,7 +39,7 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
         <span
           className="px-2 py-0.5 font-bold"
           style={{
-            background: "color-mix(in srgb, var(--info) 10%, var(--win95-bg))",
+            background: "color-mix(in srgb, var(--info) 10%, var(--shell-surface))",
             color: "var(--info)",
           }}
           title={`Included in ${inSetCount} template ${inSetCount === 1 ? "set" : "sets"}`}
@@ -56,7 +56,7 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
         <span
           className="px-2 py-0.5 font-bold"
           style={{
-            background: "color-mix(in srgb, var(--success) 10%, var(--win95-bg))",
+            background: "color-mix(in srgb, var(--success) 10%, var(--shell-surface))",
             color: "var(--success)",
           }}
           title="Used for ticket generation"
@@ -72,7 +72,7 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
         <span
           className="px-2 py-0.5 font-bold"
           style={{
-            background: "color-mix(in srgb, var(--success) 10%, var(--win95-bg))",
+            background: "color-mix(in srgb, var(--success) 10%, var(--shell-surface))",
             color: "var(--success)",
           }}
           title="Used for invoice generation"
@@ -99,7 +99,7 @@ export function TemplateUsageBadges({ usageData }: TemplateUsageBadgesProps) {
         <span
           className="px-2 py-0.5 font-bold"
           style={{
-            background: "color-mix(in srgb, var(--warning) 10%, var(--win95-bg))",
+            background: "color-mix(in srgb, var(--warning) 10%, var(--shell-surface))",
             color: "var(--warning)",
           }}
           title="This template is not used in any template sets and has no usage history"

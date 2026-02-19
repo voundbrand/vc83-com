@@ -44,26 +44,26 @@ export function NewDropdownMenu({
       <div
         className="absolute top-full left-0 mt-1 w-64 border-2 shadow-lg z-50"
         style={{
-          background: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          background: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
         }}
       >
         {/* Create Section */}
-        <div className="p-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="p-2 border-b-2" style={{ borderColor: "var(--shell-border)" }}>
           <p className="text-xs font-bold px-2 py-1" style={{ color: "var(--neutral-gray)" }}>
             CREATE
           </p>
           <button
             onClick={onCreateFolder}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs text-left rounded transition-colors hover:bg-opacity-80"
-            style={{ background: "transparent", color: "var(--win95-text)" }}
+            style={{ background: "transparent", color: "var(--shell-text)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--win95-highlight-bg)";
-              e.currentTarget.style.color = "var(--win95-highlight)";
+              e.currentTarget.style.background = "var(--shell-accent-soft)";
+              e.currentTarget.style.color = "var(--shell-accent)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--win95-text)";
+              e.currentTarget.style.color = "var(--shell-text)";
             }}
           >
             <FolderPlus size={16} />
@@ -72,14 +72,14 @@ export function NewDropdownMenu({
           <button
             onClick={onCreateDocument}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs text-left rounded transition-colors"
-            style={{ background: "transparent", color: "var(--win95-text)" }}
+            style={{ background: "transparent", color: "var(--shell-text)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--win95-highlight-bg)";
-              e.currentTarget.style.color = "var(--win95-highlight)";
+              e.currentTarget.style.background = "var(--shell-accent-soft)";
+              e.currentTarget.style.color = "var(--shell-accent)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--win95-text)";
+              e.currentTarget.style.color = "var(--shell-text)";
             }}
           >
             <FileText size={16} />
@@ -95,14 +95,14 @@ export function NewDropdownMenu({
           <button
             onClick={onUpload}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs text-left rounded transition-colors"
-            style={{ background: "transparent", color: "var(--win95-text)" }}
+            style={{ background: "transparent", color: "var(--shell-text)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--win95-highlight-bg)";
-              e.currentTarget.style.color = "var(--win95-highlight)";
+              e.currentTarget.style.background = "var(--shell-accent-soft)";
+              e.currentTarget.style.color = "var(--shell-accent)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--win95-text)";
+              e.currentTarget.style.color = "var(--shell-text)";
             }}
           >
             <Upload size={16} />
@@ -141,18 +141,18 @@ export function StorageBar({ organizationId, sessionId }: StorageBarProps) {
   return (
     <div
       className="px-6 py-2 border-b-2 flex items-center gap-4"
-      style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+      style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
     >
       <div className="flex-1">
         <div className="flex justify-between text-xs mb-1">
-          <span style={{ color: "var(--win95-text)" }}>
+          <span style={{ color: "var(--shell-text)" }}>
             📊 Using {formatBytes(usage.totalBytes)} of {formatBytes(usage.quotaBytes)}
           </span>
           <span style={{ color: "var(--neutral-gray)" }}>{Math.round(usagePercent)}%</span>
         </div>
         <div
           className="w-full h-2 rounded-full overflow-hidden"
-          style={{ background: "var(--win95-border-light)" }}
+          style={{ background: "var(--shell-border-soft)" }}
         >
           <div
             className="h-2 rounded-full transition-all"
@@ -163,7 +163,7 @@ export function StorageBar({ organizationId, sessionId }: StorageBarProps) {
                   ? "var(--error)"
                   : usagePercent > 75
                   ? "#f59e0b"
-                  : "var(--win95-highlight)",
+                  : "var(--shell-accent)",
             }}
           />
         </div>
@@ -330,7 +330,7 @@ export function ContentArea({
   if (filteredMedia.length === 0 && currentFolders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
-        <p className="text-lg font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <p className="text-lg font-bold mb-2" style={{ color: "var(--shell-text)" }}>
           No files here
         </p>
         <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
@@ -426,7 +426,7 @@ function ListView({
       {/* Header */}
       <div
         className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold border-b-2"
-        style={{ borderColor: "var(--win95-border)", color: "var(--win95-text)" }}
+        style={{ borderColor: "var(--shell-border)", color: "var(--shell-text)" }}
       >
         <div className="col-span-6">Name</div>
         <div className="col-span-2">Size</div>
@@ -441,11 +441,11 @@ function ListView({
           onClick={() => onFolderNavigate?.(folder._id)}
           className="grid grid-cols-12 gap-4 px-4 py-2 text-xs border-b cursor-pointer transition-colors"
           style={{
-            borderColor: "var(--win95-border-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border-soft)",
+            color: "var(--shell-text)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--win95-highlight-bg)";
+            e.currentTarget.style.background = "var(--shell-accent-soft)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";
@@ -506,8 +506,8 @@ function MediaGridItem({ item, isSelected, onClick, sessionId }: MediaGridItemPr
       onClick={onClick}
       className="relative group border-2 rounded-lg overflow-hidden cursor-pointer transition-all"
       style={{
-        borderColor: isSelected ? "var(--win95-highlight)" : "var(--win95-border)",
-        background: isSelected ? "var(--win95-highlight-bg)" : "var(--win95-bg)",
+        borderColor: isSelected ? "var(--shell-accent)" : "var(--shell-border)",
+        background: isSelected ? "var(--shell-accent-soft)" : "var(--shell-surface)",
       }}
     >
       {/* Star Button */}
@@ -526,7 +526,7 @@ function MediaGridItem({ item, isSelected, onClick, sessionId }: MediaGridItemPr
       {/* Preview */}
       <div
         className="aspect-square relative"
-        style={{ background: "var(--win95-bg-light)" }}
+        style={{ background: "var(--shell-surface-elevated)" }}
       >
         {item.mimeType?.startsWith("image/") && item.url ? (
           <Image
@@ -544,8 +544,8 @@ function MediaGridItem({ item, isSelected, onClick, sessionId }: MediaGridItemPr
       </div>
 
       {/* Info */}
-      <div className="p-2" style={{ background: "var(--win95-bg-light)" }}>
-        <p className="text-xs font-medium truncate" style={{ color: "var(--win95-text)" }}>
+      <div className="p-2" style={{ background: "var(--shell-surface-elevated)" }}>
+        <p className="text-xs font-medium truncate" style={{ color: "var(--shell-text)" }}>
           {item.filename}
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -568,21 +568,21 @@ function FolderGridItem({ folder, onClick }: FolderGridItemProps) {
       onClick={onClick}
       className="relative group border-2 rounded-lg overflow-hidden cursor-pointer transition-all"
       style={{
-        borderColor: "var(--win95-border)",
-        background: "var(--win95-bg)",
+        borderColor: "var(--shell-border)",
+        background: "var(--shell-surface)",
       }}
     >
       {/* Folder Icon */}
       <div
         className="aspect-square relative flex items-center justify-center"
-        style={{ background: "var(--win95-bg-light)" }}
+        style={{ background: "var(--shell-surface-elevated)" }}
       >
         <Folder size={56} style={{ color: folder.customProperties?.color || "var(--primary)" }} />
       </div>
 
       {/* Info */}
-      <div className="p-2" style={{ background: "var(--win95-bg-light)" }}>
-        <p className="text-xs font-medium truncate" style={{ color: "var(--win95-text)" }}>
+      <div className="p-2" style={{ background: "var(--shell-surface-elevated)" }}>
+        <p className="text-xs font-medium truncate" style={{ color: "var(--shell-text)" }}>
           {folder.name}
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -606,9 +606,9 @@ function MediaListItem({ item, isSelected, onClick }: MediaListItemProps) {
       onClick={onClick}
       className="grid grid-cols-12 gap-4 px-4 py-2 text-xs border-b cursor-pointer transition-colors"
       style={{
-        borderColor: "var(--win95-border-light)",
-        background: isSelected ? "var(--win95-highlight-bg)" : "transparent",
-        color: isSelected ? "var(--win95-highlight)" : "var(--win95-text)",
+        borderColor: "var(--shell-border-soft)",
+        background: isSelected ? "var(--shell-accent-soft)" : "transparent",
+        color: isSelected ? "var(--shell-accent)" : "var(--shell-text)",
       }}
     >
       <div className="col-span-6 flex items-center gap-2 truncate">

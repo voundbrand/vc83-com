@@ -64,9 +64,9 @@ export function TemplateSetCard({
     <div
       className="border-2 rounded-lg p-4 transition-all cursor-pointer"
       style={{
-        borderColor: templateSet.isDefault ? "var(--win95-highlight)" : "var(--win95-border)",
-        backgroundColor: isHovered ? "var(--win95-bg-light)" : "var(--win95-bg)",
-        boxShadow: isHovered ? "var(--win95-shadow)" : "none",
+        borderColor: templateSet.isDefault ? "var(--tone-accent)" : "var(--window-document-border)",
+        backgroundColor: isHovered ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+        boxShadow: isHovered ? "var(--window-shell-shadow)" : "none",
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -74,8 +74,8 @@ export function TemplateSetCard({
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Package size={18} style={{ color: "var(--win95-highlight)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          <Package size={18} style={{ color: "var(--tone-accent)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {templateSet.name}
           </h3>
         </div>
@@ -83,7 +83,7 @@ export function TemplateSetCard({
           <div
             className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--success) 10%, var(--win95-bg))",
+              backgroundColor: "color-mix(in srgb, var(--success) 10%, var(--window-document-bg))",
               color: "var(--success)",
               borderWidth: "1px",
               borderStyle: "solid",
@@ -104,11 +104,11 @@ export function TemplateSetCard({
               key={tag}
               className="text-xs px-2 py-0.5 rounded font-mono"
               style={{
-                backgroundColor: "color-mix(in srgb, var(--win95-highlight) 10%, var(--win95-bg))",
-                color: "var(--win95-highlight)",
+                backgroundColor: "color-mix(in srgb, var(--tone-accent) 10%, var(--window-document-bg))",
+                color: "var(--tone-accent)",
                 borderWidth: "1px",
                 borderStyle: "solid",
-                borderColor: "var(--win95-highlight)",
+                borderColor: "var(--tone-accent)",
               }}
             >
               #{tag}
@@ -118,22 +118,22 @@ export function TemplateSetCard({
       )}
 
       {/* Divider */}
-      <div className="border-t-2 mb-4" style={{ borderColor: "var(--win95-border)" }} />
+      <div className="border-t-2 mb-4" style={{ borderColor: "var(--window-document-border)" }} />
 
       {/* Comprehensive Template Summary (v2.0+) or Legacy 3-Template View */}
       {templateSet.version && (templateSet.totalEmailTemplates || templateSet.totalPdfTemplates) ? (
         <div className="space-y-4 mb-4">
           {/* Email Templates Section */}
           {templateSet.totalEmailTemplates && (
-            <div className="border-2 rounded p-3" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+            <div className="border-2 rounded p-3" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Mail size={16} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <Mail size={16} style={{ color: "var(--tone-accent)" }} />
+                  <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     Email Templates
                   </span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--tone-accent)", color: "var(--window-document-text)" }}>
                   {templateSet.totalEmailTemplates}
                 </span>
               </div>
@@ -145,15 +145,15 @@ export function TemplateSetCard({
 
           {/* PDF Templates Section */}
           {templateSet.totalPdfTemplates && (
-            <div className="border-2 rounded p-3" style={{ borderColor: "var(--win95-border)", backgroundColor: "var(--win95-bg-light)" }}>
+            <div className="border-2 rounded p-3" style={{ borderColor: "var(--window-document-border)", backgroundColor: "var(--window-document-bg-elevated)" }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <FileText size={16} style={{ color: "var(--win95-highlight)" }} />
-                  <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                  <FileText size={16} style={{ color: "var(--tone-accent)" }} />
+                  <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     PDF Templates
                   </span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--win95-highlight)", color: "var(--win95-titlebar-text)" }}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "var(--tone-accent)", color: "var(--window-document-text)" }}>
                   {templateSet.totalPdfTemplates}
                 </span>
               </div>
@@ -189,7 +189,7 @@ export function TemplateSetCard({
           {/* Version Badge */}
           {templateSet.version && (
             <div className="text-center">
-              <span className="text-xs font-mono px-2 py-1 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--win95-highlight) 10%, var(--win95-bg))", color: "var(--win95-highlight)" }}>
+              <span className="text-xs font-mono px-2 py-1 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--tone-accent) 10%, var(--window-document-bg))", color: "var(--tone-accent)" }}>
                 v{templateSet.version}
               </span>
             </div>
@@ -203,13 +203,13 @@ export function TemplateSetCard({
             <div
               className="w-full aspect-[3/4] border-2 rounded flex items-center justify-center mb-2"
               style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <FileText size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
-            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--window-document-text)" }}>
               <FileText size={12} />
               <span>{t("ui.templates.template_set.label.ticket")}</span>
             </div>
@@ -223,13 +223,13 @@ export function TemplateSetCard({
             <div
               className="w-full aspect-[3/4] border-2 rounded flex items-center justify-center mb-2"
               style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <Receipt size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
-            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--window-document-text)" }}>
               <DollarSign size={12} />
               <span>{t("ui.templates.template_set.label.invoice")}</span>
             </div>
@@ -243,13 +243,13 @@ export function TemplateSetCard({
             <div
               className="w-full aspect-[3/4] border-2 rounded flex items-center justify-center mb-2"
               style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <Mail size={32} style={{ color: "var(--neutral-gray)" }} />
             </div>
-            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+            <div className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--window-document-text)" }}>
               <Mail size={12} />
               <span>{t("ui.templates.template_set.label.email")}</span>
             </div>
@@ -268,23 +268,23 @@ export function TemplateSetCard({
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex gap-2 pt-3 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
         {onPreview && (
           <button
             onClick={onPreview}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
             style={{
-              backgroundColor: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--win95-bg-light) 95%, black)";
+              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--window-document-bg-elevated) 95%, black)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--win95-bg-light)";
+              e.currentTarget.style.backgroundColor = "var(--window-document-bg-elevated)";
             }}
           >
             <Eye size={14} />
@@ -296,17 +296,17 @@ export function TemplateSetCard({
             onClick={onUseSet}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
             style={{
-              backgroundColor: "var(--win95-highlight)",
-              color: "var(--win95-titlebar-text)",
+              backgroundColor: "var(--tone-accent)",
+              color: "var(--window-document-text)",
               borderWidth: "2px",
               borderStyle: "solid",
-              borderColor: "color-mix(in srgb, var(--win95-highlight) 80%, black)",
+              borderColor: "color-mix(in srgb, var(--tone-accent) 80%, black)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--win95-highlight) 90%, black)";
+              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--tone-accent) 90%, black)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--win95-highlight)";
+              e.currentTarget.style.backgroundColor = "var(--tone-accent)";
             }}
           >
             <CheckCircle size={14} />

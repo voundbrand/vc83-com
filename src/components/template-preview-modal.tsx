@@ -189,8 +189,8 @@ export function TemplatePreviewModal({
       <div
         className="w-full max-w-6xl max-h-[95vh] flex flex-col border-4"
         style={{
-          backgroundColor: "var(--win95-bg)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--shell-surface)",
+          borderColor: "var(--shell-border)",
           boxShadow: "var(--modal-shadow)",
         }}
       >
@@ -198,9 +198,9 @@ export function TemplatePreviewModal({
         <div
           className="px-4 py-3 border-b-4 flex items-center justify-between"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-titlebar)",
-            color: "var(--win95-titlebar-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-titlebar-gradient)",
+            color: "var(--shell-titlebar-text)",
           }}
         >
           <h3 className="text-sm font-bold flex items-center gap-2">
@@ -224,8 +224,8 @@ export function TemplatePreviewModal({
         <div
           className="px-4 py-2 border-b-2 flex items-center justify-between gap-4"
           style={{
-            borderColor: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            borderColor: "var(--shell-border)",
+            backgroundColor: "var(--shell-surface-elevated)",
           }}
         >
           {/* View Mode Toggle */}
@@ -236,9 +236,9 @@ export function TemplatePreviewModal({
                 viewMode === "desktop" ? "opacity-100" : "opacity-50"
               }`}
               style={{
-                borderColor: "var(--win95-border)",
-                background: viewMode === "desktop" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: viewMode === "desktop" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: viewMode === "desktop" ? "var(--shell-accent)" : "var(--shell-button-surface)",
+                color: viewMode === "desktop" ? "var(--shell-titlebar-text)" : "var(--shell-text)",
               }}
             >
               <Monitor size={12} />
@@ -250,9 +250,9 @@ export function TemplatePreviewModal({
                 viewMode === "mobile" ? "opacity-100" : "opacity-50"
               }`}
               style={{
-                borderColor: "var(--win95-border)",
-                background: viewMode === "mobile" ? "var(--win95-highlight)" : "var(--win95-button-face)",
-                color: viewMode === "mobile" ? "var(--win95-titlebar-text)" : "var(--win95-text)",
+                borderColor: "var(--shell-border)",
+                background: viewMode === "mobile" ? "var(--shell-accent)" : "var(--shell-button-surface)",
+                color: viewMode === "mobile" ? "var(--shell-titlebar-text)" : "var(--shell-text)",
               }}
             >
               <Smartphone size={12} />
@@ -263,15 +263,15 @@ export function TemplatePreviewModal({
           {/* Language Switcher (for email templates) */}
           {templateType === "email" && templateMetadata && (
             <div className="flex items-center gap-2">
-              <Languages size={14} style={{ color: "var(--win95-text)" }} />
+              <Languages size={14} style={{ color: "var(--shell-text)" }} />
               <select
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value as EmailLanguage)}
                 className="px-2 py-1 text-xs border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  backgroundColor: "var(--win95-input-bg)",
-                  color: "var(--win95-text)",
+                  borderColor: "var(--shell-border)",
+                  backgroundColor: "var(--shell-input-surface)",
+                  color: "var(--shell-text)",
                 }}
               >
                 {(templateMetadata.supportedLanguages as EmailLanguage[]).map((lang) => (
@@ -286,7 +286,7 @@ export function TemplatePreviewModal({
           {/* Template Info */}
           {templateMetadata && (
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
-              <span className="px-2 py-1 rounded border" style={{ borderColor: "var(--win95-border)" }}>
+              <span className="px-2 py-1 rounded border" style={{ borderColor: "var(--shell-border)" }}>
                 {templateMetadata.category}
               </span>
               <span>v{templateMetadata.version}</span>
@@ -298,14 +298,14 @@ export function TemplatePreviewModal({
         <div
           className="flex-1 overflow-auto p-4"
           style={{
-            backgroundColor: "var(--win95-bg)",
+            backgroundColor: "var(--shell-surface)",
           }}
         >
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Loader2 size={32} className="animate-spin mx-auto mb-2" style={{ color: "var(--win95-highlight)" }} />
-                <p className="text-xs" style={{ color: "var(--win95-text)" }}>{t("ui.templates.preview.loading")}</p>
+                <Loader2 size={32} className="animate-spin mx-auto mb-2" style={{ color: "var(--shell-accent)" }} />
+                <p className="text-xs" style={{ color: "var(--shell-text)" }}>{t("ui.templates.preview.loading")}</p>
               </div>
             </div>
           ) : (
@@ -315,8 +315,8 @@ export function TemplatePreviewModal({
                 width: viewMode === "desktop" ? "100%" : "375px",
                 maxWidth: viewMode === "desktop" ? "800px" : "375px",
                 minHeight: "600px",
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                borderColor: "var(--shell-border)",
+                backgroundColor: "var(--shell-surface-elevated)",
                 boxShadow: "var(--modal-shadow)",
               }}
             >
@@ -326,7 +326,7 @@ export function TemplatePreviewModal({
                   width: "100%",
                   minHeight: "600px",
                   border: "none",
-                  background: "var(--win95-bg-light)",
+                  background: "var(--shell-surface-elevated)",
                 }}
                 title="Template Preview"
                 sandbox="allow-same-origin"
@@ -339,14 +339,14 @@ export function TemplatePreviewModal({
         <div
           className="px-4 py-3 border-t-4 flex items-center justify-between"
           style={{
-            borderColor: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            borderColor: "var(--shell-border)",
+            backgroundColor: "var(--shell-surface-elevated)",
           }}
         >
           {/* Template Description */}
           {templateMetadata && (
             <div className="flex-1 mr-4">
-              <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+              <p className="text-xs" style={{ color: "var(--shell-text)" }}>
                 {templateMetadata.description}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -361,9 +361,9 @@ export function TemplatePreviewModal({
               onClick={onClose}
               className="px-4 py-2 text-xs font-semibold border-2"
               style={{
-                backgroundColor: "var(--win95-button-face)",
-                color: "var(--win95-text)",
-                borderColor: "var(--win95-border)",
+                backgroundColor: "var(--shell-button-surface)",
+                color: "var(--shell-text)",
+                borderColor: "var(--shell-border)",
               }}
             >
               {t("ui.templates.preview.button.close")}
@@ -374,8 +374,8 @@ export function TemplatePreviewModal({
                 className="px-4 py-2 text-xs font-semibold border-2"
                 style={{
                   backgroundColor: "var(--success)",
-                  color: "var(--win95-titlebar-text)",
-                  borderColor: "var(--win95-border)",
+                  color: "var(--shell-titlebar-text)",
+                  borderColor: "var(--shell-border)",
                 }}
               >
                 {t("ui.templates.preview.button.select")}

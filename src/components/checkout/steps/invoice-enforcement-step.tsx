@@ -96,7 +96,7 @@ export function InvoiceEnforcementStep({
   if (translationsLoading) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <p style={{ color: 'var(--win95-text)' }}>Loading translations...</p>
+        <p style={{ color: 'var(--shell-text)' }}>Loading translations...</p>
       </div>
     );
   }
@@ -129,7 +129,7 @@ export function InvoiceEnforcementStep({
     <div className="max-w-2xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
+        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
           <FileText size={24} />
           {t("ui.checkout.invoice_enforcement.headers.title")}
         </h2>
@@ -139,15 +139,15 @@ export function InvoiceEnforcementStep({
       </div>
 
       {/* Enforcement Notice */}
-      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-highlight)' }}>
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
-          <CheckCircle size={20} style={{ color: 'var(--win95-highlight)' }} />
+      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--shell-surface-elevated)', borderColor: 'var(--shell-accent)' }}>
+        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
+          <CheckCircle size={20} style={{ color: 'var(--shell-accent)' }} />
           {t("ui.checkout.invoice_enforcement.notice.title")}
         </h3>
-        <div className="border rounded p-4 mb-3" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
-          <p className="text-2xl font-bold" style={{ color: 'var(--win95-highlight)' }}>{employerName}</p>
+        <div className="border rounded p-4 mb-3" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
+          <p className="text-2xl font-bold" style={{ color: 'var(--shell-accent)' }}>{employerName}</p>
         </div>
-        <div className="text-sm space-y-1" style={{ color: 'var(--win95-text)' }}>
+        <div className="text-sm space-y-1" style={{ color: 'var(--shell-text)' }}>
           <p>
             <strong>{t("ui.checkout.invoice_enforcement.notice.payment_terms_label")}</strong> {paymentTermsText}
           </p>
@@ -158,44 +158,44 @@ export function InvoiceEnforcementStep({
       </div>
 
       {/* How It Works */}
-      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--win95-border)' }}>
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.section_title")}</h3>
+      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--shell-surface-elevated)', borderColor: 'var(--shell-border)' }}>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.section_title")}</h3>
         <ol className="space-y-3 text-sm">
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--success)', color: 'var(--win95-bg)' }}>
+            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--success)', color: 'var(--shell-surface)' }}>
               1
             </span>
             <div>
-              <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step1_title")}</p>
+              <p className="font-semibold" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step1_title")}</p>
               <p style={{ color: 'var(--neutral-gray)' }}>{t("ui.checkout.invoice_enforcement.workflow.step1_description")}</p>
             </div>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-titlebar-text)' }}>
+            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--shell-accent)', color: 'var(--shell-titlebar-text)' }}>
               2
             </span>
             <div>
-              <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step2_title", { employerName })}</p>
+              <p className="font-semibold" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step2_title", { employerName })}</p>
               <p style={{ color: 'var(--neutral-gray)' }}>
                 {t("ui.checkout.invoice_enforcement.workflow.step2_description", { amount: formatPrice(total) })}
               </p>
             </div>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--warning)', color: 'var(--win95-text)' }}>
+            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--warning)', color: 'var(--shell-text)' }}>
               3
             </span>
             <div>
-              <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step3_title")}</p>
+              <p className="font-semibold" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step3_title")}</p>
               <p style={{ color: 'var(--neutral-gray)' }}>{t("ui.checkout.invoice_enforcement.workflow.step3_description", { days: confirmedPaymentTerms.replace("net", "") })}</p>
             </div>
           </li>
           <li className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--win95-highlight)', color: 'var(--win95-titlebar-text)' }}>
+            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--shell-accent)', color: 'var(--shell-titlebar-text)' }}>
               4
             </span>
             <div>
-              <p className="font-semibold" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step4_title")}</p>
+              <p className="font-semibold" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.workflow.step4_title")}</p>
               <p style={{ color: 'var(--neutral-gray)' }}>
                 {t("ui.checkout.invoice_enforcement.workflow.step4_description", { email: customerInfo.email })}
               </p>
@@ -205,20 +205,20 @@ export function InvoiceEnforcementStep({
       </div>
 
       {/* Order Summary */}
-      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
-        <h3 className="text-md font-semibold mb-4" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.order_summary.title")}</h3>
+      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
+        <h3 className="text-md font-semibold mb-4" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.order_summary.title")}</h3>
 
         {/* Products */}
-        <div className="space-y-2 mb-4 pb-4 border-b" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="space-y-2 mb-4 pb-4 border-b" style={{ borderColor: 'var(--shell-border)' }}>
           {selectedProducts.map((sp) => {
             const product = linkedProducts.find((p) => p._id === sp.productId);
             return (
               <div key={sp.productId} className="flex justify-between text-sm">
                 <div>
-                  <p className="font-medium" style={{ color: 'var(--win95-text)' }}>{product?.name}</p>
+                  <p className="font-medium" style={{ color: 'var(--shell-text)' }}>{product?.name}</p>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{t("ui.checkout.invoice_enforcement.order_summary.quantity_label", { quantity: sp.quantity })}</p>
                 </div>
-                <p className="font-medium" style={{ color: 'var(--win95-text)' }}>{formatPrice(sp.price * sp.quantity)}</p>
+                <p className="font-medium" style={{ color: 'var(--shell-text)' }}>{formatPrice(sp.price * sp.quantity)}</p>
               </div>
             );
           })}
@@ -226,12 +226,12 @@ export function InvoiceEnforcementStep({
 
         {/* Form Addons */}
         {formAddons > 0 && (
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--win95-border)' }}>
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.order_summary.addons_label")}</p>
+          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--shell-border)' }}>
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.order_summary.addons_label")}</p>
             {formResponses
               .filter((fr) => fr.addedCosts > 0)
               .map((fr) => (
-                <div key={`addon-${fr.productId}-${fr.ticketNumber}`} className="flex justify-between text-sm mb-1" style={{ color: 'var(--win95-text)' }}>
+                <div key={`addon-${fr.productId}-${fr.ticketNumber}`} className="flex justify-between text-sm mb-1" style={{ color: 'var(--shell-text)' }}>
                   <p>{t("ui.checkout.invoice_enforcement.order_summary.ticket_extras", { ticketNumber: fr.ticketNumber })}</p>
                   <p>{formatPrice(fr.addedCosts)}</p>
                 </div>
@@ -243,7 +243,7 @@ export function InvoiceEnforcementStep({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <p style={{ color: 'var(--neutral-gray)' }}>{t("ui.checkout.invoice_enforcement.totals.subtotal_label")}</p>
-            <p className="font-medium" style={{ color: 'var(--win95-text)' }}>{formatPrice(subtotal)}</p>
+            <p className="font-medium" style={{ color: 'var(--shell-text)' }}>{formatPrice(subtotal)}</p>
           </div>
           {taxCalculation && taxCalculation.isTaxable && taxCalculation.taxAmount > 0 && (
             <div className="flex justify-between text-sm">
@@ -255,21 +255,21 @@ export function InvoiceEnforcementStep({
                     : t("ui.checkout.invoice_enforcement.tax.added_label")}
                 </span>
               </p>
-              <p className="font-medium" style={{ color: 'var(--win95-text)' }}>{formatPrice(taxCalculation.taxAmount)}</p>
+              <p className="font-medium" style={{ color: 'var(--shell-text)' }}>{formatPrice(taxCalculation.taxAmount)}</p>
             </div>
           )}
-          <div className="flex justify-between pt-2 mt-2 border-t-2" style={{ borderColor: 'var(--win95-border)' }}>
-            <p className="text-lg font-bold" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.totals.total_amount_label")}</p>
-            <p className="text-lg font-bold" style={{ color: 'var(--win95-highlight)' }}>{formatPrice(total)}</p>
+          <div className="flex justify-between pt-2 mt-2 border-t-2" style={{ borderColor: 'var(--shell-border)' }}>
+            <p className="text-lg font-bold" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.totals.total_amount_label")}</p>
+            <p className="text-lg font-bold" style={{ color: 'var(--shell-accent)' }}>{formatPrice(total)}</p>
           </div>
         </div>
       </div>
 
       {/* Acknowledgment */}
-      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--win95-bg-light)', borderColor: 'var(--warning)' }}>
-        <h3 className="text-md font-semibold mb-3" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.acknowledgment.title")}</h3>
-        <p className="text-sm mb-3" style={{ color: 'var(--win95-text)' }}>{t("ui.checkout.invoice_enforcement.acknowledgment.intro")}</p>
-        <ul className="text-sm space-y-2 list-disc pl-5" style={{ color: 'var(--win95-text)' }}>
+      <div className="border-2 rounded-lg p-6 mb-6" style={{ background: 'var(--shell-surface-elevated)', borderColor: 'var(--warning)' }}>
+        <h3 className="text-md font-semibold mb-3" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.acknowledgment.title")}</h3>
+        <p className="text-sm mb-3" style={{ color: 'var(--shell-text)' }}>{t("ui.checkout.invoice_enforcement.acknowledgment.intro")}</p>
+        <ul className="text-sm space-y-2 list-disc pl-5" style={{ color: 'var(--shell-text)' }}>
           <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item1", { amount: `<strong>${formatPrice(total)}</strong>` }) }} />
           <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item2", { employerName: `<strong>${employerName}</strong>` }) }} />
           <li dangerouslySetInnerHTML={{ __html: t("ui.checkout.invoice_enforcement.acknowledgment.item3", { days: `<strong>${confirmedPaymentTerms.replace("net", "")} days</strong>` }) }} />
@@ -286,9 +286,9 @@ export function InvoiceEnforcementStep({
           onClick={onBack}
           className="px-6 py-3 text-base font-bold border-2 transition-colors flex items-center gap-2"
           style={{
-            background: 'var(--win95-bg)',
-            borderColor: 'var(--win95-border)',
-            color: 'var(--win95-text)'
+            background: 'var(--shell-surface)',
+            borderColor: 'var(--shell-border)',
+            color: 'var(--shell-text)'
           }}
         >
           <ArrowLeft size={16} />
@@ -300,9 +300,9 @@ export function InvoiceEnforcementStep({
           onClick={onComplete}
           className="flex-1 px-6 py-3 text-base font-bold border-2 transition-colors flex items-center justify-center gap-2"
           style={{
-            background: 'var(--win95-highlight)',
-            borderColor: 'var(--win95-highlight)',
-            color: 'var(--win95-titlebar-text)'
+            background: 'var(--shell-accent)',
+            borderColor: 'var(--shell-accent)',
+            color: 'var(--shell-titlebar-text)'
           }}
         >
           {t("ui.checkout.invoice_enforcement.buttons.continue")}

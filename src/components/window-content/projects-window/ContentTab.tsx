@@ -176,7 +176,7 @@ export default function ContentTab({
           <Loader2
             size={32}
             className="animate-spin mx-auto mb-2"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           />
           <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
             Loading content...
@@ -198,7 +198,7 @@ export default function ContentTab({
           />
           <p
             className="font-semibold mb-2"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             No Content Blocks Yet
           </p>
@@ -217,15 +217,15 @@ export default function ContentTab({
       <div
         className="flex items-center justify-between p-3 border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          backgroundColor: "var(--window-document-bg-elevated)",
         }}
       >
         <div className="flex items-center gap-2">
-          <Languages size={16} style={{ color: "var(--win95-highlight)" }} />
+          <Languages size={16} style={{ color: "var(--tone-accent)" }} />
           <span
             className="text-sm font-semibold"
-            style={{ color: "var(--win95-text)" }}
+            style={{ color: "var(--window-document-text)" }}
           >
             Language:
           </span>
@@ -239,13 +239,13 @@ export default function ContentTab({
             style={{
               borderColor:
                 selectedLanguage === "de"
-                  ? "var(--win95-highlight)"
-                  : "var(--win95-border)",
+                  ? "var(--tone-accent)"
+                  : "var(--window-document-border)",
               backgroundColor:
                 selectedLanguage === "de"
                   ? "#f3e8ff"
-                  : "var(--win95-button-face)",
-              color: "var(--win95-text)",
+                  : "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             🇩🇪 German
@@ -258,13 +258,13 @@ export default function ContentTab({
             style={{
               borderColor:
                 selectedLanguage === "en"
-                  ? "var(--win95-highlight)"
-                  : "var(--win95-border)",
+                  ? "var(--tone-accent)"
+                  : "var(--window-document-border)",
               backgroundColor:
                 selectedLanguage === "en"
                   ? "#f3e8ff"
-                  : "var(--win95-button-face)",
-              color: "var(--win95-text)",
+                  : "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             🇬🇧 English
@@ -279,13 +279,13 @@ export default function ContentTab({
           <div
             key={section}
             className="border-2"
-            style={{ borderColor: "var(--win95-border)" }}
+            style={{ borderColor: "var(--window-document-border)" }}
           >
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section)}
               className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
-              style={{ backgroundColor: "var(--win95-bg-light)" }}
+              style={{ backgroundColor: "var(--window-document-bg-elevated)" }}
             >
               <div className="flex items-center gap-2">
                 {expandedSections.has(section) ? (
@@ -295,14 +295,14 @@ export default function ContentTab({
                 )}
                 <span
                   className="text-sm font-bold uppercase"
-                  style={{ color: "var(--win95-text)" }}
+                  style={{ color: "var(--window-document-text)" }}
                 >
                   {section}
                 </span>
                 <span
                   className="text-xs px-2 py-0.5 rounded"
                   style={{
-                    backgroundColor: "var(--win95-highlight)",
+                    backgroundColor: "var(--tone-accent)",
                     color: "white",
                   }}
                 >
@@ -313,14 +313,14 @@ export default function ContentTab({
 
             {/* Section Content */}
             {expandedSections.has(section) && (
-              <div className="border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
                 {blocks
                   .sort((a, b) => a.blockId.localeCompare(b.blockId))
                   .map((block) => (
                     <div
                       key={block.blockId}
                       className="p-3 border-b last:border-b-0"
-                      style={{ borderColor: "var(--win95-border)" }}
+                      style={{ borderColor: "var(--window-document-border)" }}
                     >
                       {/* Block Header */}
                       <div className="flex items-start justify-between mb-2">
@@ -377,7 +377,7 @@ export default function ContentTab({
                               className="p-1.5 hover:bg-purple-100 rounded transition-colors"
                               title="Edit"
                             >
-                              <Edit2 size={14} style={{ color: "var(--win95-highlight)" }} />
+                              <Edit2 size={14} style={{ color: "var(--tone-accent)" }} />
                             </button>
                           )}
                         </div>
@@ -391,7 +391,7 @@ export default function ContentTab({
                             onChange={(e) => setEditValue(e.target.value)}
                             className="w-full p-2 text-sm border-2 rounded resize-y min-h-[80px]"
                             style={{
-                              borderColor: "var(--win95-highlight)",
+                              borderColor: "var(--tone-accent)",
                               backgroundColor: "white",
                             }}
                             autoFocus
@@ -418,9 +418,9 @@ export default function ContentTab({
                               onClick={handleCancelEdit}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border-2 transition-colors"
                               style={{
-                                borderColor: "var(--win95-border)",
-                                backgroundColor: "var(--win95-button-face)",
-                                color: "var(--win95-text)",
+                                borderColor: "var(--window-document-border)",
+                                backgroundColor: "var(--window-document-bg-elevated)",
+                                color: "var(--window-document-text)",
                               }}
                             >
                               <X size={12} />
@@ -431,7 +431,7 @@ export default function ContentTab({
                       ) : (
                         <p
                           className="text-sm whitespace-pre-wrap"
-                          style={{ color: "var(--win95-text)" }}
+                          style={{ color: "var(--window-document-text)" }}
                         >
                           {block.content[selectedLanguage] || (
                             <span style={{ color: "var(--neutral-gray)", fontStyle: "italic" }}>
@@ -457,27 +457,34 @@ export default function ContentTab({
           <div
             className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto border-2"
             style={{
-              borderColor: "var(--win95-border)",
-              backgroundColor: "var(--win95-bg)",
+              borderColor: "var(--window-document-border)",
+              backgroundColor: "var(--window-document-bg)",
             }}
           >
             {/* Modal Header */}
             <div
               className="sticky top-0 flex items-center justify-between p-3 border-b-2"
               style={{
-                borderColor: "var(--win95-border)",
-                backgroundColor: "var(--win95-titlebar)",
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-titlebar-bg)",
               }}
             >
-              <div className="flex items-center gap-2 text-white">
+              <div className="flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                 <History size={16} />
                 <span className="font-bold text-sm">Version History</span>
               </div>
               <button
                 onClick={() => setShowHistoryFor(null)}
-                className="p-1 hover:bg-white/20 rounded"
+                className="rounded p-1"
+                style={{ backgroundColor: "transparent", color: "var(--window-document-text)" }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.backgroundColor = "var(--desktop-menu-hover)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.backgroundColor = "transparent";
+                }}
               >
-                <X size={14} className="text-white" />
+                <X size={14} />
               </button>
             </div>
 
@@ -495,7 +502,7 @@ export default function ContentTab({
                   <Loader2
                     size={24}
                     className="animate-spin"
-                    style={{ color: "var(--win95-highlight)" }}
+                    style={{ color: "var(--tone-accent)" }}
                   />
                 </div>
               ) : revisions.length === 0 ? (
@@ -518,14 +525,14 @@ export default function ContentTab({
                     <div
                       key={rev.version}
                       className="p-3 border-2"
-                      style={{ borderColor: "var(--win95-border)" }}
+                      style={{ borderColor: "var(--window-document-border)" }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span
                             className="text-xs font-bold px-2 py-0.5 rounded"
                             style={{
-                              backgroundColor: "var(--win95-highlight)",
+                              backgroundColor: "var(--tone-accent)",
                               color: "white",
                             }}
                           >
@@ -543,8 +550,8 @@ export default function ContentTab({
                           onClick={() => handleRestore(rev.version)}
                           className="text-xs px-2 py-1 border hover:bg-purple-50"
                           style={{
-                            borderColor: "var(--win95-highlight)",
-                            color: "var(--win95-highlight)",
+                            borderColor: "var(--tone-accent)",
+                            color: "var(--tone-accent)",
                           }}
                         >
                           Restore
@@ -559,10 +566,10 @@ export default function ContentTab({
                         </p>
                       )}
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                           🇩🇪 {rev.content.de || <em className="text-gray-400">empty</em>}
                         </p>
-                        <p className="text-xs font-semibold" style={{ color: "var(--win95-text)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                           🇬🇧 {rev.content.en || <em className="text-gray-400">empty</em>}
                         </p>
                       </div>

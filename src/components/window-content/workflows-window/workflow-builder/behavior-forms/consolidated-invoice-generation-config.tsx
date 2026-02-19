@@ -45,7 +45,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
   });
 
   if (translationsLoading) {
-    return <div className="p-4" style={{ color: "var(--win95-text)" }}>Loading...</div>;
+    return <div className="p-4" style={{ color: "var(--window-document-text)" }}>Loading...</div>;
   }
 
   return (
@@ -54,13 +54,13 @@ export function ConsolidatedInvoiceGenerationConfigForm({
       <div
         className="p-4 border-2 rounded space-y-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-          <FileCheck className="h-4 w-4" style={{ color: "var(--win95-highlight)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <FileCheck className="h-4 w-4" style={{ color: "var(--tone-accent)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.ticket_selection.title")}
           </h3>
         </div>
@@ -71,7 +71,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Event Selection */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.event.label")}
           </label>
           <select
@@ -93,7 +93,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Organization Selection */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.organization.label")}
           </label>
           <select
@@ -115,7 +115,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Payment Status */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.payment_status.label")}
           </label>
           <select
@@ -132,7 +132,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
         {/* Date Range */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.consolidated_invoice.date_range.start")}
             </label>
             <input
@@ -155,7 +155,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.consolidated_invoice.date_range.end")}
             </label>
             <input
@@ -181,7 +181,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Minimum Ticket Count */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.min_tickets.label")}
           </label>
           <input
@@ -205,7 +205,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
             onChange={(e) => onChange({ ...config, excludeInvoiced: e.target.checked })}
             className="retro-checkbox"
           />
-          <label htmlFor="excludeInvoiced" className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="excludeInvoiced" className="text-xs" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.exclude_invoiced.label")}
           </label>
         </div>
@@ -215,20 +215,20 @@ export function ConsolidatedInvoiceGenerationConfigForm({
       <div
         className="p-4 border-2 rounded space-y-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-          <DollarSign className="h-4 w-4" style={{ color: "var(--win95-highlight)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <DollarSign className="h-4 w-4" style={{ color: "var(--tone-accent)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.invoice_settings.title")}
           </h3>
         </div>
 
         {/* Payment Terms */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.invoice_mapping.payment_terms.label")}
           </label>
           <select
@@ -244,7 +244,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Invoice Prefix */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.invoice_prefix.label")}
           </label>
           <input
@@ -261,7 +261,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* PDF Template */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.template.label")}
           </label>
           <select
@@ -284,7 +284,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
               onChange={(e) => onChange({ ...config, includeTicketHolderDetails: e.target.checked })}
               className="retro-checkbox"
             />
-            <label htmlFor="includeTicketHolderDetails" className="text-xs" style={{ color: "var(--win95-text)" }}>
+            <label htmlFor="includeTicketHolderDetails" className="text-xs" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.consolidated_invoice.display_options.ticket_holder")}
             </label>
           </div>
@@ -297,7 +297,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
               onChange={(e) => onChange({ ...config, groupByTicketHolder: e.target.checked })}
               className="retro-checkbox"
             />
-            <label htmlFor="groupByTicketHolder" className="text-xs" style={{ color: "var(--win95-text)" }}>
+            <label htmlFor="groupByTicketHolder" className="text-xs" style={{ color: "var(--window-document-text)" }}>
               {t("ui.workflows.consolidated_invoice.display_options.group_by")}
             </label>
           </div>
@@ -305,7 +305,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
         {/* Custom Notes */}
         <div>
-          <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+          <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.notes.label")}
           </label>
           <textarea
@@ -322,13 +322,13 @@ export function ConsolidatedInvoiceGenerationConfigForm({
       <div
         className="p-4 border-2 rounded space-y-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
-          <Mail className="h-4 w-4" style={{ color: "var(--win95-highlight)" }} />
-          <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <Mail className="h-4 w-4" style={{ color: "var(--tone-accent)" }} />
+          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.email.title")}
           </h3>
         </div>
@@ -342,7 +342,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
             onChange={(e) => onChange({ ...config, sendEmail: e.target.checked })}
             className="retro-checkbox"
           />
-          <label htmlFor="sendEmail" className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+          <label htmlFor="sendEmail" className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
             {t("ui.workflows.consolidated_invoice.email.send.label")}
           </label>
         </div>
@@ -351,7 +351,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
           <>
             {/* Email Subject */}
             <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.workflows.consolidated_invoice.email.subject.label")}
               </label>
               <input
@@ -368,7 +368,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
             {/* Email Message */}
             <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.workflows.consolidated_invoice.email.message.label")}
               </label>
               <textarea
@@ -382,7 +382,7 @@ export function ConsolidatedInvoiceGenerationConfigForm({
 
             {/* CC Emails */}
             <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 {t("ui.workflows.consolidated_invoice.email.cc.label")}
               </label>
               <input
@@ -412,11 +412,11 @@ export function ConsolidatedInvoiceGenerationConfigForm({
       <div
         className="p-3 border-2 rounded"
         style={{
-          borderColor: "var(--win95-highlight)",
+          borderColor: "var(--tone-accent)",
           background: "#f0f9ff",
         }}
       >
-        <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.workflows.consolidated_invoice.summary.title")}
         </p>
         <ul className="text-[10px] space-y-1" style={{ color: "var(--neutral-gray)" }}>

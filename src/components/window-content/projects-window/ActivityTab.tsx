@@ -92,8 +92,8 @@ export default function ActivityTab({ projectId, sessionId }: ActivityTabProps) 
         <div
           className="p-8 text-center border-2 rounded"
           style={{
-            border: "var(--win95-border)",
-            backgroundColor: "var(--win95-bg-light)",
+            border: "var(--window-document-border)",
+            backgroundColor: "var(--window-document-bg-elevated)",
           }}
         >
           <p className="text-sm text-gray-600">No activity yet</p>
@@ -105,8 +105,8 @@ export default function ActivityTab({ projectId, sessionId }: ActivityTabProps) 
               key={activity._id}
               className="p-3 border-2 rounded bg-white flex items-start gap-3"
               style={{
-                border: "var(--win95-border)",
-                backgroundColor: "var(--win95-bg-light)",
+                border: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg-elevated)",
               }}
             >
               <div className="flex-shrink-0 mt-0.5">

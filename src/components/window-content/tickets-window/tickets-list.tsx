@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { Edit2, Trash2, CheckCircle, Loader2, User, Ban } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TicketDetailModal } from "./ticket-detail-modal";
 import { ConfirmationModal } from "@/components/confirmation-modal";
@@ -14,12 +14,13 @@ interface TicketsListProps {
   organizationId: Id<"organizations">;
   onEdit: (ticketId: Id<"objects">) => void;
   initialEventId?: Id<"objects">;
+  initialTicketId?: Id<"objects">;
 }
 
 type SortField = "createdAt" | "name" | "status" | "subtype";
 type SortDirection = "asc" | "desc";
 
-export function TicketsList({ sessionId, organizationId, onEdit, initialEventId }: TicketsListProps) {
+export function TicketsList({ sessionId, organizationId, onEdit, initialEventId, initialTicketId }: TicketsListProps) {
   const { t } = useNamespaceTranslations("ui.tickets");
   const [filter, setFilter] = useState<{ ticketType?: string; status?: string; eventId?: Id<"objects"> }>(
     initialEventId ? { eventId: initialEventId } : {}
@@ -41,6 +42,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
     message: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [autoOpenedTicketId, setAutoOpenedTicketId] = useState<Id<"objects"> | null>(null);
 
   // Get tickets from Convex
   const tickets = useQuery(api.ticketOntology.getTickets, {
@@ -55,9 +57,27 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId 
     organizationId,
   });
 
+  const initialTicket = useQuery(
+    api.ticketOntology.getTicket,
+    sessionId && initialTicketId
+      ? {
+          sessionId,
+          ticketId: initialTicketId,
+        }
+      : "skip"
+  );
+
   const cancelTicket = useMutation(api.ticketOntology.cancelTicket);
   const deleteTicket = useMutation(api.ticketOntology.deleteTicket);
   const redeemTicket = useMutation(api.ticketOntology.redeemTicket);
+
+  useEffect(() => {
+    if (!initialTicket || !initialTicketId) return;
+    if (autoOpenedTicketId === initialTicket._id) return;
+
+    setSelectedTicket(initialTicket);
+    setAutoOpenedTicketId(initialTicket._id);
+  }, [initialTicket, initialTicketId, autoOpenedTicketId]);
 
   const openConfirmModal = (
     action: "cancel" | "delete" | "redeem",

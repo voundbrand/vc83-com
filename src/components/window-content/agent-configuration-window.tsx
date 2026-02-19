@@ -256,7 +256,7 @@ function AgentsListTab({
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const openAgentBuilder = () => { openWindow("builder-browser", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, undefined, { initialSetupMode: true }); };
+  const openAgentBuilder = () => { openWindow("builder", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, undefined, { initialSetupMode: true }); };
   if (!agents) {
     return <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>Loading agents...</div>;
   }

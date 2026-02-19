@@ -19,7 +19,10 @@ import {
   getUserPermissions
 } from "../helpers/test-setup";
 
-describe("User Workflow Integration Tests", () => {
+const runCloudIntegration = process.env.RUN_CLOUD_INTEGRATION_TESTS === "true";
+const describeCloudIntegration = runCloudIntegration ? describe : describe.skip;
+
+describeCloudIntegration("User Workflow Integration Tests", () => {
   let t: ConvexTestingHelper;
   let testData: Awaited<ReturnType<typeof setupRBACTestEnvironment>>;
 

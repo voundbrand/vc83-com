@@ -1164,10 +1164,10 @@ export function V0SandpackPreview({ generatedFiles, height = "100%", onIframeRef
   return (
     <div className="relative w-full" style={{ height }}>
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/50 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/50 z-10">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-400 mx-auto mb-3" />
-            <p className="text-zinc-400 text-sm">Building preview...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-amber-400 mx-auto mb-3" />
+            <p className="text-neutral-400 text-sm">Building preview...</p>
           </div>
         </div>
       )}

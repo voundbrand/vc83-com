@@ -198,7 +198,7 @@ export function FloatingWindow({
   return (
     <div
       ref={windowRef}
-      className={`fixed retro-window desktop-window-shell window-corners flex flex-col ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
+      className={`fixed desktop-shell-window desktop-window-shell window-corners flex flex-col ${isDragging ? 'window-drag-shadow' : ''} ${className}`}
       style={{
         left: windowState?.position?.x || initialPosition.x,
         top: windowState?.isMaximized
@@ -228,16 +228,16 @@ export function FloatingWindow({
     >
       {/* Title Bar */}
       <div
-        className={`retro-titlebar desktop-window-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
+        className={`desktop-shell-titlebar desktop-window-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
         onMouseDown={handleMouseDown}
       >
-        <span className="font-semibold text-sm select-none truncate pr-2" style={{ color: 'var(--win95-titlebar-text)' }}>
+        <span className="font-semibold text-sm select-none truncate pr-2" style={{ color: 'var(--shell-titlebar-text)' }}>
           {displayTitle}
         </span>
         <div className="flex gap-1">
           {/* Minimize Button */}
           <button
-            className="retro-control-button desktop-window-control retro-minimize-btn"
+            className="desktop-shell-control-button desktop-window-control desktop-window-minimize-btn"
             onClick={(e) => {
               e.stopPropagation()
               minimizeWindow(id)
@@ -249,7 +249,7 @@ export function FloatingWindow({
           </button>
           {/* Maximize/Restore Button */}
           <button
-            className="retro-control-button desktop-window-control retro-maximize-btn"
+            className="desktop-shell-control-button desktop-window-control desktop-window-maximize-btn"
             onClick={(e) => {
               e.stopPropagation()
               if (windowState?.isMaximized) {
@@ -267,7 +267,7 @@ export function FloatingWindow({
           </button>
           {/* Close Button */}
           <button
-            className="retro-control-button desktop-window-control desktop-window-control-close retro-close-btn"
+            className="desktop-shell-control-button desktop-window-control desktop-window-control-close desktop-window-close-btn"
             onClick={(e) => {
               e.stopPropagation()
               closeWindow(id)

@@ -51,22 +51,22 @@ export function AddressModal({
         <div
           className="border-4 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
           style={{
-            backgroundColor: "var(--win95-bg)",
-            borderColor: "var(--win95-border)",
-            boxShadow: "var(--win95-shadow)",
+            backgroundColor: "var(--window-document-bg)",
+            borderColor: "var(--window-document-border)",
+            boxShadow: "var(--window-shell-shadow)",
           }}
         >
           {/* Header */}
           <div
             className="px-4 py-2 flex items-center justify-between border-b-4"
             style={{
-              background: "var(--win95-titlebar)",
-              borderColor: "var(--win95-border)",
+              background: "var(--window-titlebar-bg)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <h2
               className="font-bold text-lg"
-              style={{ color: "var(--win95-titlebar-text)" }}
+              style={{ color: "var(--window-document-text)" }}
             >
               {address ? t("ui.manage.address.modal.edit_title") : t("ui.manage.address.modal.add_title")}
             </h2>
@@ -75,7 +75,7 @@ export function AddressModal({
               className="p-1 hover:opacity-80"
               disabled={isSubmitting}
               style={{
-                color: "var(--win95-titlebar-text)",
+                color: "var(--window-document-text)",
               }}
             >
               <X className="w-5 h-5" />
@@ -85,7 +85,7 @@ export function AddressModal({
           {/* Content */}
           <div
             className="p-6 overflow-y-auto flex-1"
-            style={{ backgroundColor: "var(--win95-bg)" }}
+            style={{ backgroundColor: "var(--window-document-bg)" }}
           >
             <AddressForm
               initialData={address}

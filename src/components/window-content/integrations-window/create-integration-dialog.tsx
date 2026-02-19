@@ -154,15 +154,15 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
       <div
         className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-4 shadow-lg"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg)',
         }}
       >
         {/* Header */}
         <div
           className="px-3 py-2 flex items-center justify-between shrink-0"
           style={{
-            backgroundColor: 'var(--win95-highlight)',
+            backgroundColor: 'var(--tone-accent)',
             color: 'white',
           }}
         >
@@ -179,7 +179,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
 
         {/* Progress Steps (hidden on success) */}
         {currentStep !== "success" && (
-          <div className="flex border-b-2 shrink-0" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="flex border-b-2 shrink-0" style={{ borderColor: 'var(--window-document-border)' }}>
             {[
               { key: "info", label: "1. Info" },
               { key: "uris", label: "2. Redirect URIs" },
@@ -190,9 +190,9 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 key={step.key}
                 className="flex-1 px-3 py-2 text-xs font-bold text-center border-r-2 last:border-r-0"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  backgroundColor: currentStep === step.key ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
-                  color: currentStep === step.key ? 'var(--win95-text)' : 'var(--neutral-gray)',
+                  borderColor: 'var(--window-document-border)',
+                  backgroundColor: currentStep === step.key ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
+                  color: currentStep === step.key ? 'var(--window-document-text)' : 'var(--neutral-gray)',
                 }}
               >
                 {step.label}
@@ -207,7 +207,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           {currentStep === "info" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Integration Name *
                 </label>
                 <input
@@ -217,9 +217,9 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                   placeholder="e.g., My Website, Mobile App"
                   className="w-full px-3 py-2 text-sm border-2"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)',
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)',
                   }}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -228,7 +228,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Description (optional)
                 </label>
                 <textarea
@@ -238,15 +238,15 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                   rows={2}
                   className="w-full px-3 py-2 text-sm border-2 resize-none"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-text)',
+                    borderColor: 'var(--window-document-border)',
+                    background: 'var(--window-document-bg)',
+                    color: 'var(--window-document-text)',
                   }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Icon
                 </label>
                 <FAIconPicker selectedIcon={icon} onSelect={setIcon} />
@@ -258,7 +258,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           {currentStep === "uris" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Redirect URIs *
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -275,15 +275,15 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                         placeholder="https://yoursite.com/callback"
                         className="flex-1 px-3 py-2 text-sm border-2"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-input-bg)',
-                          color: 'var(--win95-text)',
+                          borderColor: 'var(--window-document-border)',
+                          background: 'var(--window-document-bg)',
+                          color: 'var(--window-document-text)',
                         }}
                       />
                       {redirectUris.length > 1 && (
                         <button
                           onClick={() => handleRemoveUri(index)}
-                          className="beveled-button px-3 py-2"
+                          className="desktop-interior-button px-3 py-2"
                           style={{
                             backgroundColor: '#ef4444',
                             color: 'white',
@@ -299,7 +299,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 <button
                   onClick={handleAddUri}
                   className="mt-2 text-xs font-bold"
-                  style={{ color: 'var(--win95-highlight)' }}
+                  style={{ color: 'var(--tone-accent)' }}
                 >
                   + Add another URI
                 </button>
@@ -308,11 +308,11 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               <div
                 className="p-3 border-2 rounded text-xs"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
                 }}
               >
-                <p className="font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                <p className="font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                   💡 Tips:
                 </p>
                 <ul style={{ color: 'var(--neutral-gray)' }} className="space-y-1">
@@ -328,7 +328,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           {currentStep === "scopes" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Permissions (Scopes)
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -346,7 +346,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           {currentStep === "type" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+                <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
                   Application Type
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
@@ -358,22 +358,22 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                     onClick={() => setAppType("confidential")}
                     className="w-full flex items-start gap-3 p-3 border-2 rounded text-left transition-colors"
                     style={{
-                      borderColor: appType === "confidential" ? 'var(--win95-highlight)' : 'var(--win95-border)',
-                      background: appType === "confidential" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                      borderColor: appType === "confidential" ? 'var(--tone-accent)' : 'var(--window-document-border)',
+                      background: appType === "confidential" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
                     }}
                   >
                     <div className="mt-0.5">
                       <div
                         className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                        style={{ borderColor: 'var(--win95-border)' }}
+                        style={{ borderColor: 'var(--window-document-border)' }}
                       >
                         {appType === "confidential" && (
-                          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--win95-highlight)' }} />
+                          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--tone-accent)' }} />
                         )}
                       </div>
                     </div>
                     <div>
-                      <div className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                      <div className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                         Confidential (Server-side)
                       </div>
                       <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -386,22 +386,22 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                     onClick={() => setAppType("public")}
                     className="w-full flex items-start gap-3 p-3 border-2 rounded text-left transition-colors"
                     style={{
-                      borderColor: appType === "public" ? 'var(--win95-highlight)' : 'var(--win95-border)',
-                      background: appType === "public" ? 'var(--win95-bg-light)' : 'var(--win95-bg)',
+                      borderColor: appType === "public" ? 'var(--tone-accent)' : 'var(--window-document-border)',
+                      background: appType === "public" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
                     }}
                   >
                     <div className="mt-0.5">
                       <div
                         className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                        style={{ borderColor: 'var(--win95-border)' }}
+                        style={{ borderColor: 'var(--window-document-border)' }}
                       >
                         {appType === "public" && (
-                          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--win95-highlight)' }} />
+                          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--tone-accent)' }} />
                         )}
                       </div>
                     </div>
                     <div>
-                      <div className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+                      <div className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                         Public (Client-side)
                       </div>
                       <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -422,7 +422,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                   <Check size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg" style={{ color: 'var(--win95-text)' }}>
+                  <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
                     Integration Created!
                   </h3>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -448,7 +448,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               {/* Credentials */}
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Client ID
                   </label>
                   <div className="flex gap-2">
@@ -458,16 +458,16 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                       readOnly
                       className="flex-1 px-3 py-2 text-sm border-2 font-mono"
                       style={{
-                        borderColor: 'var(--win95-border)',
-                        background: 'var(--win95-bg-light)',
-                        color: 'var(--win95-text)',
+                        borderColor: 'var(--window-document-border)',
+                        background: 'var(--window-document-bg-elevated)',
+                        color: 'var(--window-document-text)',
                       }}
                     />
                     <button
                       onClick={() => handleCopy("id")}
-                      className="beveled-button px-3 py-2 font-bold text-xs"
+                      className="desktop-interior-button px-3 py-2 font-bold text-xs"
                       style={{
-                        backgroundColor: copied === "id" ? '#10b981' : 'var(--win95-highlight)',
+                        backgroundColor: copied === "id" ? '#10b981' : 'var(--tone-accent)',
                         color: 'white',
                       }}
                     >
@@ -477,7 +477,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
                     Client Secret
                   </label>
                   <div className="flex gap-2">
@@ -489,14 +489,14 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                       style={{
                         borderColor: '#ef4444',
                         background: '#fee2e2',
-                        color: 'var(--win95-text)',
+                        color: 'var(--window-document-text)',
                       }}
                     />
                     <button
                       onClick={() => handleCopy("secret")}
-                      className="beveled-button px-3 py-2 font-bold text-xs"
+                      className="desktop-interior-button px-3 py-2 font-bold text-xs"
                       style={{
-                        backgroundColor: copied === "secret" ? '#10b981' : 'var(--win95-highlight)',
+                        backgroundColor: copied === "secret" ? '#10b981' : 'var(--tone-accent)',
                         color: 'white',
                       }}
                     >
@@ -512,16 +512,16 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
         {/* Footer */}
         <div
           className="px-4 py-3 border-t-2 flex justify-between shrink-0"
-          style={{ borderColor: 'var(--win95-border)', background: 'var(--win95-bg-light)' }}
+          style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}
         >
           {currentStep !== "success" ? (
             <>
               <button
                 onClick={currentStep === "info" ? onClose : goPrev}
-                className="beveled-button px-4 py-2 text-xs font-bold flex items-center gap-1"
+                className="desktop-interior-button px-4 py-2 text-xs font-bold flex items-center gap-1"
                 style={{
-                  backgroundColor: 'var(--win95-button-face)',
-                  color: 'var(--win95-text)',
+                  backgroundColor: 'var(--window-document-bg)',
+                  color: 'var(--window-document-text)',
                 }}
               >
                 {currentStep === "info" ? (
@@ -535,9 +535,9 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               <button
                 onClick={goNext}
                 disabled={!canProceed() || isCreating}
-                className="beveled-button px-4 py-2 text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="desktop-interior-button px-4 py-2 text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: 'var(--win95-highlight)',
+                  backgroundColor: 'var(--tone-accent)',
                 }}
               >
                 {isCreating ? (
@@ -556,9 +556,9 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           ) : (
             <button
               onClick={handleDone}
-              className="beveled-button ml-auto px-6 py-2 text-xs font-bold text-white"
+              className="desktop-interior-button ml-auto px-6 py-2 text-xs font-bold text-white"
               style={{
-                backgroundColor: 'var(--win95-highlight)',
+                backgroundColor: 'var(--tone-accent)',
               }}
             >
               Done - I've Saved My Credentials

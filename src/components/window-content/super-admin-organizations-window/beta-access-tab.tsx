@@ -91,21 +91,21 @@ export function BetaAccessTab() {
 
   if (!sessionId) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: "var(--win95-bg)" }}>
+      <div className="h-full flex items-center justify-center" style={{ backgroundColor: "var(--window-document-bg)" }}>
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--neutral-gray)" }} />
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-auto p-6" style={{ backgroundColor: "var(--win95-bg)" }}>
+    <div className="h-full overflow-auto p-6" style={{ backgroundColor: "var(--window-document-bg)" }}>
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Shield size={24} style={{ color: "var(--primary)" }} />
           Beta Access Management
         </h2>
-        <p className="text-sm mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+        <p className="text-sm mt-1" style={{ color: "var(--window-document-text-muted)" }}>
           Control platform-wide beta access gating and manage user requests
         </p>
       </div>
@@ -114,16 +114,16 @@ export function BetaAccessTab() {
       <div
         className="mb-6 p-4 rounded"
         style={{
-          backgroundColor: "var(--win95-input-bg)",
-          border: "2px solid var(--win95-border)",
+          backgroundColor: "var(--window-document-bg)",
+          border: "2px solid var(--window-document-border)",
         }}
       >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="font-bold text-lg" style={{ color: "var(--win95-text)" }}>
+            <h3 className="font-bold text-lg" style={{ color: "var(--window-document-text)" }}>
               Beta Access Gating
             </h3>
-            <p className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>
+            <p className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>
               Control whether new users need approval to access the platform
             </p>
           </div>
@@ -135,14 +135,14 @@ export function BetaAccessTab() {
                 : ""
             }`}
             style={{
-              backgroundColor: betaGatingStatus?.enabled ? undefined : "var(--win95-button-bg)",
-              color: betaGatingStatus?.enabled ? "white" : "var(--win95-text)",
+              backgroundColor: betaGatingStatus?.enabled ? undefined : "var(--window-document-bg)",
+              color: betaGatingStatus?.enabled ? "white" : "var(--window-document-text)",
             }}
           >
             {betaGatingStatus?.enabled ? "ON" : "OFF"}
           </button>
         </div>
-        <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>
+        <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>
           {betaGatingStatus?.enabled ? (
             <span className="flex items-center gap-2">
               <Check size={16} style={{ color: "var(--success)" }} />
@@ -158,7 +158,7 @@ export function BetaAccessTab() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-4 border-b-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="flex gap-2 mb-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
         {(["pending", "approved", "rejected"] as const).map((filter) => (
           <button
             key={filter}
@@ -167,9 +167,9 @@ export function BetaAccessTab() {
               activeFilter === filter ? "" : "opacity-70"
             }`}
             style={{
-              backgroundColor: activeFilter === filter ? "var(--win95-bg)" : "var(--win95-button-bg)",
-              color: "var(--win95-text)",
-              borderColor: "var(--win95-border)",
+              backgroundColor: activeFilter === filter ? "var(--window-document-bg)" : "var(--window-document-bg)",
+              color: "var(--window-document-text)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -192,8 +192,8 @@ export function BetaAccessTab() {
       <div
         className="rounded"
         style={{
-          backgroundColor: "var(--win95-input-bg)",
-          border: "2px solid var(--win95-border)",
+          backgroundColor: "var(--window-document-bg)",
+          border: "2px solid var(--window-document-border)",
         }}
       >
         {!betaRequests ? (
@@ -201,26 +201,26 @@ export function BetaAccessTab() {
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--neutral-gray)" }} />
           </div>
         ) : betaRequests.length === 0 ? (
-          <div className="p-8 text-center" style={{ color: "var(--win95-text-secondary)" }}>
+          <div className="p-8 text-center" style={{ color: "var(--window-document-text-muted)" }}>
             No {activeFilter} beta requests found
           </div>
         ) : (
-          <div className="divide-y-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="divide-y-2" style={{ borderColor: "var(--window-document-border)" }}>
             {betaRequests.map((request) => (
               <div key={request.userId} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="font-bold" style={{ color: "var(--win95-text)" }}>
+                    <div className="font-bold" style={{ color: "var(--window-document-text)" }}>
                       {request.firstName || request.lastName
                         ? `${request.firstName || ""} ${request.lastName || ""}`.trim()
                         : "No name provided"}
                     </div>
-                    <div className="text-sm" style={{ color: "var(--win95-text-secondary)" }}>
+                    <div className="text-sm" style={{ color: "var(--window-document-text-muted)" }}>
                       {request.email}
                     </div>
 
                     {request.requestedAt && (
-                      <div className="text-xs mt-1" style={{ color: "var(--win95-text-secondary)" }}>
+                      <div className="text-xs mt-1" style={{ color: "var(--window-document-text-muted)" }}>
                         Requested: {new Date(request.requestedAt).toLocaleString()}
                       </div>
                     )}
@@ -232,19 +232,19 @@ export function BetaAccessTab() {
                     )}
 
                     {request.requestReason && (
-                      <div className="mt-2 text-sm" style={{ color: "var(--win95-text)" }}>
+                      <div className="mt-2 text-sm" style={{ color: "var(--window-document-text)" }}>
                         <strong>Reason:</strong> {request.requestReason}
                       </div>
                     )}
 
                     {request.useCase && (
-                      <div className="mt-1 text-sm" style={{ color: "var(--win95-text)" }}>
+                      <div className="mt-1 text-sm" style={{ color: "var(--window-document-text)" }}>
                         <strong>Use Case:</strong> {request.useCase}
                       </div>
                     )}
 
                     {request.referralSource && (
-                      <div className="mt-1 text-sm" style={{ color: "var(--win95-text)" }}>
+                      <div className="mt-1 text-sm" style={{ color: "var(--window-document-text)" }}>
                         <strong>Referral:</strong> {request.referralSource}
                       </div>
                     )}
@@ -255,7 +255,7 @@ export function BetaAccessTab() {
                         style={{
                           backgroundColor: "rgba(239, 68, 68, 0.1)",
                           border: "1px solid var(--error)",
-                          color: "var(--win95-text)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <strong>Rejection Reason:</strong> {request.rejectionReason}
@@ -302,8 +302,8 @@ export function BetaAccessTab() {
           <div
             className="w-full max-w-md rounded"
             style={{
-              backgroundColor: "var(--win95-bg)",
-              border: "2px solid var(--win95-border)",
+              backgroundColor: "var(--window-document-bg)",
+              border: "2px solid var(--window-document-border)",
             }}
           >
             <div
@@ -314,7 +314,7 @@ export function BetaAccessTab() {
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <label className="block font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Rejection Reason:
                 </label>
                 <textarea
@@ -322,10 +322,10 @@ export function BetaAccessTab() {
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className="w-full px-2 py-1 h-32 resize-none"
                   style={{
-                    backgroundColor: "var(--win95-input-bg)",
-                    color: "var(--win95-input-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                     border: "2px inset",
-                    borderColor: "var(--win95-input-border-dark)",
+                    borderColor: "var(--window-document-border)",
                   }}
                   placeholder="Please provide a reason for rejection..."
                 />
@@ -348,8 +348,8 @@ export function BetaAccessTab() {
                   }}
                   className="beveled-button px-6 py-2 font-bold"
                   style={{
-                    backgroundColor: "var(--win95-button-bg)",
-                    color: "var(--win95-text)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
                   }}
                 >
                   Cancel

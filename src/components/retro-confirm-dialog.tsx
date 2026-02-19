@@ -42,16 +42,16 @@ export function RetroConfirmDialog({
       <div
         className="border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.8)] w-full max-w-md"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         {/* Title Bar */}
         <div
           className="flex items-center justify-between border-b-4 px-3 py-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-highlight)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-accent)",
           }}
         >
           <h3 className="text-sm font-bold text-white">{title}</h3>
@@ -64,7 +64,7 @@ export function RetroConfirmDialog({
             <div
               className="flex-shrink-0 border-2 p-2"
               style={{
-                borderColor: "var(--win95-border)",
+                borderColor: "var(--shell-border)",
                 background: "var(--warning-light)",
               }}
             >
@@ -75,7 +75,7 @@ export function RetroConfirmDialog({
             <div className="flex-1">
               <p
                 className="text-sm leading-relaxed"
-                style={{ color: "var(--win95-text)" }}
+                style={{ color: "var(--shell-text)" }}
               >
                 {message}
               </p>

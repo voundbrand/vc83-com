@@ -20,6 +20,7 @@ import { api } from "@convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { BuilderProvider } from "@/contexts/builder-context";
 import { BuilderLayout } from "@/components/builder/builder-layout";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "@convex/_generated/dataModel";
 
 /**
@@ -45,6 +46,8 @@ export default function BuilderWorkspacePage({
   const router = useRouter();
   const { isSignedIn, isLoading, sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
 
   // Determine if projectId is a slug or a Convex ID
   const isSlug = projectId !== "new" && !isConvexId(projectId);
@@ -108,7 +111,9 @@ export default function BuilderWorkspacePage({
       <div className="h-full flex items-center justify-center bg-zinc-900">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Loading builder...</p>
+          <p className="text-zinc-400">
+            {tx("ui.builder.workspace.loading.builder", "Loading builder...")}
+          </p>
         </div>
       </div>
     );
@@ -120,7 +125,9 @@ export default function BuilderWorkspacePage({
       <div className="h-full flex items-center justify-center bg-zinc-900">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Redirecting to login...</p>
+          <p className="text-zinc-400">
+            {tx("ui.builder.workspace.loading.redirectingToLogin", "Redirecting to login...")}
+          </p>
         </div>
       </div>
     );
@@ -133,13 +140,20 @@ export default function BuilderWorkspacePage({
       return (
         <div className="h-full flex items-center justify-center bg-zinc-900">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">Conversation not found</h1>
-            <p className="text-zinc-400 mb-4">This conversation may have been deleted or the link is invalid.</p>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {tx("ui.builder.workspace.empty.conversationNotFoundTitle", "Conversation not found")}
+            </h1>
+            <p className="text-zinc-400 mb-4">
+              {tx(
+                "ui.builder.workspace.empty.conversationNotFoundDescription",
+                "This conversation may have been deleted or the link is invalid."
+              )}
+            </p>
             <button
               onClick={() => router.push("/builder/new")}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
             >
-              Start New Conversation
+              {tx("ui.builder.workspace.empty.startNewConversation", "Start New Conversation")}
             </button>
           </div>
         </div>
@@ -151,7 +165,9 @@ export default function BuilderWorkspacePage({
       <div className="h-full flex items-center justify-center bg-zinc-900">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Loading conversation...</p>
+          <p className="text-zinc-400">
+            {tx("ui.builder.workspace.loading.conversation", "Loading conversation...")}
+          </p>
         </div>
       </div>
     );

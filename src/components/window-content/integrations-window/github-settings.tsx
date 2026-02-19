@@ -40,23 +40,23 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
       <div
         className="px-4 py-3 flex items-center gap-3 border-b-2"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--window-document-border)',
+          background: 'var(--window-document-bg-elevated)'
         }}
       >
         <button
           onClick={onBack}
-          className="beveled-button p-2"
+          className="desktop-interior-button p-2"
           style={{
-            backgroundColor: 'var(--win95-button-face)',
-            color: 'var(--win95-text)',
+            backgroundColor: 'var(--window-document-bg)',
+            color: 'var(--window-document-text)',
           }}
         >
           <ArrowLeft size={16} />
         </button>
         <Github size={24} style={{ color: '#181717' }} />
         <div>
-          <h3 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
             GitHub Integration
           </h3>
           <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -94,7 +94,7 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
         <div
           className="mb-4 p-4 border-2"
           style={{
-            borderColor: 'var(--win95-border)',
+            borderColor: 'var(--window-document-border)',
             background: isConnected ? '#D1FAE5' : '#FEF3C7'
           }}
         >
@@ -124,17 +124,17 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
 
         {/* What You Can Do */}
         <div className="mb-4">
-          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--window-document-text)' }}>
             What You Can Do:
           </h4>
           <div
             className="p-3 border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)'
             }}
           >
-            <ul className="space-y-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+            <ul className="space-y-2 text-xs" style={{ color: 'var(--window-document-text)' }}>
               <li className="flex items-start gap-2">
                 <Check size={12} />
                 <span>Create and manage deployment repositories</span>
@@ -176,29 +176,29 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
 
         {/* Setup Instructions */}
         <div className="mb-4">
-          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--window-document-text)' }}>
             Setup Instructions:
           </h4>
           <div
             className="p-3 border-2 space-y-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)'
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)'
             }}
           >
-            <div className="text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="text-xs" style={{ color: 'var(--window-document-text)' }}>
               <p className="font-bold mb-1">1. Click "Connect GitHub Account"</p>
               <p className="ml-4" style={{ color: 'var(--neutral-gray)' }}>
                 You'll be redirected to GitHub to authorize access
               </p>
             </div>
-            <div className="text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="text-xs" style={{ color: 'var(--window-document-text)' }}>
               <p className="font-bold mb-1">2. Grant Repository Permissions</p>
               <p className="ml-4" style={{ color: 'var(--neutral-gray)' }}>
                 Allow l4yercak3 to create and manage deployment repositories
               </p>
             </div>
-            <div className="text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="text-xs" style={{ color: 'var(--window-document-text)' }}>
               <p className="font-bold mb-1">3. Start Deploying!</p>
               <p className="ml-4" style={{ color: 'var(--neutral-gray)' }}>
                 Your web apps will be ready to deploy to Vercel
@@ -233,7 +233,7 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
               }
             }}
             disabled={isConnecting}
-            className="beveled-button-primary w-full px-4 py-3 text-sm font-bold flex items-center justify-center gap-2"
+            className="desktop-interior-button desktop-interior-button-primary w-full px-4 py-3 text-sm font-bold flex items-center justify-center gap-2"
           >
             {isConnecting ? (
               <>
@@ -259,10 +259,10 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
                   window.open('https://github.com', '_blank');
                 }
               }}
-              className="beveled-button w-full px-4 py-2 text-sm font-bold flex items-center justify-center gap-2"
+              className="desktop-interior-button w-full px-4 py-2 text-sm font-bold flex items-center justify-center gap-2"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--window-document-bg)',
+                color: 'var(--window-document-text)',
               }}
             >
               <ExternalLink size={16} />
@@ -289,7 +289,7 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
                   setError(err instanceof Error ? err.message : 'Failed to disconnect GitHub');
                 }
               }}
-              className="beveled-button w-full px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button w-full px-4 py-2 text-sm font-bold"
               style={{
                 backgroundColor: 'var(--error)',
                 color: 'white',

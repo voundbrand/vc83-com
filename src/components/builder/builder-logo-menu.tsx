@@ -10,8 +10,8 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "@convex/_generated/dataModel";
 import {
   Search,
@@ -21,16 +21,39 @@ import {
   LayoutTemplate,
   Settings,
   PenSquare,
-  ChevronRight,
-  MoreHorizontal,
   Home,
   MessageSquare,
   FileText,
   Loader2,
 } from "lucide-react";
+const generatedApi = require("@/../convex/_generated/api") as {
+  api: {
+    ai: {
+      conversations: {
+        listConversations: unknown;
+      };
+    };
+    pageBuilder: {
+      listSavedPages: unknown;
+    };
+  };
+};
 
 interface BuilderLogoMenuProps {
   onClose: () => void;
+}
+
+interface RecentConversation {
+  _id: string;
+  slug?: string | null;
+  title?: string | null;
+  createdAt: number;
+}
+
+interface SavedProject {
+  _id: string;
+  name?: string | null;
+  _creationTime: number;
 }
 
 // Format relative time for display
@@ -49,7 +72,7 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 // Extract a title from the first user message or use default
-function getConversationTitle(title?: string, firstMessage?: string): string {
+function getConversationTitle(title?: string | null, firstMessage?: string): string {
   if (title) return title;
   if (firstMessage) {
     // Strip any context prefixes and get first 40 chars
@@ -66,36 +89,39 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
   const { user } = useAuth();
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
   const userId = user?.id as Id<"users"> | undefined;
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
+  const useQueryUnknown = useQuery as (...args: unknown[]) => unknown;
 
   // Fetch recent conversations (builder chats)
-  const recentConversations = useQuery(
-    api.ai.conversations.listConversations,
+  const recentConversations = useQueryUnknown(
+    generatedApi.api.ai.conversations.listConversations,
     organizationId && userId
       ? { organizationId, userId, limit: 10 }
       : "skip"
-  );
+  ) as RecentConversation[] | undefined;
 
   // Fetch saved projects (AI-generated pages saved via saveAsProject)
-  const savedProjects = useQuery(
-    api.pageBuilder.listSavedPages,
+  const savedProjects = useQueryUnknown(
+    generatedApi.api.pageBuilder.listSavedPages,
     organizationId
       ? { organizationId, limit: 10 }
       : "skip"
-  );
+  ) as SavedProject[] | undefined;
 
   const isLoading = recentConversations === undefined || savedProjects === undefined;
 
   return (
-    <div className="w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden">
+    <div className="w-64 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl overflow-hidden">
       {/* New Chat Button */}
       <div className="p-2">
         <Link
           href="/builder"
           onClick={onClose}
-          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-medium rounded-lg transition-colors"
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm font-medium rounded-lg transition-colors"
         >
           <PenSquare className="w-4 h-4" />
-          New Chat
+          {tx("ui.builder.chrome.logoMenu.newChat", "New Chat")}
         </Link>
       </div>
 
@@ -106,46 +132,46 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
             // TODO: Open command palette
             onClose();
           }}
-          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <Search className="w-4 h-4" />
-          <span>Search</span>
+          <span>{tx("ui.builder.chrome.logoMenu.search", "Search")}</span>
         </button>
 
         <Link
           href="/builder/projects"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <FolderOpen className="w-4 h-4" />
-          <span>Projects</span>
+          <span>{tx("ui.builder.chrome.logoMenu.projects", "Projects")}</span>
         </Link>
 
         <Link
           href="/builder/design-systems"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <Palette className="w-4 h-4" />
-          <span>Design Systems</span>
+          <span>{tx("ui.builder.chrome.logoMenu.designSystems", "Design Systems")}</span>
         </Link>
 
         <Link
           href="/builder/templates"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <LayoutTemplate className="w-4 h-4" />
-          <span>Templates</span>
+          <span>{tx("ui.builder.chrome.logoMenu.templates", "Templates")}</span>
         </Link>
       </div>
 
       {/* Saved Projects Section */}
       {savedProjects && savedProjects.length > 0 && (
-        <div className="border-t border-zinc-800">
-          <div className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-500">
+        <div className="border-t border-neutral-800">
+          <div className="flex items-center gap-2 px-4 py-2 text-xs text-neutral-500">
             <FileText className="w-3 h-3" />
-            <span>Saved Projects</span>
+            <span>{tx("ui.builder.chrome.logoMenu.savedProjects", "Saved Projects")}</span>
           </div>
           <div className="max-h-32 overflow-y-auto">
             {savedProjects.map((project) => (
@@ -153,13 +179,15 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
                 key={project._id}
                 href={`/builder/${project._id}`}
                 onClick={onClose}
-                className="group flex items-center justify-between px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                className="group flex items-center justify-between px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <FileText className="w-3 h-3 flex-shrink-0 text-purple-400" />
-                  <span className="truncate">{project.name || "Untitled"}</span>
+                  <FileText className="w-3 h-3 flex-shrink-0 text-amber-400" />
+                  <span className="truncate">
+                    {project.name || tx("ui.builder.chrome.logoMenu.untitledProject", "Untitled")}
+                  </span>
                 </div>
-                <span className="text-xs text-zinc-600 flex-shrink-0 ml-2">
+                <span className="text-xs text-neutral-600 flex-shrink-0 ml-2">
                   {formatRelativeTime(project._creationTime)}
                 </span>
               </Link>
@@ -169,17 +197,17 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
       )}
 
       {/* Recent Chats Section */}
-      <div className="border-t border-zinc-800">
-        <div className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-500">
+      <div className="border-t border-neutral-800">
+        <div className="flex items-center gap-2 px-4 py-2 text-xs text-neutral-500">
           <Clock className="w-3 h-3" />
-          <span>Recent Chats</span>
+          <span>{tx("ui.builder.chrome.logoMenu.recentChats", "Recent Chats")}</span>
           {isLoading && <Loader2 className="w-3 h-3 animate-spin ml-auto" />}
         </div>
 
         <div className="max-h-48 overflow-y-auto">
           {!isLoading && recentConversations && recentConversations.length === 0 && (
-            <div className="px-4 py-3 text-xs text-zinc-600 text-center">
-              No recent chats yet
+            <div className="px-4 py-3 text-xs text-neutral-600 text-center">
+              {tx("ui.builder.chrome.logoMenu.noRecentChats", "No recent chats yet")}
             </div>
           )}
           {recentConversations?.map((conv) => {
@@ -190,15 +218,15 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
                 key={conv._id}
                 href={href}
                 onClick={onClose}
-                className="group flex items-center justify-between px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                className="group flex items-center justify-between px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <MessageSquare className="w-3 h-3 flex-shrink-0 text-zinc-500" />
+                  <MessageSquare className="w-3 h-3 flex-shrink-0 text-neutral-500" />
                   <span className="truncate">
                     {getConversationTitle(conv.title)}
                   </span>
                 </div>
-                <span className="text-xs text-zinc-600 flex-shrink-0 ml-2">
+                <span className="text-xs text-neutral-600 flex-shrink-0 ml-2">
                   {formatRelativeTime(conv.createdAt)}
                 </span>
               </Link>
@@ -208,22 +236,22 @@ export function BuilderLogoMenu({ onClose }: BuilderLogoMenuProps) {
       </div>
 
       {/* Bottom section */}
-      <div className="border-t border-zinc-800 p-2">
+      <div className="border-t border-neutral-800 p-2">
         <Link
           href="/"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <Home className="w-4 h-4" />
-          <span>Back to Platform</span>
+          <span>{tx("ui.builder.chrome.logoMenu.backToPlatform", "Back to Platform")}</span>
         </Link>
         <Link
           href="/settings"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 rounded-md transition-colors"
+          className="flex items-center gap-3 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 rounded-md transition-colors"
         >
           <Settings className="w-4 h-4" />
-          <span>Settings</span>
+          <span>{tx("ui.builder.chrome.logoMenu.settings", "Settings")}</span>
         </Link>
       </div>
     </div>

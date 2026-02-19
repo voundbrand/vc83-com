@@ -86,7 +86,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
             Configure times when you are available for bookings.
           </p>
         </div>
-        <button className="retro-button flex items-center gap-1 text-xs" onClick={onCreate}>
+        <button className="desktop-interior-button flex items-center gap-1 text-xs" onClick={onCreate}>
           <Plus size={14} />
           New
         </button>
@@ -113,7 +113,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
             <p className="text-xs text-center max-w-[280px]" style={{ color: "var(--win95-text)", opacity: 0.6 }}>
               Create your first schedule to set when you&apos;re available for bookings.
             </p>
-            <button className="retro-button flex items-center gap-1 text-xs mt-2" onClick={onCreate}>
+            <button className="desktop-interior-button flex items-center gap-1 text-xs mt-2" onClick={onCreate}>
               <Plus size={14} />
               Create Schedule
             </button>
@@ -173,7 +173,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                 {/* Right side - 3-dot menu */}
                 <div className="relative shrink-0 ml-2">
                   <button
-                    className="retro-button p-1"
+                    className="desktop-interior-button p-1"
                     onClick={(e) => {
                       e.stopPropagation()
                       setOpenMenuId(openMenuId === schedule._id ? null : schedule._id)
@@ -254,13 +254,13 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
             </p>
             <div className="flex justify-end gap-2">
               <button
-                className="retro-button text-xs px-3 py-1"
+                className="desktop-interior-button text-xs px-3 py-1"
                 onClick={() => setConfirmDeleteId(null)}
               >
                 Cancel
               </button>
               <button
-                className="retro-button text-xs px-3 py-1"
+                className="desktop-interior-button text-xs px-3 py-1"
                 onClick={() => handleDelete(confirmDeleteId as Id<"objects">)}
               >
                 Delete

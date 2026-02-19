@@ -76,10 +76,10 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   // Get organization media
-  const organizationMedia = useQuery(api.organizationMedia.listMedia, {
+  const organizationMedia = useQuery(api.organizationMedia.listMedia as any, {
     organizationId,
     sessionId,
-  });
+  } as any) as MediaItem[] | undefined;
 
   // Get URLs for linked media
   const linkedMedia = organizationMedia?.filter((media: MediaItem) =>
@@ -160,9 +160,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
           onClick={onToggle}
           className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <div className="flex-1">
@@ -189,9 +189,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         onClick={onToggle}
         className="flex items-center justify-between w-full text-left py-2 px-3 border-2"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
-          color: "var(--win95-text)",
+          borderColor: "var(--shell-border)",
+          background: "var(--shell-surface-elevated)",
+          color: "var(--shell-text)",
         }}
       >
         <span className="text-sm font-bold flex items-center gap-1">
@@ -202,15 +202,15 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         <ChevronUp size={16} />
       </button>
 
-      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--win95-border)" }}>
+      <div className="pl-4 space-y-3 border-l-2" style={{ borderColor: "var(--shell-border)" }}>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
           {t('ui.events.form.select_media_library')}
         </p>
 
         {/* Mini Media Slider Preview */}
         {(linkedMedia.length > 0 || videos.length > 0) && (
-          <div className="mb-4 border-2" style={{ borderColor: "var(--win95-border)" }}>
-            <div className="relative w-full aspect-[16/9] overflow-hidden group" style={{ background: "var(--win95-bg-light)" }}>
+          <div className="mb-4 border-2" style={{ borderColor: "var(--shell-border)" }}>
+            <div className="relative w-full aspect-[16/9] overflow-hidden group" style={{ background: "var(--shell-surface-elevated)" }}>
               {/* Current Media Display */}
               {currentSlideIndex < linkedMedia.length && linkedMedia[currentSlideIndex]?.url && (
                 <Image
@@ -245,7 +245,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     )}
                     <div className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold border-2 flex items-center gap-1" style={{
                       background: "var(--primary)",
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       color: "white"
                     }}>
                       <Video size={12} />
@@ -268,12 +268,12 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 border-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)"
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)"
                     }}
                     aria-label="Previous"
                   >
-                    <ChevronUp size={16} style={{ color: "var(--win95-text)", transform: 'rotate(-90deg)' }} />
+                    <ChevronUp size={16} style={{ color: "var(--shell-text)", transform: 'rotate(-90deg)' }} />
                   </button>
                   <button
                     type="button"
@@ -285,12 +285,12 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 border-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)"
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)"
                     }}
                     aria-label="Next"
                   >
-                    <ChevronUp size={16} style={{ color: "var(--win95-text)", transform: 'rotate(90deg)' }} />
+                    <ChevronUp size={16} style={{ color: "var(--shell-text)", transform: 'rotate(90deg)' }} />
                   </button>
                 </>
               )}
@@ -298,9 +298,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
               {/* Counter */}
               {linkedMedia.length + videos.length > 1 && (
                 <div className="absolute bottom-2 right-2 px-2 py-1 text-xs font-bold border-2" style={{
-                  background: "var(--win95-button-face)",
-                  borderColor: "var(--win95-border)",
-                  color: "var(--win95-text)"
+                  background: "var(--shell-button-surface)",
+                  borderColor: "var(--shell-border)",
+                  color: "var(--shell-text)"
                 }}>
                   {currentSlideIndex + 1} / {linkedMedia.length + videos.length}
                 </div>
@@ -310,7 +310,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
               {currentSlideIndex === 0 && (
                 <div className="absolute top-2 left-2 px-2 py-1 text-xs font-bold border-2" style={{
                   background: "var(--primary)",
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--shell-border)",
                   color: "white"
                 }}>
                   {t('ui.events.form.primary')}
@@ -326,7 +326,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
             {/* Images */}
             {linkedMedia.map((media, index) => (
               <div key={media._id} className="relative group">
-                <div className="aspect-square relative overflow-hidden border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <div className="aspect-square relative overflow-hidden border-2" style={{ borderColor: "var(--shell-border)" }}>
                   {media.url && (
                     <Image
                       src={media.url}
@@ -339,7 +339,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   {index === 0 && videos.length === 0 && (
                     <div className="absolute top-1 left-1 px-2 py-0.5 text-xs font-bold border-2" style={{
                       background: "var(--primary)",
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       color: "white"
                     }}>
                       {t('ui.events.form.primary')}
@@ -353,7 +353,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     className="px-2 py-1.5 text-xs font-bold border-2"
                     style={{
                       background: "var(--error)",
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       color: "white"
                     }}
                     aria-label={t('ui.events.form.remove_video')}
@@ -368,8 +368,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
             {videos.map((video, index) => (
               <div key={video.id} className="relative group">
                 <div className="aspect-square relative overflow-hidden border-2 flex items-center justify-center" style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)"
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-surface-elevated)"
                 }}>
                   <Video size={32} style={{ color: "var(--primary)" }} />
                   <div className="absolute bottom-1 left-1 right-1 text-center">
@@ -384,8 +384,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   <div className="absolute top-1 right-1 flex gap-1">
                     {video.loop && (
                       <div className="px-1 py-0.5 text-xs font-bold" style={{
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        background: "var(--shell-button-surface)",
+                        color: "var(--shell-text)",
                         fontSize: "10px"
                       }}>
                         <Repeat size={10} />
@@ -393,8 +393,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     )}
                     {video.autostart && (
                       <div className="px-1 py-0.5 text-xs font-bold" style={{
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        background: "var(--shell-button-surface)",
+                        color: "var(--shell-text)",
                         fontSize: "10px"
                       }}>
                         <Play size={10} />
@@ -402,8 +402,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     )}
                     {(video.videoFit === 'contain') && (
                       <div className="px-1 py-0.5 text-xs font-bold" style={{
-                        background: "var(--win95-button-face)",
-                        color: "var(--win95-text)",
+                        background: "var(--shell-button-surface)",
+                        color: "var(--shell-text)",
                         fontSize: "10px"
                       }} title="Contain (letterbox)">
                         <Scan size={10} />
@@ -413,7 +413,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   {index === 0 && linkedMedia.length === 0 && showVideoFirst && (
                     <div className="absolute top-1 left-1 px-2 py-0.5 text-xs font-bold border-2" style={{
                       background: "var(--primary)",
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       color: "white"
                     }}>
                       {t('ui.events.form.primary')}
@@ -433,9 +433,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     className="px-2 py-1 text-xs font-bold border-2"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)",
-                      color: "var(--win95-text)"
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)",
+                      color: "var(--shell-text)"
                     }}
                   >
                     {video.loop ? t('ui.events.form.loop_on') : t('ui.events.form.loop_off')}
@@ -452,9 +452,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     className="px-2 py-1 text-xs font-bold border-2"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)",
-                      color: "var(--win95-text)"
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)",
+                      color: "var(--shell-text)"
                     }}
                   >
                     {video.autostart ? t('ui.events.form.auto_on') : t('ui.events.form.auto_off')}
@@ -471,9 +471,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     }}
                     className="px-2 py-1 text-xs font-bold border-2"
                     style={{
-                      background: "var(--win95-button-face)",
-                      borderColor: "var(--win95-border)",
-                      color: "var(--win95-text)"
+                      background: "var(--shell-button-surface)",
+                      borderColor: "var(--shell-border)",
+                      color: "var(--shell-text)"
                     }}
                     title={video.videoFit === 'contain' ? 'Show video cropped (fill container)' : 'Show full video (letterbox)'}
                   >
@@ -486,7 +486,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                     className="px-2 py-1 text-xs font-bold border-2"
                     style={{
                       background: "var(--error)",
-                      borderColor: "var(--win95-border)",
+                      borderColor: "var(--shell-border)",
                       color: "white"
                     }}
                     aria-label={t('ui.events.form.remove_video')}
@@ -502,7 +502,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         {/* Video URL Display - Shows URL for selected video with copy/open buttons */}
         {videos.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+            <h4 className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--shell-text)" }}>
               <Video size={12} />
               {t('ui.events.form.existing_videos') || 'Existing Videos'}
             </h4>
@@ -511,8 +511,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 key={video.id}
                 className="flex items-center gap-2 p-2 border-2"
                 style={{
-                  borderColor: "var(--win95-border)",
-                  background: "var(--win95-bg-light)",
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-surface-elevated)",
                 }}
               >
                 <div className="flex-shrink-0 px-2 py-0.5 text-xs font-bold" style={{
@@ -527,8 +527,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   readOnly
                   className="flex-1 px-2 py-1 text-xs border-2 bg-white"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    color: "var(--win95-text)",
+                    borderColor: "var(--shell-border)",
+                    color: "var(--shell-text)",
                   }}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
@@ -539,12 +539,12 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   }}
                   className="px-2 py-1 border-2 hover:opacity-80"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-button-surface)",
                   }}
                   title={t('ui.events.form.copy_url') || 'Copy URL'}
                 >
-                  <Copy size={14} style={{ color: "var(--win95-text)" }} />
+                  <Copy size={14} style={{ color: "var(--shell-text)" }} />
                 </button>
                 <a
                   href={video.videoUrl}
@@ -552,12 +552,12 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   rel="noopener noreferrer"
                   className="px-2 py-1 border-2 hover:opacity-80"
                   style={{
-                    borderColor: "var(--win95-border)",
-                    background: "var(--win95-button-face)",
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-button-surface)",
                   }}
                   title={t('ui.events.form.open_video') || 'Open in new tab'}
                 >
-                  <ExternalLink size={14} style={{ color: "var(--win95-text)" }} />
+                  <ExternalLink size={14} style={{ color: "var(--shell-text)" }} />
                 </a>
                 <div className="flex gap-1 text-xs items-center">
                   {video.loop && <Repeat size={12} aria-label="Loop" />}
@@ -573,17 +573,17 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         <button
           type="button"
           onClick={handleBrowseLibrary}
-          className="w-full border-2 p-4 text-center transition-colors hover:bg-purple-50"
+          className="w-full border-2 p-4 text-center transition-opacity hover:opacity-95"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
-            color: "var(--win95-text)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
+            color: "var(--shell-text)",
           }}
         >
           <div className="flex flex-col items-center">
             <div className="w-12 h-12 border-2 mx-auto mb-2 flex items-center justify-center" style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-button-face)"
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-button-surface)"
             }}>
               <Plus size={20} style={{ color: "var(--primary)" }} />
             </div>
@@ -595,8 +595,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
         </button>
 
         {/* Video Input Section */}
-        <div className="pt-2 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
-          <h4 className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <div className="pt-2 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
+          <h4 className="text-xs font-bold mb-2" style={{ color: "var(--shell-text)" }}>
             {t('ui.events.form.add_video_section')}
           </h4>
 
@@ -614,9 +614,9 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   placeholder={t('ui.events.form.video_url_placeholder')}
                   className="w-full px-2 py-1.5 text-xs border-2"
                   style={{
-                    borderColor: videoError ? "var(--error)" : "var(--win95-border)",
+                    borderColor: videoError ? "var(--error)" : "var(--shell-border)",
                     background: "white",
-                    color: "var(--win95-text)",
+                    color: "var(--shell-text)",
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -632,7 +632,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 disabled={!videoUrl.trim()}
                 className="px-3 py-1.5 text-xs font-bold border-2 disabled:opacity-50"
                 style={{
-                  borderColor: "var(--win95-border)",
+                  borderColor: "var(--shell-border)",
                   background: "var(--primary)",
                   color: "white",
                 }}
@@ -664,7 +664,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   onChange={(e) => setVideoLoop(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.video_loop')}</span>
+                <span style={{ color: "var(--shell-text)" }}>{t('ui.events.form.video_loop')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -674,7 +674,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   onChange={(e) => setVideoAutostart(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.video_autostart')}</span>
+                <span style={{ color: "var(--shell-text)" }}>{t('ui.events.form.video_autostart')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -684,7 +684,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   onChange={(e) => setVideoFit(e.target.checked ? 'contain' : 'cover')}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }} title="Show full video with letterboxing (black bars) instead of cropping to fill">
+                <span style={{ color: "var(--shell-text)" }} title="Show full video with letterboxing (black bars) instead of cropping to fill">
                   {t('ui.events.form.video_contain') || 'Show full video (letterbox)'}
                 </span>
               </label>
@@ -700,7 +700,7 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                   }}
                   className="w-4 h-4"
                 />
-                <span style={{ color: "var(--win95-text)" }}>{t('ui.events.form.show_video_first')}</span>
+                <span style={{ color: "var(--shell-text)" }}>{t('ui.events.form.show_video_first')}</span>
               </label>
             </div>
           </div>

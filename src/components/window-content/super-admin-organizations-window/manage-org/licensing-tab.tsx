@@ -165,7 +165,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
   if (!organization) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -187,7 +187,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Key size={16} />
             Licensing & Quotas Management
           </h3>
@@ -212,11 +212,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
       <div
         className="border-2 p-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Zap size={14} />
           AI Subscription Status
         </h4>
@@ -224,7 +224,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span style={{ color: "var(--neutral-gray)" }}>Tier:</span>
-              <span className="font-bold" style={{ color: "var(--win95-text)" }}>
+              <span className="font-bold" style={{ color: "var(--window-document-text)" }}>
                 {aiSubscription.tier === "standard" && "Standard (€49/month)"}
                 {aiSubscription.tier === "privacy-enhanced" && "Privacy-Enhanced (€49/month)"}
                 {aiSubscription.tier === "private-llm" && `Private LLM (€${aiSubscription.privateLLMTier === "starter" ? "2,500" : aiSubscription.privateLLMTier === "professional" ? "5,000" : "12,000"}/month)`}
@@ -244,7 +244,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
             </div>
             <div className="flex justify-between">
               <span style={{ color: "var(--neutral-gray)" }}>Included Tokens (monthly):</span>
-              <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+              <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
                 {aiSubscription.includedTokensRemaining.toLocaleString()} / {aiSubscription.includedTokensTotal.toLocaleString()}
               </span>
             </div>
@@ -285,7 +285,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
           background: "rgba(239, 68, 68, 0.05)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <CreditCard size={14} />
           Stripe Subscription Management
           <span
@@ -297,10 +297,10 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         </h4>
 
         {/* Current Stripe Data Display */}
-        <div className="space-y-2 text-xs mb-4 p-3 border" style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}>
+        <div className="space-y-2 text-xs mb-4 p-3 border" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
           <div className="flex justify-between">
             <span style={{ color: "var(--neutral-gray)" }}>Stripe Customer ID:</span>
-            <span className="font-mono" style={{ color: organization.stripeCustomerId ? "var(--win95-text)" : "var(--neutral-gray)" }}>
+            <span className="font-mono" style={{ color: organization.stripeCustomerId ? "var(--window-document-text)" : "var(--neutral-gray)" }}>
               {organization.stripeCustomerId || "Not set"}
             </span>
           </div>
@@ -326,7 +326,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         {/* Warning */}
         <div className="flex items-start gap-2 mb-4 p-2" style={{ background: "rgba(239, 68, 68, 0.1)" }}>
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
-          <p className="text-xs" style={{ color: "var(--win95-text)" }}>
+          <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
             <strong>Warning:</strong> Only clear subscription data if you&apos;ve already deleted the subscription in the Stripe Dashboard.
             This operation syncs Convex with Stripe&apos;s state.
           </p>
@@ -341,7 +341,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               onChange={(e) => setClearCustomerId(e.target.checked)}
               className="w-4 h-4"
             />
-            <span style={{ color: "var(--win95-text)" }}>Also clear Customer ID (use if recreating customer)</span>
+            <span style={{ color: "var(--window-document-text)" }}>Also clear Customer ID (use if recreating customer)</span>
           </label>
           <label className="flex items-center gap-2 text-xs cursor-pointer">
             <input
@@ -350,7 +350,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               onChange={(e) => setResetPlanToFree(e.target.checked)}
               className="w-4 h-4"
             />
-            <span style={{ color: "var(--win95-text)" }}>Reset plan to FREE</span>
+            <span style={{ color: "var(--window-document-text)" }}>Reset plan to FREE</span>
           </label>
         </div>
 
@@ -404,12 +404,12 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
       <div
         className="border-2 p-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+          <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Settings size={14} />
             Quota & Limits Override
           </h4>
@@ -453,7 +453,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         <div className="space-y-4">
           {/* Max Users */}
           <div>
-            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <Users size={12} />
               Maximum Users
             </label>
@@ -466,9 +466,9 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="0 = Unlimited"
             />
@@ -479,7 +479,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
 
           {/* Max Storage */}
           <div>
-            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <Database size={12} />
               Maximum Storage (GB)
             </label>
@@ -492,9 +492,9 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="0 = Unlimited"
             />
@@ -505,7 +505,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
 
           {/* Max AI Requests */}
           <div>
-            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-xs font-bold mb-1.5 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <Zap size={12} />
               Maximum AI Requests (per month)
             </label>
@@ -518,9 +518,9 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
               }
               className="w-full px-3 py-2 text-sm border-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg)",
-                color: "var(--win95-text)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
               placeholder="0 = Unlimited"
             />
@@ -535,11 +535,11 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
       <div
         className="border-2 p-4"
         style={{
-          borderColor: "var(--win95-border)",
-          background: "var(--win95-bg-light)",
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
         }}
       >
-        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Shield size={14} />
           App Access Control
         </h4>
@@ -549,7 +549,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
 
         {!allApps ? (
           <div className="flex items-center justify-center p-4">
-            <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -568,7 +568,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{app.icon}</span>
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         {app.name}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -603,7 +603,7 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         <div className="flex items-start gap-2">
           <AlertCircle size={16} style={{ color: "var(--warning)" }} />
           <div>
-            <h4 className="text-xs font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+            <h4 className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
               Deprecated: Legacy Plan System
             </h4>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>

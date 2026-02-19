@@ -44,12 +44,12 @@ export function DataInspectorModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         className="border-4 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b-4"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-highlight)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--tone-accent)" }}
         >
           <div>
             <h3 className="text-sm font-bold text-white">Data Inspector</h3>
@@ -67,17 +67,17 @@ export function DataInspectorModal({
         {/* Content */}
         <div className="flex h-[calc(90vh-80px)] overflow-hidden">
           {/* Input Data */}
-          <div className="flex-1 flex flex-col border-r-2" style={{ borderColor: "var(--win95-border)" }}>
+          <div className="flex-1 flex flex-col border-r-2" style={{ borderColor: "var(--window-document-border)" }}>
             <div
               className="border-b-2 px-4 py-2 flex items-center justify-between"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
             >
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Input Data
               </h4>
               <button
                 onClick={() => handleCopy(input, "input")}
-                className="retro-button p-1 flex items-center gap-1 text-xs"
+                className="desktop-interior-button p-1 flex items-center gap-1 text-xs"
                 title="Copy to clipboard"
               >
                 {copiedInput ? (
@@ -95,7 +95,7 @@ export function DataInspectorModal({
             </div>
             <div className="flex-1 overflow-auto p-4">
               {input ? (
-                <pre className="text-xs font-mono p-3 bg-white rounded border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <pre className="text-xs font-mono p-3 bg-white rounded border-2" style={{ borderColor: "var(--window-document-border)" }}>
                   {JSON.stringify(input, null, 2)}
                 </pre>
               ) : (
@@ -111,11 +111,11 @@ export function DataInspectorModal({
           {/* Transformations Arrow */}
           <div
             className="w-32 flex items-center justify-center border-r-2"
-            style={{ borderColor: "var(--win95-border)", background: "#f9fafb" }}
+            style={{ borderColor: "var(--window-document-border)", background: "#f9fafb" }}
           >
             <div className="text-center">
-              <ChevronRight className="h-8 w-8 mx-auto mb-2" style={{ color: "var(--win95-highlight)" }} />
-              <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              <ChevronRight className="h-8 w-8 mx-auto mb-2" style={{ color: "var(--tone-accent)" }} />
+              <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                 Transform
               </p>
               {transformations.length > 0 && (
@@ -124,7 +124,7 @@ export function DataInspectorModal({
                     <div
                       key={index}
                       className="text-[10px] px-2 py-1 rounded border"
-                      style={{ borderColor: "var(--win95-border)", background: "white" }}
+                      style={{ borderColor: "var(--window-document-border)", background: "white" }}
                     >
                       {transform}
                     </div>
@@ -138,14 +138,14 @@ export function DataInspectorModal({
           <div className="flex-1 flex flex-col">
             <div
               className="border-b-2 px-4 py-2 flex items-center justify-between"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
             >
-              <h4 className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+              <h4 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                 Output Data
               </h4>
               <button
                 onClick={() => handleCopy(output, "output")}
-                className="retro-button p-1 flex items-center gap-1 text-xs"
+                className="desktop-interior-button p-1 flex items-center gap-1 text-xs"
                 title="Copy to clipboard"
               >
                 {copiedOutput ? (
@@ -163,7 +163,7 @@ export function DataInspectorModal({
             </div>
             <div className="flex-1 overflow-auto p-4">
               {output ? (
-                <pre className="text-xs font-mono p-3 bg-white rounded border-2" style={{ borderColor: "var(--win95-border)" }}>
+                <pre className="text-xs font-mono p-3 bg-white rounded border-2" style={{ borderColor: "var(--window-document-border)" }}>
                   {JSON.stringify(output, null, 2)}
                 </pre>
               ) : (
@@ -180,9 +180,9 @@ export function DataInspectorModal({
         {/* Footer */}
         <div
           className="border-t-2 px-4 py-3 flex justify-end"
-          style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
         >
-          <button onClick={onClose} className="retro-button px-4 py-2 text-xs font-bold">
+          <button onClick={onClose} className="desktop-interior-button px-4 py-2 text-xs font-bold">
             Close
           </button>
         </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import { Rocket, Clock, Plus, Settings as SettingsIcon } from "lucide-react";
-import { RetroButton } from "@/components/retro-button";
+import { Rocket, Clock, Plus, Settings as SettingsIcon, MessageSquare } from "lucide-react";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -23,6 +22,7 @@ interface DeploymentsTabProps {
   pageName: string;
   onSelectDeployment: (deployment: DeploymentConfig) => void;
   onAddDeployment: () => void;
+  onOpenWebchatDeployment: () => void;
   selectedDeploymentId?: string | null;
 }
 
@@ -40,16 +40,20 @@ export function DeploymentsTab({
   pageName,
   onSelectDeployment,
   onAddDeployment,
+  onOpenWebchatDeployment,
   selectedDeploymentId
 }: DeploymentsTabProps) {
   const { sessionId } = useAuth();
 
   // Query all deployments for this page from publishingOntology
   // For now, we'll use the page's deployment info until we have a deployments table
+  // Query type can exceed TS instantiation depth in this component.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publishingApi = (require("../../../../convex/_generated/api") as { api: any }).api;
   const page = useQuery(
-    api.publishingOntology.getPublishedPageById,
+    publishingApi.publishingOntology.getPublishedPageById,
     sessionId ? { sessionId, pageId } : "skip"
-  );
+  ) as { customProperties?: { deployment?: PageDeploymentInfo } } | undefined;
 
   if (!sessionId) {
     return (
@@ -93,13 +97,24 @@ export function DeploymentsTab({
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="mb-4">
-        <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
-          Deployments for {pageName}
-        </h3>
-        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Manage deployment configurations and deploy to hosting platforms
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
+            Deployments for {pageName}
+          </h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            Manage deployment configurations and deploy to hosting platforms
+          </p>
+        </div>
+        <InteriorButton
+          onClick={onOpenWebchatDeployment}
+          variant="secondary"
+          size="sm"
+          className="flex items-center gap-2 whitespace-nowrap"
+        >
+          <MessageSquare size={14} />
+          Open Webchat Deployment
+        </InteriorButton>
       </div>
 
       {/* Deployments List */}
@@ -108,18 +123,18 @@ export function DeploymentsTab({
         <div
           className="border-2 p-8 text-center"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)'
+            borderColor: 'var(--window-document-border)',
+            background: 'var(--window-document-bg-elevated)'
           }}
         >
           <Rocket size={48} style={{ color: 'var(--neutral-gray)', margin: '0 auto 16px' }} />
-          <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+          <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
             No Deployments Configured
           </h4>
           <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
             Add your first deployment to start publishing this page to the web.
           </p>
-          <RetroButton
+          <InteriorButton
             onClick={onAddDeployment}
             variant="primary"
             size="sm"
@@ -127,7 +142,7 @@ export function DeploymentsTab({
           >
             <Plus size={14} />
             Add Deployment
-          </RetroButton>
+          </InteriorButton>
         </div>
       ) : (
         <div className="space-y-3">
@@ -137,8 +152,8 @@ export function DeploymentsTab({
               key={dep.id}
               className="border-2 p-4 transition-colors cursor-pointer"
               style={{
-                borderColor: selectedDeploymentId === dep.id ? 'var(--win95-highlight)' : 'var(--win95-border)',
-                background: selectedDeploymentId === dep.id ? 'var(--win95-hover-light)' : 'white'
+                borderColor: selectedDeploymentId === dep.id ? 'var(--tone-accent)' : 'var(--window-document-border)',
+                background: selectedDeploymentId === dep.id ? 'var(--desktop-menu-hover)' : 'white'
               }}
               onClick={() => onSelectDeployment(dep)}
             >
@@ -146,7 +161,7 @@ export function DeploymentsTab({
                 {/* Left: Deployment info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+                    <h4 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
                       {dep.name}
                     </h4>
                     <span
@@ -180,7 +195,7 @@ export function DeploymentsTab({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono hover:underline"
-                          style={{ color: 'var(--win95-highlight)' }}
+                          style={{ color: 'var(--tone-accent)' }}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {dep.deployedUrl}
@@ -198,7 +213,7 @@ export function DeploymentsTab({
 
                 {/* Right: Action buttons */}
                 <div className="flex items-center gap-2 ml-4">
-                  <RetroButton
+                  <InteriorButton
                     onClick={() => onSelectDeployment(dep)}
                     variant="secondary"
                     size="sm"
@@ -206,8 +221,8 @@ export function DeploymentsTab({
                   >
                     <SettingsIcon size={14} />
                     Settings
-                  </RetroButton>
-                  <RetroButton
+                  </InteriorButton>
+                  <InteriorButton
                     onClick={() => onAddDeployment()}
                     variant="primary"
                     size="sm"
@@ -215,7 +230,7 @@ export function DeploymentsTab({
                   >
                     <Rocket size={14} />
                     Deploy Now
-                  </RetroButton>
+                  </InteriorButton>
                 </div>
               </div>
             </div>
@@ -225,20 +240,20 @@ export function DeploymentsTab({
           <div
             className="border-2 p-4 text-center cursor-pointer transition-colors"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg-light)',
+              borderColor: 'var(--window-document-border)',
+              background: 'var(--window-document-bg-elevated)',
               borderStyle: 'dashed'
             }}
             onClick={onAddDeployment}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--win95-hover-light)';
+              e.currentTarget.style.background = 'var(--desktop-menu-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg-light)';
+              e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
             }}
           >
             <Plus size={24} style={{ color: 'var(--neutral-gray)', margin: '0 auto 8px' }} />
-            <p className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
               Add Another Deployment
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>

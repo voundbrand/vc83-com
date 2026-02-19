@@ -80,7 +80,7 @@ export function EnvVarsSection({
     <div className={compact ? "mt-2" : "mb-3"}>
       <button
         onClick={() => setShowEnvVars(!showEnvVars)}
-        className={`w-full flex items-center justify-between text-xs text-zinc-400 hover:text-zinc-200 transition-colors rounded hover:bg-zinc-800/50 ${
+        className={`w-full flex items-center justify-between text-xs text-neutral-400 hover:text-neutral-200 transition-colors rounded hover:bg-neutral-800/50 ${
           compact ? "px-3 py-2" : "px-2 py-1.5"
         }`}
       >
@@ -95,15 +95,15 @@ export function EnvVarsSection({
         )}
       </button>
       {showEnvVars && (
-        <div className="mt-1.5 border border-zinc-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-2.5 py-1.5 bg-zinc-900/80 border-b border-zinc-800">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+        <div className="mt-1.5 border border-neutral-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-neutral-900/80 border-b border-neutral-800">
+            <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-medium">
               Required for Vercel
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowEnvValues(!showEnvValues)}
-                className="p-1 rounded hover:bg-zinc-700 text-zinc-500"
+                className="p-1 rounded hover:bg-neutral-700 text-neutral-500"
                 title={showEnvValues ? "Hide values" : "Show values"}
               >
                 {showEnvValues ? (
@@ -119,7 +119,7 @@ export function EnvVarsSection({
                     .join("\n");
                   copyToClipboard(envText, "allEnv");
                 }}
-                className="p-1 rounded hover:bg-zinc-700 text-zinc-500"
+                className="p-1 rounded hover:bg-neutral-700 text-neutral-500"
                 title="Copy all env vars"
               >
                 {copiedField === "allEnv" ? (
@@ -130,7 +130,7 @@ export function EnvVarsSection({
               </button>
             </div>
           </div>
-          <div className="max-h-52 overflow-y-auto divide-y divide-zinc-800/50">
+          <div className="max-h-52 overflow-y-auto divide-y divide-neutral-800/50">
             {/* Platform env vars */}
             {platformVars.map((envVar) => (
               <EnvVarRow
@@ -144,8 +144,8 @@ export function EnvVarsSection({
             {/* Codebase-detected env vars */}
             {codebaseVars.length > 0 && (
               <>
-                <div className="px-2.5 py-1 bg-zinc-900/60">
-                  <span className="text-[9px] text-zinc-600 uppercase tracking-wider font-medium">
+                <div className="px-2.5 py-1 bg-neutral-900/60">
+                  <span className="text-[9px] text-neutral-600 uppercase tracking-wider font-medium">
                     Detected from codebase
                   </span>
                 </div>
@@ -161,8 +161,8 @@ export function EnvVarsSection({
               </>
             )}
           </div>
-          <div className="px-2.5 py-1.5 bg-zinc-900/30 border-t border-zinc-800">
-            <p className="text-[10px] text-zinc-600">
+          <div className="px-2.5 py-1.5 bg-neutral-900/30 border-t border-neutral-800">
+            <p className="text-[10px] text-neutral-600">
               {footerHint || "Enter these in Vercel\u0027s \"Environment Variables\" step during deployment."}
             </p>
           </div>
@@ -191,9 +191,9 @@ function EnvVarRow({
       : envVar.value || "Not set";
 
   return (
-    <div className="px-2.5 py-2 bg-zinc-900/50 group">
+    <div className="px-2.5 py-2 bg-neutral-900/50 group">
       <div className="flex items-center justify-between gap-2">
-        <code className="text-[11px] text-zinc-300 font-mono truncate">
+        <code className="text-[11px] text-neutral-300 font-mono truncate">
           {envVar.key}
         </code>
         <button
@@ -203,7 +203,7 @@ function EnvVarRow({
               `env-${envVar.key}`
             )
           }
-          className="p-0.5 rounded hover:bg-zinc-700 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          className="p-0.5 rounded hover:bg-neutral-700 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
         >
           {copiedField === `env-${envVar.key}` ? (
             <Check className="w-2.5 h-2.5 text-emerald-400" />
@@ -213,11 +213,11 @@ function EnvVarRow({
         </button>
       </div>
       {showValue && (
-        <code className="text-[10px] text-zinc-500 font-mono block mt-0.5 truncate">
+        <code className="text-[10px] text-neutral-500 font-mono block mt-0.5 truncate">
           {displayValue}
         </code>
       )}
-      <p className="text-[10px] text-zinc-600 mt-0.5">{envVar.description}</p>
+      <p className="text-[10px] text-neutral-600 mt-0.5">{envVar.description}</p>
     </div>
   );
 }

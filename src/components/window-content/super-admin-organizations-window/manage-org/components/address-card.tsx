@@ -18,7 +18,7 @@ const ADDRESS_TYPE_STYLES: Record<string, { bg: string; text: string; border: st
   shipping: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
   mailing: { bg: '#dcfce7', text: '#15803d', border: '#86efac' },
   physical: { bg: '#fed7aa', text: '#c2410c', border: '#fdba74' },
-  other: { bg: 'var(--win95-bg)', text: 'var(--win95-text)', border: 'var(--win95-border)' },
+  other: { bg: 'var(--window-document-bg)', text: 'var(--window-document-text)', border: 'var(--window-document-border)' },
 };
 
 export function AddressCard({
@@ -63,8 +63,8 @@ export function AddressCard({
     <div
       className="border-2 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--window-document-border)',
+        background: 'var(--window-document-bg-elevated)'
       }}
     >
       {/* Header */}
@@ -76,7 +76,7 @@ export function AddressCard({
               {props?.isPrimary && (
                 <Star className="w-4 h-4 fill-yellow-400" style={{ color: '#ca8a04' }} />
               )}
-              <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+              <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                 {props?.label || address.name || typeLabel}
               </span>
             </div>
@@ -128,15 +128,15 @@ export function AddressCard({
                 onClick={() => onSetPrimary(address)}
                 className="p-1.5 border-2 text-xs font-bold transition-colors"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg)';
+                  e.currentTarget.style.background = 'var(--window-document-bg)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                  e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                 }}
                 title={t("ui.manage.address.set_primary")}
               >
@@ -148,15 +148,15 @@ export function AddressCard({
                 onClick={() => onEdit(address)}
                 className="p-1.5 border-2 text-xs font-bold transition-colors"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)',
-                  color: 'var(--win95-text)'
+                  borderColor: 'var(--window-document-border)',
+                  background: 'var(--window-document-bg-elevated)',
+                  color: 'var(--window-document-text)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg)';
+                  e.currentTarget.style.background = 'var(--window-document-bg)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                  e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                 }}
                 title={t("ui.manage.address.edit")}
               >
@@ -169,14 +169,14 @@ export function AddressCard({
                 className="p-1.5 border-2 text-xs font-bold transition-colors"
                 style={{
                   borderColor: '#fca5a5',
-                  background: 'var(--win95-bg-light)',
+                  background: 'var(--window-document-bg-elevated)',
                   color: '#dc2626'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = '#fef2f2';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-bg-light)';
+                  e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
                 }}
                 title={t("ui.manage.address.delete")}
               >
@@ -188,7 +188,7 @@ export function AddressCard({
       </div>
 
       {/* Address Lines */}
-      <div className="space-y-1 text-sm" style={{ color: 'var(--win95-text)' }}>
+      <div className="space-y-1 text-sm" style={{ color: 'var(--window-document-text)' }}>
         {addressParts.map((part, idx) => (
           <div key={idx}>{part}</div>
         ))}
@@ -198,7 +198,7 @@ export function AddressCard({
       {props?.region && (
         <div
           className="mt-2 pt-2 border-t"
-          style={{ borderColor: 'var(--win95-border)' }}
+          style={{ borderColor: 'var(--window-document-border)' }}
         >
           <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.manage.address.region_label")} {props.region}

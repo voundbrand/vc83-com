@@ -119,7 +119,7 @@ export function ObjectContextPanel({
   return (
     <div
       className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 rounded-lg border-2 shadow-2xl max-w-4xl w-[90%]"
-      style={{ borderColor: colors.border, background: 'var(--win95-bg-light)' }}
+      style={{ borderColor: colors.border, background: 'var(--window-document-bg-elevated)' }}
     >
       {/* Header */}
       <div
@@ -163,7 +163,7 @@ export function ObjectContextPanel({
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <Settings className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
-                <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                   {t("objectContext.properties.title")}
                 </h4>
               </div>
@@ -216,7 +216,7 @@ export function ObjectContextPanel({
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <Link2 className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
-                <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                   {t("objectContext.connections.title")}
                 </h4>
               </div>
@@ -283,7 +283,7 @@ export function ObjectContextPanel({
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <Eye className="h-3 w-3" style={{ color: 'var(--neutral-gray)' }} />
-                <h4 className="text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+                <h4 className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
                   {t("objectContext.configuration.title")}
                 </h4>
               </div>
@@ -332,7 +332,7 @@ export function ObjectContextPanel({
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-4 pt-3 border-t-2 flex items-center justify-between" style={{ borderColor: 'var(--win95-border)' }}>
+        <div className="mt-4 pt-3 border-t-2 flex items-center justify-between" style={{ borderColor: 'var(--window-document-border)' }}>
           <div className="text-[10px]" style={{ color: 'var(--neutral-gray)' }}>
             {isObject
               ? t("objectContext.quickActions.behaviorsUsingObject", { count: connectedBehaviors.length })
@@ -344,7 +344,7 @@ export function ObjectContextPanel({
             {isBehavior && onUpdate && (
               <button
                 onClick={() => onUpdate(selectedNode.id, { enabled: !nodeData.enabled })}
-                className="retro-button flex items-center gap-1 px-2 py-1 text-[10px]"
+                className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-[10px]"
               >
                 {nodeData.enabled ? (
                   <>
@@ -362,7 +362,7 @@ export function ObjectContextPanel({
 
             <button
               onClick={onClose}
-              className="retro-button px-3 py-1 text-[10px]"
+              className="desktop-interior-button px-3 py-1 text-[10px]"
             >
               {t("objectContext.quickActions.close")}
             </button>
@@ -379,7 +379,7 @@ function PropertyRow({ label, value }: { label: string; value: React.ReactNode }
       <span className="font-bold" style={{ color: 'var(--neutral-gray)' }}>
         {label}:
       </span>
-      <span style={{ color: 'var(--win95-text)' }}>
+      <span style={{ color: 'var(--window-document-text)' }}>
         {value}
       </span>
     </div>

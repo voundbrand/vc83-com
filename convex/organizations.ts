@@ -54,6 +54,65 @@ export const listAll = query({
 });
 
 /**
+ * List organizations with cursor pagination (super admin only)
+ *
+ * Returns a manageable page for large installations so the UI does not load
+ * thousands of organizations at once.
+ */
+export const listAllPaginated = query({
+  args: {
+    sessionId: v.string(),
+    cursor: v.optional(v.string()),
+    pageSize: v.optional(v.number()),
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Nicht autorisiert: Nur Super-Administratoren können alle Organisationen auflisten");
+    }
+
+    const pageSize = Math.max(10, Math.min(args.pageSize ?? 25, 100));
+    const normalizedSearch = args.search?.trim().slice(0, 120);
+
+    const organizationPage = normalizedSearch
+      ? await ctx.db
+          .query("organizations")
+          .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
+          .paginate({ cursor: args.cursor ?? null, numItems: pageSize })
+      : await ctx.db
+          .query("organizations")
+          .order("desc")
+          .paginate({ cursor: args.cursor ?? null, numItems: pageSize });
+
+    const organizationsWithDetails = await Promise.all(
+      organizationPage.page.map(async (org) => {
+        const activeMembers = await ctx.db
+          .query("organizationMembers")
+          .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+
+        return {
+          ...org,
+          memberCount: activeMembers.length,
+        };
+      }),
+    );
+
+    return {
+      organizations: organizationsWithDetails,
+      continueCursor: organizationPage.continueCursor,
+      isDone: organizationPage.isDone,
+      pageSize,
+      search: normalizedSearch ?? null,
+    };
+  },
+});
+
+/**
  * Get organization by ID with detailed information
  *
  * @permission view_organization - Required to view organization details
@@ -109,6 +168,7 @@ export const getById = query({
             email: memberUser.email,
             firstName: memberUser.firstName,
             lastName: memberUser.lastName,
+            avatarUrl: memberUser.avatarUrl,
           } : null,
           roleName: role?.name || "unknown",
           isSuperAdmin: memberIsSuperAdmin,

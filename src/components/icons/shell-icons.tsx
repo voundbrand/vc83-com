@@ -17,6 +17,7 @@ import {
   Clock3,
   Copy,
   CreditCard,
+  FilePenLine,
   FileText,
   FileTextIcon,
   FolderKanban,
@@ -81,6 +82,7 @@ export const ShellBriefcaseIcon = createShellIcon(Briefcase);
 export const ShellPaymentsIcon = createShellIcon(CreditCard);
 export const ShellWorkflowIcon = createShellIcon(Workflow);
 export const ShellFinderIcon = createShellIcon(Search);
+export const ShellTextEditorIcon = createShellIcon(FilePenLine);
 export const ShellTerminalIcon = createShellIcon(Terminal);
 export const ShellSettingsIcon = createShellIcon(Settings);
 export const ShellStoreIcon = createShellIcon(Store);
@@ -136,8 +138,10 @@ const WINDOW_ICON_BY_ID: Record<string, ComponentType<ShellIconProps>> = {
   "certificates": ShellCertificateIcon,
   "events": ShellCalendarIcon,
   "checkout": ShellCheckoutIcon,
+  "webchat-deployment": ShellDocsIcon,
   "forms": ShellFormsIcon,
   "web-publishing": ShellDocsIcon,
+  "app_invoicing": ShellReceiptIcon,
   "invoicing": ShellReceiptIcon,
   "workflows": ShellWorkflowIcon,
   "templates": ShellTemplatesIcon,
@@ -156,13 +160,20 @@ const WINDOW_ICON_BY_ID: Record<string, ComponentType<ShellIconProps>> = {
   "benefits": ShellGiftIcon,
   "booking": ShellCalendarIcon,
   "ai-system": ShellBrainIcon,
+  "builder": ShellBuilderIcon,
   "builder-browser": ShellBuilderIcon,
   "agents-browser": ShellPeopleIcon,
+  "layers": ShellLayersIcon,
   "layers-browser": ShellLayersIcon,
   "brain": ShellBrainIcon,
   "finder": ShellFinderIcon,
+  "text-editor": ShellTextEditorIcon,
   "terminal": ShellTerminalIcon,
   "feedback": ShellDocsIcon,
+};
+
+const PRODUCT_APP_ICON_ID_BY_CODE: Record<string, string> = {
+  app_invoicing: "invoicing",
 };
 
 const LEGACY_EMOJI_ICON_BY_VALUE: Record<string, ComponentType<ShellIconProps>> = {
@@ -209,6 +220,7 @@ const LEGACY_EMOJI_ICON_BY_VALUE: Record<string, ComponentType<ShellIconProps>> 
   "🔀": ShellLayersIcon,
   "🧠": ShellBrainIcon,
   "🔍": ShellFinderIcon,
+  "🖊️": ShellTextEditorIcon,
   "💻": ShellTerminalIcon,
   "💬": ShellDocsIcon,
 };
@@ -224,4 +236,13 @@ export function getWindowIconById(
     ShellWindowIcon;
 
   return <Icon size={size} tone={Icon === ShellWindowIcon ? "muted" : "active"} />;
+}
+
+export function getProductAppIconByCode(
+  appCode: string,
+  legacyIcon?: string,
+  size: 16 | 18 | 20 = 16,
+) {
+  const iconId = PRODUCT_APP_ICON_ID_BY_CODE[appCode] ?? appCode;
+  return getWindowIconById(iconId, legacyIcon, size);
 }

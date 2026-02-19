@@ -46,9 +46,9 @@ export function CreditBalance({
       <div
         className="flex items-center gap-1.5 px-2 py-1 border-2 text-xs font-bold"
         style={{
-          borderColor: isLow ? "var(--warning)" : "var(--win95-border)",
-          background: isLow ? "var(--warning-bg)" : "var(--win95-bg-light)",
-          color: isLow ? "var(--warning)" : "var(--win95-text)",
+          borderColor: isLow ? "var(--warning)" : "var(--shell-border)",
+          background: isLow ? "var(--warning-bg)" : "var(--shell-surface-elevated)",
+          color: isLow ? "var(--warning)" : "var(--shell-text)",
         }}
       >
         <Zap size={12} />
@@ -67,7 +67,7 @@ export function CreditBalance({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+        <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--shell-text)" }}>
           <Zap size={14} style={{ color: "var(--primary)" }} />
           <span>Credits: {totalCredits}</span>
         </div>
@@ -76,7 +76,7 @@ export function CreditBalance({
       {/* Progress bar */}
       <div
         className="h-3 border-2 flex overflow-hidden"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         {dailyPct > 0 && (
           <div
@@ -102,7 +102,7 @@ export function CreditBalance({
       </div>
 
       {/* Legend */}
-      <div className="flex gap-3 text-xs" style={{ color: "var(--win95-text-secondary)" }}>
+      <div className="flex gap-3 text-xs" style={{ color: "var(--shell-text-muted)" }}>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2" style={{ background: "var(--info)" }} />
           Daily: {dailyCredits}

@@ -66,7 +66,7 @@ export function TemplateSetSelector({
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
             <Layers size={14} className="inline mr-1" />
             {label}
             {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -85,7 +85,7 @@ export function TemplateSetSelector({
     return (
       <div className="mb-4">
         {label && (
-          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
             <Layers size={14} className="inline mr-1" />
             {label}
             {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -117,7 +117,7 @@ export function TemplateSetSelector({
   return (
     <div className="mb-4">
       {label && (
-        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+        <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
           <Layers size={14} className="inline mr-1" />
           {label}
           {required && <span style={{ color: 'var(--error)' }}> *</span>}
@@ -151,8 +151,8 @@ export function TemplateSetSelector({
 
       {/* Show selected template set info */}
       {showDetails && value && selectedSet && (
-        <div className="mt-2 p-3 rounded text-xs border-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderColor: 'var(--win95-highlight)' }}>
-          <div className="font-bold mb-2" style={{ color: 'var(--win95-highlight)' }}>
+        <div className="mt-2 p-3 rounded text-xs border-2" style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderColor: 'var(--shell-accent)' }}>
+          <div className="font-bold mb-2" style={{ color: 'var(--shell-accent)' }}>
             {selectedSet.name}
           </div>
           {selectedSet.description && (
@@ -163,13 +163,13 @@ export function TemplateSetSelector({
 
           {/* Template breakdown */}
           <div className="space-y-2">
-            <div className="text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <div className="text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
               Included Templates:
             </div>
 
             {/* Ticket Template */}
             <div className="flex items-start gap-2 pl-2">
-              <FileText size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
+              <FileText size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--shell-accent)' }} />
               <div>
                 <div className="font-bold text-xs">Ticket:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -180,7 +180,7 @@ export function TemplateSetSelector({
 
             {/* Invoice Template */}
             <div className="flex items-start gap-2 pl-2">
-              <Receipt size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
+              <Receipt size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--shell-accent)' }} />
               <div>
                 <div className="font-bold text-xs">Invoice:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
@@ -191,7 +191,7 @@ export function TemplateSetSelector({
 
             {/* Email Template */}
             <div className="flex items-start gap-2 pl-2">
-              <Mail size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--win95-highlight)' }} />
+              <Mail size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--shell-accent)' }} />
               <div>
                 <div className="font-bold text-xs">Email:</div>
                 <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>

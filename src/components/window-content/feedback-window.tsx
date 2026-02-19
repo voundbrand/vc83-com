@@ -229,7 +229,7 @@ export function FeedbackWindow() {
           className="w-full py-2.5 rounded text-sm font-bold flex items-center justify-center gap-2 transition-opacity"
           style={{
             background: "linear-gradient(135deg, var(--win95-highlight) 0%, var(--win95-gradient-end) 100%)",
-            color: "white",
+            color: "var(--win95-on-highlight)",
             border: "none",
             opacity: isSubmitting || !message.trim() || rating === 0 ? 0.5 : 1,
             cursor: isSubmitting || !message.trim() || rating === 0 ? "not-allowed" : "pointer",

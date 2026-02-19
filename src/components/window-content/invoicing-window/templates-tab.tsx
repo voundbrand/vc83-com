@@ -30,7 +30,7 @@ const getTemplates = (): Template[] => [
     nameKey: "ui.invoicing_window.templates.b2c_receipt.name",
     descriptionKey: "ui.invoicing_window.templates.b2c_receipt.description",
     useCaseKey: "ui.invoicing_window.templates.b2c_receipt.use_case",
-    colorVar: "var(--win95-highlight)",
+    colorVar: "var(--tone-accent)",
     icon: <FileText size={24} />,
     featureKeys: [
       "ui.invoicing_window.templates.b2c_receipt.features.layout",
@@ -45,7 +45,7 @@ const getTemplates = (): Template[] => [
     nameKey: "ui.invoicing_window.templates.b2b_single.name",
     descriptionKey: "ui.invoicing_window.templates.b2b_single.description",
     useCaseKey: "ui.invoicing_window.templates.b2b_single.use_case",
-    colorVar: "var(--win95-highlight)",
+    colorVar: "var(--tone-accent)",
     icon: <Building2 size={24} />,
     featureKeys: [
       "ui.invoicing_window.templates.b2b_single.features.layout",
@@ -75,7 +75,7 @@ const getTemplates = (): Template[] => [
     nameKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.name",
     descriptionKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.description",
     useCaseKey: "ui.invoicing_window.templates.b2b_consolidated_detailed.use_case",
-    colorVar: "var(--win95-highlight)",
+    colorVar: "var(--tone-accent)",
     icon: <FileStack size={24} />,
     featureKeys: [
       "ui.invoicing_window.templates.b2b_consolidated_detailed.features.itemization",
@@ -108,7 +108,7 @@ export function TemplatesTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <p style={{ color: "var(--win95-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
+        <p style={{ color: "var(--window-document-text)" }}>{t("ui.invoicing_window.footer.loading")}</p>
       </div>
     );
   }
@@ -119,7 +119,7 @@ export function TemplatesTab() {
     <div className="p-4 space-y-4">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.invoicing_window.templates.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -134,8 +134,8 @@ export function TemplatesTab() {
             key={template.id}
             className="border-2 rounded-lg p-4 hover:shadow-md transition-shadow"
             style={{
-              background: "var(--win95-bg-light)",
-              borderColor: "var(--win95-border)",
+              background: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             {/* Template Header */}
@@ -143,7 +143,7 @@ export function TemplatesTab() {
               <div
                 className="p-2 rounded border-2"
                 style={{
-                  backgroundColor: "var(--win95-bg)",
+                  backgroundColor: "var(--window-document-bg)",
                   color: template.colorVar,
                   borderColor: template.colorVar,
                 }}
@@ -151,7 +151,7 @@ export function TemplatesTab() {
                 {template.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                   {t(template.nameKey)}
                 </h4>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -164,7 +164,7 @@ export function TemplatesTab() {
             <div
               className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3"
               style={{
-                backgroundColor: "var(--win95-bg)",
+                backgroundColor: "var(--window-document-bg)",
                 color: template.colorVar,
                 borderColor: template.colorVar,
               }}
@@ -188,9 +188,9 @@ export function TemplatesTab() {
                 onClick={() => handlePreview(template.id)}
                 className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 hover:opacity-90 transition-opacity border-2"
                 style={{
-                  backgroundColor: "var(--win95-highlight)",
+                  backgroundColor: "var(--tone-accent)",
                   color: "white",
-                  borderColor: "var(--win95-highlight)",
+                  borderColor: "var(--tone-accent)",
                 }}
               >
                 <Eye size={14} />
@@ -199,9 +199,9 @@ export function TemplatesTab() {
               <button
                 className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed border-2"
                 style={{
-                  backgroundColor: "var(--win95-button-face)",
-                  color: "var(--win95-text)",
-                  borderColor: "var(--win95-border)",
+                  backgroundColor: "var(--window-document-bg-elevated)",
+                  color: "var(--window-document-text)",
+                  borderColor: "var(--window-document-border)",
                 }}
                 disabled
                 title={t("ui.invoicing_window.templates.buttons.use_hint")}
@@ -217,11 +217,11 @@ export function TemplatesTab() {
       <div
         className="mt-6 p-4 border-2 rounded"
         style={{
-          backgroundColor: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
         >
-        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--window-document-text)" }}>
           <Lightbulb size={12} />
           {t("ui.invoicing_window.templates.usage.title")}
         </h4>

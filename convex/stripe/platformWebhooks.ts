@@ -82,6 +82,33 @@ const TIER_MAP: Record<string, "free" | "pro" | "agency" | "enterprise"> = {
   enterprise: "enterprise",
 };
 
+function normalizeFunnelChannel(
+  channel?: string
+): "webchat" | "native_guest" | "telegram" | "platform_web" | "unknown" {
+  if (channel === "webchat") return "webchat";
+  if (channel === "native_guest") return "native_guest";
+  if (channel === "telegram") return "telegram";
+  if (channel === "platform_web") return "platform_web";
+  return "unknown";
+}
+
+function extractFunnelCampaign(metadata?: Record<string, string | undefined>) {
+  if (!metadata) return undefined;
+
+  const campaign = {
+    source: metadata.utmSource,
+    medium: metadata.utmMedium,
+    campaign: metadata.utmCampaign,
+    content: metadata.utmContent,
+    term: metadata.utmTerm,
+    referrer: metadata.funnelReferrer,
+    landingPath: metadata.funnelLandingPath,
+  };
+
+  const hasSignal = Object.values(campaign).some((value) => typeof value === "string" && value.length > 0);
+  return hasSignal ? campaign : undefined;
+}
+
 /**
  * PROCESS PLATFORM SUBSCRIPTION WEBHOOK
  *
@@ -145,6 +172,8 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   const billingPeriod = metadata?.billingPeriod || "monthly";
   const isB2B = metadata?.isB2B === "true";
   const checkoutType = metadata?.type; // "platform-tier" or "credit-purchase"
+  const funnelChannel = normalizeFunnelChannel(metadata?.funnelChannel);
+  const funnelCampaign = extractFunnelCampaign(metadata);
 
   if (!organizationId) {
     console.error("[Platform Webhooks] No organizationId in checkout session metadata");
@@ -233,6 +262,27 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
       console.error(`[Platform Webhooks] Failed to send notifications:`, error);
       // Don't throw - billing sync already succeeded
     }
+
+    try {
+      await (ctx as any).runMutation(generatedApi.internal.onboarding.funnelEvents.emitFunnelEvent, {
+        eventName: "onboarding.funnel.upgrade",
+        channel: funnelChannel,
+        organizationId,
+        eventKey: `onboarding.funnel.upgrade:stripe_checkout:${session.subscription || "none"}:${session.payment_intent || "none"}`,
+        campaign: funnelCampaign,
+        metadata: {
+          checkoutType,
+          checkoutSessionId: (session as any).id,
+          subscriptionId: subscription,
+          tier,
+          billingPeriod,
+          amountTotal: amount_total || 0,
+          currency: currency || "eur",
+        },
+      });
+    } catch (funnelError) {
+      console.error("[Platform Webhooks] Failed to emit upgrade funnel event:", funnelError);
+    }
   }
 
   // Handle credit purchases
@@ -266,6 +316,26 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
       } catch (creditError) {
         console.error(`[Platform Webhooks] Failed to add purchased credits:`, creditError);
         throw creditError; // Re-throw - credits must be added
+      }
+
+      try {
+        await (ctx as any).runMutation(generatedApi.internal.onboarding.funnelEvents.emitFunnelEvent, {
+          eventName: "onboarding.funnel.credit_purchase",
+          channel: funnelChannel,
+          organizationId,
+          eventKey: `onboarding.funnel.credit_purchase:stripe_checkout:${session.payment_intent || "none"}:${credits}`,
+          campaign: funnelCampaign,
+          metadata: {
+            checkoutType,
+            checkoutSessionId: (session as any).id,
+            paymentIntentId,
+            credits,
+            amountEur: parseInt(amountEur, 10),
+            currency: currency || "eur",
+          },
+        });
+      } catch (funnelError) {
+        console.error("[Platform Webhooks] Failed to emit credit funnel event:", funnelError);
       }
     }
   }

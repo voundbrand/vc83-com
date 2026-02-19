@@ -20,6 +20,7 @@ import { AgentSessionsViewer } from "./agent-sessions-viewer";
 import { AgentApprovalQueue } from "./agent-approval-queue";
 import { AgentEscalationQueue } from "./agent-escalation-queue";
 import { AgentAnalytics } from "./agent-analytics";
+import { AgentTrustCockpit } from "./agent-trust-cockpit";
 
 interface AgentDetailPanelProps {
   agentId: Id<"objects">;
@@ -31,6 +32,7 @@ interface AgentDetailPanelProps {
 }
 
 const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
+  { id: "trust", label: "Trust", icon: <Shield size={12} /> },
   { id: "soul", label: "Soul", icon: <Brain size={12} /> },
   { id: "tools", label: "Tools", icon: <Wrench size={12} /> },
   { id: "sessions", label: "Sessions", icon: <MessageSquare size={12} /> },
@@ -180,6 +182,9 @@ export function AgentDetailPanel({
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
+        {activeTab === "trust" && (
+          <AgentTrustCockpit agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
+        )}
         {activeTab === "soul" && (
           <AgentSoulEditor agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
         )}

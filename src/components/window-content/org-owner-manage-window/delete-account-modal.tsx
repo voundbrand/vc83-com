@@ -93,12 +93,12 @@ export function DeleteAccountModal({
             onClick={onClose}
             className="p-0.5 hover:opacity-80"
             style={{
-              backgroundColor: "var(--win95-button-face)",
+              backgroundColor: "var(--window-document-bg)",
               border: "1px solid",
-              borderColor: "var(--win95-button-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <X size={16} style={{ color: "var(--win95-text)" }} />
+            <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
         </div>
 
@@ -130,15 +130,15 @@ export function DeleteAccountModal({
           <div
             className="p-4 rounded space-y-2"
             style={{
-              backgroundColor: "var(--win95-bg)",
+              backgroundColor: "var(--window-document-bg)",
               border: "2px solid",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <h4 className="font-semibold" style={{ color: "var(--win95-text)" }}>
+            <h4 className="font-semibold" style={{ color: "var(--window-document-text)" }}>
               {t("ui.manage.delete_account.what_happens")}
             </h4>
-            <ul className="text-sm space-y-1.5 ml-4" style={{ color: "var(--win95-text)" }}>
+            <ul className="text-sm space-y-1.5 ml-4" style={{ color: "var(--window-document-text)" }}>
               <li className="list-disc">
                 {t("ui.manage.delete_account.consequence_1")}
               </li>
@@ -158,15 +158,15 @@ export function DeleteAccountModal({
           <div
             className="p-4 rounded"
             style={{
-              backgroundColor: "var(--win95-bg-light)",
+              backgroundColor: "var(--window-document-bg-elevated)",
               border: "2px solid",
-              borderColor: "var(--win95-border)",
+              borderColor: "var(--window-document-border)",
             }}
           >
             <div className="flex items-start gap-3">
-              <Shield size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--win95-highlight)" }} />
+              <Shield size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
               <div>
-                <h4 className="font-semibold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
+                <h4 className="font-semibold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
                   Need immediate permanent deletion?
                 </h4>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -177,7 +177,7 @@ export function DeleteAccountModal({
                   onClick={handleOpenComplianceApp}
                   className="text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1"
                   style={{
-                    backgroundColor: "var(--win95-highlight)",
+                    backgroundColor: "var(--tone-accent)",
                     color: "white",
                   }}
                 >
@@ -192,19 +192,19 @@ export function DeleteAccountModal({
           <div
             className="p-3 rounded"
             style={{
-              backgroundColor: "var(--win95-input-bg)",
+              backgroundColor: "var(--window-document-bg)",
               border: "2px inset",
-              borderColor: "var(--win95-input-border-dark)",
+              borderColor: "var(--window-document-border)",
             }}
           >
-            <p className="text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
               <span className="font-semibold">Account:</span> {userEmail}
             </p>
           </div>
 
           {/* Confirmation Input */}
           <div className="space-y-2">
-            <label className="block text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
+            <label className="block text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
               {t("ui.manage.delete_account.confirm_instruction")} <code className="bg-gray-200 px-1 py-0.5 rounded">{requiredText}</code>
             </label>
             <input
@@ -214,10 +214,10 @@ export function DeleteAccountModal({
               placeholder={requiredText}
               className="w-full px-3 py-2 text-sm font-mono"
               style={{
-                backgroundColor: "var(--win95-input-bg)",
-                color: "var(--win95-input-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
                 border: "2px inset",
-                borderColor: "var(--win95-input-border-dark)",
+                borderColor: "var(--window-document-border)",
               }}
               autoComplete="off"
             />
@@ -244,8 +244,8 @@ export function DeleteAccountModal({
               disabled={isDeleting}
               className="beveled-button px-4 py-2 text-sm font-semibold"
               style={{
-                backgroundColor: "var(--win95-button-face)",
-                color: "var(--win95-text)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
               }}
             >
               {t("ui.manage.delete_account.cancel")}

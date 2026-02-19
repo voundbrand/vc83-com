@@ -37,17 +37,17 @@ const getCategoryIcon = (category: string) => {
 const getCategoryColor = (category: string) => {
   switch (category) {
     case "registration":
-      return "var(--win95-highlight)";
+      return "var(--tone-accent)";
     case "survey":
       return "var(--success)";
     case "application":
-      return "var(--win95-highlight)";
+      return "var(--tone-accent)";
     case "volunteer":
       return "var(--success)";
     case "contact":
       return "var(--info)";
     default:
-      return "var(--win95-highlight)";
+      return "var(--tone-accent)";
   }
 };
 
@@ -74,7 +74,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
   if (translationsLoading || availableTemplates === undefined) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <Loader2 size={32} className="animate-spin" style={{ color: "var(--win95-highlight)" }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
       </div>
     );
   }
@@ -83,8 +83,8 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
   if (availableTemplates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FileText size={48} className="mb-4" style={{ color: "var(--win95-highlight)" }} />
-        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <FileText size={48} className="mb-4" style={{ color: "var(--tone-accent)" }} />
+        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           No Templates Available
         </h3>
         <p className="text-xs max-w-md mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -98,7 +98,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
     <div className="p-4 space-y-4">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+        <h3 className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {t("ui.forms.templates.title")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -123,8 +123,8 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
               key={template._id}
               className="border-2 rounded-lg p-4 transition-shadow hover:shadow-md cursor-pointer"
               style={{
-                background: "var(--win95-bg-light)",
-                borderColor: "var(--win95-border)",
+                background: "var(--window-document-bg-elevated)",
+                borderColor: "var(--window-document-border)",
               }}
               onClick={() => onUseTemplate(templateCode)}
             >
@@ -133,7 +133,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                 <div
                   className="p-2 rounded border-2 shrink-0"
                   style={{
-                    backgroundColor: "var(--win95-bg)",
+                    backgroundColor: "var(--window-document-bg)",
                     color: colorVar,
                     borderColor: colorVar,
                   }}
@@ -141,7 +141,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                   {icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold mb-1" style={{ color: "var(--win95-text)" }}>
+                  <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
                     {templateName}
                   </h4>
                   <p className="text-xs mb-2 line-clamp-2" style={{ color: "var(--neutral-gray)" }}>
@@ -154,7 +154,7 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
               <div
                 className="inline-block px-2 py-1 text-[10px] font-bold rounded border mb-3 uppercase"
                 style={{
-                  backgroundColor: "var(--win95-bg)",
+                  backgroundColor: "var(--window-document-bg)",
                   color: colorVar,
                   borderColor: colorVar,
                 }}
@@ -188,9 +188,9 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                   }}
                   className="flex-1 px-3 py-2 text-xs font-semibold rounded flex items-center justify-center gap-2 transition-opacity border-2"
                   style={{
-                    backgroundColor: "var(--win95-highlight)",
+                    backgroundColor: "var(--tone-accent)",
                     color: "white",
-                    borderColor: "var(--win95-highlight)",
+                    borderColor: "var(--tone-accent)",
                   }}
                 >
                   <FileText size={14} />
@@ -200,9 +200,9 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
                   disabled
                   className="px-3 py-2 text-xs font-semibold rounded opacity-50 cursor-not-allowed border-2"
                   style={{
-                    backgroundColor: "var(--win95-button-face)",
-                    color: "var(--win95-text)",
-                    borderColor: "var(--win95-border)",
+                    backgroundColor: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
+                    borderColor: "var(--window-document-border)",
                   }}
                   title={t("ui.forms.templates.buttons.preview_hint")}
                 >
@@ -218,11 +218,11 @@ export function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
       <div
         className="mt-6 p-4 border-2 rounded"
         style={{
-          backgroundColor: "var(--win95-bg-light)",
-          borderColor: "var(--win95-border)",
+          backgroundColor: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
         }}
         >
-        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--win95-text)" }}>
+        <h4 className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "var(--window-document-text)" }}>
           <Lightbulb size={12} />
           {t("ui.forms.templates.usage.title")}
         </h4>

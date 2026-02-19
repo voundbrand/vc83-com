@@ -13,8 +13,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useBuilder } from "@/contexts/builder-context";
 import { useQuery, useAction, useMutation } from "convex/react";
-import { api } from "@/../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Check,
   Loader2,
@@ -35,10 +35,12 @@ import {
   ChevronUp,
   CheckCircle2,
 } from "lucide-react";
-import { EnvVarsSection } from "./env-vars-section";
+import { EnvVarsSection, type EnvVar } from "./env-vars-section";
 import { MessageSquare } from "lucide-react";
 import { generateThinClientScaffold, generateMinimalScaffold } from "@/lib/scaffold-generators/thin-client";
 import type { PublishConfig } from "@/contexts/publish-context";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const generatedApi: any = require("@/../convex/_generated/api");
 
 // ── Deploy step definitions ──
 type DeployStep =
@@ -62,10 +64,21 @@ function getStepIndex(step: DeployStep): number {
   return DEPLOY_STEPS.findIndex((s) => s.key === step);
 }
 
+const api: any = (generatedApi as any)["api"];
+
+function useBuilderTx() {
+  const { translationsMap } = useNamespaceTranslations("ui.builder");
+  return useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
+}
+
 export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => void } = {}) {
   const { sessionId, organizationId, builderAppId, addAssistantMessage, addSystemMessage } = useBuilder();
   const { sessionId: authSessionId } = useAuth();
   const effectiveSessionId = authSessionId || sessionId;
+  const tx = useBuilderTx();
 
   // State
   const [repoName, setRepoName] = useState("");
@@ -190,7 +203,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       ? { sessionId: effectiveSessionId, appId: builderAppId }
       : "skip"
   );
-  const envVars = envVarsResult?.envVars || [];
+  const envVars: EnvVar[] = (envVarsResult?.envVars as EnvVar[] | undefined) || [];
 
   // Pre-fill repo name
   useEffect(() => {
@@ -332,8 +345,8 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       // Step 2: Create Vercel project + set env vars
       setDeployStep("creating_project");
       const envPayload = envVars
-        .filter((ev) => ev.value)
-        .map((ev) => ({
+        .filter((ev: EnvVar) => ev.value)
+        .map((ev: EnvVar) => ({
           key: ev.key,
           value: ev.value,
           sensitive: ev.sensitive,
@@ -673,9 +686,11 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     return (
       <DropdownContainer>
         <div className="p-4 text-center">
-          <p className="text-sm text-zinc-400">Connect your app first</p>
-          <p className="text-xs text-zinc-600 mt-1">
-            Use the Connect panel to set up API capabilities.
+          <p className="text-sm text-neutral-400">
+            {tx("ui.builder.publishDropdown.connectFirst", "Connect your app first")}
+          </p>
+          <p className="text-xs text-neutral-600 mt-1">
+            {tx("ui.builder.publishDropdown.connectFirstDetail", "Use the Connect panel to set up API capabilities.")}
           </p>
         </div>
       </DropdownContainer>
@@ -687,20 +702,24 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     return (
       <DropdownContainer>
         <div className="p-3">
-          <p className="text-xs font-medium text-zinc-400 mb-2">Published App</p>
+          <p className="text-xs font-medium text-neutral-400 mb-2">
+            {tx("ui.builder.publishDropdown.publishedApp", "Published App")}
+          </p>
 
           {/* App preview card */}
-          <div className="bg-zinc-800 rounded-lg p-3 mb-3 flex items-start gap-3">
-            <div className="w-16 h-12 rounded bg-zinc-700 flex items-center justify-center flex-shrink-0">
-              <Globe className="w-5 h-5 text-zinc-500" />
+          <div className="bg-neutral-800 rounded-lg p-3 mb-3 flex items-start gap-3">
+            <div className="w-16 h-12 rounded bg-neutral-700 flex items-center justify-center flex-shrink-0">
+              <Globe className="w-5 h-5 text-neutral-500" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm text-zinc-200 font-medium truncate">
+              <p className="text-sm text-neutral-200 font-medium truncate">
                 {productionUrl.replace(/^https?:\/\//, "")}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-xs text-zinc-400">Ready</span>
+                <span className="text-xs text-neutral-400">
+                  {tx("ui.builder.publishDropdown.ready", "Ready")}
+                </span>
               </div>
             </div>
           </div>
@@ -710,18 +729,18 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
             {deployment?.githubRepo && (
               <DropdownLink
                 icon={<Github className="w-4 h-4" />}
-                label="View on GitHub"
+                label={tx("ui.builder.publishDropdown.viewOnGithub", "View on GitHub")}
                 href={deployment.githubRepo}
               />
             )}
             <DropdownLink
               icon={<Settings2 className="w-4 h-4" />}
-              label="Inspect on Vercel"
+              label={tx("ui.builder.publishDropdown.inspectOnVercel", "Inspect on Vercel")}
               href="https://vercel.com/dashboard"
             />
             <DropdownLink
               icon={<BarChart3 className="w-4 h-4" />}
-              label="Analytics"
+              label={tx("ui.builder.publishDropdown.analytics", "Analytics")}
               href={productionUrl}
             />
           </div>
@@ -733,27 +752,29 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         </div>
 
         {/* Footer buttons */}
-        <div className="border-t border-zinc-800 p-3 flex gap-2">
+        <div className="border-t border-neutral-800 p-3 flex gap-2">
           <a
             href={productionUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 text-zinc-200 text-sm font-medium rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-neutral-800 text-neutral-200 text-sm font-medium rounded-lg hover:bg-neutral-700 transition-colors border border-neutral-700"
           >
-            Visit Site
+            {tx("ui.builder.publishDropdown.visitSite", "Visit Site")}
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
           <button
             onClick={handleRedeploy}
             disabled={isRedeploying}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-neutral-100 text-neutral-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
           >
             {isRedeploying ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <RotateCcw className="w-3.5 h-3.5" />
             )}
-            {isRedeploying ? "Deploying..." : "Redeploy"}
+            {isRedeploying
+              ? tx("ui.builder.publishDropdown.deploying", "Deploying...")
+              : tx("ui.builder.publishDropdown.redeploy", "Redeploy")}
           </button>
         </div>
       </DropdownContainer>
@@ -769,8 +790,12 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     return (
       <DropdownContainer>
         <div className="p-3">
-          <p className="text-xs font-medium text-zinc-400 mb-3">
-            {isComplete ? "Published App" : isError ? "Deployment Failed" : "Deploying to Production"}
+          <p className="text-xs font-medium text-neutral-400 mb-3">
+            {isComplete
+              ? tx("ui.builder.publishDropdown.publishedApp", "Published App")
+              : isError
+                ? tx("ui.builder.publishDropdown.deploymentFailed", "Deployment Failed")
+                : tx("ui.builder.publishDropdown.deployingToProduction", "Deploying to Production")}
           </p>
 
           {/* Step progress */}
@@ -789,9 +814,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                   ) : isFailed ? (
                     <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
                   ) : isActive ? (
-                    <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin flex-shrink-0" />
                   ) : (
-                    <Circle className="w-3.5 h-3.5 text-zinc-700 flex-shrink-0" />
+                    <Circle className="w-3.5 h-3.5 text-neutral-700 flex-shrink-0" />
                   )}
                   {/* Step label */}
                   <span
@@ -801,13 +826,13 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                         : isFailed
                           ? "text-red-300"
                           : isActive
-                            ? "text-zinc-200"
-                            : "text-zinc-600"
+                            ? "text-neutral-200"
+                            : "text-neutral-600"
                     }`}
                   >
                     {step.label}
                     {isActive && !isDone && !isFailed && elapsed > 0 && (
-                      <span className="text-zinc-500 ml-1.5">({formatElapsed(elapsed)})</span>
+                      <span className="text-neutral-500 ml-1.5">({formatElapsed(elapsed)})</span>
                     )}
                   </span>
                 </div>
@@ -817,9 +842,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
           {/* Progress bar */}
           {!isComplete && !isError && (
-            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden mb-3">
+            <div className="h-1 bg-neutral-800 rounded-full overflow-hidden mb-3">
               <div
-                className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                className="h-full bg-amber-500 rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.min(((currentStepIdx + 1) / DEPLOY_STEPS.length) * 100, 95)}%`,
                 }}
@@ -853,7 +878,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                     <div className="border-t border-red-800/50 pt-2">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <Wrench className="h-3 w-3 text-amber-400" />
-                        <span className="text-[10px] font-medium text-amber-300 uppercase tracking-wider">Suggested Fixes</span>
+                        <span className="text-[10px] font-medium text-amber-300 uppercase tracking-wider">
+                          {tx("ui.builder.publishDropdown.suggestedFixes", "Suggested Fixes")}
+                        </span>
                       </div>
                       <ul className="space-y-1">
                         {suggestedFixes.map((fix, i) => (
@@ -872,25 +899,30 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                       <button
                         onClick={showBuildLogs ? () => setShowBuildLogs(false) : handleViewBuildLogs}
                         disabled={isLoadingLogs}
-                        className="flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-zinc-300 transition-colors"
+                        className="flex items-center gap-1.5 text-[11px] text-neutral-400 hover:text-neutral-300 transition-colors"
                       >
                         {isLoadingLogs ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
                           <FileText className="h-3 w-3" />
                         )}
-                        {showBuildLogs ? "Hide" : "View"} Build Logs
+                        {showBuildLogs
+                          ? tx("ui.builder.publishDropdown.hide", "Hide")
+                          : tx("ui.builder.publishDropdown.view", "View")}{" "}
+                        {tx("ui.builder.publishDropdown.buildLogs", "Build Logs")}
                         {showBuildLogs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </button>
 
                       {showBuildLogs && isLoadingLogs && (
                         <div className="mt-2 p-3 bg-black/50 rounded flex items-center gap-2">
-                          <Loader2 className="h-3 w-3 animate-spin text-zinc-500" />
-                          <span className="text-[10px] text-zinc-500">Fetching build logs...</span>
+                          <Loader2 className="h-3 w-3 animate-spin text-neutral-500" />
+                          <span className="text-[10px] text-neutral-500">
+                            {tx("ui.builder.publishDropdown.fetchingBuildLogs", "Fetching build logs...")}
+                          </span>
                         </div>
                       )}
                       {showBuildLogs && buildLogs && (
-                        <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-zinc-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
+                        <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-neutral-400 font-mono overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
                           {buildLogs}
                         </pre>
                       )}
@@ -906,17 +938,19 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
           {/* Success: show production URL */}
           {isComplete && productionUrl && (
-            <div className="bg-zinc-800 rounded-lg p-3 mb-3 flex items-start gap-3">
-              <div className="w-16 h-12 rounded bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                <Globe className="w-5 h-5 text-zinc-500" />
+            <div className="bg-neutral-800 rounded-lg p-3 mb-3 flex items-start gap-3">
+              <div className="w-16 h-12 rounded bg-neutral-700 flex items-center justify-center flex-shrink-0">
+                <Globe className="w-5 h-5 text-neutral-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm text-zinc-200 font-medium truncate">
+                <p className="text-sm text-neutral-200 font-medium truncate">
                   {productionUrl.replace(/^https?:\/\//, "")}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-xs text-zinc-400">Ready</span>
+                  <span className="text-xs text-neutral-400">
+                    {tx("ui.builder.publishDropdown.ready", "Ready")}
+                  </span>
                 </div>
               </div>
             </div>
@@ -924,19 +958,19 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         </div>
 
         {/* Footer */}
-        <div className="border-t border-zinc-800 p-3">
+        <div className="border-t border-neutral-800 p-3">
           {isError && (
             <div className="space-y-2">
               {/* Fix in Chat button */}
               {deploymentIdForLogs && !isHealing && (
                 <button
                   onClick={handleFixInChat}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-500 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-500 transition-colors"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Fix in Chat
+                  {tx("ui.builder.publishDropdown.fixInChat", "Fix in Chat")}
                   {deployment?.healAttempts ? (
-                    <span className="text-purple-200 text-xs">
+                    <span className="text-amber-200 text-xs">
                       ({deployment.healAttempts}/3)
                     </span>
                   ) : null}
@@ -945,10 +979,10 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
               {/* Healing progress */}
               {isHealing && (
-                <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-950/50 border border-purple-800 rounded-lg">
-                  <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
-                  <span className="text-sm text-purple-300">
-                    Analyzing & fixing build errors...
+                <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-950/50 border border-amber-800 rounded-lg">
+                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                  <span className="text-sm text-amber-300">
+                    {tx("ui.builder.publishDropdown.analyzingFixingErrors", "Analyzing & fixing build errors...")}
                   </span>
                 </div>
               )}
@@ -956,22 +990,26 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
               {/* Heal result summary */}
               {healResult && !healResult.success && (
                 <div className="bg-amber-950/30 border border-amber-800/50 rounded-lg p-2 text-xs text-amber-300">
-                  Auto-fix failed. See chat for details.
+                  {tx("ui.builder.publishDropdown.autoFixFailed", "Auto-fix failed. See chat for details.")}
                 </div>
               )}
               {healResult && healResult.success && (
                 <div className="bg-emerald-950/30 border border-emerald-800/50 rounded-lg p-2 text-xs text-emerald-300">
-                  Applied {healResult.fixCount} fix{healResult.fixCount !== 1 ? "es" : ""} ({healResult.strategy}). Redeploying...
+                  {tx("ui.builder.publishDropdown.applied", "Applied")} {healResult.fixCount}{" "}
+                  {tx("ui.builder.publishDropdown.fix", "fix")}
+                  {healResult.fixCount !== 1 ? tx("ui.builder.publishDropdown.esSuffix", "es") : ""}
+                  {" "}
+                  ({healResult.strategy}). {tx("ui.builder.publishDropdown.redeploying", "Redeploying...")}
                 </div>
               )}
 
               {/* Manual retry */}
               <button
                 onClick={handleRetry}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 text-zinc-300 text-sm font-medium rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-700 transition-colors border border-neutral-700"
               >
                 <RotateCcw className="w-4 h-4" />
-                Start Over
+                {tx("ui.builder.publishDropdown.startOver", "Start Over")}
               </button>
             </div>
           )}
@@ -981,29 +1019,32 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                 href={productionUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 text-zinc-200 text-sm font-medium rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-neutral-800 text-neutral-200 text-sm font-medium rounded-lg hover:bg-neutral-700 transition-colors border border-neutral-700"
               >
-                Visit Site
+                {tx("ui.builder.publishDropdown.visitSite", "Visit Site")}
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <button
                 onClick={handleDone}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-neutral-100 text-neutral-900 text-sm font-medium rounded-lg hover:bg-white transition-colors"
               >
-                Done
+                {tx("ui.builder.publishDropdown.done", "Done")}
               </button>
             </div>
           )}
           {!isError && !isComplete && (
             <div className="space-y-2">
-              <p className="text-xs text-zinc-500 text-center">
-                This may take a few minutes. You can close this dropdown.
+              <p className="text-xs text-neutral-500 text-center">
+                {tx(
+                  "ui.builder.publishDropdown.deployingHint",
+                  "This may take a few minutes. You can close this dropdown.",
+                )}
               </p>
               <button
                 onClick={handleRetry}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-400 text-xs font-medium rounded-lg hover:bg-zinc-700 hover:text-zinc-300 transition-colors border border-zinc-700"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-800 text-neutral-400 text-xs font-medium rounded-lg hover:bg-neutral-700 hover:text-neutral-300 transition-colors border border-neutral-700"
               >
-                Cancel
+                {tx("ui.builder.publishDropdown.cancel", "Cancel")}
               </button>
             </div>
           )}
@@ -1018,7 +1059,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
   return (
     <DropdownContainer>
       <div className="p-3">
-        <p className="text-xs font-medium text-zinc-400 mb-3">Publish to the Web</p>
+        <p className="text-xs font-medium text-neutral-400 mb-3">
+          {tx("ui.builder.publishDropdown.publishToWeb", "Publish to the Web")}
+        </p>
 
         {/* Error */}
         {error && (
@@ -1032,9 +1075,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         {!githubConnection?.connected && (
           <ConnectionWarning
             icon={<Github className="w-4 h-4 text-amber-400" />}
-            label="GitHub not connected"
-            detail="Connect your GitHub account to push code."
-            buttonLabel="Connect GitHub"
+            label={tx("ui.builder.publishDropdown.githubNotConnected", "GitHub not connected")}
+            detail={tx("ui.builder.publishDropdown.githubNotConnectedDetail", "Connect your GitHub account to push code.")}
+            buttonLabel={tx("ui.builder.publishDropdown.connectGithub", "Connect GitHub")}
             isConnecting={isConnectingGitHub}
             onConnect={handleConnectGitHub}
           />
@@ -1042,9 +1085,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         {githubConnection?.connected && !vercelConnection?.connected && (
           <ConnectionWarning
             icon={<CircleDot className="w-4 h-4 text-amber-400" />}
-            label="Vercel not connected"
-            detail="Connect your Vercel account to deploy."
-            buttonLabel="Connect Vercel"
+            label={tx("ui.builder.publishDropdown.vercelNotConnected", "Vercel not connected")}
+            detail={tx("ui.builder.publishDropdown.vercelNotConnectedDetail", "Connect your Vercel account to deploy.")}
+            buttonLabel={tx("ui.builder.publishDropdown.connectVercel", "Connect Vercel")}
             isConnecting={isConnectingVercel}
             onConnect={handleConnectVercel}
           />
@@ -1058,7 +1101,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
               className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-red-950/30 transition-colors"
             >
               <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
-              <span className="text-xs text-red-300 font-medium flex-1">Previous deployment failed</span>
+              <span className="text-xs text-red-300 font-medium flex-1">
+                {tx("ui.builder.publishDropdown.previousDeploymentFailed", "Previous deployment failed")}
+              </span>
               {showErrorDetails ? <ChevronUp className="h-3 w-3 text-red-400 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 text-red-400 flex-shrink-0" />}
             </button>
             {showErrorDetails && (
@@ -1076,7 +1121,10 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           <div className="bg-emerald-950/30 border border-emerald-800/50 rounded-lg p-2.5 mb-3 flex items-center gap-2">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
             <p className="text-xs text-emerald-300">
-              {connectedRecordCount} record{connectedRecordCount !== 1 ? "s" : ""} connected
+              {connectedRecordCount} {tx("ui.builder.publishDropdown.record", "record")}
+              {connectedRecordCount !== 1 ? tx("ui.builder.publishDropdown.sSuffix", "s") : ""}
+              {" "}
+              {tx("ui.builder.publishDropdown.connected", "connected")}
             </p>
           </div>
         )}
@@ -1085,13 +1133,15 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         {bothConnected && (
           <div className="space-y-2.5 mb-3">
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Repository Name</label>
+              <label className="text-xs text-neutral-500 block mb-1">
+                {tx("ui.builder.publishDropdown.repositoryName", "Repository Name")}
+              </label>
               <input
                 type="text"
                 value={repoName}
                 onChange={(e) => setRepoName(e.target.value.replace(/[^a-zA-Z0-9-_.]/g, "-"))}
-                placeholder="my-v0-app"
-                className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                placeholder={tx("ui.builder.publishDropdown.repositoryPlaceholder", "my-v0-app")}
+                className="w-full px-2.5 py-1.5 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
               />
             </div>
             <div className="flex gap-2">
@@ -1099,21 +1149,21 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
                 onClick={() => setIsPrivate(true)}
                 className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
                   isPrivate
-                    ? "bg-purple-950/30 border border-purple-700 text-purple-300"
-                    : "border border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                    ? "bg-amber-950/30 border border-amber-700 text-amber-300"
+                    : "border border-neutral-700 text-neutral-500 hover:border-neutral-600"
                 }`}
               >
-                Private
+                {tx("ui.builder.publishDropdown.private", "Private")}
               </button>
               <button
                 onClick={() => setIsPrivate(false)}
                 className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
                   !isPrivate
-                    ? "bg-purple-950/30 border border-purple-700 text-purple-300"
-                    : "border border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                    ? "bg-amber-950/30 border border-amber-700 text-amber-300"
+                    : "border border-neutral-700 text-neutral-500 hover:border-neutral-600"
                 }`}
               >
-                Public
+                {tx("ui.builder.publishDropdown.public", "Public")}
               </button>
             </div>
           </div>
@@ -1129,23 +1179,23 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       </div>
 
       {/* Footer action */}
-      <div className="border-t border-zinc-800 p-3">
+      <div className="border-t border-neutral-800 p-3">
         {bothConnected ? (
           <button
             onClick={handlePublish}
             disabled={!repoName.trim()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-100 text-zinc-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-100 text-neutral-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Publish to Production
+            {tx("ui.builder.publishDropdown.publishToProduction", "Publish to Production")}
           </button>
         ) : (
           <button
             disabled
-            className="w-full px-4 py-2.5 bg-zinc-800 text-zinc-500 text-sm font-medium rounded-lg cursor-not-allowed"
+            className="w-full px-4 py-2.5 bg-neutral-800 text-neutral-500 text-sm font-medium rounded-lg cursor-not-allowed"
           >
             {!githubConnection?.connected
-              ? "Connect GitHub to publish"
-              : "Connect Vercel to publish"}
+              ? tx("ui.builder.publishDropdown.connectGithubToPublish", "Connect GitHub to publish")
+              : tx("ui.builder.publishDropdown.connectVercelToPublish", "Connect Vercel to publish")}
           </button>
         )}
       </div>
@@ -1156,7 +1206,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 // ── Shared wrapper ──
 function DropdownContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-80 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
+    <div className="w-80 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
       {children}
     </div>
   );
@@ -1178,6 +1228,7 @@ function ConnectionWarning({
   isConnecting?: boolean;
   onConnect?: () => void;
 }) {
+  const tx = useBuilderTx();
   return (
     <div className="bg-amber-950/30 border border-amber-800 rounded-lg p-3 mb-3">
       <div className="flex items-center justify-between gap-2">
@@ -1199,7 +1250,7 @@ function ConnectionWarning({
             ) : (
               <ExternalLink className="w-3 h-3" />
             )}
-            {isConnecting ? "Opening..." : buttonLabel}
+            {isConnecting ? tx("ui.builder.publishDropdown.opening", "Opening...") : buttonLabel}
           </button>
         )}
       </div>
@@ -1220,7 +1271,7 @@ function DropdownLink({
   onClick?: () => void;
 }) {
   const className =
-    "w-full flex items-center justify-between px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer";
+    "w-full flex items-center justify-between px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer";
 
   if (href) {
     return (
@@ -1229,7 +1280,7 @@ function DropdownLink({
           {icon}
           {label}
         </span>
-        <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+        <ChevronRight className="w-3.5 h-3.5 text-neutral-600" />
       </a>
     );
   }
@@ -1240,7 +1291,7 @@ function DropdownLink({
         {icon}
         {label}
       </span>
-      <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+      <ChevronRight className="w-3.5 h-3.5 text-neutral-600" />
     </button>
   );
 }

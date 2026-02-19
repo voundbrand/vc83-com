@@ -139,8 +139,8 @@ export default function MeetingFormAdmin({
       <div
         className="bg-white rounded shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         style={{
-          border: "var(--win95-border)",
-          backgroundColor: "var(--win95-bg)",
+          border: "var(--window-document-border)",
+          backgroundColor: "var(--window-document-bg)",
         }}
       >
         {/* Header */}
@@ -148,7 +148,7 @@ export default function MeetingFormAdmin({
           className="flex items-center justify-between p-3 border-b-2 flex-shrink-0"
           style={{
             background: "linear-gradient(90deg, #000080 0%, #1084d0 100%)",
-            borderBottom: "var(--win95-border)",
+            borderBottom: "var(--window-document-border)",
           }}
         >
           <h3 className="font-bold text-sm text-white">
@@ -186,7 +186,7 @@ export default function MeetingFormAdmin({
                 maxLength={100}
                 placeholder="e.g., Kickoff Meeting, Design Review"
                 className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
                 required
               />
             </div>
@@ -203,7 +203,7 @@ export default function MeetingFormAdmin({
                 maxLength={300}
                 placeholder="What will be discussed in this meeting?"
                 className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ border: "var(--win95-border)" }}
+                style={{ border: "var(--window-document-border)" }}
               />
             </div>
           </div>
@@ -226,7 +226,7 @@ export default function MeetingFormAdmin({
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                   required
                 />
               </div>
@@ -241,7 +241,7 @@ export default function MeetingFormAdmin({
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                   required
                 />
               </div>
@@ -255,7 +255,7 @@ export default function MeetingFormAdmin({
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                 >
                   {durationOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -274,7 +274,7 @@ export default function MeetingFormAdmin({
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                 >
                   <option value="Europe/Berlin">Europe/Berlin (CET)</option>
                   <option value="Europe/London">Europe/London (GMT)</option>
@@ -298,7 +298,7 @@ export default function MeetingFormAdmin({
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                 >
                   <option value="scheduled">Scheduled</option>
                   <option value="completed">Completed</option>
@@ -328,7 +328,7 @@ export default function MeetingFormAdmin({
                   maxLength={300}
                   placeholder="Brief summary of what was discussed and decided"
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                 />
               </div>
 
@@ -343,7 +343,7 @@ export default function MeetingFormAdmin({
                   rows={6}
                   placeholder="## Topics Discussed&#10;- Item 1&#10;- Item 2&#10;&#10;## Action Items&#10;- [ ] Task 1&#10;- [ ] Task 2"
                   className="w-full px-2 py-1.5 text-sm border-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
-                  style={{ border: "var(--win95-border)" }}
+                  style={{ border: "var(--window-document-border)" }}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Use HTML or Markdown-style formatting. Clients will see this in the meeting detail view.
@@ -367,14 +367,14 @@ export default function MeetingFormAdmin({
         {/* Actions */}
         <div
           className="flex gap-2 justify-end p-4 border-t-2 flex-shrink-0"
-          style={{ borderTop: "var(--win95-border)" }}
+          style={{ borderTop: "var(--window-document-border)" }}
         >
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
             className="px-4 py-1.5 text-sm border-2 rounded hover:bg-gray-100 disabled:opacity-50"
-            style={{ border: "var(--win95-border)" }}
+            style={{ border: "var(--window-document-border)" }}
           >
             Cancel
           </button>
@@ -382,7 +382,7 @@ export default function MeetingFormAdmin({
             onClick={handleSubmit}
             disabled={loading}
             className="px-4 py-1.5 text-sm border-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-            style={{ border: "var(--win95-border)" }}
+            style={{ border: "var(--window-document-border)" }}
           >
             {loading ? "Saving..." : isEditing ? "Save Changes" : "Create Meeting"}
           </button>

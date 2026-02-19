@@ -86,7 +86,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "agency",
-    name: "Agency",
+    name: "Scale",
     monthlyPrice: 29900,
     annualPrice: 299000,
     description: "Multi-client operators",
@@ -567,7 +567,10 @@ function SubscriptionStatusBanner({
   const formatDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-  const tierLabel = (tier: string) => tier.charAt(0).toUpperCase() + tier.slice(1);
+  const tierLabel = (tier: string) => {
+    if (tier === "agency") return "Scale";
+    return tier.charAt(0).toUpperCase() + tier.slice(1);
+  };
 
   // Pending cancellation
   if (subscriptionStatus.cancelAtPeriodEnd && subscriptionStatus.currentPeriodEnd) {

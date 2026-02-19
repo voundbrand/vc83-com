@@ -86,13 +86,13 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
         <div
           className="p-4 border-2 flex items-start gap-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--info-light)",
           }}
         >
           <Info size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--info)" }} />
           <div>
-            <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
               Stripe Connection Required
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -112,13 +112,13 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
         <div
           className="p-4 border-2 flex items-start gap-2"
           style={{
-            borderColor: "var(--win95-border)",
+            borderColor: "var(--window-document-border)",
             background: "var(--warning-light)",
           }}
         >
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warning)" }} />
           <div>
-            <p className="font-semibold text-sm" style={{ color: "var(--win95-text)" }}>
+            <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
               Tax Collection Disabled
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -151,7 +151,7 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       <div
         className="p-4 border-2"
         style={{
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--window-document-border)",
           background: stripeTaxEnabled ? "var(--success-light)" : "var(--warning-light)",
         }}
       >
@@ -162,7 +162,7 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             <AlertTriangle style={{ color: "var(--warning)" }} className="flex-shrink-0" size={20} />
           )}
           <div className="flex-1">
-            <h3 className="font-bold text-sm mb-1" style={{ color: "var(--win95-text)" }}>
+            <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
               Stripe Tax: {stripeTaxEnabled ? "Enabled" : "Not Configured"}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -177,9 +177,9 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       {/* Configuration Details */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           Tax Configuration
         </h3>
         <div className="space-y-2">
@@ -191,19 +191,19 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>Default Behavior:</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {taxSettings?.customProperties?.defaultTaxBehavior || "exclusive"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>Default Tax Code:</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {taxSettings?.customProperties?.defaultTaxCode || "txcd_10000000"}
             </span>
           </div>
           <div className="flex justify-between text-xs">
             <span style={{ color: "var(--neutral-gray)" }}>Origin Country:</span>
-            <span className="font-mono" style={{ color: "var(--win95-text)" }}>
+            <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
               {taxSettings?.customProperties?.originAddress?.country || "Not set"}
             </span>
           </div>
@@ -219,9 +219,9 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       {/* Stripe Tax Features */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           What Stripe Tax Does
         </h3>
         <ul className="space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -251,9 +251,9 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       {/* Sync Actions */}
       <div
         className="p-4 border-2"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--win95-text)" }}>
+        <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
           Stripe Tax Sync
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
@@ -297,8 +297,8 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             rel="noopener noreferrer"
             className="beveled-button px-4 py-2 text-xs font-semibold flex items-center gap-2"
             style={{
-              backgroundColor: "var(--win95-button-face)",
-              color: "var(--win95-text)",
+              backgroundColor: "var(--window-document-bg-elevated)",
+              color: "var(--window-document-text)",
             }}
           >
             <ExternalLink size={14} />
@@ -311,9 +311,9 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       <div
         className="p-3 border-2 text-xs"
         style={{
-          borderColor: "var(--win95-border)",
+          borderColor: "var(--window-document-border)",
           background: "var(--info-light)",
-          color: "var(--win95-text)",
+          color: "var(--window-document-text)",
         }}
       >
         <p className="font-semibold mb-2 flex items-center gap-2">

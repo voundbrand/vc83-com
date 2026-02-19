@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { RetroButton } from "@/components/retro-button";
+import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
@@ -145,16 +145,16 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--win95-bg)" }}>
+      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
         {/* Header */}
         <div
           className="px-4 py-3 border-b-2 flex items-center gap-3"
-          style={{ borderColor: "var(--win95-border)" }}
+          style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
             onClick={onBack}
             className="flex items-center gap-1 text-sm hover:underline"
-            style={{ color: "var(--win95-highlight)" }}
+            style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
             Back
@@ -162,7 +162,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
           <div className="flex items-center gap-2">
             <MessageCircle size={24} style={{ color: "#FF6B00" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--win95-text)" }}>
+              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
                 Infobip Enterprise
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -178,11 +178,11 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
             <div
               className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
               style={{
-                borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light)",
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
               }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--win95-text)" }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Loading...</p>
             </div>
           ) : isConnected ? (
@@ -190,7 +190,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
             <div className="space-y-4">
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
@@ -199,7 +199,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                 <div className="space-y-2">
                   {infobipSettings?.baseUrl && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Base URL
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -209,7 +209,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   )}
                   {infobipSettings?.senderId && (
                     <div>
-                      <p className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                         Sender ID
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -223,9 +223,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               {/* Webhook Setup */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Webhook URL (for inbound SMS)
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -236,9 +236,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <code
                     className="flex-1 p-2 border-2 rounded text-xs break-all select-all"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     {WEBHOOK_URL}
@@ -246,15 +246,15 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <button
                     onClick={handleCopyWebhook}
                     className="p-2 border-2 rounded hover:opacity-80"
-                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
                     title="Copy webhook URL"
                   >
-                    <Copy size={14} style={{ color: "var(--win95-text)" }} />
+                    <Copy size={14} style={{ color: "var(--window-document-text)" }} />
                   </button>
                 </div>
               </div>
 
-              <RetroButton
+              <InteriorButton
                 variant="secondary"
                 onClick={handleTestConnection}
                 disabled={isTesting}
@@ -268,11 +268,11 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                 ) : (
                   "Test Connection"
                 )}
-              </RetroButton>
+              </InteriorButton>
 
-              <RetroButton variant="secondary" onClick={handleDisconnect} className="w-full">
+              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Disconnect
-              </RetroButton>
+              </InteriorButton>
             </div>
           ) : (
             /* ======== NOT CONNECTED STATE ======== */
@@ -280,10 +280,10 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               {/* Hero */}
               <div
                 className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <MessageCircle size={48} className="mb-4 block" style={{ color: "#FF6B00" }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Connect Infobip Enterprise
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -294,9 +294,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               {/* Features */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   What you get
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -322,10 +322,10 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               {/* Form */}
               <div
                 className="p-4 border-2 rounded space-y-3"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                     API Key
                   </label>
                   <input
@@ -335,14 +335,14 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                     placeholder="Your Infobip API key"
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                     Base URL
                   </label>
                   <input
@@ -352,14 +352,14 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                     placeholder="https://xxxxx.api.infobip.com"
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                     Sender ID
                   </label>
                   <input
@@ -370,9 +370,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                     maxLength={16}
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   />
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -384,9 +384,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               {/* Webhook Setup Instructions */}
               <div
                 className="p-4 border-2 rounded"
-                style={{ borderColor: "#FF6B00", background: "var(--win95-bg-light)" }}
+                style={{ borderColor: "#FF6B00", background: "var(--window-document-bg-elevated)" }}
               >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
                   Step 2: Configure Webhook
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
@@ -398,9 +398,9 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <code
                     className="flex-1 p-2 border-2 rounded text-xs break-all select-all"
                     style={{
-                      borderColor: "var(--win95-border)",
-                      background: "var(--win95-bg)",
-                      color: "var(--win95-text)",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
                     }}
                   >
                     {WEBHOOK_URL}
@@ -408,16 +408,16 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <button
                     onClick={handleCopyWebhook}
                     className="p-2 border-2 rounded hover:opacity-80"
-                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
                     title="Copy webhook URL"
                   >
-                    <Copy size={14} style={{ color: "var(--win95-text)" }} />
+                    <Copy size={14} style={{ color: "var(--window-document-text)" }} />
                   </button>
                 </div>
               </div>
 
               {/* Save Button */}
-              <RetroButton onClick={handleTestAndSave} disabled={isSaving} className="w-full">
+              <InteriorButton onClick={handleTestAndSave} disabled={isSaving} className="w-full">
                 {isSaving ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
@@ -426,7 +426,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                 ) : (
                   "Test & Save"
                 )}
-              </RetroButton>
+              </InteriorButton>
             </div>
           )}
         </div>

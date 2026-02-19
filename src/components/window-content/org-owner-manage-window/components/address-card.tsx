@@ -14,11 +14,11 @@ interface AddressCardProps {
 }
 
 const ADDRESS_TYPE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  billing: { bg: 'var(--win95-bg-light)', text: 'var(--win95-highlight)', border: 'var(--win95-border)' },
-  shipping: { bg: 'var(--win95-bg-light)', text: 'var(--info)', border: 'var(--win95-border)' },
-  mailing: { bg: 'var(--win95-bg-light)', text: 'var(--success)', border: 'var(--win95-border)' },
-  physical: { bg: 'var(--win95-bg-light)', text: 'var(--warning)', border: 'var(--win95-border)' },
-  other: { bg: 'var(--win95-bg)', text: 'var(--win95-text)', border: 'var(--win95-border)' },
+  billing: { bg: 'var(--window-document-bg-elevated)', text: 'var(--tone-accent)', border: 'var(--window-document-border)' },
+  shipping: { bg: 'var(--window-document-bg-elevated)', text: 'var(--info)', border: 'var(--window-document-border)' },
+  mailing: { bg: 'var(--window-document-bg-elevated)', text: 'var(--success)', border: 'var(--window-document-border)' },
+  physical: { bg: 'var(--window-document-bg-elevated)', text: 'var(--warning)', border: 'var(--window-document-border)' },
+  other: { bg: 'var(--window-document-bg)', text: 'var(--window-document-text)', border: 'var(--window-document-border)' },
 };
 
 export function AddressCard({
@@ -63,8 +63,8 @@ export function AddressCard({
     <div
       className="border-2 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--window-document-border)',
+        background: 'var(--window-document-bg-elevated)'
       }}
     >
       {/* Header */}
@@ -76,7 +76,7 @@ export function AddressCard({
               {props?.isPrimary && (
                 <Star className="w-4 h-4" style={{ color: 'var(--warning)', fill: 'var(--warning)' }} />
               )}
-              <span className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
+              <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
                 {props?.label || address.name || typeLabel}
               </span>
             </div>
@@ -95,7 +95,7 @@ export function AddressCard({
                 <span
                   className="text-xs px-2 py-0.5 border font-bold"
                   style={{
-                    backgroundColor: 'var(--win95-bg-light)',
+                    backgroundColor: 'var(--window-document-bg-elevated)',
                     color: 'var(--success)',
                     borderColor: 'var(--success)'
                   }}
@@ -107,7 +107,7 @@ export function AddressCard({
                 <span
                   className="text-xs px-2 py-0.5 border font-bold"
                   style={{
-                    backgroundColor: 'var(--win95-bg-light)',
+                    backgroundColor: 'var(--window-document-bg-elevated)',
                     color: 'var(--warning)',
                     borderColor: 'var(--warning)'
                   }}
@@ -126,7 +126,7 @@ export function AddressCard({
             {!props?.isPrimary && onSetPrimary && (
               <button
                 onClick={() => onSetPrimary(address)}
-                className="retro-button-small p-1.5"
+                className="desktop-interior-button p-1.5"
                 title={t("ui.manage.address.set_primary")}
               >
                 <Star className="w-3.5 h-3.5" />
@@ -135,7 +135,7 @@ export function AddressCard({
             {onEdit && (
               <button
                 onClick={() => onEdit(address)}
-                className="retro-button-small p-1.5"
+                className="desktop-interior-button p-1.5"
                 title={t("ui.manage.address.edit")}
               >
                 <Edit2 className="w-3.5 h-3.5" />
@@ -144,7 +144,7 @@ export function AddressCard({
             {onDelete && !props?.isPrimary && (
               <button
                 onClick={() => onDelete(address)}
-                className="retro-button-small p-1.5"
+                className="desktop-interior-button p-1.5"
                 style={{
                   color: 'var(--error)'
                 }}
@@ -158,7 +158,7 @@ export function AddressCard({
       </div>
 
       {/* Address Lines */}
-      <div className="space-y-1 text-sm" style={{ color: 'var(--win95-text)' }}>
+      <div className="space-y-1 text-sm" style={{ color: 'var(--window-document-text)' }}>
         {addressParts.map((part, idx) => (
           <div key={idx}>{part}</div>
         ))}
@@ -168,7 +168,7 @@ export function AddressCard({
       {props?.region && (
         <div
           className="mt-2 pt-2 border-t"
-          style={{ borderColor: 'var(--win95-border)' }}
+          style={{ borderColor: 'var(--window-document-border)' }}
         >
           <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
             {t("ui.manage.address.region_label")} {props.region}
