@@ -11,13 +11,13 @@ test.describe("Desktop Shell", () => {
 
     await test.step("login deep-link opens expected window", async () => {
       await page.goto(`/?app=login&context=${DESKTOP_CONTEXT}`, { waitUntil: "commit" });
-      await expect(page.locator("span", { hasText: /user account/i }).first()).toBeVisible();
+      await expect(page.getByTestId("desktop-window-tab-login")).toBeVisible();
       await expect.poll(() => new URL(page.url()).searchParams.get("app")).toBeNull();
     });
 
     await test.step("store deep-link opens expected window", async () => {
       await page.goto(`/?app=store&context=${DESKTOP_CONTEXT}`, { waitUntil: "commit" });
-      await expect(page.locator("span", { hasText: /store/i }).first()).toBeVisible();
+      await expect(page.getByTestId("desktop-window-tab-store")).toBeVisible();
       await expect.poll(() => new URL(page.url()).searchParams.get("app")).toBeNull();
     });
 

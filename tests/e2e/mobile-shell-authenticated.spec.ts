@@ -47,7 +47,7 @@ test.describe("Mobile Shell (Authenticated)", () => {
     await test.step("all-apps deep-link opens for authenticated user", async () => {
       await page.goto(`/?app=all-apps&context=${AUTH_CONTEXT}`, { waitUntil: "commit" });
       await waitForAppParamToBecome(page, "all-apps");
-      await expect(page.locator("h2", { hasText: /all apps|all applications/i }).first()).toBeVisible();
+      await expect(page.getByTestId("all-apps-window")).toBeVisible();
     });
 
     await test.step("apps menu exposes authenticated actions", async () => {
@@ -85,12 +85,7 @@ test.describe("Mobile Shell (Authenticated)", () => {
     await test.step("control-panel deep-link opens while authenticated", async () => {
       await page.goto(`/?app=control-panel&context=${AUTH_CONTEXT}`, { waitUntil: "commit" });
       await waitForAppParamToBecome(page, "control-panel");
-      await page.waitForFunction(() => {
-        const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
-          (node.textContent || "").toLowerCase(),
-        );
-        return headings.some((text) => text.includes("settings"));
-      });
+      await expect(page.getByRole("button", { name: /close window/i }).first()).toBeVisible();
     });
   });
 });

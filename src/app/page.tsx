@@ -28,6 +28,11 @@ import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { AIChatWindow } from "@/components/window-content/ai-chat-window"
+import { BrainWindow } from "@/components/window-content/brain-window"
+import {
+  getVoiceAssistantWindowContract,
+  type VoiceAssistantWindowId,
+} from "@/components/window-content/ai-chat-window/voice-assistant-contract"
 import { StoreWindow } from "@/components/window-content/store-window"
 import { ProjectsWindow } from "@/components/window-content/projects-window"
 import { WindowsMenu, type LauncherItem } from "@/components/windows-menu"
@@ -310,8 +315,27 @@ export default function HomePage() {
     openWindow("templates", "Templates", <TemplatesWindow />, { x: 220, y: 65 }, { width: 1100, height: 700 }, 'ui.app.templates')
   }
 
+  const openVoiceAssistantWindow = (windowId: VoiceAssistantWindowId) => {
+    const windowContract = getVoiceAssistantWindowContract(windowId)
+    const component = windowId === "brain-voice" ? <BrainWindow initialMode="learn" /> : <AIChatWindow />
+
+    openWindow(
+      windowContract.windowId,
+      windowContract.title,
+      component,
+      windowContract.position,
+      windowContract.size,
+      windowContract.titleKey,
+      windowContract.iconId,
+    )
+  }
+
   const openAIAssistantWindow = () => {
-    openWindow("ai-assistant", "AI Assistant", <AIChatWindow />, { x: 230, y: 70 }, { width: 1400, height: 1200 }, 'ui.app.ai_assistant')
+    openVoiceAssistantWindow("ai-assistant")
+  }
+
+  const openBrainVoiceWindow = () => {
+    openVoiceAssistantWindow("brain-voice")
   }
 
   const openStoreWindow = () => {
@@ -879,6 +903,7 @@ export default function HomePage() {
 
   const productAppActions: Record<string, () => void> = {
     "ai-assistant": openAIAssistantWindow,
+    "brain-voice": requireAuth(openBrainVoiceWindow),
     "agents-browser": requireAuth(openAgentsBrowserWindow),
     "webchat-deployment": requireAuth(openWebchatDeploymentWindow),
     builder: requireAuth(openBuilderBrowserWindow),
@@ -1235,7 +1260,7 @@ export default function HomePage() {
 
       {!isMobileShellFallback ? (
         <header
-          className="fixed top-0 left-0 right-0 retro-window desktop-taskbar px-2 py-1"
+          className="fixed top-0 left-0 right-0 desktop-shell-window desktop-taskbar px-2 py-1"
           style={{ zIndex: 9999, borderTopLeftRadius: 0, borderTopRightRadius: 0, overflow: "visible" }}
         >
           <div className="flex min-w-0 items-center">
@@ -1252,6 +1277,7 @@ export default function HomePage() {
                     className={`desktop-window-tab px-3 py-1 text-xs font-medium truncate max-w-[220px] transition-all ${
                       !window.isMinimized ? 'desktop-window-tab-active' : ''
                     }`}
+                    data-testid={`desktop-window-tab-${window.id}`}
                     onClick={() => {
                       if (window.isMinimized) {
                         restoreWindow(window.id)
@@ -1350,7 +1376,7 @@ export default function HomePage() {
         </header>
       ) : (
         <footer
-          className="fixed bottom-0 left-0 right-0 retro-window desktop-taskbar px-4 py-2"
+          className="fixed bottom-0 left-0 right-0 desktop-shell-window desktop-taskbar px-4 py-2"
           style={{
             zIndex: 65000,
             borderBottomLeftRadius: 0,

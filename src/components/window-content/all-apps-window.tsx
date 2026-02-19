@@ -38,6 +38,8 @@ import {
   InteriorTitle,
 } from "@/components/window-content/shared/interior-primitives";
 import { AIChatWindow } from "@/components/window-content/ai-chat-window";
+import { BrainWindow } from "@/components/window-content/brain-window";
+import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
 import { AgentsWindow } from "@/components/window-content/agents-window";
 import { BenefitsWindow } from "@/components/window-content/benefits-window";
 import { BookingWindow } from "@/components/window-content/booking-window";
@@ -161,6 +163,11 @@ const ROADMAP_ITEMS: RoadmapItem[] = [
     linkLabel: "Explore metrics",
   },
 ];
+
+const CORE_FILE_TOOL_CODES = [
+  "finder",
+  "text-editor",
+] as const;
 
 function humanizeCode(code: string): string {
   return code
@@ -365,7 +372,10 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
       return;
     }
 
-    const fallbackCode = catalogApps[0]?.code ?? null;
+    const fallbackCode =
+      CORE_FILE_TOOL_CODES.find((code) => catalogByCode.has(code)) ??
+      catalogApps[0]?.code ??
+      null;
     setPreviewCode(fallbackCode);
   }, [catalogApps, catalogByCode, previewCode]);
 
@@ -415,11 +425,37 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
 
   const handleAppClick = React.useCallback(
     (appCode: string) => {
-      const appWindowMap: Record<string, { id?: string; component: React.ReactNode; width: number; height: number }> = {
+      const aiAssistantWindowContract = getVoiceAssistantWindowContract("ai-assistant");
+      const brainVoiceWindowContract = getVoiceAssistantWindowContract("brain-voice");
+      const appWindowMap: Record<
+        string,
+        {
+          id?: string;
+          component: React.ReactNode;
+          width: number;
+          height: number;
+          title?: string;
+          titleKey?: string;
+          iconId?: string;
+        }
+      > = {
         "ai-assistant": {
+          id: aiAssistantWindowContract.windowId,
           component: <AIChatWindow />,
-          width: 1400,
-          height: 1200,
+          width: aiAssistantWindowContract.size.width,
+          height: aiAssistantWindowContract.size.height,
+          title: aiAssistantWindowContract.title,
+          titleKey: aiAssistantWindowContract.titleKey,
+          iconId: aiAssistantWindowContract.iconId,
+        },
+        "brain-voice": {
+          id: brainVoiceWindowContract.windowId,
+          component: <BrainWindow initialMode="learn" />,
+          width: brainVoiceWindowContract.size.width,
+          height: brainVoiceWindowContract.size.height,
+          title: brainVoiceWindowContract.title,
+          titleKey: brainVoiceWindowContract.titleKey,
+          iconId: brainVoiceWindowContract.iconId,
         },
         payments: {
           component: <PaymentsWindow />,
@@ -553,12 +589,12 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
       if (appWindow) {
         openWindow(
           appWindow.id ?? appCode,
-          appName,
+          appWindow.title ?? appName,
           appWindow.component,
           undefined,
           { width: appWindow.width, height: appWindow.height },
-          titleKey,
-          iconId,
+          appWindow.titleKey ?? titleKey,
+          appWindow.iconId ?? iconId,
         );
         return;
       }
@@ -625,7 +661,7 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
 
   if (isLoading) {
     return (
-      <InteriorRoot className="flex h-full items-center justify-center">
+      <InteriorRoot className="flex h-full items-center justify-center" data-testid="all-apps-window">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={30} className="animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
           <InteriorHelperText>{t("ui.start_menu.loading_applications")}</InteriorHelperText>
@@ -635,7 +671,7 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
   }
 
   return (
-    <InteriorRoot className="flex h-full flex-col overflow-hidden">
+    <InteriorRoot className="flex h-full flex-col overflow-hidden" data-testid="all-apps-window">
       <InteriorHeader className="px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -1186,12 +1222,12 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
                         )}
                       >
                         <div className="overflow-hidden">
-                          <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                          <div className="grid content-start items-start grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3 px-4 pb-4">
                             {category.apps.map((app) => (
                               <button
                                 key={`card-${category.key}-${app.sourceId}`}
                                 type="button"
-                                className="group rounded-lg border p-3 text-left transition"
+                                className="group self-start rounded-lg border p-3 text-left transition"
                                 style={{
                                   borderColor: "var(--window-document-border)",
                                   background: "var(--desktop-shell-accent)",
@@ -1224,10 +1260,10 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
                                   </span>
                                 </div>
 
-                                <p className="mt-3 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                                <p className="mt-2 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                                   {app.name}
                                 </p>
-                                <p className="mt-1 text-[11px] leading-4" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                <p className="mt-1 line-clamp-2 text-[11px] leading-4" style={{ color: "var(--desktop-menu-text-muted)" }}>
                                   {app.description}
                                 </p>
                               </button>
