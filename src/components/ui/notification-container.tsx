@@ -7,7 +7,7 @@ export function NotificationContainer() {
   const { notifications, removeNotification } = useNotificationStore();
 
   return (
-    <div className="fixed top-0 right-0 z-[9999] pointer-events-none">
+    <div className="fixed right-0 z-[9999] pointer-events-none top-[calc(env(safe-area-inset-top,0px)+56px)] md:top-0">
       <div className="flex flex-col gap-4 p-4 pointer-events-auto">
         {notifications.map((notification, index) => (
           <div

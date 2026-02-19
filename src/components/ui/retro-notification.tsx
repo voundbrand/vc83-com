@@ -36,7 +36,7 @@ export function RetroNotification({
 
   return (
     <div
-      className={`fixed top-4 right-4 w-96 max-w-[calc(100vw-2rem)] ${notificationClass} border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-5`}
+      className={`relative w-96 max-w-[calc(100vw-2rem)] ${notificationClass} border-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] animate-in slide-in-from-top-5`}
       style={{ zIndex: 'var(--z-index-notification)' }}
     >
       {/* Title Bar */}

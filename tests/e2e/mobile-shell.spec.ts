@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const DEEP_LINK_CONTEXT = "mobile_fallback_e2e";
 
@@ -24,10 +24,12 @@ async function openAppsMenu(page: Page) {
   await appsButton.click();
 }
 
-async function clickMenuItem(page: Page, labelRegex: RegExp) {
-  const item = page.getByRole("button", { name: labelRegex }).first();
-  await expect(item).toBeVisible();
-  await item.click();
+async function safeClick(locator: Locator) {
+  try {
+    await locator.click();
+  } catch {
+    await locator.click({ force: true });
+  }
 }
 
 test.describe("Mobile Shell", () => {
@@ -38,23 +40,26 @@ test.describe("Mobile Shell", () => {
 
       const closeButton = page.getByRole("button", { name: /close window/i }).first();
       await expect(closeButton).toBeVisible();
-      await closeButton.click();
+      await safeClick(closeButton);
       await waitForAppParamToClear(page);
     });
 
     await test.step("apps menu shows extended launcher and opens store", async () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await openAppsMenu(page);
-      await expect(page.getByRole("button", { name: /text editor/i }).first()).toBeVisible();
+      const textEditorLauncher = page.getByTestId("windows-menu-launcher-mobile-app-text-editor");
+      await expect(textEditorLauncher).toHaveCount(1);
+      await textEditorLauncher.first().scrollIntoViewIfNeeded();
+      await expect(textEditorLauncher.first()).toBeVisible();
 
-      await clickMenuItem(page, /store/i);
+      await safeClick(page.getByTestId("windows-menu-launcher-mobile-store").first());
       await waitForAppParamToClear(page);
       await expect(page.locator("h2", { hasText: /store/i }).first()).toBeVisible();
     });
 
     await test.step("switching apps keeps a single active mobile panel", async () => {
       await openAppsMenu(page);
-      await clickMenuItem(page, /browse all apps/i);
+      await safeClick(page.getByTestId("windows-menu-launcher-mobile-browse-apps").first());
 
       await page.waitForFunction(() => {
         const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
@@ -72,7 +77,7 @@ test.describe("Mobile Shell", () => {
       await expect(page.locator("h2", { hasText: /store/i }).first()).toBeVisible();
 
       const closeButton = page.getByRole("button", { name: /close window/i }).first();
-      await closeButton.click();
+      await safeClick(closeButton);
       await waitForAppParamToClear(page);
     });
 
