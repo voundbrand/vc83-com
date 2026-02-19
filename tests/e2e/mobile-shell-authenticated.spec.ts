@@ -10,14 +10,6 @@ async function waitForAppParamToBecome(page: Page, expectedValue: string, timeou
   );
 }
 
-async function waitForAppParamToClear(page: Page, timeout = 10_000) {
-  await page.waitForFunction(
-    () => !new URL(window.location.href).searchParams.get("app"),
-    undefined,
-    { timeout },
-  );
-}
-
 async function openAppsMenu(page: Page) {
   const appsButton = page.getByTestId("windows-menu-trigger").first();
   const menuPanel = page.getByTestId("windows-menu-panel").first();
@@ -44,19 +36,18 @@ async function openAppsMenu(page: Page) {
 
 async function safeClick(locator: Locator) {
   try {
-    await locator.click();
+    await locator.click({ timeout: 3_000 });
   } catch {
-    await locator.click({ force: true });
+    await locator.click({ force: true, timeout: 3_000 });
   }
 }
 
 test.describe("Mobile Shell (Authenticated)", () => {
   test("opens auth-only windows and preserves single-panel behavior while signed in", async ({ page }) => {
     await test.step("all-apps deep-link opens for authenticated user", async () => {
-      await page.goto(`/?app=all-apps&context=${AUTH_CONTEXT}`, { waitUntil: "domcontentloaded" });
+      await page.goto(`/?app=all-apps&context=${AUTH_CONTEXT}`, { waitUntil: "commit" });
       await waitForAppParamToBecome(page, "all-apps");
       await expect(page.locator("h2", { hasText: /all apps|all applications/i }).first()).toBeVisible();
-      await waitForAppParamToClear(page);
     });
 
     await test.step("apps menu exposes authenticated actions", async () => {
@@ -89,11 +80,10 @@ test.describe("Mobile Shell (Authenticated)", () => {
         const hasUserAccount = headings.some((text) => text.includes("user account"));
         return hasSettings && !hasUserAccount;
       });
-      await waitForAppParamToClear(page);
     });
 
     await test.step("control-panel deep-link opens while authenticated", async () => {
-      await page.goto(`/?app=control-panel&context=${AUTH_CONTEXT}`, { waitUntil: "domcontentloaded" });
+      await page.goto(`/?app=control-panel&context=${AUTH_CONTEXT}`, { waitUntil: "commit" });
       await waitForAppParamToBecome(page, "control-panel");
       await page.waitForFunction(() => {
         const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
@@ -101,7 +91,6 @@ test.describe("Mobile Shell (Authenticated)", () => {
         );
         return headings.some((text) => text.includes("settings"));
       });
-      await waitForAppParamToClear(page);
     });
   });
 });

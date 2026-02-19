@@ -30,7 +30,7 @@ import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { AIChatWindow } from "@/components/window-content/ai-chat-window"
 import { StoreWindow } from "@/components/window-content/store-window"
 import { ProjectsWindow } from "@/components/window-content/projects-window"
-import { WindowsMenu } from "@/components/windows-menu"
+import { WindowsMenu, type LauncherItem } from "@/components/windows-menu"
 import { TopNavMenu, type TopNavMenuItem } from "@/components/taskbar/top-nav-menu"
 import { TutorialWindow } from "@/components/window-content/tutorial-window"
 import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-window"
@@ -71,8 +71,6 @@ import {
   ShellBotIcon,
   ShellFinderIcon,
   ShellGridIcon,
-  ShellBuilderIcon,
-  ShellLayersIcon,
   ShellLoginIcon,
   ShellLogoutIcon,
   ShellMoonIcon,
@@ -117,7 +115,7 @@ export default function HomePage() {
   // Note: locale management is now handled via TranslationContext if needed
   const { windows, openWindow, closeWindow, restoreWindow, focusWindow, isRestored } = useWindowManager()
   const isMobileShellFallback = useIsDesktopShellFallback()
-  const { isSignedIn, signOut, sessionId, user, switchOrganization } = useAuth()
+  const { isSignedIn, isLoading: authLoading, signOut, sessionId, user, switchOrganization } = useAuth()
   const organizations = useOrganizations()
   const currentOrg = useCurrentOrganization()
   const isSuperAdmin = useIsSuperAdmin()
@@ -588,14 +586,42 @@ export default function HomePage() {
     // Skip if no app param. Keep a small guest-allowed deep-link set for mobile fallback and onboarding.
     if (!openWindowParam) return;
     const guestAllowed = GUEST_DEEPLINK_ALLOWED_APPS.has(openWindowParam);
-    if (!isSignedIn && !guestAllowed) return;
 
-    // Import window registry to check if window exists
+    // Avoid dropping auth-required deep links while auth session hydration is still in flight.
+    if (!guestAllowed && authLoading) {
+      // Unknown window ids should still be cleaned promptly, even while auth hydration is pending.
+      import('@/hooks/window-registry')
+        .then(({ WINDOW_REGISTRY }) => {
+          if (!WINDOW_REGISTRY[openWindowParam]) {
+            console.warn('[HomePage] Unknown window ID in URL param during auth loading:', openWindowParam);
+            removeShellStateFromCurrentUrl();
+          }
+        })
+        .catch(() => {
+          removeShellStateFromCurrentUrl();
+        });
+      return;
+    }
+
+    if (!isSignedIn && !guestAllowed) {
+      removeShellStateFromCurrentUrl();
+      return;
+    }
+
+    const resolvedDeepLink = shellDeepLink;
+    const resolvedWindowId = openWindowParam;
+    const resolvedUpgradeReason = upgradeReason;
+    const resolvedUpgradeResource = upgradeResource;
+
+    // Clear shell params immediately to avoid stale deep-link state during lazy imports.
+    removeShellStateFromCurrentUrl();
+
+    // Import window registry to check if window exists.
     import('@/hooks/window-registry').then(({ WINDOW_REGISTRY }) => {
-      const windowConfig = WINDOW_REGISTRY[openWindowParam];
+      const windowConfig = WINDOW_REGISTRY[resolvedWindowId];
 
       if (windowConfig) {
-        const shellProps = buildShellWindowProps(shellDeepLink);
+        const shellProps = buildShellWindowProps(resolvedDeepLink);
         const props = shellProps
           ? {
               ...shellProps,
@@ -603,14 +629,14 @@ export default function HomePage() {
               deepLinkNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
             }
           : undefined;
-        const panelParam = shellDeepLink.panel;
+        const panelParam = resolvedDeepLink.panel;
 
         // Log for debugging
         console.log('[HomePage] Opening window via URL param:', {
-          windowId: openWindowParam,
+          windowId: resolvedWindowId,
           panel: panelParam,
-          entity: shellDeepLink.entity,
-          context: shellDeepLink.context,
+          entity: resolvedDeepLink.entity,
+          context: resolvedDeepLink.context,
           props
         });
 
@@ -622,7 +648,7 @@ export default function HomePage() {
 
         // Open the window
         openWindow(
-          openWindowParam,
+          resolvedWindowId,
           defaultConfig.title,
           component,
           defaultConfig.position,
@@ -636,20 +662,17 @@ export default function HomePage() {
         setHasOpenedInitialWindow(true);
 
         // Log upgrade context for analytics (if present)
-        if (upgradeReason || upgradeResource) {
-          console.log('[HomePage] CLI upgrade redirect:', { upgradeReason, upgradeResource });
+        if (resolvedUpgradeReason || resolvedUpgradeResource) {
+          console.log('[HomePage] CLI upgrade redirect:', { upgradeReason: resolvedUpgradeReason, upgradeResource: resolvedUpgradeResource });
         }
-
-        // Clean up shell state params while preserving non-shell query params.
-        removeShellStateFromCurrentUrl();
       } else {
-        console.warn('[HomePage] Unknown window ID in URL param:', openWindowParam);
-        // Still clean up shell params for unknown windows.
-        removeShellStateFromCurrentUrl();
+        console.warn('[HomePage] Unknown window ID in URL param:', resolvedWindowId);
       }
+    }).catch((error) => {
+      console.error('[HomePage] Failed to resolve window registry for URL deep-link:', error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn])
+  }, [isSignedIn, authLoading])
 
   // Handle OAuth callback and checkout success/failure redirect
   useEffect(() => {
@@ -829,87 +852,6 @@ export default function HomePage() {
     window.location.assign(nextUrl)
   }
 
-  const mobileLauncherItems = [
-    {
-      id: "mobile-ai-assistant",
-      label: tx("ui.app.ai_assistant", "AI Assistant"),
-      onSelect: () => routeToShellState({ app: "ai-assistant", context: "mobile_fallback" }),
-      icon: <ShellBotIcon size={16} tone="muted" />,
-    },
-    {
-      id: "mobile-store",
-      label: t("ui.start_menu.store"),
-      onSelect: () => routeToShellState({ app: "store", panel: "plans", context: "mobile_fallback" }),
-      icon: <ShellStoreIcon size={16} tone="muted" />,
-    },
-    {
-      id: "mobile-builder",
-      label: tx("ui.app.builder", "Builder"),
-      onSelect: () => {
-        if (!isSignedIn) {
-          routeToShellState({ app: "login", context: "mobile_fallback" })
-          return
-        }
-        routeToShellState({ app: "builder", context: "mobile_fallback" })
-      },
-      icon: <ShellBuilderIcon size={16} tone="muted" />,
-    },
-    {
-      id: "mobile-layers",
-      label: tx("ui.app.layers", "Layers"),
-      onSelect: () => {
-        if (!isSignedIn) {
-          routeToShellState({ app: "login", context: "mobile_fallback" })
-          return
-        }
-        routeToShellState({ app: "layers", context: "mobile_fallback" })
-      },
-      icon: <ShellLayersIcon size={16} tone="muted" />,
-    },
-    {
-      id: "mobile-settings",
-      label: t("ui.start_menu.settings"),
-      onSelect: () => {
-        if (!isSignedIn) {
-          routeToShellState({ app: "login", context: "mobile_fallback" })
-          return
-        }
-        routeToShellState({ app: "control-panel", context: "mobile_fallback" })
-      },
-      icon: <ShellSettingsIcon size={16} tone="muted" />,
-    },
-    {
-      id: "mobile-auth",
-      label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
-      onSelect: isSignedIn
-        ? handleLogout
-        : () => routeToShellState({ app: "login", context: "mobile_fallback" }),
-      icon: isSignedIn
-        ? <ShellLogoutIcon size={16} tone="muted" />
-        : <ShellLoginIcon size={16} tone="muted" />,
-    },
-  ]
-
-  // DEBUG: Log app availability data
-  console.log('[DEBUG] App availability:', {
-    isSignedIn,
-    currentOrg,
-    availableApps: {
-      'media-library': isAppAvailable("media-library"),
-      'payments': isAppAvailable("payments"),
-      'products': isAppAvailable("products"),
-      'tickets': isAppAvailable("tickets"),
-      'events': isAppAvailable("events"),
-      'checkout': isAppAvailable("checkout"),
-      'forms': isAppAvailable("forms"),
-      'web-publishing': isAppAvailable("web-publishing"),
-      'crm': isAppAvailable("crm"),
-      'app_invoicing': isAppAvailable("app_invoicing"),
-      'workflows': isAppAvailable("workflows"),
-      'projects': isAppAvailable("projects"),
-    }
-  });
-
   type ProductAppMetadata = {
     code?: string;
     name?: string;
@@ -963,6 +905,11 @@ export default function HomePage() {
     integrations: requireAuth(() => openIntegrationsWindow()),
   };
 
+  const PRODUCT_MENU_ITEM_ID_OVERRIDES: Record<string, string> = {
+    "popular:text-editor": "popular-text-editor",
+    "category-utilities-tools:text-editor": "utilities-text-editor",
+  };
+
   const buildProductMenuItem = (code: string, prefix: string): TopNavMenuItem | null => {
     const onSelect = productAppActions[code];
     if (!onSelect) {
@@ -979,9 +926,10 @@ export default function HomePage() {
     const localizedBadge = badgeTranslationKey && badgeLabel
       ? tx(badgeTranslationKey, badgeLabel)
       : undefined;
+    const menuItemId = PRODUCT_MENU_ITEM_ID_OVERRIDES[`${prefix}:${code}`] ?? `${prefix}-${code}`;
 
     return {
-      id: `${prefix}-${code}`,
+      id: menuItemId,
       label: resolveProductLabel(code, metadata?.name),
       onSelect,
       icon: getProductAppIconByCode(code, metadata?.icon, 16),
@@ -1003,6 +951,7 @@ export default function HomePage() {
 
   const categoryMenuSections = PRODUCT_OS_CATEGORIES
     .map((category) => {
+      const categoryPrefix = `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
       const categoryCodes = PRODUCT_OS_CATALOG
         .filter((entry) => entry.category === category)
         .map((entry) => entry.code)
@@ -1013,12 +962,12 @@ export default function HomePage() {
       }
 
       const children = categoryCodes
-        .map((code) => buildProductMenuItem(code, `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`))
+        .map((code) => buildProductMenuItem(code, categoryPrefix))
         .filter((item) => item !== null) as TopNavMenuItem[];
       const categoryLabel = tx(getProductOSCategoryTranslationKey(category), category);
 
       return {
-        id: `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        id: categoryPrefix,
         label: tx("ui.product_os.menu.category_count", "{category} ({count})", {
           category: categoryLabel,
           count: children.length,
@@ -1073,6 +1022,70 @@ export default function HomePage() {
       onSelect: requireAuth(() => openAllAppsWindow("roadmap")),
       icon: getWindowIconById("web-publishing", undefined, 16),
     },
+  ];
+
+  type MobileLauncherActionItem = Exclude<LauncherItem, { divider: true }>;
+  const wrapMobileLauncherAction = (action: () => void) => {
+    return () => {
+      removeShellStateFromCurrentUrl();
+      action();
+    };
+  };
+
+  const mobileProductLauncherItems: MobileLauncherActionItem[] = discoverableCodes
+    .map((code): MobileLauncherActionItem | null => {
+      const onSelect = productAppActions[code];
+      if (!onSelect) {
+        return null;
+      }
+
+      const metadata = availableAppMetadataByCode.get(code);
+      return {
+        id: `mobile-app-${code}`,
+        label: resolveProductLabel(code, metadata?.name),
+        onSelect: wrapMobileLauncherAction(onSelect),
+        icon: getProductAppIconByCode(code, metadata?.icon, 16),
+      };
+    })
+    .filter((item): item is MobileLauncherActionItem => item !== null);
+
+  const mobileLauncherItems: LauncherItem[] = [
+    {
+      id: "mobile-browse-apps",
+      label: tx("ui.product_os.menu.browse_all_apps", "Browse all apps"),
+      onSelect: wrapMobileLauncherAction(requireAuth(() => openAllAppsWindow("browse"))),
+      icon: <ShellGridIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-search-apps",
+      label: tx("ui.product_os.menu.search_apps", "Search apps"),
+      onSelect: wrapMobileLauncherAction(requireAuth(() => openAllAppsWindow("search"))),
+      icon: <ShellFinderIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-store",
+      label: t("ui.start_menu.store"),
+      onSelect: wrapMobileLauncherAction(openStoreWindow),
+      icon: <ShellStoreIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-auth",
+      label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
+      onSelect: wrapMobileLauncherAction(isSignedIn ? handleLogout : openLoginWindow),
+      icon: isSignedIn
+        ? <ShellLogoutIcon size={16} tone="muted" />
+        : <ShellLoginIcon size={16} tone="muted" />,
+    },
+    {
+      id: "mobile-settings",
+      label: t("ui.start_menu.settings"),
+      onSelect: wrapMobileLauncherAction(requireAuth(openSettingsWindow)),
+      icon: <ShellSettingsIcon size={16} tone="muted" />,
+    },
+    ...(mobileProductLauncherItems.length > 0
+      ? [{ id: "mobile-divider-apps", divider: true } as const]
+      : []),
+    ...mobileProductLauncherItems,
   ];
 
   const avatarInitialSource = (user?.email || currentOrg?.name || "U").trim()
@@ -1152,6 +1165,23 @@ export default function HomePage() {
   // Check if user needs beta access approval (block entire app if pending/rejected/none)
   // Super admins bypass this check
   const shouldShowBetaBlock = isSignedIn && betaStatus && !betaStatus.hasAccess && !isSuperAdmin;
+  const openDesktopWindows = windows.filter((window) => window.isOpen)
+  const visibleWindows = useMemo(() => {
+    if (!isMobileShellFallback) {
+      return openDesktopWindows
+    }
+
+    const activeWindow = openDesktopWindows
+      .filter((window) => !window.isClosing)
+      .reduce((current, candidate) => {
+        if (!current || candidate.zIndex > current.zIndex) {
+          return candidate
+        }
+        return current
+      }, undefined as (typeof openDesktopWindows)[number] | undefined)
+
+    return activeWindow ? [activeWindow] : []
+  }, [isMobileShellFallback, openDesktopWindows])
 
   // If user needs beta approval, show the waiting screen instead of the normal UI
   if (shouldShowBetaBlock) {
@@ -1164,8 +1194,6 @@ export default function HomePage() {
       />
     );
   }
-
-  const openDesktopWindows = windows.filter((window) => window.isOpen)
 
   return (
     <div className="min-h-screen relative" style={{
@@ -1193,19 +1221,17 @@ export default function HomePage() {
       </div>
 
 
-      {windows.map((window) =>
-        window.isOpen ? (
-          <FloatingWindow
-            key={window.id}
-            id={window.id}
-            title={window.title}
-            initialPosition={window.position}
-            zIndex={window.zIndex}
-          >
-            {window.component}
-          </FloatingWindow>
-        ) : null,
-      )}
+      {visibleWindows.map((window) => (
+        <FloatingWindow
+          key={window.id}
+          id={window.id}
+          title={window.title}
+          initialPosition={window.position}
+          zIndex={window.zIndex}
+        >
+          {window.component}
+        </FloatingWindow>
+      ))}
 
       {!isMobileShellFallback ? (
         <header
@@ -1325,7 +1351,13 @@ export default function HomePage() {
       ) : (
         <footer
           className="fixed bottom-0 left-0 right-0 retro-window desktop-taskbar px-4 py-2"
-          style={{ zIndex: 9999, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'visible' }}
+          style={{
+            zIndex: 65000,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+            overflow: "visible",
+            paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
+          }}
 	        >
 	          <div className="flex items-center gap-2">
 	            <WindowsMenu
