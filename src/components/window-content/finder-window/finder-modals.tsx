@@ -1,24 +1,33 @@
 "use client";
 
 /**
- * FINDER MODALS - Create folder, create note, create code file, delete confirmation
+ * FINDER MODALS - Create folder, create file, delete confirmation
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import type { FunctionReference } from "convex/server";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { FolderPlus, FileText, Code, X, Trash2 } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { FolderPlus, FileText, Save, X, Trash2 } from "lucide-react";
+import {
+  applySuggestedExtension,
+  FILE_EXTENSION_SUGGESTIONS,
+  getSuggestedStarterContent,
+  inferNewFileType,
+} from "./new-file-flow";
+import { getNormalizedExtension } from "./file-type-registry";
 
-type MutationRef = FunctionReference<"mutation">;
-
-const finderApiRefs = api as unknown as {
-  projectFileSystem: {
-    createFolder: MutationRef;
-    createVirtualFile: MutationRef;
-  };
-};
+function normalizeFolderPath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) return "/";
+  let normalized = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  normalized = normalized.replace(/\/+/g, "/");
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
 
 // ============================================================================
 // CREATE FOLDER MODAL
@@ -45,7 +54,8 @@ export function CreateFolderModal({
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createFolder = useMutation(finderApiRefs.projectFileSystem.createFolder);
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const createFolder = useMutation((api as any).projectFileSystem.createFolder);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -133,40 +143,60 @@ export function CreateFolderModal({
 }
 
 // ============================================================================
-// CREATE NOTE MODAL
+// CREATE FILE MODAL
 // ============================================================================
 
-interface CreateNoteModalProps {
+interface CreateFileModalProps {
   sessionId: string;
   projectId?: string | null;
   organizationId?: string;
   parentPath: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (createdFileId: Id<"projectFiles">) => void;
 }
 
-export function CreateNoteModal({
+export function CreateFileModal({
   sessionId,
   projectId,
   organizationId,
   parentPath,
   onClose,
   onSuccess,
-}: CreateNoteModalProps) {
+}: CreateFileModalProps) {
   const [name, setName] = useState("");
-  const [content, setContent] = useState("");
+  const [includeStarterContent, setIncludeStarterContent] = useState(false);
+  const [starterContent, setStarterContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const createVirtualFile = useMutation((api as any).projectFileSystem.createVirtualFile);
+
+  const trimmedName = name.trim();
+  const extension = getNormalizedExtension(trimmedName);
+  const inferredType = useMemo(() => inferNewFileType(trimmedName), [trimmedName]);
+
+  const suggestedStarterContent = useMemo(
+    () => getSuggestedStarterContent(trimmedName),
+    [trimmedName]
+  );
+
+  const handleApplySuggestedExtension = (suggestedExtension: string) => {
+    setName((currentName) => applySuggestedExtension(currentName, suggestedExtension));
+  };
+
+  const handleStarterContentToggle = (enabled: boolean) => {
+    setIncludeStarterContent(enabled);
+    if (enabled && !starterContent) {
+      setStarterContent(suggestedStarterContent);
+    }
+  };
 
   const handleCreate = async () => {
-    if (!name.trim()) {
+    if (!trimmedName) {
       setError("Name is required");
       return;
     }
-
-    const filename = name.trim().endsWith(".md") ? name.trim() : `${name.trim()}.md`;
 
     setIsCreating(true);
     setError(null);
@@ -175,18 +205,18 @@ export function CreateNoteModal({
       const args: Record<string, unknown> = {
         sessionId,
         parentPath,
-        name: filename,
-        content: content || `# ${name.trim()}\n\n`,
-        mimeType: "text/markdown",
-        language: "markdown",
+        name: trimmedName,
+        content: includeStarterContent ? (starterContent || suggestedStarterContent) : "",
+        mimeType: inferredType.mimeType,
+        language: inferredType.language,
       };
       if (projectId) args.projectId = projectId as Id<"objects">;
       if (organizationId) args.organizationId = organizationId as Id<"organizations">;
 
-      await createVirtualFile(args);
-      onSuccess();
+      const createdFileId = await createVirtualFile(args);
+      onSuccess(createdFileId as Id<"projectFiles">);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create note");
+      setError(err instanceof Error ? err.message : "Failed to create file");
     } finally {
       setIsCreating(false);
     }
@@ -197,136 +227,7 @@ export function CreateNoteModal({
       <div className="flex items-center gap-2 mb-4">
         <FileText size={18} style={{ color: "var(--accent-color)" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          New Note
-        </h3>
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            File Name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="my-note.md"
-            autoFocus
-            className="desktop-interior-input w-full text-xs"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            Content (optional)
-          </label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Start writing..."
-            rows={6}
-            className="desktop-interior-textarea w-full text-xs resize-none font-mono min-h-[9rem]"
-          />
-        </div>
-
-        <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          Location: {parentPath === "/" ? (projectId ? "Project Root" : "Organization Root") : parentPath}
-        </p>
-
-        {error && (
-          <p className="text-xs" style={{ color: "var(--error-red)" }}>
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="desktop-interior-button px-4 py-2 text-xs"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={isCreating || !name.trim()}
-            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
-            style={{
-              opacity: isCreating || !name.trim() ? 0.5 : 1,
-            }}
-          >
-            {isCreating ? "Creating..." : "Create"}
-          </button>
-        </div>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-// ============================================================================
-// CREATE PLAIN TEXT MODAL
-// ============================================================================
-
-interface CreatePlainTextModalProps {
-  sessionId: string;
-  projectId?: string | null;
-  organizationId?: string;
-  parentPath: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-export function CreatePlainTextModal({
-  sessionId,
-  projectId,
-  organizationId,
-  parentPath,
-  onClose,
-  onSuccess,
-}: CreatePlainTextModalProps) {
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-
-  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
-
-  const handleCreate = async () => {
-    if (!name.trim()) {
-      setError("Name is required");
-      return;
-    }
-
-    const filename = name.trim().endsWith(".txt") ? name.trim() : `${name.trim()}.txt`;
-
-    setIsCreating(true);
-    setError(null);
-
-    try {
-      const args: Record<string, unknown> = {
-        sessionId,
-        parentPath,
-        name: filename,
-        content: "",
-        mimeType: "text/plain",
-        language: "plaintext",
-      };
-      if (projectId) args.projectId = projectId as Id<"objects">;
-      if (organizationId) args.organizationId = organizationId as Id<"organizations">;
-
-      await createVirtualFile(args);
-      onSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create file");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  return (
-    <ModalOverlay onClose={onClose}>
-      <div className="flex items-center gap-2 mb-4">
-        <FileText size={18} style={{ color: "var(--win95-text)" }} />
-        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          New Plain Text File
+          New File
         </h3>
       </div>
 
@@ -340,180 +241,68 @@ export function CreatePlainTextModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="document.txt"
+            placeholder="untitled.md"
             autoFocus
             className="desktop-interior-input w-full text-xs"
           />
         </div>
 
-        <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          Location: {parentPath === "/" ? (projectId ? "Project Root" : "Organization Root") : parentPath}
-        </p>
-
-        {error && (
-          <p className="text-xs" style={{ color: "var(--error-red)" }}>
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="desktop-interior-button px-4 py-2 text-xs"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={isCreating || !name.trim()}
-            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
-            style={{
-              opacity: isCreating || !name.trim() ? 0.5 : 1,
-            }}
-          >
-            {isCreating ? "Creating..." : "Create"}
-          </button>
-        </div>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-// ============================================================================
-// CREATE CODE FILE MODAL
-// ============================================================================
-
-const CODE_LANGUAGES = [
-  { value: "javascript", label: "JavaScript", ext: ".js" },
-  { value: "typescript", label: "TypeScript", ext: ".ts" },
-  { value: "tsx", label: "TypeScript React", ext: ".tsx" },
-  { value: "jsx", label: "JavaScript React", ext: ".jsx" },
-  { value: "python", label: "Python", ext: ".py" },
-  { value: "html", label: "HTML", ext: ".html" },
-  { value: "css", label: "CSS", ext: ".css" },
-  { value: "json", label: "JSON", ext: ".json" },
-  { value: "yaml", label: "YAML", ext: ".yaml" },
-  { value: "sql", label: "SQL", ext: ".sql" },
-  { value: "shell", label: "Shell Script", ext: ".sh" },
-];
-
-interface CreateCodeFileModalProps {
-  sessionId: string;
-  projectId?: string | null;
-  organizationId?: string;
-  parentPath: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-export function CreateCodeFileModal({
-  sessionId,
-  projectId,
-  organizationId,
-  parentPath,
-  onClose,
-  onSuccess,
-}: CreateCodeFileModalProps) {
-  const [name, setName] = useState("");
-  const [language, setLanguage] = useState("typescript");
-  const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-
-  const createVirtualFile = useMutation(finderApiRefs.projectFileSystem.createVirtualFile);
-
-  const selectedLang = CODE_LANGUAGES.find((l) => l.value === language)!;
-
-  const handleCreate = async () => {
-    if (!name.trim()) {
-      setError("Name is required");
-      return;
-    }
-
-    let filename = name.trim();
-    // Add extension if not already present
-    if (!filename.includes(".")) {
-      filename += selectedLang.ext;
-    }
-
-    setIsCreating(true);
-    setError(null);
-
-    try {
-      const mimeMap: Record<string, string> = {
-        javascript: "text/javascript",
-        typescript: "text/typescript",
-        tsx: "text/typescript",
-        jsx: "text/javascript",
-        python: "text/x-python",
-        html: "text/html",
-        css: "text/css",
-        json: "application/json",
-        yaml: "text/yaml",
-        sql: "text/x-sql",
-        shell: "text/x-shellscript",
-      };
-
-      const args: Record<string, unknown> = {
-        sessionId,
-        parentPath,
-        name: filename,
-        content: "",
-        mimeType: mimeMap[language] || "text/plain",
-        language,
-      };
-      if (projectId) args.projectId = projectId as Id<"objects">;
-      if (organizationId) args.organizationId = organizationId as Id<"organizations">;
-
-      await createVirtualFile(args);
-      onSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create file");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  return (
-    <ModalOverlay onClose={onClose}>
-      <div className="flex items-center gap-2 mb-4">
-        <Code size={18} style={{ color: "var(--accent-color)" }} />
-        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          New Code File
-        </h3>
-      </div>
-
-      <div className="space-y-3">
         <div>
-          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            Language
-          </label>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="desktop-interior-select w-full text-xs"
-          >
-            {CODE_LANGUAGES.map((lang) => (
-              <option key={lang.value} value={lang.value}>
-                {lang.label} ({lang.ext})
-              </option>
+          <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
+            Quick extension suggestions
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {FILE_EXTENSION_SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => handleApplySuggestedExtension(suggestion)}
+                className="desktop-interior-button px-2 py-1 text-[10px]"
+              >
+                .{suggestion}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
-        <div>
-          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            File Name
-          </label>
+        <p className="text-[10px] px-2 py-2 rounded border" style={{ color: "var(--neutral-gray)", borderColor: "var(--window-document-border)" }}>
+          {extension
+            ? `Detected .${inferredType.extension} -> ${inferredType.language} (${inferredType.mimeType})${inferredType.source === "fallback" ? " [fallback]" : ""}`
+            : "No extension provided. Defaults to plain text metadata until you add one."}
+        </p>
+
+        <label className="flex items-center gap-2 text-xs" style={{ color: "var(--win95-text)" }}>
           <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder={`my-file${selectedLang.ext}`}
-            autoFocus
-            className="desktop-interior-input w-full text-xs"
+            type="checkbox"
+            checked={includeStarterContent}
+            onChange={(e) => handleStarterContentToggle(e.target.checked)}
           />
-        </div>
+          Include starter content
+        </label>
+
+        {includeStarterContent && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
+                Starter Content
+              </label>
+              <button
+                type="button"
+                onClick={() => setStarterContent(suggestedStarterContent)}
+                className="desktop-interior-button px-2 py-1 text-[10px]"
+              >
+                Use Suggested
+              </button>
+            </div>
+            <textarea
+              value={starterContent}
+              onChange={(e) => setStarterContent(e.target.value)}
+              placeholder={suggestedStarterContent || "Optional starter content"}
+              rows={6}
+              className="desktop-interior-textarea w-full text-xs resize-none font-mono min-h-[9rem]"
+            />
+          </div>
+        )}
 
         <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
           Location: {parentPath === "/" ? (projectId ? "Project Root" : "Organization Root") : parentPath}
@@ -534,13 +323,190 @@ export function CreateCodeFileModal({
           </button>
           <button
             onClick={handleCreate}
-            disabled={isCreating || !name.trim()}
+            disabled={isCreating || !trimmedName}
             className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
             style={{
-              opacity: isCreating || !name.trim() ? 0.5 : 1,
+              opacity: isCreating || !trimmedName ? 0.5 : 1,
             }}
           >
             {isCreating ? "Creating..." : "Create"}
+          </button>
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
+
+// ============================================================================
+// SAVE AS MODAL
+// ============================================================================
+
+interface SaveAsModalProps {
+  sessionId: string;
+  projectId?: string | null;
+  organizationId?: string;
+  defaultParentPath: string;
+  defaultFileName: string;
+  initialContent: string;
+  fallbackMimeType?: string;
+  fallbackLanguage?: string;
+  onClose: () => void;
+  onSuccess: (createdFileId: Id<"projectFiles">, parentPath: string) => void;
+}
+
+export function SaveAsModal({
+  sessionId,
+  projectId,
+  organizationId,
+  defaultParentPath,
+  defaultFileName,
+  initialContent,
+  fallbackMimeType,
+  fallbackLanguage,
+  onClose,
+  onSuccess,
+}: SaveAsModalProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
+  const [name, setName] = useState(defaultFileName);
+  const [parentPathInput, setParentPathInput] = useState(defaultParentPath);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
+
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const createVirtualFile = useMutation((api as any).projectFileSystem.createVirtualFile);
+
+  const trimmedName = name.trim();
+  const normalizedParentPath = normalizeFolderPath(parentPathInput);
+  const extension = getNormalizedExtension(trimmedName);
+  const inferredType = useMemo(() => inferNewFileType(trimmedName), [trimmedName]);
+
+  const effectiveMimeType = extension
+    ? inferredType.mimeType
+    : fallbackMimeType || inferredType.mimeType;
+  const effectiveLanguage = extension
+    ? inferredType.language
+    : fallbackLanguage || inferredType.language;
+
+  const handleSaveAs = async () => {
+    if (!trimmedName) {
+      setError("File name is required");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const args: Record<string, unknown> = {
+        sessionId,
+        parentPath: normalizedParentPath,
+        name: trimmedName,
+        content: initialContent,
+        mimeType: effectiveMimeType,
+        language: effectiveLanguage,
+      };
+      if (projectId) args.projectId = projectId as Id<"objects">;
+      if (organizationId) args.organizationId = organizationId as Id<"organizations">;
+
+      const createdFileId = await createVirtualFile(args);
+      onSuccess(createdFileId as Id<"projectFiles">, normalizedParentPath);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save file");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="flex items-center gap-2 mb-4">
+        <Save size={18} style={{ color: "var(--finder-accent)" }} />
+        <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
+          {tx("ui.finder.save_as.title", "Save As")}
+        </h3>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+            File Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="desktop-interior-input w-full text-xs"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSaveAs();
+              }
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
+            {tx("ui.finder.save_as.folder_path_label", "Folder Path")}
+          </label>
+          <input
+            type="text"
+            value={parentPathInput}
+            onChange={(e) => setParentPathInput(e.target.value)}
+            className="desktop-interior-input w-full text-xs"
+            placeholder="/"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSaveAs();
+              }
+            }}
+          />
+        </div>
+
+        <p
+          className="text-[10px] px-2 py-2 rounded border"
+          style={{
+            color: "var(--neutral-gray)",
+            borderColor: "var(--window-document-border)",
+          }}
+        >
+          {extension
+            ? `Detected .${inferredType.extension} -> ${inferredType.language} (${inferredType.mimeType})${inferredType.source === "fallback" ? " [fallback]" : ""}`
+            : `${tx("ui.finder.save_as.no_extension_prefix", "No extension provided. Using")} ${effectiveLanguage} (${effectiveMimeType}).`}
+        </p>
+
+        <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+          {tx("ui.finder.save_as.destination_label", "Destination:")}{" "}
+          {normalizedParentPath === "/"
+            ? tx("ui.finder.save_as.destination_root", "Root")
+            : normalizedParentPath}
+        </p>
+
+        {error && (
+          <p className="text-xs" style={{ color: "var(--error-red)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="desktop-interior-button px-4 py-2 text-xs"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAs}
+            disabled={isSaving || !trimmedName}
+            className="desktop-interior-button desktop-interior-button-primary px-4 py-2 text-xs font-bold"
+            style={{ opacity: isSaving || !trimmedName ? 0.5 : 1 }}
+          >
+            {isSaving
+              ? tx("ui.finder.save_as.saving", "Saving...")
+              : tx("ui.finder.save_as.save_copy", "Save Copy")}
           </button>
         </div>
       </div>

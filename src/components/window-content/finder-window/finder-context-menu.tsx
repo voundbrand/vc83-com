@@ -22,10 +22,9 @@ import {
   FolderInput,
   Files,
   ExternalLink,
+  FilePenLine,
   Star,
   Upload,
-  Code,
-  FileType,
 } from "lucide-react";
 import type { ProjectFile, ContextMenuState, FileClipboard, ViewMode } from "./finder-types";
 import type { SortOption } from "./finder-toolbar";
@@ -51,12 +50,12 @@ interface FinderContextMenuProps {
   onToggleBookmark?: () => void;
   // Background actions
   onCreateFolder: () => void;
-  onCreateNote: () => void;
-  onCreatePlainText?: () => void;
-  onCreateCodeFile?: () => void;
+  onCreateFile: () => void;
+  onCreateFileInTextEditor?: () => void;
   onUploadFile?: () => void;
   // State
   clipboard: FileClipboard;
+  onOpenInTextEditor?: () => void;
   onOpenInBuilder?: () => void;
   onOpenInLayers?: () => void;
   // View controls
@@ -80,11 +79,11 @@ export function FinderContextMenu({
   onCopyPath,
   onGetInfo,
   onCreateFolder,
-  onCreateNote,
-  onCreatePlainText,
-  onCreateCodeFile,
+  onCreateFile,
+  onCreateFileInTextEditor,
   onUploadFile,
   clipboard,
+  onOpenInTextEditor,
   onOpenInBuilder,
   onOpenInLayers,
   onToggleBookmark,
@@ -131,6 +130,7 @@ export function FinderContextMenu({
           onGetInfo={() => { onGetInfo(); onClose(); }}
           onToggleBookmark={onToggleBookmark ? () => { onToggleBookmark(); onClose(); } : undefined}
           clipboard={clipboard}
+          onOpenInTextEditor={onOpenInTextEditor ? () => { onOpenInTextEditor(); onClose(); } : undefined}
           onOpenInBuilder={onOpenInBuilder ? () => { onOpenInBuilder(); onClose(); } : undefined}
           onOpenInLayers={onOpenInLayers ? () => { onOpenInLayers(); onClose(); } : undefined}
         />
@@ -142,9 +142,8 @@ export function FinderContextMenu({
     <MenuContainer ref={menuRef} position={menu.position}>
       <BackgroundContextMenuItems
         onCreateFolder={() => { onCreateFolder(); onClose(); }}
-        onCreateNote={() => { onCreateNote(); onClose(); }}
-        onCreatePlainText={onCreatePlainText ? () => { onCreatePlainText(); onClose(); } : undefined}
-        onCreateCodeFile={onCreateCodeFile ? () => { onCreateCodeFile(); onClose(); } : undefined}
+        onCreateFile={() => { onCreateFile(); onClose(); }}
+        onCreateFileInTextEditor={onCreateFileInTextEditor ? () => { onCreateFileInTextEditor(); onClose(); } : undefined}
         onUploadFile={onUploadFile ? () => { onUploadFile(); onClose(); } : undefined}
         onPaste={() => { onPaste(); onClose(); }}
         clipboard={clipboard}
@@ -205,6 +204,7 @@ interface FileContextMenuItemsProps {
   onGetInfo: () => void;
   onToggleBookmark?: () => void;
   clipboard: FileClipboard;
+  onOpenInTextEditor?: () => void;
   onOpenInBuilder?: () => void;
   onOpenInLayers?: () => void;
 }
@@ -223,6 +223,7 @@ function FileContextMenuItems({
   onGetInfo,
   onToggleBookmark,
   clipboard,
+  onOpenInTextEditor,
   onOpenInBuilder,
   onOpenInLayers,
 }: FileContextMenuItemsProps) {
@@ -234,6 +235,9 @@ function FileContextMenuItems({
   return (
     <>
       <MenuItem icon={<ExternalLink size={14} />} label="Open" onClick={onOpen} />
+      {!isFolder && onOpenInTextEditor && (
+        <MenuItem icon={<FilePenLine size={14} />} label="Open in Text Editor" onClick={onOpenInTextEditor} />
+      )}
       {isBuilder && onOpenInBuilder && (
         <MenuItem icon={<ExternalLink size={14} />} label="Open in Builder" onClick={onOpenInBuilder} />
       )}
@@ -281,9 +285,8 @@ function FileContextMenuItems({
 
 interface BackgroundContextMenuItemsProps {
   onCreateFolder: () => void;
-  onCreateNote: () => void;
-  onCreatePlainText?: () => void;
-  onCreateCodeFile?: () => void;
+  onCreateFile: () => void;
+  onCreateFileInTextEditor?: () => void;
   onUploadFile?: () => void;
   onPaste: () => void;
   clipboard: FileClipboard;
@@ -295,9 +298,8 @@ interface BackgroundContextMenuItemsProps {
 
 function BackgroundContextMenuItems({
   onCreateFolder,
-  onCreateNote,
-  onCreatePlainText,
-  onCreateCodeFile,
+  onCreateFile,
+  onCreateFileInTextEditor,
   onUploadFile,
   onPaste,
   clipboard,
@@ -309,12 +311,9 @@ function BackgroundContextMenuItems({
   return (
     <>
       <MenuItem icon={<FolderPlus size={14} />} label="New Folder" onClick={onCreateFolder} shortcut="Cmd+Shift+N" />
-      <MenuItem icon={<FileText size={14} />} label="New Note" onClick={onCreateNote} />
-      {onCreatePlainText && (
-        <MenuItem icon={<FileType size={14} />} label="New Plain Text" onClick={onCreatePlainText} />
-      )}
-      {onCreateCodeFile && (
-        <MenuItem icon={<Code size={14} />} label="New Code File" onClick={onCreateCodeFile} />
+      <MenuItem icon={<FileText size={14} />} label="New File" onClick={onCreateFile} />
+      {onCreateFileInTextEditor && (
+        <MenuItem icon={<FilePenLine size={14} />} label="New File in Text Editor" onClick={onCreateFileInTextEditor} />
       )}
 
       <MenuSeparator />

@@ -20,6 +20,10 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import {
+  deriveVirtualFileMetadata,
+  normalizeVirtualFileName,
+} from "./projectFileSystemHelpers";
 
 // ============================================================================
 // HELPERS
@@ -523,8 +527,17 @@ export const createVirtualFile = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, organizationId: userOrgId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const name = normalizeVirtualFileName(args.name);
     const parentPath = normalizePath(args.parentPath);
-    const path = normalizePath(`${parentPath}/${args.name}`);
+    const path = normalizePath(`${parentPath}/${name}`);
+    const virtualFileMetadata = deriveVirtualFileMetadata(
+      {
+        name,
+        mimeType: args.mimeType,
+        language: args.language,
+      },
+      { preferLegacyMarkdownDefault: true }
+    );
 
     let orgId: Id<"organizations">;
     if (args.projectId) {
@@ -545,15 +558,15 @@ export const createVirtualFile = mutation({
     return await ctx.db.insert("projectFiles", {
       organizationId: orgId,
       projectId: args.projectId,
-      name: args.name,
+      name,
       path,
       parentPath,
       fileKind: "virtual",
       content: args.content,
       contentHash: simpleHash(args.content),
-      mimeType: args.mimeType || "text/markdown",
+      mimeType: virtualFileMetadata.mimeType,
       sizeBytes: new TextEncoder().encode(args.content).length,
-      language: args.language || "markdown",
+      language: virtualFileMetadata.language,
       source: "user",
       createdBy: userId,
       createdAt: now,

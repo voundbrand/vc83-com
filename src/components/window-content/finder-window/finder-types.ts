@@ -35,6 +35,20 @@ export interface ProjectFile {
   updatedAt: number;
 }
 
+export type TextEditorType = "markdown" | "code" | "note";
+export type EditorType = TextEditorType | "image" | "pdf" | "info";
+
+export interface FileTypeCapability {
+  extension: string;
+  mimeType: string;
+  language: string;
+  editorType: TextEditorType;
+}
+
+export interface ResolvedFileTypeCapability extends FileTypeCapability {
+  source: "extension" | "mime" | "language" | "fallback";
+}
+
 export type FinderMode = "org" | "project" | "shared" | "trash";
 export type ViewMode = "grid" | "list";
 export type SortField = "name" | "updatedAt" | "sizeBytes" | "fileKind";

@@ -24,9 +24,8 @@ import { FinderContent } from "./finder-content";
 import { FinderPreview } from "./finder-preview";
 import {
   CreateFolderModal,
-  CreateNoteModal,
-  CreatePlainTextModal,
-  CreateCodeFileModal,
+  CreateFileModal,
+  SaveAsModal,
   DeleteConfirmationModal,
 } from "./finder-modals";
 import { ShareProjectDialog } from "./share-dialog";
@@ -40,13 +39,23 @@ import { useFinderSelection } from "./use-finder-selection";
 import { useFinderClipboard } from "./use-finder-clipboard";
 import { useFinderKeyboard } from "./use-finder-keyboard";
 import { useFinderDragDrop } from "./use-finder-drag-drop";
-import { useFinderTabs } from "./use-finder-tabs";
+import { getEditorType, useFinderTabs } from "./use-finder-tabs";
+import { useUnsavedChangesGuard } from "./use-unsaved-changes-guard";
 import {
   SHELL_MOTION,
   buildShellTransition,
   useReducedMotionPreference,
 } from "@/lib/motion";
+import { requestTextEditorWindow } from "../text-editor-window/bridge";
 import type { ProjectFile, FinderMode, ContextMenuState } from "./finder-types";
+
+function buildSaveAsDefaultName(name: string): string {
+  const lastDotIndex = name.lastIndexOf(".");
+  if (lastDotIndex <= 0) return `${name}-copy`;
+  const base = name.slice(0, lastDotIndex);
+  const extension = name.slice(lastDotIndex);
+  return `${base}-copy${extension}`;
+}
 
 export function FinderWindow() {
   // Auth
@@ -78,13 +87,17 @@ export function FinderWindow() {
 
   // Modals
   const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [showCreateNote, setShowCreateNote] = useState(false);
-  const [showCreatePlainText, setShowCreatePlainText] = useState(false);
-  const [showCreateCodeFile, setShowCreateCodeFile] = useState(false);
+  const [showCreateFile, setShowCreateFile] = useState(false);
+  const [createFileTarget, setCreateFileTarget] = useState<"finder" | "text-editor">("finder");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTagManager, setShowTagManager] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingOpenFileId, setPendingOpenFileId] = useState<Id<"projectFiles"> | null>(null);
+  const [saveAsDraft, setSaveAsDraft] = useState<{
+    file: ProjectFile;
+    content: string;
+  } | null>(null);
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -170,8 +183,9 @@ export function FinderWindow() {
   // ---- HOOKS ----
   const selection = useFinderSelection(displayFiles);
   const clipboard = useFinderClipboard(sessionId || "");
-  const dragDrop = useFinderDragDrop(sessionId || "", selectedProjectId, selection.selectedFiles);
+  const dragDrop = useFinderDragDrop(sessionId || "", selection.selectedFiles);
   const finderTabs = useFinderTabs();
+  useUnsavedChangesGuard(finderTabs.hasDirtyTabs);
 
   // Upload hook
   const upload = useFinderUpload({
@@ -223,6 +237,17 @@ export function FinderWindow() {
   }, []);
 
   // ---- FILE ACTIONS ----
+  const canOpenInTextEditor = useCallback((file: ProjectFile) => {
+    if (file.fileKind !== "virtual") return false;
+    const editorType = getEditorType(file);
+    return editorType === "markdown" || editorType === "code" || editorType === "note";
+  }, []);
+
+  const openCreateFileModal = useCallback((target: "finder" | "text-editor" = "finder") => {
+    setCreateFileTarget(target);
+    setShowCreateFile(true);
+  }, []);
+
   const handleFileSelect = useCallback((file: ProjectFile, event: React.MouseEvent) => {
     selection.handleSelect(file, event);
     setPreviewFile(file);
@@ -247,6 +272,40 @@ export function FinderWindow() {
       finderTabs.openTab(file);
     }
   }, [handleNavigate, finderTabs, sessionId, activeOrgId, recordAccessMutation]);
+
+  const handleOpenInTextEditor = useCallback((file: ProjectFile) => {
+    if (!canOpenInTextEditor(file)) return;
+    requestTextEditorWindow({ file });
+  }, [canOpenInTextEditor]);
+
+  const handleEditorSaveAs = useCallback(
+    (content: string) => {
+      if (!finderTabs.activeTab || finderTabs.activeTab.file.fileKind !== "virtual") return;
+      setSaveAsDraft({
+        file: finderTabs.activeTab.file,
+        content,
+      });
+    },
+    [finderTabs.activeTab],
+  );
+
+  // Open newly created files as soon as they appear in the current folder query.
+  useEffect(() => {
+    if (!pendingOpenFileId || !rawFiles) return;
+    const createdFile = (rawFiles as ProjectFile[]).find((file) => file._id === pendingOpenFileId);
+    if (!createdFile) return;
+
+    if (createFileTarget === "text-editor" && canOpenInTextEditor(createdFile)) {
+      requestTextEditorWindow({ file: createdFile });
+    } else {
+      finderTabs.openTab(createdFile);
+      setPreviewFile(createdFile);
+    }
+
+    setCreateFileTarget("finder");
+    selection.clearSelection();
+    setPendingOpenFileId(null);
+  }, [pendingOpenFileId, rawFiles, finderTabs, selection, createFileTarget, canOpenInTextEditor]);
 
   const handleDelete = useCallback(() => {
     if (selection.selectedFiles.length === 0) return;
@@ -352,8 +411,14 @@ export function FinderWindow() {
       setContextMenu(null);
       setRenamingFileId(null);
     },
+    onNewFile: () => openCreateFileModal("finder"),
     onNewFolder: () => setShowCreateFolder(true),
     onFocusSearch: () => searchInputRef.current?.focus(),
+    onCloseActiveTab: () => {
+      if (finderTabs.activeTabId) {
+        finderTabs.closeTab(finderTabs.activeTabId);
+      }
+    },
   }, canBrowse);
 
   // ---- RESIZE HANDLE ----
@@ -454,9 +519,7 @@ export function FinderWindow() {
             sortBy={sortBy}
             onSortChange={setSortBy}
             onCreateFolder={() => setShowCreateFolder(true)}
-            onCreateNote={() => setShowCreateNote(true)}
-            onCreatePlainText={() => setShowCreatePlainText(true)}
-            onCreateCodeFile={() => setShowCreateCodeFile(true)}
+            onCreateFile={() => openCreateFileModal("finder")}
             onUploadFile={upload.openFilePicker}
             onShareProject={isProjectMode ? () => setShowShareDialog(true) : undefined}
             onOpenTagManager={() => setShowTagManager(true)}
@@ -495,6 +558,7 @@ export function FinderWindow() {
                   sessionId={sessionId}
                   onDirty={() => finderTabs.markDirty(finderTabs.activeTab!.id)}
                   onClean={() => finderTabs.markClean(finderTabs.activeTab!.id)}
+                  onSaveAs={handleEditorSaveAs}
                 />
               </div>
             ) : (
@@ -636,11 +700,15 @@ export function FinderWindow() {
           }}
           onToggleBookmark={handleToggleBookmark}
           onCreateFolder={() => setShowCreateFolder(true)}
-          onCreateNote={() => setShowCreateNote(true)}
-          onCreatePlainText={() => setShowCreatePlainText(true)}
-          onCreateCodeFile={() => setShowCreateCodeFile(true)}
+          onCreateFile={() => openCreateFileModal("finder")}
+          onCreateFileInTextEditor={() => openCreateFileModal("text-editor")}
           onUploadFile={upload.openFilePicker}
           clipboard={clipboard.clipboard}
+          onOpenInTextEditor={
+            contextMenu.file && canOpenInTextEditor(contextMenu.file)
+              ? () => handleOpenInTextEditor(contextMenu.file as ProjectFile)
+              : undefined
+          }
           onOpenInBuilder={
             contextMenu.file?.fileKind === "builder_ref"
               ? () => window.open(`/builder`, "_blank")
@@ -670,36 +738,47 @@ export function FinderWindow() {
         />
       )}
 
-      {showCreateNote && canBrowse && (
-        <CreateNoteModal
+      {showCreateFile && canBrowse && (
+        <CreateFileModal
           sessionId={sessionId}
           projectId={isProjectMode ? selectedProjectId : undefined}
           organizationId={activeOrgId}
           parentPath={currentPath}
-          onClose={() => setShowCreateNote(false)}
-          onSuccess={() => setShowCreateNote(false)}
+          onClose={() => {
+            setShowCreateFile(false);
+            setCreateFileTarget("finder");
+          }}
+          onSuccess={(createdFileId) => {
+            setShowCreateFile(false);
+            setPendingOpenFileId(createdFileId);
+          }}
         />
       )}
 
-      {showCreatePlainText && canBrowse && (
-        <CreatePlainTextModal
+      {saveAsDraft && (
+        <SaveAsModal
           sessionId={sessionId}
-          projectId={isProjectMode ? selectedProjectId : undefined}
+          projectId={saveAsDraft.file.projectId ? String(saveAsDraft.file.projectId) : undefined}
           organizationId={activeOrgId}
-          parentPath={currentPath}
-          onClose={() => setShowCreatePlainText(false)}
-          onSuccess={() => setShowCreatePlainText(false)}
-        />
-      )}
-
-      {showCreateCodeFile && canBrowse && (
-        <CreateCodeFileModal
-          sessionId={sessionId}
-          projectId={isProjectMode ? selectedProjectId : undefined}
-          organizationId={activeOrgId}
-          parentPath={currentPath}
-          onClose={() => setShowCreateCodeFile(false)}
-          onSuccess={() => setShowCreateCodeFile(false)}
+          defaultParentPath={saveAsDraft.file.parentPath || currentPath}
+          defaultFileName={buildSaveAsDefaultName(saveAsDraft.file.name)}
+          initialContent={saveAsDraft.content}
+          fallbackMimeType={saveAsDraft.file.mimeType}
+          fallbackLanguage={saveAsDraft.file.language}
+          onClose={() => setSaveAsDraft(null)}
+          onSuccess={(createdFileId, parentPath) => {
+            setCreateFileTarget("finder");
+            if (saveAsDraft.file.projectId) {
+              setMode("project");
+              setSelectedProjectId(String(saveAsDraft.file.projectId));
+            } else {
+              setMode("org");
+              setSelectedProjectId(null);
+            }
+            setCurrentPath(parentPath);
+            setPendingOpenFileId(createdFileId);
+            setSaveAsDraft(null);
+          }}
         />
       )}
 

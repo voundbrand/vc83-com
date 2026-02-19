@@ -24,23 +24,30 @@ Queue-first execution layer for Finder file creation and Text Editor app converg
 
 Current kickoff:
 
-1. `FTE-001` (`IN_PROGRESS`): shared file-type registry for common text formats + deterministic fallback.
+1. Lane `A` complete: `FTE-001` and `FTE-002` are `DONE`.
+2. Lane `B` complete: `FTE-003` and `FTE-004` are `DONE`.
+3. Lane `C` complete: `FTE-005` through `FTE-007` are `DONE`.
+4. Lane `D` complete: `FTE-008` and `FTE-009` are `DONE`.
 
 Queued next:
 
-1. `FTE-002`: route tab/editor selection through registry.
-2. `FTE-003`: VSCode-like Finder `New File` modal flow.
-3. `FTE-005`: standalone Text Editor app surface.
+1. None. Lane `E` has no promotable tasks remaining.
+
+Lane `E` update:
+
+1. `FTE-010` is `DONE` (new Finder registry/new-file/launch tests added).
+2. `FTE-011` is `DONE` (hardening + keyboard/focus + unsaved safety tests completed).
+3. `FTE-012` is `DONE` (docs sync + release readiness checks complete).
 
 ---
 
 ## Lane progress board
 
-- [ ] Lane A (`FTE-001`..`FTE-002`)
-- [ ] Lane B (`FTE-003`..`FTE-004`)
-- [ ] Lane C (`FTE-005`..`FTE-007`)
-- [ ] Lane D (`FTE-008`..`FTE-009`)
-- [ ] Lane E (`FTE-010`..`FTE-012`)
+- [x] Lane A (`FTE-001`..`FTE-002`)
+- [x] Lane B (`FTE-003`..`FTE-004`)
+- [x] Lane C (`FTE-005`..`FTE-007`)
+- [x] Lane D (`FTE-008`..`FTE-009`)
+- [x] Lane E (`FTE-010`..`FTE-012`)
 
 ---
 

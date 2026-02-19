@@ -12,6 +12,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Bold,
   Italic,
@@ -21,6 +22,7 @@ import {
   List,
   Minus,
   Save,
+  Copy,
   Check,
   Loader2,
 } from "lucide-react";
@@ -31,6 +33,7 @@ interface NoteEditorProps {
   sessionId: string;
   onDirty: () => void;
   onClean: () => void;
+  onSaveAs?: (content: string) => void;
 }
 
 export function NoteEditor({
@@ -38,14 +41,21 @@ export function NoteEditor({
   sessionId,
   onDirty,
   onClean,
+  onSaveAs,
 }: NoteEditorProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const editorRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
+  const tx = useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
 
-  const updateFileContent = useMutation(api.projectFileSystem.updateFileContent);
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const updateFileContent = useMutation((api as any).projectFileSystem.updateFileContent);
 
   // Initialize editor content
   useEffect(() => {
@@ -63,6 +73,11 @@ export function NoteEditor({
       initializedRef.current = true;
     }
   }, [file._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep keyboard-first flow by focusing the editor when tab/file changes.
+  useEffect(() => {
+    editorRef.current?.focus();
+  }, [file._id]);
 
   // Save function
   const doSave = useCallback(
@@ -102,17 +117,26 @@ export function NoteEditor({
     doSave(text);
   }, [doSave]);
 
+  const handleSaveAs = useCallback(() => {
+    const text = editorRef.current?.innerText || "";
+    onSaveAs?.(text);
+  }, [onSaveAs]);
+
   // Cmd+S handler
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
+        if (e.shiftKey) {
+          handleSaveAs();
+          return;
+        }
         handleManualSave();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleManualSave]);
+  }, [handleManualSave, handleSaveAs]);
 
   // Cleanup timers
   useEffect(() => {
@@ -199,6 +223,11 @@ export function NoteEditor({
           icon={<Save size={14} />}
           title="Save (Cmd+S)"
           onClick={handleManualSave}
+        />
+        <ToolbarButton
+          icon={<Copy size={14} />}
+          title={tx("ui.finder.editor.actions.save_as_shortcut", "Save As (Cmd+Shift+S)")}
+          onClick={handleSaveAs}
         />
       </div>
 

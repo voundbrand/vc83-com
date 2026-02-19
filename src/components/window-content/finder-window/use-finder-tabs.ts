@@ -7,9 +7,10 @@
  */
 
 import { useState, useCallback } from "react";
-import type { ProjectFile } from "./finder-types";
+import { resolveVirtualFileType } from "./file-type-registry";
+import type { EditorType, ProjectFile } from "./finder-types";
 
-export type EditorType = "markdown" | "code" | "note" | "image" | "pdf" | "info";
+export type { EditorType } from "./finder-types";
 
 export interface TabState {
   id: string; // file._id
@@ -20,54 +21,46 @@ export interface TabState {
   file: ProjectFile;
 }
 
+type ConfirmCloseFn = (message: string) => boolean;
+
+const UNSAVED_TAB_CLOSE_PREFIX = "has unsaved changes. Discard them and close this tab?";
+
+function getWindowConfirm(): ConfirmCloseFn {
+  if (typeof window === "undefined" || typeof window.confirm !== "function") {
+    return () => false;
+  }
+  return (message: string) => window.confirm(message);
+}
+
+export function getDirtyTabCloseMessage(tabName: string): string {
+  return `"${tabName}" ${UNSAVED_TAB_CLOSE_PREFIX}`;
+}
+
+export function getDirtyTabsCloseMessage(dirtyTabCount: number): string {
+  const plural = dirtyTabCount === 1 ? "tab has" : "tabs have";
+  return `${dirtyTabCount} open ${plural} unsaved changes. Discard changes and continue?`;
+}
+
+export function confirmTabClose(tab: Pick<TabState, "name" | "isDirty">, confirmClose: ConfirmCloseFn): boolean {
+  if (!tab.isDirty) return true;
+  return confirmClose(getDirtyTabCloseMessage(tab.name));
+}
+
+export function confirmBulkTabClose(
+  tabs: Array<Pick<TabState, "name" | "isDirty">>,
+  confirmClose: ConfirmCloseFn,
+): boolean {
+  const dirtyTabCount = tabs.filter((tab) => tab.isDirty).length;
+  if (dirtyTabCount === 0) return true;
+  return confirmClose(getDirtyTabsCloseMessage(dirtyTabCount));
+}
+
 /**
  * Determine which editor to use based on file properties.
  */
 export function getEditorType(file: ProjectFile): EditorType {
   if (file.fileKind === "virtual") {
-    const mime = file.mimeType || "";
-    const lang = file.language || "";
-    const name = file.name.toLowerCase();
-
-    // Markdown
-    if (
-      mime === "text/markdown" ||
-      lang === "markdown" ||
-      name.endsWith(".md") ||
-      name.endsWith(".mdx")
-    ) {
-      return "markdown";
-    }
-
-    // Plain text / notes
-    if (mime === "text/plain" || name.endsWith(".txt")) {
-      return "note";
-    }
-
-    // Code files
-    if (
-      mime === "application/json" ||
-      lang === "json" ||
-      lang === "javascript" ||
-      lang === "typescript" ||
-      lang === "html" ||
-      lang === "css" ||
-      lang === "yaml" ||
-      name.endsWith(".json") ||
-      name.endsWith(".yaml") ||
-      name.endsWith(".yml") ||
-      name.endsWith(".html") ||
-      name.endsWith(".css") ||
-      name.endsWith(".js") ||
-      name.endsWith(".ts") ||
-      name.endsWith(".jsx") ||
-      name.endsWith(".tsx")
-    ) {
-      return "code";
-    }
-
-    // Fallback for other virtual files
-    return "code";
+    return resolveVirtualFileType(file).editorType;
   }
 
   if (file.fileKind === "media_ref") {
@@ -94,7 +87,14 @@ export function useFinderTabs() {
       if (existing) {
         // Tab already open — just focus it, update file ref
         return prev.map((t) =>
-          t.id === file._id ? { ...t, file, name: file.name } : t
+          t.id === file._id
+            ? {
+                ...t,
+                file,
+                name: file.name,
+                editorType: getEditorType(file),
+              }
+            : t
         );
       }
 
@@ -116,6 +116,12 @@ export function useFinderTabs() {
   const closeTab = useCallback(
     (id: string) => {
       setTabs((prev) => {
+        const tabToClose = prev.find((tab) => tab.id === id);
+        if (!tabToClose) return prev;
+        if (!confirmTabClose(tabToClose, getWindowConfirm())) {
+          return prev;
+        }
+
         const idx = prev.findIndex((t) => t.id === id);
         const filtered = prev.filter((t) => t.id !== id);
 
@@ -146,24 +152,39 @@ export function useFinderTabs() {
   }, []);
 
   const closeAllTabs = useCallback(() => {
-    setTabs([]);
-    setActiveTabId(null);
+    setTabs((prev) => {
+      if (!confirmBulkTabClose(prev, getWindowConfirm())) {
+        return prev;
+      }
+
+      setActiveTabId(null);
+      return [];
+    });
   }, []);
 
   const closeOtherTabs = useCallback(
     (id: string) => {
-      setTabs((prev) => prev.filter((t) => t.id === id));
-      setActiveTabId(id);
+      setTabs((prev) => {
+        const tabsToClose = prev.filter((tab) => tab.id !== id);
+        if (!confirmBulkTabClose(tabsToClose, getWindowConfirm())) {
+          return prev;
+        }
+
+        setActiveTabId(id);
+        return prev.filter((tab) => tab.id === id);
+      });
     },
     []
   );
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || null;
+  const hasDirtyTabs = tabs.some((tab) => tab.isDirty);
 
   return {
     tabs,
     activeTabId,
     activeTab,
+    hasDirtyTabs,
     openTab,
     closeTab,
     setActiveTab: setActiveTabId,

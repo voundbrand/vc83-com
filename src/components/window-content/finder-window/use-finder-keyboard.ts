@@ -11,6 +11,7 @@
  * - Cmd+V → paste
  * - Cmd+A → select all
  * - Escape → clear selection, close context menu
+ * - Cmd+N → new file
  * - Cmd+Shift+N → new folder
  * - Cmd+F → focus search input
  */
@@ -25,8 +26,80 @@ interface KeyboardActions {
   onPaste: () => void;
   onSelectAll: () => void;
   onEscape: () => void;
+  onNewFile: () => void;
   onNewFolder: () => void;
   onFocusSearch: () => void;
+  onCloseActiveTab?: () => void;
+}
+
+type ShortcutTarget = {
+  tagName?: string;
+  isContentEditable?: boolean;
+} | null;
+
+export interface FinderKeyboardShortcutEvent {
+  key: string;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  shiftKey?: boolean;
+  target?: ShortcutTarget;
+}
+
+export type FinderKeyboardAction =
+  | "delete"
+  | "rename"
+  | "copy"
+  | "cut"
+  | "paste"
+  | "select-all"
+  | "escape"
+  | "new-file"
+  | "new-folder"
+  | "focus-search"
+  | "close-active-tab";
+
+export function isTypingTarget(target: ShortcutTarget): boolean {
+  const tagName = target?.tagName?.toUpperCase();
+  return tagName === "INPUT" || tagName === "TEXTAREA" || Boolean(target?.isContentEditable);
+}
+
+export function resolveFinderKeyboardAction(
+  event: FinderKeyboardShortcutEvent,
+): FinderKeyboardAction | null {
+  const target = event.target ?? null;
+  const key = event.key;
+
+  if (isTypingTarget(target)) {
+    return key === "Escape" ? "escape" : null;
+  }
+
+  const isMeta = Boolean(event.metaKey || event.ctrlKey);
+  const normalizedKey = key.toLowerCase();
+
+  if (key === "Delete" || key === "Backspace") return "delete";
+  if (key === "Enter") return "rename";
+  if (key === "Escape") return "escape";
+
+  if (!isMeta) return null;
+
+  switch (normalizedKey) {
+    case "c":
+      return "copy";
+    case "x":
+      return "cut";
+    case "v":
+      return "paste";
+    case "a":
+      return "select-all";
+    case "n":
+      return event.shiftKey ? "new-folder" : "new-file";
+    case "f":
+      return "focus-search";
+    case "w":
+      return "close-active-tab";
+    default:
+      return null;
+  }
 }
 
 export function useFinderKeyboard(
@@ -37,80 +110,59 @@ export function useFinderKeyboard(
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!enabled) return;
+      const action = resolveFinderKeyboardAction({
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        target: e.target as ShortcutTarget,
+      });
 
-      // Don't capture if the user is typing in an input/textarea
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
-        // Only allow Escape to bubble through from inputs
-        if (e.key === "Escape") {
-          actions.onEscape();
-        }
-        return;
-      }
+      if (!action) return;
 
-      const isMeta = e.metaKey || e.ctrlKey;
-
-      switch (e.key) {
-        case "Delete":
-        case "Backspace":
+      switch (action) {
+        case "delete":
           e.preventDefault();
           actions.onDelete();
           break;
-
-        case "Enter":
+        case "rename":
           e.preventDefault();
           actions.onRename();
           break;
-
-        case "c":
-          if (isMeta) {
-            e.preventDefault();
-            actions.onCopy();
-          }
+        case "copy":
+          e.preventDefault();
+          actions.onCopy();
           break;
-
-        case "x":
-          if (isMeta) {
-            e.preventDefault();
-            actions.onCut();
-          }
+        case "cut":
+          e.preventDefault();
+          actions.onCut();
           break;
-
-        case "v":
-          if (isMeta) {
-            e.preventDefault();
-            actions.onPaste();
-          }
+        case "paste":
+          e.preventDefault();
+          actions.onPaste();
           break;
-
-        case "a":
-          if (isMeta) {
-            e.preventDefault();
-            actions.onSelectAll();
-          }
+        case "select-all":
+          e.preventDefault();
+          actions.onSelectAll();
           break;
-
-        case "Escape":
+        case "escape":
           actions.onEscape();
           break;
-
-        case "N":
-        case "n":
-          if (isMeta && e.shiftKey) {
-            e.preventDefault();
-            actions.onNewFolder();
-          }
+        case "new-file":
+          e.preventDefault();
+          actions.onNewFile();
           break;
-
-        case "f":
-          if (isMeta) {
-            e.preventDefault();
-            actions.onFocusSearch();
-          }
+        case "new-folder":
+          e.preventDefault();
+          actions.onNewFolder();
+          break;
+        case "focus-search":
+          e.preventDefault();
+          actions.onFocusSearch();
+          break;
+        case "close-active-tab":
+          e.preventDefault();
+          actions.onCloseActiveTab?.();
           break;
       }
     },

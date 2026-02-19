@@ -10,7 +10,10 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../../convex/_generated/dataModel";
 import {
   Bold,
@@ -24,6 +27,7 @@ import {
   EyeOff,
   Columns,
   Save,
+  Copy,
   Check,
   Loader2,
 } from "lucide-react";
@@ -36,6 +40,7 @@ interface MarkdownEditorProps {
   sessionId: string;
   onDirty: () => void;
   onClean: () => void;
+  onSaveAs?: (content: string) => void;
 }
 
 export function MarkdownEditor({
@@ -43,10 +48,16 @@ export function MarkdownEditor({
   sessionId,
   onDirty,
   onClean,
+  onSaveAs,
 }: MarkdownEditorProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
   const [content, setContent] = useState(file.content || "");
   const [viewState, setViewState] = useState<ViewState>("split");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const tx = useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,6 +68,11 @@ export function MarkdownEditor({
   useEffect(() => {
     setContent(file.content || "");
   }, [file._id, file.content]);
+
+  // Keep keyboard-first flow by focusing the editor when tab/file changes.
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [file._id]);
 
   // Save function
   const doSave = useCallback(
@@ -98,17 +114,25 @@ export function MarkdownEditor({
     doSave(content);
   }, [content, doSave]);
 
+  const handleSaveAs = useCallback(() => {
+    onSaveAs?.(content);
+  }, [onSaveAs, content]);
+
   // Cmd+S handler
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
+        if (e.shiftKey) {
+          handleSaveAs();
+          return;
+        }
         handleManualSave();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleManualSave]);
+  }, [handleManualSave, handleSaveAs]);
 
   // Cleanup timers
   useEffect(() => {
@@ -240,6 +264,11 @@ export function MarkdownEditor({
           icon={<Save size={14} />}
           title="Save (Cmd+S)"
           onClick={handleManualSave}
+        />
+        <ToolbarButton
+          icon={<Copy size={14} />}
+          title={tx("ui.finder.editor.actions.save_as_shortcut", "Save As (Cmd+Shift+S)")}
+          onClick={handleSaveAs}
         />
       </div>
 

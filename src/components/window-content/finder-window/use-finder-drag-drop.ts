@@ -23,7 +23,6 @@ interface DragState {
 
 export function useFinderDragDrop(
   sessionId: string,
-  projectId: string | null,
   selectedFiles: ProjectFile[]
 ) {
   const [dragState, setDragState] = useState<DragState>({
@@ -98,7 +97,7 @@ export function useFinderDragDrop(
 
       // Internal file move
       const fileData = e.dataTransfer.getData("application/finder-files");
-      if (fileData && projectId) {
+      if (fileData) {
         try {
           const fileIds: string[] = JSON.parse(fileData);
           for (const fileId of fileIds) {
@@ -120,7 +119,7 @@ export function useFinderDragDrop(
       });
       dragCounterRef.current = 0;
     },
-    [sessionId, projectId, moveFile]
+    [sessionId, moveFile]
   );
 
   // ---- CONTENT AREA DROP (for background drops) ----

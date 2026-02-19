@@ -32,6 +32,20 @@ Why this balance:
 
 ---
 
+## Decision log
+
+1. **2026-02-17: Phase-1 type support locked for launch**
+- Ship with registry-backed support for:
+  `md`, `mdx`, `txt`, `html`, `css`, `js`, `jsx`, `ts`, `tsx`, `json`, `yaml`, `yml`, `xml`, `sql`, `sh`, `py`, `csv`, `toml`, `env`.
+- Unknown extensions remain text-safe via fallback (`text/plain` + code editor) to avoid open failures.
+
+2. **2026-02-17: Phase-2 expansion policy**
+- Add new text-like mappings only through the shared registry + backend helper mapping.
+- Expansion candidates are prioritized by observed creation/open frequency and error telemetry, then shipped with targeted registry tests and migration-safe metadata checks.
+- Binary/complex formats remain out of scope unless a dedicated editor/viewer path exists.
+
+---
+
 ## Non-goals (phase 1)
 
 1. No attempt to replicate full VSCode extension ecosystem.
@@ -99,4 +113,8 @@ Mitigation: bounded common-type set now, registry extensions in subsequent phase
 ## Current status snapshot
 
 - Queue initialized and ready for execution.
-- Active kickoff task: `FTE-001` (`IN_PROGRESS`) to establish shared file-type capability registry.
+- Lane `A` complete: `FTE-001` and `FTE-002` are `DONE` (registry contract + editor routing integration).
+- Lane `B` complete: `FTE-003` and `FTE-004` are `DONE` (VSCode-like New File flow + keyboard/context parity + immediate-open behavior).
+- Lane `C` complete: `FTE-005` through `FTE-007` are `DONE` (standalone Text Editor app, desktop/all-app registration, Finder open/new-file bridge).
+- Lane `D` complete: `FTE-008` and `FTE-009` are `DONE` (backend virtual-file metadata normalization + idempotent metadata backfill migration).
+- Lane `E` complete: `FTE-010` through `FTE-012` are `DONE` (tests, hardening, and docs closeout complete).

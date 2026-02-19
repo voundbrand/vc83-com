@@ -15,8 +15,6 @@ import {
   Plus,
   FolderPlus,
   FileText,
-  FileType,
-  Code,
   Upload,
   ChevronRight,
   Share2,
@@ -42,9 +40,7 @@ interface FinderToolbarProps {
   sortBy: SortOption;
   onSortChange: (sort: SortOption) => void;
   onCreateFolder: () => void;
-  onCreateNote: () => void;
-  onCreatePlainText?: () => void;
-  onCreateCodeFile?: () => void;
+  onCreateFile: () => void;
   onUploadFile?: () => void;
   onShareProject?: () => void;
   onOpenTagManager?: () => void;
@@ -65,9 +61,7 @@ export function FinderToolbar({
   sortBy,
   onSortChange,
   onCreateFolder,
-  onCreateNote,
-  onCreatePlainText,
-  onCreateCodeFile,
+  onCreateFile,
   onUploadFile,
   onShareProject,
   onOpenTagManager,
@@ -80,12 +74,14 @@ export function FinderToolbar({
   const canCreate = !!projectId || mode === "org";
 
   // Breadcrumbs — project-scoped
-  const breadcrumbs = useQuery(
-    api.projectFileSystem.getBreadcrumbs,
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
+  const getBreadcrumbsQuery = (api as any).projectFileSystem.getBreadcrumbs;
+  const breadcrumbs = (useQuery as any)(
+    getBreadcrumbsQuery,
     projectId
       ? { sessionId, projectId: projectId as Id<"objects">, path: currentPath }
       : "skip"
-  );
+  ) as Array<{ path: string; name: string }> | undefined;
 
   // Scope label
   const scopeLabel =
@@ -168,26 +164,10 @@ export function FinderToolbar({
                   onCreateFolder();
                   setShowNewMenu(false);
                 }}
-                onCreateNote={() => {
-                  onCreateNote();
+                onCreateFile={() => {
+                  onCreateFile();
                   setShowNewMenu(false);
                 }}
-                onCreatePlainText={
-                  onCreatePlainText
-                    ? () => {
-                        onCreatePlainText();
-                        setShowNewMenu(false);
-                      }
-                    : undefined
-                }
-                onCreateCodeFile={
-                  onCreateCodeFile
-                    ? () => {
-                        onCreateCodeFile();
-                        setShowNewMenu(false);
-                      }
-                    : undefined
-                }
                 onUploadFile={
                   onUploadFile
                     ? () => {
@@ -284,18 +264,14 @@ export function FinderToolbar({
 
 interface NewMenuProps {
   onCreateFolder: () => void;
-  onCreateNote: () => void;
-  onCreatePlainText?: () => void;
-  onCreateCodeFile?: () => void;
+  onCreateFile: () => void;
   onUploadFile?: () => void;
   onClose: () => void;
 }
 
 function NewMenu({
   onCreateFolder,
-  onCreateNote,
-  onCreatePlainText,
-  onCreateCodeFile,
+  onCreateFile,
   onUploadFile,
   onClose,
 }: NewMenuProps) {
@@ -319,29 +295,16 @@ function NewMenu({
           <MenuButton
             icon={<FolderPlus size={16} />}
             label="New Folder"
+            shortcut="Cmd+Shift+N"
             onClick={onCreateFolder}
           />
           <MenuButton
             icon={<FileText size={16} />}
-            label="New Note"
-            subtitle=".md"
-            onClick={onCreateNote}
+            label="New File"
+            subtitle="name.ext"
+            shortcut="Cmd+N"
+            onClick={onCreateFile}
           />
-          {onCreatePlainText && (
-            <MenuButton
-              icon={<FileType size={16} />}
-              label="New Plain Text"
-              subtitle=".txt"
-              onClick={onCreatePlainText}
-            />
-          )}
-          {onCreateCodeFile && (
-            <MenuButton
-              icon={<Code size={16} />}
-              label="New Code File"
-              onClick={onCreateCodeFile}
-            />
-          )}
         </div>
 
         {onUploadFile && (
@@ -368,11 +331,13 @@ function MenuButton({
   icon,
   label,
   subtitle,
+  shortcut,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   subtitle?: string;
+  shortcut?: string;
   onClick: () => void;
 }) {
   return (
@@ -391,11 +356,18 @@ function MenuButton({
     >
       {icon}
       <span className="flex-1">{label}</span>
-      {subtitle && (
-        <span className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          {subtitle}
-        </span>
-      )}
+      <span className="flex flex-col items-end leading-tight">
+        {subtitle && (
+          <span className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+            {subtitle}
+          </span>
+        )}
+        {shortcut && (
+          <span className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+            {shortcut}
+          </span>
+        )}
+      </span>
     </button>
   );
 }

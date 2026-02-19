@@ -14,8 +14,7 @@ import { NoteEditor } from "./note-editor";
 import { ImageViewer } from "./image-viewer";
 import { PdfViewer } from "./pdf-viewer";
 import { FinderPreview } from "../finder-preview";
-import type { ProjectFile } from "../finder-types";
-import type { EditorType } from "../use-finder-tabs";
+import type { EditorType, ProjectFile } from "../finder-types";
 
 interface EditorRouterProps {
   file: ProjectFile;
@@ -23,6 +22,7 @@ interface EditorRouterProps {
   sessionId: string;
   onDirty: () => void;
   onClean: () => void;
+  onSaveAs?: (content: string) => void;
 }
 
 export function EditorRouter({
@@ -31,6 +31,7 @@ export function EditorRouter({
   sessionId,
   onDirty,
   onClean,
+  onSaveAs,
 }: EditorRouterProps) {
   const noop = useCallback(() => {}, []);
 
@@ -42,6 +43,7 @@ export function EditorRouter({
           sessionId={sessionId}
           onDirty={onDirty}
           onClean={onClean}
+          onSaveAs={onSaveAs}
         />
       );
 
@@ -52,6 +54,7 @@ export function EditorRouter({
           sessionId={sessionId}
           onDirty={onDirty}
           onClean={onClean}
+          onSaveAs={onSaveAs}
         />
       );
 
@@ -62,6 +65,7 @@ export function EditorRouter({
           sessionId={sessionId}
           onDirty={onDirty}
           onClean={onClean}
+          onSaveAs={onSaveAs}
         />
       );
 

@@ -11,8 +11,10 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Save,
+  Copy,
   Check,
   Loader2,
   Search,
@@ -28,6 +30,7 @@ interface CodeEditorProps {
   sessionId: string;
   onDirty: () => void;
   onClean: () => void;
+  onSaveAs?: (content: string) => void;
 }
 
 export function CodeEditor({
@@ -35,7 +38,9 @@ export function CodeEditor({
   sessionId,
   onDirty,
   onClean,
+  onSaveAs,
 }: CodeEditorProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
   const [content, setContent] = useState(file.content || "");
   const [wordWrap, setWordWrap] = useState(true);
   const [showFind, setShowFind] = useState(false);
@@ -43,18 +48,28 @@ export function CodeEditor({
   const [replaceText, setReplaceText] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const tx = useCallback(
+    (key: string, fallback: string): string => translationsMap?.[key] ?? fallback,
+    [translationsMap],
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const updateFileContent = useMutation(api.projectFileSystem.updateFileContent);
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const updateFileContent = useMutation((api as any).projectFileSystem.updateFileContent);
 
   // Sync content when file changes externally
   useEffect(() => {
     setContent(file.content || "");
   }, [file._id, file.content]);
+
+  // Keep keyboard-first flow by focusing the editor when tab/file changes.
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [file._id]);
 
   // Save function
   const doSave = useCallback(
@@ -96,11 +111,19 @@ export function CodeEditor({
     doSave(content);
   }, [content, doSave]);
 
+  const handleSaveAs = useCallback(() => {
+    onSaveAs?.(content);
+  }, [onSaveAs, content]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
+        if (e.shiftKey) {
+          handleSaveAs();
+          return;
+        }
         handleManualSave();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
@@ -110,7 +133,7 @@ export function CodeEditor({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleManualSave]);
+  }, [handleManualSave, handleSaveAs]);
 
   // Cleanup timers
   useEffect(() => {
@@ -238,6 +261,14 @@ export function CodeEditor({
           style={{ color: "var(--win95-text)" }}
         >
           <Save size={14} />
+        </button>
+        <button
+          onClick={handleSaveAs}
+          title={tx("ui.finder.editor.actions.save_as_shortcut", "Save As (Cmd+Shift+S)")}
+          className="p-1.5 rounded transition-colors"
+          style={{ color: "var(--win95-text)" }}
+        >
+          <Copy size={14} />
         </button>
       </div>
 

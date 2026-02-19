@@ -75,11 +75,16 @@ export function FinderTabs({
         background: "var(--desktop-shell-accent)",
         minHeight: 40,
       }}
+      role="tablist"
+      aria-label="Open files"
     >
       {/* Browse tab */}
       <button
         onClick={onBrowse}
         className={`desktop-interior-tab flex items-center gap-1.5 px-3 py-1.5 text-xs flex-shrink-0 ${isBrowsing ? "desktop-interior-tab-active" : ""}`}
+        role="tab"
+        aria-selected={isBrowsing}
+        aria-label="Browse files"
       >
         <FolderOpen size={12} />
         Browse
@@ -102,6 +107,9 @@ export function FinderTabs({
               style={{
                 maxWidth: 180,
               }}
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`${tab.name}${tab.isDirty ? ", unsaved changes" : ""}`}
             >
               {KIND_ICON_SMALL[tab.fileKind] || EDITOR_ICON[tab.editorType]}
 
@@ -122,10 +130,19 @@ export function FinderTabs({
                   e.stopPropagation();
                   onCloseTab(tab.id);
                 }}
-                className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCloseTab(tab.id);
+                  }
+                }}
+                className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0"
                 style={{ color: "var(--neutral-gray)" }}
+                title={`Close ${tab.name}`}
+                aria-label={`Close ${tab.name}`}
                 role="button"
-                title="Close tab"
+                tabIndex={0}
               >
                 <X size={10} />
               </span>
