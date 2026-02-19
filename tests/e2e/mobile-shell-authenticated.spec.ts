@@ -19,9 +19,27 @@ async function waitForAppParamToClear(page: Page, timeout = 10_000) {
 }
 
 async function openAppsMenu(page: Page) {
-  const appsButton = page.getByRole("button", { name: /^Apps/i }).first();
+  const appsButton = page.getByTestId("windows-menu-trigger").first();
+  const menuPanel = page.getByTestId("windows-menu-panel").first();
+
   await expect(appsButton).toBeVisible();
-  await appsButton.click();
+
+  if (await menuPanel.isVisible().catch(() => false)) {
+    return;
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await safeClick(appsButton);
+
+    try {
+      await expect(menuPanel).toBeVisible({ timeout: 2_000 });
+      return;
+    } catch {
+      await page.waitForTimeout(150);
+    }
+  }
+
+  await expect(menuPanel).toBeVisible();
 }
 
 async function safeClick(locator: Locator) {
@@ -43,12 +61,14 @@ test.describe("Mobile Shell (Authenticated)", () => {
 
     await test.step("apps menu exposes authenticated actions", async () => {
       await openAppsMenu(page);
-      await expect(page.getByTestId("windows-menu-launcher-mobile-auth")).toHaveCount(1);
-      await expect(page.getByTestId("windows-menu-launcher-mobile-settings")).toHaveCount(1);
+      const menuPanel = page.getByTestId("windows-menu-panel").first();
+      await expect(menuPanel.getByTestId("windows-menu-launcher-mobile-auth")).toHaveCount(1);
+      await expect(menuPanel.getByTestId("windows-menu-launcher-mobile-settings")).toHaveCount(1);
     });
 
     await test.step("switching to settings hides all-apps panel", async () => {
-      await safeClick(page.getByTestId("windows-menu-launcher-mobile-settings").first());
+      const menuPanel = page.getByTestId("windows-menu-panel").first();
+      await safeClick(menuPanel.getByTestId("windows-menu-launcher-mobile-settings").first());
 
       await page.waitForFunction(() => {
         const headings = Array.from(document.querySelectorAll("h2")).map((node) =>

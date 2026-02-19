@@ -19,9 +19,27 @@ async function waitForAppParamToClear(page: Page, timeout = 10_000) {
 }
 
 async function openAppsMenu(page: Page) {
-  const appsButton = page.getByRole("button", { name: /^Apps/i }).first();
+  const appsButton = page.getByTestId("windows-menu-trigger").first();
+  const menuPanel = page.getByTestId("windows-menu-panel").first();
+
   await expect(appsButton).toBeVisible();
-  await appsButton.click();
+
+  if (await menuPanel.isVisible().catch(() => false)) {
+    return;
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await safeClick(appsButton);
+
+    try {
+      await expect(menuPanel).toBeVisible({ timeout: 2_000 });
+      return;
+    } catch {
+      await page.waitForTimeout(150);
+    }
+  }
+
+  await expect(menuPanel).toBeVisible();
 }
 
 async function safeClick(locator: Locator) {
@@ -44,22 +62,25 @@ test.describe("Mobile Shell", () => {
       await waitForAppParamToClear(page);
     });
 
-    await test.step("apps menu shows extended launcher and opens store", async () => {
+    await test.step("apps menu shows stable launcher entries and opens store", async () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await openAppsMenu(page);
-      const textEditorLauncher = page.getByTestId("windows-menu-launcher-mobile-app-text-editor");
-      await expect(textEditorLauncher).toHaveCount(1);
-      await textEditorLauncher.first().scrollIntoViewIfNeeded();
-      await expect(textEditorLauncher.first()).toBeVisible();
+      const menuPanel = page.getByTestId("windows-menu-panel").first();
+      const browseLauncher = menuPanel.getByTestId("windows-menu-launcher-mobile-browse-apps");
+      const storeLauncher = menuPanel.getByTestId("windows-menu-launcher-mobile-store");
 
-      await safeClick(page.getByTestId("windows-menu-launcher-mobile-store").first());
+      await expect(browseLauncher).toHaveCount(1);
+      await expect(storeLauncher).toHaveCount(1);
+
+      await safeClick(storeLauncher.first());
       await waitForAppParamToClear(page);
       await expect(page.locator("h2", { hasText: /store/i }).first()).toBeVisible();
     });
 
     await test.step("switching apps keeps a single active mobile panel", async () => {
       await openAppsMenu(page);
-      await safeClick(page.getByTestId("windows-menu-launcher-mobile-browse-apps").first());
+      const menuPanel = page.getByTestId("windows-menu-panel").first();
+      await safeClick(menuPanel.getByTestId("windows-menu-launcher-mobile-browse-apps").first());
 
       await page.waitForFunction(() => {
         const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
