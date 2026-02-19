@@ -29,7 +29,7 @@ export default function BuilderWorkspaceLayout({
     <div
       className={`h-screen overflow-hidden ${playfairDisplay.variable} ${dmSans.variable}`}
       style={{
-        backgroundColor: '#18181b', // zinc-900 (neutral gray, no blue)
+        backgroundColor: '#18181b', // neutral shell canvas
         fontFamily: 'var(--font-body), system-ui, sans-serif',
       }}
     >

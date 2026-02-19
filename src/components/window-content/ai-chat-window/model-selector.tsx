@@ -118,9 +118,9 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
           ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
         `}
         style={{
-          backgroundColor: 'var(--win95-bg-light)',
-          borderColor: 'var(--win95-border)',
-          color: 'var(--win95-text)',
+          backgroundColor: 'var(--shell-surface-elevated)',
+          borderColor: 'var(--shell-border)',
+          color: 'var(--shell-text)',
         }}
       >
         {/* Provider Logo */}
@@ -128,10 +128,10 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
 
         {/* Model Name */}
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-bold truncate" style={{ color: 'var(--win95-text)' }}>
+          <span className="text-sm font-bold truncate" style={{ color: 'var(--shell-text)' }}>
             {!selectedModel && "Auto"}
           </span>
-          <span className="text-xs truncate" style={{ color: 'var(--win95-text-secondary)' }}>
+          <span className="text-xs truncate" style={{ color: 'var(--shell-text-muted)' }}>
             ({currentDisplayName})
           </span>
         </div>
@@ -140,7 +140,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
         <ProviderBadge provider={currentProvider} showName={false} />
 
         {/* Dropdown Arrow */}
-        <ChevronDown className="w-4 h-4 transition-transform" style={{ color: 'var(--win95-text-secondary)' }} />
+        <ChevronDown className="w-4 h-4 transition-transform" style={{ color: 'var(--shell-text-muted)' }} />
       </button>
 
       {/* Dropdown Menu */}
@@ -148,8 +148,8 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
         <div
           className="absolute top-full left-0 mt-1 w-80 border-2 rounded shadow-lg z-50 max-h-96 overflow-y-auto"
           style={{
-            backgroundColor: 'var(--win95-input-bg)',
-            borderColor: 'var(--win95-input-border-dark)',
+            backgroundColor: 'var(--shell-input-surface)',
+            borderColor: 'var(--shell-input-border-strong)',
           }}
         >
           {/* Auto Option */}
@@ -160,8 +160,8 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
             }}
             className="w-full px-3 py-2 text-left border-b-2 flex items-center gap-2 transition-colors hover-menu-item"
             style={{
-              borderColor: 'var(--win95-input-border-dark)',
-              color: 'var(--win95-input-text)',
+              borderColor: 'var(--shell-input-border-strong)',
+              color: 'var(--shell-input-text)',
             }}
           >
             <ProviderLogo provider="default" size={16} className="text-primary" />
@@ -182,14 +182,14 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
               <div
                 key={provider}
                 className="border-b-2 last:border-b-0"
-                style={{ borderColor: 'var(--win95-input-border-dark)' }}
+                style={{ borderColor: 'var(--shell-input-border-strong)' }}
               >
                 {/* Provider Header */}
                 <div
                   className="px-3 py-2 flex items-center gap-2"
                   style={{
-                    backgroundColor: 'var(--win95-border)',
-                    color: 'var(--win95-input-text)'
+                    backgroundColor: 'var(--shell-border)',
+                    color: 'var(--shell-input-text)'
                   }}
                 >
                   <ProviderBadge provider={provider} showName={true} />
@@ -205,8 +205,8 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
                       onClick={() => handleModelSelect(model.id)}
                       className="w-full px-3 py-2 text-left flex items-center justify-between transition-colors hover-menu-item"
                       style={{
-                        backgroundColor: isSelected ? 'var(--win95-hover-bg)' : 'transparent',
-                        color: isSelected ? 'var(--win95-hover-text)' : 'var(--win95-input-text)',
+                        backgroundColor: isSelected ? 'var(--shell-hover-bg)' : 'transparent',
+                        color: isSelected ? 'var(--shell-hover-text)' : 'var(--shell-input-text)',
                       }}
                     >
                       <div className="flex-1 min-w-0">
@@ -224,7 +224,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
                         </div>
                       </div>
                       {isSelected && (
-                        <Check className="w-4 h-4" style={{ color: 'var(--win95-hover-text)' }} />
+                        <Check className="w-4 h-4" style={{ color: 'var(--shell-hover-text)' }} />
                       )}
                     </button>
                   );
@@ -237,7 +237,7 @@ export function ModelSelector({ selectedModel, onModelChange, disabled }: ModelS
           {Object.keys(modelsByProvider).length === 0 && (
             <div
               className="px-3 py-4 text-center text-sm"
-              style={{ color: 'var(--win95-text-secondary)' }}
+              style={{ color: 'var(--shell-text-muted)' }}
             >
               No models available. Super admin must enable models.
             </div>

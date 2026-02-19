@@ -1,5 +1,12 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import type { AiProviderId } from "../channels/types";
+import { detectProvider } from "./modelAdapters";
+import type {
+  AiProviderBindingSource,
+  ProviderBindingFallbackMetadata,
+  ResolvedAiProviderBinding,
+} from "./providerRegistry";
 
 export interface ModelPricingRates {
   promptPerMToken: number;
@@ -8,8 +15,15 @@ export interface ModelPricingRates {
 
 export interface ResolvedModelPricing extends ModelPricingRates {
   modelId: string;
+  providerId: AiProviderId;
   source: "aiModels" | "fallback";
   usedFallback: boolean;
+  bindingMetadata: {
+    source: AiProviderBindingSource | "model_provider";
+    profileId: string | null;
+    priority: number | null;
+    fallbackMetadata: ProviderBindingFallbackMetadata;
+  };
   warning?: string;
 }
 
@@ -33,6 +47,26 @@ export const DEFAULT_MODEL_PRICING_RATES: ModelPricingRates = {
   promptPerMToken: 3,
   completionPerMToken: 15,
 };
+
+function buildBindingMetadata(args: {
+  source: AiProviderBindingSource | "model_provider";
+  profileId?: string | null;
+  priority?: number | null;
+  fallbackMetadata?: ProviderBindingFallbackMetadata;
+}): ResolvedModelPricing["bindingMetadata"] {
+  return {
+    source: args.source,
+    profileId: args.profileId ?? null,
+    priority:
+      typeof args.priority === "number" && Number.isFinite(args.priority)
+        ? args.priority
+        : null,
+    fallbackMetadata: args.fallbackMetadata ?? {
+      usedFallback: false,
+      reasons: [],
+    },
+  };
+}
 
 function parseFiniteNonNegative(value: unknown): number | null {
   const parsed =
@@ -61,19 +95,31 @@ export function normalizeOpenRouterPricingToPerMillion(
   if (hasValidPrompt && hasValidCompletion) {
     return {
       modelId: "openrouter:model",
+      providerId: "openrouter",
       promptPerMToken: promptPerToken * 1_000_000,
       completionPerMToken: completionPerToken * 1_000_000,
       source: "aiModels",
       usedFallback: false,
+      bindingMetadata: buildBindingMetadata({
+        source: "model_provider",
+      }),
     };
   }
 
   return {
     modelId: "openrouter:model",
+    providerId: "openrouter",
     promptPerMToken: fallbackRates.promptPerMToken,
     completionPerMToken: fallbackRates.completionPerMToken,
     source: "fallback",
     usedFallback: true,
+    bindingMetadata: buildBindingMetadata({
+      source: "model_provider",
+      fallbackMetadata: {
+        usedFallback: true,
+        reasons: ["openrouter_pricing_payload_invalid"],
+      },
+    }),
     warning: "OpenRouter model pricing payload was missing or invalid; fallback rates applied",
   };
 }
@@ -83,26 +129,70 @@ export function resolveModelPricingFromRecord(
   pricing: Partial<ModelPricingRates> | null | undefined,
   fallbackRates: ModelPricingRates = DEFAULT_MODEL_PRICING_RATES
 ): ResolvedModelPricing {
+  const providerId = detectProvider(modelId, "openrouter");
   const promptPerMToken = parseFiniteNonNegative(pricing?.promptPerMToken);
   const completionPerMToken = parseFiniteNonNegative(pricing?.completionPerMToken);
 
   if (promptPerMToken !== null && completionPerMToken !== null) {
     return {
       modelId,
+      providerId,
       promptPerMToken,
       completionPerMToken,
       source: "aiModels",
       usedFallback: false,
+      bindingMetadata: buildBindingMetadata({
+        source: "model_provider",
+      }),
     };
   }
 
   return {
     modelId,
+    providerId,
     promptPerMToken: fallbackRates.promptPerMToken,
     completionPerMToken: fallbackRates.completionPerMToken,
     source: "fallback",
     usedFallback: true,
+    bindingMetadata: buildBindingMetadata({
+      source: "model_provider",
+      fallbackMetadata: {
+        usedFallback: true,
+        reasons: ["model_pricing_fallback"],
+      },
+    }),
     warning: `Missing or invalid aiModels pricing for ${modelId}; fallback rates applied`,
+  };
+}
+
+export function resolveModelPricingForProviderBinding(args: {
+  modelId: string;
+  pricing: Partial<ModelPricingRates> | null | undefined;
+  binding?: Pick<
+    ResolvedAiProviderBinding,
+    "providerId" | "profileId" | "priority" | "source" | "fallbackMetadata"
+  > | null;
+  fallbackRates?: ModelPricingRates;
+}): ResolvedModelPricing {
+  const resolved = resolveModelPricingFromRecord(
+    args.modelId,
+    args.pricing,
+    args.fallbackRates
+  );
+  const binding = args.binding;
+  if (!binding) {
+    return resolved;
+  }
+
+  return {
+    ...resolved,
+    providerId: binding.providerId,
+    bindingMetadata: buildBindingMetadata({
+      source: binding.source,
+      profileId: binding.profileId,
+      priority: binding.priority,
+      fallbackMetadata: binding.fallbackMetadata,
+    }),
   };
 }
 

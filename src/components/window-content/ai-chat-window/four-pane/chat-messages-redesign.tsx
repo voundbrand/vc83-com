@@ -13,7 +13,7 @@ function UserMessage({ content }: { content: string }) {
       <div
         className="px-2 py-2 max-w-[85%] text-sm"
         style={{
-          color: 'var(--win95-text)',
+          color: 'var(--shell-text)',
         }}
       >
         <div className="leading-relaxed whitespace-pre-wrap break-words">
@@ -41,7 +41,7 @@ function AssistantMessage({ content }: { content: string }) {
           style={{
             borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
             background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
-            color: 'var(--win95-text)',
+            color: 'var(--shell-text)',
           }}
         >
           <div className="flex items-start gap-2">
@@ -67,7 +67,7 @@ function AssistantMessage({ content }: { content: string }) {
       <div
         className="px-2 py-2 max-w-[85%] text-sm"
         style={{
-          color: 'var(--win95-text)',
+          color: 'var(--shell-text)',
         }}
       >
         <div className="leading-relaxed whitespace-pre-wrap break-words">
@@ -91,7 +91,7 @@ function ToolMessage({ content }: { content: string }) {
         style={{
           borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
           background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
-          color: 'var(--win95-text)',
+          color: 'var(--shell-text)',
         }}
       >
         <div className="flex items-start gap-2">
@@ -118,10 +118,10 @@ function ThinkingIndicator() {
       <div
         className="px-2 py-2 text-sm flex items-center gap-2"
         style={{
-          color: 'var(--win95-text)',
+          color: 'var(--shell-text)',
         }}
       >
-        <Sparkles className="w-4 h-4 animate-pulse" style={{ color: 'var(--win95-highlight)' }} />
+        <Sparkles className="w-4 h-4 animate-pulse" style={{ color: 'var(--shell-accent)' }} />
         <span className="text-xs italic">Thinking...</span>
       </div>
     </div>
@@ -145,7 +145,7 @@ export function ChatMessages() {
   // Loading translations - show minimal loading state
   if (translationsLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--shell-surface)' }}>
         <div style={{ color: 'var(--neutral-gray)' }} className="text-sm">
           {t("ui.ai_assistant.loading.translations")}
         </div>
@@ -160,16 +160,16 @@ export function ChatMessages() {
     <div
       className="flex-1 overflow-y-auto p-4 space-y-4"
       style={{
-        background: 'var(--win95-bg)',
-        color: 'var(--win95-text)'
+        background: 'var(--shell-surface)',
+        color: 'var(--shell-text)'
       }}
     >
       {displayMessages.length === 0 && (
         <div
           className="text-xs px-3 py-2 border rounded"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
             color: "var(--neutral-gray)"
           }}
         >

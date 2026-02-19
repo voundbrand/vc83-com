@@ -926,8 +926,8 @@ export function EventForm({
                     className="px-3 py-1.5 text-sm font-bold border-2 flex-shrink-0"
                     style={{
                       borderColor: "var(--shell-border)",
-                      background: "var(--primary)",
-                      color: "white",
+                      background: "var(--button-primary-bg, var(--tone-accent))",
+                      color: "var(--button-primary-text, #0f0f0f)",
                     }}
                   >
                     {addingSponsor ? (

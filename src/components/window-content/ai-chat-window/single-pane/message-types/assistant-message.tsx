@@ -21,9 +21,9 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
       <div
         className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
-          color: 'var(--win95-text)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface-elevated)',
+          color: 'var(--shell-text)',
           borderStyle: 'inset'
         }}
       >
@@ -41,11 +41,11 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
               <div
                 className="px-3 py-2 rounded border text-xs flex items-center gap-2"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: toolExecution.status === "running" ? 'var(--win95-bg)' :
+                  borderColor: 'var(--shell-border)',
+                  background: toolExecution.status === "running" ? 'var(--shell-surface)' :
                              toolExecution.status === "success" ? 'var(--success)' :
                              'var(--error)',
-                  color: toolExecution.status === "running" ? 'var(--win95-text)' : '#ffffff'
+                  color: toolExecution.status === "running" ? 'var(--shell-text)' : '#ffffff'
                 }}
               >
                 {toolExecution.status === "running" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -62,7 +62,7 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
                   <button
                     key={idx}
                     onClick={action.onClick}
-                    className="retro-button px-3 py-1 text-xs"
+                    className="desktop-shell-button px-3 py-1 text-xs"
                   >
                     {action.label}
                   </button>

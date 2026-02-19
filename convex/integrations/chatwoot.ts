@@ -144,11 +144,23 @@ export const saveChatwootSettings = mutation({
       throw new Error("Permission denied: manage_integrations required");
     }
 
+    const normalizedApiToken = args.chatwootApiToken.trim();
+    if (!normalizedApiToken) {
+      throw new Error("Chatwoot API token is required");
+    }
+
+    const encryptedApiToken = await (ctx as any).runAction(
+      generatedApi.internal.oauth.encryption.encryptToken,
+      { plaintext: normalizedApiToken }
+    ) as string;
+
     const settingsData = {
       chatwootUrl: args.chatwootUrl.replace(/\/+$/, ""), // Strip trailing slash
-      chatwootApiToken: args.chatwootApiToken,
+      chatwootApiToken: encryptedApiToken,
       chatwootAccountId: args.chatwootAccountId,
       webhookSecret: args.webhookSecret || "",
+      credentialSource: "object_settings",
+      encryptedFields: ["chatwootApiToken"],
       enabled: args.enabled,
       configuredChannels: args.configuredChannels,
       accountName: args.accountName || "",

@@ -130,6 +130,36 @@ Tax-related fields stored in product `customProperties`.
 - USD, CAD, AUD → Exclusive
 - EUR, GBP → Inclusive
 
+## Store Pricing Transparency Contract (SPT-003)
+
+This section freezes tax and naming semantics used by `/store`.
+
+### 1. Store VAT display policy
+
+1. `/store` customer-facing plan and calculator totals are VAT-inclusive.
+2. The tax display mode for store pricing is fixed to `vat_included`.
+3. Checkout still relies on provider-calculated tax (`automatic_tax`) for invoice correctness; UI copy and estimates remain VAT-inclusive.
+4. Store subtitle/footer copy (including translation seeds) must use VAT-inclusive wording without a hardcoded country VAT percentage.
+
+### 2. Store naming compatibility policy
+
+1. Customer-facing tier name/key is `Scale` / `scale`.
+2. Runtime compatibility tier key remains `agency`.
+3. Mapping is contractually frozen in:
+   - `src/lib/credit-pricing.ts`
+   - `convex/licensing/tierConfigs.ts`
+   - `convex/stripe/stripePrices.ts`
+   - `convex/stripe/platformCheckout.ts`
+
+### 3. Store pricing source hierarchy
+
+1. Runtime entitlement truth: `convex/licensing/tierConfigs.ts`
+2. Checkout billing truth: `convex/stripe/platformCheckout.ts`
+3. Stripe plan price truth: `convex/stripe/stripePrices.ts`
+4. Credits math truth: `src/lib/credit-pricing.ts`
+5. Trial policy truth: `convex/stripe/trialCheckout.ts`
+6. Store tax semantics truth: this document
+
 ## Tax Codes
 
 Tax codes classify products for proper tax calculation. Stripe provides standardized codes.

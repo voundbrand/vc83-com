@@ -653,11 +653,12 @@ export const addUserToOrganization = internalMutation({
       // Check if limit would be exceeded
       if (currentCount >= maxUsers) {
         const tierNames: Record<string, string> = {
-          free: "Starter (€199/month)",
-          starter: "Professional (€399/month)",
-          professional: "Agency (€599/month)",
-          agency: "Enterprise (€1,500+/month)",
-          enterprise: "Enterprise",
+          free: "Pro (€29/month)",
+          pro: "Scale (€299/month)",
+          starter: "Scale (€299/month)",
+          professional: "Scale (€299/month)",
+          agency: "Enterprise (contact sales)",
+          enterprise: "Enterprise (contact sales)",
         };
         const nextTier = tierNames[license.planTier] || "a higher tier";
 
@@ -937,7 +938,7 @@ export const createSubOrganization = action({
       organizationId: args.parentOrganizationId,
     });
     if (!parentLicense.features.subOrgsEnabled) {
-      throw new Error("Your organization's plan does not support sub-organizations. Please upgrade to Agency or Enterprise tier.");
+      throw new Error("Your organization's plan does not support sub-organizations. Please upgrade to Scale or Enterprise tier.");
     }
 
     // 5. Check sub-org limit

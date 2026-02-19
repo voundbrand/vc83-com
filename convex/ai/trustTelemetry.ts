@@ -10,13 +10,18 @@ import {
 import type { Id } from "../_generated/dataModel";
 
 export type TrustKpiMetricKey =
-  | "trust_interview_completion_rate"
-  | "trust_memory_consent_accept_rate"
-  | "trust_setup_connect_success_rate"
-  | "trust_time_to_first_trusted_agent_minutes"
-  | "trust_soul_post_approval_rollback_rate"
-  | "trust_team_handoff_context_loss_rate"
-  | "trust_admin_training_completion_rate";
+  | "voice_session_start_rate"
+  | "voice_session_completion_rate"
+  | "voice_cancel_without_save_rate"
+  | "voice_memory_consent_accept_rate"
+  | "voice_runtime_failure_rate"
+  | "agent_creation_handoff_success_rate";
+
+export const TRUST_VOICE_SESSION_TELEMETRY_SOURCE_EVENTS = [
+  "trust.voice.session_transition.v1",
+  "trust.voice.adaptive_flow_decision.v1",
+  "trust.voice.runtime_failover_triggered.v1",
+] as const satisfies readonly TrustEventName[];
 
 export type TrustKpiUnit = "ratio" | "minutes";
 export type TrustKpiDirection = "min" | "max";
@@ -35,131 +40,118 @@ export interface TrustKpiDefinition {
   sourceEvents: readonly TrustEventName[];
 }
 
+export const VOICE_TRUST_PRE_ROLLOUT_BASELINES: Record<TrustKpiMetricKey, number> = {
+  voice_session_start_rate: 0.33,
+  voice_session_completion_rate: 0.68,
+  voice_cancel_without_save_rate: 0.27,
+  voice_memory_consent_accept_rate: 0.62,
+  voice_runtime_failure_rate: 0.04,
+  agent_creation_handoff_success_rate: 0.78,
+};
+
 export const TRUST_KPI_DEFINITIONS: Record<TrustKpiMetricKey, TrustKpiDefinition> = {
-  trust_interview_completion_rate: {
-    displayName: "Interview completion rate",
+  voice_session_start_rate: {
+    displayName: "Voice session start rate",
     description:
-      "Share of guided trust interviews that reach persisted trust artifacts and completion milestones.",
+      "Share of voice co-creation intents that successfully transition from created to capturing.",
     unit: "ratio",
     direction: "min",
-    baseline: 0.78,
-    target: 0.85,
-    warningThreshold: 0.72,
-    criticalThreshold: 0.65,
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.voice_session_start_rate,
+    target: 0.35,
+    warningThreshold: 0.25,
+    criticalThreshold: 0.15,
+    windowHours: 24,
+    sourceEvents: ["trust.voice.session_transition.v1"],
+  },
+  voice_session_completion_rate: {
+    displayName: "Voice session completion rate",
+    description:
+      "Share of active voice sessions that reach explicit close/save transitions after capture begins.",
+    unit: "ratio",
+    direction: "min",
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.voice_session_completion_rate,
+    target: 0.7,
+    warningThreshold: 0.55,
+    criticalThreshold: 0.45,
     windowHours: 24,
     sourceEvents: [
-      "trust.memory.consent_prompted.v1",
+      "trust.voice.session_transition.v1",
       "trust.memory.consent_decided.v1",
-      "trust.brain.content_dna.composed.v1",
     ],
   },
-  trust_memory_consent_accept_rate: {
-    displayName: "Memory consent acceptance rate",
+  voice_cancel_without_save_rate: {
+    displayName: "Voice cancel without save rate",
     description:
-      "Share of memory consent checkpoints where the operator explicitly accepts durable memory writes.",
+      "Share of voice sessions that exit via discard/cancel before an explicit consented save boundary.",
     unit: "ratio",
-    direction: "min",
-    baseline: 0.67,
-    target: 0.74,
-    warningThreshold: 0.58,
-    criticalThreshold: 0.5,
+    direction: "max",
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.voice_cancel_without_save_rate,
+    target: 0.3,
+    warningThreshold: 0.4,
+    criticalThreshold: 0.55,
     windowHours: 24,
     sourceEvents: [
-      "trust.memory.consent_prompted.v1",
-      "trust.memory.consent_decided.v1",
+      "trust.voice.session_transition.v1",
       "trust.memory.write_blocked_no_consent.v1",
     ],
   },
-  trust_setup_connect_success_rate: {
-    displayName: "Setup connect success rate",
+  voice_memory_consent_accept_rate: {
+    displayName: "Voice memory consent acceptance rate",
     description:
-      "Share of setup sessions that pass validation and persist agent plus knowledge artifacts.",
+      "Share of voice consent checkpoints where the operator explicitly accepts durable memory writes.",
     unit: "ratio",
     direction: "min",
-    baseline: 0.88,
-    target: 0.94,
-    warningThreshold: 0.8,
-    criticalThreshold: 0.72,
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.voice_memory_consent_accept_rate,
+    target: 0.65,
+    warningThreshold: 0.5,
+    criticalThreshold: 0.4,
     windowHours: 24,
     sourceEvents: [
-      "trust.setup.connect_validation_passed.v1",
-      "trust.setup.connect_validation_failed.v1",
-      "trust.setup.connect_persisted.v1",
+      "trust.voice.adaptive_flow_decision.v1",
+      "trust.memory.consent_prompted.v1",
+      "trust.memory.consent_decided.v1",
     ],
   },
-  trust_time_to_first_trusted_agent_minutes: {
-    displayName: "Time to first trusted agent",
+  voice_runtime_failure_rate: {
+    displayName: "Voice runtime failure rate",
     description:
-      "Median minutes from setup artifact generation start to successful connect persistence.",
-    unit: "minutes",
-    direction: "max",
-    baseline: 45,
-    target: 30,
-    warningThreshold: 65,
-    criticalThreshold: 90,
-    windowHours: 24,
-    sourceEvents: [
-      "trust.setup.artifact_generation_started.v1",
-      "trust.setup.connect_persisted.v1",
-    ],
-  },
-  trust_soul_post_approval_rollback_rate: {
-    displayName: "Soul rollback rate",
-    description:
-      "Share of approved soul proposals that require rollback due to trust degradation.",
+      "Share of voice runtime requests that trigger provider failover or degraded runtime handling.",
     unit: "ratio",
     direction: "max",
-    baseline: 0.05,
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.voice_runtime_failure_rate,
     target: 0.03,
-    warningThreshold: 0.07,
+    warningThreshold: 0.06,
     criticalThreshold: 0.1,
-    windowHours: 24,
+    windowHours: 1,
     sourceEvents: [
-      "trust.soul.proposal_reviewed.v1",
-      "trust.soul.rollback_executed.v1",
+      "trust.voice.runtime_failover_triggered.v1",
+      "trust.voice.session_transition.v1",
     ],
   },
-  trust_team_handoff_context_loss_rate: {
-    displayName: "Team handoff context-loss rate",
+  agent_creation_handoff_success_rate: {
+    displayName: "Agent creation handoff success rate",
     description:
-      "Share of team handoffs that emit dropped-context signals rather than a clean completion.",
+      "Share of voice-originated `agent for this` handoffs that reach review-ready completion.",
     unit: "ratio",
-    direction: "max",
-    baseline: 0.03,
-    target: 0.02,
-    warningThreshold: 0.05,
-    criticalThreshold: 0.08,
+    direction: "min",
+    baseline: VOICE_TRUST_PRE_ROLLOUT_BASELINES.agent_creation_handoff_success_rate,
+    target: 0.8,
+    warningThreshold: 0.65,
+    criticalThreshold: 0.5,
     windowHours: 24,
     sourceEvents: [
+      "trust.voice.adaptive_flow_decision.v1",
       "trust.team.handoff_started.v1",
       "trust.team.handoff_completed.v1",
       "trust.team.handoff_dropped_context.v1",
     ],
   },
-  trust_admin_training_completion_rate: {
-    displayName: "Admin training completion rate",
-    description:
-      "Share of platform trust-training sessions that reach artifact publish and completion.",
-    unit: "ratio",
-    direction: "min",
-    baseline: 0.7,
-    target: 0.82,
-    warningThreshold: 0.62,
-    criticalThreshold: 0.55,
-    windowHours: 24,
-    sourceEvents: [
-      "trust.admin.training_session_started.v1",
-      "trust.admin.training_artifact_published.v1",
-      "trust.admin.training_session_completed.v1",
-    ],
-  },
 };
 
 export type TrustTelemetryDashboardId =
-  | "trust_funnel_dashboard"
-  | "trust_setup_dashboard"
-  | "trust_agent_operations_dashboard"
-  | "trust_admin_parity_dashboard";
+  | "voice_session_funnel_dashboard"
+  | "voice_runtime_guardrails_dashboard"
+  | "voice_agent_handoff_dashboard";
 
 export interface TrustTelemetryDashboardDefinition {
   title: string;
@@ -172,42 +164,31 @@ export const TRUST_TELEMETRY_DASHBOARDS: Record<
   TrustTelemetryDashboardId,
   TrustTelemetryDashboardDefinition
 > = {
-  trust_funnel_dashboard: {
-    title: "Trust Funnel Health",
+  voice_session_funnel_dashboard: {
+    title: "Voice Session Funnel Health",
     description:
-      "Tracks interview and consent completion quality before downstream runtime autonomy.",
-    modes: ["lifecycle"],
+      "Tracks voice session start/completion, cancel friction, and consent quality before rollout expansion.",
+    modes: ["lifecycle", "runtime"],
     kpis: [
-      "trust_interview_completion_rate",
-      "trust_memory_consent_accept_rate",
+      "voice_session_start_rate",
+      "voice_session_completion_rate",
+      "voice_cancel_without_save_rate",
+      "voice_memory_consent_accept_rate",
     ],
   },
-  trust_setup_dashboard: {
-    title: "Trust Setup Runtime",
+  voice_runtime_guardrails_dashboard: {
+    title: "Voice Runtime Guardrails",
     description:
-      "Tracks setup/connect quality and time to first trusted agent readiness.",
-    modes: ["setup"],
-    kpis: [
-      "trust_setup_connect_success_rate",
-      "trust_time_to_first_trusted_agent_minutes",
-    ],
+      "Tracks provider failover/degradation pressure and surfaces rollback signals for runtime safety.",
+    modes: ["runtime"],
+    kpis: ["voice_runtime_failure_rate"],
   },
-  trust_agent_operations_dashboard: {
-    title: "Trust Agent Operations",
+  voice_agent_handoff_dashboard: {
+    title: "Voice Agent Handoff Reliability",
     description:
-      "Tracks drift and team handoff regressions that can erode operator trust in runtime behavior.",
+      "Tracks whether voice-originated `agent for this` handoffs reliably reach review-ready completion.",
     modes: ["agents", "runtime"],
-    kpis: [
-      "trust_soul_post_approval_rollback_rate",
-      "trust_team_handoff_context_loss_rate",
-    ],
-  },
-  trust_admin_parity_dashboard: {
-    title: "Trust Admin Parity",
-    description:
-      "Tracks whether platform-agent trust training keeps parity with customer-facing trust workflows.",
-    modes: ["admin"],
-    kpis: ["trust_admin_training_completion_rate"],
+    kpis: ["agent_creation_handoff_success_rate"],
   },
 };
 
@@ -325,12 +306,12 @@ export function buildTrustTelemetryDashboardSnapshots(
 }
 
 export const TRUST_ROLLOUT_REQUIRED_METRICS = [
-  "trust_interview_completion_rate",
-  "trust_memory_consent_accept_rate",
-  "trust_setup_connect_success_rate",
-  "trust_soul_post_approval_rollback_rate",
-  "trust_team_handoff_context_loss_rate",
-  "trust_admin_training_completion_rate",
+  "voice_session_start_rate",
+  "voice_session_completion_rate",
+  "voice_cancel_without_save_rate",
+  "voice_memory_consent_accept_rate",
+  "voice_runtime_failure_rate",
+  "agent_creation_handoff_success_rate",
 ] as const satisfies readonly TrustKpiMetricKey[];
 
 export interface TrustRolloutGuardrailDecision {

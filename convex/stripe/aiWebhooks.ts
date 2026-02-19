@@ -16,6 +16,7 @@ import { internalAction, ActionCtx } from "../_generated/server";
 const generatedApi: any = require("../_generated/api");
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { resolveByokCommercialPolicyFromMetadata } from "./byokCommercialPolicy";
 
 // Stripe webhook data types
 interface StripeSubscription {
@@ -202,6 +203,10 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
   const organizationId = metadata.organizationId as Id<"organizations">;
   const tier = metadata.tier || "standard";
   const privateLLMTier = metadata.privateLLMTier;
+  const byokCommercialPolicy = resolveByokCommercialPolicyFromMetadata({
+    metadata,
+    fallbackTier: metadata.platformTier,
+  });
 
   if (!organizationId) {
     console.error("[AI Webhooks] No organizationId in subscription metadata");
@@ -217,6 +222,16 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
   const includedTokensTotal = getTokenLimitForTier(tier, privateLLMTier);
 
   console.log(`[AI Webhooks] Creating subscription for org ${organizationId}: ${tier} tier, ${includedTokensTotal} tokens`);
+  console.log("[AI Webhooks] BYOK commercial policy snapshot:", {
+    organizationId,
+    tier,
+    mode: byokCommercialPolicy.mode,
+    byokEligible: byokCommercialPolicy.byokEligible,
+    flatPlatformFeeCents: byokCommercialPolicy.flatPlatformFeeCents,
+    optionalSurchargeBps: byokCommercialPolicy.optionalSurchargeBps,
+    bundledInTier: byokCommercialPolicy.bundledInTier,
+    migrationDefault: byokCommercialPolicy.migrationDefault,
+  });
 
   // Create subscription record in database
   await (ctx as any).runMutation(generatedApi.internal.ai.billing.upsertSubscriptionFromStripeInternal, {
@@ -248,6 +263,10 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
   const organizationId = metadata.organizationId as Id<"organizations">;
   const tier = metadata.tier || "standard";
   const privateLLMTier = metadata.privateLLMTier;
+  const byokCommercialPolicy = resolveByokCommercialPolicyFromMetadata({
+    metadata,
+    fallbackTier: metadata.platformTier,
+  });
 
   if (!organizationId) {
     console.error("[AI Webhooks] No organizationId in subscription metadata");
@@ -262,6 +281,16 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
   const includedTokensTotal = getTokenLimitForTier(tier, privateLLMTier);
 
   console.log(`[AI Webhooks] Updating subscription for org ${organizationId}: ${tier} tier, ${includedTokensTotal} tokens`);
+  console.log("[AI Webhooks] BYOK commercial policy snapshot:", {
+    organizationId,
+    tier,
+    mode: byokCommercialPolicy.mode,
+    byokEligible: byokCommercialPolicy.byokEligible,
+    flatPlatformFeeCents: byokCommercialPolicy.flatPlatformFeeCents,
+    optionalSurchargeBps: byokCommercialPolicy.optionalSurchargeBps,
+    bundledInTier: byokCommercialPolicy.bundledInTier,
+    migrationDefault: byokCommercialPolicy.migrationDefault,
+  });
 
   // Update subscription record
   await (ctx as any).runMutation(generatedApi.internal.ai.billing.upsertSubscriptionFromStripeInternal, {
@@ -366,6 +395,10 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   const organizationId = metadata?.organizationId as Id<"organizations">;
   const tier = metadata?.tier || "standard";
   const isB2B = metadata?.isB2B === "true";
+  const byokCommercialPolicy = resolveByokCommercialPolicyFromMetadata({
+    metadata,
+    fallbackTier: metadata?.platformTier,
+  });
 
   if (!organizationId) {
     console.error("[AI Webhooks] No organizationId in checkout session metadata");
@@ -373,6 +406,16 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   }
 
   console.log(`[AI Webhooks] Checkout completed for org ${organizationId}, B2B: ${isB2B}`);
+  console.log("[AI Webhooks] Checkout BYOK commercial policy:", {
+    organizationId,
+    tier,
+    mode: byokCommercialPolicy.mode,
+    byokEligible: byokCommercialPolicy.byokEligible,
+    flatPlatformFeeCents: byokCommercialPolicy.flatPlatformFeeCents,
+    optionalSurchargeBps: byokCommercialPolicy.optionalSurchargeBps,
+    bundledInTier: byokCommercialPolicy.bundledInTier,
+    migrationDefault: byokCommercialPolicy.migrationDefault,
+  });
 
   // Extract billing information
   const customerEmail = customer_details?.email;

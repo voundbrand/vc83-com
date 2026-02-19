@@ -20,7 +20,6 @@ import { type ReactNode, useState } from "react"
 import { useQuery, useMutation, useAction } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { Id } from "../../../../../convex/_generated/dataModel"
-import { RetroButton } from "@/components/retro-button"
 import { AIWorkItemDetail } from "./ai-work-item-detail"
 
 interface WorkItem {
@@ -124,11 +123,10 @@ function ActionButtons({
 
       <div className="flex gap-2">
         {/* Approve Button - Uses primary variant for emphasis */}
-        <RetroButton
+        <button
           onClick={handleApprove}
           disabled={isApproving || isCancelling}
-          variant="primary"
-          className="flex-1 flex items-center justify-center gap-2 text-sm"
+          className="desktop-shell-button desktop-shell-button-primary flex-1 flex items-center justify-center gap-2 text-sm"
         >
           {isApproving ? (
             <>
@@ -141,14 +139,13 @@ function ActionButtons({
               <span>Approve</span>
             </>
           )}
-        </RetroButton>
+        </button>
 
         {/* Cancel Button - Uses outline variant for secondary action */}
-        <RetroButton
+        <button
           onClick={handleCancel}
           disabled={isApproving || isCancelling}
-          variant="outline"
-          className="flex-1 flex items-center justify-center gap-2 text-sm"
+          className="desktop-shell-button flex-1 flex items-center justify-center gap-2 text-sm"
         >
           {isCancelling ? (
             <>
@@ -161,7 +158,7 @@ function ActionButtons({
               <span>Cancel</span>
             </>
           )}
-        </RetroButton>
+        </button>
       </div>
 
       <p className="text-xs mt-2 text-center" style={{ color: 'var(--window-document-text-muted)' }}>

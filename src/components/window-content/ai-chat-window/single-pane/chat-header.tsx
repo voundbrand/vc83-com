@@ -29,15 +29,15 @@ export function ChatHeader() {
     <div
       className="flex items-center justify-between px-4 py-2 border-b-2 transition-all duration-300"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--shell-border)',
+        background: 'var(--shell-surface-elevated)'
       }}
     >
       <div className="flex items-center gap-2">
         <span className="flex h-5 w-5 items-center justify-center">
           <ShellBotIcon size={16} tone="active" />
         </span>
-        <span className="font-pixel text-xs" style={{ color: 'var(--win95-text)' }}>
+        <span className="font-pixel text-xs" style={{ color: 'var(--shell-text)' }}>
           {t("ui.ai_assistant.header.title")}
         </span>
         <span
@@ -64,7 +64,7 @@ export function ChatHeader() {
 
         {/* Credits / Store Button */}
         <button
-          className="retro-button-primary px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
+          className="desktop-shell-button-primary px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
           onClick={handleOpenStore}
           title="Open Store to top up credits"
         >
@@ -75,7 +75,7 @@ export function ChatHeader() {
         {/* Mode Switcher Buttons */}
         {mode === "single" && (
           <button
-            className="retro-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
+            className="desktop-shell-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
             onClick={switchToThreePane}
             title="Switch to workflow mode"
           >
@@ -85,7 +85,7 @@ export function ChatHeader() {
         )}
         {mode === "three-pane" && (
           <button
-            className="retro-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
+            className="desktop-shell-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
             onClick={switchToSinglePane}
             title="Switch to simple mode"
           >

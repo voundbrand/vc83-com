@@ -6,6 +6,10 @@ import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
 import { StopCircle, SendHorizontal, Loader2 } from "lucide-react"
+import {
+  consumeVoiceAgentCoCreationHandoff,
+  VOICE_AGENT_HANDOFF_EVENT,
+} from "@/lib/voice-assistant/agent-co-creation-handoff"
 
 export function ChatInput() {
   const [message, setMessage] = useState("")
@@ -17,6 +21,8 @@ export function ChatInput() {
     setCurrentConversationId,
     isSending,
     setIsSending,
+    humanInLoopEnabled,
+    setHumanInLoopEnabled,
     abortController,
     stopCurrentRequest,
   } = useAIChatContext()
@@ -44,6 +50,35 @@ export function ChatInput() {
     window.addEventListener("keydown", handleEscape)
     return () => window.removeEventListener("keydown", handleEscape)
   }, [isSending, stopCurrentRequest, notification])
+
+  useEffect(() => {
+    const applyHandoffDraft = () => {
+      const staged = consumeVoiceAgentCoCreationHandoff()
+      if (!staged) {
+        return
+      }
+
+      setMessage((current) => {
+        if (!current.trim()) {
+          return staged.draftMessage
+        }
+        return `${current.trim()}\n\n---\n${staged.draftMessage}`
+      })
+
+      if (!humanInLoopEnabled) {
+        setHumanInLoopEnabled(true)
+      }
+
+      notification.info(
+        "Agent Handoff Draft Ready",
+        "Review and edit the staged handoff before sending it to the assistant runtime."
+      )
+    }
+
+    applyHandoffDraft()
+    window.addEventListener(VOICE_AGENT_HANDOFF_EVENT, applyHandoffDraft)
+    return () => window.removeEventListener(VOICE_AGENT_HANDOFF_EVENT, applyHandoffDraft)
+  }, [humanInLoopEnabled, notification, setHumanInLoopEnabled])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,8 +173,8 @@ export function ChatInput() {
       onSubmit={handleSubmit}
       className="border-t-2 p-3"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--shell-border)',
+        background: 'var(--shell-surface-elevated)'
       }}
     >
       <div className="flex gap-2">
@@ -161,7 +196,7 @@ export function ChatInput() {
               stopCurrentRequest()
               notification.info("Request Stopped", "AI processing has been cancelled")
             }}
-            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap flex items-center gap-2"
+            className="desktop-shell-button px-4 py-2 font-pixel text-xs whitespace-nowrap flex items-center gap-2"
             style={{
               background: 'var(--error)',
               color: 'white'
@@ -175,7 +210,7 @@ export function ChatInput() {
           <button
             type="submit"
             disabled={!message.trim()}
-            className="retro-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="desktop-shell-button px-4 py-2 font-pixel text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <SendHorizontal size={14} />
             {t("ui.ai_assistant.input.send_button")}

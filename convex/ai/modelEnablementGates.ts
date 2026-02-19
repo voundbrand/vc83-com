@@ -1,4 +1,10 @@
 import { CRITICAL_TOOL_NAMES } from "./tools/contracts";
+import type { AiCapability, AiCapabilityMatrix } from "../channels/types";
+import {
+  evaluateModelConformanceGate,
+  type ModelConformanceSummary,
+  type ModelConformanceThresholds,
+} from "./modelConformance";
 
 export const REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT = 10;
 
@@ -15,28 +21,44 @@ type RequiredHardGateCheck = (typeof REQUIRED_HARD_GATE_CHECKS)[number];
 
 type ValidationStatus = "not_tested" | "validated" | "failed" | undefined;
 
-type ModelTestResults = Partial<Record<RequiredHardGateCheck, boolean>> | undefined;
+type ModelHardGateResults = Partial<Record<RequiredHardGateCheck, boolean>>;
+
+export interface ModelValidationTestResults extends ModelHardGateResults {
+  conformance?: ModelConformanceSummary;
+}
 
 export interface ModelEnablementGateModel {
   modelId: string;
   validationStatus: ValidationStatus;
-  testResults: ModelTestResults;
+  testResults: ModelValidationTestResults | undefined;
 }
 
 export interface EvaluateModelEnablementReleaseGatesInput {
   model: ModelEnablementGateModel;
   operationalReviewAcknowledged: boolean;
   expectedCriticalToolContractCount?: number;
+  conformanceThresholds?: Partial<ModelConformanceThresholds>;
 }
 
 export interface ModelEnablementReleaseGateResult {
   passed: boolean;
   reasons: string[];
   missingHardGateChecks: RequiredHardGateCheck[];
+  failedConformanceMetrics: string[];
+}
+
+export interface EvaluateRoutingCapabilityRequirementsInput {
+  capabilityMatrix?: Partial<AiCapabilityMatrix> | null;
+  requiredCapabilities: AiCapability[];
+}
+
+export interface RoutingCapabilityRequirementsResult {
+  passed: boolean;
+  missingCapabilities: AiCapability[];
 }
 
 function getMissingHardGateChecks(
-  testResults: ModelTestResults
+  testResults: ModelValidationTestResults | undefined
 ): RequiredHardGateCheck[] {
   return REQUIRED_HARD_GATE_CHECKS.filter((check) => testResults?.[check] !== true);
 }
@@ -48,6 +70,10 @@ export function evaluateModelEnablementReleaseGates(
     input.expectedCriticalToolContractCount ?? REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT;
   const reasons: string[] = [];
   const missingHardGateChecks = getMissingHardGateChecks(input.model.testResults);
+  const conformanceGateResult = evaluateModelConformanceGate({
+    summary: input.model.testResults?.conformance ?? null,
+    thresholds: input.conformanceThresholds,
+  });
 
   if (input.model.validationStatus !== "validated") {
     reasons.push(
@@ -58,6 +84,14 @@ export function evaluateModelEnablementReleaseGates(
   if (missingHardGateChecks.length > 0) {
     reasons.push(
       `Hard gate failed for ${input.model.modelId}; missing/failed checks: ${missingHardGateChecks.join(", ")}.`
+    );
+  }
+
+  if (!conformanceGateResult.passed) {
+    reasons.push(
+      `Conformance gate failed for ${input.model.modelId}: ${conformanceGateResult.reasons.join(
+        " "
+      )}`
     );
   }
 
@@ -77,5 +111,19 @@ export function evaluateModelEnablementReleaseGates(
     passed: reasons.length === 0,
     reasons,
     missingHardGateChecks,
+    failedConformanceMetrics: conformanceGateResult.failedMetrics,
+  };
+}
+
+export function evaluateRoutingCapabilityRequirements(
+  input: EvaluateRoutingCapabilityRequirementsInput
+): RoutingCapabilityRequirementsResult {
+  const missingCapabilities = input.requiredCapabilities.filter(
+    (capability) => input.capabilityMatrix?.[capability] !== true
+  );
+
+  return {
+    passed: missingCapabilities.length === 0,
+    missingCapabilities,
   };
 }

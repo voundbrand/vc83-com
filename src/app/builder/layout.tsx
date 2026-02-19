@@ -14,7 +14,7 @@ export default function BuilderLayout({
     <div
       className="h-screen w-screen overflow-auto"
       style={{
-        backgroundColor: "#18181b", // zinc-900 (neutral gray, no blue)
+        backgroundColor: "#18181b", // neutral shell canvas
       }}
     >
       {children}

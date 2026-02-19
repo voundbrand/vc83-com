@@ -105,13 +105,29 @@ export default function BuilderWorkspacePage({
     }
   }, [isLoading, isSignedIn, router, projectId]);
 
+  const loadingShellStyle = {
+    background: "var(--background)",
+    color: "var(--shell-text-muted)",
+  } as const;
+
+  const spinnerStyle = {
+    borderColor: "var(--tone-accent)",
+    borderTopColor: "transparent",
+  } as const;
+
+  const primaryActionClassName =
+    "desktop-shell-button desktop-shell-button-primary px-4 py-2 rounded-md transition-colors";
+
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-900">
+      <div className="h-full flex items-center justify-center" style={loadingShellStyle}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">
+          <div
+            className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            style={spinnerStyle}
+          />
+          <p>
             {tx("ui.builder.workspace.loading.builder", "Loading builder...")}
           </p>
         </div>
@@ -122,10 +138,13 @@ export default function BuilderWorkspacePage({
   // Not signed in (will redirect)
   if (!isSignedIn || !currentOrg) {
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-900">
+      <div className="h-full flex items-center justify-center" style={loadingShellStyle}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">
+          <div
+            className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            style={spinnerStyle}
+          />
+          <p>
             {tx("ui.builder.workspace.loading.redirectingToLogin", "Redirecting to login...")}
           </p>
         </div>
@@ -138,12 +157,12 @@ export default function BuilderWorkspacePage({
     // Show 404-like message if slug query completed but returned null
     if (conversationBySlug === null) {
       return (
-        <div className="h-full flex items-center justify-center bg-zinc-900">
+        <div className="h-full flex items-center justify-center" style={loadingShellStyle}>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--shell-text)" }}>
               {tx("ui.builder.workspace.empty.conversationNotFoundTitle", "Conversation not found")}
             </h1>
-            <p className="text-zinc-400 mb-4">
+            <p className="mb-4">
               {tx(
                 "ui.builder.workspace.empty.conversationNotFoundDescription",
                 "This conversation may have been deleted or the link is invalid."
@@ -151,7 +170,7 @@ export default function BuilderWorkspacePage({
             </p>
             <button
               onClick={() => router.push("/builder/new")}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className={primaryActionClassName}
             >
               {tx("ui.builder.workspace.empty.startNewConversation", "Start New Conversation")}
             </button>
@@ -162,10 +181,13 @@ export default function BuilderWorkspacePage({
 
     // Still loading
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-900">
+      <div className="h-full flex items-center justify-center" style={loadingShellStyle}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">
+          <div
+            className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            style={spinnerStyle}
+          />
+          <p>
             {tx("ui.builder.workspace.loading.conversation", "Loading conversation...")}
           </p>
         </div>

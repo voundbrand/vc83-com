@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAuthProfileFailureCountMap,
   getAuthProfileCooldownMs,
   isAuthProfileRotatableError,
   orderAuthProfilesForSession,
+  resolveAuthProfilesForProvider,
   resolveOpenRouterAuthProfiles,
 } from "../../../convex/ai/authProfilePolicy";
 
@@ -56,8 +58,22 @@ describe("auth profile policy", () => {
   it("keeps pinned auth profile first for session ordering", () => {
     const ordered = orderAuthProfilesForSession(
       [
-        { profileId: "a", apiKey: "a", priority: 1, source: "profile" },
-        { profileId: "b", apiKey: "b", priority: 2, source: "profile" },
+        {
+          profileId: "a",
+          providerId: "openrouter",
+          billingSource: "platform",
+          apiKey: "a",
+          priority: 1,
+          source: "profile",
+        },
+        {
+          profileId: "b",
+          providerId: "openrouter",
+          billingSource: "platform",
+          apiKey: "b",
+          priority: 2,
+          source: "profile",
+        },
       ],
       "b"
     );
@@ -77,5 +93,78 @@ describe("auth profile policy", () => {
     expect(getAuthProfileCooldownMs(1)).toBe(5 * 60 * 1000);
     expect(getAuthProfileCooldownMs(2)).toBe(10 * 60 * 1000);
     expect(getAuthProfileCooldownMs(10)).toBe(60 * 60 * 1000);
+  });
+
+  it("resolves provider-auth profiles scoped to requested provider", () => {
+    const profiles = resolveAuthProfilesForProvider({
+      providerId: "openai",
+      defaultBillingSource: "byok",
+      llmSettings: {
+        providerAuthProfiles: [
+          {
+            profileId: "openai-primary",
+            providerId: "openai",
+            apiKey: "openai-key",
+            billingSource: "private",
+            enabled: true,
+            priority: 1,
+          },
+          {
+            profileId: "openrouter-primary",
+            providerId: "openrouter",
+            apiKey: "openrouter-key",
+            enabled: true,
+            priority: 0,
+          },
+        ],
+      },
+      envApiKeysByProvider: {
+        openai: "openai-env",
+      },
+    });
+
+    expect(profiles.map((profile) => profile.profileId)).toEqual([
+      "openai-primary",
+      "env_openai_key",
+    ]);
+    expect(profiles.every((profile) => profile.providerId === "openai")).toBe(true);
+    expect(profiles.map((profile) => profile.billingSource)).toEqual([
+      "private",
+      "platform",
+    ]);
+  });
+
+  it("builds failure counts from provider-auth profiles first", () => {
+    const counts = buildAuthProfileFailureCountMap({
+      providerId: "openrouter",
+      llmSettings: {
+        providerAuthProfiles: [
+          {
+            profileId: "provider",
+            providerId: "openrouter",
+            apiKey: "provider-key",
+            enabled: true,
+            failureCount: 3,
+          },
+        ],
+        authProfiles: [
+          {
+            profileId: "provider",
+            openrouterApiKey: "legacy-dup",
+            enabled: true,
+            failureCount: 1,
+          },
+          {
+            profileId: "legacy-only",
+            openrouterApiKey: "legacy",
+            enabled: true,
+            failureCount: 2,
+          },
+        ],
+      },
+    });
+
+    expect(counts.get("provider")).toBe(3);
+    expect(counts.get("legacy-only")).toBe(2);
   });
 });

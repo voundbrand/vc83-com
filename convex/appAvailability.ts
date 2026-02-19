@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
+import { getAuthenticatedUser, requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 import { isAppEnabledByTier } from "./licensing/appFeatureMapping";
 import type { Id } from "./_generated/dataModel";
@@ -77,7 +77,14 @@ export const getAvailableApps = query({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, { sessionId, organizationId }) => {
-    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    // Query consumers can include stale/expired session IDs during auth transitions.
+    // Return an empty catalog instead of throwing so logged-out flows remain stable.
+    const auth = await getAuthenticatedUser(ctx, sessionId);
+    if (!auth) {
+      return [];
+    }
+
+    const { userId } = auth;
     const userContext = await getUserContext(ctx, userId, organizationId);
 
     // Super admins see all active and approved apps (bypass licensing)

@@ -19,6 +19,7 @@ import { v, ConvexError } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "../_generated/server";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import type { AiBillingSource } from "../channels/types";
 import { getLicenseInternal } from "../licensing/helpers";
 import { getNextTierName, type TierName } from "../licensing/tierConfigs";
 import {
@@ -30,6 +31,151 @@ import {
 } from "./sharing";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+
+const aiBillingSourceArgValidator = v.union(
+  v.literal("platform"),
+  v.literal("byok"),
+  v.literal("private")
+);
+
+const aiCreditRequestSourceArgValidator = v.union(
+  v.literal("llm"),
+  v.literal("platform_action")
+);
+
+export type AiCreditRequestSource = "llm" | "platform_action";
+export type AiBillingLedgerMode = "credits_ledger" | "legacy_tokens";
+
+export interface AiCreditBillingPolicyDecision {
+  requestSource: AiCreditRequestSource;
+  requestedBillingSource: AiBillingSource;
+  effectiveBillingSource: AiBillingSource;
+  enforceCredits: boolean;
+  reason:
+    | "llm_platform_metered"
+    | "llm_byok_unmetered"
+    | "llm_private_unmetered"
+    | "platform_action_metered"
+    | "platform_action_forced_platform";
+}
+
+export interface AiLegacyTokenLedgerPolicyDecision {
+  requestedLedgerMode: AiBillingLedgerMode;
+  effectiveLedgerMode: "credits_ledger";
+  allowLegacyTokenLedgerMutation: boolean;
+  reason: "credits_ledger_authoritative" | "legacy_token_ledger_disabled";
+}
+
+function normalizeAiBillingSource(
+  value: unknown
+): AiBillingSource | null {
+  if (value === "platform" || value === "byok" || value === "private") {
+    return value;
+  }
+  return null;
+}
+
+function normalizeAiCreditRequestSource(
+  value: unknown
+): AiCreditRequestSource | null {
+  if (value === "llm" || value === "platform_action") {
+    return value;
+  }
+  return null;
+}
+
+function normalizeAiBillingLedgerMode(
+  value: unknown
+): AiBillingLedgerMode | null {
+  if (value === "credits_ledger" || value === "legacy_tokens") {
+    return value;
+  }
+  return null;
+}
+
+/**
+ * Canonical billing policy for AI credit metering.
+ * - LLM requests: platform is metered, BYOK/private token paths are unmetered.
+ * - Platform actions (tools/orchestration): always metered via platform credits.
+ */
+export function resolveAiCreditBillingPolicy(args: {
+  billingSource?: unknown;
+  requestSource?: unknown;
+}): AiCreditBillingPolicyDecision {
+  const requestSource =
+    normalizeAiCreditRequestSource(args.requestSource) ?? "platform_action";
+  const requestedBillingSource =
+    normalizeAiBillingSource(args.billingSource) ?? "platform";
+
+  if (requestSource === "platform_action") {
+    return {
+      requestSource,
+      requestedBillingSource,
+      effectiveBillingSource: "platform",
+      enforceCredits: true,
+      reason:
+        requestedBillingSource === "platform"
+          ? "platform_action_metered"
+          : "platform_action_forced_platform",
+    };
+  }
+
+  if (requestedBillingSource === "byok") {
+    return {
+      requestSource,
+      requestedBillingSource,
+      effectiveBillingSource: "byok",
+      enforceCredits: false,
+      reason: "llm_byok_unmetered",
+    };
+  }
+
+  if (requestedBillingSource === "private") {
+    return {
+      requestSource,
+      requestedBillingSource,
+      effectiveBillingSource: "private",
+      enforceCredits: false,
+      reason: "llm_private_unmetered",
+    };
+  }
+
+  return {
+    requestSource,
+    requestedBillingSource,
+    effectiveBillingSource: "platform",
+    enforceCredits: true,
+    reason: "llm_platform_metered",
+  };
+}
+
+/**
+ * Canonical ledger policy for AI usage accounting.
+ * Credits ledger is the single authoritative charge ledger; legacy token ledger
+ * mutations are disabled to prevent dual-billing overlap.
+ */
+export function resolveAiLegacyTokenLedgerPolicy(args: {
+  ledgerMode?: unknown;
+}): AiLegacyTokenLedgerPolicyDecision {
+  const requestedLedgerMode =
+    normalizeAiBillingLedgerMode(args.ledgerMode) ?? "credits_ledger";
+
+  if (requestedLedgerMode === "legacy_tokens") {
+    return {
+      requestedLedgerMode,
+      effectiveLedgerMode: "credits_ledger",
+      allowLegacyTokenLedgerMutation: false,
+      reason: "legacy_token_ledger_disabled",
+    };
+  }
+
+  return {
+    requestedLedgerMode,
+    effectiveLedgerMode: "credits_ledger",
+    allowLegacyTokenLedgerMutation: false,
+    reason: "credits_ledger_authoritative",
+  };
+}
 
 // ============================================================================
 // QUERIES
@@ -206,10 +352,12 @@ type DeductCreditsResult = {
   success: boolean;
   creditsRemaining: number;
   isUnlimited: boolean;
+  skipped?: boolean;
   monthlyTotal?: number;
   breakdown?: { dailyUsed: number; monthlyUsed: number; purchasedUsed: number };
   deductedFromParent?: boolean;
   parentOrganizationId?: Id<"organizations">;
+  billingPolicy?: AiCreditBillingPolicyDecision;
 };
 
 type SoftDeductCreditsFailure = {
@@ -881,13 +1029,38 @@ export const deductCreditsInternalMutation = internalMutation({
     action: v.string(),
     relatedEntityType: v.optional(v.string()),
     relatedEntityId: v.optional(v.string()),
+    billingSource: v.optional(aiBillingSourceArgValidator),
+    requestSource: v.optional(aiCreditRequestSourceArgValidator),
     softFailOnExhausted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { softFailOnExhausted, ...deductArgs } = args;
+    const {
+      softFailOnExhausted,
+      billingSource,
+      requestSource,
+      ...deductArgs
+    } = args;
+    const billingPolicy = resolveAiCreditBillingPolicy({
+      billingSource,
+      requestSource,
+    });
+
+    if (!billingPolicy.enforceCredits) {
+      return {
+        success: true,
+        skipped: true,
+        creditsRemaining: -1,
+        isUnlimited: false,
+        billingPolicy,
+      } satisfies DeductCreditsResult;
+    }
 
     try {
-      return await deductCreditsInternal(ctx, deductArgs);
+      const result = await deductCreditsInternal(ctx, deductArgs);
+      return {
+        ...result,
+        billingPolicy,
+      } satisfies DeductCreditsResult;
     } catch (error) {
       if (softFailOnExhausted) {
         const parsed = parseCreditExhaustionError(error);
@@ -907,13 +1080,36 @@ export const checkCreditsInternalQuery = internalQuery({
   args: {
     organizationId: v.id("organizations"),
     requiredAmount: v.number(),
+    billingSource: v.optional(aiBillingSourceArgValidator),
+    requestSource: v.optional(aiCreditRequestSourceArgValidator),
   },
   handler: async (ctx, args) => {
+    const billingPolicy = resolveAiCreditBillingPolicy({
+      billingSource: args.billingSource,
+      requestSource: args.requestSource,
+    });
+
+    if (!billingPolicy.enforceCredits) {
+      return {
+        hasCredits: true,
+        isUnlimited: false,
+        totalCredits: -1,
+        shortfall: 0,
+        skipped: true,
+        billingPolicy,
+      };
+    }
+
     const balance = await getCreditBalanceInternal(ctx, args.organizationId);
 
     // Check for unlimited (enterprise)
     if (balance.monthlyCreditsTotal === -1) {
-      return { hasCredits: true, isUnlimited: true, totalCredits: -1 };
+      return {
+        hasCredits: true,
+        isUnlimited: true,
+        totalCredits: -1,
+        billingPolicy,
+      };
     }
 
     // Child org has enough credits on its own
@@ -923,6 +1119,7 @@ export const checkCreditsInternalQuery = internalQuery({
         isUnlimited: false,
         totalCredits: balance.totalCredits,
         shortfall: 0,
+        billingPolicy,
       };
     }
 
@@ -933,7 +1130,13 @@ export const checkCreditsInternalQuery = internalQuery({
 
       // Parent has unlimited credits
       if (parentBalance.monthlyCreditsTotal === -1) {
-        return { hasCredits: true, isUnlimited: true, totalCredits: -1, fromParent: true };
+        return {
+          hasCredits: true,
+          isUnlimited: true,
+          totalCredits: -1,
+          fromParent: true,
+          billingPolicy,
+        };
       }
 
       // Parent has enough credits
@@ -944,6 +1147,7 @@ export const checkCreditsInternalQuery = internalQuery({
           totalCredits: parentBalance.totalCredits,
           shortfall: 0,
           fromParent: true,
+          billingPolicy,
         };
       }
     }
@@ -953,6 +1157,7 @@ export const checkCreditsInternalQuery = internalQuery({
       isUnlimited: false,
       totalCredits: balance.totalCredits,
       shortfall: Math.max(0, args.requiredAmount - balance.totalCredits),
+      billingPolicy,
     };
   },
 });

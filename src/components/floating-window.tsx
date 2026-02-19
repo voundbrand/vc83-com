@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { useWindowManager } from "@/hooks/use-window-manager"
-import { useIsMobile } from "@/hooks/use-media-query"
+import { useIsDesktopShellFallback, useIsMobile } from "@/hooks/use-media-query"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 import {
   ShellCloseIcon,
@@ -47,6 +47,7 @@ export function FloatingWindow({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const windowRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
+  const isCompactViewport = useIsDesktopShellFallback()
   const prefersReducedMotion = useReducedMotionPreference()
   const [hasEntered, setHasEntered] = useState(prefersReducedMotion)
 
@@ -158,11 +159,12 @@ export function FloatingWindow({
   }, [isDragging, isResizing, dragOffset, resizeStart, id, isMobile, moveWindow, resizeWindow, windowState])
 
   // Use MobilePanel on mobile devices
-  if (isMobile) {
+  if (isCompactViewport) {
     return (
       <MobilePanel
-        windowType={id}
+        windowId={id}
         title={displayTitle}
+        zIndex={windowState?.zIndex || zIndex}
         className={className}
       >
         {children}

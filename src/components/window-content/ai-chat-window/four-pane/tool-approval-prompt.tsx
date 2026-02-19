@@ -90,14 +90,14 @@ export function ToolApprovalPrompt({
       {/* Title */}
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
-        <h3 className="text-sm font-bold" style={{ color: 'var(--win95-text)' }}>
+        <h3 className="text-sm font-bold" style={{ color: 'var(--shell-text)' }}>
           AI wants to {getToolActionTitle(execution.toolName)}
         </h3>
       </div>
 
       {/* Proposal Message (if provided) */}
       {execution.proposalMessage && (
-        <p className="text-xs mb-3" style={{ color: 'var(--win95-text-muted)' }}>
+        <p className="text-xs mb-3" style={{ color: 'var(--shell-text-dim)' }}>
           {execution.proposalMessage}
         </p>
       )}
@@ -106,7 +106,7 @@ export function ToolApprovalPrompt({
       <div
         className="mb-4 p-3 rounded"
         style={{
-          background: 'var(--win95-bg)',
+          background: 'var(--shell-surface)',
           borderLeft: '3px solid var(--warning)'
         }}
       >
@@ -125,9 +125,9 @@ export function ToolApprovalPrompt({
             placeholder="Tell the AI what to do instead..."
             className="w-full p-2 border rounded text-xs"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-input-bg)',
-              color: 'var(--win95-text)'
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-input-surface)',
+              color: 'var(--shell-text)'
             }}
             rows={3}
           />
@@ -136,9 +136,9 @@ export function ToolApprovalPrompt({
             disabled={!customText.trim() || isLoading}
             className="mt-2 px-3 py-1 rounded text-xs disabled:opacity-50"
             style={{
-              background: 'var(--win95-highlight)',
+              background: 'var(--shell-accent)',
               color: 'white',
-              borderColor: 'var(--win95-highlight)'
+              borderColor: 'var(--shell-accent)'
             }}
           >
             Send Instruction
@@ -157,18 +157,18 @@ export function ToolApprovalPrompt({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border-2 transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-highlight)',
-            background: 'var(--win95-highlight-subtle)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-accent)',
+            background: 'var(--shell-accent-soft)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-highlight-subtle)';
+            e.currentTarget.style.background = 'var(--shell-accent-soft)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-highlight)' }}>1</span>
+          <span className="font-bold" style={{ color: 'var(--shell-accent)' }}>1</span>
           {" "}Yes
         </button>
 
@@ -181,18 +181,18 @@ export function ToolApprovalPrompt({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-bg)';
+            e.currentTarget.style.background = 'var(--shell-surface)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-text-muted)' }}>2</span>
+          <span className="font-bold" style={{ color: 'var(--shell-text-dim)' }}>2</span>
           {" "}Yes, and don't ask again
         </button>
 
@@ -205,18 +205,18 @@ export function ToolApprovalPrompt({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-bg)';
+            e.currentTarget.style.background = 'var(--shell-surface)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-text-muted)' }}>3</span>
+          <span className="font-bold" style={{ color: 'var(--shell-text-dim)' }}>3</span>
           {" "}No
         </button>
 
@@ -226,15 +226,15 @@ export function ToolApprovalPrompt({
             disabled={isLoading}
             className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-xs"
             style={{
-              borderColor: 'var(--win95-border-light)',
-              background: 'var(--win95-bg)',
-              color: 'var(--win95-text-muted)'
+              borderColor: 'var(--shell-border-soft)',
+              background: 'var(--shell-surface)',
+              color: 'var(--shell-text-dim)'
             }}
             onMouseEnter={(e) => {
-              if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+              if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg)';
+              e.currentTarget.style.background = 'var(--shell-surface)';
             }}
           >
             Tell the AI what to do instead
@@ -252,7 +252,7 @@ function ToolParametersPreview({ toolName, parameters }: {
 }) {
   if (toolName === "create_contact") {
     return (
-      <div className="space-y-1 text-sm" style={{ color: 'var(--win95-text)' }}>
+      <div className="space-y-1 text-sm" style={{ color: 'var(--shell-text)' }}>
         <div><strong>Name:</strong> {String(parameters.firstName || "")} {String(parameters.lastName || "")}</div>
         <div><strong>Email:</strong> {String(parameters.email || "N/A")}</div>
         {parameters.phone ? <div><strong>Phone:</strong> {String(parameters.phone)}</div> : null}
@@ -263,7 +263,7 @@ function ToolParametersPreview({ toolName, parameters }: {
 
   if (toolName === "create_event") {
     return (
-      <div className="space-y-1 text-sm" style={{ color: 'var(--win95-text)' }}>
+      <div className="space-y-1 text-sm" style={{ color: 'var(--shell-text)' }}>
         <div><strong>Title:</strong> {String(parameters.title || parameters.eventName || "")}</div>
         {parameters.description ? <div><strong>Description:</strong> {String(parameters.description)}</div> : null}
         {parameters.startDate ? (
@@ -279,7 +279,7 @@ function ToolParametersPreview({ toolName, parameters }: {
     <pre
       className="text-xs overflow-auto max-h-32"
       style={{
-        color: 'var(--win95-text)',
+        color: 'var(--shell-text)',
         fontFamily: 'monospace'
       }}
     >

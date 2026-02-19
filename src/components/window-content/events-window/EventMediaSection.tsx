@@ -633,8 +633,8 @@ export const EventMediaSection: React.FC<EventMediaSectionProps> = ({
                 className="px-3 py-1.5 text-xs font-bold border-2 disabled:opacity-50"
                 style={{
                   borderColor: "var(--shell-border)",
-                  background: "var(--primary)",
-                  color: "white",
+                  background: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                 }}
                 onClick={handleAddVideo}
               >

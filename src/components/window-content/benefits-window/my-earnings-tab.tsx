@@ -42,13 +42,13 @@ export function MyEarningsTab() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending_verification": return { bg: 'var(--win95-warning-bg)', text: 'var(--win95-warning-text)' }
-      case "verified": return { bg: 'var(--win95-info-bg)', text: 'var(--win95-info-text)' }
-      case "processing": return { bg: 'var(--win95-info-bg)', text: 'var(--win95-info-text)' }
-      case "paid": return { bg: 'var(--win95-success-bg)', text: 'var(--win95-success-text)' }
-      case "disputed": return { bg: 'var(--win95-error-bg)', text: 'var(--win95-error-text)' }
-      case "cancelled": return { bg: 'var(--win95-bg-light)', text: 'var(--neutral-gray)' }
-      default: return { bg: 'var(--win95-bg-light)', text: 'var(--win95-text)' }
+      case "pending_verification": return { bg: 'var(--warning-bg)', text: 'var(--warning)' }
+      case "verified": return { bg: 'var(--info-bg)', text: 'var(--info)' }
+      case "processing": return { bg: 'var(--info-bg)', text: 'var(--info)' }
+      case "paid": return { bg: 'var(--success-bg)', text: 'var(--success)' }
+      case "disputed": return { bg: 'var(--error-bg)', text: 'var(--error)' }
+      case "cancelled": return { bg: 'var(--shell-surface-elevated)', text: 'var(--neutral-gray)' }
+      default: return { bg: 'var(--shell-surface-elevated)', text: 'var(--shell-text)' }
     }
   }
 
@@ -89,7 +89,7 @@ export function MyEarningsTab() {
 
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h2 className="font-pixel text-lg mb-4" style={{ color: 'var(--win95-text)' }}>
+      <h2 className="font-pixel text-lg mb-4" style={{ color: 'var(--shell-text)' }}>
         My Commission Earnings
       </h2>
 
@@ -98,30 +98,30 @@ export function MyEarningsTab() {
         <div
           className="p-4 border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface-elevated)'
           }}
         >
           <div className="flex items-center gap-2 mb-1">
             <Clock size={14} style={{ color: 'var(--neutral-gray)' }} />
             <span className="text-xs opacity-60">Pending</span>
           </div>
-          <p className="font-pixel text-lg" style={{ color: 'var(--win95-warning-text)' }}>
+          <p className="font-pixel text-lg" style={{ color: 'var(--warning)' }}>
             {formatCurrency(totalPending)}
           </p>
         </div>
         <div
           className="p-4 border-2 rounded"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface-elevated)'
           }}
         >
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} style={{ color: 'var(--neutral-gray)' }} />
             <span className="text-xs opacity-60">Total Paid</span>
           </div>
-          <p className="font-pixel text-lg" style={{ color: 'var(--win95-success-text)' }}>
+          <p className="font-pixel text-lg" style={{ color: 'var(--success)' }}>
             {formatCurrency(totalPaid)}
           </p>
         </div>
@@ -147,14 +147,14 @@ export function MyEarningsTab() {
                 key={earning._id}
                 className="p-4 border-2 rounded"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg-light)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-surface-elevated)'
                 }}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <DollarSign size={16} style={{ color: 'var(--win95-selected-bg)' }} />
+                      <DollarSign size={16} style={{ color: 'var(--shell-selection-bg)' }} />
                       <span className="font-medium truncate">
                         {earning.commission?.name || "Unknown Commission"}
                       </span>
@@ -175,7 +175,7 @@ export function MyEarningsTab() {
                   </div>
 
                   <div className="text-right">
-                    <p className="font-pixel text-sm" style={{ color: 'var(--win95-success-text)' }}>
+                    <p className="font-pixel text-sm" style={{ color: 'var(--success)' }}>
                       {formatCurrency(earning.amountInCents, earning.currency)}
                     </p>
                     <div
@@ -195,8 +195,8 @@ export function MyEarningsTab() {
                   <div
                     className="mt-3 p-2 rounded text-xs flex items-center gap-2"
                     style={{
-                      background: 'var(--win95-success-bg)',
-                      color: 'var(--win95-success-text)'
+                      background: 'var(--success-bg)',
+                      color: 'var(--success)'
                     }}
                   >
                     <Check size={12} />
@@ -209,8 +209,8 @@ export function MyEarningsTab() {
                   <div
                     className="mt-3 p-2 rounded text-xs"
                     style={{
-                      background: 'var(--win95-error-bg)',
-                      color: 'var(--win95-error-text)'
+                      background: 'var(--error-bg)',
+                      color: 'var(--error)'
                     }}
                   >
                     Dispute: {earning.disputeReason}

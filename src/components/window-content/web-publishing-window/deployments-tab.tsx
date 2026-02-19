@@ -4,6 +4,7 @@ import { Rocket, Clock, Plus, Settings as SettingsIcon, MessageSquare } from "lu
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface DeploymentConfig {
@@ -26,6 +27,23 @@ interface DeploymentsTabProps {
   selectedDeploymentId?: string | null;
 }
 
+function resolveStatusTone(status?: string): "success" | "error" | "neutral" {
+  if (status === "active" || status === "deployed") {
+    return "success";
+  }
+  if (status === "error") {
+    return "error";
+  }
+  return "neutral";
+}
+
+function formatStatusLabel(status?: string): string {
+  if (!status || status.trim().length === 0) {
+    return "CONFIGURED";
+  }
+  return status.trim().toUpperCase();
+}
+
 /**
  * Deployments Tab - List of all deployments for a published page
  *
@@ -41,7 +59,7 @@ export function DeploymentsTab({
   onSelectDeployment,
   onAddDeployment,
   onOpenWebchatDeployment,
-  selectedDeploymentId
+  selectedDeploymentId,
 }: DeploymentsTabProps) {
   const { sessionId } = useAuth();
 
@@ -57,7 +75,7 @@ export function DeploymentsTab({
 
   if (!sessionId) {
     return (
-      <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+      <div className="p-4 text-xs desktop-interior-subtitle">
         Please log in to view deployments.
       </div>
     );
@@ -65,7 +83,7 @@ export function DeploymentsTab({
 
   if (page === undefined) {
     return (
-      <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+      <div className="p-4 text-xs desktop-interior-subtitle">
         Loading deployments...
       </div>
     );
@@ -83,26 +101,30 @@ export function DeploymentsTab({
   const hasDeployment = deployment?.githubRepo || deployment?.vercelDeployButton;
 
   // Mock deployment object (we'll enhance this when we add a deployments table)
-  const deployments = hasDeployment ? [{
-    id: 'default',
-    name: 'Vercel + GitHub Production',
-    provider: 'vercel',
-    status: deployment?.status || 'configured',
-    lastDeployed: deployment?.deployedAt || null,
-    deployedUrl: deployment?.deployedUrl || null,
-    githubRepo: deployment?.githubRepo,
-    vercelUrl: deployment?.vercelDeployButton,
-  }] : [];
+  const deployments = hasDeployment
+    ? [
+        {
+          id: "default",
+          name: "Vercel + GitHub Production",
+          provider: "vercel",
+          status: deployment?.status || "configured",
+          lastDeployed: deployment?.deployedAt || null,
+          deployedUrl: deployment?.deployedUrl || null,
+          githubRepo: deployment?.githubRepo,
+          vercelUrl: deployment?.vercelDeployButton,
+        },
+      ]
+    : [];
 
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-4">
       {/* Header */}
-      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
+          <h3 className="desktop-interior-title text-sm">
             Deployments for {pageName}
           </h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+          <p className="desktop-interior-subtitle mt-1">
             Manage deployment configurations and deploy to hosting platforms
           </p>
         </div>
@@ -120,18 +142,12 @@ export function DeploymentsTab({
       {/* Deployments List */}
       {deployments.length === 0 ? (
         // Empty State
-        <div
-          className="border-2 p-8 text-center"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: 'var(--window-document-bg-elevated)'
-          }}
-        >
-          <Rocket size={48} style={{ color: 'var(--neutral-gray)', margin: '0 auto 16px' }} />
-          <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
+        <div className="desktop-interior-panel web-publishing-modern-panel p-8 text-center">
+          <Rocket size={48} className="mx-auto mb-4" style={{ color: "var(--neutral-gray)" }} />
+          <h4 className="desktop-interior-title text-sm mb-2">
             No Deployments Configured
           </h4>
-          <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
+          <p className="desktop-interior-subtitle text-xs mb-4">
             Add your first deployment to start publishing this page to the web.
           </p>
           <InteriorButton
@@ -148,42 +164,35 @@ export function DeploymentsTab({
         <div className="space-y-3">
           {/* Deployment Cards */}
           {deployments.map((dep) => (
-            <div
+            <button
+              type="button"
               key={dep.id}
-              className="border-2 p-4 transition-colors cursor-pointer"
-              style={{
-                borderColor: selectedDeploymentId === dep.id ? 'var(--tone-accent)' : 'var(--window-document-border)',
-                background: selectedDeploymentId === dep.id ? 'var(--desktop-menu-hover)' : 'white'
-              }}
+              className={cn(
+                "w-full text-left desktop-interior-panel web-publishing-modern-panel p-4 transition-colors",
+                selectedDeploymentId === dep.id && "web-publishing-modern-panel-active",
+              )}
               onClick={() => onSelectDeployment(dep)}
             >
               <div className="flex items-start justify-between">
                 {/* Left: Deployment info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    <h4 className="desktop-interior-title text-sm">
                       {dep.name}
                     </h4>
                     <span
-                      className="px-2 py-0.5 text-xs font-bold"
-                      style={{
-                        background: dep.status === 'active' || dep.status === 'deployed'
-                          ? 'var(--success)'
-                          : dep.status === 'error'
-                          ? 'var(--error)'
-                          : 'var(--neutral-gray)',
-                        color: 'white'
-                      }}
+                      className="web-publishing-modern-status-badge"
+                      data-tone={resolveStatusTone(dep.status)}
                     >
-                      {dep.status?.toUpperCase() || 'CONFIGURED'}
+                      {formatStatusLabel(dep.status)}
                     </span>
                   </div>
 
                   {/* Deployment details */}
-                  <div className="space-y-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  <div className="space-y-1 text-xs desktop-interior-subtitle">
                     {dep.githubRepo && (
                       <div className="flex items-center gap-2">
-                        <span> GitHub:</span>
+                        <span>GitHub:</span>
                         <span className="font-mono">{dep.githubRepo}</span>
                       </div>
                     )}
@@ -195,7 +204,7 @@ export function DeploymentsTab({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono hover:underline"
-                          style={{ color: 'var(--tone-accent)' }}
+                          style={{ color: "var(--tone-accent)" }}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {dep.deployedUrl}
@@ -214,7 +223,10 @@ export function DeploymentsTab({
                 {/* Right: Action buttons */}
                 <div className="flex items-center gap-2 ml-4">
                   <InteriorButton
-                    onClick={() => onSelectDeployment(dep)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectDeployment(dep);
+                    }}
                     variant="secondary"
                     size="sm"
                     className="flex items-center gap-2 whitespace-nowrap"
@@ -223,7 +235,10 @@ export function DeploymentsTab({
                     Settings
                   </InteriorButton>
                   <InteriorButton
-                    onClick={() => onAddDeployment()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAddDeployment();
+                    }}
                     variant="primary"
                     size="sm"
                     className="flex items-center gap-2 whitespace-nowrap"
@@ -233,33 +248,23 @@ export function DeploymentsTab({
                   </InteriorButton>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
 
           {/* Add New Deployment Button */}
-          <div
-            className="border-2 p-4 text-center cursor-pointer transition-colors"
-            style={{
-              borderColor: 'var(--window-document-border)',
-              background: 'var(--window-document-bg-elevated)',
-              borderStyle: 'dashed'
-            }}
+          <button
+            type="button"
+            className="w-full p-4 text-center transition-colors desktop-interior-panel web-publishing-modern-panel web-publishing-modern-dashed hover:bg-[var(--desktop-menu-hover)]"
             onClick={onAddDeployment}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--desktop-menu-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--window-document-bg-elevated)';
-            }}
           >
-            <Plus size={24} style={{ color: 'var(--neutral-gray)', margin: '0 auto 8px' }} />
-            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
+            <Plus size={24} className="mx-auto mb-2" style={{ color: "var(--neutral-gray)" }} />
+            <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
               Add Another Deployment
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+            <p className="desktop-interior-subtitle text-xs mt-1">
               Configure staging, preview, or other deployment targets
             </p>
-          </div>
+          </button>
         </div>
       )}
     </div>

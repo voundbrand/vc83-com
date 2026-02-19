@@ -97,8 +97,8 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
         <div
           className="p-3 rounded-lg"
           style={{
-            background: 'var(--win95-selected-bg)',
-            color: 'var(--win95-selected-text)'
+            background: 'var(--shell-selection-bg)',
+            color: 'var(--shell-selection-text)'
           }}
         >
           {getSubtypeIcon(benefit.subtype || "discount")}
@@ -112,8 +112,8 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
               <span
                 className="px-2 py-1 text-sm font-bold rounded-lg"
                 style={{
-                  background: 'var(--win95-success-bg)',
-                  color: 'var(--win95-success-text)'
+                  background: 'var(--success-bg)',
+                  color: 'var(--success)'
                 }}
               >
                 {props.discountValue}% OFF
@@ -162,8 +162,8 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
               style={{
-                background: 'var(--win95-selected-bg)',
-                color: 'var(--win95-selected-text)'
+                background: 'var(--shell-selection-bg)',
+                color: 'var(--shell-selection-text)'
               }}
             >
               {benefit.offerer.name?.charAt(0) || "?"}
@@ -262,10 +262,10 @@ export function BenefitDetail({ benefitId }: BenefitDetailProps) {
         <button
           onClick={handleClaim}
           disabled={isClaiming || benefit.status !== "active"}
-          className="retro-button w-full py-3 flex items-center justify-center gap-2"
+          className="desktop-shell-button w-full py-3 flex items-center justify-center gap-2"
           style={{
-            background: benefit.status === "active" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-            color: benefit.status === "active" ? 'var(--win95-selected-text)' : 'var(--neutral-gray)',
+            background: benefit.status === "active" ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+            color: benefit.status === "active" ? 'var(--shell-selection-text)' : 'var(--neutral-gray)',
             opacity: isClaiming ? 0.7 : 1,
           }}
         >

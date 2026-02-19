@@ -48,15 +48,21 @@ function AIChatWindowContent({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
     <>
       {fullScreen && (
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-700 bg-zinc-800/50">
+        <div
+          className="flex items-center gap-2 px-3 py-2 border-b"
+          style={{ borderColor: "var(--shell-border-strong)", background: "var(--shell-surface-elevated)" }}
+        >
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors hover-menu-item"
+            style={{ color: "var(--shell-text-dim)" }}
             title="Back to Desktop"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <span className="text-sm font-medium text-zinc-100">AI Assistant</span>
+          <span className="text-sm font-medium" style={{ color: "var(--shell-text)" }}>
+            AI Assistant
+          </span>
           <div className="flex-1" />
         </div>
       )}
@@ -65,7 +71,8 @@ function AIChatWindowContent({ fullScreen = false }: { fullScreen?: boolean }) {
         <div className="absolute top-2 right-2 z-10">
           <Link
             href="/chat"
-            className="flex items-center gap-1.5 px-2 py-1 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors hover-menu-item"
+            style={{ color: "var(--shell-text-dim)" }}
             title="Open Full Screen"
           >
             <Maximize2 className="w-4 h-4" />
@@ -193,22 +200,28 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
   }
 
   return (
-    <div className="h-full flex flex-col relative" style={{ background: "var(--win95-bg)" }}>
+    <div className="h-full flex flex-col relative" style={{ background: "var(--shell-surface)" }}>
       {fullScreen && (
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-700 bg-zinc-800/50">
+        <div
+          className="flex items-center gap-2 px-3 py-2 border-b"
+          style={{ borderColor: "var(--shell-border-strong)", background: "var(--shell-surface-elevated)" }}
+        >
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors hover-menu-item"
+            style={{ color: "var(--shell-text-dim)" }}
             title="Back to Desktop"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <span className="text-sm font-medium text-zinc-100">AI Assistant (Guest)</span>
+          <span className="text-sm font-medium" style={{ color: "var(--shell-text)" }}>
+            AI Assistant (Guest)
+          </span>
           <div className="flex-1" />
           <button
             type="button"
             onClick={() => openLogin(fullScreen ? "/chat" : "/")}
-            className="retro-button px-2 py-1 text-xs flex items-center gap-1.5"
+            className="desktop-shell-button px-2 py-1 text-xs flex items-center gap-1.5"
           >
             <LogIn className="w-3 h-3" />
             Sign in
@@ -220,7 +233,8 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
         <div className="absolute top-2 right-2 z-10">
           <Link
             href="/chat"
-            className="flex items-center gap-1.5 px-2 py-1 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors hover-menu-item"
+            style={{ color: "var(--shell-text-dim)" }}
             title="Open Full Screen"
           >
             <Maximize2 className="w-4 h-4" />
@@ -230,18 +244,18 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
 
       <div
         className="px-4 py-2 border-b-2 flex items-center justify-between"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4" style={{ color: "var(--primary)" }} />
-          <div className="text-xs font-pixel" style={{ color: "var(--win95-text)" }}>
+          <div className="text-xs font-pixel" style={{ color: "var(--shell-text)" }}>
             {agentName} - Guest Mode
           </div>
         </div>
         <button
           type="button"
           onClick={() => guestChat.reset()}
-          className="retro-button px-2 py-1 text-[11px] flex items-center gap-1"
+          className="desktop-shell-button px-2 py-1 text-[11px] flex items-center gap-1"
           title="Start a new guest session"
         >
           <RotateCcw className="w-3 h-3" />
@@ -263,14 +277,14 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
             style={{
               borderColor: "var(--error)",
               background: "var(--error-bg, rgba(239,68,68,0.15))",
-              color: "var(--win95-text)",
+              color: "var(--shell-text)",
             }}
           >
             <p>{configError || "Guest mode is currently unavailable."}</p>
             <button
               type="button"
               onClick={() => openLogin(fullScreen ? "/chat" : "/")}
-              className="retro-button px-3 py-1.5 text-[11px] flex items-center gap-1.5"
+              className="desktop-shell-button px-3 py-1.5 text-[11px] flex items-center gap-1.5"
             >
               <LogIn className="w-3.5 h-3.5" />
               Sign in to continue
@@ -282,9 +296,9 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
           <div
             className="border rounded p-3 text-xs space-y-3"
             style={{
-              borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light)",
-              color: "var(--win95-text)",
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface-elevated)",
+              color: "var(--shell-text)",
             }}
           >
             <p>{welcomeMessage}</p>
@@ -294,7 +308,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                   key={action.key}
                   type="button"
                   onClick={() => handleConversionAction(action)}
-                  className="retro-button px-2.5 py-1 text-[11px]"
+                  className="desktop-shell-button px-2.5 py-1 text-[11px]"
                 >
                   {action.label}
                 </button>
@@ -311,7 +325,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
             {chatMessage.role !== "user" && (
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "var(--win95-bg-light)", border: "1px solid var(--win95-border)" }}
+                style={{ background: "var(--shell-surface-elevated)", border: "1px solid var(--shell-border)" }}
               >
                 <Bot className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} />
               </div>
@@ -327,9 +341,9 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                       borderColor: "var(--primary)",
                     }
                   : {
-                      background: "var(--win95-bg-light)",
-                      color: "var(--win95-text)",
-                      borderColor: "var(--win95-border)",
+                      background: "var(--shell-surface-elevated)",
+                      color: "var(--shell-text)",
+                      borderColor: "var(--shell-border)",
                     }
               }
             >
@@ -341,7 +355,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                       key={action.key}
                       type="button"
                       onClick={() => handleConversionAction(action)}
-                      className="retro-button px-2 py-1 text-[10px]"
+                      className="desktop-shell-button px-2 py-1 text-[10px]"
                     >
                       {action.label}
                     </button>
@@ -353,7 +367,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
             {chatMessage.role === "user" && (
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "var(--win95-bg-light)", border: "1px solid var(--win95-border)" }}
+                style={{ background: "var(--shell-surface-elevated)", border: "1px solid var(--shell-border)" }}
               >
                 <UserRound className="w-3.5 h-3.5" style={{ color: "var(--neutral-gray)" }} />
               </div>
@@ -385,7 +399,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
       <form
         onSubmit={handleSubmit}
         className="border-t-2 p-3"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         <div className="flex gap-2">
           <input
@@ -399,7 +413,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
           <button
             type="submit"
             disabled={!message.trim() || guestChat.isSending || !guestChat.isConfigured || !!configError}
-            className="retro-button px-4 py-2 font-pixel text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="desktop-shell-button px-4 py-2 font-pixel text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <SendHorizontal className="w-3.5 h-3.5" />
             Send
@@ -419,7 +433,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                 }),
               })
             }
-            className="retro-button px-2.5 py-1 text-[11px] flex items-center gap-1"
+            className="desktop-shell-button px-2.5 py-1 text-[11px] flex items-center gap-1"
           >
             <LogIn className="w-3 h-3" />
             Create account
@@ -434,7 +448,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                 href: `${appBaseUrl}/?openWindow=store&panel=plans`,
               })
             }
-            className="retro-button px-2.5 py-1 text-[11px] flex items-center gap-1"
+            className="desktop-shell-button px-2.5 py-1 text-[11px] flex items-center gap-1"
           >
             <ShoppingCart className="w-3 h-3" />
             Upgrade
@@ -449,7 +463,7 @@ function GuestAIChatWindow({ fullScreen = false }: { fullScreen?: boolean }) {
                 href: `${appBaseUrl}/?openWindow=store&panel=credits`,
               })
             }
-            className="retro-button px-2.5 py-1 text-[11px] flex items-center gap-1"
+            className="desktop-shell-button px-2.5 py-1 text-[11px] flex items-center gap-1"
           >
             <Coins className="w-3 h-3" />
             Buy credits

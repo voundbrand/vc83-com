@@ -58,6 +58,7 @@ import {
   aiMessages,
   aiToolExecutions,
   organizationAiSettings,
+  aiSettingsMigrations,
   aiAgentTasks,
   aiAgentMemory,
   organizationKnowledgeChunks,
@@ -261,6 +262,7 @@ export default defineSchema({
   aiToolExecutions,       // Audit trail of tool executions
   // NOTE: Tool drafts use objects table with status="draft" + AI metadata in customProperties
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
+  aiSettingsMigrations,   // Migration receipts for provider-agnostic AI settings contract
   aiModels,               // AI model discovery cache (auto-refreshed daily)
   aiWorkItems,            // Work items for human-in-the-loop approval workflow
   agentInboxReceipts,     // Durable inbound receipts for agent runtime ingress

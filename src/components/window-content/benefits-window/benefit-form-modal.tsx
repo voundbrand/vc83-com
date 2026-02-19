@@ -111,22 +111,22 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
       <div
         className="relative w-full max-w-lg mx-4 border-2 shadow-lg"
         style={{
-          background: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--shell-surface)',
+          borderColor: 'var(--shell-border)'
         }}
       >
         {/* Title bar */}
         <div
           className="flex items-center justify-between px-2 py-1"
-          style={{ background: 'var(--win95-title-bar)' }}
+          style={{ background: 'var(--shell-titlebar-gradient)' }}
         >
           <span className="font-pixel text-xs text-white">
             {editingBenefit ? "Edit Benefit" : "New Benefit"}
           </span>
           <button
             onClick={onClose}
-            className="retro-button p-1"
-            style={{ background: 'var(--win95-button-face)' }}
+            className="desktop-shell-button p-1"
+            style={{ background: 'var(--shell-button-surface)' }}
           >
             <X size={12} />
           </button>
@@ -144,9 +144,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
               required
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -161,9 +161,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
               rows={3}
               className="w-full px-2 py-1.5 border-2 text-sm resize-none"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -177,9 +177,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               >
                 <option value="discount">Discount</option>
@@ -197,9 +197,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 placeholder="e.g., Software, Design"
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -215,9 +215,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                   onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                 >
                   <option value="percentage">Percentage</option>
@@ -236,9 +236,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                   max={formData.discountType === "percentage" ? 100 : undefined}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                 />
               </div>
@@ -255,9 +255,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -270,9 +270,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 min={0}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -288,9 +288,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
               rows={2}
               className="w-full px-2 py-1.5 border-2 text-sm resize-none"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -306,9 +306,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 required
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -320,9 +320,9 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
                 onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -333,18 +333,18 @@ export function BenefitFormModal({ onClose, onSuccess, editingBenefit }: Benefit
             <button
               type="button"
               onClick={onClose}
-              className="retro-button px-4 py-2"
-              style={{ background: 'var(--win95-button-face)' }}
+              className="desktop-shell-button px-4 py-2"
+              style={{ background: 'var(--shell-button-surface)' }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="retro-button px-4 py-2"
+              className="desktop-shell-button px-4 py-2"
               style={{
-                background: 'var(--win95-selected-bg)',
-                color: 'var(--win95-selected-text)',
+                background: 'var(--shell-selection-bg)',
+                color: 'var(--shell-selection-text)',
                 opacity: isSubmitting ? 0.7 : 1
               }}
             >

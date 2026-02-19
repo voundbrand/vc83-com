@@ -7,11 +7,17 @@ import { useAIConfig } from "@/hooks/use-ai-config"
 import { useNotification } from "@/hooks/use-notification"
 import { ArrowUp, ChevronDown, Brain, Sparkles, Rocket, Zap, UserCheck, Lightbulb, StopCircle, Check, Loader2 } from "lucide-react"
 import { useQuery } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any }
+import {
+  consumeVoiceAgentCoCreationHandoff,
+  VOICE_AGENT_HANDOFF_EVENT,
+} from "@/lib/voice-assistant/agent-co-creation-handoff"
 
 // Provider icons
 const PROVIDER_INFO: Record<string, { icon: typeof Brain; color: string }> = {
-  anthropic: { icon: Brain, color: "text-purple-600" },
+  anthropic: { icon: Brain, color: "text-indigo-600" },
   openai: { icon: Sparkles, color: "text-green-600" },
   google: { icon: Rocket, color: "text-blue-600" },
   meta: { icon: Zap, color: "text-orange-600" },
@@ -41,11 +47,12 @@ export function ChatInput() {
   const { isAIReady, settings } = useAIConfig()
   const notification = useNotification()
 
-  // Get AI settings for available models
-  const aiSettings = useQuery(
+  // Use untyped query to avoid TS2589 deep type instantiation with generated Convex types.
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => any
+  const aiSettings = useQueryUntyped(
     api.ai.settings.getAISettings,
-    organizationId ? { organizationId } : "skip"
-  )
+    organizationId ? ({ organizationId } as any) : "skip"
+  ) as any
 
   // Auto-expand textarea as user types
   useEffect(() => {
@@ -68,6 +75,35 @@ export function ChatInput() {
     window.addEventListener("keydown", handleEscape)
     return () => window.removeEventListener("keydown", handleEscape)
   }, [isSending, stopCurrentRequest, notification])
+
+  useEffect(() => {
+    const applyHandoffDraft = () => {
+      const staged = consumeVoiceAgentCoCreationHandoff()
+      if (!staged) {
+        return
+      }
+
+      setMessage((current) => {
+        if (!current.trim()) {
+          return staged.draftMessage
+        }
+        return `${current.trim()}\n\n---\n${staged.draftMessage}`
+      })
+
+      if (!humanInLoopEnabled) {
+        setHumanInLoopEnabled(true)
+      }
+
+      notification.info(
+        "Agent Handoff Draft Ready",
+        "Review and edit the staged handoff before sending it to the assistant runtime."
+      )
+    }
+
+    applyHandoffDraft()
+    window.addEventListener(VOICE_AGENT_HANDOFF_EVENT, applyHandoffDraft)
+    return () => window.removeEventListener(VOICE_AGENT_HANDOFF_EVENT, applyHandoffDraft)
+  }, [humanInLoopEnabled, notification, setHumanInLoopEnabled])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -111,9 +147,9 @@ export function ChatInput() {
 
   // Available models - extract model IDs from enabled models array
   // Only use organization's enabled models, never hardcoded fallbacks
-  const availableModels = (aiSettings?.llm?.enabledModels?.map((m) =>
-    typeof m === "string" ? m : m.modelId
-  )) || []
+  const availableModels: string[] = (aiSettings?.llm?.enabledModels?.map((m: any) =>
+    typeof m === "string" ? m : m?.modelId
+  ).filter((model: unknown): model is string => typeof model === "string")) || []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,8 +249,8 @@ export function ChatInput() {
       onSubmit={handleSubmit}
       className="border-t-2 p-3"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--shell-border)',
+        background: 'var(--shell-surface-elevated)'
       }}
     >
       <div className="space-y-2">
@@ -239,18 +275,18 @@ export function ChatInput() {
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = humanInLoopEnabled
                 ? 'var(--success-bg)'
-                : 'var(--win95-hover-light)';
+                : 'var(--shell-hover-surface)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = humanInLoopEnabled
                 ? 'var(--success-bg)'
-                : 'var(--win95-bg)';
+                : 'var(--shell-surface)';
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all flex-shrink-0"
             style={{
-              borderColor: humanInLoopEnabled ? 'var(--success)' : 'var(--win95-border)',
-              background: humanInLoopEnabled ? 'var(--success-bg)' : 'var(--win95-bg)',
-              color: humanInLoopEnabled ? 'var(--success)' : 'var(--win95-text-muted)'
+              borderColor: humanInLoopEnabled ? 'var(--success)' : 'var(--shell-border)',
+              background: humanInLoopEnabled ? 'var(--success-bg)' : 'var(--shell-surface)',
+              color: humanInLoopEnabled ? 'var(--success)' : 'var(--shell-text-dim)'
             }}
             title={humanInLoopEnabled ? "Human-in-the-Loop: Enabled (AI will create drafts for review)" : "Human-in-the-Loop: Disabled (AI will execute immediately)"}
           >
@@ -273,16 +309,16 @@ export function ChatInput() {
               );
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+              e.currentTarget.style.backgroundColor = 'var(--shell-hover-surface)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+              e.currentTarget.style.backgroundColor = 'var(--shell-surface)';
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all flex-shrink-0"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)',
-              color: 'var(--win95-text-muted)'
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-surface)',
+              color: 'var(--shell-text-dim)'
             }}
             title="Send feedback or request a new feature"
           >
@@ -298,22 +334,22 @@ export function ChatInput() {
             type="button"
             onClick={() => setIsModelSelectorOpen(!isModelSelectorOpen)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+              e.currentTarget.style.backgroundColor = 'var(--shell-hover-surface)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+              e.currentTarget.style.backgroundColor = 'var(--shell-surface)';
             }}
             className="w-full flex items-center gap-1.5 px-3 py-2 rounded border transition-colors text-xs"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-surface)'
             }}
           >
             <ProviderIcon className={`w-3.5 h-3.5 ${providerInfo.color}`} />
-            <span className="truncate flex-1" style={{ color: 'var(--win95-text)' }}>
+            <span className="truncate flex-1" style={{ color: 'var(--shell-text)' }}>
               {currentDisplayName}
             </span>
-            <ChevronDown className={`w-3 h-3 transition-transform ${isModelSelectorOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--win95-text-muted)' }} />
+            <ChevronDown className={`w-3 h-3 transition-transform ${isModelSelectorOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--shell-text-dim)' }} />
           </button>
 
           {/* Dropdown */}
@@ -321,8 +357,8 @@ export function ChatInput() {
             <div
               className="absolute bottom-full left-0 mb-1 w-64 border-2 rounded shadow-lg max-h-64 overflow-y-auto z-50"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-surface)'
               }}
             >
               {/* Auto (Default) Option */}
@@ -330,20 +366,20 @@ export function ChatInput() {
                 type="button"
                 onClick={() => handleModelSelect(aiSettings?.llm?.model || currentModel)}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--win95-hover-bg)';
-                  e.currentTarget.style.color = 'var(--win95-hover-text)';
+                  e.currentTarget.style.backgroundColor = 'var(--shell-hover-bg)';
+                  e.currentTarget.style.color = 'var(--shell-hover-text)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--win95-text)';
+                  e.currentTarget.style.color = 'var(--shell-text)';
                 }}
                 className="w-full px-2 py-2 text-left border-b text-xs flex items-center gap-2"
-                style={{ borderColor: 'var(--win95-border-light)' }}
+                style={{ borderColor: 'var(--shell-border-soft)' }}
               >
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                 <div className="flex-1">
-                  <div className="font-semibold" style={{ color: 'var(--win95-text)' }}>Auto</div>
-                  <div style={{ color: 'var(--win95-text-muted)' }}>
+                  <div className="font-semibold" style={{ color: 'var(--shell-text)' }}>Auto</div>
+                  <div style={{ color: 'var(--shell-text-dim)' }}>
                     {getModelDisplayName(aiSettings?.llm?.model || currentModel)}
                   </div>
                 </div>
@@ -364,8 +400,8 @@ export function ChatInput() {
                     onClick={() => handleModelSelect(model)}
                     className="w-full px-2 py-2 text-left text-xs flex items-center gap-2 hover-menu-item"
                     style={{
-                      backgroundColor: isSelected ? 'var(--win95-hover-bg)' : 'transparent',
-                      color: isSelected ? 'var(--win95-hover-text)' : 'var(--win95-text)'
+                      backgroundColor: isSelected ? 'var(--shell-hover-bg)' : 'transparent',
+                      color: isSelected ? 'var(--shell-hover-text)' : 'var(--shell-text)'
                     }}
                   >
                     <ModelIcon className={`w-3.5 h-3.5 ${info.color}`} />
@@ -418,19 +454,19 @@ export function ChatInput() {
               disabled={!message.trim()}
               onMouseEnter={(e) => {
                 if (message.trim()) {
-                  e.currentTarget.style.backgroundColor = 'var(--win95-hover-light)';
+                  e.currentTarget.style.backgroundColor = 'var(--shell-hover-surface)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (message.trim()) {
-                  e.currentTarget.style.backgroundColor = 'var(--win95-bg)';
+                  e.currentTarget.style.backgroundColor = 'var(--shell-surface)';
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg)',
-                color: 'var(--win95-text-muted)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-surface)',
+                color: 'var(--shell-text-dim)'
               }}
               title="Send message (Enter)"
             >

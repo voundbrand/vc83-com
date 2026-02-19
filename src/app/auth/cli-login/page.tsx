@@ -77,9 +77,9 @@ function CliLoginContent() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#008080' }}>
         {/* Retro Window */}
-        <div className="retro-window window-corners w-full max-w-sm">
+        <div className="desktop-shell-window window-corners w-full max-w-sm">
           {/* Title Bar */}
-          <div className="retro-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
+          <div className="desktop-shell-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className="w-4 h-4 border flex items-center justify-center text-xs rounded"
@@ -91,7 +91,7 @@ function CliLoginContent() {
               <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>Error</span>
             </div>
             <div className="flex gap-[2px]">
-              <button className="retro-control-button" title="Close">
+              <button className="desktop-shell-control-button" title="Close">
                 <span className="select-none">×</span>
               </button>
             </div>
@@ -99,8 +99,8 @@ function CliLoginContent() {
           {/* Content */}
           <div className="p-6 text-center" style={{ background: 'var(--shell-surface)' }}>
             <div className="text-5xl mb-4">⚠️</div>
-            <h1 className="font-pixel text-sm retro-text mb-4">Invalid Request</h1>
-            <p className="text-sm retro-text-secondary">
+            <h1 className="font-pixel text-sm desktop-shell-text mb-4">Invalid Request</h1>
+            <p className="text-sm desktop-shell-text-muted">
               Missing callback URL. Please try logging in again from the CLI.
             </p>
           </div>
@@ -112,9 +112,9 @@ function CliLoginContent() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#008080' }}>
       {/* Retro Window */}
-      <div className="retro-window window-corners w-full max-w-md">
+      <div className="desktop-shell-window window-corners w-full max-w-md">
         {/* Title Bar */}
-        <div className="retro-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
+        <div className="desktop-shell-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
               className="w-4 h-4 border flex items-center justify-center text-xs rounded"
@@ -126,13 +126,13 @@ function CliLoginContent() {
             <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>CLI Login</span>
           </div>
           <div className="flex gap-[2px]">
-            <button className="retro-control-button" title="Minimize">
+            <button className="desktop-shell-control-button" title="Minimize">
               <span className="select-none">−</span>
             </button>
-            <button className="retro-control-button" title="Maximize">
+            <button className="desktop-shell-control-button" title="Maximize">
               <span className="select-none">□</span>
             </button>
-            <button className="retro-control-button" title="Close">
+            <button className="desktop-shell-control-button" title="Close">
               <span className="select-none">×</span>
             </button>
           </div>
@@ -142,16 +142,16 @@ function CliLoginContent() {
         <div className="p-6" style={{ background: 'var(--shell-surface)' }}>
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">🍰</div>
-            <h1 className="font-pixel text-sm retro-text">
+            <h1 className="font-pixel text-sm desktop-shell-text">
               CLI Login
             </h1>
-            <p className="text-xs mt-2 retro-text-secondary">
+            <p className="text-xs mt-2 desktop-shell-text-muted">
               Choose your preferred login method
             </p>
           </div>
 
           {error && (
-            <div className="retro-error mb-4 p-3 text-sm">
+            <div className="desktop-shell-error mb-4 p-3 text-sm">
               {error}
             </div>
           )}
@@ -202,7 +202,7 @@ function CliLoginContent() {
                   <div className="w-full border-t" style={{ borderColor: 'var(--shell-border)' }}></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 retro-text-secondary" style={{ background: 'var(--shell-surface)' }}>or</span>
+                  <span className="px-2 desktop-shell-text-muted" style={{ background: 'var(--shell-surface)' }}>or</span>
                 </div>
               </div>
 
@@ -267,7 +267,7 @@ function CliLoginContent() {
               }} className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-pixel mb-1 retro-text">
+                    <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                       First Name *
                     </label>
                     <input
@@ -275,12 +275,12 @@ function CliLoginContent() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
-                      className="w-full retro-input"
+                      className="w-full desktop-shell-input"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-pixel mb-1 retro-text">
+                    <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                       Last Name *
                     </label>
                     <input
@@ -288,13 +288,13 @@ function CliLoginContent() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
-                      className="w-full retro-input"
+                      className="w-full desktop-shell-input"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     Email *
                   </label>
                   <input
@@ -302,27 +302,27 @@ function CliLoginContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     Password * (min 8 characters)
                   </label>
-                  <div className="retro-input-wrapper">
+                  <div className="desktop-shell-input-wrapper">
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => handlePasswordChange(e.target.value)}
                       required
                       minLength={8}
-                      className="w-full retro-input"
+                      className="w-full desktop-shell-input"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="retro-eye-toggle"
+                      className="desktop-shell-eye-toggle"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -331,36 +331,36 @@ function CliLoginContent() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     Confirm Password *
                   </label>
-                  <div className="retro-input-wrapper">
+                  <div className="desktop-shell-input-wrapper">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                       required
                       minLength={8}
-                      className="w-full retro-input"
+                      className="w-full desktop-shell-input"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="retro-eye-toggle"
+                      className="desktop-shell-eye-toggle"
                       aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                     >
                       {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                   {passwordMatch !== null && (
-                    <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
+                    <p className={passwordMatch ? "desktop-shell-validation-success" : "desktop-shell-validation-error"}>
                       {passwordMatch ? "Passwords match" : "Passwords don't match"}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     Organization Name (optional)
                   </label>
                   <input
@@ -368,7 +368,7 @@ function CliLoginContent() {
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder={`${firstName || 'Your'}'s Organization`}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                 </div>
 
@@ -396,8 +396,8 @@ function CliLoginContent() {
             </>
           )}
 
-          <div className="mt-6 retro-note p-3">
-            <p className="text-xs retro-text-secondary">
+          <div className="mt-6 desktop-shell-note p-3">
+            <p className="text-xs desktop-shell-text-muted">
               This will create the same account as platform login, just with CLI access.
             </p>
           </div>
@@ -412,9 +412,9 @@ export default function CliLoginPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#008080' }}>
         {/* Retro Window */}
-        <div className="retro-window window-corners w-full max-w-md">
+        <div className="desktop-shell-window window-corners w-full max-w-md">
           {/* Title Bar */}
-          <div className="retro-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
+          <div className="desktop-shell-titlebar window-titlebar-corners px-2 py-1 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className="w-4 h-4 border flex items-center justify-center text-xs rounded"
@@ -426,13 +426,13 @@ export default function CliLoginPage() {
               <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>CLI Login</span>
             </div>
             <div className="flex gap-[2px]">
-              <button className="retro-control-button" title="Minimize">
+              <button className="desktop-shell-control-button" title="Minimize">
                 <span className="select-none">−</span>
               </button>
-              <button className="retro-control-button" title="Maximize">
+              <button className="desktop-shell-control-button" title="Maximize">
                 <span className="select-none">□</span>
               </button>
-              <button className="retro-control-button" title="Close">
+              <button className="desktop-shell-control-button" title="Close">
                 <span className="select-none">×</span>
               </button>
             </div>
@@ -440,8 +440,8 @@ export default function CliLoginPage() {
           {/* Content */}
           <div className="p-6 text-center" style={{ background: 'var(--shell-surface)' }}>
             <div className="text-4xl mb-4">🍰</div>
-            <h1 className="font-pixel text-sm retro-text">CLI Login</h1>
-            <p className="text-sm retro-text-secondary mt-2">Loading...</p>
+            <h1 className="font-pixel text-sm desktop-shell-text">CLI Login</h1>
+            <p className="text-sm desktop-shell-text-muted mt-2">Loading...</p>
           </div>
         </div>
       </div>

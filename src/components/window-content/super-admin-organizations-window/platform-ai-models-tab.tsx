@@ -340,8 +340,8 @@ export function PlatformAiModelsTab() {
           disabled={isRefreshing}
           className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            backgroundColor: "var(--primary)",
-            color: "white",
+            backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+            color: "var(--button-primary-text, #0f0f0f)",
           }}
         >
           <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
@@ -407,8 +407,8 @@ export function PlatformAiModelsTab() {
               disabled={filteredModels.length === 0}
               className="beveled-button px-3 py-1 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: "var(--primary)",
-                color: "white",
+                backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                color: "var(--button-primary-text, #0f0f0f)",
                 cursor: filteredModels.length === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -577,8 +577,8 @@ export function PlatformAiModelsTab() {
             onClick={handleBatchEnable}
             className="beveled-button px-4 py-1 text-xs font-semibold flex items-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             <CheckCircle size={14} />

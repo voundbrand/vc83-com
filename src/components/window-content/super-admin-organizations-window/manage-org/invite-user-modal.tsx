@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { X, UserPlus, Mail, Shield, AlertCircle } from "lucide-react";
 import { useAction, useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -14,6 +16,12 @@ interface InviteUserModalProps {
   onClose: () => void;
   organizationId: Id<"organizations">;
 }
+
+type OrganizationRoleOption = {
+  _id: Id<"roles">;
+  name: string;
+  description?: string;
+};
 
 export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserModalProps) {
   const { t } = useNamespaceTranslations("ui.organizations");
@@ -28,7 +36,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
 
   const { sessionId } = useAuth();
   const inviteUser = useAction(api.organizations.inviteUser);
-  const roles = useQuery(api.rbac.getRoles);
+  const roles = useQuery(api.rbac.getRoles) as OrganizationRoleOption[] | undefined;
 
   if (!isOpen) return null;
 
@@ -80,7 +88,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
   };
 
   // Sort roles by hierarchy
-  const sortedRoles = roles?.sort((a, b) => {
+  const sortedRoles = roles ? [...roles].sort((a: OrganizationRoleOption, b: OrganizationRoleOption) => {
     const roleOrder: Record<string, number> = {
       super_admin: 0,
       org_owner: 1,
@@ -89,7 +97,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
       viewer: 4,
     };
     return (roleOrder[a.name] || 99) - (roleOrder[b.name] || 99);
-  });
+  }) : [];
 
   return (
     <>
@@ -280,7 +288,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   }}
                 >
                   <option value="">{t("ui.manage.invite.select_role")}</option>
-                  {sortedRoles?.map((role) => (
+                  {sortedRoles.map((role: OrganizationRoleOption) => (
                     <option key={role._id} value={role._id}>
                       {formatRoleName(role.name, t)} - {role.description}
                     </option>
@@ -330,8 +338,8 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
                   disabled={isSubmitting || !email || !selectedRole}
                   className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                    color: "var(--button-primary-text, #0f0f0f)",
                   }}
                 >
                   {isSubmitting ? t("ui.manage.invite.inviting") : t("ui.manage.invite.send_invitation")}
@@ -344,4 +352,3 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
     </>
   );
 }
-

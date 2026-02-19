@@ -26,21 +26,26 @@ This folder is the queue-first execution layer for shipping a voice-native, trus
 
 ## Status
 
-- Workstream initialized.
-- No implementation rows are complete yet.
-- First promotable task: `VAC-001`.
+- Lane `A` is complete (`VAC-001`..`VAC-003` done).
+- Lane `B` is complete (`VAC-004`..`VAC-006` done).
+- Lane `C` is complete (`VAC-007`..`VAC-009` done).
+- Lane `D` is complete (`VAC-010`..`VAC-011` done).
+- Lane `E` is complete (`VAC-012` done).
+- Lane `F` is complete (`VAC-013` done).
+- Lane `G` is complete (`VAC-014` done).
+- Voice baseline, contract lock, taxonomy extension, runtime adapter, ElevenLabs provider settings/probe path, user voice preference preview/persistence controls, adaptive micro-session interview framing, explicit pause/discard/resume trust boundaries, voice-aware consent/source-attribution checkpoint summaries, Brain voice shell discoverability, reusable voice assistant window/service contract wiring, `agent for this` handoff orchestration, finalized KPI/threshold rollout guardrails, and lane-`G` hardening closeout artifacts (regression matrix + release checklist) are synchronized.
 
 ---
 
 ## Lane progress board
 
-- [ ] Lane A (`VAC-001`..`VAC-003`)
-- [ ] Lane B (`VAC-004`..`VAC-006`)
-- [ ] Lane C (`VAC-007`..`VAC-009`)
-- [ ] Lane D (`VAC-010`..`VAC-011`)
-- [ ] Lane E (`VAC-012`)
-- [ ] Lane F (`VAC-013`)
-- [ ] Lane G (`VAC-014`)
+- [x] Lane A (`VAC-001`..`VAC-003`)
+- [x] Lane B (`VAC-004`..`VAC-006`)
+- [x] Lane C (`VAC-007`..`VAC-009`)
+- [x] Lane D (`VAC-010`..`VAC-011`)
+- [x] Lane E (`VAC-012`)
+- [x] Lane F (`VAC-013`)
+- [x] Lane G (`VAC-014`)
 
 ---
 

@@ -8,6 +8,10 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
+import {
+  buildByokCommercialPolicyMetadata,
+  resolveByokCommercialPolicyForTier,
+} from "./byokCommercialPolicy";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -115,6 +119,16 @@ export const createAICheckoutSession = action({
 
     // Get organization
     const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
+    const license = await (ctx as any).runQuery(
+      generatedApi.api.licensing.helpers.getLicense,
+      { organizationId: args.organizationId }
+    );
+    const byokCommercialPolicy = resolveByokCommercialPolicyForTier(
+      license?.planTier
+    );
+    const byokCommercialMetadata = buildByokCommercialPolicyMetadata(
+      byokCommercialPolicy
+    );
 
     // Query for stored billing details if none provided in args
     const storedBilling = await (ctx as any).runQuery(generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails, {
@@ -239,7 +253,9 @@ export const createAICheckoutSession = action({
       metadata: {
         organizationId: args.organizationId,
         tier: args.tier,
+        platformTier: license?.planTier || "free",
         platform: "l4yercak3",
+        ...byokCommercialMetadata,
         isB2B: args.isB2B ? "true" : "false",
         ...(args.taxId && { customerTaxId: args.taxId }),
         ...(args.taxIdType && { customerTaxIdType: args.taxIdType }),
@@ -248,7 +264,9 @@ export const createAICheckoutSession = action({
         metadata: {
           organizationId: args.organizationId,
           tier: args.tier,
+          platformTier: license?.planTier || "free",
           platform: "l4yercak3",
+          ...byokCommercialMetadata,
           isB2B: args.isB2B ? "true" : "false",
         },
       },

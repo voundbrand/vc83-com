@@ -412,8 +412,8 @@ export function SystemOrganizationsTab() {
             disabled={isSubmitting || !businessName.trim()}
             className="beveled-button px-6 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             <Save size={16} />

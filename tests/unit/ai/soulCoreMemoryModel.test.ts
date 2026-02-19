@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CORE_MEMORY_POLICY,
+  SOUL_V2_OVERLAY_VERSION,
+  evaluateSoulV2ProposalGuard,
+  hasExplicitOwnerApprovalCheckpoint,
+  isSoulV2ExecutionPreferenceField,
+  isSoulV2IdentityAnchorField,
   normalizeCoreMemory,
   normalizeCoreMemoryPolicy,
   normalizeCoreMemoryType,
@@ -54,6 +59,8 @@ describe("soul core memory model", () => {
   it("normalizes soul model with typed core memories and default policy", () => {
     const soul = normalizeSoulModel({
       name: "Agent Quinn",
+      communicationStyle: "Concise and direct",
+      alwaysDo: ["Confirm next steps"],
       coreMemories: [
         {
           title: "Pricing boundary",
@@ -68,5 +75,41 @@ describe("soul core memory model", () => {
     expect(soul.coreMemories).toHaveLength(1);
     expect(soul.coreMemories?.[0].type).toBe("boundary");
     expect(soul.coreMemoryPolicy).toEqual(DEFAULT_CORE_MEMORY_POLICY);
+    expect(soul.soulV2?.schemaVersion).toBe(SOUL_V2_OVERLAY_VERSION);
+    expect(soul.soulV2?.identityAnchors.name).toBe("Agent Quinn");
+    expect(soul.soulV2?.executionPreferences.communicationStyle).toBe("Concise and direct");
+    expect(soul.soulV2?.executionPreferences.alwaysDo).toEqual(["Confirm next steps"]);
+  });
+
+  it("keeps identity anchors immutable and execution preferences mutable", () => {
+    expect(isSoulV2IdentityAnchorField("coreValues")).toBe(true);
+    expect(isSoulV2ExecutionPreferenceField("toneGuidelines")).toBe(true);
+
+    const identityDecision = evaluateSoulV2ProposalGuard({
+      targetField: "coreValues",
+      proposalType: "modify",
+    });
+    expect(identityDecision.allowed).toBe(false);
+
+    const executionDecision = evaluateSoulV2ProposalGuard({
+      targetField: "toneGuidelines",
+      proposalType: "modify",
+    });
+    expect(executionDecision.allowed).toBe(true);
+  });
+
+  it("requires explicit owner reviewer identity for apply checkpoints", () => {
+    expect(
+      hasExplicitOwnerApprovalCheckpoint({
+        reviewedAt: Date.now(),
+        reviewedBy: "owner_web",
+      }),
+    ).toBe(true);
+    expect(
+      hasExplicitOwnerApprovalCheckpoint({
+        reviewedAt: Date.now(),
+        reviewedBy: "agent_self",
+      }),
+    ).toBe(false);
   });
 });

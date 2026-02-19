@@ -485,8 +485,8 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             disabled={isOnboarding}
             className="beveled-button px-6 py-3 text-sm font-bold flex items-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             {isOnboarding ? (
@@ -662,8 +662,8 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
             rel="noopener noreferrer"
             className="beveled-button px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             <ExternalLink size={14} />
@@ -763,8 +763,8 @@ export function StripeConnectSection({ organizationId, organization }: StripeCon
                 }}
                 className="beveled-button w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
                 style={{
-                  backgroundColor: "var(--primary)",
-                  color: "white",
+                  backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                 }}
               >
                 <Receipt size={14} />

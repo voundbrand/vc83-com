@@ -10,7 +10,7 @@ import { ChatFooter } from "../single-pane/chat-footer"
 
 export function ThreePaneLayout() {
   return (
-    <div className="h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="h-full" style={{ background: 'var(--shell-surface)' }}>
       <PanelGroup direction="horizontal">
         {/* Left Pane - Conversation History */}
         <Panel
@@ -22,8 +22,8 @@ export function ThreePaneLayout() {
           <div
             className="flex flex-col h-full border-r-2"
             style={{
-              borderColor: 'var(--win95-border-dark)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--shell-border-strong)',
+              background: 'var(--shell-surface)'
             }}
           >
             <ConversationHistory />
@@ -32,9 +32,9 @@ export function ThreePaneLayout() {
 
         {/* Resize Handle */}
         <PanelResizeHandle
-          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--win95-highlight)]"
+          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--shell-accent)]"
           style={{
-            backgroundColor: 'var(--win95-border-dark)'
+            backgroundColor: 'var(--shell-border-strong)'
           }}
         />
 
@@ -46,7 +46,7 @@ export function ThreePaneLayout() {
         >
           <div
             className="flex flex-col h-full"
-            style={{ background: 'var(--win95-bg)' }}
+            style={{ background: 'var(--shell-surface)' }}
           >
             <ChatHeader />
             <ChatMessages />
@@ -57,9 +57,9 @@ export function ThreePaneLayout() {
 
         {/* Resize Handle */}
         <PanelResizeHandle
-          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--win95-highlight)]"
+          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--shell-accent)]"
           style={{
-            backgroundColor: 'var(--win95-border-dark)'
+            backgroundColor: 'var(--shell-border-strong)'
           }}
         />
 
@@ -73,8 +73,8 @@ export function ThreePaneLayout() {
           <div
             className="flex flex-col h-full border-l-2"
             style={{
-              borderColor: 'var(--win95-border-dark)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--shell-border-strong)',
+              background: 'var(--shell-surface)'
             }}
           >
             <ToolExecutionPanel />

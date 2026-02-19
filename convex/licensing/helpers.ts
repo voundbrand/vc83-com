@@ -14,7 +14,15 @@ import { v, ConvexError } from "convex/values";
 import { query, internalQuery, mutation } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { TIER_CONFIGS, type TierConfig } from "./tierConfigs";
+import {
+  STORE_ACTIVE_RUNTIME_TIERS,
+  STORE_RUNTIME_TO_PUBLIC_TIER_NAME,
+  STORE_RUNTIME_TIER_DISPLAY_NAMES,
+  TIER_CONFIGS,
+  getNextTierName,
+  type StoreRuntimeTierName,
+  type TierConfig,
+} from "./tierConfigs";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 
 /**
@@ -808,6 +816,190 @@ export const checkSystemTemplateAccessInternal = internalQuery({
   },
 });
 
+const STORE_ANNUAL_BILLING_MONTHS = 10;
+const STORE_SCALE_SUB_ORG_PRICE_IN_CENTS = 7900;
+
+function formatStoreLimitValue(limit: number): string {
+  if (limit === -1) {
+    return "Unlimited";
+  }
+  return limit.toLocaleString("en-US");
+}
+
+function getStoreSupportLabel(supportLevel: TierConfig["supportLevel"]): string {
+  switch (supportLevel) {
+    case "docs":
+      return "Community docs";
+    case "email_48h":
+      return "Email support (48h)";
+    case "email_24h":
+      return "Email support (24h)";
+    case "priority_12h":
+      return "Priority support (12h)";
+    case "dedicated":
+      return "Dedicated support";
+    default:
+      return supportLevel;
+  }
+}
+
+function getStoreTransparencyTierSnapshot(runtimeTier: StoreRuntimeTierName) {
+  const tierConfig = TIER_CONFIGS[runtimeTier];
+  const publicTier = STORE_RUNTIME_TO_PUBLIC_TIER_NAME[runtimeTier];
+  const monthlyPriceInCents = runtimeTier === "enterprise" ? null : tierConfig.priceInCents;
+  const annualPriceInCents =
+    runtimeTier === "free"
+      ? 0
+      : runtimeTier === "enterprise"
+        ? null
+        : tierConfig.priceInCents * STORE_ANNUAL_BILLING_MONTHS;
+
+  return {
+    runtimeTier,
+    publicTier,
+    displayTier: STORE_RUNTIME_TIER_DISPLAY_NAMES[runtimeTier],
+    description: tierConfig.description,
+    supportLevel: tierConfig.supportLevel,
+    supportLabel: getStoreSupportLabel(tierConfig.supportLevel),
+    pricing: {
+      currency: tierConfig.currency,
+      monthlyPriceInCents,
+      annualPriceInCents,
+      annualBillingMonths: STORE_ANNUAL_BILLING_MONTHS,
+      vatDisplayMode: "vat_included" as const,
+      source: "convex/stripe/stripePrices.ts",
+      fallbackSource: "convex/licensing/tierConfigs.ts",
+    },
+    limits: {
+      users: tierConfig.limits.maxUsers,
+      contacts: tierConfig.limits.maxContacts,
+      projects: tierConfig.limits.maxProjects,
+      monthlyCredits: tierConfig.limits.monthlyCredits,
+      monthlyEmails: tierConfig.limits.maxEmailsPerMonth,
+      subOrganizations: tierConfig.limits.maxSubOrganizations,
+      apiKeys: tierConfig.limits.maxApiKeys,
+      storageGb: tierConfig.limits.totalStorageGB,
+    },
+    limitLabels: {
+      users: formatStoreLimitValue(tierConfig.limits.maxUsers),
+      contacts: formatStoreLimitValue(tierConfig.limits.maxContacts),
+      projects: formatStoreLimitValue(tierConfig.limits.maxProjects),
+      monthlyCredits: formatStoreLimitValue(tierConfig.limits.monthlyCredits),
+      monthlyEmails: formatStoreLimitValue(tierConfig.limits.maxEmailsPerMonth),
+      subOrganizations: formatStoreLimitValue(tierConfig.limits.maxSubOrganizations),
+      apiKeys: formatStoreLimitValue(tierConfig.limits.maxApiKeys),
+      storageGb: formatStoreLimitValue(tierConfig.limits.totalStorageGB),
+    },
+    source: "convex/licensing/tierConfigs.ts",
+  };
+}
+
+/**
+ * STORE PRICING CONTRACT SNAPSHOT (Public Query)
+ *
+ * Returns active-tier-only pricing transparency content sourced from the
+ * licensing + billing contract hierarchy for `/store`.
+ */
+export const getStorePricingContract = query({
+  args: {},
+  handler: async () => {
+    const tiers = STORE_ACTIVE_RUNTIME_TIERS.map(getStoreTransparencyTierSnapshot);
+    const scaleTier = tiers.find((tier) => tier.publicTier === "scale");
+    const scaleIncludedSubOrgs = scaleTier?.limits.subOrganizations ?? 0;
+
+    return {
+      taxMode: "vat_included" as const,
+      activePublicTiers: tiers.map((tier) => tier.publicTier),
+      sourceHierarchy: [
+        { order: 1, key: "runtime_entitlements", source: "convex/licensing/tierConfigs.ts" },
+        { order: 2, key: "checkout_billing_truth", source: "convex/stripe/platformCheckout.ts" },
+        { order: 3, key: "stripe_price_truth", source: "convex/stripe/stripePrices.ts" },
+        { order: 4, key: "credits_math_truth", source: "src/lib/credit-pricing.ts" },
+        { order: 5, key: "trial_policy_truth", source: "convex/stripe/trialCheckout.ts" },
+        { order: 6, key: "tax_policy_truth", source: "docs/reference_docs/billing/tax-system.md" },
+      ],
+      tiers,
+      addOns: [
+        {
+          key: "scale_sub_org",
+          title: "Scale sub-organization",
+          appliesToTier: "scale",
+          monthlyPriceInCents: STORE_SCALE_SUB_ORG_PRICE_IN_CENTS,
+          description: `${scaleIncludedSubOrgs} included sub-orgs; add more as needed.`,
+          source: "convex/stripe/stripePrices.ts",
+        },
+        {
+          key: "credits_top_up",
+          title: "Credit top-ups",
+          appliesToTier: "all",
+          monthlyPriceInCents: null,
+          description: "One-time credit packs use transparent volume tiers with bonus credits at higher ranges.",
+          source: "src/lib/credit-pricing.ts",
+        },
+      ],
+      billingSemantics: [
+        {
+          key: "monthly_cycle",
+          title: "Monthly billing",
+          detail: "Monthly plan prices bill every month. Displayed totals include VAT.",
+          source: "convex/stripe/platformCheckout.ts",
+        },
+        {
+          key: "annual_cycle",
+          title: "Annual billing",
+          detail: "Annual billing is modeled as 10 months billed for 12 months of access in store-facing estimates.",
+          source: "convex/stripe/stripePrices.ts",
+        },
+        {
+          key: "proration",
+          title: "Plan changes and proration",
+          detail: "Upgrades and downgrades are resolved through Stripe subscription management workflows.",
+          source: "convex/stripe/platformCheckout.ts",
+        },
+        {
+          key: "vat_display",
+          title: "VAT-inclusive display",
+          detail: "Store pricing copy and calculator outputs are VAT-inclusive.",
+          source: "docs/reference_docs/billing/tax-system.md",
+        },
+      ],
+      trialPolicy: {
+        tier: "scale",
+        runtimeTier: "agency",
+        durationDays: 14,
+        summary: "Scale starts with a real 14-day trial enforced by the store checkout path.",
+        source: "convex/stripe/trialCheckout.ts",
+      },
+      faq: [
+        {
+          key: "active_tiers_only",
+          question: "Why are only Free, Pro, Scale, and Enterprise shown?",
+          answer: "These are the active store tiers. Legacy tiers are preserved for compatibility but hidden from pricing UX.",
+          source: "convex/licensing/tierConfigs.ts",
+        },
+        {
+          key: "scale_runtime_name",
+          question: "Why does Scale map to agency in backend metadata?",
+          answer: "Scale is the customer-facing name while runtime contracts remain keyed as agency for migration safety.",
+          source: "convex/licensing/tierConfigs.ts",
+        },
+        {
+          key: "vat_mode",
+          question: "Do displayed prices include VAT?",
+          answer: "Yes. Store-facing plan and calculator totals are presented as VAT-inclusive.",
+          source: "docs/reference_docs/billing/tax-system.md",
+        },
+        {
+          key: "credits_source",
+          question: "How are credits calculated?",
+          answer: "Credits use deterministic volume tiers and bonuses with shared frontend/backend calculation rules.",
+          source: "src/lib/credit-pricing.ts",
+        },
+      ],
+    };
+  },
+});
+
 /**
  * HELPER FUNCTIONS
  */
@@ -818,15 +1010,20 @@ export const checkSystemTemplateAccessInternal = internalQuery({
 function getNextTier(
   currentTier: "free" | "starter" | "professional" | "agency" | "enterprise"
 ): string {
-  const tierUpgradePath: Record<string, string> = {
-    free: "Starter (€199/month)",
-    starter: "Professional (€399/month)",
-    professional: "Agency (€599/month)",
-    agency: "Enterprise (€1,500+/month)",
-    enterprise: "Enterprise (contact sales)",
-  };
-
-  return tierUpgradePath[currentTier] || "a higher tier";
+  const nextTier = getNextTierName(currentTier);
+  if (!nextTier) {
+    return "Enterprise (contact sales)";
+  }
+  if (nextTier === "pro") {
+    return "Pro (€29/month)";
+  }
+  if (nextTier === "agency") {
+    return "Scale (€299/month)";
+  }
+  if (nextTier === "enterprise") {
+    return "Enterprise (contact sales)";
+  }
+  return "a higher tier";
 }
 
 /**
@@ -835,28 +1032,27 @@ function getNextTier(
 function getFeatureRequiredTier(featureKey: keyof TierConfig["features"]): string {
   // Map features to minimum required tier
   const featureTierMap: Partial<Record<keyof TierConfig["features"], string>> = {
-    // Starter tier features
-    aiEnabled: "Starter (€199/month)",
-    stripeConnectEnabled: "Starter (€199/month)",
-    invoicePaymentEnabled: "Starter (€199/month)",
-    manualPaymentEnabled: "Starter (€199/month)",
-    multiLanguageEnabled: "Starter (€199/month)",
-    stripeTaxEnabled: "Starter (€199/month)",
+    // Pro tier features
+    aiEnabled: "Pro (€29/month)",
+    aiByokEnabled: "Pro (€29/month)",
+    stripeConnectEnabled: "Pro (€29/month)",
+    invoicePaymentEnabled: "Pro (€29/month)",
+    manualPaymentEnabled: "Pro (€29/month)",
+    multiLanguageEnabled: "Pro (€29/month)",
+    stripeTaxEnabled: "Pro (€29/month)",
 
-    // Professional tier features
-    customDomainsEnabled: "Professional (€399/month)",
-    whiteLabelEnabled: "Professional (€399/month)",
-    contactSyncEnabled: "Professional (€399/month)",
-    advancedReportsEnabled: "Professional (€399/month)",
-    customRolesEnabled: "Professional (€399/month)",
-    templateSetOverridesEnabled: "Professional (€399/month)",
-
-    // Agency tier features
-    subOrgsEnabled: "Agency (€599/month)",
-    templateSharingEnabled: "Agency (€599/month)",
+    // Scale tier features
+    customDomainsEnabled: "Scale (€299/month)",
+    whiteLabelEnabled: "Scale (€299/month)",
+    contactSyncEnabled: "Scale (€299/month)",
+    advancedReportsEnabled: "Scale (€299/month)",
+    customRolesEnabled: "Scale (€299/month)",
+    templateSetOverridesEnabled: "Scale (€299/month)",
+    subOrgsEnabled: "Scale (€299/month)",
+    templateSharingEnabled: "Scale (€299/month)",
 
     // Enterprise tier features
-    ssoEnabled: "Enterprise (€1,500+/month)",
+    ssoEnabled: "Enterprise (contact sales)",
   };
 
   return featureTierMap[featureKey] || "a higher tier";
@@ -1087,6 +1283,7 @@ export const changePlanTier = mutation({
     organizationId: v.id("organizations"),
     planTier: v.union(
       v.literal("free"),
+      v.literal("pro"),
       v.literal("starter"),
       v.literal("professional"),
       v.literal("agency"),

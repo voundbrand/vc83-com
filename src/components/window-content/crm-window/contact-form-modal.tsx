@@ -836,9 +836,9 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                             }}
                             className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 mx-auto"
                             style={{
-                              borderColor: "var(--primary)",
-                              background: "var(--primary)",
-                              color: "white",
+                              borderColor: "var(--button-primary-border, var(--tone-accent-strong))",
+                              background: "var(--button-primary-bg, var(--tone-accent))",
+                              color: "var(--button-primary-text, #0f0f0f)",
                             }}
                           >
                             <TrendingUp size={14} />
@@ -1209,8 +1209,8 @@ export function ContactFormModal({ editId, onClose, onSuccess, onNavigateToPipel
                 className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
                 style={{
                   borderColor: "var(--window-document-border)",
-                  background: "var(--primary)",
-                  color: "white",
+                  background: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                 }}
               >
                 {saving ? (

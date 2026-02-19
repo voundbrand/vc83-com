@@ -1,17 +1,29 @@
 /**
- * OpenRouter Client for AI Completions
+ * Provider Adapter Client for AI Completions
  *
- * OpenRouter provides unified access to 200+ AI models through a single API.
- * This client handles chat completions, tool calling, cost tracking, and streaming.
+ * Maintains backwards compatibility with OpenRouter while supporting
+ * provider-agnostic execution for:
+ * - OpenRouter
+ * - OpenAI
+ * - Anthropic
+ * - Gemini
+ * - OpenAI-compatible custom/private endpoints
  */
 import {
   calculateCostFromUsage,
   type ModelPricingRates,
   resolveModelPricingFromRecord,
 } from "./modelPricing";
+import {
+  detectProvider,
+  getProviderConfig,
+  normalizeModelForProvider,
+  normalizeProviderCompletionResponse,
+  normalizeProviderError,
+  resolveProviderBaseUrl,
+} from "./modelAdapters";
 
-// Type definitions for OpenRouter API
-interface ToolCall {
+interface ToolCallLike {
   id: string;
   type: string;
   function: {
@@ -29,24 +41,192 @@ interface ToolSchema {
   };
 }
 
-interface OpenRouterError {
+interface ProviderErrorEnvelope {
   error?: {
     message?: string;
     type?: string;
     code?: string;
   };
   message?: string;
+  code?: string;
+  status?: number;
+  statusCode?: number;
+}
+
+interface ProviderClientOptions {
+  providerId?: string;
+  baseUrl?: string;
+  customHeaders?: Record<string, string>;
 }
 
 /**
- * OpenRouter client for AI completions
+ * Provider adapter client for AI completions.
+ * Keep class name for backwards compatibility with existing imports.
  */
 export class OpenRouterClient {
   private apiKey: string;
-  private baseUrl = "https://openrouter.ai/api/v1";
+  private providerId: string;
+  private baseUrl: string;
+  private customHeaders: Record<string, string>;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, options: ProviderClientOptions = {}) {
     this.apiKey = apiKey;
+    this.providerId = detectProvider(options.providerId ?? "openrouter");
+    this.baseUrl = resolveProviderBaseUrl({
+      providerId: this.providerId,
+      baseUrl: options.baseUrl,
+      envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+    });
+    this.customHeaders = options.customHeaders ?? {};
+  }
+
+  private buildHeaders(): Record<string, string> {
+    const baseHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.customHeaders,
+    };
+
+    switch (detectProvider(this.providerId)) {
+      case "openrouter":
+        return {
+          ...baseHeaders,
+          "Authorization": `Bearer ${this.apiKey}`,
+          "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://l4yercak3.com",
+          "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
+        };
+      case "anthropic":
+        return {
+          ...baseHeaders,
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        };
+      case "gemini":
+        return {
+          ...baseHeaders,
+          "Authorization": `Bearer ${this.apiKey}`,
+          "x-goog-api-key": this.apiKey,
+        };
+      default:
+        return {
+          ...baseHeaders,
+          "Authorization": `Bearer ${this.apiKey}`,
+        };
+    }
+  }
+
+  private parseToolArguments(rawArguments: string): Record<string, unknown> {
+    try {
+      const parsed = JSON.parse(rawArguments);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no-op
+    }
+    return {};
+  }
+
+  private buildAnthropicRequestBody(params: {
+    model: string;
+    messages: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string | null;
+      name?: string;
+      tool_calls?: unknown;
+      tool_call_id?: string;
+    }>;
+    tools?: ToolSchema[];
+    temperature?: number;
+    max_tokens?: number;
+    stream?: boolean;
+  }) {
+    const systemParts: string[] = [];
+    const anthropicMessages: Array<{
+      role: "user" | "assistant";
+      content: Array<Record<string, unknown>>;
+    }> = [];
+
+    for (let index = 0; index < params.messages.length; index += 1) {
+      const message = params.messages[index];
+
+      if (message.role === "system") {
+        if (typeof message.content === "string" && message.content.trim().length > 0) {
+          systemParts.push(message.content.trim());
+        }
+        continue;
+      }
+
+      if (message.role === "tool") {
+        anthropicMessages.push({
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: message.tool_call_id ?? `tool_result_${index + 1}`,
+              content: typeof message.content === "string" ? message.content : "",
+            },
+          ],
+        });
+        continue;
+      }
+
+      if (message.role === "assistant") {
+        const contentParts: Array<Record<string, unknown>> = [];
+        if (typeof message.content === "string" && message.content.trim().length > 0) {
+          contentParts.push({
+            type: "text",
+            text: message.content,
+          });
+        }
+
+        const rawToolCalls = Array.isArray(message.tool_calls)
+          ? (message.tool_calls as ToolCallLike[])
+          : [];
+        for (let toolCallIndex = 0; toolCallIndex < rawToolCalls.length; toolCallIndex += 1) {
+          const toolCall = rawToolCalls[toolCallIndex];
+          contentParts.push({
+            type: "tool_use",
+            id: toolCall.id ?? `tool_call_${toolCallIndex + 1}`,
+            name: toolCall.function?.name ?? `tool_${toolCallIndex + 1}`,
+            input: this.parseToolArguments(toolCall.function?.arguments ?? "{}"),
+          });
+        }
+
+        anthropicMessages.push({
+          role: "assistant",
+          content: contentParts.length > 0
+            ? contentParts
+            : [{ type: "text", text: "" }],
+        });
+        continue;
+      }
+
+      anthropicMessages.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: typeof message.content === "string" ? message.content : "",
+          },
+        ],
+      });
+    }
+
+    const anthropicTools = params.tools?.map((tool) => ({
+      name: tool.function.name,
+      description: tool.function.description,
+      input_schema: tool.function.parameters,
+    }));
+
+    return {
+      model: normalizeModelForProvider(this.providerId, params.model),
+      system: systemParts.length > 0 ? systemParts.join("\n\n") : undefined,
+      messages: anthropicMessages,
+      tools: anthropicTools,
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.max_tokens ?? 4000,
+      stream: params.stream ?? false,
+    };
   }
 
   /**
@@ -65,7 +245,7 @@ export class OpenRouterClient {
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
-  }) {
+  }): Promise<any> {
     // Validate messages array
     if (!params.messages || params.messages.length === 0) {
       throw new Error("Messages array cannot be empty");
@@ -78,87 +258,115 @@ export class OpenRouterClient {
       }
     }
 
-    const requestBody = {
-      model: params.model,
-      messages: params.messages,
-      tools: params.tools,
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.max_tokens ?? 4000,
-      stream: params.stream ?? false,
-    };
+    const providerConfig = getProviderConfig(this.providerId);
+    const requestBody = providerConfig.requestProtocol === "anthropic_messages"
+      ? this.buildAnthropicRequestBody(params)
+      : {
+          model: normalizeModelForProvider(this.providerId, params.model),
+          messages: params.messages,
+          tools: params.tools,
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.max_tokens ?? 4000,
+          stream: params.stream ?? false,
+        };
+    const endpointPath =
+      providerConfig.requestProtocol === "anthropic_messages"
+        ? "/messages"
+        : "/chat/completions";
 
     // Log request for debugging (only in development)
     if (process.env.NODE_ENV !== "production") {
-      console.log("[OpenRouter] Request:", {
-        model: params.model,
+      console.log("[LLMAdapter] Request:", {
+        providerId: this.providerId,
+        model: requestBody.model,
+        endpointPath,
         messageCount: params.messages.length,
         hasTools: !!params.tools,
         toolCount: params.tools?.length || 0,
       });
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}${endpointPath}`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://l4yercak3.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
-        "Content-Type": "application/json",
-      },
+      headers: this.buildHeaders(),
       body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      // Try to parse error response
-      let errorMessage = "Unknown error";
-      let errorDetails: OpenRouterError | null = null;
+      let errorBodyText = "";
+      let parsedErrorBody: ProviderErrorEnvelope | null = null;
 
       try {
-        const errorBody = await response.text();
-        errorDetails = JSON.parse(errorBody) as OpenRouterError;
-
-        // Extract error message from various possible structures
-        errorMessage = errorDetails?.error?.message
-          || errorDetails?.message
-          || (typeof errorDetails?.error === 'string' ? errorDetails.error : null)
-          || "Provider returned error";
-
-        // Log detailed error for debugging
-        console.error("[OpenRouter] API Error:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorBody: errorDetails,
-          model: params.model,
-          messageCount: params.messages.length,
-          lastMessage: params.messages[params.messages.length - 1],
-        });
-      } catch (parseError) {
-        console.error("[OpenRouter] Failed to parse error response:", parseError);
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        errorBodyText = await response.text();
+        parsedErrorBody = JSON.parse(errorBodyText) as ProviderErrorEnvelope;
+      } catch {
+        parsedErrorBody = {
+          message: errorBodyText || `HTTP ${response.status}: ${response.statusText}`,
+        };
       }
 
-      throw new Error(`OpenRouter API error (${response.status}): ${errorMessage}`);
+      const normalizedError = normalizeProviderError({
+        providerId: this.providerId,
+        statusCode: response.status,
+        error: parsedErrorBody,
+      });
+
+      console.error("[LLMAdapter] API Error:", {
+        providerId: this.providerId,
+        status: response.status,
+        statusText: response.statusText,
+        errorClass: normalizedError.errorClass,
+        errorBody: parsedErrorBody,
+        model: requestBody.model,
+        messageCount: params.messages.length,
+        lastMessage: params.messages[params.messages.length - 1],
+      });
+
+      const providerLabel = this.providerId.toUpperCase();
+      const error = new Error(
+        `${providerLabel} API error (${response.status}): ${normalizedError.message}`
+      ) as Error & {
+        providerId?: string;
+        status?: number;
+        statusCode?: number;
+        code?: string;
+        retryable?: boolean;
+        errorClass?: string;
+      };
+      error.providerId = this.providerId;
+      error.status = response.status;
+      error.statusCode = response.status;
+      error.code = normalizedError.code;
+      error.retryable = normalizedError.retryable;
+      error.errorClass = normalizedError.errorClass;
+      throw error;
     }
 
     if (params.stream) {
       return response; // Return stream for client handling
     }
 
-    const data = await response.json();
+    const rawData = await response.json();
+    const normalizedData = normalizeProviderCompletionResponse({
+      providerId: this.providerId,
+      response: rawData,
+    });
 
     // Log response for debugging (only in development)
     if (process.env.NODE_ENV !== "production") {
-      console.log("[OpenRouter] Response:", {
-        model: params.model,
-        hasChoices: !!data.choices,
-        choiceCount: data.choices?.length || 0,
-        hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
-        toolCallCount: data.choices?.[0]?.message?.tool_calls?.length || 0,
-        usage: data.usage,
+      console.log("[LLMAdapter] Response:", {
+        providerId: this.providerId,
+        model: requestBody.model,
+        hasChoices: !!normalizedData.choices,
+        choiceCount: normalizedData.choices?.length || 0,
+        hasToolCalls: !!normalizedData.choices?.[0]?.message?.tool_calls,
+        toolCallCount: normalizedData.choices?.[0]?.message?.tool_calls?.length || 0,
+        usage: normalizedData.usage,
+        hasStructuredOutput: !!normalizedData.structuredOutput,
       });
     }
 
-    return data;
+    return normalizedData;
   }
 
   /**

@@ -30,6 +30,7 @@ export interface ProductOSCatalogEntry {
 
 export const PRODUCT_OS_POPULAR_CODES = [
   "ai-assistant",
+  "brain-voice",
   "agents-browser",
   "webchat-deployment",
   "builder",
@@ -62,6 +63,16 @@ export const PRODUCT_OS_CATALOG: ProductOSCatalogEntry[] = [
     iconId: "ai-assistant",
     featured: featuredFlags("ai-assistant"),
     releaseStage: "none",
+  },
+  {
+    code: "brain-voice",
+    displayName: "Brain Voice",
+    description:
+      "Run trust-safe voice co-creation sessions to capture and shape reusable knowledge artifacts.",
+    category: "AI & Intelligence",
+    iconId: "brain-voice",
+    featured: featuredFlags("brain-voice"),
+    releaseStage: "beta",
   },
   {
     code: "agents-browser",

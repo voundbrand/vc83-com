@@ -308,8 +308,8 @@ export function PlatformAgentTrustTrainingTab() {
             className="px-4 py-2 text-xs font-semibold border-2 disabled:opacity-50"
             style={{
               borderColor: "var(--window-document-border)",
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             {isStarting ? "Starting..." : "Start Daily Trust Training"}
@@ -390,8 +390,8 @@ export function PlatformAgentTrustTrainingTab() {
             className="px-4 py-2 text-xs font-semibold border-2 disabled:opacity-50"
             style={{
               borderColor: "var(--window-document-border)",
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             {isPublishing ? "Publishing..." : "Publish Trust Artifacts"}

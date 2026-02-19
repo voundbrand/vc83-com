@@ -92,7 +92,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
+      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -102,9 +102,9 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               placeholder="Search locations..."
               className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -116,8 +116,8 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               showFilters ? "shadow-inner" : ""
             }`}
             style={{
-              background: showFilters ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-              color: showFilters ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+              background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+              color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
             }}
           >
             <Filter size={14} />
@@ -126,8 +126,8 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             onClick={() => setShowAddModal(true)}
             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
             style={{
-              background: 'var(--win95-button-face)',
-              color: 'var(--win95-text)'
+              background: 'var(--shell-button-surface)',
+              color: 'var(--shell-text)'
             }}
           >
             <Plus size={14} />
@@ -143,9 +143,9 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               onChange={(e) => setStatusFilter(e.target.value as LocationStatus)}
               className="px-2 py-1 border-2 text-xs"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="">All Status</option>
@@ -158,9 +158,9 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
               onChange={(e) => setSubtypeFilter(e.target.value as LocationSubtype)}
               className="px-2 py-1 border-2 text-xs"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="">All Types</option>
@@ -185,23 +185,23 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             <p className="text-xs mt-1">Create a new location to get started</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
             {filteredLocations?.map((location) => (
               <button
                 key={location._id}
                 onClick={() => onSelect(location._id)}
                 className="w-full p-3 text-left hover:opacity-80 transition-opacity"
                 style={{
-                  background: selectedId === location._id ? 'var(--win95-selected-bg)' : 'transparent',
-                  color: selectedId === location._id ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+                  background: selectedId === location._id ? 'var(--shell-selection-bg)' : 'transparent',
+                  color: selectedId === location._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="p-2 rounded"
                     style={{
-                      background: selectedId === location._id ? 'var(--win95-selected-text)' : 'var(--win95-selected-bg)',
-                      color: selectedId === location._id ? 'var(--win95-selected-bg)' : 'var(--win95-selected-text)'
+                      background: selectedId === location._id ? 'var(--shell-selection-text)' : 'var(--shell-selection-bg)',
+                      color: selectedId === location._id ? 'var(--shell-selection-bg)' : 'var(--shell-selection-text)'
                     }}
                   >
                     {getSubtypeIcon(location.subtype || "venue")}
@@ -213,7 +213,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                         <span
                           className="px-1.5 py-0.5 text-xs rounded"
                           style={{
-                            background: location.status === "inactive" ? 'var(--win95-warning-bg)' : 'var(--win95-error-bg)',
+                            background: location.status === "inactive" ? 'var(--warning-bg)' : 'var(--error-bg)',
                             color: 'white'
                           }}
                         >
@@ -228,8 +228,8 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                       <span
                         className="px-1.5 py-0.5 text-xs rounded"
                         style={{
-                          background: 'var(--win95-bg-light)',
-                          color: 'var(--win95-text)'
+                          background: 'var(--shell-surface-elevated)',
+                          color: 'var(--shell-text)'
                         }}
                       >
                         {getSubtypeLabel(location.subtype || "")}

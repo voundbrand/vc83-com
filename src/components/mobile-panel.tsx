@@ -2,32 +2,60 @@
 
 import { X } from "lucide-react";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { parseShellUrlState, stripShellQueryParams } from "@/lib/shell/url-state";
 
 interface MobilePanelProps {
-  windowType: string;
+  windowId: string;
   title: string;
   children: React.ReactNode;
+  zIndex?: number;
   className?: string;
 }
 
-export function MobilePanel({ windowType, title, children, className = "" }: MobilePanelProps) {
+export function MobilePanel({ windowId, title, children, zIndex, className = "" }: MobilePanelProps) {
   const { closeWindow } = useWindowManager();
+  const effectiveZIndex = 10000 + (zIndex ?? 0);
 
   const handleClose = () => {
-    closeWindow(windowType);
+    closeWindow(windowId);
+
+    const params = new URLSearchParams(window.location.search);
+    const shellState = parseShellUrlState(params);
+
+    if (shellState.app !== windowId) {
+      return;
+    }
+
+    const nextParams = stripShellQueryParams(params);
+    const query = nextParams.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex flex-col" style={{
-      background: 'var(--background)',
-      bottom: 'var(--taskbar-height, 48px)' // Reserve space for taskbar, default 48px if not set
-    }}>
+    <div
+      className="fixed top-0 left-0 right-0 flex flex-col"
+      style={{
+        background: "var(--background)",
+        zIndex: effectiveZIndex,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        bottom: "calc(var(--taskbar-height, 48px) + env(safe-area-inset-bottom, 0px))",
+      }}
+    >
       {/* Mobile Title Bar */}
-      <div className="flex items-center justify-between px-4 h-12" style={{ background: 'var(--shell-titlebar-gradient)', color: 'var(--shell-titlebar-text)' }}>
-        <h2 className="font-pixel-retro text-sm">{title}</h2>
+      <div
+        className="flex items-center justify-between border-b px-4 py-3"
+        style={{
+          background: 'var(--shell-titlebar-gradient)',
+          borderColor: 'var(--shell-border)',
+          color: 'var(--shell-titlebar-text)',
+        }}
+      >
+        <h2 className="text-sm font-semibold tracking-[0.01em] truncate pr-3">{title}</h2>
         <button
+          type="button"
           onClick={handleClose}
-          className="p-2 -mr-2 touch-manipulation"
+          className="desktop-shell-control-button desktop-window-control desktop-window-control-close touch-manipulation"
           aria-label="Close window"
         >
           <X className="h-5 w-5" />

@@ -72,12 +72,12 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending_confirmation": return "var(--win95-warning-bg)"
-      case "confirmed": return "var(--win95-info-bg)"
-      case "checked_in": return "var(--win95-success-bg)"
-      case "completed": return "var(--win95-success-bg)"
-      case "cancelled": return "var(--win95-error-bg)"
-      case "no_show": return "var(--win95-error-bg)"
+      case "pending_confirmation": return "var(--warning-bg)"
+      case "confirmed": return "var(--info-bg)"
+      case "checked_in": return "var(--success-bg)"
+      case "completed": return "var(--success-bg)"
+      case "cancelled": return "var(--error-bg)"
+      case "no_show": return "var(--error-bg)"
       default: return "var(--desktop-shell-accent)"
     }
   }
@@ -298,7 +298,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
         <div
           className="p-3 rounded-lg border"
           style={{
-            background: 'var(--win95-warning-bg)',
+            background: 'var(--warning-bg)',
             borderColor: 'var(--window-document-border)'
           }}
         >
@@ -314,14 +314,14 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
             <button
               onClick={handleConfirm}
               className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-              style={{ background: 'var(--win95-success-bg)', color: 'white' }}
+              style={{ background: 'var(--success-bg)', color: 'white' }}
             >
               <CheckCircle size={14} /> Confirm
             </button>
             <button
               onClick={() => setShowCancelDialog(true)}
               className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-              style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+              style={{ background: 'var(--error-bg)', color: 'white' }}
             >
               <XCircle size={14} /> Decline
             </button>
@@ -333,21 +333,21 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
             <button
               onClick={handleCheckIn}
               className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-              style={{ background: 'var(--win95-success-bg)', color: 'white' }}
+              style={{ background: 'var(--success-bg)', color: 'white' }}
             >
               <User size={14} /> Check In
             </button>
             <button
               onClick={handleNoShow}
               className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-              style={{ background: 'var(--win95-warning-bg)', color: 'white' }}
+              style={{ background: 'var(--warning-bg)', color: 'white' }}
             >
               <AlertCircle size={14} /> No Show
             </button>
             <button
               onClick={() => setShowCancelDialog(true)}
               className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-              style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+              style={{ background: 'var(--error-bg)', color: 'white' }}
             >
               <XCircle size={14} /> Cancel
             </button>
@@ -358,7 +358,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
           <button
             onClick={handleComplete}
             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-            style={{ background: 'var(--win95-success-bg)', color: 'white' }}
+            style={{ background: 'var(--success-bg)', color: 'white' }}
           >
             <CheckCircle size={14} /> Complete
           </button>
@@ -386,8 +386,8 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
               className="w-full p-2 border text-sm resize-none h-24"
               style={{
                 borderColor: 'var(--window-document-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               value={cancellationReason}
               onChange={(e) => setCancellationReason(e.target.value)}
@@ -396,7 +396,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
               <button
                 onClick={handleCancel}
                 className="desktop-interior-button px-4 py-2 text-xs flex-1"
-                style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+                style={{ background: 'var(--error-bg)', color: 'white' }}
               >
                 Cancel Booking
               </button>
@@ -406,7 +406,7 @@ export function BookingDetail({ bookingId }: BookingDetailProps) {
                   setCancellationReason("")
                 }}
                 className="desktop-interior-button px-4 py-2 text-xs"
-                style={{ background: 'var(--win95-button-face)' }}
+                style={{ background: 'var(--shell-button-surface)' }}
               >
                 Keep Booking
               </button>

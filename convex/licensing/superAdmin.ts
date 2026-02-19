@@ -31,6 +31,7 @@ export const setOrganizationLicense = mutation({
     organizationId: v.id("organizations"),
     planTier: v.union(
       v.literal("free"),
+      v.literal("pro"),
       v.literal("starter"),
       v.literal("professional"),
       v.literal("agency"),
@@ -175,6 +176,7 @@ export const listOrganizationLicenses = query({
     planTier: v.optional(
       v.union(
         v.literal("free"),
+        v.literal("pro"),
         v.literal("starter"),
         v.literal("professional"),
         v.literal("agency"),
@@ -440,10 +442,14 @@ export const getLicenseStats = query({
     // Count by tier
     const tierCounts = {
       free: 0,
-      starter: 0,
-      professional: 0,
+      pro: 0,
       agency: 0,
       enterprise: 0,
+    };
+
+    const legacyTierCounts = {
+      starter: 0,
+      professional: 0,
     };
 
     let manualGrants = 0;
@@ -451,8 +457,15 @@ export const getLicenseStats = query({
 
     activeLicenses.forEach((license) => {
       if (license.customProperties) {
-        const tier = license.customProperties.planTier as keyof typeof tierCounts;
-        tierCounts[tier]++;
+        const tier = license.customProperties.planTier as string;
+        if (tier === "starter" || tier === "professional") {
+          legacyTierCounts[tier]++;
+          tierCounts.pro++;
+        } else if (tier === "free" || tier === "pro" || tier === "agency" || tier === "enterprise") {
+          tierCounts[tier]++;
+        } else {
+          tierCounts.free++;
+        }
 
         if (license.customProperties.manualOverride) {
           manualGrants++;
@@ -467,6 +480,7 @@ export const getLicenseStats = query({
     return {
       total: activeLicenses.length,
       byTier: tierCounts,
+      legacyCompatibilityByTier: legacyTierCounts,
       manualGrants,
       trials,
     };

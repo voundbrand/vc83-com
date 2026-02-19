@@ -43,6 +43,7 @@ describe("soul proposal operator review payload", () => {
 
     expect(payload.coreMemoryTarget).toBe(true);
     expect(payload.immutableByDefault).toBe(true);
+    expect(payload.overlayLayer).toBe("identity_anchor");
     expect(payload.riskLevel).toBe("high");
     expect(payload.reviewChecklist.some((item) => item.includes("immutability"))).toBe(
       true

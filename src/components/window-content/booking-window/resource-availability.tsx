@@ -68,8 +68,8 @@ export function ResourceAvailability({ selectedResourceId, onSelectResource }: R
       <div
         className="p-3 border-b-2"
         style={{
-          background: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--shell-surface)',
+          borderColor: 'var(--shell-border)'
         }}
       >
         <h2 className="font-pixel text-sm flex items-center gap-2">
@@ -213,15 +213,15 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
     <div
       className="border-2 rounded"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)'
+        borderColor: 'var(--shell-border)',
+        background: 'var(--shell-surface-elevated)'
       }}
     >
       {/* Header */}
       <button
         onClick={onToggle}
         className="w-full p-3 flex items-center justify-between hover:opacity-80"
-        style={{ color: 'var(--win95-text)' }}
+        style={{ color: 'var(--shell-text)' }}
       >
         <div className="flex items-center gap-2">
           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -229,8 +229,8 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
           <span
             className="px-2 py-0.5 text-xs rounded"
             style={{
-              background: 'var(--win95-bg)',
-              color: 'var(--win95-text)'
+              background: 'var(--shell-surface)',
+              color: 'var(--shell-text)'
             }}
           >
             {resource.subtype?.replace("_", " ")}
@@ -241,7 +241,7 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
             resource.status === "active" ? "" : "opacity-60"
           }`}
           style={{
-            background: resource.status === "active" ? 'var(--win95-success-bg)' : 'var(--win95-warning-bg)',
+            background: resource.status === "active" ? 'var(--success-bg)' : 'var(--warning-bg)',
             color: 'white'
           }}
         >
@@ -253,7 +253,7 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
       {isExpanded && (
         <div
           className="p-3 border-t-2 space-y-4"
-          style={{ borderColor: 'var(--win95-border)' }}
+          style={{ borderColor: 'var(--shell-border)' }}
         >
           {/* Settings */}
           <div className="grid grid-cols-2 gap-4">
@@ -267,9 +267,9 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
                 onChange={(e) => setSlotDuration(parseInt(e.target.value) || 60)}
                 className="w-full px-2 py-1 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -283,9 +283,9 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
                 onChange={(e) => setBufferTime(parseInt(e.target.value) || 0)}
                 className="w-full px-2 py-1 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -299,7 +299,7 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
                 <div
                   key={day.key}
                   className="flex items-center gap-2 p-2 rounded"
-                  style={{ background: 'var(--win95-bg)' }}
+                  style={{ background: 'var(--shell-surface)' }}
                 >
                   <label className="flex items-center gap-2 w-24">
                     <input
@@ -318,9 +318,9 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
                         onChange={(e) => updateDay(day.key, "open", e.target.value)}
                         className="px-2 py-1 border text-xs"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-input-bg)',
-                          color: 'var(--win95-input-text)'
+                          borderColor: 'var(--shell-border)',
+                          background: 'var(--shell-input-surface)',
+                          color: 'var(--shell-input-text)'
                         }}
                       />
                       <span className="text-xs">to</span>
@@ -330,9 +330,9 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
                         onChange={(e) => updateDay(day.key, "close", e.target.value)}
                         className="px-2 py-1 border text-xs"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-input-bg)',
-                          color: 'var(--win95-input-text)'
+                          borderColor: 'var(--shell-border)',
+                          background: 'var(--shell-input-surface)',
+                          color: 'var(--shell-input-text)'
                         }}
                       />
                     </>
@@ -351,8 +351,8 @@ function ResourceCard({ resource, isExpanded, onToggle, sessionId, organizationI
             disabled={isSaving}
             className="desktop-interior-button w-full py-2 flex items-center justify-center gap-2 text-sm"
             style={{
-              background: 'var(--win95-selected-bg)',
-              color: 'var(--win95-selected-text)',
+              background: 'var(--shell-selection-bg)',
+              color: 'var(--shell-selection-text)',
               opacity: isSaving ? 0.5 : 1
             }}
           >

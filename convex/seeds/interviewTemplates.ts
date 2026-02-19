@@ -22,7 +22,7 @@ import type { InterviewTemplate } from "../schemas/interviewSchemas";
 export const customerAgentIdentityBlueprintTemplate: InterviewTemplate = {
   templateName: "Customer Agent Identity Blueprint",
   description:
-    "A trust-first onboarding interview that defines who your customer-facing agent is, what it must never do, when it must hand off, and how to detect drift.",
+    "A trust-first adaptive onboarding flow that defines who your customer-facing agent is, what it must never do, when it must hand off, and how to detect drift in progressive micro-sessions.",
   version: 1,
   status: "active",
   estimatedMinutes: 20,
@@ -196,7 +196,7 @@ export const customerAgentIdentityBlueprintTemplate: InterviewTemplate = {
     "Clear, calm, and trust-oriented. You help the user articulate identity, safety boundaries, and escalation decisions without ambiguity.",
   followUpDepth: 2,
   silenceHandling:
-    "Take your time. If useful, I can offer examples of identity anchors, guardrails, handoff boundaries, or drift cues.",
+    "Take your time. We'll move in short micro-sessions, and I can offer examples for identity anchors, guardrails, handoff boundaries, or drift cues.",
 };
 
 // ============================================================================
@@ -206,7 +206,7 @@ export const customerAgentIdentityBlueprintTemplate: InterviewTemplate = {
 export const agentTeamShapeCharterTemplate: InterviewTemplate = {
   templateName: "Agent Team Shape Charter",
   description:
-    "A structured interview for multi-agent teams that defines specialist identity anchors, cross-agent guardrails, handoff boundaries, and drift operating cues.",
+    "A structured adaptive flow for multi-agent teams that defines specialist identity anchors, cross-agent guardrails, handoff boundaries, and drift operating cues through progressive checkpoints.",
   version: 1,
   status: "active",
   estimatedMinutes: 30,
@@ -420,7 +420,7 @@ export const agentTeamShapeCharterTemplate: InterviewTemplate = {
     "Precise and systems-minded while remaining collaborative. You help teams codify trust operations in language operators can act on.",
   followUpDepth: 3,
   silenceHandling:
-    "If helpful, I can provide examples of role guardrails, handoff boundaries, and drift cue definitions.",
+    "If helpful, I can provide examples of role guardrails, handoff boundaries, and drift cues as we progress checkpoint by checkpoint.",
 };
 
 // ============================================================================
@@ -430,7 +430,7 @@ export const agentTeamShapeCharterTemplate: InterviewTemplate = {
 export const platformAgentTrustTrainingTemplate: InterviewTemplate = {
   templateName: "Platform Agent Trust Training",
   description:
-    "A deep-discovery trust interview for super-admin platform agents, focused on policy guardrails, operator handoffs, and drift response with customer parity.",
+    "A deep-discovery adaptive trust flow for super-admin platform agents, focused on policy guardrails, operator handoffs, and drift response with customer parity checkpoints.",
   version: 1,
   status: "active",
   estimatedMinutes: 40,
@@ -645,7 +645,7 @@ export const platformAgentTrustTrainingTemplate: InterviewTemplate = {
     "Operationally rigorous and trust-forward. You help super-admins define clear platform safety boundaries and escalation operating conditions.",
   followUpDepth: 3,
   silenceHandling:
-    "Take your time. If useful, I can provide examples for policy guardrails, handoff boundaries, and drift response playbooks.",
+    "Take your time. We'll use progressive micro-sessions, and I can provide examples for policy guardrails, handoff boundaries, and drift response playbooks.",
 };
 
 // ============================================================================

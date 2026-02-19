@@ -71,13 +71,13 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
       <div
         className="flex items-center justify-between gap-2 p-3 border-b-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             AI Settings
           </span>
         </div>
@@ -86,7 +86,7 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
           className="flex-shrink-0 p-1 hover:bg-gray-200 rounded transition-colors"
           title="Close settings"
         >
-          <X className="w-4 h-4" style={{ color: 'var(--win95-text-muted)' }} />
+          <X className="w-4 h-4" style={{ color: 'var(--shell-text-dim)' }} />
         </button>
       </div>
 
@@ -94,10 +94,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Tool Approval Mode */}
         <div className="space-y-2">
-          <label className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <label className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             Tool Approval Mode
           </label>
-          <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
             Control when AI asks for permission before executing tools
           </p>
           <div className="space-y-2 mt-2">
@@ -109,10 +109,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
                 className="w-4 h-4"
               />
               <div>
-                <span className="text-sm" style={{ color: 'var(--win95-text)' }}>
+                <span className="text-sm" style={{ color: 'var(--shell-text)' }}>
                   Approve all tools
                 </span>
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   AI asks permission for every action (safest)
                 </p>
               </div>
@@ -127,10 +127,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
                 disabled
               />
               <div>
-                <span className="text-sm" style={{ color: 'var(--win95-text)' }}>
+                <span className="text-sm" style={{ color: 'var(--shell-text)' }}>
                   Approve dangerous tools only
                 </span>
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   AI runs safe tools automatically (Coming soon)
                 </p>
               </div>
@@ -145,10 +145,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
                 disabled
               />
               <div>
-                <span className="text-sm" style={{ color: 'var(--win95-text)' }}>
+                <span className="text-sm" style={{ color: 'var(--shell-text)' }}>
                   No approval required
                 </span>
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   AI runs all tools automatically (Coming soon)
                 </p>
               </div>
@@ -156,17 +156,17 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
           </div>
         </div>
 
-        <div className="border-t" style={{ borderColor: 'var(--win95-border-light)' }} />
+        <div className="border-t" style={{ borderColor: 'var(--shell-border-soft)' }} />
 
         {/* Auto-Recovery Settings */}
         <div className="space-y-3">
           <div className="flex items-start gap-2">
-            <RefreshCw className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-text)' }} />
+            <RefreshCw className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--shell-text)' }} />
             <div className="flex-1">
-              <label className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <label className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
                 Auto-Recovery
               </label>
-              <p className="text-xs mt-1" style={{ color: 'var(--win95-text-muted)' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--shell-text-dim)' }}>
                 When a tool fails, AI automatically analyzes the error and proposes a corrected approach
               </p>
             </div>
@@ -180,7 +180,7 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
               onChange={(e) => setAutoRecoveryEnabled(e.target.checked)}
               className="w-4 h-4"
             />
-            <span className="text-sm" style={{ color: 'var(--win95-text)' }}>
+            <span className="text-sm" style={{ color: 'var(--shell-text)' }}>
               Enable auto-recovery
             </span>
           </label>
@@ -189,7 +189,7 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
           {autoRecoveryEnabled && (
             <>
               <div className="space-y-1">
-                <label className="text-xs font-medium" style={{ color: 'var(--win95-text)' }}>
+                <label className="text-xs font-medium" style={{ color: 'var(--shell-text)' }}>
                   Max retry attempts
                 </label>
                 <div className="flex items-center gap-2">
@@ -201,11 +201,11 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
                     onChange={(e) => setMaxRetries(parseInt(e.target.value))}
                     className="flex-1"
                   />
-                  <span className="text-sm font-mono w-8 text-center" style={{ color: 'var(--win95-text)' }}>
+                  <span className="text-sm font-mono w-8 text-center" style={{ color: 'var(--shell-text)' }}>
                     {maxRetries}
                   </span>
                 </div>
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   AI will attempt to fix errors up to {maxRetries} time{maxRetries > 1 ? 's' : ''}
                 </p>
               </div>
@@ -219,10 +219,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
                   className="w-4 h-4"
                 />
                 <div>
-                  <span className="text-sm" style={{ color: 'var(--win95-text)' }}>
+                  <span className="text-sm" style={{ color: 'var(--shell-text)' }}>
                     Require approval for each retry
                   </span>
-                  <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                  <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                     You'll approve each corrected attempt before execution
                   </p>
                 </div>
@@ -231,7 +231,7 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
           )}
         </div>
 
-        <div className="border-t" style={{ borderColor: 'var(--win95-border-light)' }} />
+        <div className="border-t" style={{ borderColor: 'var(--shell-border-soft)' }} />
 
         {/* Info Box */}
         <div
@@ -243,10 +243,10 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
           <div>
-            <p className="text-xs font-medium mb-1" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--shell-text)' }}>
               How Auto-Recovery Works
             </p>
-            <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text-muted)' }}>
+            <ul className="text-xs space-y-1" style={{ color: 'var(--shell-text-dim)' }}>
               <li>• Tool fails with helpful error message</li>
               <li>• Error is fed back to AI conversation</li>
               <li>• AI analyzes error and proposes corrected approach</li>
@@ -261,8 +261,8 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
       <div
         className="p-3 border-t-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-surface)'
         }}
       >
         <button
@@ -272,14 +272,14 @@ export function AISettingsView({ onClose }: AISettingsViewProps) {
             e.currentTarget.style.color = 'white';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-button-face)';
-            e.currentTarget.style.color = 'var(--win95-text)';
+            e.currentTarget.style.background = 'var(--shell-button-surface)';
+            e.currentTarget.style.color = 'var(--shell-text)';
           }}
           className="w-full px-3 py-2 text-sm font-medium rounded border transition-colors flex items-center justify-center gap-2"
           style={{
-            borderColor: 'var(--win95-border-light)',
-            background: 'var(--win95-button-face)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border-soft)',
+            background: 'var(--shell-button-surface)',
+            color: 'var(--shell-text)'
           }}
         >
           <Save className="w-4 h-4" />

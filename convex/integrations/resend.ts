@@ -125,8 +125,20 @@ export const saveResendSettings = mutation({
       throw new Error("Permission denied: manage_integrations required");
     }
 
+    const normalizedApiKey = args.resendApiKey.trim();
+    if (!normalizedApiKey) {
+      throw new Error("Resend API key is required");
+    }
+
+    const encryptedApiKey = await (ctx as any).runAction(
+      generatedApi.internal.oauth.encryption.encryptToken,
+      { plaintext: normalizedApiKey }
+    ) as string;
+
     const settingsData = {
-      resendApiKey: args.resendApiKey,
+      resendApiKey: encryptedApiKey,
+      credentialSource: "object_settings",
+      encryptedFields: ["resendApiKey"],
       senderEmail: args.senderEmail,
       replyToEmail: args.replyToEmail || "",
       enabled: args.enabled,

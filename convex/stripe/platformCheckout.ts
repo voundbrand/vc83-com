@@ -2,15 +2,22 @@
  * STRIPE PLATFORM TIER CHECKOUT
  *
  * Handles Stripe Checkout session creation for platform tier subscriptions.
- * Active tiers: Free → Pro (€29/mo) → Agency (€299/mo) → Enterprise (custom)
+ * Active runtime tiers: Free → Pro → agency → Enterprise.
+ * Customer-facing name for runtime agency is Scale.
  *
  * This is separate from AI subscription billing (aiCheckout.ts).
  * Platform tiers control feature limits, not AI token usage.
  */
 
-import { action, internalQuery } from "../_generated/server";
+import { action, internalQuery, query } from "../_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
+import {
+  buildByokCommercialPolicyMetadata,
+  getByokCommercialPolicyRuleTable,
+  resolveByokCommercialPolicyForTier,
+  resolveByokCommercialPolicyFromMetadata,
+} from "./byokCommercialPolicy";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -28,7 +35,7 @@ const getStripe = () => {
 /**
  * Platform tier price IDs (set in environment variables)
  *
- * Active tiers: Pro (€29/mo) and Agency (€299/mo)
+ * Active runtime tiers: Pro and agency (customer-facing: Scale)
  * Enterprise is custom pricing (contact sales)
  * Free has no Stripe price
  *
@@ -45,7 +52,46 @@ const TIER_PRICE_IDS = {
   } as Record<string, string | undefined>,
 };
 
+export type StorePublicCheckoutTier = "pro" | "scale";
+export type PlatformRuntimeCheckoutTier = "pro" | "agency";
+export type CheckoutTierInput = StorePublicCheckoutTier | PlatformRuntimeCheckoutTier;
+
+export const STORE_PUBLIC_TO_RUNTIME_CHECKOUT_TIER: Record<
+  StorePublicCheckoutTier,
+  PlatformRuntimeCheckoutTier
+> = {
+  pro: "pro",
+  scale: "agency",
+};
+
+export const STORE_RUNTIME_TO_PUBLIC_CHECKOUT_TIER: Record<
+  PlatformRuntimeCheckoutTier,
+  StorePublicCheckoutTier
+> = {
+  pro: "pro",
+  agency: "scale",
+};
+
+export function mapStorePublicTierToRuntimeCheckoutTier(
+  tier: StorePublicCheckoutTier
+): PlatformRuntimeCheckoutTier {
+  return STORE_PUBLIC_TO_RUNTIME_CHECKOUT_TIER[tier];
+}
+
+export function mapRuntimeCheckoutTierToStorePublicTier(
+  tier: PlatformRuntimeCheckoutTier
+): StorePublicCheckoutTier {
+  return STORE_RUNTIME_TO_PUBLIC_CHECKOUT_TIER[tier];
+}
+
+export function normalizeCheckoutTierInput(
+  tier: CheckoutTierInput
+): PlatformRuntimeCheckoutTier {
+  return tier === "scale" ? "agency" : tier;
+}
+
 const DEFAULT_PUBLIC_APP_URL = "https://app.l4yercak3.com";
+const SCALE_STORE_TRIAL_DAYS = 14;
 
 type FunnelAttribution = {
   channel?: "webchat" | "native_guest" | "telegram" | "platform_web" | "unknown";
@@ -60,6 +106,15 @@ type FunnelAttribution = {
   };
 };
 
+function mapRuntimeTierToPublicStoreTier(
+  tier: string | undefined | null
+): "free" | "pro" | "scale" | "enterprise" {
+  if (tier === "agency") return "scale";
+  if (tier === "pro" || tier === "starter" || tier === "professional") return "pro";
+  if (tier === "enterprise") return "enterprise";
+  return "free";
+}
+
 export function resolvePublicAppUrl(): string {
   const base =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -71,15 +126,17 @@ export function resolvePublicAppUrl(): string {
 
 export function buildPlatformCheckoutRedirectUrls(args: {
   appBaseUrl?: string;
-  tier: "pro" | "agency";
+  tier: CheckoutTierInput;
   billingPeriod: "monthly" | "annual";
   attribution?: FunnelAttribution;
 }): { successUrl: string; cancelUrl: string } {
   const baseUrl = (args.appBaseUrl || resolvePublicAppUrl()).replace(/\/+$/, "");
+  const runtimeTier = normalizeCheckoutTierInput(args.tier);
+  const publicTier = mapRuntimeCheckoutTierToStorePublicTier(runtimeTier);
   const params = new URLSearchParams({
     purchase: "success",
     type: "plan",
-    tier: args.tier,
+    tier: publicTier,
     period: args.billingPeriod,
   });
 
@@ -100,6 +157,17 @@ export function buildPlatformCheckoutRedirectUrls(args: {
 }
 
 /**
+ * Public BYOK commercial policy table for Store UI and audits.
+ * Migration-safe defaults are baked into policy resolution.
+ */
+export const getByokCommercialPolicyTable = query({
+  args: {},
+  handler: async () => {
+    return getByokCommercialPolicyRuleTable();
+  },
+});
+
+/**
  * CREATE PLATFORM CHECKOUT SESSION
  *
  * Creates a Stripe Checkout session for subscribing to a platform tier.
@@ -112,6 +180,7 @@ export const createPlatformCheckoutSession = action({
     email: v.string(),
     tier: v.union(
       v.literal("pro"),
+      v.literal("scale"),
       v.literal("agency"),
     ),
     billingPeriod: v.union(v.literal("monthly"), v.literal("annual")),
@@ -142,6 +211,8 @@ export const createPlatformCheckoutSession = action({
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
+    const runtimeTier = normalizeCheckoutTierInput(args.tier);
+    const publicTier = mapRuntimeCheckoutTierToStorePublicTier(runtimeTier);
 
     // Get organization and existing billing details
     const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
@@ -150,6 +221,24 @@ export const createPlatformCheckoutSession = action({
     const billingDetails = await (ctx as any).runQuery(generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails, {
       organizationId: args.organizationId,
     });
+
+    const license = await (ctx as any).runQuery(
+      generatedApi.api.licensing.helpers.getLicense,
+      { organizationId: args.organizationId }
+    );
+    const hadPreviousScaleTrial =
+      runtimeTier === "agency"
+        ? await (ctx as any).runQuery(
+            generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
+            { organizationId: args.organizationId }
+          )
+        : false;
+    const isScaleTrialEligible =
+      runtimeTier === "agency" &&
+      (license?.planTier || "free") === "free" &&
+      !hadPreviousScaleTrial;
+    const checkoutType = isScaleTrialEligible ? "platform-trial" : "platform-tier";
+    const trialStartedAt = Date.now().toString();
 
     // Prepare customer data with stored billing address if available
     const customerData: Stripe.CustomerCreateParams = {
@@ -221,12 +310,16 @@ export const createPlatformCheckoutSession = action({
     }
 
     // Determine price ID based on tier and billing period
-    const priceId = TIER_PRICE_IDS[args.billingPeriod][args.tier];
+    const priceId = TIER_PRICE_IDS[args.billingPeriod][runtimeTier];
     const billingPeriodSuffix = args.billingPeriod === "monthly" ? "MO" : "YR";
 
     if (!priceId) {
-      throw new Error(`Price ID not configured for tier: ${args.tier} (${args.billingPeriod}). Please set STRIPE_PLATFORM_${args.tier.toUpperCase()}_${billingPeriodSuffix}_PRICE_ID environment variable.`);
+      throw new Error(`Price ID not configured for tier: ${runtimeTier} (${args.billingPeriod}). Please set STRIPE_PLATFORM_${runtimeTier.toUpperCase()}_${billingPeriodSuffix}_PRICE_ID environment variable.`);
     }
+    const byokCommercialPolicy = resolveByokCommercialPolicyForTier(runtimeTier);
+    const byokCommercialMetadata = buildByokCommercialPolicyMetadata(
+      byokCommercialPolicy
+    );
 
     // Prepare checkout session parameters
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -257,11 +350,14 @@ export const createPlatformCheckoutSession = action({
       },
       metadata: {
         organizationId: args.organizationId,
-        tier: args.tier,
+        tier: runtimeTier,
+        publicTier,
         billingPeriod: args.billingPeriod,
         platform: "l4yercak3",
-        type: "platform-tier",
+        type: checkoutType,
         isB2B: args.isB2B ? "true" : "false",
+        ...(isScaleTrialEligible ? { trialStartedAt } : {}),
+        ...byokCommercialMetadata,
         ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
         ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
         ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
@@ -272,12 +368,16 @@ export const createPlatformCheckoutSession = action({
         ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
       },
       subscription_data: {
+        ...(isScaleTrialEligible ? { trial_period_days: SCALE_STORE_TRIAL_DAYS } : {}),
         metadata: {
           organizationId: args.organizationId,
-          tier: args.tier,
+          tier: runtimeTier,
+          publicTier,
           billingPeriod: args.billingPeriod,
           platform: "l4yercak3",
-          type: "platform-tier",
+          type: checkoutType,
+          ...(isScaleTrialEligible ? { trialStartedAt } : {}),
+          ...byokCommercialMetadata,
           ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
           ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
           ...(args.funnelCampaign?.medium ? { utmMedium: args.funnelCampaign.medium } : {}),
@@ -484,6 +584,10 @@ export const managePlatformSubscription = action({
         message: `Price not configured for ${args.newTier} (${args.billingPeriod})`,
       };
     }
+    const byokCommercialPolicy = resolveByokCommercialPolicyForTier(args.newTier);
+    const byokCommercialMetadata = buildByokCommercialPolicyMetadata(
+      byokCommercialPolicy
+    );
 
     // UPGRADE (immediate with proration credit)
     if (newTierOrder > currentTierOrder) {
@@ -508,6 +612,7 @@ export const managePlatformSubscription = action({
           ...subscription.metadata,
           tier: args.newTier,
           billingPeriod: args.billingPeriod,
+          ...byokCommercialMetadata,
         },
       });
 
@@ -562,6 +667,7 @@ export const managePlatformSubscription = action({
                   billingPeriod: args.billingPeriod,
                   platform: "l4yercak3",
                   type: "platform-tier",
+                  ...byokCommercialMetadata,
                 },
                 // Last phase with end_behavior: release doesn't need end_date
               },
@@ -600,6 +706,7 @@ export const managePlatformSubscription = action({
                   billingPeriod: args.billingPeriod,
                   platform: "l4yercak3",
                   type: "platform-tier",
+                  ...byokCommercialMetadata,
                 },
               },
             ],
@@ -734,12 +841,22 @@ export const getSubscriptionStatus = action({
   handler: async (ctx, args): Promise<{
     hasSubscription: boolean;
     currentTier: string;
+    currentPublicTier: "free" | "pro" | "scale" | "enterprise";
+    scaleTrialEligible: boolean;
     billingPeriod?: string;
     currentPeriodEnd?: number;
     cancelAtPeriodEnd: boolean;
     pendingDowngrade?: {
       newTier: string;
       effectiveDate: number;
+    };
+    byokCommercialPolicy?: {
+      mode: string;
+      byokEligible: boolean;
+      flatPlatformFeeCents: number;
+      optionalSurchargeBps: number;
+      bundledInTier: boolean;
+      migrationDefault: boolean;
     };
   }> => {
     const stripe = getStripe();
@@ -748,12 +865,30 @@ export const getSubscriptionStatus = action({
 
     // Get current plan tier from license (single source of truth)
     const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
+    const hadPreviousScaleTrial: boolean = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
+      { organizationId: args.organizationId }
+    );
+    const scaleTrialEligible = (license?.planTier || "free") === "free" && !hadPreviousScaleTrial;
 
     if (!org?.stripeSubscriptionId) {
+      const fallbackByokPolicy = resolveByokCommercialPolicyForTier(
+        license?.planTier
+      );
       return {
         hasSubscription: false,
         currentTier: license?.planTier || "free",
+        currentPublicTier: mapRuntimeTierToPublicStoreTier(license?.planTier),
+        scaleTrialEligible,
         cancelAtPeriodEnd: false,
+        byokCommercialPolicy: {
+          mode: fallbackByokPolicy.mode,
+          byokEligible: fallbackByokPolicy.byokEligible,
+          flatPlatformFeeCents: fallbackByokPolicy.flatPlatformFeeCents,
+          optionalSurchargeBps: fallbackByokPolicy.optionalSurchargeBps,
+          bundledInTier: fallbackByokPolicy.bundledInTier,
+          migrationDefault: fallbackByokPolicy.migrationDefault,
+        },
       };
     }
 
@@ -794,20 +929,49 @@ export const getSubscriptionStatus = action({
         }
       }
 
+      const byokPolicy = resolveByokCommercialPolicyFromMetadata({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        metadata: (subscription.metadata ?? {}) as Record<string, string | undefined>,
+        fallbackTier: license?.planTier,
+      });
+
       return {
         hasSubscription: true,
         currentTier: license.planTier || "free",
+        currentPublicTier: mapRuntimeTierToPublicStoreTier(license.planTier),
+        scaleTrialEligible: false,
         billingPeriod: subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         currentPeriodEnd: subscription.current_period_end * 1000,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         pendingDowngrade,
+        byokCommercialPolicy: {
+          mode: byokPolicy.mode,
+          byokEligible: byokPolicy.byokEligible,
+          flatPlatformFeeCents: byokPolicy.flatPlatformFeeCents,
+          optionalSurchargeBps: byokPolicy.optionalSurchargeBps,
+          bundledInTier: byokPolicy.bundledInTier,
+          migrationDefault: byokPolicy.migrationDefault,
+        },
       };
     } catch (error) {
       console.error("[Platform Subscription] Error getting status:", error);
+      const fallbackByokPolicy = resolveByokCommercialPolicyForTier(
+        license?.planTier
+      );
       return {
         hasSubscription: false,
         currentTier: license?.planTier || "free",
+        currentPublicTier: mapRuntimeTierToPublicStoreTier(license?.planTier),
+        scaleTrialEligible,
         cancelAtPeriodEnd: false,
+        byokCommercialPolicy: {
+          mode: fallbackByokPolicy.mode,
+          byokEligible: fallbackByokPolicy.byokEligible,
+          flatPlatformFeeCents: fallbackByokPolicy.flatPlatformFeeCents,
+          optionalSurchargeBps: fallbackByokPolicy.optionalSurchargeBps,
+          bundledInTier: fallbackByokPolicy.bundledInTier,
+          migrationDefault: fallbackByokPolicy.migrationDefault,
+        },
       };
     }
   },

@@ -534,8 +534,8 @@ export function UserEditModal({
                     disabled={isSubmitting || (!canEditProfile && !canEditRole)}
                     className="beveled-button px-4 py-1.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
                     style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
+                      backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                      color: "var(--button-primary-text, #0f0f0f)",
                     }}
                   >
                     <Save size={14} />

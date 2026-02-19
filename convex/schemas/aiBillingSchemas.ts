@@ -15,6 +15,7 @@
 
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { aiBillingSourceValidator } from "./coreSchemas";
 
 /**
  * AI USAGE TRACKING
@@ -23,9 +24,8 @@ import { v } from "convex/values";
  * Records are created after each AI request (chat, embedding, completion).
  *
  * Purpose:
- * - Calculate monthly bills for Platform Key mode
+ * - Track AI usage telemetry with deterministic billing metadata
  * - Display usage dashboard for both modes
- * - Enforce budget limits for Platform Key mode
  * - Provide usage analytics and forecasting
  */
 export const aiUsage = defineTable({
@@ -64,6 +64,24 @@ export const aiUsage = defineTable({
     v.literal("privacy-enhanced"),          // Privacy-Enhanced tier (€49/month, GDPR-optimized)
     v.literal("private-llm")                // Private LLM tier (€2,500+/month, self-hosted)
   ),
+
+  // Deterministic billing policy metadata (credits ledger is authoritative)
+  billingSource: v.optional(aiBillingSourceValidator),
+  requestSource: v.optional(v.union(
+    v.literal("llm"),
+    v.literal("platform_action")
+  )),
+  billingPolicyReason: v.optional(v.string()),
+  billingLedger: v.optional(v.union(
+    v.literal("credits_ledger"),
+    v.literal("legacy_tokens")
+  )),
+  billingLedgerReason: v.optional(v.string()),
+  creditLedgerAction: v.optional(v.string()),
+  legacyTokenAccountingStatus: v.optional(v.union(
+    v.literal("skipped"),
+    v.literal("deprecated_blocked")
+  )),
 
   // Privacy audit fields (for Privacy-Enhanced tier compliance)
   dataCollectionPolicy: v.optional(v.string()),  // "deny" for Privacy-Enhanced, "allow" for Standard
@@ -186,7 +204,11 @@ export const aiSubscriptions = defineTable({
 
   // Token balance (Standard & Privacy-Enhanced only)
   includedTokensTotal: v.number(),          // 500,000 tokens
-  includedTokensUsed: v.number(),           // Resets each period
+  includedTokensUsed: v.number(),           // Legacy visibility field (no runtime auto-debit)
+  legacyTokenAccountingMode: v.optional(v.union(
+    v.literal("legacy_active"),
+    v.literal("deprecated_disabled")
+  )),
 
   // Trial information
   trialStart: v.optional(v.number()),
@@ -219,16 +241,14 @@ export const aiSubscriptions = defineTable({
 /**
  * AI TOKEN BALANCE v3.1
  *
- * Tracks purchased token balance for Standard and Privacy-Enhanced tiers.
- * Included tokens (500K/month) are tracked in aiSubscriptions.
- * This table tracks additional purchased tokens.
+ * Tracks purchased token balance for legacy/manual allocations.
+ * Included tokens remain visible in aiSubscriptions for compatibility UI.
+ * Runtime charging is handled by credits ledger and does not auto-debit this table.
  *
- * Token Rules (v3.1):
- * - Included tokens reset monthly (no rollover)
- * - Purchased tokens never expire while subscription is active
- * - Consumption order: Included tokens first, then purchased
- * - If subscription lapses: 30-day grace period, then tokens forfeited
- * - Token packs: €29, €139, €249, €1,149 (all prices include 19% VAT)
+ * Legacy Token Rules:
+ * - Purchased balances are manual/legacy artifacts only.
+ * - No automatic runtime debit from token packs.
+ * - Token packs: €29, €139, €249, €1,149 (all prices include 19% VAT).
  */
 export const aiTokenBalance = defineTable({
   organizationId: v.id("organizations"),

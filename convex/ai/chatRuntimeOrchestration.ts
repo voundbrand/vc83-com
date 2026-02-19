@@ -54,7 +54,9 @@ export interface ChatRuntimeResponse {
   };
 }
 
-export type ChatRuntimeAuthProfile = ResolvedAuthProfile;
+export interface ChatRuntimeAuthProfile extends ResolvedAuthProfile {
+  baseUrl?: string;
+}
 
 export interface ChatRuntimeFailoverResult {
   response: ChatRuntimeResponse;
@@ -123,10 +125,12 @@ export async function executeChatCompletionWithFailover(args: {
   onAuthProfileSuccess?: (args: {
     organizationId: Id<"organizations">;
     profileId: string;
+    providerId: string;
   }) => Promise<void>;
   onAuthProfileFailure?: (args: {
     organizationId: Id<"organizations">;
     profileId: string;
+    providerId: string;
     reason: string;
     cooldownUntil: number;
   }) => Promise<void>;
@@ -159,13 +163,16 @@ export async function executeChatCompletionWithFailover(args: {
   const authProfilesToTry = orderAuthProfilesForSession(
     args.authProfiles,
     args.preferredAuthProfileId
-  );
+  ) as ChatRuntimeAuthProfile[];
   const selectedAuthProfileId = authProfilesToTry[0]?.profileId ?? null;
-  let lastErrorMessage = "OpenRouter request failed";
+  let lastErrorMessage = "Provider request failed";
 
   for (const tryModel of modelsToTry) {
     for (const authProfile of authProfilesToTry) {
-      const client = new OpenRouterClient(authProfile.apiKey);
+      const client = new OpenRouterClient(authProfile.apiKey, {
+        providerId: authProfile.providerId,
+        baseUrl: authProfile.baseUrl,
+      });
       try {
         const retryResult = await withRetry(
           () =>
@@ -188,6 +195,7 @@ export async function executeChatCompletionWithFailover(args: {
           await args.onAuthProfileSuccess?.({
             organizationId: args.organizationId,
             profileId: authProfile.profileId,
+            providerId: authProfile.providerId,
           });
         }
 
@@ -237,6 +245,7 @@ export async function executeChatCompletionWithFailover(args: {
           await args.onAuthProfileFailure?.({
             organizationId: args.organizationId,
             profileId: authProfile.profileId,
+            providerId: authProfile.providerId,
             reason: errorMessage.slice(0, 300),
             cooldownUntil,
           });

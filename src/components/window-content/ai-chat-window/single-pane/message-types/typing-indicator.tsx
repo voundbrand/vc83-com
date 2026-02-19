@@ -8,8 +8,8 @@ export function TypingIndicator() {
       <div
         className="px-4 py-3 rounded border-2"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface-elevated)',
           borderStyle: 'inset'
         }}
       >

@@ -166,6 +166,24 @@ export interface InterviewState {
     decidedAt?: number;
     decisionSource?: "user";
   };
+
+  // Explicit lifecycle token for pause/resume/discard UX.
+  sessionLifecycle?: {
+    state:
+      | "capturing"
+      | "checkpoint_review"
+      | "consent_pending"
+      | "resumable_unsaved"
+      | "saved"
+      | "discarded";
+    checkpointId:
+      | "cp0_capture_notice"
+      | "cp1_summary_review"
+      | "cp2_save_decision"
+      | "cp3_post_save_revoke";
+    updatedAt: number;
+    updatedBy: "system" | "user";
+  };
 }
 
 // ============================================================================
@@ -197,6 +215,24 @@ export const interviewStateValidator = v.object({
     promptedAt: v.number(),
     decidedAt: v.optional(v.number()),
     decisionSource: v.optional(v.literal("user")),
+  })),
+  sessionLifecycle: v.optional(v.object({
+    state: v.union(
+      v.literal("capturing"),
+      v.literal("checkpoint_review"),
+      v.literal("consent_pending"),
+      v.literal("resumable_unsaved"),
+      v.literal("saved"),
+      v.literal("discarded"),
+    ),
+    checkpointId: v.union(
+      v.literal("cp0_capture_notice"),
+      v.literal("cp1_summary_review"),
+      v.literal("cp2_save_decision"),
+      v.literal("cp3_post_save_revoke"),
+    ),
+    updatedAt: v.number(),
+    updatedBy: v.union(v.literal("system"), v.literal("user")),
   })),
 });
 

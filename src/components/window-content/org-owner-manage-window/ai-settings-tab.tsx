@@ -1,43 +1,154 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Save, Loader2, Brain, AlertTriangle, Lock, CheckCircle2, XCircle, ShoppingCart, Check } from "lucide-react";
+import {
+  Save,
+  Loader2,
+  Brain,
+  AlertTriangle,
+  Lock,
+  KeyRound,
+  CheckCircle2,
+  XCircle,
+  ShoppingCart,
+  Check,
+  Mic,
+} from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { StoreWindow } from "../store-window";
 import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
 
+// Dynamic require avoids deep generated API type instantiation in large settings forms.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
+
 export function AISettingsTab() {
-  const { user } = useAuth();
+  const { user, sessionId } = useAuth();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.ai");
   const { openWindow } = useWindowManager();
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
 
-  // Check if user is super admin (only super admin can use BYOK)
-  // TODO: Add role field to User type or check via a query
-  const isSuperAdmin = false; // For now, disabled until we add proper super admin detection
+  type PlatformModel = {
+    id: string;
+    name: string;
+    provider?: string;
+    contextLength: number;
+    capabilities: {
+      toolCalling: boolean;
+      multimodal: boolean;
+      vision: boolean;
+    };
+    isSystemDefault?: boolean;
+  };
+
+  type TierLicenseSnapshot = {
+    planTier?: "free" | "starter" | "professional" | "agency" | "enterprise";
+    features?: Record<string, unknown>;
+  };
+
+  type ByokCommercialPolicyRow = {
+    tier: "free" | "pro" | "agency" | "enterprise";
+    byokEligible: boolean;
+  };
+
+  type AIConnectionCatalogSnapshot = {
+    byokEnabled: boolean;
+    requiredTierForByok: string;
+    providers: Array<{
+      providerId: string;
+      providerLabel: string;
+      hasApiKey: boolean;
+      isConnected: boolean;
+      enabled: boolean;
+      maskedKey: string | null;
+    }>;
+  };
+
+  type AgentRecord = {
+    _id: Id<"objects">;
+    subtype?: string;
+    name?: string;
+    status?: string;
+    customProperties?: {
+      displayName?: string;
+      modelProvider?: string;
+      modelId?: string;
+    };
+  };
+
+  const normalizePlanTier = (tier?: string | null): "free" | "pro" | "agency" | "enterprise" => {
+    if (tier === "agency") {
+      return "agency";
+    }
+    if (tier === "enterprise") {
+      return "enterprise";
+    }
+    if (tier === "starter" || tier === "professional") {
+      return "pro";
+    }
+    return "free";
+  };
 
   // Get existing AI settings
   const settings = useQuery(
-    api.ai.settings.getAISettings,
+    apiAny.ai.settings.getAISettings,
     organizationId ? { organizationId } : "skip"
   );
 
   // Get subscription status
   const subscriptionStatus = useQuery(
-    api.ai.billing.getSubscriptionStatus,
+    apiAny.ai.billing.getSubscriptionStatus,
     organizationId ? { organizationId } : "skip"
   );
+  const license = useQuery(
+    apiAny.licensing.helpers.getLicense,
+    organizationId ? { organizationId } : "skip"
+  ) as TierLicenseSnapshot | undefined;
+  const byokPolicyTable = useQuery(
+    apiAny.stripe.platformCheckout.getByokCommercialPolicyTable,
+    {}
+  ) as ByokCommercialPolicyRow[] | undefined;
 
   // Get platform-enabled models
-  const platformModels = useQuery(api.ai.platformModels.getEnabledModels);
+  const platformModels = useQuery(
+    apiAny.ai.platformModels.getEnabledModels,
+  ) as PlatformModel[] | undefined;
+  const aiConnectionsCatalog = useQuery(
+    apiAny.integrations.aiConnections.getAIConnectionCatalog,
+    sessionId && organizationId ? { sessionId, organizationId } : "skip"
+  ) as AIConnectionCatalogSnapshot | undefined;
+  const agents = useQuery(
+    apiAny.agentOntology.getAgents,
+    sessionId && organizationId
+      ? {
+          sessionId,
+          organizationId,
+          subtype: undefined,
+          status: undefined,
+        }
+      : "skip"
+  ) as AgentRecord[] | undefined;
+  const elevenLabsSettings = useQuery(
+    apiAny.integrations.elevenlabs.getElevenLabsSettings,
+    sessionId && organizationId ? { sessionId, organizationId } : "skip",
+  );
 
-  const upsertSettings = useMutation(api.ai.settings.upsertAISettings);
+  const upsertSettings = useMutation(apiAny.ai.settings.upsertAISettings);
+  const saveElevenLabsSettings = useMutation(
+    apiAny.integrations.elevenlabs.saveElevenLabsSettings,
+  );
+  const saveAIConnection = useMutation(
+    apiAny.integrations.aiConnections.saveAIConnection,
+  );
+  const probeElevenLabsHealth = useAction(
+    apiAny.integrations.elevenlabs.probeElevenLabsHealth,
+  );
+  const updateAgent = useMutation(apiAny.agentOntology.updateAgent);
 
   // Form state
   const [enabled, setEnabled] = useState(false);
@@ -51,9 +162,21 @@ export function AISettingsTab() {
   }>>([]);
   const [defaultModelId, setDefaultModelId] = useState<string>("");
 
-  // Super admin only: BYOK option
+  // BYOK option (tier-gated)
   const [useBYOK, setUseBYOK] = useState(false);
   const [openrouterApiKey, setOpenrouterApiKey] = useState("");
+  const [openrouterHasSavedApiKey, setOpenrouterHasSavedApiKey] = useState(false);
+  const [elevenLabsEnabled, setElevenLabsEnabled] = useState(false);
+  const [elevenLabsApiKey, setElevenLabsApiKey] = useState("");
+  const [elevenLabsBaseUrl, setElevenLabsBaseUrl] = useState("https://api.elevenlabs.io/v1");
+  const [elevenLabsDefaultVoiceId, setElevenLabsDefaultVoiceId] = useState("");
+  const [elevenLabsHasSavedApiKey, setElevenLabsHasSavedApiKey] = useState(false);
+  const [isProbingElevenLabs, setIsProbingElevenLabs] = useState(false);
+  const [elevenLabsProbeResult, setElevenLabsProbeResult] = useState<{
+    status: "healthy" | "degraded" | "offline";
+    reason?: string;
+    checkedAt: number;
+  } | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -68,6 +191,45 @@ export function AISettingsTab() {
   const [filterCapability, setFilterCapability] = useState<"all" | "tool_calling" | "multimodal" | "vision">("all");
   const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
+  const [fallbackProviderOrder, setFallbackProviderOrder] = useState<string[]>([]);
+  const [defaultProviderId, setDefaultProviderId] = useState<string>("openrouter");
+  const [agentModelDefaults, setAgentModelDefaults] = useState<Record<string, {
+    modelProvider: string;
+    modelId: string;
+  }>>({});
+
+  const aiFeatureEnabled = useMemo(
+    () => license?.features?.aiEnabled === true,
+    [license]
+  );
+  const byokFeatureEnabled = useMemo(() => {
+    if (typeof license?.features?.aiByokEnabled === "boolean") {
+      return license.features.aiByokEnabled === true;
+    }
+    return aiFeatureEnabled;
+  }, [aiFeatureEnabled, license]);
+  const normalizedPlanTier = normalizePlanTier(license?.planTier);
+  const byokPolicyForTier = useMemo(
+    () => byokPolicyTable?.find((row) => row.tier === normalizedPlanTier),
+    [byokPolicyTable, normalizedPlanTier]
+  );
+  const canUseByok = useMemo(
+    () =>
+      aiFeatureEnabled &&
+      byokFeatureEnabled &&
+      Boolean(byokPolicyForTier?.byokEligible),
+    [aiFeatureEnabled, byokFeatureEnabled, byokPolicyForTier]
+  );
+  const byokRequiredTier =
+    aiConnectionsCatalog?.requiredTierForByok || "Starter (€199/month)";
+  const connectedProviderOptions = useMemo(() => {
+    return (aiConnectionsCatalog?.providers ?? [])
+      .filter((provider) => provider.isConnected && provider.providerId !== "elevenlabs")
+      .map((provider) => ({
+        id: provider.providerId,
+        label: provider.providerLabel,
+      }));
+  }, [aiConnectionsCatalog]);
 
   // Model type definition (moved before useEffects)
   type ModelOption = {
@@ -125,7 +287,13 @@ export function AISettingsTab() {
       // Load enabled models
       if (settings.llm.enabledModels && settings.llm.enabledModels.length > 0) {
         setEnabledModels(settings.llm.enabledModels);
-        setDefaultModelId(settings.llm.defaultModelId || settings.llm.enabledModels.find(m => m.isDefault)?.modelId || "");
+        setDefaultModelId(
+          settings.llm.defaultModelId ||
+            settings.llm.enabledModels.find(
+              (m: { isDefault?: boolean; modelId: string }) => m.isDefault,
+            )?.modelId ||
+            "",
+        );
       } else {
         // If no models saved, auto-select system defaults only
         const models = getAllModelsForTier(settings.tier || "standard");
@@ -141,16 +309,34 @@ export function AISettingsTab() {
         }
       }
 
-      if (settings.billingMode === "byok" && settings.llm.openrouterApiKey) {
-        setUseBYOK(true);
-        setOpenrouterApiKey(settings.llm.openrouterApiKey);
+      setUseBYOK(settings.billingMode === "byok" && canUseByok);
+      setDefaultProviderId(
+        settings.llm.providerId || settings.llm.provider || "openrouter"
+      );
+
+      const providerProfiles = (settings.llm.providerAuthProfiles || [])
+        .filter((profile: { enabled?: boolean; providerId?: string }) =>
+          profile.enabled && profile.providerId && profile.providerId !== "elevenlabs"
+        )
+        .sort(
+          (
+            left: { priority?: number },
+            right: { priority?: number }
+          ) => (left.priority ?? 10_000) - (right.priority ?? 10_000)
+        )
+        .map((profile: { providerId: string }) => profile.providerId);
+
+      if (providerProfiles.length > 0) {
+        setFallbackProviderOrder(Array.from(new Set(providerProfiles)));
+      } else if (connectedProviderOptions.length > 0) {
+        setFallbackProviderOrder(connectedProviderOptions.map((provider) => provider.id));
       }
     } else if (platformModels && enabledModels.length === 0) {
       // NEW: No settings exist yet, auto-select system defaults
       // This happens when a new organization first opens AI Settings
-      const systemDefaults = platformModels.filter(m => m.isSystemDefault);
+      const systemDefaults = platformModels.filter((m) => m.isSystemDefault);
       if (systemDefaults.length > 0) {
-        const newModels = systemDefaults.map((m, index) => ({
+        const newModels = systemDefaults.map((m, index: number) => ({
           modelId: m.id,
           isDefault: index === 0, // First system default is the default
           enabledAt: Date.now()
@@ -160,8 +346,82 @@ export function AISettingsTab() {
         setEnabled(true); // Auto-enable AI features
       }
     }
+    if (!canUseByok) {
+      setUseBYOK(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on initial load, not when user modifies local state
-  }, [settings, platformModels]);
+  }, [settings, platformModels, canUseByok, connectedProviderOptions]);
+
+  useEffect(() => {
+    const openRouterConnection = aiConnectionsCatalog?.providers?.find(
+      (provider) => provider.providerId === "openrouter"
+    );
+    setOpenrouterHasSavedApiKey(Boolean(openRouterConnection?.hasApiKey));
+  }, [aiConnectionsCatalog]);
+
+  useEffect(() => {
+    if (fallbackProviderOrder.length > 0 || connectedProviderOptions.length === 0) {
+      return;
+    }
+    setFallbackProviderOrder(connectedProviderOptions.map((provider) => provider.id));
+  }, [fallbackProviderOrder.length, connectedProviderOptions]);
+
+  useEffect(() => {
+    if (!agents) {
+      return;
+    }
+
+    setAgentModelDefaults((current) => {
+      const nextDefaults: Record<string, { modelProvider: string; modelId: string }> = {
+        ...current,
+      };
+
+      for (const agent of agents) {
+        if (nextDefaults[agent._id]) {
+          continue;
+        }
+
+        const currentProvider =
+          agent.customProperties?.modelProvider || defaultProviderId || "openrouter";
+        const currentModel =
+          agent.customProperties?.modelId ||
+          defaultModelId ||
+          enabledModels[0]?.modelId ||
+          "";
+
+        nextDefaults[agent._id] = {
+          modelProvider: currentProvider,
+          modelId: currentModel,
+        };
+      }
+
+      return nextDefaults;
+    });
+  }, [agents, defaultProviderId, defaultModelId, enabledModels]);
+
+  useEffect(() => {
+    if (!elevenLabsSettings) {
+      return;
+    }
+
+    setElevenLabsEnabled(Boolean(elevenLabsSettings.enabled));
+    setElevenLabsBaseUrl(
+      elevenLabsSettings.baseUrl || "https://api.elevenlabs.io/v1",
+    );
+    setElevenLabsDefaultVoiceId(elevenLabsSettings.defaultVoiceId ?? "");
+    setElevenLabsHasSavedApiKey(Boolean(elevenLabsSettings.hasApiKey));
+    setElevenLabsProbeResult({
+      status: elevenLabsSettings.healthStatus ?? "degraded",
+      reason:
+        elevenLabsSettings.healthReason ??
+        elevenLabsSettings.lastFailureReason ??
+        undefined,
+      checkedAt: Date.now(),
+    });
+    if (!elevenLabsSettings.hasApiKey) {
+      setElevenLabsApiKey("");
+    }
+  }, [elevenLabsSettings]);
 
   // Auto-select system default models when tier changes
   // This effect handles filtering out incompatible models when switching privacy tiers
@@ -323,6 +583,78 @@ export function AISettingsTab() {
     setDefaultModelId(modelId);
   };
 
+  const moveFallbackProvider = (providerId: string, direction: "up" | "down") => {
+    setFallbackProviderOrder((current) => {
+      const index = current.indexOf(providerId);
+      if (index < 0) {
+        return current;
+      }
+
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return next;
+    });
+  };
+
+  const updateAgentDefault = (
+    agentId: string,
+    updates: Partial<{ modelProvider: string; modelId: string }>
+  ) => {
+    setAgentModelDefaults((current) => ({
+      ...current,
+      [agentId]: {
+        ...(current[agentId] ?? {
+          modelProvider: defaultProviderId || "openrouter",
+          modelId: defaultModelId || enabledModels[0]?.modelId || "",
+        }),
+        ...updates,
+      },
+    }));
+  };
+
+  const handleProbeElevenLabs = async () => {
+    if (!sessionId || !organizationId) {
+      return;
+    }
+
+    setIsProbingElevenLabs(true);
+    try {
+      const probeResult = (await probeElevenLabsHealth({
+        sessionId,
+        organizationId,
+        apiKey: elevenLabsApiKey.trim() || undefined,
+        baseUrl: elevenLabsBaseUrl.trim() || undefined,
+      })) as {
+        status: "healthy" | "degraded" | "offline";
+        reason?: string;
+        checkedAt: number;
+      };
+      setElevenLabsProbeResult({
+        status: probeResult.status,
+        reason: probeResult.reason,
+        checkedAt: probeResult.checkedAt,
+      });
+    } catch (error) {
+      setElevenLabsProbeResult({
+        status: "offline",
+        reason:
+          error instanceof Error
+            ? error.message
+            : "Health probe failed.",
+        checkedAt: Date.now(),
+      });
+    } finally {
+      setIsProbingElevenLabs(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!organizationId) return;
 
@@ -338,29 +670,123 @@ export function AISettingsTab() {
       return;
     }
 
+    if (useBYOK && !canUseByok) {
+      alert(`BYOK connections require ${byokRequiredTier} or higher.`);
+      return;
+    }
+
+    if (useBYOK && !openrouterHasSavedApiKey && !openrouterApiKey.trim()) {
+      alert("Enter an OpenRouter key (or connect one in Integrations) before enabling BYOK.");
+      return;
+    }
+
     setIsSaving(true);
     setSaveSuccess(false);
 
     try {
+      const existingProviderProfiles = settings?.llm?.providerAuthProfiles || [];
+      const providerPriorityMap = new Map(
+        fallbackProviderOrder.map((providerId, index) => [providerId, index])
+      );
+      const providerAuthProfiles = existingProviderProfiles.map(
+        (profile: {
+          providerId?: string;
+          priority?: number;
+          [key: string]: unknown;
+        }, index: number) => {
+          const providerId =
+            typeof profile.providerId === "string" ? profile.providerId : "";
+          const chainPriority = providerPriorityMap.get(providerId);
+          return {
+            ...profile,
+            priority:
+              chainPriority ??
+              profile.priority ??
+              fallbackProviderOrder.length + index,
+          };
+        }
+      );
+
       await upsertSettings({
         organizationId,
         enabled,
-        billingMode: useBYOK && isSuperAdmin ? "byok" : "platform",
+        billingMode: useBYOK && canUseByok ? "byok" : "platform",
         tier,
         llm: {
+          ...(settings?.llm || {}),
           enabledModels,
           defaultModelId,
-          temperature: 0.7,
-          maxTokens: 4000,
-          openrouterApiKey: (useBYOK && isSuperAdmin && openrouterApiKey) ? openrouterApiKey : undefined,
+          providerId: defaultProviderId || settings?.llm?.providerId || "openrouter",
+          temperature: settings?.llm?.temperature ?? 0.7,
+          maxTokens: settings?.llm?.maxTokens ?? 4000,
+          providerAuthProfiles:
+            providerAuthProfiles.length > 0 ? providerAuthProfiles : undefined,
         },
-        embedding: {
+        embedding: settings?.embedding || {
           provider: "none",
           model: "",
           dimensions: 0,
         },
-        monthlyBudgetUsd: undefined,
+        monthlyBudgetUsd: settings?.monthlyBudgetUsd,
       });
+
+      if (sessionId) {
+        if (useBYOK && canUseByok) {
+          await saveAIConnection({
+            sessionId,
+            organizationId,
+            providerId: "openrouter",
+            enabled: true,
+            apiKey: openrouterApiKey.trim() || undefined,
+            billingSource: "byok",
+          });
+          setOpenrouterHasSavedApiKey(
+            Boolean(openrouterApiKey.trim()) || openrouterHasSavedApiKey
+          );
+          setOpenrouterApiKey("");
+        }
+
+        await saveElevenLabsSettings({
+          sessionId,
+          organizationId,
+          enabled: elevenLabsEnabled,
+          apiKey: elevenLabsApiKey.trim() || undefined,
+          baseUrl: elevenLabsBaseUrl.trim() || undefined,
+          defaultVoiceId: elevenLabsDefaultVoiceId.trim() || undefined,
+        });
+        setElevenLabsHasSavedApiKey(
+          Boolean(elevenLabsApiKey.trim()) || elevenLabsHasSavedApiKey,
+        );
+
+        if (agents && agents.length > 0) {
+          for (const agent of agents) {
+            const desired = agentModelDefaults[agent._id];
+            if (!desired) {
+              continue;
+            }
+            const currentProvider =
+              agent.customProperties?.modelProvider || "openrouter";
+            const currentModel = agent.customProperties?.modelId || "";
+            const nextModelId =
+              desired.modelId || defaultModelId || currentModel;
+            if (
+              desired.modelProvider === currentProvider &&
+              nextModelId === currentModel
+            ) {
+              continue;
+            }
+
+            await updateAgent({
+              sessionId,
+              agentId: agent._id,
+              updates: {
+                modelProvider: desired.modelProvider,
+                modelId: nextModelId,
+              },
+            });
+          }
+        }
+      }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -428,6 +854,28 @@ export function AISettingsTab() {
     }
     return tokens.toString();
   };
+
+  const elevenLabsHealthStatus =
+    elevenLabsProbeResult?.status ??
+    elevenLabsSettings?.healthStatus ??
+    "degraded";
+  const elevenLabsHealthReason =
+    elevenLabsProbeResult?.reason ??
+    elevenLabsSettings?.healthReason ??
+    elevenLabsSettings?.lastFailureReason ??
+    undefined;
+  const elevenLabsHealthLabel =
+    elevenLabsHealthStatus === "healthy"
+      ? "Healthy"
+      : elevenLabsHealthStatus === "offline"
+        ? "Offline"
+        : "Degraded";
+  const elevenLabsHealthColor =
+    elevenLabsHealthStatus === "healthy"
+      ? "var(--success)"
+      : elevenLabsHealthStatus === "offline"
+        ? "var(--error)"
+        : "var(--warning)";
 
   return (
     <div className="space-y-6">
@@ -1093,61 +1541,433 @@ export function AISettingsTab() {
             </div>
           </div>
 
-          {/* Super Admin Only: BYOK Option */}
-          {isSuperAdmin && (
-            <div
-              className="p-4 border-2"
-              style={{
-                backgroundColor: 'var(--warning)',
-                borderColor: 'var(--window-document-border)',
-              }}
-            >
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
-                <AlertTriangle size={16} />
-                Super Admin Only: Bring Your Own Key
+          {/* Provider Defaults + Fallback Editor */}
+          <div
+            className="p-4 border-2"
+            style={{
+              backgroundColor: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
+            }}
+          >
+            <div className="mb-3">
+              <h3 className="font-bold text-sm mb-1 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+                <Brain size={16} />
+                Provider Defaults & Fallback
               </h3>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                Set the default runtime provider and fallback order used when a provider is unavailable.
+              </p>
+            </div>
 
-              <label className="flex items-center gap-3 cursor-pointer mb-3">
-                <input
-                  type="checkbox"
-                  checked={useBYOK}
-                  onChange={(e) => setUseBYOK(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <div>
-                  <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                    Use My Own OpenRouter API Key
-                  </span>
-                  <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                    Skip invoicing to ourselves when using our own system
-                  </p>
-                </div>
-              </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
+                  Default provider
+                </label>
+                <select
+                  value={defaultProviderId}
+                  onChange={(event) => setDefaultProviderId(event.target.value)}
+                  className="w-full p-2 text-xs border-2"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  {connectedProviderOptions.length === 0 && (
+                    <option value="openrouter">openrouter</option>
+                  )}
+                  {connectedProviderOptions.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-              {useBYOK && (
-                <div>
-                  <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    OpenRouter API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={openrouterApiKey}
-                    onChange={(e) => setOpenrouterApiKey(e.target.value)}
-                    placeholder="sk-or-v1-..."
-                    className="w-full p-2 text-xs border-2 font-mono"
-                    style={{
-                      borderColor: 'var(--window-document-border)',
-                      backgroundColor: 'var(--window-document-bg-elevated)',
-                      color: 'var(--window-document-text)'
-                    }}
-                  />
-                  <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                    Get yours at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>openrouter.ai/keys</a>
-                  </p>
+            <div className="mt-3">
+              <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+                Fallback chain order
+              </p>
+              {fallbackProviderOrder.length === 0 ? (
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  No connected providers yet. Configure AI Connections in Integrations first.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {fallbackProviderOrder.map((providerId, index) => {
+                    const providerLabel =
+                      connectedProviderOptions.find((provider) => provider.id === providerId)?.label ||
+                      providerId;
+
+                    return (
+                      <div
+                        key={providerId}
+                        className="flex items-center justify-between p-2 border-2"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          backgroundColor: "var(--window-document-bg)",
+                        }}
+                      >
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                            {index + 1}. {providerLabel}
+                          </p>
+                          <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+                            Provider ID: {providerId}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => moveFallbackProvider(providerId, "up")}
+                            className="desktop-interior-button py-1 px-2 text-[11px]"
+                            disabled={index === 0}
+                          >
+                            Up
+                          </button>
+                          <button
+                            onClick={() => moveFallbackProvider(providerId, "down")}
+                            className="desktop-interior-button py-1 px-2 text-[11px]"
+                            disabled={index === fallbackProviderOrder.length - 1}
+                          >
+                            Down
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Per-Agent Provider/Model Defaults */}
+          <div
+            className="p-4 border-2"
+            style={{
+              backgroundColor: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
+            }}
+          >
+            <div className="mb-3">
+              <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
+                Per-Agent Provider & Model Defaults
+              </h3>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                Each agent can override the global defaults. Changes are saved with AI settings.
+              </p>
+            </div>
+
+            {!agents || agents.length === 0 ? (
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                No agents found for this organization.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {agents.map((agent) => {
+                  const agentDefaults = agentModelDefaults[agent._id];
+                  const fallbackModel = defaultModelId || enabledModels[0]?.modelId || "";
+                  return (
+                    <div
+                      key={agent._id}
+                      className="grid grid-cols-1 md:grid-cols-4 gap-2 p-2 border-2"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        backgroundColor: "var(--window-document-bg)",
+                      }}
+                    >
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                          {agent.customProperties?.displayName || agent.name || "Agent"}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+                          {agent.subtype || "general"} • {agent.status || "draft"}
+                        </p>
+                      </div>
+
+                      <select
+                        value={agentDefaults?.modelProvider || defaultProviderId}
+                        onChange={(event) =>
+                          updateAgentDefault(agent._id, { modelProvider: event.target.value })
+                        }
+                        className="w-full p-2 text-xs border-2"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          backgroundColor: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
+                        }}
+                      >
+                        {connectedProviderOptions.length === 0 && (
+                          <option value={defaultProviderId || "openrouter"}>
+                            {defaultProviderId || "openrouter"}
+                          </option>
+                        )}
+                        {connectedProviderOptions.map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={agentDefaults?.modelId || fallbackModel}
+                        onChange={(event) =>
+                          updateAgentDefault(agent._id, { modelId: event.target.value })
+                        }
+                        className="w-full p-2 text-xs border-2"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          backgroundColor: "var(--window-document-bg-elevated)",
+                          color: "var(--window-document-text)",
+                        }}
+                      >
+                        {enabledModels.map((model) => (
+                          <option key={model.modelId} value={model.modelId}>
+                            {model.modelId}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Voice Runtime Provider Settings */}
+          <div
+            className="p-4 border-2"
+            style={{
+              backgroundColor: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
+            }}
+          >
+            <div className="mb-3">
+              <h3
+                className="font-bold text-sm mb-1 flex items-center gap-2"
+                style={{ color: "var(--window-document-text)" }}
+              >
+                <Mic size={16} />
+                Voice Runtime (ElevenLabs)
+              </h3>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                Configure your org-level voice runtime provider. If provider health is degraded or offline, runtime falls back to browser voice handling.
+              </p>
+            </div>
+
+            <label className="flex items-center gap-3 cursor-pointer mb-3">
+              <input
+                type="checkbox"
+                checked={elevenLabsEnabled}
+                onChange={(event) => setElevenLabsEnabled(event.target.checked)}
+                className="w-4 h-4"
+              />
+              <div>
+                <span
+                  className="font-bold text-sm"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Enable ElevenLabs voice provider
+                </span>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Keep disabled to force deterministic browser fallback for all sessions.
+                </p>
+              </div>
+            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label
+                  className="block text-xs font-bold mb-1"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  ElevenLabs API Key
+                </label>
+                <input
+                  type="password"
+                  value={elevenLabsApiKey}
+                  onChange={(event) => setElevenLabsApiKey(event.target.value)}
+                  placeholder={
+                    elevenLabsHasSavedApiKey
+                      ? "Stored key present. Enter a new key to rotate."
+                      : "xi-api-key..."
+                  }
+                  className="w-full p-2 text-xs border-2 font-mono"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                />
+                <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                  Existing keys are never returned to the client. Enter a value only when setting or rotating the key.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  className="block text-xs font-bold mb-1"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Base URL
+                </label>
+                <input
+                  type="text"
+                  value={elevenLabsBaseUrl}
+                  onChange={(event) => setElevenLabsBaseUrl(event.target.value)}
+                  placeholder="https://api.elevenlabs.io/v1"
+                  className="w-full p-2 text-xs border-2 font-mono"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    backgroundColor: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label
+                className="block text-xs font-bold mb-1"
+                style={{ color: "var(--window-document-text)" }}
+              >
+                Default Voice ID (optional)
+              </label>
+              <input
+                type="text"
+                value={elevenLabsDefaultVoiceId}
+                onChange={(event) => setElevenLabsDefaultVoiceId(event.target.value)}
+                placeholder="voice_xxxxx"
+                className="w-full p-2 text-xs border-2 font-mono"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  backgroundColor: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
+                }}
+              />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className="px-2 py-1 text-xs font-bold"
+                style={{
+                  backgroundColor: elevenLabsHealthColor,
+                  color: "white",
+                }}
+              >
+                Provider health: {elevenLabsHealthLabel}
+              </span>
+              {elevenLabsHealthReason ? (
+                <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Reason: {elevenLabsHealthReason}
+                </span>
+              ) : null}
+            </div>
+
+            <div
+              className="mt-3 p-3 border-2 text-xs"
+              style={{
+                borderColor: "var(--window-document-border)",
+                backgroundColor: "var(--window-document-bg)",
+                color: "var(--window-document-text)",
+              }}
+            >
+              <p className="font-bold mb-1">Fallback behavior</p>
+              <p>
+                When ElevenLabs is missing credentials, degraded, or offline, the voice runtime falls back to the browser adapter for local speech behavior. This preserves trust boundaries and prevents provider-side audio calls during degraded health.
+              </p>
+            </div>
+
+            <div className="mt-3">
+              <button
+                onClick={handleProbeElevenLabs}
+                disabled={isProbingElevenLabs || !organizationId || !sessionId}
+                className="desktop-interior-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isProbingElevenLabs ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                {isProbingElevenLabs ? "Testing provider..." : "Test provider health"}
+              </button>
+            </div>
+          </div>
+
+          {/* Tier-gated BYOK Option */}
+          <div
+            className="p-4 border-2"
+            style={{
+              backgroundColor: canUseByok ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+              borderColor: canUseByok ? "var(--window-document-border)" : "var(--warning)",
+            }}
+          >
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+              {canUseByok ? <KeyRound size={16} /> : <Lock size={16} />}
+              Bring Your Own Key (OpenRouter)
+            </h3>
+
+            {canUseByok ? (
+              <>
+                <label className="flex items-center gap-3 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={useBYOK}
+                    onChange={(event) => setUseBYOK(event.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <div>
+                    <span className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
+                      Route LLM usage through my OpenRouter key
+                    </span>
+                    <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      Billing mode switches to BYOK and uses your provider credential for token spend.
+                    </p>
+                  </div>
+                </label>
+
+                {useBYOK && (
+                  <div>
+                    <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
+                      OpenRouter API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={openrouterApiKey}
+                      onChange={(event) => setOpenrouterApiKey(event.target.value)}
+                      placeholder={
+                        openrouterHasSavedApiKey
+                          ? "Stored key present. Enter a new key to rotate."
+                          : "sk-or-v1-..."
+                      }
+                      className="w-full p-2 text-xs border-2 font-mono"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        backgroundColor: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    />
+                    <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                      Keys stay redacted in UI/logs. Provide a value only when setting or rotating.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  BYOK routing is locked on the current tier. Platform-managed billing remains active as fallback.
+                </p>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Required tier: {byokRequiredTier}
+                </p>
+                <button
+                  onClick={handleOpenStore}
+                  className="desktop-interior-button py-2 px-3 text-xs font-pixel flex items-center gap-2"
+                >
+                  <ShoppingCart size={14} />
+                  View plans
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

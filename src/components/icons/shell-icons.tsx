@@ -119,6 +119,7 @@ export const ShellCloseIcon = createShellIcon(CircleX);
 
 const WINDOW_ICON_BY_ID: Record<string, ComponentType<ShellIconProps>> = {
   "ai-assistant": ShellBotIcon,
+  "brain-voice": ShellBrainIcon,
   "manage": ShellSettingsIcon,
   "control-panel": ShellSettingsIcon,
   "organizations": ShellPeopleIcon,
@@ -174,6 +175,7 @@ const WINDOW_ICON_BY_ID: Record<string, ComponentType<ShellIconProps>> = {
 
 const PRODUCT_APP_ICON_ID_BY_CODE: Record<string, string> = {
   app_invoicing: "invoicing",
+  "brain-voice": "brain-voice",
 };
 
 const LEGACY_EMOJI_ICON_BY_VALUE: Record<string, ComponentType<ShellIconProps>> = {

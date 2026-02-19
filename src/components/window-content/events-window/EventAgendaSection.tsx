@@ -138,8 +138,8 @@ export const EventAgendaSection: React.FC<EventAgendaSectionProps> = ({
           className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-2 w-full"
           style={{
             borderColor: "var(--shell-border)",
-            background: "var(--primary)",
-            color: "white",
+            background: "var(--button-primary-bg, var(--tone-accent))",
+            color: "var(--button-primary-text, #0f0f0f)",
           }}
         >
           <Plus size={16} />

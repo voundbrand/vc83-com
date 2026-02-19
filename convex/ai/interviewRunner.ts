@@ -55,6 +55,55 @@ const INTERVIEW_MEMORY_CONSENT_SCOPE = "content_dna_profile";
 const INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION = "interview-memory-consent-v1";
 const INTERVIEW_TRUST_CHANNEL = "interview";
 const INTERVIEW_TRUST_ARTIFACTS_VERSION = "trust-artifacts.v1";
+const ADAPTIVE_MICRO_SESSION_QUESTION_TARGET = 2;
+const ADAPTIVE_EARLY_ADVANCE_CONFIDENCE = 0.78;
+
+type ConsentCheckpointId =
+  | "cp0_capture_notice"
+  | "cp1_summary_review"
+  | "cp2_save_decision"
+  | "cp3_post_save_revoke";
+
+interface ConsentCheckpointSummary {
+  checkpointId: ConsentCheckpointId;
+  title: string;
+  description: string;
+  status: "complete" | "active" | "pending";
+  sourceAttributionVisible: boolean;
+  sourceAttributionPolicy: string;
+  sourceAttributionSummary: string;
+  sourceAttributionCount: number;
+  sourceAttributionPreview: SourceAttributionSummary[];
+  memoryCandidateCount: number;
+}
+
+interface SourceAttributionSummary {
+  fieldId: string;
+  phaseId: string;
+  phaseName: string;
+  questionId: string;
+  questionPrompt: string;
+  valuePreview: string;
+}
+
+interface VoiceConsentSummary {
+  channel: string;
+  voiceCaptureMode: "voice_enabled";
+  activeCheckpointId: ConsentCheckpointId;
+  providerFallbackPolicy: string;
+  sourceAttributionPolicy: string;
+  sourceAttributionCount: number;
+  sourceAttributionPreview: SourceAttributionSummary[];
+  memoryCandidateCount: number;
+}
+
+type InterviewSessionLifecycleState =
+  | "capturing"
+  | "checkpoint_review"
+  | "consent_pending"
+  | "resumable_unsaved"
+  | "saved"
+  | "discarded";
 
 interface MemoryCandidate {
   fieldId: string;
@@ -140,6 +189,21 @@ interface TrustArtifactsBundle {
   memoryLedger: MemoryLedgerArtifactCard;
 }
 
+interface PhaseCoverageSummary {
+  capturedFieldIds: string[];
+  missingRequiredFieldIds: string[];
+  capturedFieldCount: number;
+  questionCount: number;
+  remainingQuestionCount: number;
+}
+
+interface AdaptiveSessionSummary {
+  microSessionLabel: string;
+  progressivePrompt: string;
+  phaseCoverage: PhaseCoverageSummary;
+  activeCheckpointId: ConsentCheckpointId;
+}
+
 // ============================================================================
 // PUBLIC QUERIES
 // ============================================================================
@@ -173,20 +237,17 @@ export const getInterviewProgress = query({
     // Calculate progress
     const currentPhase = props.phases[state.currentPhaseIndex];
     const totalQuestions = props.phases.reduce((sum, p) => sum + p.questions.length, 0);
-    const answeredQuestions = state.completedPhases.reduce((sum, phaseId) => {
-      const phase = props.phases.find((p) => p.phaseId === phaseId);
-      return sum + (phase?.questions.length || 0);
-    }, 0) + state.currentQuestionIndex;
+    const answeredQuestions = calculateAnsweredQuestionCount(props, state);
 
     const percentComplete = totalQuestions > 0
       ? Math.round((answeredQuestions / totalQuestions) * 100)
       : 0;
 
-    // Estimate remaining time
-    const remainingPhases = props.phases.slice(state.currentPhaseIndex);
-    const estimatedMinutesRemaining = remainingPhases.reduce(
-      (sum, p) => sum + p.estimatedMinutes,
-      0
+    // Adaptive estimate: favors progressive micro-session pacing over rigid phase durations.
+    const remainingQuestions = Math.max(0, totalQuestions - answeredQuestions);
+    const estimatedMinutesRemaining = Math.max(
+      1,
+      Math.ceil(remainingQuestions * 1.5),
     );
 
     return {
@@ -231,6 +292,21 @@ export const getCurrentContext = query({
     const currentQuestion = currentPhase?.questions[state.currentQuestionIndex];
     const phaseSummaries = buildPhaseSummaries(props, state.extractedData);
     const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
+    const adaptiveSession = currentPhase
+      ? buildAdaptiveSessionSummary(props, state, currentPhase)
+      : null;
+    const activeConsentCheckpointId =
+      adaptiveSession?.activeCheckpointId || determineActiveConsentCheckpoint(state);
+    const voiceConsentSummary = buildVoiceConsentSummary({
+      channel: session.channel,
+      activeCheckpointId: activeConsentCheckpointId,
+      memoryCandidates,
+    });
+    const consentCheckpoints = buildConsentCheckpointSummaries({
+      state,
+      memoryCandidates,
+      sourceAttributionPolicy: voiceConsentSummary.sourceAttributionPolicy,
+    });
 
     return {
       phase: currentPhase
@@ -254,8 +330,13 @@ export const getCurrentContext = query({
       isComplete: state.isComplete,
       contentDNAId: state.contentDNAId,
       memoryConsent: state.memoryConsent || null,
+      sessionLifecycle: state.sessionLifecycle || null,
       phaseSummaries,
       memoryCandidateIds: buildMemoryCandidateIds(memoryCandidates),
+      adaptiveSession,
+      activeConsentCheckpointId,
+      voiceConsentSummary,
+      consentCheckpoints,
     };
   },
 });
@@ -320,6 +401,12 @@ export const startInterview = mutation({
       lastActivityAt: now,
       phaseStartTimes: { [props.phases[0].phaseId]: now },
       isComplete: false,
+      sessionLifecycle: buildSessionLifecycle({
+        state: "capturing",
+        checkpointId: "cp0_capture_notice",
+        updatedBy: "system",
+        updatedAt: now,
+      }),
     };
 
     let sessionId: Id<"agentSessions">;
@@ -398,12 +485,28 @@ export const resumeInterview = mutation({
       throw new Error("Interview already completed");
     }
 
+    if (state.sessionLifecycle?.state === "discarded") {
+      throw new Error("Interview was discarded and cannot be resumed.");
+    }
+
+    const now = Date.now();
+    const resumedCheckpoint = determineActiveConsentCheckpoint(state);
+
     // Update last activity
+    const resumedState: InterviewState = {
+      ...state,
+      lastActivityAt: now,
+      sessionLifecycle: buildSessionLifecycle({
+        state: "capturing",
+        checkpointId: resumedCheckpoint,
+        updatedBy: "user",
+        updatedAt: now,
+      }),
+    };
+
     await ctx.db.patch(args.sessionId, {
-      interviewState: {
-        ...state,
-        lastActivityAt: Date.now(),
-      },
+      interviewState: resumedState,
+      status: "active",
     });
 
     // Get current context
@@ -420,9 +523,118 @@ export const resumeInterview = mutation({
       sessionId: args.sessionId,
       currentPhase: currentPhase?.phaseName,
       currentQuestion: currentQuestion?.promptText,
-      extractedDataCount: Object.keys(state.extractedData).length,
-      completedPhases: state.completedPhases.length,
+      extractedDataCount: Object.keys(resumedState.extractedData).length,
+      completedPhases: resumedState.completedPhases.length,
       totalPhases: props.phases.length,
+      sessionLifecycle: resumedState.sessionLifecycle,
+    };
+  },
+});
+
+/**
+ * PAUSE INTERVIEW SESSION
+ * Marks the guided session as resumable without durable memory writes.
+ */
+export const pauseInterviewSession = mutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sessionMode !== "guided" || !session.interviewState) {
+      throw new Error("Invalid interview session");
+    }
+
+    const now = Date.now();
+    const state = session.interviewState as InterviewState;
+    const pausedState: InterviewState = {
+      ...state,
+      lastActivityAt: now,
+      sessionLifecycle: buildSessionLifecycle({
+        state: "resumable_unsaved",
+        checkpointId: determineActiveConsentCheckpoint(state),
+        updatedAt: now,
+        updatedBy: "user",
+      }),
+    };
+
+    await ctx.db.patch(args.sessionId, {
+      interviewState: pausedState,
+      status: "active",
+    });
+
+    return {
+      paused: true,
+      sessionId: args.sessionId,
+      sessionLifecycle: pausedState.sessionLifecycle,
+      memoryConsentStatus: pausedState.memoryConsent?.status || "pending",
+    };
+  },
+});
+
+/**
+ * DISCARD INTERVIEW SESSION
+ * Explicitly closes the interview without persisting durable memory writes.
+ */
+export const discardInterviewSession = mutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sessionMode !== "guided" || !session.interviewState || !session.interviewTemplateId) {
+      throw new Error("Invalid interview session");
+    }
+
+    const templateObject = await ctx.db.get(session.interviewTemplateId);
+    if (!templateObject) {
+      throw new Error("Interview template not found");
+    }
+    const template = templateObject.customProperties as InterviewTemplate;
+
+    const interviewState = session.interviewState as InterviewState;
+    const now = Date.now();
+    const memoryCandidates = buildMemoryCandidates(template, interviewState.extractedData);
+    const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+
+    await cleanupPersistedContentDNA(ctx, interviewState.contentDNAId as Id<"objects"> | undefined);
+
+    const discardedState = buildDeclinedInterviewState({
+      state: interviewState,
+      memoryCandidateIds,
+      now,
+      checkpointId: "cp2_save_decision",
+      updatedBy: "user",
+    });
+
+    await ctx.db.patch(args.sessionId, {
+      interviewState: discardedState,
+      status: "closed",
+    });
+
+    await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_decided.v1", {
+      organizationId: session.organizationId,
+      sessionId: args.sessionId,
+      actorType: "user",
+      actorId: "interview_user",
+      consentDecision: "declined",
+      memoryCandidateIds,
+    });
+
+    await emitMemoryConsentTrustEvent(ctx, "trust.memory.write_blocked_no_consent.v1", {
+      organizationId: session.organizationId,
+      sessionId: args.sessionId,
+      actorType: "system",
+      actorId: "interview_runner",
+      consentDecision: "blocked",
+      memoryCandidateIds,
+    });
+
+    return {
+      discarded: true,
+      sessionId: args.sessionId,
+      memoryCandidateIds,
+      memoryCandidateCount: memoryCandidateIds.length,
     };
   },
 });
@@ -540,6 +752,12 @@ export const decideMemoryConsent = mutation({
           decidedAt: now,
           decisionSource: "user",
         },
+        sessionLifecycle: buildSessionLifecycle({
+          state: "saved",
+          checkpointId: "cp3_post_save_revoke",
+          updatedAt: now,
+          updatedBy: "user",
+        }),
       };
 
       await ctx.db.patch(args.sessionId, {
@@ -572,43 +790,19 @@ export const decideMemoryConsent = mutation({
       };
     }
 
-    const contentDNAId = interviewState.contentDNAId as Id<"objects"> | undefined;
-    if (contentDNAId) {
-      const linksFrom = await ctx.db
-        .query("objectLinks")
-        .withIndex("by_from_object", (q) => q.eq("fromObjectId", contentDNAId))
-        .collect();
-      const linksTo = await ctx.db
-        .query("objectLinks")
-        .withIndex("by_to_object", (q) => q.eq("toObjectId", contentDNAId))
-        .collect();
-      const actions = await ctx.db
-        .query("objectActions")
-        .withIndex("by_object", (q) => q.eq("objectId", contentDNAId))
-        .collect();
+    await cleanupPersistedContentDNA(
+      ctx,
+      interviewState.contentDNAId as Id<"objects"> | undefined,
+    );
 
-      for (const link of [...linksFrom, ...linksTo]) {
-        await ctx.db.delete(link._id);
-      }
-      for (const action of actions) {
-        await ctx.db.delete(action._id);
-      }
-      await ctx.db.delete(contentDNAId);
-    }
-
-    const declinedState: InterviewState = {
-      ...interviewState,
-      contentDNAId: undefined,
-      memoryConsent: {
-        status: "declined",
-        consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
-        consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
-        memoryCandidateIds,
-        promptedAt,
-        decidedAt: now,
-        decisionSource: "user",
-      },
-    };
+    const declinedState = buildDeclinedInterviewState({
+      state: interviewState,
+      memoryCandidateIds,
+      now,
+      checkpointId: "cp2_save_decision",
+      updatedBy: "user",
+      promptedAt,
+    });
 
     await ctx.db.patch(args.sessionId, {
       interviewState: declinedState,
@@ -667,8 +861,14 @@ export const getInterviewContextInternal = internalQuery({
 
     const currentPhase = props.phases[state.currentPhaseIndex];
     const currentQuestion = currentPhase?.questions[state.currentQuestionIndex];
-
     if (!currentPhase || !currentQuestion) return null;
+    const adaptiveSession = buildAdaptiveSessionSummary(props, state, currentPhase);
+    const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
+    const voiceConsentSummary = buildVoiceConsentSummary({
+      channel: session.channel,
+      activeCheckpointId: adaptiveSession.activeCheckpointId,
+      memoryCandidates,
+    });
 
     return {
       // Template config
@@ -681,6 +881,11 @@ export const getInterviewContextInternal = internalQuery({
       totalPhases: props.phases.length,
       currentQuestionIndex: state.currentQuestionIndex,
       totalQuestionsInPhase: currentPhase.questions.length,
+      microSessionLabel: adaptiveSession.microSessionLabel,
+      progressivePrompt: adaptiveSession.progressivePrompt,
+      activeConsentCheckpointId: voiceConsentSummary.activeCheckpointId,
+      voiceCaptureMode: voiceConsentSummary.voiceCaptureMode,
+      sourceAttributionPolicy: voiceConsentSummary.sourceAttributionPolicy,
 
       // Current phase
       phase: {
@@ -752,6 +957,15 @@ export const advanceInterview = internalMutation({
       }
     }
     state.lastActivityAt = now;
+    state.sessionLifecycle = buildSessionLifecycle({
+      state: "capturing",
+      checkpointId:
+        Object.keys(state.extractedData).length >= ADAPTIVE_MICRO_SESSION_QUESTION_TARGET
+          ? "cp1_summary_review"
+          : "cp0_capture_notice",
+      updatedAt: now,
+      updatedBy: "system",
+    });
 
     // Check if any extraction needs follow-up
     const needsFollowUp = args.extractionResults.some(
@@ -776,15 +990,31 @@ export const advanceInterview = internalMutation({
     state.pendingFollowUp = false;
 
     const currentPhase = props.phases[state.currentPhaseIndex];
+    const currentPhaseCoverage = buildPhaseCoverageSummary(
+      props,
+      currentPhase,
+      state.extractedData,
+    );
+    const adaptiveEarlyAdvance = shouldAdvancePhaseEarly({
+      template: props,
+      phase: currentPhase,
+      state,
+      extractionResults: args.extractionResults,
+    });
 
     // Try to advance to next question
-    if (state.currentQuestionIndex < currentPhase.questions.length - 1) {
+    if (
+      !args.forceAdvance &&
+      !adaptiveEarlyAdvance &&
+      state.currentQuestionIndex < currentPhase.questions.length - 1
+    ) {
       state.currentQuestionIndex++;
       await ctx.db.patch(args.sessionId, { interviewState: state });
       return {
         advanced: true,
         advanceType: "next_question",
         newQuestionIndex: state.currentQuestionIndex,
+        adaptiveSession: buildAdaptiveSessionSummary(props, state, currentPhase),
       };
     }
 
@@ -819,6 +1049,8 @@ export const advanceInterview = internalMutation({
         newPhaseName: nextPhase.phaseName,
         phaseIntro: nextPhase.introPrompt,
         previousPhaseCompletion: currentPhase.completionPrompt,
+        adaptiveEarlyAdvance,
+        phaseCoverage: currentPhaseCoverage,
       };
     }
 
@@ -837,6 +1069,12 @@ export const advanceInterview = internalMutation({
         memoryCandidateIds,
         promptedAt: now,
       };
+      state.sessionLifecycle = buildSessionLifecycle({
+        state: "checkpoint_review",
+        checkpointId: "cp1_summary_review",
+        updatedAt: now,
+        updatedBy: "system",
+      });
 
       await ctx.db.patch(args.sessionId, { interviewState: state });
 
@@ -981,6 +1219,12 @@ export const skipPhase = internalMutation({
           memoryCandidateIds,
           promptedAt: now,
         };
+        state.sessionLifecycle = buildSessionLifecycle({
+          state: "checkpoint_review",
+          checkpointId: "cp1_summary_review",
+          updatedAt: now,
+          updatedBy: "system",
+        });
 
         await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_prompted.v1", {
           organizationId: session.organizationId,
@@ -997,7 +1241,19 @@ export const skipPhase = internalMutation({
       state.phaseStartTimes[props.phases[nextPhaseIndex].phaseId] = Date.now();
     }
 
-    state.lastActivityAt = Date.now();
+    const now = Date.now();
+    state.lastActivityAt = now;
+    if (!state.isComplete) {
+      state.sessionLifecycle = buildSessionLifecycle({
+        state: "capturing",
+        checkpointId:
+          Object.keys(state.extractedData).length >= ADAPTIVE_MICRO_SESSION_QUESTION_TARGET
+            ? "cp1_summary_review"
+            : "cp0_capture_notice",
+        updatedAt: now,
+        updatedBy: "system",
+      });
+    }
     await ctx.db.patch(args.sessionId, { interviewState: state });
 
     return {
@@ -1083,6 +1339,359 @@ function buildPhaseSummaries(
 
 function buildMemoryCandidateIds(candidates: MemoryCandidate[]): string[] {
   return candidates.map((candidate) => candidate.fieldId);
+}
+
+function buildSessionLifecycle(args: {
+  state: InterviewSessionLifecycleState;
+  checkpointId: ConsentCheckpointId;
+  updatedAt: number;
+  updatedBy: "system" | "user";
+}) {
+  return {
+    state: args.state,
+    checkpointId: args.checkpointId,
+    updatedAt: args.updatedAt,
+    updatedBy: args.updatedBy,
+  };
+}
+
+async function cleanupPersistedContentDNA(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  contentDNAId: Id<"objects"> | undefined,
+) {
+  if (!contentDNAId) {
+    return;
+  }
+
+  const linksFrom = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_object", (q: any) => q.eq("fromObjectId", contentDNAId))
+    .collect();
+  const linksTo = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_to_object", (q: any) => q.eq("toObjectId", contentDNAId))
+    .collect();
+  const actions = await ctx.db
+    .query("objectActions")
+    .withIndex("by_object", (q: any) => q.eq("objectId", contentDNAId))
+    .collect();
+
+  for (const link of [...linksFrom, ...linksTo]) {
+    await ctx.db.delete(link._id);
+  }
+  for (const action of actions) {
+    await ctx.db.delete(action._id);
+  }
+  await ctx.db.delete(contentDNAId);
+}
+
+function buildDeclinedInterviewState(args: {
+  state: InterviewState;
+  memoryCandidateIds: string[];
+  now: number;
+  checkpointId: ConsentCheckpointId;
+  updatedBy: "system" | "user";
+  promptedAt?: number;
+}): InterviewState {
+  return {
+    ...args.state,
+    contentDNAId: undefined,
+    memoryConsent: {
+      status: "declined",
+      consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+      consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+      memoryCandidateIds: args.memoryCandidateIds,
+      promptedAt: args.promptedAt || args.state.memoryConsent?.promptedAt || args.now,
+      decidedAt: args.now,
+      decisionSource: "user",
+    },
+    sessionLifecycle: buildSessionLifecycle({
+      state: "discarded",
+      checkpointId: args.checkpointId,
+      updatedAt: args.now,
+      updatedBy: args.updatedBy,
+    }),
+  };
+}
+
+function calculateAnsweredQuestionCount(
+  template: InterviewTemplate,
+  state: InterviewState,
+): number {
+  return state.completedPhases.reduce((sum, phaseId) => {
+    const phase = template.phases.find((candidatePhase) => candidatePhase.phaseId === phaseId);
+    return sum + (phase?.questions.length || 0);
+  }, 0) + state.currentQuestionIndex;
+}
+
+function buildRequiredFieldSet(template: InterviewTemplate): Set<string> {
+  const requiredFields = new Set<string>();
+  for (const field of template.outputSchema?.fields || []) {
+    if (field.required) {
+      requiredFields.add(field.fieldId);
+    }
+  }
+  return requiredFields;
+}
+
+export function buildPhaseCoverageSummary(
+  template: InterviewTemplate,
+  phase: InterviewTemplate["phases"][number],
+  extractedData: Record<string, unknown>,
+): PhaseCoverageSummary {
+  const requiredFields = buildRequiredFieldSet(template);
+  const capturedFieldIds = new Set<string>();
+  const missingRequiredFieldIds = new Set<string>();
+  let remainingQuestionCount = 0;
+
+  for (const question of phase.questions) {
+    const extractedValue = extractedData[question.extractionField];
+    const hasValue = extractedValue !== undefined && extractedValue !== null && extractedValue !== "";
+    if (hasValue) {
+      capturedFieldIds.add(question.extractionField);
+    } else {
+      remainingQuestionCount++;
+      if (requiredFields.has(question.extractionField)) {
+        missingRequiredFieldIds.add(question.extractionField);
+      }
+    }
+  }
+
+  return {
+    capturedFieldIds: Array.from(capturedFieldIds),
+    missingRequiredFieldIds: Array.from(missingRequiredFieldIds),
+    capturedFieldCount: capturedFieldIds.size,
+    questionCount: phase.questions.length,
+    remainingQuestionCount,
+  };
+}
+
+function determineActiveConsentCheckpoint(state: InterviewState): ConsentCheckpointId {
+  if (state.sessionLifecycle?.checkpointId) {
+    return state.sessionLifecycle.checkpointId;
+  }
+  if (state.memoryConsent?.status === "accepted" && state.contentDNAId) {
+    return "cp3_post_save_revoke";
+  }
+  if (state.isComplete) {
+    return "cp2_save_decision";
+  }
+  if (Object.keys(state.extractedData).length >= ADAPTIVE_MICRO_SESSION_QUESTION_TARGET) {
+    return "cp1_summary_review";
+  }
+  return "cp0_capture_notice";
+}
+
+function buildSourceAttributionPreview(
+  memoryCandidates: MemoryCandidate[],
+  maxEntries = 3,
+): SourceAttributionSummary[] {
+  return memoryCandidates.slice(0, maxEntries).map((candidate) => ({
+    fieldId: candidate.fieldId,
+    phaseId: candidate.phaseId,
+    phaseName: candidate.phaseName,
+    questionId: candidate.questionId,
+    questionPrompt: candidate.questionPrompt,
+    valuePreview: candidate.valuePreview,
+  }));
+}
+
+function buildSourceAttributionSummary(memoryCandidateCount: number): string {
+  if (memoryCandidateCount <= 0) {
+    return "No memory candidates captured yet. Attribution policy remains visible before any save decision.";
+  }
+  if (memoryCandidateCount === 1) {
+    return "1 memory candidate is source-attributed by phase, question ID, and prompt text.";
+  }
+  return `${memoryCandidateCount} memory candidates are source-attributed by phase, question ID, and prompt text.`;
+}
+
+function buildVoiceConsentSummary(args: {
+  channel: string | undefined;
+  activeCheckpointId: ConsentCheckpointId;
+  memoryCandidates: MemoryCandidate[];
+}): VoiceConsentSummary {
+  const memoryCandidateCount = args.memoryCandidates.length;
+  const sourceAttributionPreview = buildSourceAttributionPreview(args.memoryCandidates);
+  return {
+    channel: args.channel || INTERVIEW_TRUST_CHANNEL,
+    voiceCaptureMode: "voice_enabled",
+    activeCheckpointId: args.activeCheckpointId,
+    providerFallbackPolicy:
+      "When provider voice capture degrades, browser fallback preserves checkpoint and attribution semantics.",
+    sourceAttributionPolicy:
+      "At every checkpoint, source attribution shows phase, question ID, and original prompt before save options.",
+    sourceAttributionCount: memoryCandidateCount,
+    sourceAttributionPreview,
+    memoryCandidateCount,
+  };
+}
+
+function buildConsentCheckpointSummaries(args: {
+  state: InterviewState;
+  memoryCandidates: MemoryCandidate[];
+  sourceAttributionPolicy: string;
+}): ConsentCheckpointSummary[] {
+  const activeCheckpointId = determineActiveConsentCheckpoint(args.state);
+  const checkpointOrder: ConsentCheckpointId[] = [
+    "cp0_capture_notice",
+    "cp1_summary_review",
+    "cp2_save_decision",
+    "cp3_post_save_revoke",
+  ];
+  const activeIndex = checkpointOrder.indexOf(activeCheckpointId);
+  const memoryCandidateCount = args.memoryCandidates.length;
+  const sourceAttributionCount = args.memoryCandidates.length;
+  const sourceAttributionPreview = buildSourceAttributionPreview(args.memoryCandidates);
+  const sourceAttributionSummary = buildSourceAttributionSummary(memoryCandidateCount);
+
+  const withStatus = (
+    checkpointId: ConsentCheckpointId,
+    title: string,
+    description: string,
+  ): ConsentCheckpointSummary => {
+    const checkpointIndex = checkpointOrder.indexOf(checkpointId);
+    const status = checkpointIndex < activeIndex
+      ? "complete"
+      : checkpointIndex === activeIndex
+        ? "active"
+        : "pending";
+    return {
+      checkpointId,
+      title,
+      description,
+      status,
+      sourceAttributionVisible: true,
+      sourceAttributionPolicy: args.sourceAttributionPolicy,
+      sourceAttributionSummary,
+      sourceAttributionCount,
+      sourceAttributionPreview,
+      memoryCandidateCount,
+    };
+  };
+
+  return [
+    withStatus(
+      "cp0_capture_notice",
+      "Capture Notice",
+      "Voice and text answers stay transient until explicit save consent is accepted.",
+    ),
+    withStatus(
+      "cp1_summary_review",
+      "Adaptive Summary Review",
+      "Review high-signal memory candidates with source attribution before save.",
+    ),
+    withStatus(
+      "cp2_save_decision",
+      "Save Decision",
+      "Choose explicitly whether to persist Content DNA memory.",
+    ),
+    withStatus(
+      "cp3_post_save_revoke",
+      "Post-Save Revoke",
+      "Saved memory remains revocable with source-aware impact visibility.",
+    ),
+  ];
+}
+
+function buildProgressivePromptForPhase(
+  phase: InterviewTemplate["phases"][number],
+  coverage: PhaseCoverageSummary,
+): string {
+  if (coverage.missingRequiredFieldIds.length > 0) {
+    const remainingRequiredPrompts = phase.questions
+      .filter((question) => coverage.missingRequiredFieldIds.includes(question.extractionField))
+      .map((question) => question.promptText);
+    return remainingRequiredPrompts.length > 0
+      ? `Capture required trust details next: ${remainingRequiredPrompts.join(" | ")}`
+      : "Capture required trust details before advancing.";
+  }
+
+  if (coverage.remainingQuestionCount <= 0) {
+    return "Required trust capture for this phase is complete. Advance when signal quality is sufficient.";
+  }
+
+  if (coverage.capturedFieldCount === 0) {
+    return "Start with one concrete answer; this micro-session adapts follow-ups from your signal quality.";
+  }
+
+  if (coverage.remainingQuestionCount === 1) {
+    return "One refinement prompt remains. Answer only if it improves trust clarity.";
+  }
+
+  return `${coverage.remainingQuestionCount} prompts remain. Keep this micro-session high-signal and concise.`;
+}
+
+function buildAdaptiveSessionSummary(
+  template: InterviewTemplate,
+  state: InterviewState,
+  phase: InterviewTemplate["phases"][number],
+): AdaptiveSessionSummary {
+  const totalQuestions = template.phases.reduce(
+    (sum, templatePhase) => sum + templatePhase.questions.length,
+    0,
+  );
+  const answeredQuestions = calculateAnsweredQuestionCount(template, state);
+  const phaseCoverage = buildPhaseCoverageSummary(template, phase, state.extractedData);
+  const activeCheckpointId = determineActiveConsentCheckpoint(state);
+  const totalMicroSessions = Math.max(
+    1,
+    Math.ceil(totalQuestions / ADAPTIVE_MICRO_SESSION_QUESTION_TARGET),
+  );
+  const currentMicroSession = Math.max(
+    1,
+    Math.min(
+      totalMicroSessions,
+      Math.floor(answeredQuestions / ADAPTIVE_MICRO_SESSION_QUESTION_TARGET) + 1,
+    ),
+  );
+
+  return {
+    microSessionLabel: `Micro-session ${currentMicroSession} of ${totalMicroSessions}`,
+    progressivePrompt: buildProgressivePromptForPhase(phase, phaseCoverage),
+    phaseCoverage,
+    activeCheckpointId,
+  };
+}
+
+export function shouldAdvancePhaseEarly(args: {
+  template: InterviewTemplate;
+  phase: InterviewTemplate["phases"][number];
+  state: InterviewState;
+  extractionResults: Array<{
+    confidence: number;
+    needsFollowUp: boolean;
+  }>;
+}): boolean {
+  const phaseCoverage = buildPhaseCoverageSummary(
+    args.template,
+    args.phase,
+    args.state.extractedData,
+  );
+  const minimumSignalCount = Math.min(
+    ADAPTIVE_MICRO_SESSION_QUESTION_TARGET,
+    args.phase.questions.length,
+  );
+
+  if (phaseCoverage.capturedFieldCount < minimumSignalCount) {
+    return false;
+  }
+  if (phaseCoverage.remainingQuestionCount <= 0) {
+    return false;
+  }
+  if (phaseCoverage.missingRequiredFieldIds.length > 0) {
+    return false;
+  }
+  if (args.extractionResults.some((result) => result.needsFollowUp)) {
+    return false;
+  }
+
+  const strongestConfidence = args.extractionResults.reduce(
+    (maxConfidence, result) => Math.max(maxConfidence, result.confidence),
+    0,
+  );
+  return strongestConfidence >= ADAPTIVE_EARLY_ADVANCE_CONFIDENCE;
 }
 
 const ONBOARDING_CORE_MEMORY_FIELD_MAPPINGS: Array<{
@@ -1455,6 +2064,11 @@ async function persistContentDNAFromInterview(
 
   const memoryCandidates = buildMemoryCandidates(template, state.extractedData);
   const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+  const voiceConsentSummary = buildVoiceConsentSummary({
+    channel: session.channel,
+    activeCheckpointId: "cp3_post_save_revoke",
+    memoryCandidates,
+  });
   const trustArtifacts = buildTrustArtifactsBundle(template, memoryCandidates, now);
   const coreMemoryDistillation = distillOnboardingCoreMemories(
     template,
@@ -1483,6 +2097,7 @@ async function persistContentDNAFromInterview(
         candidateIds: memoryCandidateIds,
         promptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
       },
+      voiceConsentSummary,
       coreMemoryDistillation,
       trustArtifacts,
       sourceAttribution: memoryCandidates.map((candidate) => ({
@@ -1508,6 +2123,12 @@ async function persistContentDNAFromInterview(
   const updatedState: InterviewState = {
     ...state,
     contentDNAId,
+    sessionLifecycle: state.sessionLifecycle || buildSessionLifecycle({
+      state: "saved",
+      checkpointId: "cp3_post_save_revoke",
+      updatedAt: now,
+      updatedBy: "system",
+    }),
   };
 
   await ctx.db.patch(sessionId, {
@@ -1837,6 +2458,11 @@ export function buildInterviewPromptContext(context: {
   totalPhases: number;
   currentQuestionIndex: number;
   totalQuestionsInPhase: number;
+  microSessionLabel?: string;
+  progressivePrompt?: string;
+  activeConsentCheckpointId?: string;
+  voiceCaptureMode?: "voice_enabled";
+  sourceAttributionPolicy?: string;
   phase: {
     phaseId: string;
     phaseName: string;
@@ -1865,6 +2491,21 @@ export function buildInterviewPromptContext(context: {
   // Progress
   parts.push(`Progress: Phase ${context.currentPhaseIndex + 1}/${context.totalPhases} - "${context.phase.phaseName}"`);
   parts.push(`Question ${context.currentQuestionIndex + 1}/${context.totalQuestionsInPhase}`);
+  if (context.microSessionLabel) {
+    parts.push(`Adaptive pacing: ${context.microSessionLabel}`);
+  }
+  if (context.progressivePrompt) {
+    parts.push(`Progressive focus: ${context.progressivePrompt}`);
+  }
+  if (context.activeConsentCheckpointId) {
+    parts.push(`Active consent checkpoint: ${context.activeConsentCheckpointId}`);
+  }
+  if (context.voiceCaptureMode) {
+    parts.push(`Voice capture mode: ${context.voiceCaptureMode}`);
+  }
+  if (context.sourceAttributionPolicy) {
+    parts.push(`Source attribution policy: ${context.sourceAttributionPolicy}`);
+  }
   parts.push("");
 
   // Current question

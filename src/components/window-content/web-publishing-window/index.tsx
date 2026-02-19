@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Globe, FileText, Plus, BarChart3, Rocket, Settings, Box, ArrowLeft, Maximize2, MessageSquare } from "lucide-react";
+import {
+  Globe,
+  FileText,
+  Plus,
+  BarChart3,
+  Rocket,
+  Settings,
+  Box,
+  ArrowLeft,
+  Maximize2,
+  MessageSquare,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
@@ -14,6 +26,7 @@ import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { InteriorTabButton } from "@/components/window-content/shared/interior-primitives";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /**
@@ -102,6 +115,15 @@ function resolveInitialTab(input?: string): TabType {
   return "pages";
 }
 
+interface WebPublishingTabDescriptor {
+  key: TabType;
+  icon: LucideIcon;
+  label: string;
+  title?: string;
+  disabled?: boolean;
+  onSelect?: () => void;
+}
+
 export function WebPublishingWindow({
   fullScreen = false,
   initialTab,
@@ -133,33 +155,84 @@ export function WebPublishingWindow({
 
   if (guard) return guard;
 
+  const tabs: WebPublishingTabDescriptor[] = [
+    {
+      key: "pages",
+      icon: FileText,
+      label: t("ui.web_publishing.tab.published_pages"),
+    },
+    {
+      key: "create",
+      icon: Plus,
+      label: t("ui.web_publishing.tab.create_page"),
+      onSelect: () => {
+        setEditMode(null);
+        setActiveTab("create");
+      },
+    },
+    {
+      key: "webchat-deployment",
+      icon: MessageSquare,
+      label: "Webchat Deployment",
+    },
+    ...(selectedPage
+      ? [
+          {
+            key: "deployments" as const,
+            icon: Rocket,
+            label: "Deployments",
+            title: `Deployments for ${selectedPage.name}`,
+          },
+        ]
+      : []),
+    ...(selectedDeployment
+      ? [
+          {
+            key: "settings" as const,
+            icon: Settings,
+            label: "Settings",
+            title: `Settings for ${selectedDeployment.name}`,
+          },
+        ]
+      : []),
+    {
+      key: "applications",
+      icon: Box,
+      label: "Applications",
+    },
+    {
+      key: "analytics",
+      icon: BarChart3,
+      label: t("ui.web_publishing.tab.analytics"),
+      disabled: true,
+      title: t("ui.web_publishing.tab.coming_soon"),
+    },
+  ];
+
+  const headerActionClass = "desktop-interior-button h-8 px-2.5 text-xs font-semibold flex items-center gap-2";
+
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
+    <div className="web-publishing-modern-shell desktop-interior-root flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b-2" style={{ borderColor: 'var(--window-document-border)' }}>
+      <div className="web-publishing-modern-header desktop-interior-header px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back to desktop link (full-screen mode only) */}
             {fullScreen && (
               <Link
                 href="/"
-                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-                style={{
-                  borderColor: "var(--window-document-border)",
-                  background: "var(--window-document-bg)",
-                  color: "var(--window-document-text)",
-                }}
+                className={headerActionClass}
                 title="Back to Desktop"
               >
                 <ArrowLeft size={14} />
               </Link>
             )}
             <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
+              <h2 className="desktop-interior-title text-sm flex items-center gap-2">
                 <Globe size={16} />
                 {t("ui.web_publishing.header.title")}
               </h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+              <p className="desktop-interior-subtitle mt-1">
                 {t("ui.web_publishing.header.description")}
               </p>
             </div>
@@ -169,12 +242,7 @@ export function WebPublishingWindow({
           {!fullScreen && (
             <Link
               href="/publish"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
-              style={{
-                borderColor: "var(--window-document-border)",
-                background: "var(--window-document-bg)",
-                color: "var(--window-document-text)",
-              }}
+              className={headerActionClass}
               title="Open Full Screen"
             >
               <Maximize2 size={14} />
@@ -184,117 +252,33 @@ export function WebPublishingWindow({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b-2" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
-        {/* Pages Tab */}
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: activeTab === "pages" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-            color: activeTab === "pages" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("pages")}
-        >
-          <FileText size={14} />
-          {t("ui.web_publishing.tab.published_pages")}
-        </button>
-
-        {/* Create Page Tab */}
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: activeTab === "create" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-            color: activeTab === "create" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => {
-            setEditMode(null);
-            setActiveTab("create");
-          }}
-        >
-          <Plus size={14} />
-          {t("ui.web_publishing.tab.create_page")}
-        </button>
-
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: activeTab === "webchat-deployment" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-            color: activeTab === "webchat-deployment" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("webchat-deployment")}
-        >
-          <MessageSquare size={14} />
-          Webchat Deployment
-        </button>
-
-        {/* Deployment Tabs (only show when page is selected) */}
-        {selectedPage && (
-          <>
-            <button
-              className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-              style={{
-                borderColor: 'var(--window-document-border)',
-                background: activeTab === "deployments" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-                color: activeTab === "deployments" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-              }}
-              onClick={() => setActiveTab("deployments")}
-              title={`Deployments for ${selectedPage.name}`}
-            >
-              <Rocket size={14} />
-              Deployments
-            </button>
-            {selectedDeployment && (
-              <button
-                className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-                style={{
-                  borderColor: 'var(--window-document-border)',
-                  background: activeTab === "settings" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-                  color: activeTab === "settings" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-                }}
-                onClick={() => setActiveTab("settings")}
-                title={`Settings for ${selectedDeployment.name}`}
-              >
-                <Settings size={14} />
-                Settings
-              </button>
-            )}
-          </>
-        )}
-
-        {/* Applications Tab */}
-        <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: activeTab === "applications" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-            color: activeTab === "applications" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
-          }}
-          onClick={() => setActiveTab("applications")}
-        >
-          <Box size={14} />
-          Applications
-        </button>
-
-        {/* Analytics Tab (future) */}
-        <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 opacity-50 cursor-not-allowed"
-          style={{
-            borderColor: 'var(--window-document-border)',
-            background: 'var(--window-document-bg)',
-            color: 'var(--neutral-gray)'
-          }}
-          disabled
-          title={t("ui.web_publishing.tab.coming_soon")}
-        >
-          <BarChart3 size={14} />
-          {t("ui.web_publishing.tab.analytics")}
-        </button>
+      <div className="desktop-interior-tab-row web-publishing-modern-tab-row">
+        {tabs.map((tab) => (
+          <InteriorTabButton
+            key={tab.key}
+            active={activeTab === tab.key}
+            disabled={tab.disabled}
+            title={tab.title}
+            className="h-8 shrink-0 px-3 text-xs font-semibold flex items-center gap-2"
+            onClick={() => {
+              if (tab.disabled) {
+                return;
+              }
+              if (tab.onSelect) {
+                tab.onSelect();
+                return;
+              }
+              setActiveTab(tab.key);
+            }}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </InteriorTabButton>
+        ))}
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="web-publishing-modern-content flex-1 overflow-y-auto">
         {/* Pages List */}
         {activeTab === "pages" && (
           <PublishedPagesTab
@@ -377,7 +361,7 @@ export function WebPublishingWindow({
 
         {/* Analytics (future) */}
         {activeTab === "analytics" && (
-          <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
+          <div className="p-4 text-xs desktop-interior-subtitle">
             {t("ui.web_publishing.tab.coming_soon")}...
           </div>
         )}

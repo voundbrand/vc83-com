@@ -1,5 +1,5 @@
 /**
- * AGENCY TRIAL CHECKOUT
+ * SCALE TRIAL CHECKOUT (RUNTIME: AGENCY)
  *
  * Creates a Stripe Checkout Session with a 14-day free trial.
  * Collects payment method upfront but doesn't charge until trial ends.
@@ -16,8 +16,15 @@ import Stripe from "stripe";
 
 const generatedApi: any = require("../_generated/api");
 
+export const STORE_SCALE_TRIAL_POLICY = {
+  publicTier: "scale",
+  runtimeTier: "agency",
+  trialDays: 14,
+} as const;
+
 /**
- * Create a checkout session for the 14-day Agency trial.
+ * Create a checkout session for the 14-day Scale trial.
+ * Runtime tier remains agency for backward compatibility.
  */
 export const createAgencyTrialCheckout = action({
   args: {
@@ -105,7 +112,7 @@ export const createAgencyTrialCheckout = action({
       );
     }
 
-    // 5. Get the Agency price ID from env (configured in Stripe Dashboard)
+    // 5. Get the runtime agency price ID from env (configured in Stripe Dashboard)
     const agencyPriceId = process.env.STRIPE_AGENCY_PRICE_ID;
     if (!agencyPriceId) {
       throw new Error("STRIPE_AGENCY_PRICE_ID not configured");
@@ -123,17 +130,17 @@ export const createAgencyTrialCheckout = action({
         },
       ],
       subscription_data: {
-        trial_period_days: 14,
+        trial_period_days: STORE_SCALE_TRIAL_POLICY.trialDays,
         metadata: {
           organizationId: args.organizationId,
-          tier: "agency",
+          tier: STORE_SCALE_TRIAL_POLICY.runtimeTier,
           type: "platform-trial",
           trialStartedAt: Date.now().toString(),
         },
       },
       metadata: {
         organizationId: args.organizationId,
-        tier: "agency",
+        tier: STORE_SCALE_TRIAL_POLICY.runtimeTier,
         type: "platform-trial",
       },
       success_url: args.successUrl,

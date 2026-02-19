@@ -132,8 +132,8 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
               }}
               className="beveled-button mt-3 px-3 py-1.5 text-xs font-semibold"
               style={{
-                backgroundColor: "var(--primary)",
-                color: "white",
+                backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                color: "var(--button-primary-text, #0f0f0f)",
               }}
             >
               Enable Tax Collection
@@ -272,8 +272,8 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             disabled={isSyncing}
             className="beveled-button flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
               opacity: isSyncing ? 0.6 : 1,
               cursor: isSyncing ? "not-allowed" : "pointer",
             }}

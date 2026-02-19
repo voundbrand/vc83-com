@@ -12,9 +12,9 @@ export function UserMessage({ content }: UserMessageProps) {
       <div
         className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-selected-bg)',
-          color: 'var(--win95-selected-text)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-selection-bg)',
+          color: 'var(--shell-selection-text)',
           borderStyle: 'outset'
         }}
       >

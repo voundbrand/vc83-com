@@ -23,8 +23,8 @@ export function BookingSettings() {
       <div
         className="w-48 border-r-2 overflow-y-auto flex-shrink-0"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface-elevated)'
         }}
       >
         <div className="p-2">
@@ -45,11 +45,11 @@ export function BookingSettings() {
                 }`}
                 style={{
                   background: activeSection === item.id
-                    ? 'var(--win95-selected-bg)'
+                    ? 'var(--shell-selection-bg)'
                     : 'transparent',
                   color: activeSection === item.id
-                    ? 'var(--win95-selected-text)'
-                    : 'var(--win95-text)',
+                    ? 'var(--shell-selection-text)'
+                    : 'var(--shell-text)',
                 }}
               >
                 <Icon size={14} />
@@ -63,7 +63,7 @@ export function BookingSettings() {
       {/* Right Content */}
       <div
         className="flex-1 overflow-y-auto p-6"
-        style={{ background: 'var(--win95-bg)' }}
+        style={{ background: 'var(--shell-surface)' }}
       >
         {activeSection === "calendar" && <CalendarSettings />}
       </div>

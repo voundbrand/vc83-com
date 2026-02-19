@@ -271,17 +271,17 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
   }
 
   const inputStyle = {
-    borderColor: "var(--win95-border)",
-    background: "var(--win95-input-bg)",
-    color: "var(--win95-input-text)",
+    borderColor: "var(--shell-border)",
+    background: "var(--shell-input-surface)",
+    color: "var(--shell-input-text)",
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--win95-bg)" }}>
+    <div className="h-full flex flex-col" style={{ background: "var(--shell-surface)" }}>
       {/* Header Bar */}
       <div
         className="p-4 border-b-2 flex items-center gap-3"
-        style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+        style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
         <button className="desktop-interior-button p-1.5" onClick={onBack} title="Back">
           <ArrowLeft size={14} />
@@ -340,8 +340,8 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
         <button
           className="desktop-interior-button px-4 py-1.5 font-pixel text-xs"
           style={{
-            background: "var(--win95-selected-bg)",
-            color: "var(--win95-selected-text)",
+            background: "var(--shell-selection-bg)",
+            color: "var(--shell-selection-text)",
           }}
           onClick={handleSave}
           disabled={isSaving || !isDirty}
@@ -357,13 +357,13 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           <div className="flex-[7] min-w-0">
             <div
               className="border-2 rounded"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               {days.map((day, dayIndex) => (
                 <div
                   key={dayIndex}
                   className={`p-3 flex items-start gap-3 ${dayIndex < days.length - 1 ? "border-b" : ""}`}
-                  style={{ borderColor: "var(--win95-border)" }}
+                  style={{ borderColor: "var(--shell-border)" }}
                 >
                   {/* Toggle Switch */}
                   <label className="relative inline-flex items-center cursor-pointer mt-0.5 shrink-0">
@@ -374,17 +374,17 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                       className="sr-only peer"
                     />
                     <div
-                      className="w-8 h-4 border-2 rounded-full peer peer-checked:bg-[var(--win95-selected-bg)] transition-colors"
+                      className="w-8 h-4 border-2 rounded-full peer peer-checked:bg-[var(--shell-selection-bg)] transition-colors"
                       style={{
-                        borderColor: "var(--win95-border)",
-                        background: day.isAvailable ? "var(--win95-selected-bg)" : "var(--win95-input-bg)",
+                        borderColor: "var(--shell-border)",
+                        background: day.isAvailable ? "var(--shell-selection-bg)" : "var(--shell-input-surface)",
                       }}
                     >
                       <div
                         className="absolute top-[3px] w-2.5 h-2.5 rounded-full border transition-transform"
                         style={{
-                          borderColor: "var(--win95-border)",
-                          background: "var(--win95-bg-light)",
+                          borderColor: "var(--shell-border)",
+                          background: "var(--shell-surface-elevated)",
                           left: day.isAvailable ? "14px" : "3px",
                         }}
                       />
@@ -481,7 +481,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
             {/* Date Overrides */}
             <div
               className="border-2 rounded mt-4 p-4"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-pixel text-xs font-bold">Date overrides</h3>
@@ -505,7 +505,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           <div className="flex-[3] min-w-0">
             <div
               className="border-2 rounded p-4"
-              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               <label className="font-pixel text-xs font-bold flex items-center gap-1.5 mb-2">
                 <Globe size={12} />

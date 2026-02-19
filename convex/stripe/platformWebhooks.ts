@@ -47,6 +47,8 @@ interface StripeSubscription {
   id: string;
   customer: string;
   status: string;
+  trial_start?: number | null;
+  trial_end?: number | null;
   metadata?: Record<string, string | undefined>;
   current_period_start: number;
   current_period_end: number;
@@ -73,6 +75,7 @@ interface StripeSubscription {
 const TIER_MAP: Record<string, "free" | "pro" | "agency" | "enterprise"> = {
   free: "free",
   pro: "pro",
+  scale: "agency",
   // Legacy tier mappings - existing subscriptions are mapped to current tiers
   starter: "pro",
   professional: "pro",
@@ -171,7 +174,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   const tier = metadata?.tier || "free";
   const billingPeriod = metadata?.billingPeriod || "monthly";
   const isB2B = metadata?.isB2B === "true";
-  const checkoutType = metadata?.type; // "platform-tier" or "credit-purchase"
+  const checkoutType = metadata?.type; // "platform-tier", "platform-trial", or "credit-purchase"
   const funnelChannel = normalizeFunnelChannel(metadata?.funnelChannel);
   const funnelCampaign = extractFunnelCampaign(metadata);
 
@@ -350,7 +353,8 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
  * 2. New organization subscribes during signup
  */
 async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSubscription) {
-  const { metadata, customer, id, status, current_period_start, current_period_end, items } = subscription;
+  const { metadata, customer, id, status, trial_start, trial_end, current_period_start, current_period_end, items } =
+    subscription;
 
   // Extract organization ID from metadata
   const organizationId = metadata?.organizationId as Id<"organizations">;
@@ -373,6 +377,8 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
       stripeSubscriptionId: id,
       stripeCustomerId: customer,
       status,
+      trialStart: trial_start ? trial_start * 1000 : undefined,
+      trialEnd: trial_end ? trial_end * 1000 : undefined,
       currentPeriodStart: current_period_start * 1000,
       currentPeriodEnd: current_period_end * 1000,
       priceId: items.data[0]?.price?.id,
@@ -390,12 +396,18 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
     status,
+    trialStart: trial_start ? trial_start * 1000 : undefined,
+    trialEnd: trial_end ? trial_end * 1000 : undefined,
     currentPeriodStart: current_period_start * 1000,
     currentPeriodEnd: current_period_end * 1000,
     priceId: items.data[0]?.price?.id,
     amount: items.data[0]?.price?.unit_amount || 0,
     currency: items.data[0]?.price?.currency || "eur",
   });
+
+  if (status === "trialing") {
+    await maybeRecordScaleTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
+  }
 
   // Send upgrade email for new paid subscriptions
   if (normalizedTier !== "free") {
@@ -415,8 +427,18 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
  * - Status changes (active, past_due, canceled)
  */
 async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSubscription) {
-  const { metadata, customer, id, status, current_period_start, current_period_end, items, cancel_at_period_end } =
-    subscription;
+  const {
+    metadata,
+    customer,
+    id,
+    status,
+    trial_start,
+    trial_end,
+    current_period_start,
+    current_period_end,
+    items,
+    cancel_at_period_end,
+  } = subscription;
 
   const organizationId = metadata?.organizationId as Id<"organizations">;
   const tier = metadata?.tier || "free";
@@ -437,6 +459,8 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
       stripeSubscriptionId: id,
       stripeCustomerId: customer,
       status,
+      trialStart: trial_start ? trial_start * 1000 : undefined,
+      trialEnd: trial_end ? trial_end * 1000 : undefined,
       currentPeriodStart: current_period_start * 1000,
       currentPeriodEnd: current_period_end * 1000,
       cancelAtPeriodEnd: cancel_at_period_end || false,
@@ -444,6 +468,10 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
       amount: items.data[0]?.price?.unit_amount || 0,
       currency: items.data[0]?.price?.currency || "eur",
     });
+
+    if (status === "trialing") {
+      await maybeRecordScaleTrialStart(ctx, org._id, tier, trial_end ? trial_end * 1000 : undefined);
+    }
     return;
   }
 
@@ -458,6 +486,8 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
     stripeSubscriptionId: id,
     stripeCustomerId: customer,
     status,
+    trialStart: trial_start ? trial_start * 1000 : undefined,
+    trialEnd: trial_end ? trial_end * 1000 : undefined,
     currentPeriodStart: current_period_start * 1000,
     currentPeriodEnd: current_period_end * 1000,
     cancelAtPeriodEnd: cancel_at_period_end || false,
@@ -465,6 +495,10 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
     amount: items.data[0]?.price?.unit_amount || 0,
     currency: items.data[0]?.price?.currency || "eur",
   });
+
+  if (status === "trialing") {
+    await maybeRecordScaleTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
+  }
 
   // Send lifecycle emails based on what changed
   const TIER_ORDER: Record<string, number> = { free: 0, pro: 1, agency: 2, enterprise: 3 };
@@ -548,6 +582,43 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
   });
   await sendSalesTeamNotification(ctx, organizationId, "subscription_canceled", {
     tier: previousTier,
+  });
+}
+
+async function maybeRecordScaleTrialStart(
+  ctx: ActionCtx,
+  organizationId: Id<"organizations">,
+  tier: string,
+  trialEndsAt?: number
+) {
+  const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
+  if (normalizedTier !== "agency") {
+    return;
+  }
+
+  const hadPreviousTrial: boolean = await (ctx as any).runQuery(
+    generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
+    { organizationId }
+  );
+  if (hadPreviousTrial) {
+    return;
+  }
+
+  await (ctx as any).runMutation(
+    generatedApi.internal.stripe.trialHelpers.logTrialEvent,
+    {
+      organizationId,
+      action: "organization.trial_started",
+      metadata: {
+        tier: normalizedTier,
+        trialEndsAt,
+      },
+    }
+  );
+
+  await sendSubscriptionLifecycleEmail(ctx, organizationId, "trial_started", {
+    tier: normalizedTier,
+    trialEndsAt,
   });
 }
 
@@ -651,6 +722,8 @@ async function updateOrganizationTier(
     stripeSubscriptionId?: string | null;
     stripeCustomerId?: string;
     status?: string;
+    trialStart?: number;
+    trialEnd?: number;
     currentPeriodStart?: number;
     currentPeriodEnd?: number;
     cancelAtPeriodEnd?: boolean;
@@ -661,6 +734,14 @@ async function updateOrganizationTier(
 ) {
   // Validate tier
   const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
+  const normalizedStatus =
+    subscriptionInfo.status === "trialing"
+      ? "trial"
+      : subscriptionInfo.status === "active"
+        ? "active"
+        : subscriptionInfo.status === "canceled"
+          ? "expired"
+          : "suspended";
 
   // Update organization.plan field
   await (ctx as any).runMutation(generatedApi.internal.stripe.platformWebhooks.updateOrganizationPlan, {
@@ -674,7 +755,9 @@ async function updateOrganizationTier(
   await (ctx as any).runMutation(generatedApi.internal.stripe.platformWebhooks.upsertOrganizationLicense, {
     organizationId,
     planTier: normalizedTier,
-    status: subscriptionInfo.status === "active" ? "active" : "suspended",
+    status: normalizedStatus,
+    trialStart: subscriptionInfo.trialStart,
+    trialEnd: subscriptionInfo.trialEnd,
     currentPeriodStart: subscriptionInfo.currentPeriodStart,
     currentPeriodEnd: subscriptionInfo.currentPeriodEnd,
     cancelAtPeriodEnd: subscriptionInfo.cancelAtPeriodEnd || false,
@@ -753,6 +836,8 @@ export const upsertOrganizationLicense = internalMutation({
       v.literal("enterprise")
     ),
     status: v.union(v.literal("active"), v.literal("trial"), v.literal("expired"), v.literal("suspended")),
+    trialStart: v.optional(v.number()),
+    trialEnd: v.optional(v.number()),
     currentPeriodStart: v.optional(v.number()),
     currentPeriodEnd: v.optional(v.number()),
     cancelAtPeriodEnd: v.optional(v.boolean()),
@@ -774,6 +859,8 @@ export const upsertOrganizationLicense = internalMutation({
 
     const customProperties = {
       planTier: args.planTier,
+      trialStart: args.trialStart,
+      trialEnd: args.trialEnd,
       currentPeriodStart: args.currentPeriodStart,
       currentPeriodEnd: args.currentPeriodEnd,
       cancelAtPeriodEnd: args.cancelAtPeriodEnd || false,

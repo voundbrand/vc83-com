@@ -36,6 +36,7 @@ export function LoginWindow() {
   const { t } = useNamespaceTranslations("ui.login");
 
   // Check if beta access gating is enabled
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const betaGatingStatus = useQuery(api.betaAccess.getBetaGatingStatus);
 
   // Capture affiliate referral code from ?ref= URL parameter on mount
@@ -375,7 +376,7 @@ export function LoginWindow() {
   // Show onboarding window after successful signup
   if (signupSuccess) {
     return (
-      <div className="h-full flex flex-col retro-bg p-6">
+      <div className="h-full flex flex-col desktop-shell-surface p-6">
         <div className="text-center mb-6">
           <div className="mb-4 flex justify-center">
             {betaGatingStatus?.enabled ? (
@@ -384,10 +385,10 @@ export function LoginWindow() {
               <PartyPopper className="w-14 h-14" />
             )}
           </div>
-          <h2 className="font-pixel text-xl retro-text mb-2">
+          <h2 className="font-pixel text-xl desktop-shell-text mb-2">
             {betaGatingStatus?.enabled ? "Beta Access Requested" : "Welcome to l4yercak3!"}
           </h2>
-          <p className="text-sm retro-text-secondary">
+          <p className="text-sm desktop-shell-text-muted">
             {betaGatingStatus?.enabled
               ? "Your account has been created. You'll need approval to access the platform."
               : "Your account is ready. Here's your API key to connect external tools."}
@@ -396,7 +397,7 @@ export function LoginWindow() {
 
         {/* Beta Access Warning */}
         {betaGatingStatus?.enabled && (
-          <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
+          <div className="desktop-shell-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
             <p className="text-sm mb-2">
               <strong>Awaiting Approval</strong>
             </p>
@@ -407,13 +408,13 @@ export function LoginWindow() {
         )}
 
         {!betaGatingStatus?.enabled && (
-          <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
+          <div className="desktop-shell-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
             <strong>What's this for?</strong> Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.
           </div>
         )}
 
         <div className="mb-6">
-          <label className="block text-xs font-pixel mb-2 retro-text">
+          <label className="block text-xs font-pixel mb-2 desktop-shell-text">
             Your API Key
           </label>
           <div className="p-3 font-mono text-sm break-all" style={{background: 'var(--shell-button-surface)', border: '2px inset var(--shell-border)'}}>
@@ -459,11 +460,11 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           </button>
         </div>
 
-        <div className="text-xs retro-text-secondary mb-4 text-center">
+        <div className="text-xs desktop-shell-text-muted mb-4 text-center">
           You can always view and manage your API keys later in <strong>Settings → Integrations</strong>
         </div>
 
-        <div className="retro-note mb-6">
+        <div className="desktop-shell-note mb-6">
           <h3 className="font-pixel text-sm mb-2">Account Details:</h3>
           <div className="text-xs space-y-1">
             <p>Organization: <strong>{signupSuccess.organization.name}</strong></p>
@@ -490,7 +491,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
   if (isSignedIn && user) {
     return (
-      <div className="h-full flex flex-col p-6 retro-bg">
+      <div className="h-full flex flex-col p-6 desktop-shell-surface">
         {/* Show passkey encouragement banner if user doesn't have passkey */}
         {!user.hasPasskey && sessionId && !isFirstLogin && (
           <PasskeyEncouragementBanner sessionId={sessionId} />
@@ -517,10 +518,10 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <div className="mb-4 flex justify-center">
               <UserRound className="w-14 h-14" />
             </div>
-            <h2 className="font-pixel text-lg retro-text">
+            <h2 className="font-pixel text-lg desktop-shell-text">
               {t('ui.login.welcome', { name: user.firstName || user.email })}
             </h2>
-            <p className="text-sm retro-text-secondary">
+            <p className="text-sm desktop-shell-text-muted">
               {t('ui.login.status_logged_in')}
               {user.isSuperAdmin && (
                 <span className="ml-2 font-bold" style={{ color: 'var(--success)' }}>[SUPER ADMIN]</span>
@@ -532,7 +533,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           </div>
 
           <div className="space-y-3">
-            <div className="text-sm space-y-1 retro-text-secondary">
+            <div className="text-sm space-y-1 desktop-shell-text-muted">
               <p>{t('ui.login.label_email')}: {user.email}</p>
               <p>{t('ui.login.label_user_id')}: {user.id}</p>
             </div>
@@ -556,24 +557,24 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
     const otherProviders = lastUsedProvider ? allProviders.filter(p => p !== lastUsedProvider) : allProviders;
 
     return (
-      <div className="h-full flex flex-col retro-bg">
+      <div className="h-full flex flex-col desktop-shell-surface">
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="text-center mb-6">
               <div className="mb-2 flex justify-center">
                 <Lock className="w-10 h-10" />
               </div>
-              <h2 className="font-pixel text-lg retro-text">
+              <h2 className="font-pixel text-lg desktop-shell-text">
                 {t('ui.login.title_system_access')}
               </h2>
-              <p className="text-xs mt-2 retro-text-secondary">
+              <p className="text-xs mt-2 desktop-shell-text-muted">
                 {t('ui.login.subtitle_enter_email')}
               </p>
             </div>
 
             {/* Beta Access Notice */}
             {betaGatingStatus?.enabled && (
-              <div className="retro-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
+              <div className="desktop-shell-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
                 <p className="text-xs">
                   <strong>Private Beta:</strong> We're currently in private beta. New signups will require approval before accessing the platform.
                 </p>
@@ -581,7 +582,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             )}
 
             {error && (
-              <div className="retro-error mb-4">
+              <div className="desktop-shell-error mb-4">
                 {error}
               </div>
             )}
@@ -658,13 +659,13 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-white retro-text-secondary">or</span>
+                <span className="px-2 bg-white desktop-shell-text-muted">or</span>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   {t('ui.login.label_email')}
                 </label>
                 <input
@@ -673,7 +674,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCheckEmail()}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                   placeholder={t('ui.login.placeholder_email')}
                 />
               </div>
@@ -690,7 +691,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             </div>
 
             <div className="mt-4 text-center">
-              <p className="text-xs retro-text-secondary mb-2">
+              <p className="text-xs desktop-shell-text-muted mb-2">
                 Don't have an account?
               </p>
               <button
@@ -701,7 +702,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               </button>
             </div>
 
-            <div className="mt-6 retro-note">
+            <div className="mt-6 desktop-shell-note">
               <p className="text-xs">
                 <strong>Note:</strong> Invited users can sign in above. Free accounts get 100 contacts, 1 API key, and 250MB storage.
               </p>
@@ -719,7 +720,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
     const otherProviders = lastUsedProvider ? allProviders.filter(p => p !== lastUsedProvider) : allProviders;
 
     return (
-      <div className="h-full flex flex-col retro-bg">
+      <div className="h-full flex flex-col desktop-shell-surface">
         <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
           <div className="w-full max-w-sm">
             <form onSubmit={handleSignup} className="space-y-4">
@@ -727,10 +728,10 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="mb-2 flex justify-center">
                   <Cake className="w-10 h-10" />
                 </div>
-                <h2 className="font-pixel text-lg retro-text">
+                <h2 className="font-pixel text-lg desktop-shell-text">
                   {betaGatingStatus?.enabled ? "Apply for Beta Access" : "Start Building with l4yercak3"}
                 </h2>
-                <p className="text-xs mt-2 retro-text-secondary">
+                <p className="text-xs mt-2 desktop-shell-text-muted">
                   {betaGatingStatus?.enabled
                     ? "Request access to our private beta"
                     : "100 contacts • 1 API key • Free forever"}
@@ -739,7 +740,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
               {/* Beta Access Notice */}
               {betaGatingStatus?.enabled && (
-                <div className="retro-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
+                <div className="desktop-shell-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
                   <p className="text-xs">
                     <strong>Beta Access Required:</strong> Your account will be created, but you'll need admin approval before accessing the platform. We'll email you when approved.
                   </p>
@@ -747,7 +748,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               )}
 
               {error && (
-                <div className="retro-error">
+                <div className="desktop-shell-error">
                   {error}
                 </div>
               )}
@@ -824,13 +825,13 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white retro-text-secondary">or</span>
+                  <span className="px-2 bg-white desktop-shell-text-muted">or</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     First Name
                   </label>
                   <input
@@ -838,12 +839,12 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-pixel mb-1 retro-text">
+                  <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                     Last Name
                   </label>
                   <input
@@ -851,13 +852,13 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   Email
                 </label>
                 <input
@@ -865,27 +866,27 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   Password
                 </label>
-                <div className="retro-input-wrapper">
+                <div className="desktop-shell-input-wrapper">
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                     placeholder="Min. 8 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="retro-eye-toggle"
+                    className="desktop-shell-eye-toggle"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -894,47 +895,47 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   Confirm Password
                 </label>
-                <div className="retro-input-wrapper">
+                <div className="desktop-shell-input-wrapper">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
                     onChange={(e) => handleConfirmPasswordChange(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="retro-eye-toggle"
+                    className="desktop-shell-eye-toggle"
                     aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   >
                     {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
                 {passwordMatch !== null && (
-                  <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
+                  <p className={passwordMatch ? "desktop-shell-validation-success" : "desktop-shell-validation-error"}>
                     {passwordMatch ? "Passwords match" : "Passwords don't match"}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   Organization Name (optional)
                 </label>
                 <input
                   type="text"
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                   placeholder={`${firstName || 'Your'}'s Organization`}
                 />
               </div>
 
-              <div className="retro-note">
+              <div className="desktop-shell-note">
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -978,7 +979,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
   // Password setup mode (first time login)
   if (mode === "setup") {
     return (
-      <div className="h-full flex flex-col retro-bg">
+      <div className="h-full flex flex-col desktop-shell-surface">
         <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
           <div className="w-full max-w-sm">
             <form onSubmit={handleSetupPassword} className="space-y-4">
@@ -986,61 +987,61 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="mb-2 flex justify-center">
                   <Cake className="w-10 h-10" />
                 </div>
-                <h2 className="font-pixel text-lg retro-text">
+                <h2 className="font-pixel text-lg desktop-shell-text">
                   {t('ui.login.title_welcome')}
                 </h2>
-                <p className="text-sm mt-2 retro-text-secondary">
+                <p className="text-sm mt-2 desktop-shell-text-muted">
                   {welcomeUser ? t('ui.login.subtitle_hello', { name: welcomeUser }) + ' ' : ''}{t('ui.login.subtitle_setup_password')}
                 </p>
               </div>
 
               {error && (
-                <div className="retro-error">
+                <div className="desktop-shell-error">
                   {error}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   {t('ui.login.label_first_name')}
                 </label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   {t('ui.login.label_last_name')}
                 </label>
                 <input
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   {t('ui.login.label_password')}
                 </label>
-                <div className="retro-input-wrapper">
+                <div className="desktop-shell-input-wrapper">
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                     placeholder={t('ui.login.placeholder_password')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="retro-eye-toggle"
+                    className="desktop-shell-eye-toggle"
                     aria-label={showPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                   >
                     {showPassword ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -1049,28 +1050,28 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               </div>
 
               <div>
-                <label className="block text-xs font-pixel mb-1 retro-text">
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                   {t('ui.login.label_confirm_password')}
                 </label>
-                <div className="retro-input-wrapper">
+                <div className="desktop-shell-input-wrapper">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
                     onChange={(e) => handleConfirmPasswordChange(e.target.value)}
-                    className="w-full retro-input"
+                    className="w-full desktop-shell-input"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="retro-eye-toggle"
+                    className="desktop-shell-eye-toggle"
                     aria-label={showConfirmPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                   >
                     {showConfirmPassword ? <Eye size={14} /> : <EyeOff size={14} />}
                   </button>
                 </div>
                 {passwordMatch !== null && (
-                  <p className={passwordMatch ? "retro-validation-success" : "retro-validation-error"}>
+                  <p className={passwordMatch ? "desktop-shell-validation-success" : "desktop-shell-validation-error"}>
                     {passwordMatch ? t('ui.login.validation_passwords_match') : t('ui.login.validation_passwords_mismatch')}
                   </p>
                 )}
@@ -1115,7 +1116,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
   const otherProvidersSignin = lastUsedProviderSignin ? allProvidersSignin.filter(p => p !== lastUsedProviderSignin) : allProvidersSignin;
 
   return (
-    <div className="h-full flex flex-col retro-bg">
+    <div className="h-full flex flex-col desktop-shell-surface">
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <form onSubmit={handleSignIn} className="space-y-4">
@@ -1123,16 +1124,16 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <div className="mb-2 flex justify-center">
                 <Lock className="w-10 h-10" />
               </div>
-              <h2 className="font-pixel text-lg retro-text">
+              <h2 className="font-pixel text-lg desktop-shell-text">
                 {t('ui.login.title_sign_in')}
               </h2>
-              <p className="text-sm mt-2 retro-text-secondary">
+              <p className="text-sm mt-2 desktop-shell-text-muted">
                 {email}
               </p>
             </div>
 
             {error && (
-              <div className="retro-error">
+              <div className="desktop-shell-error">
                 {error}
               </div>
             )}
@@ -1209,7 +1210,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-white retro-text-secondary">or</span>
+                <span className="px-2 bg-white desktop-shell-text-muted">or</span>
               </div>
             </div>
 
@@ -1303,22 +1304,22 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             )}
 
             <div>
-              <label className="block text-xs font-pixel mb-1 retro-text">
+              <label className="block text-xs font-pixel mb-1 desktop-shell-text">
                 {t('ui.login.label_password')}
               </label>
-              <div className="retro-input-wrapper">
+              <div className="desktop-shell-input-wrapper">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full retro-input"
+                  className="w-full desktop-shell-input"
                   autoFocus
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="retro-eye-toggle"
+                  className="desktop-shell-eye-toggle"
                   aria-label={showPassword ? t('ui.login.aria_hide_password') : t('ui.login.aria_show_password')}
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -1344,7 +1345,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t" style={{ borderColor: 'var(--shell-border)' }}></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 retro-bg retro-text-secondary">or</span>
+                <span className="px-2 desktop-shell-surface desktop-shell-text-muted">or</span>
               </div>
             </div>
 

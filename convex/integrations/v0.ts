@@ -79,33 +79,21 @@ interface V0Error {
 // INTERNAL HELPERS
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type V0Context = { db: { query: (...args: any[]) => any; get: (...args: any[]) => any } };
-
-/**
- * Get v0 API key for an organization
- * First checks organization settings, then falls back to platform key
- */
-async function getV0ApiKey(
-  ctx: V0Context,
-  organizationId: Id<"organizations">
-): Promise<string | null> {
-  // Check organization-specific v0 settings
-  const v0Settings = await ctx.db
-    .query("objects")
-    .withIndex("by_org_type", (q: any) =>
-      q.eq("organizationId", organizationId)
-        .eq("type", "integration_settings")
-    )
-    .filter((q: any) => q.eq(q.field("subtype"), "v0"))
-    .first();
-
-  if (v0Settings?.customProperties?.apiKey) {
-    return v0Settings.customProperties.apiKey as string;
+function readV0StoredApiKey(
+  customProperties: Record<string, unknown> | undefined
+): string | undefined {
+  if (!customProperties) {
+    return undefined;
   }
 
-  // Fall back to platform-wide v0 API key from environment
-  return process.env.V0_API_KEY || null;
+  return customProperties.apiKey as string | undefined;
+}
+
+function isV0ApiKeyEncrypted(
+  customProperties: Record<string, unknown> | undefined
+): boolean {
+  const encryptedFields = customProperties?.encryptedFields as string[] | undefined;
+  return Array.isArray(encryptedFields) && encryptedFields.includes("v0ApiKey");
 }
 
 /**
@@ -337,11 +325,30 @@ export const saveV0Settings = mutation({
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();
 
-    const customProperties = {
+    const customProperties: Record<string, unknown> = {
+      ...((existing?.customProperties as Record<string, unknown> | undefined) || {}),
       enabled: args.enabled,
-      ...(args.apiKey !== undefined && { apiKey: args.apiKey }),
-      ...(existing?.customProperties || {}),
     };
+
+    if (args.apiKey !== undefined) {
+      const normalizedApiKey = args.apiKey.trim();
+      if (!normalizedApiKey) {
+        delete customProperties.apiKey;
+        delete customProperties.apiKeyPrefix;
+        delete customProperties.credentialSource;
+        delete customProperties.encryptedFields;
+      } else {
+        const encryptedApiKey = await (ctx as any).runAction(
+          generatedApi.internal.oauth.encryption.encryptToken,
+          { plaintext: normalizedApiKey }
+        ) as string;
+
+        customProperties.apiKey = encryptedApiKey;
+        customProperties.apiKeyPrefix = normalizedApiKey.slice(0, 12);
+        customProperties.credentialSource = "object_settings";
+        customProperties.encryptedFields = ["v0ApiKey"];
+      }
+    }
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -401,7 +408,7 @@ export const createChat = action({
     }
 
     // Get v0 API key
-    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -503,7 +510,7 @@ export const sendMessage = action({
     }
 
     // Get v0 API key
-    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -556,7 +563,7 @@ export const getChat = action({
       throw new Error("Invalid or expired session");
     }
 
-    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 
@@ -631,13 +638,16 @@ export const verifySession = internalQuery({
 });
 
 /**
- * Internal: Get v0 API key for an organization
+ * Internal raw query: v0 API key as stored (encrypted-at-rest payload).
  */
-export const getApiKeyInternal = internalQuery({
+export const getApiKeyStoredInternal = internalQuery({
   args: {
     organizationId: v.id("organizations"),
   },
-  handler: async (ctx, args): Promise<string | null> => {
+  handler: async (ctx, args): Promise<{
+    apiKey: string | undefined;
+    encryptedFields: string[] | undefined;
+  } | null> => {
     const v0Settings = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q =>
@@ -647,8 +657,46 @@ export const getApiKeyInternal = internalQuery({
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();
 
-    if (v0Settings?.customProperties?.apiKey) {
-      return v0Settings.customProperties.apiKey as string;
+    const customProperties = v0Settings?.customProperties as
+      | Record<string, unknown>
+      | undefined;
+    if (!customProperties) {
+      return null;
+    }
+
+    return {
+      apiKey: readV0StoredApiKey(customProperties),
+      encryptedFields: customProperties.encryptedFields as string[] | undefined,
+    };
+  },
+});
+
+/**
+ * Internal: Get v0 API key for an organization (decrypt-on-use boundary).
+ */
+export const getApiKeyInternal = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<string | null> => {
+    const stored = await (ctx as any).runQuery(
+      generatedApi.internal.integrations.v0.getApiKeyStoredInternal,
+      { organizationId: args.organizationId }
+    );
+
+    if (stored?.apiKey) {
+      const shouldDecrypt =
+        Array.isArray(stored.encryptedFields) &&
+        stored.encryptedFields.includes("v0ApiKey");
+      if (!shouldDecrypt) {
+        return stored.apiKey as string;
+      }
+
+      const decryptedApiKey = await (ctx as any).runAction(
+        generatedApi.internal.oauth.encryption.decryptToken,
+        { encrypted: stored.apiKey }
+      );
+      return typeof decryptedApiKey === "string" ? decryptedApiKey : null;
     }
 
     return process.env.V0_API_KEY || null;
@@ -833,7 +881,7 @@ export const builderChat = action({
     slug: string;
   }> => {
     // Get v0 API key
-    const apiKey = await (ctx as any).runQuery(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
     });
 

@@ -1150,8 +1150,7 @@ export default function HomePage() {
     id: `avatar-language-${localeCode}`,
     label: getLocaleLabel(localeCode),
     onSelect: () => setLocale(localeCode),
-    icon: <ShellTranslationsIcon size={16} tone="muted" />,
-    shortcut: locale === localeCode ? "Current" : undefined,
+    shortcut: locale === localeCode ? "✓" : undefined,
   }))
 
   const avatarMenuItems: TopNavMenuItem[] = [

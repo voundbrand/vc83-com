@@ -24,7 +24,7 @@ export function ChatMessages() {
 
   if (translationsLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--shell-surface)' }}>
         <div style={{ color: 'var(--neutral-gray)' }} className="text-sm">
           {t("ui.ai_assistant.loading.translations")}
         </div>
@@ -34,7 +34,7 @@ export function ChatMessages() {
 
   if (chat.isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--win95-bg)' }}>
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--shell-surface)' }}>
         <div style={{ color: 'var(--neutral-gray)' }} className="text-sm">
           Loading conversation...
         </div>
@@ -46,16 +46,16 @@ export function ChatMessages() {
     <div
       className="flex-1 overflow-y-auto p-4 space-y-4"
       style={{
-        background: 'var(--win95-bg)',
-        color: 'var(--win95-text)'
+        background: 'var(--shell-surface)',
+        color: 'var(--shell-text)'
       }}
     >
       {displayMessages.length === 0 && (
         <div
           className="text-xs px-3 py-2 border rounded"
           style={{
-            borderColor: "var(--win95-border)",
-            background: "var(--win95-bg-light)",
+            borderColor: "var(--shell-border)",
+            background: "var(--shell-surface-elevated)",
             color: "var(--neutral-gray)"
           }}
         >

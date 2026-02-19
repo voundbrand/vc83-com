@@ -12,8 +12,66 @@
  * - .kiro/ai_integration_platform/STRIPE_SETUP_CHEAT_SHEET_v3.md - Stripe configuration
  */
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
+import type { AiBillingSource } from "../channels/types";
+import {
+  resolveAiCreditBillingPolicy,
+  resolveAiLegacyTokenLedgerPolicy,
+  type AiBillingLedgerMode,
+  type AiCreditBillingPolicyDecision,
+  type AiCreditRequestSource,
+  type AiLegacyTokenLedgerPolicyDecision,
+} from "../credits/index";
+
+const aiBillingSourceArgValidator = v.union(
+  v.literal("platform"),
+  v.literal("byok"),
+  v.literal("private")
+);
+
+const aiCreditRequestSourceArgValidator = v.union(
+  v.literal("llm"),
+  v.literal("platform_action")
+);
+
+const aiBillingLedgerModeArgValidator = v.union(
+  v.literal("credits_ledger"),
+  v.literal("legacy_tokens")
+);
+
+function normalizeCreditLedgerAction(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export interface AiUsageBillingGuardrailDecision {
+  billingPolicy: AiCreditBillingPolicyDecision;
+  ledgerPolicy: AiLegacyTokenLedgerPolicyDecision;
+  requiresCreditLedgerAction: boolean;
+}
+
+export function resolveAiUsageBillingGuardrail(args: {
+  billingSource?: AiBillingSource | unknown;
+  requestSource?: AiCreditRequestSource | unknown;
+  ledgerMode?: AiBillingLedgerMode | unknown;
+}): AiUsageBillingGuardrailDecision {
+  const billingPolicy = resolveAiCreditBillingPolicy({
+    billingSource: args.billingSource,
+    requestSource: args.requestSource ?? "llm",
+  });
+  const ledgerPolicy = resolveAiLegacyTokenLedgerPolicy({
+    ledgerMode: args.ledgerMode,
+  });
+  return {
+    billingPolicy,
+    ledgerPolicy,
+    requiresCreditLedgerAction: billingPolicy.enforceCredits,
+  };
+}
 
 /**
  * GET SUBSCRIPTION STATUS
@@ -36,6 +94,7 @@ export const getSubscriptionStatus = query({
         hasSubscription: false,
         status: null,
         tier: null,
+        legacyTokenAccountingMode: "deprecated_disabled",
         currentPeriodEnd: null,
         includedTokensTotal: 0,
         includedTokensUsed: 0,
@@ -54,6 +113,8 @@ export const getSubscriptionStatus = query({
       status: subscription.status,
       tier: subscription.tier,
       privateLLMTier: subscription.privateLLMTier,
+      legacyTokenAccountingMode:
+        subscription.legacyTokenAccountingMode ?? "deprecated_disabled",
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       includedTokensTotal: subscription.includedTokensTotal,
@@ -86,6 +147,7 @@ export const getTokenBalance = query({
         purchasedTokens: 0,
         gracePeriodStart: null,
         gracePeriodEnd: null,
+        usageDebitMode: "manual_only",
       };
     }
 
@@ -93,6 +155,7 @@ export const getTokenBalance = query({
       purchasedTokens: balance.purchasedTokens,
       gracePeriodStart: balance.gracePeriodStart || null,
       gracePeriodEnd: balance.gracePeriodEnd || null,
+      usageDebitMode: "manual_only",
     };
   },
 });
@@ -238,6 +301,7 @@ export const upsertSubscriptionFromStripe = mutation({
         priceInCents: args.priceInCents,
         currency: args.currency,
         includedTokensTotal: args.includedTokensTotal,
+        legacyTokenAccountingMode: "deprecated_disabled",
         updatedAt: Date.now(),
       });
       return existingSubscription._id;
@@ -259,6 +323,7 @@ export const upsertSubscriptionFromStripe = mutation({
         currency: args.currency,
         includedTokensTotal: args.includedTokensTotal,
         includedTokensUsed: 0,
+        legacyTokenAccountingMode: "deprecated_disabled",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -314,23 +379,13 @@ export const resetMonthlyTokenUsage = mutation({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args) => {
-    const subscription = await ctx.db
-      .query("aiSubscriptions")
-      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-      .first();
-
-    if (!subscription) {
-      throw new Error("No subscription found");
-    }
-
-    await ctx.db.patch(subscription._id, {
-      includedTokensUsed: 0,
-      updatedAt: Date.now(),
-    });
-
+    void ctx;
+    void args.organizationId;
     return {
       success: true,
-      message: "Monthly token usage reset successfully",
+      skipped: true,
+      message:
+        "Legacy token reset skipped: credits ledger is authoritative for AI runtime charging.",
     };
   },
 });
@@ -432,8 +487,35 @@ export const recordUsage = mutation({
     success: v.boolean(),
     errorMessage: v.optional(v.string()),
     requestDurationMs: v.optional(v.number()),
+    billingSource: v.optional(aiBillingSourceArgValidator),
+    requestSource: v.optional(aiCreditRequestSourceArgValidator),
+    ledgerMode: v.optional(aiBillingLedgerModeArgValidator),
+    creditLedgerAction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const usageGuardrail = resolveAiUsageBillingGuardrail({
+      billingSource: args.billingSource,
+      requestSource: args.requestSource,
+      ledgerMode: args.ledgerMode,
+    });
+
+    if (usageGuardrail.ledgerPolicy.requestedLedgerMode === "legacy_tokens") {
+      throw new ConvexError({
+        code: "LEGACY_TOKEN_LEDGER_DISABLED",
+        message:
+          "Legacy token ledger mutations are disabled. Chargeable AI requests must use the credits ledger.",
+      });
+    }
+
+    const creditLedgerAction = normalizeCreditLedgerAction(args.creditLedgerAction);
+    if (usageGuardrail.requiresCreditLedgerAction && !creditLedgerAction) {
+      throw new ConvexError({
+        code: "CREDIT_LEDGER_ACTION_REQUIRED",
+        message:
+          "recordUsage requires creditLedgerAction for credit-metered requests to keep accounting deterministic.",
+      });
+    }
+
     // Get current subscription for billing period and tier
     const subscription = await ctx.db
       .query("aiSubscriptions")
@@ -462,6 +544,13 @@ export const recordUsage = mutation({
       provider: args.provider,
       model: args.model,
       tier: subscription.tier,
+      billingSource: usageGuardrail.billingPolicy.effectiveBillingSource,
+      requestSource: usageGuardrail.billingPolicy.requestSource,
+      billingPolicyReason: usageGuardrail.billingPolicy.reason,
+      billingLedger: usageGuardrail.ledgerPolicy.effectiveLedgerMode,
+      billingLedgerReason: usageGuardrail.ledgerPolicy.reason,
+      creditLedgerAction: creditLedgerAction ?? undefined,
+      legacyTokenAccountingStatus: "skipped",
       success: args.success,
       errorMessage: args.errorMessage,
       requestDurationMs: args.requestDurationMs,
@@ -469,34 +558,16 @@ export const recordUsage = mutation({
       updatedAt: Date.now(),
     });
 
-    // Update subscription's included tokens usage
-    const newTokensUsed = subscription.includedTokensUsed + totalTokens;
-    await ctx.db.patch(subscription._id, {
-      includedTokensUsed: newTokensUsed,
-      updatedAt: Date.now(),
-    });
-
-    // If tokens exceeded monthly included amount, deduct from purchased balance
-    if (newTokensUsed > subscription.includedTokensTotal) {
-      const tokensOverage = newTokensUsed - subscription.includedTokensTotal;
-      const balance = await ctx.db
-        .query("aiTokenBalance")
-        .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
-        .first();
-
-      if (balance && balance.purchasedTokens > 0) {
-        const newPurchasedTokens = Math.max(0, balance.purchasedTokens - tokensOverage);
-        await ctx.db.patch(balance._id, {
-          purchasedTokens: newPurchasedTokens,
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
     return {
       usageId,
       tokensUsed: totalTokens,
-      remainingIncludedTokens: Math.max(0, subscription.includedTokensTotal - newTokensUsed),
+      remainingIncludedTokens: Math.max(
+        0,
+        subscription.includedTokensTotal - subscription.includedTokensUsed
+      ),
+      billingPolicy: usageGuardrail.billingPolicy,
+      ledgerPolicy: usageGuardrail.ledgerPolicy,
+      legacyTokenAccountingSkipped: true,
     };
   },
 });
@@ -561,6 +632,7 @@ export const upsertSubscriptionFromStripeInternal = internalMutation({
         priceInCents: args.priceInCents,
         currency: args.currency,
         includedTokensTotal: args.includedTokensTotal,
+        legacyTokenAccountingMode: "deprecated_disabled",
         updatedAt: Date.now(),
       });
       return existingSubscription._id;
@@ -581,6 +653,7 @@ export const upsertSubscriptionFromStripeInternal = internalMutation({
         currency: args.currency,
         includedTokensTotal: args.includedTokensTotal,
         includedTokensUsed: 0,
+        legacyTokenAccountingMode: "deprecated_disabled",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });

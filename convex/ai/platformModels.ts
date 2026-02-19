@@ -9,6 +9,32 @@
 
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import {
+  normalizeCanonicalProviderId,
+  toCanonicalCapabilityMatrix,
+} from "./modelPolicy";
+import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
+
+function buildRoutingGates(capabilityMatrix: ReturnType<typeof toCanonicalCapabilityMatrix>) {
+  return {
+    text: evaluateRoutingCapabilityRequirements({
+      capabilityMatrix,
+      requiredCapabilities: ["text"],
+    }).passed,
+    tooling: evaluateRoutingCapabilityRequirements({
+      capabilityMatrix,
+      requiredCapabilities: ["tools", "json"],
+    }).passed,
+    vision: evaluateRoutingCapabilityRequirements({
+      capabilityMatrix,
+      requiredCapabilities: ["vision"],
+    }).passed,
+    audio_in: evaluateRoutingCapabilityRequirements({
+      capabilityMatrix,
+      requiredCapabilities: ["audio_in"],
+    }).passed,
+  };
+}
 
 /**
  * Get all platform-enabled models
@@ -24,16 +50,28 @@ export const getEnabledModels = query({
       .withIndex("by_platform_enabled", (q) => q.eq("isPlatformEnabled", true))
       .collect();
 
-    return models.map((model) => ({
-      id: model.modelId,
-      name: model.name,
-      provider: model.provider,
-      pricing: model.pricing,
-      contextLength: model.contextLength,
-      capabilities: model.capabilities,
-      isNew: model.isNew,
-      isSystemDefault: model.isSystemDefault ?? false,
-    }));
+    return models.map((model) => {
+      const capabilityMatrix = toCanonicalCapabilityMatrix({
+        toolCalling: model.capabilities.toolCalling,
+        multimodal: model.capabilities.multimodal,
+        vision: model.capabilities.vision,
+      });
+
+      return {
+        id: model.modelId,
+        name: model.name,
+        provider: model.provider,
+        providerId: normalizeCanonicalProviderId(model.provider),
+        billingSource: "platform" as const,
+        pricing: model.pricing,
+        contextLength: model.contextLength,
+        capabilities: model.capabilities,
+        capabilityMatrix,
+        routingGates: buildRoutingGates(capabilityMatrix),
+        isNew: model.isNew,
+        isSystemDefault: model.isSystemDefault ?? false,
+      };
+    });
   },
 });
 
@@ -51,14 +89,26 @@ export const getSystemDefaults = query({
       .withIndex("by_system_default", (q) => q.eq("isSystemDefault", true))
       .collect();
 
-    return models.map((model) => ({
-      id: model.modelId,
-      name: model.name,
-      provider: model.provider,
-      pricing: model.pricing,
-      contextLength: model.contextLength,
-      capabilities: model.capabilities,
-    }));
+    return models.map((model) => {
+      const capabilityMatrix = toCanonicalCapabilityMatrix({
+        toolCalling: model.capabilities.toolCalling,
+        multimodal: model.capabilities.multimodal,
+        vision: model.capabilities.vision,
+      });
+
+      return {
+        id: model.modelId,
+        name: model.name,
+        provider: model.provider,
+        providerId: normalizeCanonicalProviderId(model.provider),
+        billingSource: "platform" as const,
+        pricing: model.pricing,
+        contextLength: model.contextLength,
+        capabilities: model.capabilities,
+        capabilityMatrix,
+        routingGates: buildRoutingGates(capabilityMatrix),
+      };
+    });
   },
 });
 
@@ -110,13 +160,25 @@ export const getToolCallingModels = query({
 
     return models
       .filter((model) => model.capabilities.toolCalling)
-      .map((model) => ({
-        id: model.modelId,
-        name: model.name,
-        provider: model.provider,
-        pricing: model.pricing,
-        contextLength: model.contextLength,
-      }));
+      .map((model) => {
+        const capabilityMatrix = toCanonicalCapabilityMatrix({
+          toolCalling: model.capabilities.toolCalling,
+          multimodal: model.capabilities.multimodal,
+          vision: model.capabilities.vision,
+        });
+
+        return {
+          id: model.modelId,
+          name: model.name,
+          provider: model.provider,
+          providerId: normalizeCanonicalProviderId(model.provider),
+          billingSource: "platform" as const,
+          pricing: model.pricing,
+          contextLength: model.contextLength,
+          capabilityMatrix,
+          routingGates: buildRoutingGates(capabilityMatrix),
+        };
+      });
   },
 });
 

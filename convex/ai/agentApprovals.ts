@@ -476,7 +476,12 @@ export const executeApprovedAction = internalAction({
       const toolCreditCost = getToolCreditCost(toolName);
       const creditCheck = await (ctx as any).runQuery(
         generatedApi.internal.credits.index.checkCreditsInternalQuery,
-        { organizationId: approval.organizationId, requiredAmount: toolCreditCost }
+        {
+          organizationId: approval.organizationId,
+          requiredAmount: toolCreditCost,
+          billingSource: "platform",
+          requestSource: "platform_action",
+        }
       ) as { hasCredits: boolean; totalCredits: number };
 
       if (!creditCheck.hasCredits) {
@@ -504,11 +509,13 @@ export const executeApprovedAction = internalAction({
         const approvalCreditDeduction = await (ctx as any).runMutation(
           generatedApi.internal.credits.index.deductCreditsInternalMutation,
           {
-          organizationId: approval.organizationId,
-          amount: toolCreditCost,
-          action: `tool_${toolName}`,
-          relatedEntityType: "agent_approval",
-          relatedEntityId: args.approvalId as unknown as string,
+            organizationId: approval.organizationId,
+            amount: toolCreditCost,
+            action: `tool_${toolName}`,
+            relatedEntityType: "agent_approval",
+            relatedEntityId: args.approvalId as unknown as string,
+            billingSource: "platform",
+            requestSource: "platform_action",
             softFailOnExhausted: true,
           }
         );

@@ -107,8 +107,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
         <div
           className="p-3 rounded-lg"
           style={{
-            background: 'var(--win95-selected-bg)',
-            color: 'var(--win95-selected-text)'
+            background: 'var(--shell-selection-bg)',
+            color: 'var(--shell-selection-text)'
           }}
         >
           {getSubtypeIcon(commission.subtype || "sales")}
@@ -122,8 +122,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
               <span
                 className="px-2 py-1 text-sm font-bold rounded-lg"
                 style={{
-                  background: 'var(--win95-success-bg)',
-                  color: 'var(--win95-success-text)'
+                  background: 'var(--success-bg)',
+                  color: 'var(--success)'
                 }}
               >
                 {props.commissionType === "percentage"
@@ -189,8 +189,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
               style={{
-                background: 'var(--win95-selected-bg)',
-                color: 'var(--win95-selected-text)'
+                background: 'var(--shell-selection-bg)',
+                color: 'var(--shell-selection-text)'
               }}
             >
               {commission.offerer.name?.charAt(0) || "?"}
@@ -264,8 +264,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
               rows={3}
               style={{
                 borderColor: 'var(--window-document-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -281,8 +281,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 className="w-full px-2 py-1.5 border text-sm"
                 style={{
                   borderColor: 'var(--window-document-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -296,8 +296,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 className="w-full px-2 py-1.5 border text-sm"
                 style={{
                   borderColor: 'var(--window-document-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -314,8 +314,8 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
                 className="w-full px-2 py-1.5 border text-sm"
                 style={{
                   borderColor: 'var(--window-document-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -324,10 +324,10 @@ export function CommissionDetail({ commissionId }: CommissionDetailProps) {
           <button
             onClick={handleSubmitReferral}
             disabled={isSubmitting || !referralDetails.trim()}
-            className="retro-button w-full py-2 flex items-center justify-center gap-2"
+            className="desktop-shell-button w-full py-2 flex items-center justify-center gap-2"
             style={{
-              background: referralDetails.trim() ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-              color: referralDetails.trim() ? 'var(--win95-selected-text)' : 'var(--neutral-gray)',
+              background: referralDetails.trim() ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+              color: referralDetails.trim() ? 'var(--shell-selection-text)' : 'var(--neutral-gray)',
               opacity: isSubmitting ? 0.7 : 1,
             }}
           >

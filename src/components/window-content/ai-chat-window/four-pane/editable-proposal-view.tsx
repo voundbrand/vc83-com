@@ -76,7 +76,7 @@ export function EditableProposalView({
     if (execution.toolName === "manage_projects") {
       if (action === "create_project") {
         return (
-          <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
+          <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
               <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
@@ -106,7 +106,7 @@ export function EditableProposalView({
 
       if (action === "create_milestone") {
         return (
-          <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
+          <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
               <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
@@ -138,7 +138,7 @@ export function EditableProposalView({
     if (execution.toolName === "manage_crm") {
       if (action === "create_contact") {
         return (
-          <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
+          <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
               <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
             </div>
@@ -182,9 +182,9 @@ export function EditableProposalView({
       <pre
         className="text-xs p-3 rounded overflow-x-auto font-mono"
         style={{
-          background: 'var(--win95-input-bg)',
-          color: 'var(--win95-text)',
-          border: '2px solid var(--win95-border)'
+          background: 'var(--shell-input-surface)',
+          color: 'var(--shell-text)',
+          border: '2px solid var(--shell-border)'
         }}
       >
         {JSON.stringify(execution.parameters, null, 2)}
@@ -198,12 +198,12 @@ export function EditableProposalView({
       <div
         className="flex items-center gap-2 p-3 border-b-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
         <AlertTriangle className="w-4 h-4" style={{ color: 'var(--warning)' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+        <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
           Review Proposal
         </span>
       </div>
@@ -225,7 +225,7 @@ export function EditableProposalView({
                 <p className="text-xs font-semibold mb-1" style={{ color: 'var(--info)' }}>
                   AI Proposal
                 </p>
-                <p className="text-xs" style={{ color: 'var(--win95-text)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text)' }}>
                   {execution.proposalMessage}
                 </p>
               </div>
@@ -235,24 +235,24 @@ export function EditableProposalView({
 
         {/* Tool Name */}
         <div className="mb-4">
-          <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-            Tool: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{execution.toolName}</span>
+          <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
+            Tool: <span className="font-mono" style={{ color: 'var(--shell-text)' }}>{execution.toolName}</span>
           </p>
-          <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
-            Action: <span className="font-mono" style={{ color: 'var(--win95-text)' }}>{String(execution.parameters?.action || "N/A")}</span>
+          <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
+            Action: <span className="font-mono" style={{ color: 'var(--shell-text)' }}>{String(execution.parameters?.action || "N/A")}</span>
           </p>
         </div>
 
         {/* Parameters */}
         <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--shell-text)' }}>
             Parameters
           </p>
           <div
             className="p-3 rounded border-2"
             style={{
-              background: 'var(--win95-bg)',
-              borderColor: 'var(--win95-border)'
+              background: 'var(--shell-surface)',
+              borderColor: 'var(--shell-border)'
             }}
           >
             {getParameterPreview()}
@@ -269,9 +269,9 @@ export function EditableProposalView({
             placeholder="Tell the AI what to do instead..."
             className="w-full p-2 border-2 rounded text-xs"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-input-bg)',
-              color: 'var(--win95-text)'
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-input-surface)',
+              color: 'var(--shell-text)'
             }}
             rows={3}
           />
@@ -280,9 +280,9 @@ export function EditableProposalView({
             disabled={!customText.trim() || isLoading}
             className="mt-2 px-3 py-1 rounded text-xs disabled:opacity-50 border-2"
             style={{
-              background: 'var(--win95-highlight)',
+              background: 'var(--shell-accent)',
               color: 'white',
-              borderColor: 'var(--win95-highlight)'
+              borderColor: 'var(--shell-accent)'
             }}
           >
             Send Instruction
@@ -294,8 +294,8 @@ export function EditableProposalView({
       <div
         className="p-3 border-t-2 space-y-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-bg-light)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-surface-elevated)'
         }}
       >
         <button
@@ -303,18 +303,18 @@ export function EditableProposalView({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border-2 transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-highlight)',
-            background: 'var(--win95-highlight-subtle)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-accent)',
+            background: 'var(--shell-accent-soft)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-highlight-subtle)';
+            e.currentTarget.style.background = 'var(--shell-accent-soft)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-highlight)' }}>1</span>
+          <span className="font-bold" style={{ color: 'var(--shell-accent)' }}>1</span>
           {" "}Yes
         </button>
 
@@ -323,18 +323,18 @@ export function EditableProposalView({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-bg)';
+            e.currentTarget.style.background = 'var(--shell-surface)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-text-muted)' }}>2</span>
+          <span className="font-bold" style={{ color: 'var(--shell-text-dim)' }}>2</span>
           {" "}Yes, and don't ask again
         </button>
 
@@ -343,18 +343,18 @@ export function EditableProposalView({
           disabled={isLoading}
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg)',
-            color: 'var(--win95-text)'
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface)',
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+            if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-bg)';
+            e.currentTarget.style.background = 'var(--shell-surface)';
           }}
         >
-          <span className="font-bold" style={{ color: 'var(--win95-text-muted)' }}>3</span>
+          <span className="font-bold" style={{ color: 'var(--shell-text-dim)' }}>3</span>
           {" "}No
         </button>
 
@@ -364,15 +364,15 @@ export function EditableProposalView({
             disabled={isLoading}
             className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-xs"
             style={{
-              borderColor: 'var(--win95-border-light)',
-              background: 'var(--win95-bg)',
-              color: 'var(--win95-text-muted)'
+              borderColor: 'var(--shell-border-soft)',
+              background: 'var(--shell-surface)',
+              color: 'var(--shell-text-dim)'
             }}
             onMouseEnter={(e) => {
-              if (!isLoading) e.currentTarget.style.background = 'var(--win95-hover-light)';
+              if (!isLoading) e.currentTarget.style.background = 'var(--shell-hover-surface)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--win95-bg)';
+              e.currentTarget.style.background = 'var(--shell-surface)';
             }}
           >
             Tell the AI what to do instead

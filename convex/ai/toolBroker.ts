@@ -27,8 +27,13 @@ export interface ParsedToolCallArguments {
 }
 
 type ProviderToolCallEnvelope = {
+  id?: string;
+  type?: string;
+  name?: string;
+  input?: unknown;
   function?: {
-    arguments?: string | null;
+    name?: string;
+    arguments?: unknown;
   };
 };
 
@@ -93,14 +98,43 @@ export function parseToolCallArguments(
 
 export function normalizeToolCallsForProvider<T extends ProviderToolCallEnvelope>(
   toolCalls: T[]
-): T[] {
-  return toolCalls.map((toolCall) => ({
-    ...toolCall,
+): Array<
+  T & {
+    id: string;
+    type: "function";
     function: {
-      ...(toolCall.function ?? {}),
-      arguments: normalizeToolArgumentString(toolCall.function?.arguments),
-    },
-  }));
+      name: string;
+      arguments: string;
+    };
+  }
+> {
+  return toolCalls.map((toolCall, index) => {
+    const normalizedId =
+      typeof toolCall.id === "string" && toolCall.id.trim().length > 0
+        ? toolCall.id
+        : `tool_call_${index + 1}`;
+    const normalizedName =
+      (typeof toolCall.function?.name === "string" &&
+      toolCall.function.name.trim().length > 0
+        ? toolCall.function.name
+        : typeof toolCall.name === "string" && toolCall.name.trim().length > 0
+        ? toolCall.name
+        : `tool_${index + 1}`);
+    const normalizedArguments = normalizeToolArgumentString(
+      toolCall.function?.arguments ?? toolCall.input
+    );
+
+    return {
+      ...toolCall,
+      id: normalizedId,
+      type: "function" as const,
+      function: {
+        ...(toolCall.function ?? {}),
+        name: normalizedName,
+        arguments: normalizedArguments,
+      },
+    };
+  });
 }
 
 // ============================================================================

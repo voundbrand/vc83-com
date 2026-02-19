@@ -592,7 +592,10 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
                           type="button"
                           onClick={onNavigateToPipelines}
                           className="desktop-interior-button w-full px-3 py-2 text-xs font-bold flex items-center justify-center gap-2"
-                          style={{ background: "var(--primary)", color: "white" }}
+                          style={{
+                            background: "var(--button-primary-bg, var(--tone-accent))",
+                            color: "var(--button-primary-text, #0f0f0f)",
+                          }}
                         >
                           <TrendingUp size={14} />
                           {t("ui.crm.organization_form.pipeline_status.manage_in_pipelines") || "Manage in Pipelines"}
@@ -1335,8 +1338,8 @@ export function OrganizationFormModal({ editId, onClose, onSuccess, onNavigateTo
               className="px-4 py-2 text-sm font-bold flex items-center gap-2 border-2"
               style={{
                 borderColor: "var(--window-document-border)",
-                background: "var(--primary)",
-                color: "white",
+                background: "var(--button-primary-bg, var(--tone-accent))",
+                color: "var(--button-primary-text, #0f0f0f)",
               }}
             >
               {saving ? (

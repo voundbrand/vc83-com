@@ -71,6 +71,26 @@ export interface AIBillingStatus {
   cancelAtPeriodEnd?: boolean
 }
 
+export interface RuntimeLicenseSnapshot {
+  planTier?: string
+  features?: Record<string, unknown>
+}
+
+export interface AIConnectionSnapshot {
+  providerId: string
+  providerLabel: string
+  isConnected: boolean
+  hasApiKey: boolean
+  enabled: boolean
+}
+
+export interface AIConnectionCatalogSnapshot {
+  aiEnabled: boolean
+  byokEnabled: boolean
+  requiredTierForByok: string
+  providers: AIConnectionSnapshot[]
+}
+
 export interface OpenRouterModel {
   id: string
   name: string
@@ -115,7 +135,7 @@ export interface AICreditBalance {
  * Main AI Configuration Hook
  */
 export function useAIConfig() {
-  const { user } = useAuth()
+  const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
   const useQueryAny = useQuery as any
   const useMutationAny = useMutation as any
@@ -138,6 +158,21 @@ export function useAIConfig() {
     apiAny.credits.index.getCreditBalance,
     organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
   ) as AICreditBalance | undefined
+
+  const license = useQueryAny(
+    apiAny.licensing.helpers.getLicense,
+    organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
+  ) as RuntimeLicenseSnapshot | undefined
+
+  const connectionCatalog = useQueryAny(
+    apiAny.integrations.aiConnections.getAIConnectionCatalog,
+    organization && sessionId
+      ? {
+          sessionId,
+          organizationId: organization.id as Id<"organizations">,
+        }
+      : "skip"
+  ) as AIConnectionCatalogSnapshot | undefined
 
   // Mutations
   const upsertSettingsMutation = useMutationAny(apiAny.ai.settings.upsertAISettings)
@@ -275,6 +310,9 @@ export function useAIConfig() {
     (credits.monthlyCreditsTotal === -1 || credits.totalCredits > 0)
   )
 
+  const connectedProviders = connectionCatalog?.providers?.filter((provider) => provider.isConnected) || []
+  const canUseByok = Boolean(connectionCatalog?.byokEnabled)
+
   /**
    * Helper: Get current usage percentage
    */
@@ -287,7 +325,11 @@ export function useAIConfig() {
     settings,
     billing,
     credits,
+    license,
     models,
+    connectionCatalog,
+    connectedProviders,
+    canUseByok,
     enabledModelIds,
     defaultModelId,
     isAIReady,

@@ -13,6 +13,14 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { InteriorButton } from "@/components/ui/interior-button";
+import {
+  InteriorHelperText,
+  InteriorInput,
+  InteriorPanel,
+  InteriorSectionHeader,
+  InteriorSelect,
+  InteriorTextarea,
+} from "@/components/window-content/shared/interior-primitives";
 import { generateWebchatDeploymentSnippets, type WebchatSnippetBootstrapContract } from "@/components/chat-widget";
 import { normalizeWebchatCustomizationContract, type PublicInboundChannel, type WebchatCustomizationContract } from "../../../../convex/webchatCustomizationContractCore";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -193,19 +201,13 @@ function SnippetCard({
 }) {
   const copyLabel = copyState === "copied" ? "Copied" : copyState === "error" ? "Retry Copy" : "Copy";
   return (
-    <div
-      className="border-2 p-3 flex flex-col gap-3"
-      style={{
-        borderColor: "var(--window-document-border)",
-        background: "var(--window-document-bg-elevated)",
-      }}
-    >
+    <InteriorPanel className="web-publishing-modern-panel p-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+          <p className="text-xs font-bold desktop-interior-title">
             {title}
           </p>
-          <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+          <p className="text-[11px] desktop-interior-subtitle">
             {summary}
           </p>
         </div>
@@ -221,17 +223,12 @@ function SnippetCard({
         </InteriorButton>
       </div>
       <pre
-        className="text-[11px] leading-snug border-2 p-2 overflow-x-auto whitespace-pre"
-        style={{
-          borderColor: "var(--window-document-border)",
-          background: "white",
-          color: "var(--window-document-text)",
-          minHeight: 170,
-        }}
+        className="web-publishing-modern-code text-[11px] leading-snug p-2 overflow-x-auto whitespace-pre"
+        style={{ color: "var(--window-document-text)", minHeight: 170 }}
       >
         <code>{snippet}</code>
       </pre>
-    </div>
+    </InteriorPanel>
   );
 }
 
@@ -589,7 +586,7 @@ export function WebchatDeploymentTab() {
 
   if (!sessionId || !currentOrg?.id) {
     return (
-      <div className="p-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
+      <div className="p-4 text-xs desktop-interior-subtitle">
         Sign in and select an organization to configure webchat deployment.
       </div>
     );
@@ -597,7 +594,7 @@ export function WebchatDeploymentTab() {
 
   if (agents === undefined) {
     return (
-      <div className="p-4 text-xs flex items-center gap-2" style={{ color: "var(--neutral-gray)" }}>
+      <div className="p-4 text-xs flex items-center gap-2 desktop-interior-subtitle">
         <Loader2 size={14} className="animate-spin" />
         Loading deployment agents...
       </div>
@@ -606,7 +603,7 @@ export function WebchatDeploymentTab() {
 
   if (agents.length === 0) {
     return (
-      <div className="p-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
+      <div className="p-4 text-xs desktop-interior-subtitle">
         No agents found. Create an agent and enable the webchat channel to generate deployment snippets.
       </div>
     );
@@ -629,13 +626,13 @@ export function WebchatDeploymentTab() {
   const channelEnabledForChecks: ValidationStatus = channelEnabled ? "pass" : "fail";
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="desktop-interior-root p-4 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
+          <h3 className="desktop-interior-title text-sm">
             Webchat Deployment
           </h3>
-          <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+          <p className="desktop-interior-subtitle text-xs mt-1">
             Configure one agent channel, generate embed snippets, and validate deployment before publishing.
           </p>
         </div>
@@ -652,78 +649,71 @@ export function WebchatDeploymentTab() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div
-          className="border-2 p-4 space-y-3"
-          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-        >
-          <h4 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+        <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
+          <InteriorSectionHeader className="text-xs">
             Setup
-          </h4>
+          </InteriorSectionHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+              <label className="text-xs font-bold block mb-1">
                 Agent
               </label>
-              <select
+              <InteriorSelect
                 value={selectedAgentId}
                 onChange={(event) => setSelectedAgentId(event.target.value)}
-                className="w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="text-xs"
               >
                 {agents.map((agent) => (
                   <option key={agent._id} value={agent._id}>
                     {resolveAgentLabel(agent)} ({agent.status || "draft"})
                   </option>
                 ))}
-              </select>
+              </InteriorSelect>
             </div>
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+              <label className="text-xs font-bold block mb-1">
                 Channel
               </label>
-              <select
+              <InteriorSelect
                 value={selectedChannel}
                 onChange={(event) => setSelectedChannel(event.target.value as PublicInboundChannel)}
-                className="w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="text-xs"
               >
                 <option value="webchat">Webchat</option>
                 <option value="native_guest">Native Guest</option>
-              </select>
+              </InteriorSelect>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+              <label className="text-xs font-bold block mb-1">
                 App Base URL
               </label>
-              <input
+              <InteriorInput
                 value={appBaseUrl}
                 onChange={(event) => setAppBaseUrl(event.target.value)}
-                className="w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="text-xs"
                 placeholder="https://app.example.com"
               />
-              <p className="text-[11px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+              <InteriorHelperText className="text-[11px] mt-1">
                 Used in script/iframe snippet URLs. Keep this production origin-specific.
-              </p>
+              </InteriorHelperText>
             </div>
             <div>
-              <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+              <label className="text-xs font-bold block mb-1">
                 API Base URL
               </label>
-              <input
+              <InteriorInput
                 value={apiBaseUrl}
                 onChange={(event) => setApiBaseUrl(event.target.value)}
-                className="w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="text-xs"
                 placeholder="/api/v1"
               />
-              <p className="text-[11px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+              <InteriorHelperText className="text-[11px] mt-1">
                 Relative `/api/v1` works on same origin; use full URL for external API hosts.
-              </p>
+              </InteriorHelperText>
             </div>
           </div>
 
@@ -753,41 +743,36 @@ export function WebchatDeploymentTab() {
               </p>
             )}
           </div>
-        </div>
+        </InteriorPanel>
 
-        <div
-          className="border-2 p-4 space-y-3"
-          style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-        >
-          <h4 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+        <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
+          <InteriorSectionHeader className="text-xs">
             Config And Preview
-          </h4>
+          </InteriorSectionHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+            <label className="text-xs font-bold block">
               Bubble Label
-              <input
+              <InteriorInput
                 value={draftConfig.bubbleText}
                 onChange={(event) => {
                   setDraftConfig((current) => ({ ...current, bubbleText: event.target.value }));
                   setHasDirtyDraft(true);
                 }}
-                className="mt-1 w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="mt-1 text-xs"
               />
             </label>
 
-            <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+            <label className="text-xs font-bold block">
               Brand Color
               <div className="mt-1 flex gap-2">
-                <input
+                <InteriorInput
                   value={draftConfig.brandColor}
                   onChange={(event) => {
                     setDraftConfig((current) => ({ ...current, brandColor: event.target.value }));
                     setHasDirtyDraft(true);
                   }}
-                  className="flex-1 px-2 py-1 text-xs border-2"
-                  style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                  className="flex-1 text-xs"
                 />
                 <input
                   type="color"
@@ -800,17 +785,17 @@ export function WebchatDeploymentTab() {
                     setDraftConfig((current) => ({ ...current, brandColor: event.target.value }));
                     setHasDirtyDraft(true);
                   }}
-                  className="w-11 h-7 border-2 p-1"
-                  style={{ borderColor: "var(--window-document-border)", background: "white" }}
+                  className="w-11 h-9 p-1 rounded-md"
+                  style={{ border: "1px solid var(--window-document-border)", background: "var(--window-document-bg)" }}
                 />
               </div>
             </label>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+            <label className="text-xs font-bold block">
               Position
-              <select
+              <InteriorSelect
                 value={draftConfig.position}
                 onChange={(event) => {
                   setDraftConfig((current) => ({
@@ -819,53 +804,49 @@ export function WebchatDeploymentTab() {
                   }));
                   setHasDirtyDraft(true);
                 }}
-                className="mt-1 w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="mt-1 text-xs"
               >
                 <option value="bottom-right">Bottom Right</option>
                 <option value="bottom-left">Bottom Left</option>
-              </select>
+              </InteriorSelect>
             </label>
-            <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+            <label className="text-xs font-bold block">
               Language
-              <input
+              <InteriorInput
                 value={draftConfig.language}
                 onChange={(event) => {
                   setDraftConfig((current) => ({ ...current, language: event.target.value }));
                   setHasDirtyDraft(true);
                 }}
-                className="mt-1 w-full px-2 py-1 text-xs border-2"
-                style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+                className="mt-1 text-xs"
                 placeholder="en"
               />
             </label>
           </div>
 
-          <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+          <label className="text-xs font-bold block">
             Welcome Message
-            <textarea
+            <InteriorTextarea
               value={draftConfig.welcomeMessage}
               onChange={(event) => {
                 setDraftConfig((current) => ({ ...current, welcomeMessage: event.target.value }));
                 setHasDirtyDraft(true);
               }}
               rows={3}
-              className="mt-1 w-full px-2 py-1 text-xs border-2"
-              style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+              className="mt-1 text-xs min-h-0"
             />
           </label>
 
-          <label className="text-xs font-bold block" style={{ color: "var(--window-document-text)" }}>
+          <label className="text-xs font-bold block">
             Offline Message
-            <textarea
+            <InteriorTextarea
               value={draftConfig.offlineMessage}
               onChange={(event) => {
                 setDraftConfig((current) => ({ ...current, offlineMessage: event.target.value }));
                 setHasDirtyDraft(true);
               }}
               rows={2}
-              className="mt-1 w-full px-2 py-1 text-xs border-2"
-              style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--window-document-text)" }}
+              className="mt-1 text-xs min-h-0"
             />
           </label>
 
@@ -930,16 +911,13 @@ export function WebchatDeploymentTab() {
             </div>
           </div>
 
-          <div
-            className="border-2 p-3"
-            style={{ borderColor: "var(--window-document-border)", background: "white" }}
-          >
-            <p className="text-[11px] font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+          <div className="web-publishing-modern-code p-3">
+            <p className="text-[11px] font-bold mb-2 desktop-interior-title">
               Live Preview
             </p>
             <div
-              className="relative h-28 border-2"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
+              className="relative h-28 rounded-md"
+              style={{ border: "1px solid var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
             >
               <div
                 className={`absolute bottom-3 ${normalizedDraftConfig.position === "bottom-left" ? "left-3" : "right-3"} px-3 py-1 rounded-full text-[11px] font-bold`}
@@ -953,19 +931,16 @@ export function WebchatDeploymentTab() {
               {channelEnabled ? normalizedDraftConfig.welcomeMessage : normalizedDraftConfig.offlineMessage}
             </p>
           </div>
-        </div>
+        </InteriorPanel>
       </div>
 
-      <div
-        className="border-2 p-4 space-y-3"
-        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-      >
+      <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+            <h4 className="text-xs font-bold uppercase tracking-wide desktop-interior-title">
               Deploy Snippets
             </h4>
-            <p className="text-[11px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+            <p className="text-[11px] mt-1 desktop-interior-subtitle">
               Copy script, React, or iframe embeds with the latest channel configuration.
             </p>
           </div>
@@ -1006,25 +981,19 @@ export function WebchatDeploymentTab() {
             />
           </div>
         ) : (
-          <div
-            className="border-2 p-4 text-xs"
-            style={{ borderColor: "var(--window-document-border)", background: "white", color: "var(--neutral-gray)" }}
-          >
+          <div className="web-publishing-modern-code p-4 text-xs desktop-interior-subtitle">
             Bootstrap contract and a valid app base URL are required before snippets can be generated.
           </div>
         )}
-      </div>
+      </InteriorPanel>
 
-      <div
-        className="border-2 p-4 space-y-3"
-        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-      >
+      <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+            <h4 className="text-xs font-bold uppercase tracking-wide desktop-interior-title">
               Quick Checks
             </h4>
-            <p className="text-[11px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+            <p className="text-[11px] mt-1 desktop-interior-subtitle">
               Validate contract readiness before handing snippets to engineering or embedding on production pages.
             </p>
           </div>
@@ -1074,11 +1043,11 @@ export function WebchatDeploymentTab() {
           </p>
         )}
 
-        <div className="text-[11px] space-y-1" style={{ color: "var(--neutral-gray)" }}>
+        <div className="text-[11px] space-y-1 desktop-interior-subtitle">
           <p>Required env hints: `NEXT_PUBLIC_APP_URL` for absolute snippet links and `NEXT_PUBLIC_API_ENDPOINT_URL` when API host differs from app host.</p>
           <p>Production spot check: paste the snippet into a sandbox page, confirm launcher label/color, then send one message to verify response + session continuity.</p>
         </div>
-      </div>
+      </InteriorPanel>
     </div>
   );
 }

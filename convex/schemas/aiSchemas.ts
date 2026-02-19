@@ -6,6 +6,12 @@ import {
   trustEventNameValidator,
   trustEventSchemaValidationStatusValidator,
 } from "../ai/trustEvents";
+import {
+  aiBillingSourceValidator,
+  aiCapabilityMatrixValidator,
+  aiCredentialSourceValidator,
+  aiProviderIdValidator,
+} from "./coreSchemas";
 
 // ============================================================================
 // COORDINATION KERNEL ENUMS (Plans 14-15)
@@ -422,8 +428,15 @@ export const organizationAiSettings = defineTable({
     v.literal("platform"),    // Use platform's OpenRouter API key (usage-based billing)
     v.literal("byok"),         // Use organization's own API key (free tier)
   )),
+  // Canonical billing source taxonomy (BMF-003)
+  billingSource: v.optional(aiBillingSourceValidator),
+  // Settings migration marker (BMF-003)
+  settingsContractVersion: v.optional(v.union(
+    v.literal("openrouter_v1"),
+    v.literal("provider_agnostic_v1"),
+  )),
 
-  // LLM Settings (via OpenRouter)
+  // LLM Settings (legacy + provider-agnostic contract)
   llm: v.object({
     // NEW: Multi-select model configuration
     enabledModels: v.optional(v.array(v.object({
@@ -433,6 +446,7 @@ export const organizationAiSettings = defineTable({
       enabledAt: v.number(),                  // When this model was enabled
     }))),
     defaultModelId: v.optional(v.string()),   // ID of default model
+    providerId: v.optional(aiProviderIdValidator), // Canonical default provider
 
     // OLD: Legacy single-model fields (kept for backward compatibility during migration)
     provider: v.optional(v.string()),         // "openai", "anthropic", "google", etc.
@@ -452,6 +466,25 @@ export const organizationAiSettings = defineTable({
       failureCount: v.optional(v.number()),
       lastFailureAt: v.optional(v.number()),
       lastFailureReason: v.optional(v.string()),
+    }))),
+    // NEW: Provider-agnostic auth profiles (keeps cooldown/priority behavior)
+    providerAuthProfiles: v.optional(v.array(v.object({
+      profileId: v.string(),
+      providerId: aiProviderIdValidator,
+      label: v.optional(v.string()),
+      baseUrl: v.optional(v.string()),
+      credentialSource: v.optional(aiCredentialSourceValidator),
+      billingSource: v.optional(aiBillingSourceValidator),
+      apiKey: v.optional(v.string()),
+      encryptedFields: v.optional(v.array(v.string())),
+      capabilities: v.optional(aiCapabilityMatrixValidator),
+      enabled: v.boolean(),
+      priority: v.optional(v.number()),
+      cooldownUntil: v.optional(v.number()),
+      failureCount: v.optional(v.number()),
+      lastFailureAt: v.optional(v.number()),
+      lastFailureReason: v.optional(v.string()),
+      metadata: v.optional(v.any()),
     }))),
   }),
 
@@ -498,9 +531,48 @@ export const organizationAiSettings = defineTable({
     v.literal("none")         // No approval required (future)
   )),
 
+  // Migration bookkeeping for legacy OpenRouter-only org settings
+  migrationState: v.optional(v.object({
+    providerContractBackfilledAt: v.optional(v.number()),
+    source: v.optional(v.union(
+      v.literal("legacy_openrouter"),
+      v.literal("provider_agnostic"),
+      v.literal("mixed"),
+    )),
+    lastMigratedBy: v.optional(v.string()),
+  })),
+
   createdAt: v.number(),
   updatedAt: v.number(),
 }).index("by_organization", ["organizationId"]);
+
+/**
+ * AI Settings Migration Receipts
+ *
+ * Tracks rollout status for additive settings migrations.
+ */
+export const aiSettingsMigrations = defineTable({
+  organizationId: v.id("organizations"),
+  migrationKey: v.literal("provider_agnostic_auth_profiles_v1"),
+  status: v.union(
+    v.literal("pending"),
+    v.literal("completed"),
+    v.literal("failed"),
+  ),
+  source: v.union(
+    v.literal("legacy_openrouter"),
+    v.literal("provider_agnostic"),
+    v.literal("mixed"),
+  ),
+  lastAttemptAt: v.number(),
+  completedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  details: v.optional(v.any()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_migration_key", ["organizationId", "migrationKey"])
+  .index("by_status", ["status"]);
 
 // ============================================================================
 // EMAIL AI SYSTEM (Specialized Workflows)
@@ -725,6 +797,35 @@ export const aiModels = defineTable({
     multiTurn: v.boolean(),
     edgeCases: v.boolean(),
     contractChecks: v.boolean(),
+    conformance: v.optional(v.object({
+      sampleCount: v.number(),
+      toolCallParsing: v.object({
+        passed: v.number(),
+        total: v.number(),
+        rate: v.number(),
+      }),
+      schemaFidelity: v.object({
+        passed: v.number(),
+        total: v.number(),
+        rate: v.number(),
+      }),
+      refusalHandling: v.object({
+        passed: v.number(),
+        total: v.number(),
+        rate: v.number(),
+      }),
+      latencyP95Ms: v.union(v.number(), v.null()),
+      costPer1kTokensUsd: v.union(v.number(), v.null()),
+      thresholds: v.object({
+        minToolCallParseRate: v.number(),
+        minSchemaFidelityRate: v.number(),
+        minRefusalHandlingRate: v.number(),
+        maxLatencyP95Ms: v.number(),
+        maxCostPer1kTokensUsd: v.number(),
+      }),
+      passed: v.boolean(),
+      failedMetrics: v.array(v.string()),
+    })),
     timestamp: v.number(),
   })),
   testedBy: v.optional(v.id("users")),

@@ -191,8 +191,8 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
                 disabled={isRequesting}
                 className="beveled-button inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: "var(--primary)",
-                  color: "white",
+                  backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                 }}
               >
                 {isRequesting ? (
@@ -376,8 +376,8 @@ export function StripeInvoiceSection({ organizationId, organization }: StripeInv
             rel="noopener noreferrer"
             className="beveled-button flex-1 px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
               textDecoration: "none",
             }}
           >

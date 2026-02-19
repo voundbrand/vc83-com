@@ -80,7 +80,7 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
     },
     running: {
       icon: Loader2,
-      color: 'var(--win95-text-muted)',
+      color: 'var(--shell-text-dim)',
       bgColor: 'transparent',
       animate: true,
       label: "Running..."
@@ -101,15 +101,15 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
     },
     rejected: {
       icon: XCircle,
-      color: 'var(--win95-text-muted)',
-      bgColor: 'var(--win95-bg-light)',
+      color: 'var(--shell-text-dim)',
+      bgColor: 'var(--shell-surface-elevated)',
       animate: false,
       label: "Rejected"
     },
     cancelled: {
       icon: X,
-      color: 'var(--win95-text-muted)',
-      bgColor: 'var(--win95-bg-light)',
+      color: 'var(--shell-text-dim)',
+      bgColor: 'var(--shell-surface-elevated)',
       animate: false,
       label: "Cancelled"
     }
@@ -128,8 +128,8 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
       <div
         className="border rounded mb-1 cursor-pointer transition-all hover:border-gray-400"
         style={{
-          borderColor: 'var(--win95-border-light)',
-          background: 'var(--win95-bg-light)',
+          borderColor: 'var(--shell-border-soft)',
+          background: 'var(--shell-surface-elevated)',
           height: '24px',
           opacity: 0.6
         }}
@@ -141,10 +141,10 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
             className={`w-3 h-3 flex-shrink-0 ${config.animate ? 'animate-spin' : ''}`}
             style={{ color: config.color }}
           />
-          <p className="text-xs truncate flex-1" style={{ color: 'var(--win95-text-muted)' }}>
+          <p className="text-xs truncate flex-1" style={{ color: 'var(--shell-text-dim)' }}>
             {execution.toolName}
           </p>
-          <Maximize2 className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--win95-text-muted)' }} />
+          <Maximize2 className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--shell-text-dim)' }} />
         </div>
       </div>
     );
@@ -154,8 +154,8 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
     <div
       className="border rounded mb-2 cursor-pointer transition-all"
       style={{
-        borderColor: isSelected ? 'var(--win95-highlight)' : 'var(--win95-border-light)',
-        background: isSelected ? 'var(--win95-highlight-subtle)' : config.bgColor,
+        borderColor: isSelected ? 'var(--shell-accent)' : 'var(--shell-border-soft)',
+        background: isSelected ? 'var(--shell-accent-soft)' : config.bgColor,
         borderWidth: isSelected ? '2px' : '1px'
       }}
       onClick={() => onSelect?.(execution)}
@@ -165,7 +165,7 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--win95-hover-light)';
+            e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -174,9 +174,9 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
         >
           <div className="flex-shrink-0">
             {isExpanded ? (
-              <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+              <ChevronDown className="w-3 h-3" style={{ color: 'var(--shell-text)' }} />
             ) : (
-              <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+              <ChevronRight className="w-3 h-3" style={{ color: 'var(--shell-text)' }} />
             )}
           </div>
           <StatusIcon
@@ -184,10 +184,10 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
             style={{ color: config.color }}
           />
           <div className="flex-1 text-left min-w-0">
-            <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-medium truncate" style={{ color: 'var(--shell-text)' }}>
               {execution.toolName}
             </p>
-            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
               {config.label} • {duration !== null
                 ? `${duration}s`
                 : (t("ui.ai_assistant.tool.running") as string)}
@@ -208,7 +208,7 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--win95-text-muted)';
+              e.currentTarget.style.color = 'var(--shell-text-dim)';
             }}
             className="p-1 rounded transition-colors flex-shrink-0"
             title="Cancel (dismiss without feedback)"
@@ -224,7 +224,7 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
             onMinimize?.(execution.id, true);
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--win95-hover-light)';
+            e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -232,7 +232,7 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
           className="p-1 rounded transition-colors flex-shrink-0"
           title="Minimize"
         >
-          <Minimize2 className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+          <Minimize2 className="w-3 h-3" style={{ color: 'var(--shell-text-dim)' }} />
         </button>
       </div>
 
@@ -240,19 +240,19 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
       {isExpanded ? (
         <div
           className="px-2 pb-2 space-y-2 border-t"
-          style={{ borderColor: 'var(--win95-border-light)' }}
+          style={{ borderColor: 'var(--shell-border-soft)' }}
         >
           {/* @ts-expect-error - Translation hook return type needs refinement */}
           {/* Input */}
           <div>
-            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
               {t("ui.ai_assistant.tool.input") as string}
             </p>
             <pre
               className="text-xs p-2 rounded overflow-x-auto"
               style={{
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-text)'
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-text)'
               }}
             >
               {JSON.stringify(execution.input, null, 2)}
@@ -262,14 +262,14 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
           {/* Output */}
           {execution.output && (
             <div>
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
                 {t("ui.ai_assistant.tool.output") as string}
               </p>
               <pre
                 className="text-xs p-2 rounded overflow-x-auto"
                 style={{
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-text)'
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-text)'
                 }}
               >
                 {typeof execution.output === 'string'
@@ -295,24 +295,24 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
           )}
 
           {/* Debug Protocol Toggle */}
-          <div className="border-t pt-2" style={{ borderColor: 'var(--win95-border-light)' }}>
+          <div className="border-t pt-2" style={{ borderColor: 'var(--shell-border-soft)' }}>
             <button
               onClick={() => setShowDebug(!showDebug)}
               className="w-full flex items-center justify-between px-2 py-1 rounded transition-colors text-xs"
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--win95-hover-light)';
+                e.currentTarget.style.background = 'var(--shell-hover-surface)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <span className="font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <span className="font-semibold" style={{ color: 'var(--shell-text)' }}>
                 Debug Protocol
               </span>
               {showDebug ? (
-                <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+                <ChevronDown className="w-3 h-3" style={{ color: 'var(--shell-text-dim)' }} />
               ) : (
-                <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+                <ChevronRight className="w-3 h-3" style={{ color: 'var(--shell-text-dim)' }} />
               )}
             </button>
 
@@ -322,9 +322,9 @@ function ToolExecutionItem({ execution, isSelected, onSelect, onMinimize, onCanc
                 <pre
                   className="text-xs p-2 rounded overflow-x-auto font-mono max-h-64 overflow-y-auto"
                   style={{
-                    background: 'var(--win95-bg)',
-                    color: 'var(--win95-text)',
-                    borderLeft: '2px solid var(--win95-highlight)'
+                    background: 'var(--shell-surface)',
+                    color: 'var(--shell-text)',
+                    borderLeft: '2px solid var(--shell-accent)'
                   }}
                 >
 {`[Tool Execution Protocol]
@@ -442,21 +442,21 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps) {
       onClick={() => onSelect(item)}
       className="w-full text-left p-2 border rounded mb-2 transition-colors hover:bg-gray-50"
       style={{
-        borderColor: isSelected ? 'var(--win95-highlight)' : 'var(--win95-border-light)',
-        background: isSelected ? 'var(--win95-highlight-subtle)' : 'transparent',
+        borderColor: isSelected ? 'var(--shell-accent)' : 'var(--shell-border-soft)',
+        background: isSelected ? 'var(--shell-accent-soft)' : 'transparent',
         borderWidth: isSelected ? '2px' : '1px'
       }}
     >
       <div className="flex items-start gap-2">
         {/* Icon */}
         <div className="flex-shrink-0 mt-0.5">
-          <Icon className="w-3.5 h-3.5" style={{ color: 'var(--win95-text)' }} />
+          <Icon className="w-3.5 h-3.5" style={{ color: 'var(--shell-text)' }} />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Name */}
-          <p className="text-xs font-medium truncate mb-1" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-medium truncate mb-1" style={{ color: 'var(--shell-text)' }}>
             {item.name}
           </p>
 
@@ -472,7 +472,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps) {
               <StatusIcon className={`w-3 h-3 ${item.status === 'executing' || item.status === 'sending' ? 'animate-spin' : ''}`} />
               {config.label}
             </span>
-            <span className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+            <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
               {timeAgo(item.createdAt)}
             </span>
           </div>
@@ -482,7 +482,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps) {
             <div className="space-y-1">
               <div
                 className="h-1 rounded overflow-hidden"
-                style={{ background: 'var(--win95-border-light)' }}
+                style={{ background: 'var(--shell-border-soft)' }}
               >
                 <div
                   className="h-full transition-all duration-300"
@@ -492,7 +492,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps) {
                   }}
                 />
               </div>
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                 {item.progress.completed}/{item.progress.total}
                 {item.progress.failed > 0 && (
                   <span style={{ color: 'var(--error)' }}> • {item.progress.failed} failed</span>
@@ -541,8 +541,8 @@ function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
     <div
       className="border-2 p-2 mb-2 transition-colors"
       style={{
-        borderColor: 'var(--win95-border-light)',
-        background: 'var(--win95-bg-light)',
+        borderColor: 'var(--shell-border-soft)',
+        background: 'var(--shell-surface-elevated)',
       }}
     >
       <div className="flex items-center justify-between gap-2">
@@ -552,10 +552,10 @@ function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
             <AlertTriangle className="w-3.5 h-3.5" style={{ color: 'var(--warning)' }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--shell-text)' }}>
               Action Required
             </p>
-            <p className="text-xs line-clamp-1" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs line-clamp-1" style={{ color: 'var(--shell-text-dim)' }}>
               {message}
             </p>
           </div>
@@ -565,17 +565,17 @@ function ActionItemTile({ actionButton, message }: ActionItemTileProps) {
         <button
           className="px-2 py-1 text-xs border-2 flex items-center gap-1 transition-colors flex-shrink-0"
           style={{
-            borderColor: 'var(--win95-border)',
-            background: 'var(--win95-bg-light)',
-            color: 'var(--win95-highlight)',
+            borderColor: 'var(--shell-border)',
+            background: 'var(--shell-surface-elevated)',
+            color: 'var(--shell-accent)',
           }}
           title={actionButton.label}
           onClick={handleClick}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--win95-hover-light)';
+            e.currentTarget.style.background = 'var(--shell-hover-surface)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--win95-bg-light)';
+            e.currentTarget.style.background = 'var(--shell-surface-elevated)';
           }}
         >
           <Settings size={12} />
@@ -627,9 +627,9 @@ function ResizableDivider({ onDrag }: ResizableDividerProps) {
       onMouseDown={handleMouseDown}
       style={{
         height: '8px',
-        borderTop: '1px solid var(--win95-border-light)',
-        borderBottom: '1px solid var(--win95-border-light)',
-        background: isDragging ? 'var(--win95-highlight)' : 'var(--win95-bg)',
+        borderTop: '1px solid var(--shell-border-soft)',
+        borderBottom: '1px solid var(--shell-border-soft)',
+        background: isDragging ? 'var(--shell-accent)' : 'var(--shell-surface)',
         transition: isDragging ? 'none' : 'background-color 0.15s'
       }}
     >
@@ -638,7 +638,7 @@ function ResizableDivider({ onDrag }: ResizableDividerProps) {
         <GripHorizontal
           className="w-4 h-4 transition-opacity"
           style={{
-            color: isDragging ? 'white' : 'var(--win95-text-muted)',
+            color: isDragging ? 'white' : 'var(--shell-text-dim)',
             opacity: isDragging ? 1 : 0.4
           }}
         />
@@ -648,7 +648,7 @@ function ResizableDivider({ onDrag }: ResizableDividerProps) {
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
         style={{
-          background: 'var(--win95-highlight)',
+          background: 'var(--shell-accent)',
           opacity: isDragging ? 0 : 0.2
         }}
       />
@@ -813,13 +813,13 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
       <div
         className="border-b-2 p-3 flex-shrink-0"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
         <div className="flex items-center gap-2">
-          <Wrench className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <Wrench className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             {t("ui.ai_assistant.tools.title") as string}
           </span>
         </div>
@@ -834,14 +834,14 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
         >
           <div className="flex-1 overflow-y-auto p-2">
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--shell-text)' }}>
                 Tool Execution ({executions.length})
               </p>
               {/* Settings Button */}
               <button
                 onClick={() => onOpenSettings?.()}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--win95-hover-light)';
+                  e.currentTarget.style.background = 'var(--shell-hover-surface)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
@@ -849,14 +849,14 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
                 className="p-1 rounded transition-colors"
                 title="AI Settings"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--win95-text-muted)' }} />
+                <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--shell-text-dim)' }} />
               </button>
             </div>
 
             {executions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Wrench className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <Wrench className="w-6 h-6 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   {t("ui.ai_assistant.tools.empty") as string}
                 </p>
               </div>
@@ -879,8 +879,8 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
 
                 {/* Minimized executions section */}
                 {executions.filter(e => e.isMinimized).length > 0 && (
-                  <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--win95-border-light)' }}>
-                    <p className="text-xs mb-1 px-1" style={{ color: 'var(--win95-text-muted)' }}>
+                  <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--shell-border-soft)' }}>
+                    <p className="text-xs mb-1 px-1" style={{ color: 'var(--shell-text-dim)' }}>
                       Minimized ({executions.filter(e => e.isMinimized).length})
                     </p>
                     {executions.filter(e => e.isMinimized).map((execution) => (
@@ -908,7 +908,7 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
         >
           <div className="flex-1 overflow-y-auto p-2">
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-xs font-semibold" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--shell-text)' }}>
                 Work Items ({(actionItems?.length || 0) + (workItems?.length || 0)})
               </p>
             </div>
@@ -926,8 +926,8 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
             {!workItems || workItems.length === 0 ? (
               actionItems.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <Users className="w-6 h-6 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                  <Users className="w-6 h-6 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+                  <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                     No active work items
                   </p>
                 </div>

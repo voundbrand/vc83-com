@@ -302,8 +302,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             disabled={isOnboarding}
             className="beveled-button px-6 py-3 text-sm font-bold flex items-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
             }}
           >
             {isOnboarding ? (
@@ -404,8 +404,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             disabled={isSyncingTax}
             className="w-full px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
               border: "2px solid var(--window-document-border)",
               opacity: isSyncingTax ? 0.6 : 1,
             }}
@@ -438,8 +438,8 @@ export function StripeSection({ organizationId, organization }: StripeSectionPro
             rel="noopener noreferrer"
             className="px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
               border: "2px solid var(--window-document-border)",
             }}
           >

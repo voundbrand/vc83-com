@@ -37,8 +37,8 @@ export function WorkItemsLayout() {
 
   if (!organizationId) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ background: 'var(--win95-bg)' }}>
-        <p className="text-sm" style={{ color: 'var(--win95-text-muted)' }}>
+      <div className="flex items-center justify-center h-full" style={{ background: 'var(--shell-surface)' }}>
+        <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>
           Loading organization...
         </p>
       </div>
@@ -46,7 +46,7 @@ export function WorkItemsLayout() {
   }
 
   return (
-    <div className="h-full" style={{ background: 'var(--win95-bg)' }}>
+    <div className="h-full" style={{ background: 'var(--shell-surface)' }}>
       <PanelGroup direction="horizontal">
         {/* Left Pane - Chat Conversation */}
         <Panel
@@ -58,8 +58,8 @@ export function WorkItemsLayout() {
           <div
             className="flex flex-col h-full border-r-2"
             style={{
-              borderColor: 'var(--win95-border-dark)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--shell-border-strong)',
+              background: 'var(--shell-surface)'
             }}
           >
             <ChatHeader />
@@ -71,9 +71,9 @@ export function WorkItemsLayout() {
 
         {/* Resize Handle */}
         <PanelResizeHandle
-          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--win95-highlight)]"
+          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--shell-accent)]"
           style={{
-            backgroundColor: 'var(--win95-border-dark)'
+            backgroundColor: 'var(--shell-border-strong)'
           }}
         />
 
@@ -85,7 +85,7 @@ export function WorkItemsLayout() {
         >
           <div
             className="flex flex-col h-full"
-            style={{ background: 'var(--win95-bg)' }}
+            style={{ background: 'var(--shell-surface)' }}
           >
             <WorkItemList
               organizationId={organizationId}
@@ -97,9 +97,9 @@ export function WorkItemsLayout() {
 
         {/* Resize Handle */}
         <PanelResizeHandle
-          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--win95-highlight)]"
+          className="w-1 transition-colors cursor-col-resize hover:bg-[var(--shell-accent)]"
           style={{
-            backgroundColor: 'var(--win95-border-dark)'
+            backgroundColor: 'var(--shell-border-strong)'
           }}
         />
 
@@ -113,8 +113,8 @@ export function WorkItemsLayout() {
           <div
             className="flex flex-col h-full border-l-2"
             style={{
-              borderColor: 'var(--win95-border-dark)',
-              background: 'var(--win95-bg)'
+              borderColor: 'var(--shell-border-strong)',
+              background: 'var(--shell-surface)'
             }}
           >
             {selectedItem ? (
@@ -124,7 +124,7 @@ export function WorkItemsLayout() {
               />
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                   Select a work item to view details
                 </p>
               </div>

@@ -98,9 +98,9 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "var(--win95-success-bg)"
-      case "inactive": return "var(--win95-warning-bg)"
-      case "archived": return "var(--win95-error-bg)"
+      case "active": return "var(--success-bg)"
+      case "inactive": return "var(--warning-bg)"
+      case "archived": return "var(--error-bg)"
       default: return "var(--desktop-shell-accent)"
     }
   }
@@ -116,8 +116,8 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           <div
             className="p-3 rounded-lg"
             style={{
-              background: 'var(--win95-selected-bg)',
-              color: 'var(--win95-selected-text)'
+              background: 'var(--shell-selection-bg)',
+              color: 'var(--shell-selection-text)'
             }}
           >
             {getSubtypeIcon(location.subtype || "venue")}
@@ -227,7 +227,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
           <button
             onClick={() => setShowDeleteDialog(true)}
             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
-            style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+            style={{ background: 'var(--error-bg)', color: 'white' }}
           >
             <Trash2 size={14} /> Archive
           </button>
@@ -257,14 +257,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
               <button
                 onClick={handleArchive}
                 className="desktop-interior-button px-4 py-2 text-xs flex-1"
-                style={{ background: 'var(--win95-error-bg)', color: 'white' }}
+                style={{ background: 'var(--error-bg)', color: 'white' }}
               >
                 Archive Location
               </button>
               <button
                 onClick={() => setShowDeleteDialog(false)}
                 className="desktop-interior-button px-4 py-2 text-xs"
-                style={{ background: 'var(--win95-button-face)' }}
+                style={{ background: 'var(--shell-button-surface)' }}
               >
                 Cancel
               </button>

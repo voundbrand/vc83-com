@@ -97,7 +97,7 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
   return (
     <div className="flex flex-col h-full">
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
+      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -107,9 +107,9 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
               placeholder="Search commissions..."
               className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -117,22 +117,22 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`retro-button px-3 py-1.5 flex items-center gap-1 ${
+            className={`desktop-shell-button px-3 py-1.5 flex items-center gap-1 ${
               showFilters ? "shadow-inner" : ""
             }`}
             style={{
-              background: showFilters ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-              color: showFilters ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+              background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+              color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
             }}
           >
             <Filter size={14} />
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="retro-button px-3 py-1.5 flex items-center gap-1"
+            className="desktop-shell-button px-3 py-1.5 flex items-center gap-1"
             style={{
-              background: 'var(--win95-button-face)',
-              color: 'var(--win95-text)'
+              background: 'var(--shell-button-surface)',
+              color: 'var(--shell-text)'
             }}
           >
             <Plus size={14} />
@@ -148,9 +148,9 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
               onChange={(e) => setSubtypeFilter(e.target.value as CommissionSubtype)}
               className="px-2 py-1 border-2 text-xs"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="">All Types</option>
@@ -176,23 +176,23 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
             <p className="text-xs mt-1">Create a new commission to get started</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
             {filteredCommissions?.map((commission) => (
               <button
                 key={commission._id}
                 onClick={() => onSelect(commission._id)}
                 className="w-full p-3 text-left hover:opacity-80 transition-opacity"
                 style={{
-                  background: selectedId === commission._id ? 'var(--win95-selected-bg)' : 'transparent',
-                  color: selectedId === commission._id ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+                  background: selectedId === commission._id ? 'var(--shell-selection-bg)' : 'transparent',
+                  color: selectedId === commission._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="p-2 rounded"
                     style={{
-                      background: selectedId === commission._id ? 'var(--win95-selected-text)' : 'var(--win95-selected-bg)',
-                      color: selectedId === commission._id ? 'var(--win95-selected-bg)' : 'var(--win95-selected-text)'
+                      background: selectedId === commission._id ? 'var(--shell-selection-text)' : 'var(--shell-selection-bg)',
+                      color: selectedId === commission._id ? 'var(--shell-selection-bg)' : 'var(--shell-selection-text)'
                     }}
                   >
                     {getSubtypeIcon(commission.subtype || "sales")}
@@ -204,8 +204,8 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
                         <span
                           className="px-1.5 py-0.5 text-xs rounded"
                           style={{
-                            background: 'var(--win95-success-bg)',
-                            color: 'var(--win95-success-text)'
+                            background: 'var(--success-bg)',
+                            color: 'var(--success)'
                           }}
                         >
                           {commission.customProperties.commissionType === "percentage"
@@ -222,8 +222,8 @@ export function CommissionsList({ selectedId, onSelect }: CommissionsListProps) 
                       <span
                         className="px-1.5 py-0.5 text-xs rounded"
                         style={{
-                          background: 'var(--win95-bg-light)',
-                          color: 'var(--win95-text)'
+                          background: 'var(--shell-surface-elevated)',
+                          color: 'var(--shell-text)'
                         }}
                       >
                         {getSubtypeLabel(commission.subtype || "")}

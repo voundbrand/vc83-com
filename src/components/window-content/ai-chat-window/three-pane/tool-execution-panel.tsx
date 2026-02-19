@@ -29,7 +29,7 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
   const statusConfig = {
     running: {
       icon: Loader2,
-      color: 'var(--win95-text-muted)',
+      color: 'var(--shell-text-dim)',
       bgColor: 'transparent',
       animate: true
     },
@@ -58,7 +58,7 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
     <div
       className="border rounded mb-2"
       style={{
-        borderColor: 'var(--win95-border-light)',
+        borderColor: 'var(--shell-border-soft)',
         background: config.bgColor
       }}
     >
@@ -69,9 +69,9 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
       >
         <div className="flex-shrink-0">
           {isExpanded ? (
-            <ChevronDown className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+            <ChevronDown className="w-3 h-3" style={{ color: 'var(--shell-text)' }} />
           ) : (
-            <ChevronRight className="w-3 h-3" style={{ color: 'var(--win95-text)' }} />
+            <ChevronRight className="w-3 h-3" style={{ color: 'var(--shell-text)' }} />
           )}
         </div>
         <StatusIcon
@@ -79,10 +79,10 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
           style={{ color: config.color }}
         />
         <div className="flex-1 text-left min-w-0">
-          <p className="text-xs font-medium truncate" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-xs font-medium truncate" style={{ color: 'var(--shell-text)' }}>
             {execution.toolName}
           </p>
-          <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+          <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
             {duration !== null
               ? `${duration}s`
               : t("ui.ai_assistant.tool.running")}
@@ -94,19 +94,19 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
       {isExpanded ? (
         <div
           className="px-2 pb-2 space-y-2 border-t"
-          style={{ borderColor: 'var(--win95-border-light)' }}
+          style={{ borderColor: 'var(--shell-border-soft)' }}
         >
           {/* @ts-expect-error - Translation hook return type needs refinement in Phase 3 */}
           {/* Input */}
           <div>
-            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
               {t("ui.ai_assistant.tool.input")}
             </p>
             <pre
               className="text-xs p-2 rounded overflow-x-auto"
               style={{
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-text)'
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-text)'
               }}
             >
               {JSON.stringify(execution.input as Record<string, string | number | boolean>, null, 2)}
@@ -116,14 +116,14 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
           {/* Output */}
           {execution.output && (
             <div>
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
                 {t("ui.ai_assistant.tool.output")}
               </p>
               <pre
                 className="text-xs p-2 rounded overflow-x-auto"
                 style={{
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-text)'
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-text)'
                 }}
               >
                 {typeof execution.output === 'string'
@@ -200,13 +200,13 @@ export function ToolExecutionPanel() {
       <div
         className="border-b-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
-        <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
-          <Wrench className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+        <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: 'var(--shell-border-soft)' }}>
+          <Wrench className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             {t("ui.ai_assistant.tools.title")}
           </span>
         </div>
@@ -217,9 +217,9 @@ export function ToolExecutionPanel() {
             onClick={() => setActiveTab("tools")}
             className="flex-1 px-3 py-2 text-xs font-medium transition-colors"
             style={{
-              background: activeTab === "tools" ? 'var(--win95-bg)' : 'transparent',
-              color: activeTab === "tools" ? 'var(--win95-text)' : 'var(--win95-text-muted)',
-              borderBottom: activeTab === "tools" ? '2px solid var(--win95-highlight)' : '2px solid transparent'
+              background: activeTab === "tools" ? 'var(--shell-surface)' : 'transparent',
+              color: activeTab === "tools" ? 'var(--shell-text)' : 'var(--shell-text-dim)',
+              borderBottom: activeTab === "tools" ? '2px solid var(--shell-accent)' : '2px solid transparent'
             }}
           >
             Tool Executions ({executions.length})
@@ -228,9 +228,9 @@ export function ToolExecutionPanel() {
             onClick={() => setActiveTab("work")}
             className="flex-1 px-3 py-2 text-xs font-medium transition-colors"
             style={{
-              background: activeTab === "work" ? 'var(--win95-bg)' : 'transparent',
-              color: activeTab === "work" ? 'var(--win95-text)' : 'var(--win95-text-muted)',
-              borderBottom: activeTab === "work" ? '2px solid var(--win95-highlight)' : '2px solid transparent'
+              background: activeTab === "work" ? 'var(--shell-surface)' : 'transparent',
+              color: activeTab === "work" ? 'var(--shell-text)' : 'var(--shell-text-dim)',
+              borderBottom: activeTab === "work" ? '2px solid var(--shell-accent)' : '2px solid transparent'
             }}
           >
             Work Items ({workItems?.length || 0})
@@ -243,8 +243,8 @@ export function ToolExecutionPanel() {
         {activeTab === "tools" ? (
           executions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <Wrench className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              <Wrench className="w-8 h-8 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+              <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                 {t("ui.ai_assistant.tools.empty")}
               </p>
             </div>
@@ -256,8 +256,8 @@ export function ToolExecutionPanel() {
         ) : (
           !workItems || workItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <Loader2 className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              <Loader2 className="w-8 h-8 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+              <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                 No active work items
               </p>
             </div>
@@ -268,14 +268,14 @@ export function ToolExecutionPanel() {
                   key={item.id}
                   className="p-2 border rounded"
                   style={{
-                    borderColor: 'var(--win95-border-light)',
-                    background: 'var(--win95-bg)'
+                    borderColor: 'var(--shell-border-soft)',
+                    background: 'var(--shell-surface)'
                   }}
                 >
-                  <p className="text-xs font-medium mb-1" style={{ color: 'var(--win95-text)' }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: 'var(--shell-text)' }}>
                     {item.name}
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+                  <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                     {item.progress.completed}/{item.progress.total} completed
                   </p>
                 </div>
@@ -289,8 +289,8 @@ export function ToolExecutionPanel() {
       <div
         className="p-2 border-t text-xs"
         style={{
-          borderColor: 'var(--win95-border-light)',
-          color: 'var(--win95-text-muted)'
+          borderColor: 'var(--shell-border-soft)',
+          color: 'var(--shell-text-dim)'
         }}
       >
         {activeTab === "tools"

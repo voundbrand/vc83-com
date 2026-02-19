@@ -4,6 +4,7 @@ import { validateTrustEventPayload } from "../../../convex/ai/trustEvents";
 import {
   TRUST_KPI_DEFINITIONS,
   TRUST_TELEMETRY_DASHBOARDS,
+  VOICE_TRUST_PRE_ROLLOUT_BASELINES,
   buildTrustKpiCheckpointPayload,
   buildTrustTelemetryDashboardSnapshots,
   evaluateTrustKpiMetric,
@@ -26,26 +27,40 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
     }
   });
 
+  it("pins voice KPI baseline values from pre-rollout observations", () => {
+    expect(VOICE_TRUST_PRE_ROLLOUT_BASELINES).toEqual({
+      voice_session_start_rate: 0.33,
+      voice_session_completion_rate: 0.68,
+      voice_cancel_without_save_rate: 0.27,
+      voice_memory_consent_accept_rate: 0.62,
+      voice_runtime_failure_rate: 0.04,
+      agent_creation_handoff_success_rate: 0.78,
+    });
+
+    expect(TRUST_KPI_DEFINITIONS.voice_runtime_failure_rate.windowHours).toBe(1);
+    expect(TRUST_KPI_DEFINITIONS.voice_session_completion_rate.target).toBe(0.7);
+    expect(TRUST_KPI_DEFINITIONS.voice_memory_consent_accept_rate.warningThreshold).toBe(0.5);
+  });
+
   it("maps each dashboard to known KPIs with severity rollups", () => {
     const snapshots = buildTrustTelemetryDashboardSnapshots({
-      trust_interview_completion_rate: 0.86,
-      trust_memory_consent_accept_rate: 0.75,
-      trust_setup_connect_success_rate: 0.95,
-      trust_time_to_first_trusted_agent_minutes: 34,
-      trust_soul_post_approval_rollback_rate: 0.04,
-      trust_team_handoff_context_loss_rate: 0.09,
-      trust_admin_training_completion_rate: 0.81,
+      voice_session_start_rate: 0.34,
+      voice_session_completion_rate: 0.69,
+      voice_cancel_without_save_rate: 0.28,
+      voice_memory_consent_accept_rate: 0.63,
+      voice_runtime_failure_rate: 0.11,
+      agent_creation_handoff_success_rate: 0.79,
     });
 
     expect(snapshots).toHaveLength(Object.keys(TRUST_TELEMETRY_DASHBOARDS).length);
-    const operationsSnapshot = snapshots.find(
-      (snapshot) => snapshot.dashboardId === "trust_agent_operations_dashboard",
+    const runtimeSnapshot = snapshots.find(
+      (snapshot) => snapshot.dashboardId === "voice_runtime_guardrails_dashboard",
     );
-    expect(operationsSnapshot?.severity).toBe("critical");
+    expect(runtimeSnapshot?.severity).toBe("critical");
     expect(
-      operationsSnapshot?.kpis.some(
+      runtimeSnapshot?.kpis.some(
         (kpi) =>
-          kpi.metric === "trust_team_handoff_context_loss_rate"
+          kpi.metric === "voice_runtime_failure_rate"
           && kpi.severity === "critical",
       ),
     ).toBe(true);
@@ -53,36 +68,34 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
 
   it("evaluates rollout guardrails with deterministic hold and rollback outcomes", () => {
     const rollbackDecision = evaluateTrustRolloutGuardrails({
-      trust_interview_completion_rate: 0.84,
-      trust_memory_consent_accept_rate: 0.71,
-      trust_setup_connect_success_rate: 0.91,
-      trust_soul_post_approval_rollback_rate: 0.11,
-      trust_team_handoff_context_loss_rate: 0.03,
-      trust_admin_training_completion_rate: 0.8,
+      voice_session_start_rate: 0.36,
+      voice_session_completion_rate: 0.71,
+      voice_cancel_without_save_rate: 0.24,
+      voice_memory_consent_accept_rate: 0.66,
+      voice_runtime_failure_rate: 0.12,
+      agent_creation_handoff_success_rate: 0.82,
     });
     expect(rollbackDecision.status).toBe("rollback");
-    expect(rollbackDecision.criticalMetrics).toContain(
-      "trust_soul_post_approval_rollback_rate",
-    );
+    expect(rollbackDecision.criticalMetrics).toContain("voice_runtime_failure_rate");
 
     const holdDecision = evaluateTrustRolloutGuardrails({
-      trust_interview_completion_rate: 0.84,
-      trust_memory_consent_accept_rate: 0.57,
-      trust_setup_connect_success_rate: 0.91,
-      trust_soul_post_approval_rollback_rate: 0.04,
-      trust_team_handoff_context_loss_rate: 0.03,
+      voice_session_start_rate: 0.34,
+      voice_session_completion_rate: 0.68,
+      voice_cancel_without_save_rate: 0.27,
+      voice_memory_consent_accept_rate: 0.49,
+      voice_runtime_failure_rate: 0.04,
     });
     expect(holdDecision.status).toBe("hold");
-    expect(holdDecision.warningMetrics).toContain("trust_memory_consent_accept_rate");
-    expect(holdDecision.missingMetrics).toContain("trust_admin_training_completion_rate");
+    expect(holdDecision.warningMetrics).toContain("voice_memory_consent_accept_rate");
+    expect(holdDecision.missingMetrics).toContain("agent_creation_handoff_success_rate");
 
     const proceedDecision = evaluateTrustRolloutGuardrails({
-      trust_interview_completion_rate: 0.87,
-      trust_memory_consent_accept_rate: 0.76,
-      trust_setup_connect_success_rate: 0.95,
-      trust_soul_post_approval_rollback_rate: 0.03,
-      trust_team_handoff_context_loss_rate: 0.02,
-      trust_admin_training_completion_rate: 0.84,
+      voice_session_start_rate: 0.37,
+      voice_session_completion_rate: 0.72,
+      voice_cancel_without_save_rate: 0.26,
+      voice_memory_consent_accept_rate: 0.68,
+      voice_runtime_failure_rate: 0.02,
+      agent_creation_handoff_success_rate: 0.82,
     });
     expect(proceedDecision.status).toBe("proceed");
     expect(proceedDecision.warningMetrics).toHaveLength(0);
@@ -90,36 +103,48 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
     expect(proceedDecision.missingMetrics).toHaveLength(0);
   });
 
-  it("treats HITL handoff context-loss breaches as immediate rollback triggers", () => {
-    const decision = evaluateTrustRolloutGuardrails({
-      trust_interview_completion_rate: 0.87,
-      trust_memory_consent_accept_rate: 0.76,
-      trust_setup_connect_success_rate: 0.95,
-      trust_soul_post_approval_rollback_rate: 0.03,
-      trust_team_handoff_context_loss_rate: 0.09,
-      trust_admin_training_completion_rate: 0.84,
+  it("treats voice runtime failure breaches as deterministic rollback triggers", () => {
+    const warningDecision = evaluateTrustRolloutGuardrails({
+      voice_session_start_rate: 0.37,
+      voice_session_completion_rate: 0.72,
+      voice_cancel_without_save_rate: 0.26,
+      voice_memory_consent_accept_rate: 0.68,
+      voice_runtime_failure_rate: 0.1,
+      agent_creation_handoff_success_rate: 0.82,
     });
 
-    expect(decision.status).toBe("rollback");
-    expect(decision.criticalMetrics).toContain("trust_team_handoff_context_loss_rate");
+    expect(warningDecision.status).toBe("hold");
+    expect(warningDecision.warningMetrics).toContain("voice_runtime_failure_rate");
+
+    const escalatedDecision = evaluateTrustRolloutGuardrails({
+      voice_session_start_rate: 0.37,
+      voice_session_completion_rate: 0.72,
+      voice_cancel_without_save_rate: 0.26,
+      voice_memory_consent_accept_rate: 0.68,
+      voice_runtime_failure_rate: 0.101,
+      agent_creation_handoff_success_rate: 0.82,
+    });
+
+    expect(escalatedDecision.status).toBe("rollback");
+    expect(escalatedDecision.criticalMetrics).toContain("voice_runtime_failure_rate");
   });
 
-  it("holds rollout when HITL rollback/context-loss signals are warning-only", () => {
+  it("holds rollout when cancel-without-save and consent KPIs drift to warning", () => {
     const decision = evaluateTrustRolloutGuardrails({
-      trust_interview_completion_rate: 0.87,
-      trust_memory_consent_accept_rate: 0.76,
-      trust_setup_connect_success_rate: 0.95,
-      trust_soul_post_approval_rollback_rate: 0.08,
-      trust_team_handoff_context_loss_rate: 0.06,
-      trust_admin_training_completion_rate: 0.84,
+      voice_session_start_rate: 0.36,
+      voice_session_completion_rate: 0.71,
+      voice_cancel_without_save_rate: 0.45,
+      voice_memory_consent_accept_rate: 0.49,
+      voice_runtime_failure_rate: 0.05,
+      agent_creation_handoff_success_rate: 0.81,
     });
 
     expect(decision.status).toBe("hold");
     expect(decision.criticalMetrics).toHaveLength(0);
     expect(decision.warningMetrics).toEqual(
       expect.arrayContaining([
-        "trust_soul_post_approval_rollback_rate",
-        "trust_team_handoff_context_loss_rate",
+        "voice_cancel_without_save_rate",
+        "voice_memory_consent_accept_rate",
       ]),
     );
   });
@@ -132,7 +157,7 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
       sessionId: "sess_001",
       actorType: "system",
       actorId: "system",
-      metric: "trust_setup_connect_success_rate",
+      metric: "voice_session_completion_rate",
       metricValue: 0.91,
       occurredAt: 1_739_900_000_000,
     });
@@ -142,7 +167,7 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
 
   it("flags invalid metric values as critical regression signals", () => {
     const evaluation = evaluateTrustKpiMetric(
-      "trust_team_handoff_context_loss_rate",
+      "voice_runtime_failure_rate",
       Number.NaN,
     );
     expect(evaluation.severity).toBe("critical");

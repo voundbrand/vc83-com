@@ -94,8 +94,8 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
       <div
         className="rounded border-2 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
         style={{
-          background: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--shell-surface)',
+          borderColor: 'var(--shell-border)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -103,8 +103,8 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
         <div
           className="flex items-center justify-between p-3 border-b-2"
           style={{
-            background: 'var(--win95-selected-bg)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--shell-selection-bg)',
+            borderColor: 'var(--shell-border)'
           }}
         >
           <span className="font-pixel text-sm text-white flex items-center gap-2">
@@ -131,9 +131,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               placeholder="Main Office, Downtown Studio, etc."
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               required
             />
@@ -152,8 +152,8 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     subtype === type ? "shadow-inner" : ""
                   }`}
                   style={{
-                    background: subtype === type ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-                    color: subtype === type ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+                    background: subtype === type ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+                    color: subtype === type ? 'var(--shell-selection-text)' : 'var(--shell-text)'
                   }}
                 >
                   {getSubtypeIcon(type)}
@@ -178,9 +178,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   onChange={(e) => setStreet(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                 />
               </div>
@@ -193,9 +193,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full px-2 py-1.5 border-2 text-sm"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)'
+                      borderColor: 'var(--shell-border)',
+                      background: 'var(--shell-input-surface)',
+                      color: 'var(--shell-input-text)'
                     }}
                   />
                 </div>
@@ -207,9 +207,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     onChange={(e) => setState(e.target.value)}
                     className="w-full px-2 py-1.5 border-2 text-sm"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)'
+                      borderColor: 'var(--shell-border)',
+                      background: 'var(--shell-input-surface)',
+                      color: 'var(--shell-input-text)'
                     }}
                   />
                 </div>
@@ -223,9 +223,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     onChange={(e) => setPostalCode(e.target.value)}
                     className="w-full px-2 py-1.5 border-2 text-sm"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)'
+                      borderColor: 'var(--shell-border)',
+                      background: 'var(--shell-input-surface)',
+                      color: 'var(--shell-input-text)'
                     }}
                   />
                 </div>
@@ -237,9 +237,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                     onChange={(e) => setCountry(e.target.value)}
                     className="w-full px-2 py-1.5 border-2 text-sm"
                     style={{
-                      borderColor: 'var(--win95-border)',
-                      background: 'var(--win95-input-bg)',
-                      color: 'var(--win95-input-text)'
+                      borderColor: 'var(--shell-border)',
+                      background: 'var(--shell-input-surface)',
+                      color: 'var(--shell-input-text)'
                     }}
                   />
                 </div>
@@ -258,9 +258,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               onChange={(e) => setTimezone(e.target.value)}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="America/Los_Angeles">Pacific Time (PT)</option>
@@ -287,9 +287,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                 onChange={(e) => setContactEmail(e.target.value)}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -301,9 +301,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                 onChange={(e) => setContactPhone(e.target.value)}
                 className="w-full px-2 py-1.5 border-2 text-sm"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-input-bg)',
-                  color: 'var(--win95-input-text)'
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-input-surface)',
+                  color: 'var(--shell-input-text)'
                 }}
               />
             </div>
@@ -311,7 +311,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
 
           {/* Error */}
           {error && (
-            <p className="text-xs p-2 rounded" style={{ background: 'var(--win95-error-bg)', color: 'white' }}>
+            <p className="text-xs p-2 rounded" style={{ background: 'var(--error-bg)', color: 'white' }}>
               {error}
             </p>
           )}
@@ -323,8 +323,8 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               disabled={isSubmitting}
               className="desktop-interior-button flex-1 py-2 text-sm"
               style={{
-                background: 'var(--win95-selected-bg)',
-                color: 'var(--win95-selected-text)',
+                background: 'var(--shell-selection-bg)',
+                color: 'var(--shell-selection-text)',
                 opacity: isSubmitting ? 0.5 : 1
               }}
             >
@@ -334,7 +334,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               type="button"
               onClick={onClose}
               className="desktop-interior-button px-4 py-2 text-sm"
-              style={{ background: 'var(--win95-button-face)' }}
+              style={{ background: 'var(--shell-button-surface)' }}
             >
               Cancel
             </button>

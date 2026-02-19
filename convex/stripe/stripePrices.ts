@@ -22,7 +22,7 @@ const getStripe = () => {
 /**
  * Price ID mapping from environment variables
  *
- * Active tiers: Pro (€29/mo) and Agency (€299/mo)
+ * Active runtime tiers: Pro and agency (customer-facing: Scale)
  * Credits use dynamic pricing (no fixed Price IDs)
  */
 const PRICE_IDS = {
@@ -41,6 +41,61 @@ const PRICE_IDS = {
     monthly: process.env.STRIPE_SUB_ORG_MO_PRICE_ID,
   },
 };
+
+/**
+ * Deterministic fallback values used when Stripe prices are unavailable.
+ * These mirror store-facing baseline plan rates in cents.
+ */
+export const STORE_PLATFORM_PRICE_FALLBACKS = {
+  monthly: {
+    pro: 2900,
+    agency: 29900,
+  },
+  annual: {
+    pro: 29000,
+    agency: 299000,
+  },
+  subOrgMonthly: 7900,
+  currency: "eur",
+} as const;
+
+export type StorePublicStripeTier = "pro" | "scale";
+export type StoreRuntimeStripeTier = "pro" | "agency";
+
+export const STORE_PUBLIC_TO_RUNTIME_STRIPE_TIER: Record<
+  StorePublicStripeTier,
+  StoreRuntimeStripeTier
+> = {
+  pro: "pro",
+  scale: "agency",
+};
+
+export const STORE_RUNTIME_TO_PUBLIC_STRIPE_TIER: Record<
+  StoreRuntimeStripeTier,
+  StorePublicStripeTier
+> = {
+  pro: "pro",
+  agency: "scale",
+};
+
+export function mapStorePublicTierToRuntimeStripeTier(
+  tier: StorePublicStripeTier
+): StoreRuntimeStripeTier {
+  return STORE_PUBLIC_TO_RUNTIME_STRIPE_TIER[tier];
+}
+
+export function mapRuntimeStripeTierToStorePublicTier(
+  tier: StoreRuntimeStripeTier
+): StorePublicStripeTier {
+  return STORE_RUNTIME_TO_PUBLIC_STRIPE_TIER[tier];
+}
+
+function withPublicTierAliases<T>(runtimeTiers: { pro: T; agency: T }) {
+  return {
+    ...runtimeTiers,
+    scale: runtimeTiers.agency,
+  };
+}
 
 /**
  * Price data returned from Stripe
@@ -87,7 +142,7 @@ async function fetchPrice(stripe: Stripe, priceId: string | undefined): Promise<
  * GET ALL PRICES
  *
  * Fetches all configured prices from Stripe.
- * Active tiers: Pro (€29/mo) and Agency (€299/mo)
+ * Active runtime tiers: Pro and agency (customer-facing: Scale).
  */
 export const getAllPrices = action({
   args: {},
@@ -117,6 +172,16 @@ export const getAllPrices = action({
         annual: {
           pro: proAnnual,
           agency: agencyAnnual,
+        },
+        public: {
+          monthly: withPublicTierAliases({
+            pro: proMonthly,
+            agency: agencyMonthly,
+          }),
+          annual: withPublicTierAliases({
+            pro: proAnnual,
+            agency: agencyAnnual,
+          }),
         },
       },
       subOrg: {
@@ -156,6 +221,16 @@ export const getPlatformPrices = action({
       annual: {
         pro: proAnnual,
         agency: agencyAnnual,
+      },
+      public: {
+        monthly: withPublicTierAliases({
+          pro: proMonthly,
+          agency: agencyMonthly,
+        }),
+        annual: withPublicTierAliases({
+          pro: proAnnual,
+          agency: agencyAnnual,
+        }),
       },
     };
   },

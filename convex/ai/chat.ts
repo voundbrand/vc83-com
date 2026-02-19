@@ -1,7 +1,7 @@
 /**
  * AI Chat Action
  *
- * Main entry point for AI conversations using OpenRouter
+ * Main entry point for AI conversations using provider adapters
  */
 
 import { action } from "../_generated/server";
@@ -13,20 +13,24 @@ import { getToolSchemas, executeTool } from "./tools/registry";
 import { calculateCostFromUsage } from "./modelPricing";
 import { getAgentMessageCost } from "../credits/index";
 import {
+  buildEnvApiKeysByProvider,
   detectProvider,
   formatToolResult,
   formatToolError,
   getProviderConfig,
+  resolveAuthProfileBaseUrl,
 } from "./modelAdapters";
 import {
   SAFE_FALLBACK_MODEL_ID,
   determineModelSelectionSource,
+  normalizeCanonicalBillingSource,
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
 } from "./modelPolicy";
 import {
-  resolveOpenRouterAuthProfiles,
+  buildAuthProfileFailureCountMap,
+  resolveAuthProfilesForProvider,
 } from "./authProfilePolicy";
 import { shouldRequireToolApproval, type ToolApprovalAutonomyLevel } from "./escalation";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
@@ -123,6 +127,10 @@ interface ChatResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+  };
+  structuredOutput?: {
+    format: "json_object" | "json_code_block";
+    value: unknown;
   };
 }
 
@@ -408,22 +416,6 @@ export const sendMessage = action({
       toolApprovalMode: settings.toolApprovalMode,
     });
 
-    // 5. Resolve auth profiles for two-stage failover
-    const authProfiles = resolveOpenRouterAuthProfiles({
-      llmSettings: settings.llm,
-      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
-    });
-    if (authProfiles.length === 0) {
-      throw new Error("No OpenRouter auth profiles are currently configured");
-    }
-    const authProfileFailureCounts = new Map<string, number>();
-    for (const profile of settings.llm.authProfiles ?? []) {
-      if (!profile || typeof profile.profileId !== "string") {
-        continue;
-      }
-      authProfileFailureCounts.set(profile.profileId.trim(), profile.failureCount ?? 0);
-    }
-
     const platformEnabledModels = await (ctx as any).runQuery(
       generatedApi.api.ai.platformModels.getEnabledModels,
       {}
@@ -460,6 +452,93 @@ export const sendMessage = action({
       throw new Error("Unable to resolve a platform-enabled model for this organization");
     }
 
+    const envApiKeysByProvider = buildEnvApiKeysByProvider({
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+      GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      OPENAI_COMPATIBLE_API_KEY: process.env.OPENAI_COMPATIBLE_API_KEY,
+      XAI_API_KEY: process.env.XAI_API_KEY,
+      MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
+      KIMI_API_KEY: process.env.KIMI_API_KEY,
+      ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+    });
+
+    let runtimeProviderId = detectProvider(model, settings.llm?.providerId);
+    let authProfiles = resolveAuthProfilesForProvider({
+      providerId: runtimeProviderId,
+      llmSettings: settings.llm,
+      defaultBillingSource: settings.billingSource,
+      envApiKeysByProvider,
+      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+    });
+
+    if (authProfiles.length === 0 && runtimeProviderId !== "openrouter") {
+      console.warn("[AI Chat] Missing provider-specific auth profiles; falling back to OpenRouter", {
+        requestedProviderId: runtimeProviderId,
+        model,
+      });
+      runtimeProviderId = "openrouter";
+      authProfiles = resolveAuthProfilesForProvider({
+        providerId: runtimeProviderId,
+        llmSettings: settings.llm,
+        defaultBillingSource: settings.billingSource,
+        envApiKeysByProvider,
+        envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+      });
+    }
+
+    if (authProfiles.length === 0) {
+      throw new Error(`No auth profiles are configured for provider ${runtimeProviderId}`);
+    }
+
+    const authProfilesWithBaseUrl = authProfiles.map((profile) => ({
+      ...profile,
+      baseUrl: resolveAuthProfileBaseUrl({
+        llmSettings: settings.llm,
+        providerId: profile.providerId,
+        profileId: profile.profileId,
+        envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+      }),
+    }));
+    const authProfileFailureCounts = buildAuthProfileFailureCountMap({
+      providerId: runtimeProviderId,
+      llmSettings: settings.llm,
+    });
+    const providerScopedOrgEnabledModelIds = runtimeProviderId === "openrouter"
+      ? orgEnabledModelIds
+      : orgEnabledModelIds.filter((candidateModelId: string) =>
+          typeof candidateModelId === "string" &&
+          detectProvider(candidateModelId, runtimeProviderId) === runtimeProviderId
+        );
+    const providerScopedPlatformEnabledModelIds = runtimeProviderId === "openrouter"
+      ? platformEnabledModels.map((platformModel) => platformModel.id)
+      : platformEnabledModels
+        .map((platformModel) => platformModel.id)
+        .filter((candidateModelId: string) =>
+          detectProvider(candidateModelId, runtimeProviderId) === runtimeProviderId
+        );
+    const runtimeModelPool =
+      providerScopedPlatformEnabledModelIds.length > 0
+        ? providerScopedPlatformEnabledModelIds
+        : platformEnabledModels.map((platformModel) => platformModel.id);
+    const runtimeOrgModelPool =
+      providerScopedOrgEnabledModelIds.length > 0
+        ? providerScopedOrgEnabledModelIds
+        : orgEnabledModelIds;
+    const runtimeSafeFallbackModelId =
+      runtimeProviderId === "openrouter"
+        ? SAFE_FALLBACK_MODEL_ID
+        : runtimeModelPool[0] ?? model;
+    const authProfileProviderById = new Map(
+      authProfilesWithBaseUrl.map((profile) => [profile.profileId, profile.providerId])
+    );
+    const authProfileBillingSourceById = new Map(
+      authProfilesWithBaseUrl.map((profile) => [profile.profileId, profile.billingSource])
+    );
+
     const selectionSource =
       !args.selectedModel && conversationPinnedModel && model === conversationPinnedModel
         ? "session_pinned"
@@ -467,10 +546,21 @@ export const sendMessage = action({
             selectedModel: model,
             preferredModel,
             orgDefaultModel,
-            safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+            safeFallbackModelId: runtimeSafeFallbackModelId,
             platformFirstEnabledModelId: firstPlatformEnabledModel,
           });
     const messageCreditCost = getAgentMessageCost(model);
+    const resolveLlmBillingSource = (
+      profileId?: string | null
+    ): "platform" | "byok" | "private" =>
+      normalizeCanonicalBillingSource(
+        (profileId && authProfileBillingSourceById.get(profileId))
+        ?? settings.billingSource
+        ?? null
+      ) ?? "platform";
+    const preflightLlmBillingSource = resolveLlmBillingSource(
+      authProfilesWithBaseUrl[0]?.profileId ?? null
+    );
 
     // Ensure users receive daily credits (idempotent) before pre-flight checks.
     try {
@@ -487,6 +577,8 @@ export const sendMessage = action({
       {
         organizationId: args.organizationId,
         requiredAmount: messageCreditCost,
+        billingSource: preflightLlmBillingSource,
+        requestSource: "llm",
       }
     ) as { hasCredits: boolean; totalCredits: number };
 
@@ -667,9 +759,11 @@ ${knowledgeBlock}`;
       },
     });
 
-    console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
+    console.log(
+      `[AI Chat] Built ${messages.length} messages for provider runtime (${conversation.messages.length} in DB)`
+    );
 
-    // 7. Call OpenRouter with two-stage failover
+    // 7. Call provider adapter with two-stage failover
     // In prototype mode (page_builder context), only provide read-only tools
     const builderMode = isPageBuilderContext ? args.builderMode : undefined;
     const availableTools = getToolSchemas(builderMode);
@@ -678,26 +772,31 @@ ${knowledgeBlock}`;
     const recordAuthProfileSuccess = async ({
       organizationId,
       profileId,
+      providerId,
     }: {
       organizationId: Id<"organizations">;
       profileId: string;
+      providerId: string;
     }) => {
       await (ctx as any).runMutation(
         generatedApi.internal.ai.settings.recordAuthProfileSuccess,
         {
           organizationId,
           profileId,
+          providerId,
         }
       );
     };
     const recordAuthProfileFailure = async ({
       organizationId,
       profileId,
+      providerId,
       reason,
       cooldownUntil,
     }: {
       organizationId: Id<"organizations">;
       profileId: string;
+      providerId: string;
       reason: string;
       cooldownUntil: number;
     }) => {
@@ -706,6 +805,7 @@ ${knowledgeBlock}`;
         {
           organizationId,
           profileId,
+          providerId,
           reason,
           cooldownUntil,
         }
@@ -719,11 +819,11 @@ ${knowledgeBlock}`;
       tools: availableTools,
       selectedModel: args.selectedModel,
       conversationPinnedModel,
-      orgEnabledModelIds,
+      orgEnabledModelIds: runtimeOrgModelPool,
       orgDefaultModelId: orgDefaultModel,
-      platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
-      safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
-      authProfiles,
+      platformEnabledModelIds: runtimeModelPool,
+      safeFallbackModelId: runtimeSafeFallbackModelId,
+      authProfiles: authProfilesWithBaseUrl,
       llmTemperature: settings.llm.temperature,
       llmMaxTokens: settings.llm.maxTokens,
       authProfileFailureCounts,
@@ -765,7 +865,13 @@ ${knowledgeBlock}`;
     let authProfileFailoverCount = initialCompletion.authProfileFallbackUsed ? 1 : 0;
     let modelFailoverCount = initialCompletion.modelFallbackUsed ? 1 : 0;
     await getModelPricing(usedModel);
-    let provider = detectProvider(usedModel);
+    let provider = detectProvider(
+      usedModel,
+      (usedAuthProfileId && authProfileProviderById.get(usedAuthProfileId)) ??
+        (selectedAuthProfileId &&
+          authProfileProviderById.get(selectedAuthProfileId)) ??
+        runtimeProviderId
+    );
     let providerConfig = getProviderConfig(provider);
 
     // 8. Handle tool calls (with provider-specific max rounds to prevent infinite loops)
@@ -1007,11 +1113,11 @@ ${knowledgeBlock}`;
           messages,
           selectedModel: args.selectedModel,
           conversationPinnedModel,
-          orgEnabledModelIds,
+          orgEnabledModelIds: runtimeOrgModelPool,
           orgDefaultModelId: orgDefaultModel,
-          platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
-          safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
-          authProfiles,
+          platformEnabledModelIds: runtimeModelPool,
+          safeFallbackModelId: runtimeSafeFallbackModelId,
+          authProfiles: authProfilesWithBaseUrl,
           llmTemperature: settings.llm.temperature,
           llmMaxTokens: settings.llm.maxTokens,
           authProfileFailureCounts,
@@ -1058,7 +1164,13 @@ ${knowledgeBlock}`;
           modelFailoverCount += 1;
         }
         await getModelPricing(usedModel);
-        provider = detectProvider(usedModel);
+        provider = detectProvider(
+          usedModel,
+          (usedAuthProfileId && authProfileProviderById.get(usedAuthProfileId)) ??
+            (selectedAuthProfileId &&
+              authProfileProviderById.get(selectedAuthProfileId)) ??
+            runtimeProviderId
+        );
         providerConfig = getProviderConfig(provider);
         maxToolCallRounds = Math.max(
           maxToolCallRounds,
@@ -1066,7 +1178,7 @@ ${knowledgeBlock}`;
         );
       } catch (apiError) {
         const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
-        console.error("[AI Chat] OpenRouter API error (after tool execution):", errorMessage);
+        console.error("[AI Chat] Provider API error (after tool execution):", errorMessage);
         throw new Error(errorMessage);
       }
     }
@@ -1079,7 +1191,7 @@ ${knowledgeBlock}`;
     // 9. Save assistant message
     const finalMessage = response.choices[0]?.message;
     if (!finalMessage) {
-      throw new Error("No message in final response from OpenRouter");
+      throw new Error("No message in final provider response");
     }
     const modelResolution = buildModelResolutionPayload({
       requestedModel: args.selectedModel ?? undefined,
@@ -1165,6 +1277,9 @@ ${knowledgeBlock}`;
     });
 
     // 11. Deduct credits for the successful chat turn.
+    const deductionLlmBillingSource = resolveLlmBillingSource(
+      usedAuthProfileId ?? selectedAuthProfileId ?? authProfilesWithBaseUrl[0]?.profileId ?? null
+    );
     try {
       const chatCreditDeduction = await (ctx as any).runMutation(
         generatedApi.internal.credits.index.deductCreditsInternalMutation,
@@ -1175,6 +1290,8 @@ ${knowledgeBlock}`;
           action: "agent_message",
           relatedEntityType: "ai_conversation",
           relatedEntityId: String(conversationId),
+          billingSource: deductionLlmBillingSource,
+          requestSource: "llm",
           softFailOnExhausted: true,
         }
       );
@@ -1198,13 +1315,17 @@ ${knowledgeBlock}`;
 
       // Try to parse JSON from response for page builder
       let generatedJson: unknown = undefined;
-      if (args.context === "page_builder" && finalMessage.content) {
-        const jsonMatch = finalMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          try {
-            generatedJson = JSON.parse(jsonMatch[1]);
-          } catch {
-            // Invalid JSON, leave as undefined
+      if (args.context === "page_builder") {
+        generatedJson = response.structuredOutput?.value;
+
+        if (!generatedJson && finalMessage.content) {
+          const jsonMatch = finalMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+          if (jsonMatch) {
+            try {
+              generatedJson = JSON.parse(jsonMatch[1]);
+            } catch {
+              // Invalid JSON, leave as undefined
+            }
           }
         }
       }

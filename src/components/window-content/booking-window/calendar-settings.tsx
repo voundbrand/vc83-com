@@ -223,7 +223,7 @@ export function CalendarSettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-pixel text-sm" style={{ color: 'var(--win95-text)' }}>
+          <h2 className="font-pixel text-sm" style={{ color: 'var(--shell-text)' }}>
             Calendars
           </h2>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -233,7 +233,7 @@ export function CalendarSettings() {
         <button
           onClick={handleAddCalendar}
           className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
-          style={{ color: 'var(--win95-text)' }}
+          style={{ color: 'var(--shell-text)' }}
         >
           <Plus size={12} />
           <span className="font-pixel text-xs">Add calendar</span>
@@ -244,12 +244,12 @@ export function CalendarSettings() {
       <div
         className="border-2 p-4 space-y-3"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface-elevated)',
         }}
       >
         <div>
-          <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+          <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
             Add to calendar
           </h3>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -258,15 +258,15 @@ export function CalendarSettings() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
             Add events to
           </label>
           <select
             className="w-full px-3 py-2 text-xs border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-input-bg)',
-              color: 'var(--win95-input-text)',
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-input-surface)',
+              color: 'var(--shell-input-text)',
             }}
             value={pushCalendarId || ""}
             onChange={(e) => handleSetPushCalendar(e.target.value)}
@@ -289,15 +289,15 @@ export function CalendarSettings() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--win95-text)' }}>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
             Default reminder
           </label>
           <select
             className="w-full px-3 py-2 text-xs border-2"
             style={{
-              borderColor: 'var(--win95-border)',
-              background: 'var(--win95-input-bg)',
-              color: 'var(--win95-input-text)',
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-input-surface)',
+              color: 'var(--shell-input-text)',
             }}
           >
             <option value="">Use default reminders</option>
@@ -316,13 +316,13 @@ export function CalendarSettings() {
       <div
         className="border-2 p-4 space-y-3"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg-light)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface-elevated)',
         }}
       >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--win95-text)' }}>
+            <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
               Check for conflicts
             </h3>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
@@ -332,7 +332,7 @@ export function CalendarSettings() {
           <button
             onClick={handleAddCalendar}
             className="desktop-interior-button px-2 py-1 flex items-center gap-1"
-            style={{ color: 'var(--win95-text)' }}
+            style={{ color: 'var(--shell-text)' }}
           >
             <Plus size={10} />
             <span className="text-xs">Add</span>
@@ -357,8 +357,8 @@ export function CalendarSettings() {
                 key={`${cal.provider}-${cal.email}`}
                 className="border-2 rounded overflow-hidden"
                 style={{
-                  borderColor: 'var(--win95-border)',
-                  background: 'var(--win95-bg)',
+                  borderColor: 'var(--shell-border)',
+                  background: 'var(--shell-surface)',
                 }}
               >
                 {/* Connection header card */}
@@ -366,18 +366,18 @@ export function CalendarSettings() {
                   <div className="flex-shrink-0">
                     {cal.icon === "google" ? (
                       <div className="w-8 h-8 rounded flex items-center justify-center"
-                        style={{ background: 'var(--win95-input-bg)' }}>
+                        style={{ background: 'var(--shell-input-surface)' }}>
                         <Globe size={16} />
                       </div>
                     ) : (
                       <div className="w-8 h-8 rounded flex items-center justify-center"
-                        style={{ background: 'var(--win95-input-bg)' }}>
+                        style={{ background: 'var(--shell-input-surface)' }}>
                         <Mail size={16} />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold truncate" style={{ color: 'var(--win95-text)' }}>
+                    <p className="text-xs font-bold truncate" style={{ color: 'var(--shell-text)' }}>
                       {cal.provider}
                     </p>
                     <p className="text-xs truncate" style={{ color: 'var(--neutral-gray)' }}>
@@ -405,7 +405,7 @@ export function CalendarSettings() {
                     <button
                       onClick={() => setMenuOpenFor(menuOpenFor === cal.connectionId ? null : cal.connectionId)}
                       className="desktop-interior-button p-1.5"
-                      style={{ color: 'var(--win95-text)' }}
+                      style={{ color: 'var(--shell-text)' }}
                       title="Options"
                     >
                       <MoreHorizontal size={14} />
@@ -414,8 +414,8 @@ export function CalendarSettings() {
                       <div
                         className="absolute right-0 top-full mt-1 z-50 border-2 rounded shadow-lg min-w-[160px]"
                         style={{
-                          borderColor: 'var(--win95-border)',
-                          background: 'var(--win95-bg-light)',
+                          borderColor: 'var(--shell-border)',
+                          background: 'var(--shell-surface-elevated)',
                         }}
                       >
                         <button
@@ -459,7 +459,7 @@ export function CalendarSettings() {
                                 onClick={() => handleToggleBlockingCalendar(sc.calendarId)}
                                 className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
                                 style={{
-                                  background: isBlocking ? 'var(--success)' : 'var(--win95-border)',
+                                  background: isBlocking ? 'var(--success)' : 'var(--shell-border)',
                                 }}
                               >
                                 <span
@@ -474,7 +474,7 @@ export function CalendarSettings() {
                                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: sc.backgroundColor }}
                               />
-                              <span className="text-xs flex-1 truncate" style={{ color: 'var(--win95-text)' }}>
+                              <span className="text-xs flex-1 truncate" style={{ color: 'var(--shell-text)' }}>
                                 {sc.summary}
                               </span>
                             </label>
@@ -504,7 +504,7 @@ export function CalendarSettings() {
                             onClick={handleRefreshSubCalendars}
                             disabled={refreshing}
                             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
-                            style={{ color: 'var(--win95-text)' }}
+                            style={{ color: 'var(--shell-text)' }}
                           >
                             <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
                             <span className="text-xs font-pixel">
@@ -514,7 +514,7 @@ export function CalendarSettings() {
                           <button
                             onClick={handleAddCalendar}
                             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
-                            style={{ color: 'var(--win95-text)' }}
+                            style={{ color: 'var(--shell-text)' }}
                           >
                             <Globe size={12} />
                             <span className="text-xs font-pixel">Reconnect</span>
@@ -537,7 +537,7 @@ export function CalendarSettings() {
                           onClick={() => handleToggleSync(cal)}
                           className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
                           style={{
-                            background: cal.syncEnabled ? 'var(--success)' : 'var(--win95-border)',
+                            background: cal.syncEnabled ? 'var(--success)' : 'var(--shell-border)',
                           }}
                         >
                           <span
@@ -548,7 +548,7 @@ export function CalendarSettings() {
                             }}
                           />
                         </button>
-                        <span className="text-xs" style={{ color: 'var(--win95-text)' }}>
+                        <span className="text-xs" style={{ color: 'var(--shell-text)' }}>
                           Check Outlook for conflicts
                         </span>
                       </label>

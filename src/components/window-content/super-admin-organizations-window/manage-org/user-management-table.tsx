@@ -109,8 +109,8 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
               onClick={() => setShowInviteModal(true)}
               className="beveled-button flex items-center gap-2 px-3 py-1.5 text-sm font-semibold"
               style={{
-                backgroundColor: "var(--primary)",
-                color: "white",
+                backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                color: "var(--button-primary-text, #0f0f0f)",
               }}
             >
               <UserPlus size={16} />
@@ -242,10 +242,10 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
                           }}
                           className="p-1 hover:opacity-80"
                           style={{
-                            backgroundColor: "var(--primary)",
-                            color: "white",
+                            backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                            color: "var(--button-primary-text, #0f0f0f)",
                             border: "1px solid",
-                            borderColor: "var(--primary)",
+                            borderColor: "var(--button-primary-border, var(--tone-accent-strong))",
                           }}
                           title={t("ui.manage.users.edit_user")}
                         >

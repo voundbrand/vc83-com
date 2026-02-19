@@ -112,21 +112,21 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps): ReactN
       onClick={() => onSelect(item)}
       className="w-full text-left p-3 border-b transition-colors hover:bg-gray-50"
       style={{
-        borderColor: 'var(--win95-border-light)',
-        background: isSelected ? 'var(--win95-highlight-subtle)' : 'transparent',
-        borderLeft: isSelected ? '3px solid var(--win95-highlight)' : '3px solid transparent'
+        borderColor: 'var(--shell-border-soft)',
+        background: isSelected ? 'var(--shell-accent-soft)' : 'transparent',
+        borderLeft: isSelected ? '3px solid var(--shell-accent)' : '3px solid transparent'
       }}
     >
       <div className="flex items-start gap-2">
         {/* Icon */}
         <div className="flex-shrink-0 mt-0.5">
-          <Icon className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
+          <Icon className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Name */}
-          <p className="text-sm font-medium truncate mb-1" style={{ color: 'var(--win95-text)' }}>
+          <p className="text-sm font-medium truncate mb-1" style={{ color: 'var(--shell-text)' }}>
             {item.name}
           </p>
 
@@ -142,7 +142,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps): ReactN
               <StatusIcon className={`w-3 h-3 ${item.status === 'executing' || item.status === 'sending' ? 'animate-spin' : ''}`} />
               {config.label}
             </span>
-            <span className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+            <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
               {timeAgo(item.createdAt)}
             </span>
           </div>
@@ -152,7 +152,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps): ReactN
             <div className="space-y-1">
               <div
                 className="h-1.5 rounded overflow-hidden"
-                style={{ background: 'var(--win95-border-light)' }}
+                style={{ background: 'var(--shell-border-soft)' }}
               >
                 <div
                   className="h-full transition-all duration-300"
@@ -162,7 +162,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps): ReactN
                   }}
                 />
               </div>
-              <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+              <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                 {item.progress.completed}/{item.progress.total} items
                 {item.progress.failed > 0 && (
                   <span style={{ color: 'var(--error)' }}> • {item.progress.failed} failed</span>
@@ -173,7 +173,7 @@ function WorkItemCard({ item, isSelected, onSelect }: WorkItemCardProps): ReactN
         </div>
 
         {/* Chevron */}
-        <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--win95-text-muted)' }} />
+        <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--shell-text-dim)' }} />
       </div>
     </button>
   );
@@ -200,12 +200,12 @@ export function WorkItemList({ organizationId, selectedItem, onSelectItem }: Wor
       <div
         className="flex items-center gap-2 p-3 border-b-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
-        <Loader2 className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+        <Loader2 className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
           Active Work
         </span>
       </div>
@@ -214,11 +214,11 @@ export function WorkItemList({ organizationId, selectedItem, onSelectItem }: Wor
       <div className="flex-1 overflow-y-auto">
         {!workItems || workItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <Users className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+            <Users className="w-8 h-8 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+            <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
               No active work items
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--win95-text-muted)' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--shell-text-dim)' }}>
               Start a contact sync or email campaign
             </p>
           </div>
@@ -238,8 +238,8 @@ export function WorkItemList({ organizationId, selectedItem, onSelectItem }: Wor
       <div
         className="p-2 border-t text-xs"
         style={{
-          borderColor: 'var(--win95-border-light)',
-          color: 'var(--win95-text-muted)'
+          borderColor: 'var(--shell-border-soft)',
+          color: 'var(--shell-text-dim)'
         }}
       >
         {workItems?.length || 0} active work item{workItems?.length !== 1 ? 's' : ''}

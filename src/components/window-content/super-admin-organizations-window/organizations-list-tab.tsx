@@ -519,8 +519,8 @@ export function OrganizationsListTab() {
                       onClick={() => handleManageClick(org._id, org.name)}
                       className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                       style={{
-                        backgroundColor: "var(--primary)",
-                        color: "white",
+                        backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                        color: "var(--button-primary-text, #0f0f0f)",
                       }}
                     >
                       <Settings size={11} />

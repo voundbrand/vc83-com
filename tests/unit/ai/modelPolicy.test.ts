@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildModelRoutingMatrix,
   SAFE_FALLBACK_MODEL_ID,
   determineModelSelectionSource,
   isModelAllowedForOrg,
+  resolveModelRoutingIntent,
+  resolveModelRoutingModality,
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
@@ -215,5 +218,122 @@ describe("modelPolicy", () => {
         platformFirstEnabledModelId: "openai/gpt-4o-mini",
       })
     ).toBe("platform_first_enabled");
+  });
+
+  it("resolves routing intent from deterministic intent taxonomy", () => {
+    expect(
+      resolveModelRoutingIntent({
+        detectedIntents: ["billing", "support"],
+      })
+    ).toBe("billing");
+
+    expect(
+      resolveModelRoutingIntent({
+        detectedIntents: [],
+        requiresTools: false,
+      })
+    ).toBe("general");
+  });
+
+  it("resolves routing modality from metadata attachment hints", () => {
+    expect(
+      resolveModelRoutingModality({
+        message: "please review this",
+        metadata: {
+          attachments: [{ type: "audio/ogg", name: "voice-note.ogg" }],
+        },
+      })
+    ).toBe("audio_in");
+
+    expect(
+      resolveModelRoutingModality({
+        message: "[Image]",
+      })
+    ).toBe("vision");
+  });
+
+  it("builds a routing matrix that prioritizes models meeting intent + modality requirements", () => {
+    const matrix = buildModelRoutingMatrix({
+      preferredModelId: "openai/gpt-4o-mini",
+      orgDefaultModelId: "openai/gpt-4o-mini",
+      platformModels: [
+        {
+          modelId: "openai/gpt-4o-mini",
+          providerId: "openai",
+          capabilityMatrix: {
+            text: true,
+            vision: false,
+            audio_in: false,
+            audio_out: false,
+            tools: true,
+            json: true,
+          },
+        },
+        {
+          modelId: "openrouter/openai/gpt-4o",
+          providerId: "openrouter",
+          capabilityMatrix: {
+            text: true,
+            vision: true,
+            audio_in: false,
+            audio_out: false,
+            tools: true,
+            json: true,
+          },
+        },
+      ],
+      routingIntent: "tooling",
+      routingModality: "vision",
+      availableProviderIds: ["openai", "openrouter"],
+    });
+
+    expect(matrix[0].modelId).toBe("openrouter/openai/gpt-4o");
+    expect(matrix[0].supportsIntent).toBe(true);
+    expect(matrix[0].supportsModality).toBe(true);
+
+    const preferredEntry = matrix.find(
+      (entry) => entry.modelId === "openai/gpt-4o-mini"
+    );
+    expect(preferredEntry?.reason).toBe("modality_unsupported");
+  });
+
+  it("marks unavailable-provider candidates with deterministic reason", () => {
+    const matrix = buildModelRoutingMatrix({
+      preferredModelId: "openai/gpt-4o-mini",
+      platformModels: [
+        {
+          modelId: "openai/gpt-4o-mini",
+          providerId: "openai",
+          capabilityMatrix: {
+            text: true,
+            vision: true,
+            audio_in: false,
+            audio_out: false,
+            tools: true,
+            json: true,
+          },
+        },
+        {
+          modelId: "openrouter/openai/gpt-4o",
+          providerId: "openrouter",
+          capabilityMatrix: {
+            text: true,
+            vision: true,
+            audio_in: false,
+            audio_out: false,
+            tools: true,
+            json: true,
+          },
+        },
+      ],
+      availableProviderIds: ["openrouter"],
+      routingIntent: "general",
+      routingModality: "text",
+    });
+
+    expect(matrix[0].providerId).toBe("openrouter");
+    expect(
+      matrix.find((entry) => entry.modelId === "openai/gpt-4o-mini")?.reason
+    ).toBe("provider_unavailable_auth_profiles");
   });
 });

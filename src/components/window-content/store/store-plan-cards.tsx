@@ -138,7 +138,8 @@ interface SubscriptionStatus {
 interface StorePlanCardsProps {
   currentPlan: string;
   hasActiveSubscription: boolean;
-  onCheckout: (tier: "pro" | "agency", billingPeriod: "monthly" | "annual") => void;
+  scaleTrialEligible: boolean;
+  onCheckout: (tier: "pro" | "scale", billingPeriod: "monthly" | "annual") => void;
   onSubscriptionChange: (tier: string, billingPeriod: "monthly" | "annual") => Promise<void>;
   onContactSales: () => void;
   isManagingSubscription: boolean;
@@ -151,6 +152,7 @@ interface StorePlanCardsProps {
 export function StorePlanCards({
   currentPlan,
   hasActiveSubscription,
+  scaleTrialEligible,
   onCheckout,
   onSubscriptionChange,
   onContactSales,
@@ -161,6 +163,15 @@ export function StorePlanCards({
   isCancelingPending,
 }: StorePlanCardsProps) {
   const [isAnnual, setIsAnnual] = useState(true);
+  const plans = PLANS.map((plan) =>
+    plan.id === "agency"
+      ? {
+          ...plan,
+          cta: scaleTrialEligible ? "Start 14-Day Trial" : "Subscribe",
+          trialBadge: scaleTrialEligible ? "14-DAY FREE TRIAL" : undefined,
+        }
+      : plan
+  );
 
   const getDisplayPrice = (plan: Plan) => {
     if (plan.monthlyPrice <= 0) return plan.monthlyPrice;
@@ -187,16 +198,21 @@ export function StorePlanCards({
 
         {/* Billing Toggle */}
         <div className="flex items-center justify-center gap-3 mt-4">
-          <span
-            className="text-xs font-medium cursor-pointer transition-colors"
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs font-medium transition-colors"
             style={{ color: !isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
             onClick={() => setIsAnnual(false)}
+            aria-pressed={!isAnnual}
           >
             Monthly
-          </span>
+          </button>
           <button
+            type="button"
             onClick={() => setIsAnnual(!isAnnual)}
             className="relative w-12 h-6 rounded-full transition-colors focus:outline-none"
+            aria-label={`Switch billing cycle. Currently ${isAnnual ? "annual" : "monthly"}.`}
+            aria-pressed={isAnnual}
             style={{
               background: isAnnual ? ACCENT_BACKGROUND : "var(--window-document-border)",
             }}
@@ -210,10 +226,12 @@ export function StorePlanCards({
               }}
             />
           </button>
-          <span
-            className="text-xs font-medium cursor-pointer transition-colors flex items-center gap-1"
+          <button
+            type="button"
+            className="flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium transition-colors"
             style={{ color: isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
             onClick={() => setIsAnnual(true)}
+            aria-pressed={isAnnual}
           >
             Annual
             <span
@@ -222,7 +240,7 @@ export function StorePlanCards({
             >
               Save ~17%
             </span>
-          </span>
+          </button>
         </div>
       </div>
 
@@ -238,7 +256,7 @@ export function StorePlanCards({
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <PlanCard
             key={plan.id}
             plan={plan}
@@ -254,7 +272,7 @@ export function StorePlanCards({
                   : undefined
             }
             isManagingSubscription={isManagingSubscription}
-            onCheckout={() => onCheckout(plan.id as "pro" | "agency", isAnnual ? "annual" : "monthly")}
+            onCheckout={() => onCheckout(plan.id === "agency" ? "scale" : "pro", isAnnual ? "annual" : "monthly")}
             onSubscriptionChange={(tier) => onSubscriptionChange(tier, isAnnual ? "annual" : "monthly")}
             onContactSales={onContactSales}
           />
@@ -262,7 +280,7 @@ export function StorePlanCards({
       </div>
 
       <p className="text-center text-[10px] mt-6" style={{ color: "var(--desktop-menu-text-muted)" }}>
-        All prices in EUR excl. VAT. Cancel anytime.
+        Store plan pricing is VAT-inclusive in EUR estimates. Final invoice tax is calculated at checkout. Sources: convex/stripe/stripePrices.ts, convex/licensing/tierConfigs.ts.
       </p>
     </div>
   );
@@ -439,6 +457,7 @@ function PlanCTAButton({
   if (isCurrentPlan) {
     return (
       <button
+        type="button"
         disabled
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
         style={{
@@ -456,6 +475,7 @@ function PlanCTAButton({
   if (plan.isEnterprise) {
     return (
       <button
+        type="button"
         onClick={onContactSales}
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors"
         style={{
@@ -474,6 +494,7 @@ function PlanCTAButton({
   if (plan.id === "free" && hasActiveSubscription) {
     return (
       <button
+        type="button"
         onClick={() => onSubscriptionChange("free")}
         disabled={isManagingSubscription}
         className="w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors hover:opacity-80"
@@ -497,6 +518,7 @@ function PlanCTAButton({
   if (hasActiveSubscription) {
     return (
       <button
+        type="button"
         onClick={() => onSubscriptionChange(plan.id)}
         disabled={isManagingSubscription}
         className={`w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
@@ -523,6 +545,7 @@ function PlanCTAButton({
   // No subscription - go to checkout
   return (
     <button
+      type="button"
       onClick={onCheckout}
       className={`w-full py-2.5 px-4 rounded text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
         "hover:opacity-80"
@@ -554,6 +577,8 @@ function SubscriptionStatusBanner({
     return (
       <div
         className="mb-4 p-3 rounded-lg flex items-center justify-center gap-2"
+        role="status"
+        aria-live="polite"
         style={{ background: "var(--desktop-shell-accent)", border: "1px solid var(--window-document-border)" }}
       >
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
@@ -587,6 +612,7 @@ function SubscriptionStatusBanner({
               <strong>{formatDate(subscriptionStatus.currentPeriodEnd)}</strong>.
             </p>
             <button
+              type="button"
               onClick={onCancelPendingChange}
               disabled={isCancelingPending}
               className="mt-2 px-3 py-1.5 rounded text-xs font-medium flex items-center gap-2 transition-colors hover:opacity-80"
@@ -617,6 +643,7 @@ function SubscriptionStatusBanner({
               <strong>{formatDate(subscriptionStatus.pendingDowngrade.effectiveDate)}</strong>.
             </p>
             <button
+              type="button"
               onClick={onCancelPendingChange}
               disabled={isCancelingPending}
               className="mt-2 px-3 py-1.5 rounded text-xs font-medium flex items-center gap-2 transition-colors hover:opacity-80"

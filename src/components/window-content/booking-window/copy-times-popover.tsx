@@ -41,13 +41,13 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
     <div
       className="absolute z-50 border-2 shadow-lg p-3 min-w-[180px]"
       style={{
-        borderColor: 'var(--win95-border)',
-        background: 'var(--win95-bg-light)',
+        borderColor: 'var(--shell-border)',
+        background: 'var(--shell-surface-elevated)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="font-pixel text-xs font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+      <div className="font-pixel text-xs font-bold mb-2" style={{ color: 'var(--shell-text)' }}>
         COPY TIMES TO
       </div>
 
@@ -62,7 +62,7 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
       </label>
 
       {/* Divider */}
-      <div className="border-t my-1" style={{ borderColor: 'var(--win95-border)' }} />
+      <div className="border-t my-1" style={{ borderColor: 'var(--shell-border)' }} />
 
       {/* Day checkboxes */}
       {DAYS.map((day, index) => (
@@ -94,8 +94,8 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
         <button
           className="desktop-interior-button px-3 py-1 font-pixel text-xs"
           style={{
-            background: 'var(--win95-selected-bg)',
-            color: 'var(--win95-selected-text)',
+            background: 'var(--shell-selection-bg)',
+            color: 'var(--shell-selection-text)',
           }}
           onClick={handleApply}
         >

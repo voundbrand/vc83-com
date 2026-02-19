@@ -155,7 +155,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
       {/* Status Tabs */}
       <div
         className="flex gap-1 px-3 pt-3 pb-1"
-        style={{ background: 'var(--win95-bg)' }}
+        style={{ background: 'var(--shell-surface)' }}
       >
         {STATUS_TABS.map((tab) => (
           <button
@@ -165,7 +165,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
               activeTab === tab.key ? "border-current" : "border-transparent"
             }`}
             style={{
-              color: activeTab === tab.key ? 'var(--win95-selected-bg)' : 'var(--neutral-gray)',
+              color: activeTab === tab.key ? 'var(--shell-selection-bg)' : 'var(--neutral-gray)',
               fontWeight: activeTab === tab.key ? 'bold' : 'normal',
             }}
           >
@@ -175,7 +175,7 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
       </div>
 
       {/* Header with search and filters */}
-      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--win95-bg)', borderColor: 'var(--win95-border)' }}>
+      <div className="p-3 border-b-2 space-y-2" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}>
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -185,9 +185,9 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
               placeholder="Search bookings..."
               className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -199,8 +199,8 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
               showFilters ? "shadow-inner" : ""
             }`}
             style={{
-              background: showFilters ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
-              color: showFilters ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+              background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
+              color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
             }}
           >
             <Filter size={14} />
@@ -209,8 +209,8 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
             onClick={() => setShowAddModal(true)}
             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
             style={{
-              background: 'var(--win95-button-face)',
-              color: 'var(--win95-text)'
+              background: 'var(--shell-button-surface)',
+              color: 'var(--shell-text)'
             }}
           >
             <Plus size={14} />
@@ -226,9 +226,9 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
               onChange={(e) => setSubtypeFilter(e.target.value as BookingSubtype)}
               className="px-2 py-1 border-2 text-xs"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="">All Types</option>
@@ -256,23 +256,23 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--win95-border)' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
             {filteredBookings.map((booking) => (
               <button
                 key={booking._id}
                 onClick={() => onSelect(booking._id)}
                 className="w-full p-3 text-left hover:opacity-80 transition-opacity"
                 style={{
-                  background: selectedId === booking._id ? 'var(--win95-selected-bg)' : 'transparent',
-                  color: selectedId === booking._id ? 'var(--win95-selected-text)' : 'var(--win95-text)'
+                  background: selectedId === booking._id ? 'var(--shell-selection-bg)' : 'transparent',
+                  color: selectedId === booking._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="p-2 rounded"
                     style={{
-                      background: selectedId === booking._id ? 'var(--win95-selected-text)' : 'var(--win95-selected-bg)',
-                      color: selectedId === booking._id ? 'var(--win95-selected-bg)' : 'var(--win95-selected-text)'
+                      background: selectedId === booking._id ? 'var(--shell-selection-text)' : 'var(--shell-selection-bg)',
+                      color: selectedId === booking._id ? 'var(--shell-selection-bg)' : 'var(--shell-selection-text)'
                     }}
                   >
                     <Calendar size={14} />
@@ -289,8 +289,8 @@ export function BookingsList({ selectedId, onSelect }: BookingsListProps) {
                       <span
                         className="px-1.5 py-0.5 text-xs rounded"
                         style={{
-                          background: 'var(--win95-bg-light)',
-                          color: 'var(--win95-text)'
+                          background: 'var(--shell-surface-elevated)',
+                          color: 'var(--shell-text)'
                         }}
                       >
                         {getSubtypeLabel(booking.subtype)}

@@ -174,8 +174,8 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
       <div
         className="rounded border-2 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
         style={{
-          background: 'var(--win95-bg)',
-          borderColor: 'var(--win95-border)'
+          background: 'var(--shell-surface)',
+          borderColor: 'var(--shell-border)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -183,8 +183,8 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
         <div
           className="flex items-center justify-between p-3 border-b-2"
           style={{
-            background: 'var(--win95-selected-bg)',
-            borderColor: 'var(--win95-border)'
+            background: 'var(--shell-selection-bg)',
+            borderColor: 'var(--shell-border)'
           }}
         >
           <span className="font-pixel text-sm text-white flex items-center gap-2">
@@ -209,9 +209,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               onChange={(e) => setSubtype(e.target.value as BookingSubtype)}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="appointment">Appointment</option>
@@ -236,9 +236,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                   required
                 />
@@ -251,9 +251,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                   required
                 />
@@ -266,9 +266,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                 />
               </div>
@@ -290,9 +290,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setStartDate(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                   required
                 />
@@ -305,9 +305,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   onChange={(e) => setStartTime(e.target.value)}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                   required
                 />
@@ -322,9 +322,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   step={15}
                   className="w-full px-2 py-1.5 border-2 text-sm"
                   style={{
-                    borderColor: 'var(--win95-border)',
-                    background: 'var(--win95-input-bg)',
-                    color: 'var(--win95-input-text)'
+                    borderColor: 'var(--shell-border)',
+                    background: 'var(--shell-input-surface)',
+                    color: 'var(--shell-input-text)'
                   }}
                 />
               </div>
@@ -339,9 +339,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               onChange={(e) => setSelectedResourceId(e.target.value as Id<"objects"> | "")}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
               required
             >
@@ -359,8 +359,8 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             <div
               className="p-3 rounded border-2 space-y-2"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-bg-light)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-surface-elevated)'
               }}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -370,7 +370,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {/* Price Info */}
                 <div className="flex items-center gap-1">
-                  <DollarSign size={12} style={{ color: 'var(--win95-success-bg)' }} />
+                  <DollarSign size={12} style={{ color: 'var(--success-bg)' }} />
                   <span>
                     {resourceConfig.pricePerUnit > 0
                       ? `${(resourceConfig.pricePerUnit / 100).toFixed(2)} / ${resourceConfig.priceUnit}`
@@ -392,7 +392,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
                 {/* Duration Range */}
                 <div className="flex items-center gap-1">
-                  <Clock size={12} style={{ color: 'var(--win95-warning-bg)' }} />
+                  <Clock size={12} style={{ color: 'var(--warning-bg)' }} />
                   <span>
                     {resourceConfig.minDuration === resourceConfig.maxDuration
                       ? `${resourceConfig.minDuration} ${resourceConfig.durationUnit}`
@@ -404,7 +404,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 {/* Confirmation Info */}
                 {resourceConfig.confirmationRequired && (
                   <div className="flex items-center gap-1">
-                    <Calendar size={12} style={{ color: 'var(--win95-error-bg)' }} />
+                    <Calendar size={12} style={{ color: 'var(--error-bg)' }} />
                     <span>Requires confirmation</span>
                   </div>
                 )}
@@ -412,7 +412,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 {/* Deposit Info */}
                 {resourceConfig.depositRequired && (
                   <div className="flex items-center gap-1 col-span-2">
-                    <DollarSign size={12} style={{ color: 'var(--win95-warning-bg)' }} />
+                    <DollarSign size={12} style={{ color: 'var(--warning-bg)' }} />
                     <span>
                       Deposit: {resourceConfig.depositPercent > 0
                         ? `${resourceConfig.depositPercent}%`
@@ -433,9 +433,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               onChange={(e) => setSelectedLocationId(e.target.value as Id<"objects"> | "")}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             >
               <option value="">No location</option>
@@ -457,9 +457,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               min={1}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -473,9 +473,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               rows={2}
               className="w-full px-2 py-1.5 border-2 text-sm resize-none"
               style={{
-                borderColor: 'var(--win95-border)',
-                background: 'var(--win95-input-bg)',
-                color: 'var(--win95-input-text)'
+                borderColor: 'var(--shell-border)',
+                background: 'var(--shell-input-surface)',
+                color: 'var(--shell-input-text)'
               }}
             />
           </div>
@@ -493,7 +493,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Error */}
           {error && (
-            <p className="text-xs p-2 rounded" style={{ background: 'var(--win95-error-bg)', color: 'white' }}>
+            <p className="text-xs p-2 rounded" style={{ background: 'var(--error-bg)', color: 'white' }}>
               {error}
             </p>
           )}
@@ -505,8 +505,8 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               disabled={isSubmitting}
               className="desktop-interior-button flex-1 py-2 text-sm"
               style={{
-                background: 'var(--win95-selected-bg)',
-                color: 'var(--win95-selected-text)',
+                background: 'var(--shell-selection-bg)',
+                color: 'var(--shell-selection-text)',
                 opacity: isSubmitting ? 0.5 : 1
               }}
             >
@@ -516,7 +516,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               type="button"
               onClick={onClose}
               className="desktop-interior-button px-4 py-2 text-sm"
-              style={{ background: 'var(--win95-button-face)' }}
+              style={{ background: 'var(--shell-button-surface)' }}
             >
               Cancel
             </button>

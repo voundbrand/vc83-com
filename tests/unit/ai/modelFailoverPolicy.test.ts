@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildModelFailoverCandidates } from "../../../convex/ai/modelFailoverPolicy";
+import {
+  buildModelFailoverCandidates,
+  buildModelFailoverPlan,
+  inferModelProviderId,
+} from "../../../convex/ai/modelFailoverPolicy";
 
 describe("model failover policy", () => {
   it("builds a deterministic fallback chain from dynamic inputs", () => {
@@ -51,5 +55,30 @@ describe("model failover policy", () => {
     });
 
     expect(candidates).toEqual(["openai/gpt-4o"]);
+  });
+
+  it("infers canonical provider ids from model ids", () => {
+    expect(inferModelProviderId("openrouter/openai/gpt-4o")).toBe("openrouter");
+    expect(inferModelProviderId("google/gemini-2.0-flash")).toBe("gemini");
+    expect(inferModelProviderId("unknown/model")).toBe(null);
+  });
+
+  it("builds failover plan entries with provider metadata", () => {
+    const plan = buildModelFailoverPlan({
+      primaryModelId: "openrouter/openai/gpt-4o",
+      orgEnabledModelIds: ["openai/gpt-4o-mini"],
+      platformEnabledModelIds: [
+        "openrouter/openai/gpt-4o",
+        "openai/gpt-4o-mini",
+      ],
+    });
+
+    expect(plan.map((entry) => entry.modelId)).toEqual([
+      "openrouter/openai/gpt-4o",
+      "openai/gpt-4o-mini",
+    ]);
+    expect(plan[0].providerId).toBe("openrouter");
+    expect(plan[1].providerId).toBe("openai");
+    expect(plan[0].priority).toBe(0);
   });
 });

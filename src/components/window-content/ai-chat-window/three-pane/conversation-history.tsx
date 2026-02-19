@@ -44,7 +44,7 @@ export function ConversationHistory() {
         href="/builder"
         className="flex items-center gap-2 p-3 border-b-2 transition-colors group"
         style={{
-          borderColor: 'var(--win95-border-dark)',
+          borderColor: 'var(--shell-border-strong)',
           background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
         }}
       >
@@ -59,13 +59,13 @@ export function ConversationHistory() {
       <div
         className="flex items-center justify-between p-3 border-b-2"
         style={{
-          borderColor: 'var(--win95-border-dark)',
-          background: 'var(--win95-title-bg)'
+          borderColor: 'var(--shell-border-strong)',
+          background: 'var(--shell-title-bg)'
         }}
       >
         <div className="flex items-center gap-2">
-          <FolderOpen className="w-4 h-4" style={{ color: 'var(--win95-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--win95-text)' }}>
+          <FolderOpen className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             {t("ui.ai_assistant.history.title")}
           </span>
         </div>
@@ -73,15 +73,15 @@ export function ConversationHistory() {
           onClick={handleNewChat}
           className="p-1 rounded transition-colors"
           style={{
-            color: 'var(--win95-text)'
+            color: 'var(--shell-text)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--win95-hover-bg)'
-            e.currentTarget.style.color = 'var(--win95-hover-text)'
+            e.currentTarget.style.background = 'var(--shell-hover-bg)'
+            e.currentTarget.style.color = 'var(--shell-hover-text)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = 'var(--win95-text)'
+            e.currentTarget.style.color = 'var(--shell-text)'
           }}
           title={t("ui.ai_assistant.history.new_chat")}
         >
@@ -90,22 +90,22 @@ export function ConversationHistory() {
       </div>
 
       {/* Search Bar */}
-      <div className="p-2 border-b" style={{ borderColor: 'var(--win95-border-light)' }}>
+      <div className="p-2 border-b" style={{ borderColor: 'var(--shell-border-soft)' }}>
         <div
           className="flex items-center gap-2 px-2 py-1 border rounded"
           style={{
-            borderColor: 'var(--win95-border-dark)',
-            background: 'var(--win95-input-bg)'
+            borderColor: 'var(--shell-border-strong)',
+            background: 'var(--shell-input-surface)'
           }}
         >
-          <Search className="w-3 h-3" style={{ color: 'var(--win95-text-muted)' }} />
+          <Search className="w-3 h-3" style={{ color: 'var(--shell-text-dim)' }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("ui.ai_assistant.history.search_placeholder")}
             className="flex-1 text-xs bg-transparent outline-none"
-            style={{ color: 'var(--win95-text)' }}
+            style={{ color: 'var(--shell-text)' }}
           />
         </div>
       </div>
@@ -114,8 +114,8 @@ export function ConversationHistory() {
       <div className="flex-1 overflow-y-auto">
         {filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-            <MessageSquare className="w-8 h-8 mb-2" style={{ color: 'var(--win95-text-muted)' }} />
-            <p className="text-xs" style={{ color: 'var(--win95-text-muted)' }}>
+            <MessageSquare className="w-8 h-8 mb-2" style={{ color: 'var(--shell-text-dim)' }} />
+            <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
               {searchQuery
                 ? t("ui.ai_assistant.history.no_results")
                 : t("ui.ai_assistant.history.empty")}
@@ -136,15 +136,15 @@ export function ConversationHistory() {
                     isActive ? 'border-l-2' : ''
                   }`}
                   style={isActive ? {
-                    borderColor: 'var(--win95-highlight)',
-                    background: 'var(--win95-bg-light)',
-                    color: 'var(--win95-text)'
+                    borderColor: 'var(--shell-accent)',
+                    background: 'var(--shell-surface-elevated)',
+                    color: 'var(--shell-text)'
                   } : {
-                    color: 'var(--win95-text)'
+                    color: 'var(--shell-text)'
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'var(--win95-hover-light)';
+                      e.currentTarget.style.background = 'var(--shell-hover-surface)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -177,8 +177,8 @@ export function ConversationHistory() {
       <div
         className="p-2 border-t text-xs"
         style={{
-          borderColor: 'var(--win95-border-light)',
-          color: 'var(--win95-text-muted)'
+          borderColor: 'var(--shell-border-soft)',
+          color: 'var(--shell-text-dim)'
         }}
       >
         {filteredConversations.length} {t("ui.ai_assistant.history.conversations")}

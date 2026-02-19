@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_APPEARANCE_MODE,
+  DEFAULT_VOICE_PREVIEW_TEXT,
   mapAppearanceModeToLegacyTheme,
   mapLegacyThemeToAppearanceMode,
   mapLegacyWindowStyleToAppearanceMode,
   resolveAppearanceMode,
+  resolveVoiceRuntimePreviewText,
+  resolveVoiceRuntimeProviderPreference,
+  resolveVoiceRuntimeVoiceId,
 } from "../../../convex/userPreferences";
 
 describe("userPreferences appearance migration helpers", () => {
@@ -44,5 +48,35 @@ describe("userPreferences appearance migration helpers", () => {
   it("maps appearance modes back to canonical legacy theme IDs for dual-write compatibility", () => {
     expect(mapAppearanceModeToLegacyTheme("dark")).toBe("win95-dark");
     expect(mapAppearanceModeToLegacyTheme("sepia")).toBe("win95-light");
+  });
+});
+
+describe("userPreferences voice runtime helpers", () => {
+  it("falls back to browser provider when preference is missing or invalid", () => {
+    expect(resolveVoiceRuntimeProviderPreference(undefined)).toBe("browser");
+    expect(resolveVoiceRuntimeProviderPreference("invalid-provider")).toBe(
+      "browser",
+    );
+  });
+
+  it("keeps explicitly selected elevenlabs provider", () => {
+    expect(resolveVoiceRuntimeProviderPreference("elevenlabs")).toBe(
+      "elevenlabs",
+    );
+  });
+
+  it("normalizes voice IDs and clears empty input", () => {
+    expect(resolveVoiceRuntimeVoiceId(" voice_abc ")).toBe("voice_abc");
+    expect(resolveVoiceRuntimeVoiceId("")).toBeUndefined();
+  });
+
+  it("uses deterministic default preview text when empty", () => {
+    expect(resolveVoiceRuntimePreviewText("")).toBe(DEFAULT_VOICE_PREVIEW_TEXT);
+    expect(resolveVoiceRuntimePreviewText(undefined)).toBe(
+      DEFAULT_VOICE_PREVIEW_TEXT,
+    );
+    expect(resolveVoiceRuntimePreviewText(" test preview ")).toBe(
+      "test preview",
+    );
   });
 });

@@ -6,6 +6,7 @@
  */
 
 import { lazy, type ReactNode } from "react";
+import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
 
 export interface WindowConfig {
   id: string;
@@ -42,6 +43,10 @@ export const LEGACY_SHELL_URL_STATE_KEYS = Object.freeze({
 // Lazy load window components
 const AIAssistantWindow = lazy(() =>
   import("@/components/window-content/ai-chat-window").then(m => ({ default: m.AIChatWindow }))
+);
+
+const BrainWindow = lazy(() =>
+  import("@/components/window-content/brain-window").then(m => ({ default: m.BrainWindow }))
 );
 
 const ManageWindow = lazy(() =>
@@ -220,6 +225,9 @@ const FeedbackWindow = lazy(() =>
   import("@/components/window-content/feedback-window").then(m => ({ default: m.FeedbackWindow }))
 );
 
+const aiAssistantWindowContract = getVoiceAssistantWindowContract("ai-assistant");
+const brainVoiceWindowContract = getVoiceAssistantWindowContract("brain-voice");
+
 
 /**
  * Registry of all available windows
@@ -228,11 +236,22 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   "ai-assistant": {
     createComponent: (props) => <AIAssistantWindow {...(props || {})} />,
     defaultConfig: {
-      title: "AI Assistant",
-      titleKey: "ui.windows.ai_assistant.title",
-      icon: "🤖",
-      position: { x: 100, y: 100 },
-      size: { width: 1000, height: 600 }
+      title: aiAssistantWindowContract.title,
+      titleKey: aiAssistantWindowContract.titleKey,
+      icon: aiAssistantWindowContract.iconId,
+      position: aiAssistantWindowContract.position,
+      size: aiAssistantWindowContract.size
+    }
+  },
+
+  "brain-voice": {
+    createComponent: () => <BrainWindow initialMode="learn" />,
+    defaultConfig: {
+      title: brainVoiceWindowContract.title,
+      titleKey: brainVoiceWindowContract.titleKey,
+      icon: brainVoiceWindowContract.iconId,
+      position: brainVoiceWindowContract.position,
+      size: brainVoiceWindowContract.size
     }
   },
 
@@ -296,7 +315,14 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "store": {
-    createComponent: () => <StoreWindow />,
+    createComponent: (props) => {
+      const typedProps = (props || {}) as {
+        initialSection?: "plans" | "limits" | "addons" | "billing" | "trial" | "credits" | "calculator" | "faq";
+        deepLinkNonce?: string;
+      }
+      const deepLinkNonce = typeof typedProps.deepLinkNonce === "string" ? typedProps.deepLinkNonce : "default"
+      return <StoreWindow key={`store-${deepLinkNonce}`} initialSection={typedProps.initialSection} />
+    },
     defaultConfig: {
       title: "Store",
       titleKey: "ui.windows.store.title",

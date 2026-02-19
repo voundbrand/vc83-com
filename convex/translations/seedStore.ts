@@ -56,12 +56,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.subtitle",
         values: {
-          en: "Platform services and subscriptions • All prices include 19% German VAT",
-          de: "Plattformdienste und Abonnements • Alle Preise inkl. 19% MwSt.",
-          pl: "Usługi platformowe i subskrypcje • Wszystkie ceny zawierają 19% VAT",
-          es: "Servicios de plataforma y suscripciones • Todos los precios incluyen IVA alemán del 19%",
-          fr: "Services et abonnements • Tous les prix incluent la TVA allemande de 19%",
-          ja: "プラットフォームサービスとサブスクリプション • すべての価格にドイツの19% VATが含まれています",
+          en: "Platform services and subscriptions • Store prices are VAT-inclusive (EUR)",
+          de: "Plattformdienste und Abonnements • Store-Preise sind inkl. MwSt. (EUR)",
+          pl: "Usługi platformowe i subskrypcje • Ceny w sklepie zawierają VAT (EUR)",
+          es: "Servicios y suscripciones de la plataforma • Los precios de la tienda incluyen IVA (EUR)",
+          fr: "Services et abonnements de la plateforme • Les prix de la boutique incluent la TVA (EUR)",
+          ja: "プラットフォームサービスとサブスクリプション • ストア価格はVAT込み（EUR）",
         }
       },
 

@@ -214,6 +214,7 @@ export interface TierFeatures {
 
   // AI
   aiEnabled: boolean;
+  aiByokEnabled: boolean;
 
   // Compliance
   gdprToolsEnabled: boolean;
@@ -468,6 +469,7 @@ export const FREE_TIER: TierConfig = {
 
     // AI
     aiEnabled: false,
+    aiByokEnabled: false,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -706,6 +708,7 @@ export const PRO_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
+    aiByokEnabled: true,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -946,6 +949,7 @@ export const STARTER_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
+    aiByokEnabled: true,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -1184,6 +1188,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
+    aiByokEnabled: true,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -1422,6 +1427,7 @@ export const AGENCY_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
+    aiByokEnabled: true,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -1660,6 +1666,7 @@ export const ENTERPRISE_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
+    aiByokEnabled: true,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -1741,16 +1748,74 @@ export function formatLimit(limit: number): string {
  */
 export type TierName = "free" | "pro" | "starter" | "professional" | "agency" | "enterprise";
 
+export type StoreRuntimeTierName = "free" | "pro" | "agency" | "enterprise";
+export type StorePublicTierName = "free" | "pro" | "scale" | "enterprise";
+
+export const STORE_ACTIVE_RUNTIME_TIERS: readonly StoreRuntimeTierName[] = [
+  "free",
+  "pro",
+  "agency",
+  "enterprise",
+];
+
+export const STORE_PUBLIC_TO_RUNTIME_TIER_NAME: Record<StorePublicTierName, StoreRuntimeTierName> = {
+  free: "free",
+  pro: "pro",
+  scale: "agency",
+  enterprise: "enterprise",
+};
+
+export const STORE_RUNTIME_TO_PUBLIC_TIER_NAME: Record<StoreRuntimeTierName, StorePublicTierName> = {
+  free: "free",
+  pro: "pro",
+  agency: "scale",
+  enterprise: "enterprise",
+};
+
+export const STORE_RUNTIME_TIER_DISPLAY_NAMES: Record<
+  StoreRuntimeTierName,
+  "Free" | "Pro" | "Scale" | "Enterprise"
+> = {
+  free: "Free",
+  pro: "Pro",
+  agency: "Scale",
+  enterprise: "Enterprise",
+};
+
+export function mapStorePublicTierToRuntime(tier: StorePublicTierName): StoreRuntimeTierName {
+  return STORE_PUBLIC_TO_RUNTIME_TIER_NAME[tier];
+}
+
+export function mapStoreRuntimeTierToPublic(tier: StoreRuntimeTierName): StorePublicTierName {
+  return STORE_RUNTIME_TO_PUBLIC_TIER_NAME[tier];
+}
+
+export function getStoreRuntimeTierDisplayName(
+  tier: StoreRuntimeTierName
+): "Free" | "Pro" | "Scale" | "Enterprise" {
+  return STORE_RUNTIME_TIER_DISPLAY_NAMES[tier];
+}
+
 /**
  * HELPER: Get the next tier name for upgrade prompts
  *
- * Current active tiers: Free → Pro → Agency → Enterprise
+ * Current active tiers: Free → Pro → Scale (runtime: agency) → Enterprise
  * Legacy tiers (starter, professional) are kept for backward compatibility
  */
-const TIER_ORDER: TierName[] = ["free", "pro", "starter", "professional", "agency", "enterprise"];
+const ACTIVE_TIER_ORDER: StoreRuntimeTierName[] = ["free", "pro", "agency", "enterprise"];
+
+const LEGACY_TIER_TO_ACTIVE_TIER: Record<TierName, StoreRuntimeTierName> = {
+  free: "free",
+  pro: "pro",
+  starter: "pro",
+  professional: "pro",
+  agency: "agency",
+  enterprise: "enterprise",
+};
 
 export function getNextTierName(currentTier: TierName): TierName | null {
-  const idx = TIER_ORDER.indexOf(currentTier);
-  if (idx === -1 || idx >= TIER_ORDER.length - 1) return null;
-  return TIER_ORDER[idx + 1];
+  const normalizedTier = LEGACY_TIER_TO_ACTIVE_TIER[currentTier] || "free";
+  const idx = ACTIVE_TIER_ORDER.indexOf(normalizedTier);
+  if (idx === -1 || idx >= ACTIVE_TIER_ORDER.length - 1) return null;
+  return ACTIVE_TIER_ORDER[idx + 1];
 }

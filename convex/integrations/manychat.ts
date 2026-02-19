@@ -29,6 +29,42 @@ const generatedApi: any = require("../_generated/api");
 
 // ManyChat API endpoints
 const MANYCHAT_API_BASE = "https://api.manychat.com/fb";
+const MANYCHAT_API_KEY_PREFIX_LENGTH = 20;
+const MANYCHAT_ENCRYPTED_FIELDS = ["manychatApiKey"] as const;
+
+function normalizeManyChatApiKey(value: string): string {
+  return value.trim();
+}
+
+function readManyChatApiKey(
+  props: Record<string, unknown>
+): string | undefined {
+  return (
+    (props.manychatApiKey as string | undefined) ??
+    (props.apiKey as string | undefined)
+  );
+}
+
+async function decryptManyChatApiKey(
+  ctx: any,
+  encryptedOrPlain: string | undefined,
+  shouldDecrypt: boolean
+): Promise<string | undefined> {
+  if (!encryptedOrPlain) {
+    return undefined;
+  }
+
+  if (!shouldDecrypt) {
+    return encryptedOrPlain;
+  }
+
+  const decryptedApiKey = await (ctx as any).runAction(
+    generatedApi.internal.oauth.encryption.decryptToken,
+    { encrypted: encryptedOrPlain }
+  );
+
+  return typeof decryptedApiKey === "string" ? decryptedApiKey : undefined;
+}
 
 // ============================================================================
 // TYPES
@@ -137,8 +173,21 @@ export const saveManyChatSettings = mutation({
       )
       .first();
 
+    const normalizedApiKey = normalizeManyChatApiKey(args.apiKey);
+    if (!normalizedApiKey) {
+      throw new Error("ManyChat API key is required");
+    }
+
+    const encryptedApiKey = await (ctx as any).runAction(
+      generatedApi.internal.oauth.encryption.encryptToken,
+      { plaintext: normalizedApiKey }
+    ) as string;
+
     const settingsData = {
-      apiKey: args.apiKey, // Consider encrypting in production
+      manychatApiKey: encryptedApiKey,
+      apiKeyPrefix: normalizedApiKey.slice(0, MANYCHAT_API_KEY_PREFIX_LENGTH),
+      credentialSource: "object_settings",
+      encryptedFields: [...MANYCHAT_ENCRYPTED_FIELDS],
       enabled: args.enabled,
       syncContacts: args.syncContacts ?? true,
       defaultFlows: args.defaultFlows || {},
@@ -216,7 +265,7 @@ export const getManyChatSettings = query({
     return {
       configured: true,
       enabled: props.enabled as boolean,
-      hasApiKey: !!(props.apiKey as string),
+      hasApiKey: Boolean(readManyChatApiKey(props)),
       syncContacts: props.syncContacts as boolean,
       defaultFlows: props.defaultFlows as Record<string, string>,
     };
@@ -231,7 +280,7 @@ export const testManyChatConnection = action({
     sessionId: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getSettingsInternal, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getSettingsInternal, {
       sessionId: args.sessionId,
     });
 
@@ -295,7 +344,7 @@ export const getPageInfo = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -315,7 +364,7 @@ export const getFlows = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { flows?: ManyChatFlow[] }> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -341,7 +390,7 @@ export const getTags = internalAction({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { tags?: ManyChatTag[] }> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -372,7 +421,7 @@ export const findSubscriberByEmail = internalAction({
     email: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -407,7 +456,7 @@ export const findSubscriberByPhone = internalAction({
     phone: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -442,7 +491,7 @@ export const getSubscriberInfo = internalAction({
     subscriberId: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult & { subscriber?: ManyChatSubscriber }> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -476,7 +525,7 @@ export const setSubscriberCustomField = internalAction({
     fieldValue: v.string(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -507,7 +556,7 @@ export const addTagToSubscriber = internalAction({
     tagId: v.number(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -537,7 +586,7 @@ export const removeTagFromSubscriber = internalAction({
     tagId: v.number(),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -572,7 +621,7 @@ export const sendFlow = internalAction({
     flowNs: v.string(), // Flow namespace (from getFlows)
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -614,7 +663,7 @@ export const sendMessage = internalAction({
     messageTag: v.optional(v.string()), // For messages outside 24h window
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -674,7 +723,7 @@ export const syncContact = internalAction({
       return { success: false, error: "Contact not found" };
     }
 
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -753,7 +802,7 @@ export const onBookingCreated = internalAction({
     contactId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -787,7 +836,7 @@ export const onEventReminder = internalAction({
     contactId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<ManyChatResult> => {
-    const settings = await (ctx as any).runQuery(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
+    const settings = await (ctx as any).runAction(generatedApi.internal.integrations.manychat.getOrgManyChatSettings, {
       organizationId: args.organizationId,
     });
 
@@ -815,9 +864,9 @@ export const onEventReminder = internalAction({
 // ============================================================================
 
 /**
- * Get ManyChat settings for organization (internal)
+ * Internal raw settings query (encrypted-at-rest payload, no decryption here).
  */
-export const getOrgManyChatSettings = internalQuery({
+export const getOrgManyChatSettingsStored = internalQuery({
   args: {
     organizationId: v.id("organizations"),
   },
@@ -834,10 +883,10 @@ export const getOrgManyChatSettings = internalQuery({
     }
 
     const props = settings.customProperties as Record<string, unknown>;
-
     return {
       enabled: props.enabled as boolean,
-      apiKey: props.apiKey as string,
+      apiKey: readManyChatApiKey(props),
+      encryptedFields: props.encryptedFields as string[] | undefined,
       syncContacts: props.syncContacts as boolean,
       defaultFlows: props.defaultFlows as Record<string, string>,
     };
@@ -845,9 +894,44 @@ export const getOrgManyChatSettings = internalQuery({
 });
 
 /**
- * Get settings with session validation (internal)
+ * Get ManyChat settings for organization (internal, decrypt-on-use boundary).
  */
-export const getSettingsInternal = internalQuery({
+export const getOrgManyChatSettings = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const settings = await (ctx as any).runQuery(
+      generatedApi.internal.integrations.manychat.getOrgManyChatSettingsStored,
+      { organizationId: args.organizationId }
+    );
+
+    if (!settings) {
+      return null;
+    }
+
+    const shouldDecrypt =
+      Array.isArray(settings.encryptedFields) &&
+      settings.encryptedFields.includes("manychatApiKey");
+    const apiKey = await decryptManyChatApiKey(
+      ctx,
+      settings.apiKey,
+      shouldDecrypt
+    );
+
+    return {
+      enabled: settings.enabled as boolean,
+      apiKey,
+      syncContacts: settings.syncContacts as boolean,
+      defaultFlows: settings.defaultFlows as Record<string, string>,
+    };
+  },
+});
+
+/**
+ * Internal raw settings query with session validation (encrypted-at-rest payload).
+ */
+export const getSettingsInternalStored = internalQuery({
   args: {
     sessionId: v.string(),
   },
@@ -874,11 +958,45 @@ export const getSettingsInternal = internalQuery({
     }
 
     const props = settings.customProperties as Record<string, unknown>;
-
     return {
       organizationId: user.defaultOrgId,
       enabled: props.enabled as boolean,
-      apiKey: props.apiKey as string,
+      apiKey: readManyChatApiKey(props),
+      encryptedFields: props.encryptedFields as string[] | undefined,
+    };
+  },
+});
+
+/**
+ * Get settings with session validation (internal, decrypt-on-use boundary).
+ */
+export const getSettingsInternal = internalAction({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const settings = await (ctx as any).runQuery(
+      generatedApi.internal.integrations.manychat.getSettingsInternalStored,
+      { sessionId: args.sessionId }
+    );
+
+    if (!settings) {
+      return null;
+    }
+
+    const shouldDecrypt =
+      Array.isArray(settings.encryptedFields) &&
+      settings.encryptedFields.includes("manychatApiKey");
+    const apiKey = await decryptManyChatApiKey(
+      ctx,
+      settings.apiKey,
+      shouldDecrypt
+    );
+
+    return {
+      organizationId: settings.organizationId as Id<"organizations">,
+      enabled: settings.enabled as boolean,
+      apiKey,
     };
   },
 });
@@ -989,6 +1107,11 @@ export const findOrgByApiKey = query({
     apiKeyPrefix: v.string(),
   },
   handler: async (ctx, args) => {
+    const normalizedPrefix = args.apiKeyPrefix.trim();
+    if (!normalizedPrefix) {
+      return null;
+    }
+
     // Find manychat_settings with matching API key prefix
     const allSettings = await ctx.db
       .query("objects")
@@ -997,11 +1120,26 @@ export const findOrgByApiKey = query({
 
     for (const setting of allSettings) {
       const props = setting.customProperties as Record<string, unknown>;
-      const apiKey = props.apiKey as string;
+      const storedPrefix = props.apiKeyPrefix as string | undefined;
+      if (storedPrefix) {
+        const normalizedStoredPrefix = storedPrefix.trim();
+        if (
+          normalizedStoredPrefix &&
+          (normalizedPrefix.startsWith(normalizedStoredPrefix) ||
+            normalizedStoredPrefix.startsWith(normalizedPrefix))
+        ) {
+          return { organizationId: setting.organizationId };
+        }
+      }
 
-      if (apiKey && apiKey.startsWith(args.apiKeyPrefix)) {
+      const legacyPlaintextApiKey = props.apiKey as string | undefined;
+      if (
+        legacyPlaintextApiKey &&
+        legacyPlaintextApiKey.startsWith(normalizedPrefix)
+      ) {
         return { organizationId: setting.organizationId };
       }
+
     }
 
     return null;

@@ -53,9 +53,9 @@ interface InterviewTemplateListItem {
 }
 
 const MODE_CONFIG = {
-  quick: { icon: Zap, label: "Quick", description: "Fast 5-10 min interview" },
-  standard: { icon: BookOpen, label: "Standard", description: "Balanced 15-20 min" },
-  deep_discovery: { icon: Sparkles, label: "Deep Discovery", description: "Thorough 30+ min" },
+  quick: { icon: Zap, label: "Quick", description: "Fast adaptive micro-sessions" },
+  standard: { icon: BookOpen, label: "Standard", description: "Progressive trust capture flow" },
+  deep_discovery: { icon: Sparkles, label: "Deep Discovery", description: "Extended adaptive discovery" },
 } as const;
 
 const MODE_ACCENT: Record<keyof typeof MODE_CONFIG, { border: string; bg: string; icon: string }> = {
