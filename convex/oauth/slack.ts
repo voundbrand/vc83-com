@@ -54,6 +54,20 @@ function parseScopeList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeProviderProfileType(
+  value: unknown
+): "platform" | "organization" | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
 export function getMissingSlackScopes(
   grantedScopes: string[],
   requiredScopes: string[]
@@ -336,6 +350,16 @@ export const handleSlackCallback = action({
     const workspaceIdentifier = normalizeWorkspaceIdentifier(teamName, teamId);
     const providerEmail = `${workspaceIdentifier}@slack.workspace`;
     const tokenExpiresAt = Date.now() + 365 * 24 * 60 * 60 * 1000;
+    const providerInstallationId = teamId;
+    const providerProfileId =
+      typeof tokenData.app_id === "string"
+        ? `slack_app:${tokenData.app_id}`
+        : "slack_app:organization_default";
+    const providerProfileType =
+      SLACK_INTEGRATION_CONFIG.signingSecretCandidates.length > 0
+        ? ("platform" as const)
+        : ("organization" as const);
+    const providerRouteKey = `slack:${providerInstallationId}`;
 
     const encryptedAccessToken = await (ctx as any).runAction(
       generatedApi.internal.oauth.encryption.encryptToken,
@@ -349,6 +373,9 @@ export const handleSlackCallback = action({
         typeof team.domain === "string" ? team.domain : undefined,
       appId:
         typeof tokenData.app_id === "string" ? tokenData.app_id : undefined,
+      slackSigningSecret: SLACK_INTEGRATION_CONFIG.signingSecret,
+      slackSigningSecretPrevious: SLACK_INTEGRATION_CONFIG.signingSecretPrevious,
+      slackSigningSecretCandidates: SLACK_INTEGRATION_CONFIG.signingSecretCandidates,
       botUserId:
         typeof tokenData.bot_user_id === "string"
           ? tokenData.bot_user_id
@@ -369,6 +396,14 @@ export const handleSlackCallback = action({
         typeof incomingWebhook.url === "string"
           ? incomingWebhook.url
           : undefined,
+      installationId: providerInstallationId,
+      appProfileId: providerProfileId,
+      profileType: providerProfileType,
+      routeKey: providerRouteKey,
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
     };
 
     const connectionId: Id<"oauthConnections"> = await (ctx as any).runMutation(
@@ -384,6 +419,10 @@ export const handleSlackCallback = action({
         tokenExpiresAt,
         scopes,
         metadata,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        providerRouteKey,
       }
     );
 
@@ -593,8 +632,47 @@ export const storeConnection = internalMutation({
     tokenExpiresAt: v.number(),
     scopes: v.array(v.string()),
     metadata: v.optional(v.any()),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    providerRouteKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const metadataRecord = (args.metadata || {}) as Record<string, unknown>;
+    const providerInstallationId =
+      normalizeOptionalString(args.providerInstallationId) ||
+      normalizeOptionalString(metadataRecord.providerInstallationId) ||
+      normalizeOptionalString(metadataRecord.installationId) ||
+      args.providerAccountId;
+    const providerProfileId =
+      normalizeOptionalString(args.providerProfileId) ||
+      normalizeOptionalString(metadataRecord.providerProfileId) ||
+      normalizeOptionalString(metadataRecord.appProfileId) ||
+      "slack_app:organization_default";
+    const providerProfileType =
+      normalizeProviderProfileType(args.providerProfileType) ||
+      normalizeProviderProfileType(metadataRecord.providerProfileType) ||
+      normalizeProviderProfileType(metadataRecord.profileType) ||
+      "organization";
+    const providerRouteKey =
+      normalizeOptionalString(args.providerRouteKey) ||
+      normalizeOptionalString(metadataRecord.providerRouteKey) ||
+      normalizeOptionalString(metadataRecord.routeKey) ||
+      `slack:${providerInstallationId}`;
+    const metadata: Record<string, unknown> = {
+      ...metadataRecord,
+      installationId: providerInstallationId,
+      appProfileId: providerProfileId,
+      profileType: providerProfileType,
+      routeKey: providerRouteKey,
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
+    };
+
     let existingConnection = null;
 
     if (args.userId) {
@@ -627,11 +705,15 @@ export const storeConnection = internalMutation({
         tokenExpiresAt: args.tokenExpiresAt,
         scopes: args.scopes,
         status: "active",
-        customProperties: args.metadata,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        providerRouteKey,
+        customProperties: metadata,
         lastSyncError: undefined,
         lastSyncAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      } as never);
       return existingConnection._id;
     }
 
@@ -645,6 +727,10 @@ export const storeConnection = internalMutation({
       accessToken: args.accessToken,
       refreshToken: args.refreshToken,
       tokenExpiresAt: args.tokenExpiresAt,
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
       scopes: args.scopes,
       syncSettings: {
         email: false,
@@ -656,8 +742,8 @@ export const storeConnection = internalMutation({
       connectedAt: Date.now(),
       updatedAt: Date.now(),
       lastSyncAt: Date.now(),
-      customProperties: args.metadata,
-    });
+      customProperties: metadata,
+    } as never);
   },
 });
 

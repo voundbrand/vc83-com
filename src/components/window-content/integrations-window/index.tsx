@@ -17,6 +17,8 @@ import { ActiveCampaignSettings } from "./activecampaign-settings";
 import { TelegramSettings } from "./telegram-settings";
 import { GoogleSettings } from "./google-settings";
 import { SlackSettings } from "./slack-settings";
+import { WhatsAppSettings } from "./whatsapp-settings";
+import { AIConnectionsSettings } from "./ai-connections-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -50,7 +52,9 @@ interface BuiltInIntegrationDefinition {
   id: string;
   name: string;
   description: string;
-  logo: IntegrationLogoVariants;
+  logo?: IntegrationLogoVariants;
+  icon?: string;
+  iconColor?: string;
   status: "available" | "coming_soon";
   type: "builtin" | "verified" | "special";
   accessCheck: IntegrationAccessCheck;
@@ -186,6 +190,28 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
     type: "builtin",
     // Deployment integrations use deploymentIntegrationsEnabled feature (available on Free tier)
     accessCheck: { type: "feature", key: "deploymentIntegrationsEnabled" },
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp Business",
+    description: "Meta Cloud API for your own verified business number",
+    icon: "fab fa-whatsapp",
+    iconColor: "#25D366",
+    status: "available",
+    type: "builtin",
+    // Platform integrations use maxThirdPartyIntegrations limit (Free: 0, Starter+: available)
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "ai-connections",
+    name: "AI Connections",
+    description:
+      "OpenAI, Anthropic, Gemini, Grok, Mistral, Kimi, OpenRouter, ElevenLabs, and private OpenAI-compatible connectors",
+    icon: "fas fa-brain",
+    iconColor: "var(--tone-accent)",
+    status: "available",
+    type: "special",
+    accessCheck: { type: "feature", key: "aiEnabled" },
   },
   {
     id: "api-keys",
@@ -737,6 +763,12 @@ type IntegrationLicenseSnapshot = {
   };
 };
 
+type AIConnectionsCatalogSnapshot = {
+  providers?: Array<{
+    isConnected?: boolean;
+  }>;
+};
+
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
   const { mode } = useAppearance();
@@ -803,6 +835,19 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     api.oauth.slack.getSlackConnectionStatus,
     isSignedIn && sessionId ? { sessionId } : "skip"
   );
+  const whatsappConnection = useQuery(
+    api.oauth.whatsapp.getWhatsAppConnectionStatus,
+    isSignedIn && sessionId ? { sessionId } : "skip"
+  );
+  const aiConnectionsCatalog = useQuery(
+    apiUntyped.integrations.aiConnections.getAIConnectionCatalog,
+    isSignedIn && sessionId && currentOrg?.id
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  ) as AIConnectionsCatalogSnapshot | undefined;
 
   // Loading state only when we have an org and are waiting for data
   const isLoading = currentOrg?.id && (customApps === undefined || license === undefined);
@@ -817,7 +862,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   const canTakeAction = isSignedIn && currentOrg;
 
   const getIntegrationLogoSrc = (integration: BuiltInIntegrationDefinition) =>
-    mode === "dark" ? integration.logo.dark : integration.logo.light;
+    integration.logo ? (mode === "dark" ? integration.logo.dark : integration.logo.light) : undefined;
 
   // Helper: Check if an integration is locked based on license data
   // Uses single source of truth from convex/licensing/tierConfigs.ts
@@ -857,6 +902,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       // Limits - Custom OAuth Apps
       maxCustomOAuthApps: "Free", // 1 available on free tier
       // Features
+      aiEnabled: "Starter (€199/month)",
+      aiByokEnabled: "Starter (€199/month)",
       apiKeysEnabled: "Free", // Always available
       apiWebhooksEnabled: "Starter (€199/month)",
       contactSyncEnabled: "Professional (€399/month)", // For syncing contacts
@@ -1022,10 +1069,24 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         </div>
       );
     }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "whatsapp") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <WhatsAppSettings onBack={handleBack} />
+        </div>
+      );
+    }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "api-keys") {
       return (
         <div className="integration-ui-scope h-full">
           <ApiKeysPanel onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "special" && selectedIntegration.id === "ai-connections") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <AIConnectionsSettings onBack={handleBack} />
         </div>
       );
     }
@@ -1060,7 +1121,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center space-y-4 max-w-md">
               <div className="flex items-center justify-center">
-                {integration ? (
+                {integration && getIntegrationLogoSrc(integration) ? (
                   <img
                     src={getIntegrationLogoSrc(integration)}
                     alt={`${integration.name} logo`}
@@ -1223,15 +1284,26 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                       name={integration.name}
                       description={integration.description}
                       logoSrc={getIntegrationLogoSrc(integration)}
+                      icon={integration.icon}
+                      iconColor={integration.iconColor}
                       logoAlt={`${integration.name} logo`}
                       status={
                         isLocked
                           ? "locked"
+                          : integration.id === "ai-connections" &&
+                            Boolean(
+                              aiConnectionsCatalog?.providers?.some(
+                                (provider) => provider.isConnected
+                              )
+                            )
+                          ? "connected"
                           : integration.id === "microsoft" && microsoftConnection?.status === "active"
                           ? "connected"
                           : integration.id === "slack" && slackConnection?.connected
                           ? "connected"
-                          : integration.id === "telegram" && telegramStatus?.platformBot?.connected
+                          : integration.id === "telegram" && (telegramStatus?.platformBot?.connected || telegramStatus?.customBot?.deployed)
+                          ? "connected"
+                          : integration.id === "whatsapp" && whatsappConnection?.connected
                           ? "connected"
                           : integration.status
                       }
@@ -1327,13 +1399,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                       Unlock Platform Integrations
                     </h4>
                     <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                      Upgrade to Starter to connect up to 5 platform integrations—Microsoft 365, Google Workspace, Slack, Zapier, or Make—and get 2 custom OAuth apps.
+                      Upgrade to Starter to connect up to 5 platform integrations—Microsoft 365, Google Workspace, Slack, WhatsApp, Zapier, or Make—and get 2 custom OAuth apps.
                     </p>
                     <button
                       onClick={() => setUpgradeModal({
                         feature: "Platform Integrations",
                         requiredTier: "Starter (€199/month)",
-                        description: "Connect Microsoft 365, Google, Slack, Zapier, Make, and more",
+                        description: "Connect Microsoft 365, Google, Slack, WhatsApp, Zapier, Make, and more",
                       })}
                       className="desktop-interior-button px-3 py-1 text-xs font-bold text-white"
                       style={{

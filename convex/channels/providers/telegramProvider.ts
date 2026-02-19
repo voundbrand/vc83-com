@@ -31,6 +31,30 @@ const capabilities: ChannelProviderCapabilities = {
   supportsConversationThreading: false,
 };
 
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value
+    : undefined;
+}
+
+function resolveTelegramBotToken(
+  credentials: ProviderCredentials
+): string | undefined {
+  const configuredToken = asString(credentials.telegramBotToken);
+  if (configuredToken) {
+    return configuredToken;
+  }
+
+  if (
+    credentials.credentialSource === "object_settings" ||
+    credentials.credentialSource === "oauth_connection"
+  ) {
+    return undefined;
+  }
+
+  return asString(process.env.TELEGRAM_BOT_TOKEN);
+}
+
 /**
  * Parse Telegram webhook update into a normalized inbound message.
  * Telegram sends: { update_id, message: { message_id, from, chat, date, text } }
@@ -98,8 +122,7 @@ export const telegramProvider: ChannelProvider = {
   },
 
   async sendMessage(credentials, message): Promise<SendResult> {
-    const botToken =
-      credentials.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = resolveTelegramBotToken(credentials);
     if (!botToken) {
       return { success: false, error: "Telegram bot token not configured" };
     }
@@ -185,12 +208,13 @@ export const telegramProvider: ChannelProvider = {
     headers: Record<string, string>,
     credentials: ProviderCredentials
   ): boolean {
-    // Telegram supports a secret_token header for webhook verification.
-    // If configured, verify it matches.
-    const secret = credentials.webhookSecret;
-    if (!secret) return true; // No secret configured, skip verification
-
-    const headerToken = headers["x-telegram-bot-api-secret-token"];
+    const secret = asString(
+      credentials.telegramWebhookSecret || credentials.webhookSecret
+    );
+    const headerToken = asString(headers["x-telegram-bot-api-secret-token"]);
+    if (!secret || !headerToken) {
+      return false;
+    }
     return headerToken === secret;
   },
 
@@ -199,8 +223,7 @@ export const telegramProvider: ChannelProvider = {
     accountName?: string;
     error?: string;
   }> {
-    const botToken =
-      credentials.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = resolveTelegramBotToken(credentials);
     if (!botToken) {
       return { success: false, error: "Missing Telegram bot token" };
     }

@@ -125,11 +125,6 @@ export function validateOAuthConfig(): void {
       );
     }
 
-    if (SLACK_INTEGRATION_CONFIG.signingSecretCandidates.length === 0) {
-      errors.push(
-        'At least one Slack signing secret is required when SLACK_INTEGRATION_ENABLED=true (SLACK_SIGNING_SECRET or SLACK_SIGNING_SECRET_PREVIOUS)'
-      );
-    }
   }
 
   if (

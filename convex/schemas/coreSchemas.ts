@@ -6,6 +6,76 @@ import { v } from "convex/values";
  * These are the foundation of the multi-tenant system
  */
 
+// ============================================================================
+// SHARED AI CANONICAL TAXONOMY VALIDATORS (BMF-003)
+// ============================================================================
+
+export const AI_PROVIDER_ID_VALUES = [
+  "openrouter",
+  "openai",
+  "anthropic",
+  "gemini",
+  "grok",
+  "mistral",
+  "kimi",
+  "elevenlabs",
+  "openai_compatible",
+] as const;
+
+export const aiProviderIdValidator = v.union(
+  v.literal("openrouter"),
+  v.literal("openai"),
+  v.literal("anthropic"),
+  v.literal("gemini"),
+  v.literal("grok"),
+  v.literal("mistral"),
+  v.literal("kimi"),
+  v.literal("elevenlabs"),
+  v.literal("openai_compatible")
+);
+
+export const AI_CREDENTIAL_SOURCE_VALUES = [
+  "platform_env",
+  "platform_vault",
+  "organization_setting",
+  "organization_auth_profile",
+  "integration_connection",
+] as const;
+
+export const aiCredentialSourceValidator = v.union(
+  v.literal("platform_env"),
+  v.literal("platform_vault"),
+  v.literal("organization_setting"),
+  v.literal("organization_auth_profile"),
+  v.literal("integration_connection")
+);
+
+export const AI_BILLING_SOURCE_VALUES = [
+  "platform",
+  "byok",
+  "private",
+] as const;
+
+export const aiBillingSourceValidator = v.union(
+  v.literal("platform"),
+  v.literal("byok"),
+  v.literal("private")
+);
+
+export const providerProfileTypeValidator = v.union(
+  v.literal("platform"),
+  v.literal("organization")
+);
+
+export const aiCapabilityMatrixValidator = v.object({
+  text: v.boolean(),
+  vision: v.boolean(),
+  audio_in: v.boolean(),
+  audio_out: v.boolean(),
+  tools: v.boolean(),
+  json: v.boolean(),
+});
+
 export const users = defineTable({
   // Personal info
   firstName: v.optional(v.string()),
@@ -378,6 +448,13 @@ export const userPreferences = defineTable({
   // Region Preferences
   language: v.optional(v.string()), // ISO 639-1 language code: "en", "de", "pl", "es", "fr", "ja"
 
+  // Voice runtime preferences
+  voiceRuntimeProviderId: v.optional(
+    v.union(v.literal("browser"), v.literal("elevenlabs")),
+  ),
+  voiceRuntimeVoiceId: v.optional(v.string()),
+  voiceRuntimePreviewText: v.optional(v.string()),
+
   // Future preferences (easy to extend)
   // timezone: v.optional(v.string()),
   // dateFormat: v.optional(v.string()),
@@ -494,6 +571,12 @@ export const oauthConnections = defineTable({
     v.literal("personal"),                     // User's personal connection
     v.literal("organizational")                // Organization-wide connection (admin-linked)
   ),
+
+  // Installation/profile identity (migration-safe optional contract fields)
+  providerInstallationId: v.optional(v.string()),
+  providerProfileId: v.optional(v.string()),
+  providerProfileType: v.optional(providerProfileTypeValidator),
+  providerRouteKey: v.optional(v.string()),
 
   // OAuth tokens (stored encrypted)
   accessToken: v.string(),                     // Encrypted access token

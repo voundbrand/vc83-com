@@ -6,7 +6,7 @@
  * uses the per-org bot for outbound delivery.
  */
 
-import { internalAction, internalMutation } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 
 // Lazy API import — same pattern as agencySubOrgBootstrap.ts
@@ -19,6 +19,14 @@ function getInternal(): any {
     _apiCache = require("../_generated/api").internal;
   }
   return _apiCache;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 /**
@@ -90,7 +98,8 @@ export const storeTelegramSettings = internalMutation({
     organizationId: v.id("organizations"),
     telegramBotToken: v.string(),
     telegramBotUsername: v.string(),
-    webhookSecret: v.string(),
+    telegramWebhookSecret: v.string(),
+    telegramWebhookSecretFingerprint: v.string(),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -108,7 +117,9 @@ export const storeTelegramSettings = internalMutation({
     const settingsProps = {
       telegramBotToken: args.telegramBotToken,
       telegramBotUsername: args.telegramBotUsername,
-      webhookSecret: args.webhookSecret,
+      telegramWebhookSecret: args.telegramWebhookSecret,
+      telegramWebhookSecretFingerprint: args.telegramWebhookSecretFingerprint,
+      encryptedFields: ["telegramBotToken", "telegramWebhookSecret"],
     };
 
     if (existingSettings) {
@@ -163,6 +174,54 @@ export const storeTelegramSettings = internalMutation({
 });
 
 /**
+ * Resolve custom Telegram bot ownership from webhook secret material.
+ * Uses fingerprint-first lookup with legacy plaintext fallback.
+ */
+export const resolveWebhookSecretContext = internalQuery({
+  args: {
+    secretToken: v.string(),
+    secretFingerprint: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    organizationId: string;
+  } | null> => {
+    const settings = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "telegram_settings"))
+      .collect();
+
+    const secretToken = normalizeOptionalString(args.secretToken);
+    const secretFingerprint = normalizeOptionalString(args.secretFingerprint);
+    if (!secretToken || !secretFingerprint) {
+      return null;
+    }
+
+    const match = settings.find((setting) => {
+      const props = (setting.customProperties || {}) as Record<string, unknown>;
+      const fingerprint =
+        normalizeOptionalString(props.telegramWebhookSecretFingerprint) ||
+        normalizeOptionalString(props.webhookSecretFingerprint);
+      if (fingerprint && fingerprint === secretFingerprint) {
+        return true;
+      }
+
+      const legacySecret =
+        normalizeOptionalString(props.telegramWebhookSecret) ||
+        normalizeOptionalString(props.webhookSecret);
+      return legacySecret === secretToken;
+    });
+
+    if (!match?.organizationId) {
+      return null;
+    }
+
+    return {
+      organizationId: String(match.organizationId),
+    };
+  },
+});
+
+/**
  * Orchestrate full bot deployment:
  * 1. Validate token (getMe)
  * 2. Generate webhook secret
@@ -198,7 +257,7 @@ export const deployBot = internalAction({
 
     // 3. Build webhook URL
     const siteUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL || "https://aromatic-akita-723.convex.site";
-    const webhookUrl = `${siteUrl}/telegram-webhook?org=${args.organizationId}`;
+    const webhookUrl = `${siteUrl}/telegram-webhook`;
 
     // 4. Register webhook with Telegram
     const webhookResult = await ctx.runAction(
@@ -217,14 +276,28 @@ export const deployBot = internalAction({
       };
     }
 
-    // 5. Store credentials
+    // 5. Encrypt credentials and store settings
+    const encryptedBotToken = await ctx.runAction(
+      getInternal().oauth.encryption.encryptToken,
+      { plaintext: args.botToken }
+    );
+    const encryptedWebhookSecret = await ctx.runAction(
+      getInternal().oauth.encryption.encryptToken,
+      { plaintext: webhookSecret }
+    );
+    const webhookSecretFingerprint = await ctx.runAction(
+      getInternal().oauth.encryption.hashSha256,
+      { plaintext: webhookSecret }
+    );
+
     await ctx.runMutation(
       getInternal().channels.telegramBotSetup.storeTelegramSettings,
       {
         organizationId: args.organizationId,
-        telegramBotToken: args.botToken,
+        telegramBotToken: encryptedBotToken,
         telegramBotUsername: botInfo.username,
-        webhookSecret,
+        telegramWebhookSecret: encryptedWebhookSecret,
+        telegramWebhookSecretFingerprint: webhookSecretFingerprint,
       }
     );
 

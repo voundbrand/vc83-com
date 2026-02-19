@@ -41,6 +41,20 @@ const WHATSAPP_SCOPES = [
   "business_management",          // Access business info
 ];
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeProviderProfileType(
+  value: unknown
+): "platform" | "organization" | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
 /**
  * Generate Meta OAuth authorization URL
  * User will be redirected to Facebook to grant WhatsApp permissions
@@ -279,6 +293,14 @@ export const handleWhatsAppCallback = action({
     // Meta doesn't provide refresh tokens for this flow
     // We'll need to re-auth when token expires
     const encryptedRefreshToken = encryptedAccessToken;
+    const providerInstallationId = wabaId;
+    const providerProfileId = process.env.META_APP_ID
+      ? `meta_app:${process.env.META_APP_ID}`
+      : businessId
+        ? `meta_business:${businessId}`
+        : `meta_business:${wabaId}`;
+    const providerProfileType = "organization" as const;
+    const providerRouteKey = `whatsapp:${providerInstallationId}`;
 
     // Store connection in database
     const connectionId = await (ctx as any).runMutation(generatedApi.internal.oauth.whatsapp.storeConnection, {
@@ -297,7 +319,25 @@ export const handleWhatsAppCallback = action({
         phoneNumberId,
         phoneNumber,
         verifiedName,
+        metaAppId: process.env.META_APP_ID || undefined,
+        webhookPath: "/webhooks/whatsapp",
+        webhookSignatureSecretConfigured: Boolean(process.env.META_APP_SECRET),
+        webhookVerifyTokenConfigured: Boolean(
+          process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN
+        ),
+        installationId: providerInstallationId,
+        appProfileId: providerProfileId,
+        profileType: providerProfileType,
+        routeKey: providerRouteKey,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        providerRouteKey,
       },
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
     });
 
     // Delete used state token
@@ -646,8 +686,53 @@ export const storeConnection = internalMutation({
     tokenExpiresAt: v.number(),
     scopes: v.array(v.string()),
     metadata: v.any(),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    providerRouteKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const metadataRecord = args.metadata as Record<string, unknown>;
+    const providerInstallationId =
+      normalizeOptionalString(args.providerInstallationId) ||
+      normalizeOptionalString(metadataRecord.providerInstallationId) ||
+      normalizeOptionalString(metadataRecord.installationId) ||
+      args.providerAccountId;
+    const metadataBusinessId = normalizeOptionalString(metadataRecord.businessId);
+    const defaultProviderProfileId = process.env.META_APP_ID
+      ? `meta_app:${process.env.META_APP_ID}`
+      : metadataBusinessId
+        ? `meta_business:${metadataBusinessId}`
+        : `meta_business:${providerInstallationId}`;
+    const providerProfileId =
+      normalizeOptionalString(args.providerProfileId) ||
+      normalizeOptionalString(metadataRecord.providerProfileId) ||
+      normalizeOptionalString(metadataRecord.appProfileId) ||
+      defaultProviderProfileId;
+    const providerProfileType =
+      normalizeProviderProfileType(args.providerProfileType) ||
+      normalizeProviderProfileType(metadataRecord.providerProfileType) ||
+      normalizeProviderProfileType(metadataRecord.profileType) ||
+      "organization";
+    const providerRouteKey =
+      normalizeOptionalString(args.providerRouteKey) ||
+      normalizeOptionalString(metadataRecord.providerRouteKey) ||
+      normalizeOptionalString(metadataRecord.routeKey) ||
+      `whatsapp:${providerInstallationId}`;
+    const metadata: Record<string, unknown> = {
+      ...metadataRecord,
+      installationId: providerInstallationId,
+      appProfileId: providerProfileId,
+      profileType: providerProfileType,
+      routeKey: providerRouteKey,
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
+    };
+
     // Check if connection already exists
     const existingConnection = await ctx.db
       .query("oauthConnections")
@@ -666,10 +751,14 @@ export const storeConnection = internalMutation({
         tokenExpiresAt: args.tokenExpiresAt,
         scopes: args.scopes,
         status: "active",
-        customProperties: args.metadata,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        providerRouteKey,
+        customProperties: metadata,
         lastSyncAt: Date.now(),
         updatedAt: Date.now(),
-      });
+      } as never);
 
       return existingConnection._id;
     }
@@ -684,6 +773,10 @@ export const storeConnection = internalMutation({
       accessToken: args.accessToken,
       refreshToken: args.refreshToken,
       tokenExpiresAt: args.tokenExpiresAt,
+      providerInstallationId,
+      providerProfileId,
+      providerProfileType,
+      providerRouteKey,
       scopes: args.scopes,
       syncSettings: {
         email: false,
@@ -694,8 +787,8 @@ export const storeConnection = internalMutation({
       status: "active",
       connectedAt: Date.now(),
       updatedAt: Date.now(),
-      customProperties: args.metadata,
-    });
+      customProperties: metadata,
+    } as never);
 
     return connectionId;
   },

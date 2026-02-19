@@ -11,6 +11,7 @@ import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { getProvider } from "./registry";
 import { buildSlackTopLevelConversationIdentifier } from "./providers/slackProvider";
+import { verifyWhatsAppWebhookSignature } from "./providers/whatsappSignature";
 import type { ProviderCredentials } from "./types";
 import type { Id } from "../_generated/dataModel";
 
@@ -19,6 +20,36 @@ const { api, internal: internalApi } = require("../_generated/api") as {
   api: Record<string, Record<string, Record<string, unknown>>>;
   internal: Record<string, Record<string, Record<string, unknown>>>;
 };
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeProviderProfileType(
+  value: unknown
+): "platform" | "organization" | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+function uniqueSecretCandidates(values: Array<string | undefined>): string[] {
+  const normalized = values
+    .map((value) => normalizeOptionalString(value))
+    .filter((value): value is string => Boolean(value));
+  return Array.from(new Set(normalized));
+}
 
 /**
  * Resolve organization from a Chatwoot account ID.
@@ -47,7 +78,15 @@ export const resolveOrgFromChatwootAccount = internalQuery({
  */
 export const resolveOrgFromWhatsAppPhoneNumberId = internalQuery({
   args: { phoneNumberId: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    organizationId: Id<"organizations">;
+    providerConnectionId: string;
+    providerAccountId?: string;
+    providerInstallationId?: string;
+    providerProfileId?: string;
+    providerProfileType?: "platform" | "organization";
+    routeKey?: string;
+  } | null> => {
     const connections = await ctx.db
       .query("oauthConnections")
       .filter((q) => q.eq(q.field("provider"), "whatsapp"))
@@ -59,7 +98,39 @@ export const resolveOrgFromWhatsAppPhoneNumberId = internalQuery({
       return meta?.phoneNumberId === args.phoneNumberId;
     });
 
-    return match?.organizationId ?? null;
+    if (!match) {
+      return null;
+    }
+
+    const metadata = (match.customProperties || {}) as Record<string, unknown>;
+    const providerInstallationId =
+      normalizeOptionalString(match.providerInstallationId) ||
+      normalizeOptionalString(metadata.providerInstallationId) ||
+      normalizeOptionalString(metadata.installationId);
+    const providerAccountId =
+      normalizeOptionalString(match.providerAccountId) ||
+      normalizeOptionalString(metadata.providerAccountId);
+    const routeKey =
+      normalizeOptionalString((match as Record<string, unknown>).providerRouteKey) ||
+      normalizeOptionalString(metadata.providerRouteKey) ||
+      normalizeOptionalString(metadata.routeKey) ||
+      (providerInstallationId ? `whatsapp:${providerInstallationId}` : undefined);
+
+    return {
+      organizationId: match.organizationId,
+      providerConnectionId: String(match._id),
+      providerAccountId,
+      providerInstallationId,
+      providerProfileId:
+        normalizeOptionalString(match.providerProfileId) ||
+        normalizeOptionalString(metadata.providerProfileId) ||
+        normalizeOptionalString(metadata.appProfileId),
+      providerProfileType:
+        normalizeProviderProfileType(match.providerProfileType) ||
+        normalizeProviderProfileType(metadata.providerProfileType) ||
+        normalizeProviderProfileType(metadata.profileType),
+      routeKey,
+    };
   },
 });
 
@@ -83,6 +154,135 @@ export const resolveOrgFromSlackTeamId = internalQuery({
 });
 
 /**
+ * Resolve Slack webhook verification context from team/app identity.
+ * Returns installation/profile hints plus scoped signing-secret candidates.
+ */
+export const resolveSlackWebhookVerificationContext = internalQuery({
+  args: {
+    teamId: v.optional(v.string()),
+    appId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    organizationId: Id<"organizations">;
+    teamId?: string;
+    providerConnectionId: string;
+    providerAccountId?: string;
+    providerInstallationId?: string;
+    providerProfileId?: string;
+    providerProfileType?: "platform" | "organization";
+    routeKey?: string;
+    signingSecrets: string[];
+  } | null> => {
+    const teamId = normalizeOptionalString(args.teamId);
+    const appId = normalizeOptionalString(args.appId);
+
+    type SlackOauthConnection = {
+      _id: Id<"oauthConnections">;
+      organizationId: Id<"organizations">;
+      providerAccountId?: string;
+      providerInstallationId?: string;
+      providerProfileId?: string;
+      providerProfileType?: "platform" | "organization";
+      customProperties?: unknown;
+    };
+
+    let connection: SlackOauthConnection | null = null;
+
+    if (teamId) {
+      const byTeam = await ctx.db
+        .query("oauthConnections")
+        .withIndex("by_provider_account", (q) =>
+          q.eq("provider", "slack").eq("providerAccountId", teamId)
+        )
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .first();
+      if (byTeam) {
+        connection = byTeam as unknown as SlackOauthConnection;
+      }
+    }
+
+    if (!connection && appId) {
+      const candidates = await ctx.db
+        .query("oauthConnections")
+        .filter((q) => q.eq(q.field("provider"), "slack"))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+      const byApp = candidates.find((candidate) => {
+        const metadata = (candidate.customProperties || {}) as Record<
+          string,
+          unknown
+        >;
+        return normalizeOptionalString(metadata.appId) === appId;
+      });
+      if (byApp) {
+        connection = byApp as unknown as SlackOauthConnection;
+      }
+    }
+
+    if (!connection) {
+      return null;
+    }
+
+    const metadata = (connection.customProperties || {}) as Record<
+      string,
+      unknown
+    >;
+    const providerProfileId =
+      normalizeOptionalString(connection.providerProfileId) ||
+      normalizeOptionalString(metadata.providerProfileId) ||
+      normalizeOptionalString(metadata.appProfileId);
+    const providerProfileType =
+      normalizeProviderProfileType(connection.providerProfileType) ||
+      normalizeProviderProfileType(metadata.providerProfileType) ||
+      normalizeProviderProfileType(metadata.profileType);
+
+    const explicitSecrets = uniqueSecretCandidates([
+      normalizeOptionalString(metadata.slackSigningSecret),
+      normalizeOptionalString(metadata.signingSecret),
+      normalizeOptionalString(metadata.slackSigningSecretPrevious),
+      normalizeOptionalString(metadata.signingSecretPrevious),
+      ...normalizeStringArray(metadata.slackSigningSecretCandidates),
+      ...normalizeStringArray(metadata.signingSecretCandidates),
+    ]);
+
+    const allowPlatformEnvFallback =
+      providerProfileType === "platform" ||
+      providerProfileId === "slack_app:organization_default";
+
+    const signingSecrets = allowPlatformEnvFallback
+      ? uniqueSecretCandidates([
+          ...explicitSecrets,
+          process.env.SLACK_SIGNING_SECRET,
+          process.env.SLACK_SIGNING_SECRET_PREVIOUS,
+        ])
+      : explicitSecrets;
+
+    return {
+      organizationId: connection.organizationId,
+      teamId:
+        normalizeOptionalString(connection.providerAccountId) || teamId,
+      providerConnectionId: String(connection._id),
+      providerAccountId:
+        normalizeOptionalString(connection.providerAccountId) || teamId,
+      providerInstallationId:
+        normalizeOptionalString(connection.providerInstallationId) ||
+        normalizeOptionalString(metadata.providerInstallationId) ||
+        normalizeOptionalString(metadata.installationId),
+      providerProfileId,
+      providerProfileType,
+      routeKey:
+        normalizeOptionalString(
+          (connection as Record<string, unknown>).providerRouteKey
+        ) ||
+        normalizeOptionalString(metadata.providerRouteKey) ||
+        normalizeOptionalString(metadata.routeKey) ||
+        (teamId ? `slack:${teamId}` : undefined),
+      signingSecrets,
+    };
+  },
+});
+
+/**
  * Verify WhatsApp webhook HMAC signature.
  * Runs as internalAction because it needs Node.js crypto (via "use node" in encryption module).
  */
@@ -91,21 +291,18 @@ export const verifyWhatsAppSignature = internalAction({
     payload: v.string(),
     signature: v.string(),
   },
-  handler: async (ctx, args): Promise<boolean> => {
+  handler: async (_ctx, args): Promise<boolean> => {
     const appSecret = process.env.META_APP_SECRET;
     if (!appSecret) {
-      console.warn("[WhatsApp] META_APP_SECRET not set, skipping HMAC verification");
-      return true;
+      console.error("[WhatsApp] META_APP_SECRET not set; rejecting webhook");
+      return false;
     }
 
-    if (!args.signature) return false;
-
-    // Use the encryption module's runtime (Node.js) for HMAC
-    // Since we can't import crypto here (not "use node"), we do a simple
-    // comparison. For production, move this to a "use node" file.
-    // For now, we trust the signature check at the HTTP layer or skip if not configured.
-    // The HTTP handler passes the signature through for logging/auditing.
-    return true; // Verification handled at HTTP endpoint level
+    return verifyWhatsAppWebhookSignature({
+      payload: args.payload,
+      signatureHeader: normalizeOptionalString(args.signature) || undefined,
+      appSecret,
+    });
   },
 });
 
@@ -126,10 +323,19 @@ export const processWhatsAppWebhook = internalAction({
     }
 
     // 1. Resolve organization from phone_number_id
-    const organizationId = await (ctx.runQuery as Function)(
+    const whatsappRoutingContext = await (ctx.runQuery as Function)(
       internalApi.channels.webhooks.resolveOrgFromWhatsAppPhoneNumberId,
       { phoneNumberId: args.phoneNumberId }
-    ) as Id<"organizations"> | null;
+    ) as {
+      organizationId: Id<"organizations">;
+      providerConnectionId: string;
+      providerAccountId?: string;
+      providerInstallationId?: string;
+      providerProfileId?: string;
+      providerProfileType?: "platform" | "organization";
+      routeKey?: string;
+    } | null;
+    const organizationId = whatsappRoutingContext?.organizationId ?? null;
 
     if (!organizationId) {
       console.error(`[WhatsApp] No org found for phone_number_id ${args.phoneNumberId}`);
@@ -156,7 +362,17 @@ export const processWhatsAppWebhook = internalAction({
           channel: normalized.channel,
           externalContactIdentifier: normalized.externalContactIdentifier,
           message: normalized.message,
-          metadata: normalized.metadata,
+          metadata: {
+            ...normalized.metadata,
+            providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+            providerAccountId: whatsappRoutingContext?.providerAccountId,
+            providerInstallationId: whatsappRoutingContext?.providerInstallationId,
+            providerProfileId: whatsappRoutingContext?.providerProfileId,
+            providerProfileType: whatsappRoutingContext?.providerProfileType,
+            routeKey: whatsappRoutingContext?.routeKey,
+            channelRef: args.phoneNumberId,
+            providerChannelId: args.phoneNumberId,
+          },
         }
       )) as { status: string; response?: string; message?: string };
 
@@ -280,6 +496,14 @@ export const processSlackEvent = internalAction({
     payload: v.string(),
     eventId: v.optional(v.string()),
     teamId: v.optional(v.string()),
+    providerConnectionId: v.optional(v.string()),
+    providerAccountId: v.optional(v.string()),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    routeKey: v.optional(v.string()),
     retryNum: v.optional(v.number()),
     retryReason: v.optional(v.string()),
     signatureTimestamp: v.optional(v.number()),
@@ -327,7 +551,17 @@ export const processSlackEvent = internalAction({
 
     const credentials = (await (ctx.runQuery as Function)(
       internalApi.channels.router.getProviderCredentials,
-      { organizationId, providerId: "slack" }
+      {
+        organizationId,
+        providerId: "slack",
+        providerConnectionId: args.providerConnectionId,
+        providerAccountId:
+          args.providerAccountId || teamId,
+        providerInstallationId: args.providerInstallationId,
+        providerProfileId: args.providerProfileId,
+        providerProfileType: args.providerProfileType,
+        routeKey: args.routeKey,
+      }
     )) as ProviderCredentials | null;
 
     const normalized = provider.normalizeInbound(
@@ -361,6 +595,12 @@ export const processSlackEvent = internalAction({
             ...normalized.metadata,
             providerEventId,
             idempotencyKey,
+            providerConnectionId: args.providerConnectionId,
+            providerAccountId: args.providerAccountId || teamId,
+            providerInstallationId: args.providerInstallationId,
+            providerProfileId: args.providerProfileId,
+            providerProfileType: args.providerProfileType,
+            routeKey: args.routeKey,
             slackTeamId: teamId,
             slackRetryNum: args.retryNum,
             slackRetryReason: args.retryReason,
@@ -492,6 +732,14 @@ export const processSlackSlashCommand = internalAction({
     text: v.optional(v.string()),
     triggerId: v.optional(v.string()),
     responseUrl: v.optional(v.string()),
+    providerConnectionId: v.optional(v.string()),
+    providerAccountId: v.optional(v.string()),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    routeKey: v.optional(v.string()),
     retryNum: v.optional(v.number()),
     retryReason: v.optional(v.string()),
     signatureTimestamp: v.optional(v.number()),
@@ -519,7 +767,16 @@ export const processSlackSlashCommand = internalAction({
 
     const credentials = (await (ctx.runQuery as Function)(
       internalApi.channels.router.getProviderCredentials,
-      { organizationId, providerId: "slack" }
+      {
+        organizationId,
+        providerId: "slack",
+        providerConnectionId: args.providerConnectionId,
+        providerAccountId: args.providerAccountId || args.teamId,
+        providerInstallationId: args.providerInstallationId,
+        providerProfileId: args.providerProfileId,
+        providerProfileType: args.providerProfileType,
+        routeKey: args.routeKey,
+      }
     )) as ProviderCredentials | null;
 
     if (!credentials) {
@@ -598,6 +855,12 @@ export const processSlackSlashCommand = internalAction({
             slackUserId: args.userId,
             slackChannelId: args.channelId,
             slackTeamId: args.teamId,
+            providerConnectionId: args.providerConnectionId,
+            providerAccountId: args.providerAccountId || args.teamId,
+            providerInstallationId: args.providerInstallationId,
+            providerProfileId: args.providerProfileId,
+            providerProfileType: args.providerProfileType,
+            routeKey: args.routeKey,
             slackRetryNum: args.retryNum,
             slackRetryReason: args.retryReason,
             slackSignatureTimestamp: args.signatureTimestamp,

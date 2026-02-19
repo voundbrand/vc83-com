@@ -10,6 +10,12 @@
  *   providerId: "chatwoot",
  *   priority: 1,
  *   enabled: true,
+ *   providerConnectionId: "oauthConnections:...",
+ *   providerInstallationId: "team_or_waba_or_bot_identity",
+ *   providerProfileId: "app_profile_identity",
+ *   providerProfileType: "organization" | "platform",
+ *   routeKey: "provider:installation:route",
+ *   allowPlatformFallback: false,
  * }
  */
 
@@ -24,13 +30,234 @@ const { internal: internalApi } = require("../_generated/api") as {
 };
 import type {
   ChannelProvider,
+  ChannelProviderBindingContract,
   ChannelType,
   ProviderId,
   OutboundMessage,
+  ProviderProfileType,
   SendResult,
   ProviderCredentialField,
   ProviderCredentials,
 } from "./types";
+
+const ENCRYPTED_CHANNEL_FIELDS = new Set<ProviderCredentialField>([
+  "whatsappAccessToken",
+  "slackBotToken",
+  "telegramBotToken",
+  "telegramWebhookSecret",
+  "chatwootApiToken",
+  "manychatApiKey",
+  "resendApiKey",
+]);
+
+function normalizeEncryptedFields(
+  value: unknown
+): ProviderCredentialField[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value.filter(
+    (field): field is ProviderCredentialField =>
+      typeof field === "string" &&
+      ENCRYPTED_CHANNEL_FIELDS.has(field as ProviderCredentialField)
+  );
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeProviderProfileType(value: unknown): ProviderProfileType | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
+interface ProviderRoutingIdentityHints {
+  providerId: ProviderId;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: ProviderProfileType;
+  routeKey?: string;
+  allowPlatformFallback?: boolean;
+}
+
+function normalizeBindingRoutingIdentity(
+  binding: Record<string, unknown> | null
+): ProviderRoutingIdentityHints | null {
+  if (!binding) {
+    return null;
+  }
+
+  const props = (binding.customProperties || {}) as ChannelProviderBindingContract &
+    Record<string, unknown>;
+  const providerId = normalizeOptionalString(props.providerId);
+  if (!providerId) {
+    return null;
+  }
+
+  const providerConnectionId = normalizeOptionalString(
+    props.providerConnectionId ?? props.oauthConnectionId
+  );
+  const providerInstallationId = normalizeOptionalString(
+    props.providerInstallationId ?? props.installationId
+  );
+  const providerProfileId = normalizeOptionalString(
+    props.providerProfileId ?? props.appProfileId
+  );
+  const providerProfileType = normalizeProviderProfileType(
+    props.providerProfileType ?? props.profileType
+  );
+
+  return {
+    providerId: providerId as ProviderId,
+    providerConnectionId,
+    providerAccountId: normalizeOptionalString(props.providerAccountId),
+    providerInstallationId,
+    providerProfileId,
+    providerProfileType,
+    routeKey: normalizeOptionalString(props.routeKey ?? props.bindingRouteKey),
+    allowPlatformFallback: normalizeOptionalBoolean(
+      props.allowPlatformFallback ??
+        props.allowPlatformCredentialFallback ??
+        props.enablePlatformFallback
+    ),
+  };
+}
+
+export interface CredentialBoundaryBindingHints {
+  providerConnectionId?: string;
+  providerInstallationId?: string;
+  providerProfileType?: ProviderProfileType;
+  routeKey?: string;
+}
+
+export function shouldAllowPlatformCredentialFallback(args: {
+  hasBinding: boolean;
+  providerId: ProviderId;
+  bindingProfileType?: ProviderProfileType;
+  bindingAllowPlatformFallback?: boolean;
+  slackTokenPolicy?: string;
+}): boolean {
+  if (args.hasBinding) {
+    return (
+      args.bindingProfileType === "platform" &&
+      args.bindingAllowPlatformFallback === true
+    );
+  }
+
+  if (args.providerId === "infobip" || args.providerId === "telegram") {
+    return true;
+  }
+
+  if (args.providerId === "slack") {
+    const tokenPolicy =
+      args.slackTokenPolicy ??
+      process.env.SLACK_BOT_TOKEN_POLICY ??
+      "oauth_connection_only";
+    return tokenPolicy === "oauth_or_env_fallback";
+  }
+
+  return false;
+}
+
+export function validateCredentialBoundary(args: {
+  binding: CredentialBoundaryBindingHints | null;
+  credentials: ProviderCredentials;
+}): { ok: boolean; reason?: string } {
+  const binding = args.binding;
+  if (!binding) {
+    return { ok: true };
+  }
+
+  const bindingProfileType = normalizeProviderProfileType(binding.providerProfileType);
+  const credentialProfileType = normalizeProviderProfileType(
+    args.credentials.providerProfileType
+  );
+  const credentialSource = args.credentials.credentialSource;
+
+  if (bindingProfileType === "organization") {
+    if (credentialProfileType === "platform") {
+      return {
+        ok: false,
+        reason: "organization binding resolved to platform credential profile",
+      };
+    }
+    if (
+      credentialSource === "platform_fallback" ||
+      credentialSource === "env_fallback"
+    ) {
+      return {
+        ok: false,
+        reason: "organization binding attempted platform credential fallback",
+      };
+    }
+  }
+
+  if (
+    bindingProfileType === "platform" &&
+    credentialProfileType === "organization"
+  ) {
+    return {
+      ok: false,
+      reason: "platform binding resolved to organization credential profile",
+    };
+  }
+
+  const bindingConnectionId = normalizeOptionalString(binding.providerConnectionId);
+  const credentialConnectionId = normalizeOptionalString(
+    args.credentials.providerConnectionId
+  );
+  if (
+    bindingConnectionId &&
+    credentialConnectionId &&
+    bindingConnectionId !== credentialConnectionId
+  ) {
+    return {
+      ok: false,
+      reason: `providerConnectionId mismatch (${bindingConnectionId} != ${credentialConnectionId})`,
+    };
+  }
+
+  const bindingInstallationId = normalizeOptionalString(
+    binding.providerInstallationId
+  );
+  const credentialInstallationId = normalizeOptionalString(
+    args.credentials.providerInstallationId
+  );
+  if (
+    bindingInstallationId &&
+    credentialInstallationId &&
+    bindingInstallationId !== credentialInstallationId
+  ) {
+    return {
+      ok: false,
+      reason: `providerInstallationId mismatch (${bindingInstallationId} != ${credentialInstallationId})`,
+    };
+  }
+
+  const bindingRouteKey = normalizeOptionalString(binding.routeKey);
+  const credentialRouteKey = normalizeOptionalString(args.credentials.bindingRouteKey);
+  if (bindingRouteKey && credentialRouteKey && bindingRouteKey !== credentialRouteKey) {
+    return {
+      ok: false,
+      reason: `routeKey mismatch (${bindingRouteKey} != ${credentialRouteKey})`,
+    };
+  }
+
+  return { ok: true };
+}
 
 export function providerSupportsChannel(
   provider: ChannelProvider,
@@ -43,7 +270,10 @@ export function credentialFieldRequiresDecryption(
   credentials: ProviderCredentials,
   field: ProviderCredentialField
 ): boolean {
-  if (credentials.credentialSource !== "oauth_connection") {
+  if (
+    credentials.credentialSource !== "oauth_connection" &&
+    credentials.credentialSource !== "object_settings"
+  ) {
     return false;
   }
   return (
@@ -97,25 +327,184 @@ export const getProviderCredentials = internalQuery({
   args: {
     organizationId: v.id("organizations"),
     providerId: v.string(),
+    providerConnectionId: v.optional(v.string()),
+    providerAccountId: v.optional(v.string()),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    routeKey: v.optional(v.string()),
+    allowPlatformFallback: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // WhatsApp Direct uses oauthConnections, not objects table
-    if (args.providerId === "whatsapp") {
-      const connection = await ctx.db
+    const requestedProviderProfileType = normalizeProviderProfileType(
+      args.providerProfileType
+    );
+    const allowPlatformFallback = args.allowPlatformFallback === true;
+
+    const matchesRequestedProfileType = (connection: Record<string, unknown>) => {
+      if (!requestedProviderProfileType) {
+        return true;
+      }
+
+      const metadata = (connection.customProperties || {}) as Record<string, unknown>;
+      const connectionProfileType =
+        normalizeProviderProfileType(connection.providerProfileType) ||
+        normalizeProviderProfileType(metadata.providerProfileType) ||
+        normalizeProviderProfileType(metadata.profileType);
+
+      if (!connectionProfileType) {
+        return requestedProviderProfileType === "organization";
+      }
+
+      return connectionProfileType === requestedProviderProfileType;
+    };
+
+    const resolveActiveOAuthConnection = async (
+      provider: "slack" | "whatsapp"
+    ) => {
+      const activeConnections = await ctx.db
         .query("oauthConnections")
         .withIndex("by_org_and_provider", (q) =>
-          q.eq("organizationId", args.organizationId).eq("provider", "whatsapp")
+          q.eq("organizationId", args.organizationId).eq("provider", provider)
         )
         .filter((q) => q.eq(q.field("status"), "active"))
-        .first();
+        .collect();
+
+      const scopedActiveConnections = activeConnections.filter((connection) =>
+        matchesRequestedProfileType(connection as unknown as Record<string, unknown>)
+      );
+
+      if (scopedActiveConnections.length === 0) {
+        return null;
+      }
+
+      const providerConnectionId = normalizeOptionalString(args.providerConnectionId);
+      if (providerConnectionId) {
+        const byConnectionId = scopedActiveConnections.find(
+          (connection) => String(connection._id) === providerConnectionId
+        );
+        if (byConnectionId) {
+          return byConnectionId;
+        }
+      }
+
+      const providerAccountId = normalizeOptionalString(args.providerAccountId);
+      if (providerAccountId) {
+        const byProviderAccount = scopedActiveConnections.find(
+          (connection) => connection.providerAccountId === providerAccountId
+        );
+        if (byProviderAccount) {
+          return byProviderAccount;
+        }
+      }
+
+      const providerInstallationId = normalizeOptionalString(
+        args.providerInstallationId
+      );
+      if (providerInstallationId) {
+        const byInstallation = scopedActiveConnections.find((connection) => {
+          const connectionRecord = connection as Record<string, unknown>;
+          const metadata = (connection.customProperties || {}) as Record<
+            string,
+            unknown
+          >;
+          return (
+            normalizeOptionalString(connectionRecord.providerInstallationId) ===
+              providerInstallationId ||
+            normalizeOptionalString(metadata.providerInstallationId) ===
+              providerInstallationId ||
+            normalizeOptionalString(metadata.installationId) ===
+              providerInstallationId
+          );
+        });
+        if (byInstallation) {
+          return byInstallation;
+        }
+      }
+
+      return scopedActiveConnections[0] ?? null;
+    };
+
+    const resolveConnectionIdentity = (
+      connection: Record<string, unknown>,
+      metadata: Record<string, unknown>,
+      profileTypeFallback: ProviderProfileType
+    ) => {
+      const providerConnectionId =
+        normalizeOptionalString(connection._id) ||
+        normalizeOptionalString(args.providerConnectionId);
+      const providerAccountId =
+        normalizeOptionalString(connection.providerAccountId) ||
+        normalizeOptionalString(args.providerAccountId);
+      const providerInstallationId =
+        normalizeOptionalString(connection.providerInstallationId) ||
+        normalizeOptionalString(metadata.providerInstallationId) ||
+        normalizeOptionalString(metadata.installationId) ||
+        normalizeOptionalString(args.providerInstallationId) ||
+        providerAccountId ||
+        providerConnectionId;
+      const providerProfileId =
+        normalizeOptionalString(connection.providerProfileId) ||
+        normalizeOptionalString(metadata.providerProfileId) ||
+        normalizeOptionalString(metadata.appProfileId) ||
+        normalizeOptionalString(args.providerProfileId);
+      const providerProfileType =
+        normalizeProviderProfileType(connection.providerProfileType) ||
+        normalizeProviderProfileType(metadata.providerProfileType) ||
+        normalizeProviderProfileType(metadata.profileType) ||
+        normalizeProviderProfileType(args.providerProfileType) ||
+        profileTypeFallback;
+      const providerSegment =
+        normalizeOptionalString(connection.provider) ||
+        normalizeOptionalString(args.providerId) ||
+        "provider";
+      const routeKey =
+        normalizeOptionalString(connection.providerRouteKey) ||
+        normalizeOptionalString(metadata.providerRouteKey) ||
+        normalizeOptionalString(metadata.routeKey) ||
+        normalizeOptionalString(args.routeKey) ||
+        (providerInstallationId
+          ? `${providerSegment}:${providerInstallationId}`
+          : undefined);
+
+      return {
+        providerConnectionId,
+        providerAccountId,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        routeKey,
+      };
+    };
+
+    // WhatsApp Direct uses oauthConnections, not objects table
+    if (args.providerId === "whatsapp") {
+      const connection = await resolveActiveOAuthConnection("whatsapp");
 
       if (!connection) return null;
 
-      const metadata = connection.customProperties as Record<string, unknown>;
+      const connectionRecord = connection as Record<string, unknown>;
+      const metadata = (connection.customProperties || {}) as Record<
+        string,
+        unknown
+      >;
+      const identity = resolveConnectionIdentity(
+        connectionRecord,
+        metadata,
+        "organization"
+      );
       return {
         providerId: "whatsapp",
         credentialSource: "oauth_connection",
         encryptedFields: ["whatsappAccessToken"],
+        providerConnectionId: identity.providerConnectionId,
+        providerAccountId: identity.providerAccountId,
+        providerInstallationId: identity.providerInstallationId,
+        providerProfileId: identity.providerProfileId,
+        providerProfileType: identity.providerProfileType,
+        bindingRouteKey: identity.routeKey,
         whatsappPhoneNumberId: metadata?.phoneNumberId as string,
         whatsappAccessToken: connection.accessToken, // Encrypted — decrypted in sendMessage action
         whatsappWabaId: metadata?.wabaId as string,
@@ -126,20 +515,29 @@ export const getProviderCredentials = internalQuery({
 
     // Slack uses oauthConnections; optional env fallback is gated by policy.
     if (args.providerId === "slack") {
-      const connection = await ctx.db
-        .query("oauthConnections")
-        .withIndex("by_org_and_provider", (q) =>
-          q.eq("organizationId", args.organizationId).eq("provider", "slack")
-        )
-        .filter((q) => q.eq(q.field("status"), "active"))
-        .first();
+      const connection = await resolveActiveOAuthConnection("slack");
 
       if (connection) {
-        const metadata = connection.customProperties as Record<string, unknown>;
+        const connectionRecord = connection as Record<string, unknown>;
+        const metadata = (connection.customProperties || {}) as Record<
+          string,
+          unknown
+        >;
+        const identity = resolveConnectionIdentity(
+          connectionRecord,
+          metadata,
+          "organization"
+        );
         return {
           providerId: "slack",
           credentialSource: "oauth_connection",
           encryptedFields: ["slackBotToken"],
+          providerConnectionId: identity.providerConnectionId,
+          providerAccountId: identity.providerAccountId,
+          providerInstallationId: identity.providerInstallationId,
+          providerProfileId: identity.providerProfileId,
+          providerProfileType: identity.providerProfileType,
+          bindingRouteKey: identity.routeKey,
           // Stored encrypted in oauthConnections; decrypted at send time.
           slackBotToken: connection.accessToken,
           slackTeamId: connection.providerAccountId,
@@ -151,12 +549,19 @@ export const getProviderCredentials = internalQuery({
 
       const tokenPolicy = process.env.SLACK_BOT_TOKEN_POLICY || "oauth_connection_only";
       if (
+        allowPlatformFallback &&
+        requestedProviderProfileType !== "organization" &&
         tokenPolicy === "oauth_or_env_fallback" &&
         process.env.SLACK_BOT_TOKEN
       ) {
         return {
           providerId: "slack",
           credentialSource: "env_fallback",
+          providerProfileId:
+            normalizeOptionalString(args.providerProfileId) || "platform:slack:env",
+          providerProfileType: "platform",
+          bindingRouteKey:
+            normalizeOptionalString(args.routeKey) || "slack:platform_env",
           slackBotToken: process.env.SLACK_BOT_TOKEN,
           slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
         } as ProviderCredentials;
@@ -177,15 +582,79 @@ export const getProviderCredentials = internalQuery({
       .first();
 
     if (settings) {
+      const props = settings.customProperties as Record<string, unknown>;
+      const encryptedFields = normalizeEncryptedFields(props.encryptedFields);
+      const providerProfileId =
+        normalizeOptionalString(args.providerProfileId) ||
+        normalizeOptionalString(props.providerProfileId) ||
+        normalizeOptionalString(props.appProfileId);
+      const providerProfileType =
+        normalizeProviderProfileType(args.providerProfileType) ||
+        normalizeProviderProfileType(props.providerProfileType) ||
+        normalizeProviderProfileType(props.profileType) ||
+        "organization";
+      if (
+        requestedProviderProfileType &&
+        providerProfileType !== requestedProviderProfileType
+      ) {
+        return null;
+      }
+      const providerInstallationId =
+        normalizeOptionalString(args.providerInstallationId) ||
+        normalizeOptionalString(props.providerInstallationId) ||
+        normalizeOptionalString(props.installationId) ||
+        normalizeOptionalString(args.providerAccountId);
+      const providerConnectionId =
+        normalizeOptionalString(args.providerConnectionId) ||
+        normalizeOptionalString(props.providerConnectionId) ||
+        normalizeOptionalString(props.oauthConnectionId);
+      const providerAccountId =
+        normalizeOptionalString(args.providerAccountId) ||
+        normalizeOptionalString(props.providerAccountId);
+      const routeKey =
+        normalizeOptionalString(args.routeKey) ||
+        normalizeOptionalString(props.routeKey) ||
+        normalizeOptionalString(props.bindingRouteKey);
       return {
         providerId: args.providerId,
         credentialSource: "object_settings",
-        ...(settings.customProperties as Record<string, unknown>),
+        ...props,
+        encryptedFields,
+        providerConnectionId,
+        providerAccountId,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        bindingRouteKey: routeKey,
+      } as ProviderCredentials;
+    }
+
+    if (
+      args.providerId === "telegram" &&
+      allowPlatformFallback &&
+      requestedProviderProfileType !== "organization" &&
+      process.env.TELEGRAM_BOT_TOKEN
+    ) {
+      return {
+        providerId: "telegram",
+        credentialSource: "platform_fallback",
+        providerProfileId:
+          normalizeOptionalString(args.providerProfileId) ||
+          "platform:telegram:env",
+        providerProfileType: "platform",
+        providerInstallationId:
+          normalizeOptionalString(args.providerInstallationId) ||
+          "platform:telegram",
+        bindingRouteKey:
+          normalizeOptionalString(args.routeKey) || "telegram:platform",
+        telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+        telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
+        webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
       } as ProviderCredentials;
     }
 
     // Fallback: platform-owned Infobip account (env vars)
-    if (args.providerId === "infobip") {
+    if (args.providerId === "infobip" && allowPlatformFallback) {
       const apiKey = process.env.INFOBIP_API_KEY;
       const baseUrl = process.env.INFOBIP_BASE_URL;
       const globalSenderId = process.env.INFOBIP_SMS_SENDER_ID;
@@ -231,6 +700,15 @@ export const getProviderCredentials = internalQuery({
         return {
           providerId: "infobip",
           credentialSource: "platform_fallback",
+          providerProfileId:
+            normalizeOptionalString(args.providerProfileId) ||
+            "platform:infobip",
+          providerProfileType: "platform",
+          providerInstallationId:
+            normalizeOptionalString(args.providerInstallationId) ||
+            "platform:infobip",
+          bindingRouteKey:
+            normalizeOptionalString(args.routeKey) || "infobip:platform",
           infobipApiKey: apiKey,
           infobipBaseUrl: baseUrl,
           infobipSmsSenderId: orgSenderId,
@@ -266,6 +744,9 @@ export const sendMessage = internalAction({
         channel: args.channel,
       }
     ) as Record<string, unknown> | null;
+    const bindingIdentity = normalizeBindingRoutingIdentity(binding);
+
+    const hasBinding = Boolean(binding);
 
     // Platform fallbacks when no per-org binding exists
     let providerId: ProviderId;
@@ -293,9 +774,26 @@ export const sendMessage = internalAction({
         };
       }
     } else {
-      providerId = ((binding as Record<string, unknown>).customProperties as Record<string, unknown>)
-        ?.providerId as ProviderId;
+      if (!bindingIdentity?.providerId) {
+        return {
+          success: false,
+          error: `Channel binding missing provider identity for channel: ${args.channel}`,
+        };
+      }
+      providerId = bindingIdentity.providerId;
     }
+
+    const allowPlatformFallback = shouldAllowPlatformCredentialFallback({
+      hasBinding,
+      providerId,
+      bindingProfileType: bindingIdentity?.providerProfileType,
+      bindingAllowPlatformFallback: bindingIdentity?.allowPlatformFallback,
+    });
+    const requestedProviderProfileType: ProviderProfileType | undefined =
+      bindingIdentity?.providerProfileType ||
+      (!binding && (providerId === "infobip" || providerId === "telegram")
+        ? "platform"
+        : undefined);
 
     const provider = getProvider(providerId);
     if (!provider) {
@@ -311,7 +809,17 @@ export const sendMessage = internalAction({
     // 2. Get credentials
     let credentials = await (ctx.runQuery as Function)(
       internalApi.channels.router.getProviderCredentials,
-      { organizationId: args.organizationId, providerId }
+      {
+        organizationId: args.organizationId,
+        providerId,
+        providerConnectionId: bindingIdentity?.providerConnectionId,
+        providerAccountId: bindingIdentity?.providerAccountId,
+        providerInstallationId: bindingIdentity?.providerInstallationId,
+        providerProfileId: bindingIdentity?.providerProfileId,
+        providerProfileType: requestedProviderProfileType,
+        routeKey: bindingIdentity?.routeKey,
+        allowPlatformFallback,
+      }
     ) as ProviderCredentials | null;
 
     if (!credentials) {
@@ -321,30 +829,112 @@ export const sendMessage = internalAction({
       };
     }
 
-    // 2b. Decrypt WhatsApp access token (stored encrypted in oauthConnections)
-    if (
-      providerId === "whatsapp" &&
-      credentials.whatsappAccessToken &&
-      credentialFieldRequiresDecryption(credentials, "whatsappAccessToken")
-    ) {
-      const decryptedToken = await (ctx.runAction as Function)(
-        internalApi.oauth.encryption.decryptToken,
-        { encrypted: credentials.whatsappAccessToken }
-      ) as string;
-      credentials = { ...credentials, whatsappAccessToken: decryptedToken };
+    const credentialBoundary = validateCredentialBoundary({
+      binding: bindingIdentity
+        ? {
+            providerConnectionId: bindingIdentity.providerConnectionId,
+            providerInstallationId: bindingIdentity.providerInstallationId,
+            providerProfileType: bindingIdentity.providerProfileType,
+            routeKey: bindingIdentity.routeKey,
+          }
+        : null,
+      credentials,
+    });
+    if (!credentialBoundary.ok) {
+      return {
+        success: false,
+        error: `Credential boundary violation for provider ${providerId}: ${credentialBoundary.reason}`,
+      };
     }
 
-    // 2c. Decrypt Slack bot token when sourced from oauthConnections.
-    if (
-      providerId === "slack" &&
-      credentials.slackBotToken &&
-      credentialFieldRequiresDecryption(credentials, "slackBotToken")
-    ) {
-      const decryptedToken = await (ctx.runAction as Function)(
+    // 2b. Decrypt credential fields only at send-time boundary.
+    const decryptCredentialField = async (
+      field: ProviderCredentialField,
+      value: string | undefined
+    ): Promise<string | undefined> => {
+      if (
+        !value ||
+        !credentialFieldRequiresDecryption(
+          credentials as ProviderCredentials,
+          field
+        )
+      ) {
+        return value;
+      }
+
+      const decrypted = await (ctx.runAction as Function)(
         internalApi.oauth.encryption.decryptToken,
-        { encrypted: credentials.slackBotToken }
+        { encrypted: value }
       ) as string;
-      credentials = { ...credentials, slackBotToken: decryptedToken };
+      return decrypted;
+    };
+
+    if (providerId === "whatsapp") {
+      credentials = {
+        ...credentials,
+        whatsappAccessToken: await decryptCredentialField(
+          "whatsappAccessToken",
+          credentials.whatsappAccessToken
+        ),
+      };
+    }
+
+    if (providerId === "slack") {
+      credentials = {
+        ...credentials,
+        slackBotToken: await decryptCredentialField(
+          "slackBotToken",
+          credentials.slackBotToken
+        ),
+      };
+    }
+
+    if (providerId === "telegram") {
+      const encryptedWebhookSecret =
+        credentials.telegramWebhookSecret || credentials.webhookSecret;
+      const decryptedWebhookSecret = await decryptCredentialField(
+        "telegramWebhookSecret",
+        encryptedWebhookSecret
+      );
+      credentials = {
+        ...credentials,
+        telegramBotToken: await decryptCredentialField(
+          "telegramBotToken",
+          credentials.telegramBotToken
+        ),
+        telegramWebhookSecret: decryptedWebhookSecret,
+        webhookSecret: decryptedWebhookSecret,
+      };
+    }
+
+    if (providerId === "chatwoot") {
+      credentials = {
+        ...credentials,
+        chatwootApiToken: await decryptCredentialField(
+          "chatwootApiToken",
+          credentials.chatwootApiToken
+        ),
+      };
+    }
+
+    if (providerId === "manychat") {
+      credentials = {
+        ...credentials,
+        manychatApiKey: await decryptCredentialField(
+          "manychatApiKey",
+          credentials.manychatApiKey
+        ),
+      };
+    }
+
+    if (providerId === "resend") {
+      credentials = {
+        ...credentials,
+        resendApiKey: await decryptCredentialField(
+          "resendApiKey",
+          credentials.resendApiKey
+        ),
+      };
     }
 
     // 3. Determine if this is a platform-owned send (no per-org binding)
@@ -360,7 +950,17 @@ export const sendMessage = internalAction({
         // Re-fetch credentials to include the new entityId
         credentials = await (ctx.runQuery as Function)(
           internalApi.channels.router.getProviderCredentials,
-          { organizationId: args.organizationId, providerId }
+          {
+            organizationId: args.organizationId,
+            providerId,
+            providerConnectionId: bindingIdentity?.providerConnectionId,
+            providerAccountId: bindingIdentity?.providerAccountId,
+            providerInstallationId: bindingIdentity?.providerInstallationId,
+            providerProfileId: bindingIdentity?.providerProfileId,
+            providerProfileType: requestedProviderProfileType,
+            routeKey: bindingIdentity?.routeKey,
+            allowPlatformFallback,
+          }
         ) as ProviderCredentials;
         if (!credentials) {
           return { success: false, error: "Credentials lost after entity provisioning" };
@@ -381,7 +981,17 @@ export const sendMessage = internalAction({
         // Re-fetch credentials to include applicationId
         credentials = await (ctx.runQuery as Function)(
           internalApi.channels.router.getProviderCredentials,
-          { organizationId: args.organizationId, providerId }
+          {
+            organizationId: args.organizationId,
+            providerId,
+            providerConnectionId: bindingIdentity?.providerConnectionId,
+            providerAccountId: bindingIdentity?.providerAccountId,
+            providerInstallationId: bindingIdentity?.providerInstallationId,
+            providerProfileId: bindingIdentity?.providerProfileId,
+            providerProfileType: requestedProviderProfileType,
+            routeKey: bindingIdentity?.routeKey,
+            allowPlatformFallback,
+          }
         ) as ProviderCredentials;
         if (!credentials) {
           return { success: false, error: "Credentials lost after application provisioning" };
@@ -574,9 +1184,19 @@ export const getConfiguredChannels = query({
       })
       .map((b) => {
         const props = b.customProperties as Record<string, unknown>;
+        const routingIdentity = normalizeBindingRoutingIdentity(
+          b as Record<string, unknown>
+        );
         return {
           channel: props?.channel as string,
           providerId: props?.providerId as string,
+          providerConnectionId: routingIdentity?.providerConnectionId,
+          providerAccountId: routingIdentity?.providerAccountId,
+          providerInstallationId: routingIdentity?.providerInstallationId,
+          providerProfileId: routingIdentity?.providerProfileId,
+          providerProfileType: routingIdentity?.providerProfileType,
+          routeKey: routingIdentity?.routeKey,
+          allowPlatformFallback: routingIdentity?.allowPlatformFallback,
         };
       });
   },

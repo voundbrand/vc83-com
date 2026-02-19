@@ -163,6 +163,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
     });
   };
 
+  const webhookUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/telegram-webhook`
+      : "/telegram-webhook";
+  const webhookSecretHeader = "X-Telegram-Bot-Api-Secret-Token";
+  const isByoaMode = Boolean(status?.customBot?.deployed);
+
   return (
     <>
       <confirmDialog.Dialog />
@@ -214,6 +221,105 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
             </div>
           ) : (
             <div className="space-y-4">
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p
+                  className="text-xs font-bold mb-3 uppercase tracking-wide"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Setup Mode
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: !isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: !isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Platform-managed bot
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Fast onboarding through the shared platform bot and deep-link connect flow.
+                    </p>
+                  </div>
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Organization BYOA bot
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Deploy your own @BotFather token for branded bot identity and isolated credentials.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+                  Telegram BYOA Setup Packet
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                    </div>
+                    <button onClick={() => copyToClipboard(webhookUrl)} title="Copy webhook URL">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">Secret header:</span> {webhookSecretHeader}
+                    </div>
+                    <button onClick={() => copyToClipboard(webhookSecretHeader)} title="Copy secret header">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                    Agency handoff flow
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Create client bot in @BotFather (`/newbot`) and paste token below.</li>
+                    <li>Verify Telegram webhook set to the URL above with secret header enabled.</li>
+                    <li>Run one customer DM and one team-group mirror test before cutover.</li>
+                  </ol>
+                </div>
+              </div>
+
               {/* ============ SECTION 1: Connection Status ============ */}
               <div
                 className="p-4 border-2 rounded"

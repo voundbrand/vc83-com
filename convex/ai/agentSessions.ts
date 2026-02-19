@@ -2,7 +2,7 @@
  * AGENT SESSION MANAGEMENT
  *
  * Manages conversations between org agents and external contacts.
- * Sessions are keyed by org + channel + external contact identifier.
+ * Sessions are keyed by org + channel + agent + contact + route identity.
  *
  * Flow:
  * 1. Inbound message arrives → resolveSession() finds or creates session
@@ -44,6 +44,181 @@ function getInternalRef(): any {
     _internalRef = require("../_generated/api").internal;
   }
   return _internalRef;
+}
+
+export type SessionRouteProfileType = "platform" | "organization";
+
+export interface SessionChannelRouteIdentityRecord {
+  bindingId?: Id<"objects">;
+  providerId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: SessionRouteProfileType;
+  routeKey?: string;
+}
+
+export const LEGACY_SESSION_ROUTING_KEY = "legacy";
+
+function normalizeRouteIdentityString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeSessionRouteProfileType(
+  value: unknown
+): SessionRouteProfileType | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
+export function normalizeSessionChannelRouteIdentity(
+  value: unknown
+): SessionChannelRouteIdentityRecord | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const normalized: SessionChannelRouteIdentityRecord = {
+    bindingId: normalizeRouteIdentityString(record.bindingId) as
+      | Id<"objects">
+      | undefined,
+    providerId: normalizeRouteIdentityString(record.providerId),
+    providerConnectionId: normalizeRouteIdentityString(record.providerConnectionId),
+    providerAccountId: normalizeRouteIdentityString(record.providerAccountId),
+    providerInstallationId: normalizeRouteIdentityString(record.providerInstallationId),
+    providerProfileId: normalizeRouteIdentityString(record.providerProfileId),
+    providerProfileType: normalizeSessionRouteProfileType(record.providerProfileType),
+    routeKey: normalizeRouteIdentityString(record.routeKey),
+  };
+
+  return Object.values(normalized).some((value) => Boolean(value))
+    ? normalized
+    : undefined;
+}
+
+export function buildSessionRoutingKey(
+  identity: SessionChannelRouteIdentityRecord | null | undefined
+): string {
+  const normalized = normalizeSessionChannelRouteIdentity(identity);
+  if (!normalized) {
+    return LEGACY_SESSION_ROUTING_KEY;
+  }
+
+  if (normalized.routeKey) {
+    return `route:${normalized.routeKey}`;
+  }
+
+  const segments = [
+    ["provider", normalized.providerId],
+    ["connection", normalized.providerConnectionId],
+    ["account", normalized.providerAccountId],
+    ["installation", normalized.providerInstallationId],
+    ["profile_type", normalized.providerProfileType],
+    ["profile", normalized.providerProfileId],
+    ["binding", normalized.bindingId],
+  ]
+    .filter(([, value]) => Boolean(value))
+    .map(([label, value]) => `${label}:${value}`);
+
+  return segments.length > 0
+    ? segments.join("|")
+    : LEGACY_SESSION_ROUTING_KEY;
+}
+
+function resolveSessionRoutingKeyFromRecord(
+  value: Record<string, unknown>
+): string {
+  const persisted = normalizeRouteIdentityString(value.sessionRoutingKey);
+  if (persisted) {
+    return persisted;
+  }
+  return buildSessionRoutingKey(
+    normalizeSessionChannelRouteIdentity(value.channelRouteIdentity)
+  );
+}
+
+interface RouteScopedSessionCandidate {
+  _id: string;
+  agentId: string;
+  status?: string;
+  startedAt?: number;
+  sessionRoutingKey?: string;
+  channelRouteIdentity?: SessionChannelRouteIdentityRecord;
+}
+
+export function selectActiveSessionForRoute<T extends RouteScopedSessionCandidate>(
+  sessions: T[],
+  args: {
+    agentId: string;
+    incomingRouteIdentity?: SessionChannelRouteIdentityRecord;
+  }
+): { session: T | null; promoteLegacy: boolean; routingKey: string } {
+  const incomingRoutingKey = buildSessionRoutingKey(args.incomingRouteIdentity);
+  const activeForAgent = sessions
+    .filter((session) => session.status === "active" && String(session.agentId) === args.agentId)
+    .sort((a, b) => {
+      const aStartedAt = typeof a.startedAt === "number" ? a.startedAt : 0;
+      const bStartedAt = typeof b.startedAt === "number" ? b.startedAt : 0;
+      if (aStartedAt !== bStartedAt) {
+        return aStartedAt - bStartedAt;
+      }
+      return String(a._id).localeCompare(String(b._id));
+    });
+
+  if (activeForAgent.length === 0) {
+    return { session: null, promoteLegacy: false, routingKey: incomingRoutingKey };
+  }
+
+  const exact = activeForAgent.find(
+    (session) =>
+      resolveSessionRoutingKeyFromRecord(session as unknown as Record<string, unknown>) ===
+      incomingRoutingKey
+  );
+  if (exact) {
+    return { session: exact, promoteLegacy: false, routingKey: incomingRoutingKey };
+  }
+
+  if (incomingRoutingKey !== LEGACY_SESSION_ROUTING_KEY) {
+    const routeScopedActive = activeForAgent.filter(
+      (session) =>
+        resolveSessionRoutingKeyFromRecord(session as unknown as Record<string, unknown>) !==
+        LEGACY_SESSION_ROUTING_KEY
+    );
+    if (routeScopedActive.length > 0) {
+      return { session: null, promoteLegacy: false, routingKey: incomingRoutingKey };
+    }
+
+    const legacy = activeForAgent.find(
+      (session) =>
+        resolveSessionRoutingKeyFromRecord(session as unknown as Record<string, unknown>) ===
+        LEGACY_SESSION_ROUTING_KEY
+    );
+    if (legacy) {
+      return { session: legacy, promoteLegacy: true, routingKey: incomingRoutingKey };
+    }
+
+    return { session: null, promoteLegacy: false, routingKey: incomingRoutingKey };
+  }
+
+  const legacy = activeForAgent.find(
+    (session) =>
+      resolveSessionRoutingKeyFromRecord(session as unknown as Record<string, unknown>) ===
+      LEGACY_SESSION_ROUTING_KEY
+  );
+  if (legacy) {
+    return { session: legacy, promoteLegacy: false, routingKey: incomingRoutingKey };
+  }
+
+  return {
+    session: activeForAgent[0],
+    promoteLegacy: false,
+    routingKey: incomingRoutingKey,
+  };
 }
 
 interface AgentModelResolutionTelemetry {
@@ -1295,7 +1470,7 @@ export const failTurnLease = internalMutation({
 // ============================================================================
 
 /**
- * Find or create a session for this org + channel + contact
+ * Find or create a session for this org + channel + agent + contact (+ route identity)
  */
 export const resolveSession = internalMutation({
   args: {
@@ -1303,20 +1478,75 @@ export const resolveSession = internalMutation({
     organizationId: v.id("organizations"),
     channel: v.string(),
     externalContactIdentifier: v.string(),
+    channelRouteIdentity: v.optional(v.object({
+      bindingId: v.optional(v.id("objects")),
+      providerId: v.optional(v.string()),
+      providerConnectionId: v.optional(v.string()),
+      providerAccountId: v.optional(v.string()),
+      providerInstallationId: v.optional(v.string()),
+      providerProfileId: v.optional(v.string()),
+      providerProfileType: v.optional(
+        v.union(v.literal("platform"), v.literal("organization"))
+      ),
+      routeKey: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
-    // Look for existing active session
-    const existing = await ctx.db
+    const incomingRouteIdentity = normalizeSessionChannelRouteIdentity(
+      args.channelRouteIdentity
+    );
+    const incomingRoutingKey = buildSessionRoutingKey(incomingRouteIdentity);
+
+    const candidates = await ctx.db
       .query("agentSessions")
-      .withIndex("by_org_channel_contact", (q) =>
+      .withIndex("by_org_channel_agent_contact", (q) =>
         q
           .eq("organizationId", args.organizationId)
           .eq("channel", args.channel)
+          .eq("agentId", args.agentId)
           .eq("externalContactIdentifier", args.externalContactIdentifier)
       )
-      .first();
+      .collect();
+    const routeCandidates = candidates.map((candidate) => ({
+      _id: String(candidate._id),
+      agentId: String(candidate.agentId),
+      status: candidate.status,
+      startedAt: candidate.startedAt,
+      sessionRoutingKey: normalizeRouteIdentityString(
+        (candidate as Record<string, unknown>).sessionRoutingKey
+      ),
+      channelRouteIdentity: normalizeSessionChannelRouteIdentity(
+        (candidate as Record<string, unknown>).channelRouteIdentity
+      ),
+    }));
+    const existingSelection = selectActiveSessionForRoute(routeCandidates, {
+      agentId: String(args.agentId),
+      incomingRouteIdentity,
+    });
+    let existing = existingSelection.session
+      ? candidates.find(
+          (candidate) =>
+            String(candidate._id) === String(existingSelection.session?._id)
+        ) ?? null
+      : null;
 
     if (existing && existing.status === "active") {
+      const existingRecord = existing as unknown as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      if (existingSelection.promoteLegacy && incomingRouteIdentity) {
+        patch.channelRouteIdentity = incomingRouteIdentity;
+        patch.sessionRoutingKey = existingSelection.routingKey;
+      } else if (!normalizeRouteIdentityString(existingRecord.sessionRoutingKey)) {
+        patch.sessionRoutingKey = resolveSessionRoutingKeyFromRecord(existingRecord);
+      }
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(existing._id, patch);
+        const refreshed = await ctx.db.get(existing._id);
+        if (refreshed) {
+          existing = refreshed;
+        }
+      }
+
       // Check if session has expired (TTL or max duration)
       const agentConfig = await ctx.db.get(existing.agentId);
       const configProps = (agentConfig?.customProperties || {}) as Record<string, unknown>;
@@ -1344,11 +1574,17 @@ export const resolveSession = internalMutation({
         }
 
         // Create new session, optionally carrying forward context
+        const nextRouteIdentity =
+          incomingRouteIdentity ||
+          normalizeSessionChannelRouteIdentity(existing.channelRouteIdentity);
+        const nextRoutingKey = buildSessionRoutingKey(nextRouteIdentity);
         const newSessionData: Record<string, unknown> = {
           agentId: args.agentId,
           organizationId: args.organizationId,
           channel: args.channel,
           externalContactIdentifier: args.externalContactIdentifier,
+          channelRouteIdentity: nextRouteIdentity,
+          sessionRoutingKey: nextRoutingKey,
           status: "active",
           messageCount: 0,
           tokensUsed: 0,
@@ -1383,6 +1619,8 @@ export const resolveSession = internalMutation({
       organizationId: args.organizationId,
       channel: args.channel,
       externalContactIdentifier: args.externalContactIdentifier,
+      channelRouteIdentity: incomingRouteIdentity,
+      sessionRoutingKey: incomingRoutingKey,
       status: "active",
       messageCount: 0,
       tokensUsed: 0,

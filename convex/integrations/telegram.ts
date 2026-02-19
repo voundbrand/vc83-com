@@ -88,7 +88,7 @@ export const getTelegramIntegrationStatus = query({
     const customBot = {
       deployed: !!customBotSettings,
       botUsername: (customProps?.telegramBotUsername as string) ?? null,
-      webhookUrl: customBotSettings ? `${siteUrl}/telegram-webhook?org=${orgId}` : null,
+      webhookUrl: customBotSettings ? `${siteUrl}/telegram-webhook` : null,
     };
 
     // 3. Team group info

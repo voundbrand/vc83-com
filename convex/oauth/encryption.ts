@@ -114,6 +114,20 @@ export const decryptToken = internalAction({
 });
 
 /**
+ * Build a deterministic SHA-256 fingerprint for secret lookup paths.
+ * Used for webhook secret ownership resolution without storing plaintext.
+ */
+export const hashSha256 = internalAction({
+  args: {
+    plaintext: v.string(),
+  },
+  handler: async (_ctx, args): Promise<string> => {
+    const crypto = await import("crypto");
+    return crypto.createHash("sha256").update(args.plaintext, "utf8").digest("hex");
+  },
+});
+
+/**
  * Test encryption/decryption (for development only)
  */
 export const testEncryption = action({

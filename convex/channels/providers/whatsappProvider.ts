@@ -198,12 +198,15 @@ export const whatsappProvider: ChannelProvider = {
 
   verifyWebhook(
     _body: string,
-    _headers: Record<string, string>,
-    _credentials: ProviderCredentials
+    headers: Record<string, string>,
+    credentials: ProviderCredentials
   ): boolean {
-    // HMAC verification is done in the webhook internalAction (requires Node.js crypto).
-    // Provider-level verify is a no-op; the action handles it before calling normalizeInbound.
-    return true;
+    const signatureHeader = headers["x-hub-signature-256"];
+    const secret = credentials.webhookSecret;
+    if (!secret || !signatureHeader) {
+      return false;
+    }
+    return /^sha256=[0-9a-f]{64}$/i.test(signatureHeader);
   },
 
   async testConnection(credentials): Promise<{

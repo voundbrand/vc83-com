@@ -111,10 +111,20 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
     typeof window !== "undefined"
       ? `${window.location.origin}/webhooks/whatsapp`
       : "/webhooks/whatsapp";
+  const callbackUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/oauth/whatsapp/callback`
+      : "/api/oauth/whatsapp/callback";
+  const requiredScopes = [
+    "whatsapp_business_management",
+    "whatsapp_business_messaging",
+    "business_management",
+  ];
+  const isByoaMode = Boolean(isConnected && conn);
 
-  const copyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    notification.success("Copied", "Webhook URL copied to clipboard");
+  const copyValue = (label: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    notification.success("Copied", `${label} copied to clipboard`);
   };
 
   const formatDate = (timestamp?: number) => {
@@ -182,6 +192,113 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
           ) : isConnected && conn ? (
             /* ======== CONNECTED STATE ======== */
             <div className="space-y-4">
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p
+                  className="text-xs font-bold mb-3 uppercase tracking-wide"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Setup Mode
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: !isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: !isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Platform-managed channel
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Shared channel profile for quick launch and internal fallback handling.
+                    </p>
+                  </div>
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Organization BYOA app
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Meta OAuth app and WABA owned by your organization for full credential control.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+                  WhatsApp BYOA Setup Packet
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">OAuth callback:</span> {callbackUrl}
+                    </div>
+                    <button onClick={() => copyValue("OAuth callback URL", callbackUrl)} title="Copy callback URL">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                    </div>
+                    <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy webhook URL">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                    Meta scopes
+                  </p>
+                  {requiredScopes.map((scope) => (
+                    <p key={scope} className="font-mono">{scope}</p>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                    Agency handoff flow
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Owner approves Meta OAuth in client business manager.</li>
+                    <li>Confirm WABA and verified phone number are selected after redirect.</li>
+                    <li>Validate webhook challenge + inbound/outbound message in canary org before cutover.</li>
+                  </ol>
+                </div>
+              </div>
+
               {/* Status */}
               <div
                 className="p-4 border-2 rounded"
@@ -308,7 +425,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   >
                     {webhookUrl}
                   </div>
-                  <button onClick={copyWebhookUrl} title="Copy">
+                  <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy">
                     <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                   </button>
                 </div>
@@ -353,6 +470,113 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
           ) : (
             /* ======== NOT CONNECTED STATE ======== */
             <div className="space-y-4">
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p
+                  className="text-xs font-bold mb-3 uppercase tracking-wide"
+                  style={{ color: "var(--window-document-text)" }}
+                >
+                  Setup Mode
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: !isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: !isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Platform-managed channel
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Shared channel profile for quick launch and internal fallback handling.
+                    </p>
+                  </div>
+                  <div
+                    className="rounded border p-3"
+                    style={{
+                      borderColor: isByoaMode ? "#10b981" : "var(--window-document-border)",
+                      background: isByoaMode ? "rgba(16, 185, 129, 0.08)" : "var(--window-document-bg)",
+                    }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Organization BYOA app
+                    </p>
+                    <p style={{ color: "var(--neutral-gray)" }}>
+                      Meta OAuth app and WABA owned by your organization for full credential control.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="p-4 border-2 rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+                  WhatsApp BYOA Setup Packet
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">OAuth callback:</span> {callbackUrl}
+                    </div>
+                    <button onClick={() => copyValue("OAuth callback URL", callbackUrl)} title="Copy callback URL">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 p-2 border rounded font-mono break-all"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                    </div>
+                    <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy webhook URL">
+                      <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                    Meta scopes
+                  </p>
+                  {requiredScopes.map((scope) => (
+                    <p key={scope} className="font-mono">{scope}</p>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
+                    Agency handoff flow
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Owner approves Meta OAuth in client business manager.</li>
+                    <li>Confirm WABA and verified phone number are selected after redirect.</li>
+                    <li>Validate webhook challenge + inbound/outbound message in canary org before cutover.</li>
+                  </ol>
+                </div>
+              </div>
+
               {/* Hero */}
               <div
                 className="p-6 border-2 rounded text-center"

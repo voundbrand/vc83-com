@@ -39,6 +39,19 @@ export const teamHandoffHistoryEntryValidator = v.object({
   contextSummary: v.optional(v.string()),
 });
 
+const sessionChannelRouteIdentityValidator = v.object({
+  bindingId: v.optional(v.id("objects")),
+  providerId: v.optional(v.string()),
+  providerConnectionId: v.optional(v.string()),
+  providerAccountId: v.optional(v.string()),
+  providerInstallationId: v.optional(v.string()),
+  providerProfileId: v.optional(v.string()),
+  providerProfileType: v.optional(
+    v.union(v.literal("platform"), v.literal("organization"))
+  ),
+  routeKey: v.optional(v.string()),
+});
+
 /**
  * AGENT SESSIONS
  *
@@ -56,6 +69,8 @@ export const agentSessions = defineTable({
   // Channel transport identifier (for example: telegram, webchat, native_guest).
   channel: v.string(),
   externalContactIdentifier: v.string(),
+  channelRouteIdentity: v.optional(sessionChannelRouteIdentityValidator),
+  sessionRoutingKey: v.optional(v.string()),
 
   status: v.union(
     v.literal("active"),
@@ -107,6 +122,24 @@ export const agentSessions = defineTable({
       promptedAt: v.number(),
       decidedAt: v.optional(v.number()),
       decisionSource: v.optional(v.literal("user")),
+    })),
+    sessionLifecycle: v.optional(v.object({
+      state: v.union(
+        v.literal("capturing"),
+        v.literal("checkpoint_review"),
+        v.literal("consent_pending"),
+        v.literal("resumable_unsaved"),
+        v.literal("saved"),
+        v.literal("discarded"),
+      ),
+      checkpointId: v.union(
+        v.literal("cp0_capture_notice"),
+        v.literal("cp1_summary_review"),
+        v.literal("cp2_save_decision"),
+        v.literal("cp3_post_save_revoke"),
+      ),
+      updatedAt: v.number(),
+      updatedBy: v.union(v.literal("system"), v.literal("user")),
     })),
   })),
 
@@ -244,6 +277,19 @@ export const agentSessions = defineTable({
   .index("by_org_channel_contact", [
     "organizationId",
     "channel",
+    "externalContactIdentifier",
+  ])
+  .index("by_org_channel_agent_contact", [
+    "organizationId",
+    "channel",
+    "agentId",
+    "externalContactIdentifier",
+  ])
+  .index("by_org_channel_agent_route_contact", [
+    "organizationId",
+    "channel",
+    "agentId",
+    "sessionRoutingKey",
     "externalContactIdentifier",
   ])
   .index("by_agent", ["agentId"])

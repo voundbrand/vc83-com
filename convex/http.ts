@@ -19,6 +19,7 @@ import type Stripe from "stripe";
 import { SLACK_INTEGRATION_CONFIG } from "./oauth/config";
 import { normalizeClaimTokenForResponse } from "./onboarding/claimTokenResponse";
 import { verifySlackRequestSignature } from "./channels/providers/slackProvider";
+import { verifyWhatsAppWebhookSignature } from "./channels/providers/whatsappSignature";
 import { addRateLimitHeaders, checkRateLimit } from "./middleware/rateLimit";
 import {
   WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
@@ -39,6 +40,160 @@ function getErrorCode(error: unknown): string | undefined {
     const data = (error as { data?: { code?: string } }).data;
     return data?.code;
   }
+  return undefined;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+type SlackVerificationContext = {
+  teamId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: "platform" | "organization";
+  routeKey?: string;
+  signingSecrets: string[];
+};
+
+function extractSlackEventRoutingHints(payload: Record<string, unknown>): {
+  teamId?: string;
+  appId?: string;
+} {
+  const authorizations = Array.isArray(payload.authorizations)
+    ? (payload.authorizations as Array<Record<string, unknown>>)
+    : [];
+  const firstAuthorization = authorizations[0] || {};
+
+  return {
+    teamId:
+      asNonEmptyString(payload.team_id) ||
+      asNonEmptyString(firstAuthorization.team_id),
+    appId: asNonEmptyString(payload.api_app_id),
+  };
+}
+
+async function resolveSlackVerificationContext(
+  ctx: unknown,
+  args: { teamId?: string; appId?: string }
+): Promise<SlackVerificationContext | null> {
+  const context = await (ctx as any).runQuery(
+    generatedApi.internal.channels.webhooks.resolveSlackWebhookVerificationContext,
+    {
+      teamId: args.teamId,
+      appId: args.appId,
+    }
+  );
+
+  if (!context || typeof context !== "object") {
+    return null;
+  }
+
+  const signingSecrets = Array.isArray((context as { signingSecrets?: unknown }).signingSecrets)
+    ? ((context as { signingSecrets: unknown[] }).signingSecrets
+        .map((secret) => asNonEmptyString(secret))
+        .filter((secret): secret is string => Boolean(secret)))
+    : [];
+
+  return {
+    teamId: asNonEmptyString((context as { teamId?: unknown }).teamId),
+    providerConnectionId: asNonEmptyString(
+      (context as { providerConnectionId?: unknown }).providerConnectionId
+    ),
+    providerAccountId: asNonEmptyString(
+      (context as { providerAccountId?: unknown }).providerAccountId
+    ),
+    providerInstallationId: asNonEmptyString(
+      (context as { providerInstallationId?: unknown }).providerInstallationId
+    ),
+    providerProfileId: asNonEmptyString(
+      (context as { providerProfileId?: unknown }).providerProfileId
+    ),
+    providerProfileType:
+      ((context as { providerProfileType?: unknown }).providerProfileType === "platform" ||
+        (context as { providerProfileType?: unknown }).providerProfileType ===
+          "organization")
+        ? ((context as { providerProfileType: "platform" | "organization" })
+            .providerProfileType)
+        : undefined,
+    routeKey: asNonEmptyString((context as { routeKey?: unknown }).routeKey),
+    signingSecrets,
+  };
+}
+
+type TelegramWebhookAuthContext =
+  | { mode: "platform" }
+  | { mode: "custom"; organizationId: Id<"organizations"> };
+
+async function sha256Hex(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function resolveTelegramWebhookAuthContext(
+  ctx: unknown,
+  secretTokenHeader: string | null
+): Promise<TelegramWebhookAuthContext | null> {
+  const secretToken = asNonEmptyString(secretTokenHeader);
+  if (!secretToken) {
+    return null;
+  }
+
+  const platformSecret = asNonEmptyString(process.env.TELEGRAM_WEBHOOK_SECRET);
+  if (platformSecret && secretToken === platformSecret) {
+    return { mode: "platform" };
+  }
+
+  const secretFingerprint = await sha256Hex(secretToken);
+  const context = await (ctx as any).runQuery(
+    generatedApi.internal.channels.telegramBotSetup.resolveWebhookSecretContext,
+    {
+      secretToken,
+      secretFingerprint,
+    }
+  );
+
+  const organizationId = asNonEmptyString(
+    (context as { organizationId?: unknown } | null)?.organizationId
+  );
+  if (!organizationId) {
+    return null;
+  }
+
+  return {
+    mode: "custom",
+    organizationId: organizationId as Id<"organizations">,
+  };
+}
+
+function extractWhatsAppPhoneNumberId(payload: Record<string, unknown>): string | undefined {
+  const entries = Array.isArray(payload.entry)
+    ? (payload.entry as Array<Record<string, unknown>>)
+    : [];
+
+  for (const entry of entries) {
+    const changes = Array.isArray(entry.changes)
+      ? (entry.changes as Array<Record<string, unknown>>)
+      : [];
+    for (const change of changes) {
+      const value = (change.value || {}) as Record<string, unknown>;
+      const metadata = (value.metadata || {}) as Record<string, unknown>;
+      const phoneNumberId = asNonEmptyString(metadata.phone_number_id);
+      if (phoneNumberId) {
+        return phoneNumberId;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -4129,17 +4284,27 @@ http.route({
 
     try {
       const body = await request.text();
-      const signatureResult = await verifySlackRequestSignature({
-        body,
-        signatureHeader: request.headers.get("x-slack-signature"),
-        timestampHeader: request.headers.get("x-slack-request-timestamp"),
-        signingSecrets: SLACK_INTEGRATION_CONFIG.signingSecretCandidates,
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(body) as Record<string, unknown>;
+      } catch {
+        return addRateLimitHeaders(
+          new Response("Invalid JSON payload", { status: 400 }),
+          rateLimitResult
+        );
+      }
+
+      const routingHints = extractSlackEventRoutingHints(payload);
+      const verificationContext = await resolveSlackVerificationContext(ctx, {
+        teamId: routingHints.teamId,
+        appId: routingHints.appId,
       });
 
-      if (!signatureResult.valid) {
-        console.error("[Slack Webhook] Signature verification failed:", {
-          reason: signatureResult.reason,
+      if (!verificationContext || verificationContext.signingSecrets.length === 0) {
+        console.error("[Slack Webhook] Missing signing secret for resolved installation:", {
           requestIp,
+          teamId: routingHints.teamId,
+          appId: routingHints.appId,
         });
         return addRateLimitHeaders(
           new Response("Invalid signature", { status: 401 }),
@@ -4147,12 +4312,22 @@ http.route({
         );
       }
 
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(body) as Record<string, unknown>;
-      } catch {
+      const signatureResult = await verifySlackRequestSignature({
+        body,
+        signatureHeader: request.headers.get("x-slack-signature"),
+        timestampHeader: request.headers.get("x-slack-request-timestamp"),
+        signingSecrets: verificationContext.signingSecrets,
+      });
+
+      if (!signatureResult.valid) {
+        console.error("[Slack Webhook] Signature verification failed:", {
+          reason: signatureResult.reason,
+          requestIp,
+          teamId: routingHints.teamId,
+          appId: routingHints.appId,
+        });
         return addRateLimitHeaders(
-          new Response("Invalid JSON payload", { status: 400 }),
+          new Response("Invalid signature", { status: 401 }),
           rateLimitResult
         );
       }
@@ -4192,7 +4367,20 @@ http.route({
         {
           payload: body,
           eventId: typeof payload.event_id === "string" ? payload.event_id : undefined,
-          teamId: typeof payload.team_id === "string" ? payload.team_id : undefined,
+          teamId:
+            routingHints.teamId ||
+            verificationContext.teamId ||
+            undefined,
+          providerConnectionId: verificationContext.providerConnectionId,
+          providerAccountId:
+            verificationContext.providerAccountId ||
+            routingHints.teamId ||
+            verificationContext.teamId ||
+            undefined,
+          providerInstallationId: verificationContext.providerInstallationId,
+          providerProfileId: verificationContext.providerProfileId,
+          providerProfileType: verificationContext.providerProfileType,
+          routeKey: verificationContext.routeKey,
           retryNum,
           retryReason: request.headers.get("x-slack-retry-reason") || undefined,
           signatureTimestamp: signatureResult.timestampSeconds,
@@ -4271,24 +4459,6 @@ http.route({
 
     try {
       const body = await request.text();
-      const signatureResult = await verifySlackRequestSignature({
-        body,
-        signatureHeader: request.headers.get("x-slack-signature"),
-        timestampHeader: request.headers.get("x-slack-request-timestamp"),
-        signingSecrets: SLACK_INTEGRATION_CONFIG.signingSecretCandidates,
-      });
-
-      if (!signatureResult.valid) {
-        console.error("[Slack Command] Signature verification failed:", {
-          reason: signatureResult.reason,
-          requestIp,
-        });
-        return addRateLimitHeaders(
-          new Response("Invalid signature", { status: 401 }),
-          rateLimitResult
-        );
-      }
-
       const payload = new URLSearchParams(body);
       const teamId = payload.get("team_id")?.trim() || "";
       const channelId = payload.get("channel_id")?.trim() || "";
@@ -4298,6 +4468,41 @@ http.route({
       if (!teamId || !channelId || !userId || !command) {
         return addRateLimitHeaders(
           new Response("Missing slash command fields", { status: 400 }),
+          rateLimitResult
+        );
+      }
+
+      const verificationContext = await resolveSlackVerificationContext(ctx, {
+        teamId,
+        appId: payload.get("api_app_id")?.trim() || undefined,
+      });
+      if (!verificationContext || verificationContext.signingSecrets.length === 0) {
+        console.error("[Slack Command] Missing signing secret for resolved installation:", {
+          requestIp,
+          teamId,
+          appId: payload.get("api_app_id")?.trim() || undefined,
+        });
+        return addRateLimitHeaders(
+          new Response("Invalid signature", { status: 401 }),
+          rateLimitResult
+        );
+      }
+
+      const signatureResult = await verifySlackRequestSignature({
+        body,
+        signatureHeader: request.headers.get("x-slack-signature"),
+        timestampHeader: request.headers.get("x-slack-request-timestamp"),
+        signingSecrets: verificationContext.signingSecrets,
+      });
+
+      if (!signatureResult.valid) {
+        console.error("[Slack Command] Signature verification failed:", {
+          reason: signatureResult.reason,
+          requestIp,
+          teamId,
+        });
+        return addRateLimitHeaders(
+          new Response("Invalid signature", { status: 401 }),
           rateLimitResult
         );
       }
@@ -4322,6 +4527,12 @@ http.route({
           text: payload.get("text") || undefined,
           triggerId: payload.get("trigger_id") || undefined,
           responseUrl: payload.get("response_url") || undefined,
+          providerConnectionId: verificationContext.providerConnectionId,
+          providerAccountId: verificationContext.providerAccountId || teamId,
+          providerInstallationId: verificationContext.providerInstallationId,
+          providerProfileId: verificationContext.providerProfileId,
+          providerProfileType: verificationContext.providerProfileType,
+          routeKey: verificationContext.routeKey,
           retryNum,
           retryReason: request.headers.get("x-slack-retry-reason") || undefined,
           signatureTimestamp: signatureResult.timestampSeconds,
@@ -4353,6 +4564,122 @@ http.route({
 });
 
 // ============================================================================
+// WHATSAPP WEBHOOK
+// ============================================================================
+
+const whatsappWebhookGetHandler = httpAction(async (_ctx, request) => {
+  const url = new URL(request.url);
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+  const expectedVerifyToken =
+    process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN;
+
+  if (!expectedVerifyToken) {
+    return new Response("Webhook verify token not configured", { status: 500 });
+  }
+
+  if (mode === "subscribe" && token === expectedVerifyToken && challenge) {
+    return new Response(challenge, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  return new Response("Forbidden", { status: 403 });
+});
+
+const whatsappWebhookPostHandler = httpAction(async (ctx, request) => {
+  try {
+    const payload = await request.text();
+    const signatureHeader = request.headers.get("x-hub-signature-256");
+    if (!signatureHeader) {
+      return new Response("Missing signature", { status: 401 });
+    }
+
+    const boundarySignatureValid = await verifyWhatsAppWebhookSignature({
+      payload,
+      signatureHeader,
+      appSecret: asNonEmptyString(process.env.META_APP_SECRET),
+    });
+    const actionSignatureValid = await (ctx as any).runAction(
+      generatedApi.internal.channels.webhooks.verifyWhatsAppSignature,
+      {
+        payload,
+        signature: signatureHeader,
+      }
+    );
+
+    if (!boundarySignatureValid || !actionSignatureValid) {
+      return new Response("Invalid signature", { status: 401 });
+    }
+
+    let parsedPayload: Record<string, unknown>;
+    try {
+      parsedPayload = JSON.parse(payload) as Record<string, unknown>;
+    } catch {
+      return new Response("Invalid JSON payload", { status: 400 });
+    }
+
+    if (parsedPayload.object !== "whatsapp_business_account") {
+      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const phoneNumberId = extractWhatsAppPhoneNumberId(parsedPayload);
+    if (!phoneNumberId) {
+      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    await (ctx as any).scheduler.runAfter(
+      0,
+      generatedApi.internal.channels.webhooks.processWhatsAppWebhook,
+      {
+        payload,
+        phoneNumberId,
+      }
+    );
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("[WhatsApp Webhook] Error:", error);
+    return new Response("Internal server error", { status: 500 });
+  }
+});
+
+http.route({
+  path: "/webhooks/whatsapp",
+  method: "GET",
+  handler: whatsappWebhookGetHandler,
+});
+
+http.route({
+  path: "/webhooks/whatsapp",
+  method: "POST",
+  handler: whatsappWebhookPostHandler,
+});
+
+http.route({
+  path: "/whatsapp-webhook",
+  method: "GET",
+  handler: whatsappWebhookGetHandler,
+});
+
+http.route({
+  path: "/whatsapp-webhook",
+  method: "POST",
+  handler: whatsappWebhookPostHandler,
+});
+
+// ============================================================================
 // TELEGRAM WEBHOOK
 // ============================================================================
 
@@ -4360,18 +4687,24 @@ http.route({
  * Telegram Bot API webhook endpoint.
  *
  * Flow:
- * 1. Parse the Telegram Update (extract chat_id, sender, /start param, text)
- * 2. Resolve chat → organization via telegramResolver.resolveChatToOrg
- * 3. If routeToSystemBot or /start deep link, resolveChatToOrg already handles
- *    mapping creation / activation — we just need to route the message.
+ * 1. Verify x-telegram-bot-api-secret-token at the HTTP boundary
+ * 2. Parse Telegram update and identify the authenticated ownership context
+ * 3. Resolve org routing (custom bot => authenticated org, platform => resolver)
  * 4. Feed message into agentExecution.processInboundMessage
- * 5. Send agent reply back to Telegram via Bot API
  */
 http.route({
   path: "/telegram-webhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     try {
+      const authContext = await resolveTelegramWebhookAuthContext(
+        ctx,
+        request.headers.get("x-telegram-bot-api-secret-token")
+      );
+      if (!authContext) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
       const body = await request.text();
       const update = JSON.parse(body);
 
@@ -4409,15 +4742,18 @@ http.route({
             actorLabel: callbackActorLabel || undefined,
           });
         } else if (callbackData === "soul_history" || callbackData.startsWith("soul_rollback_")) {
-          // Resolve org from chat mapping, then find active agent
-          const chatMapping = await (ctx as any).runQuery(
-            generatedApi.internal.onboarding.telegramResolver.getMappingByChatId,
-            { telegramChatId: cbChatId }
-          );
-          if (chatMapping?.organizationId) {
+          const callbackOrganizationId =
+            authContext.mode === "custom"
+              ? authContext.organizationId
+              : (await (ctx as any).runQuery(
+                  generatedApi.internal.onboarding.telegramResolver.getMappingByChatId,
+                  { telegramChatId: cbChatId }
+                ))?.organizationId;
+
+          if (callbackOrganizationId) {
             const agent = await (ctx as any).runQuery(
               generatedApi.internal.agentOntology.getActiveAgentForOrg,
-              { organizationId: chatMapping.organizationId }
+              { organizationId: callbackOrganizationId }
             );
             if (agent?._id) {
               await (ctx as any).runAction(generatedApi.internal.ai.soulEvolution.handleSoulHistoryCallback, {
@@ -4460,15 +4796,33 @@ http.route({
         startParam = undefined; // Plain /start with no param
       }
 
-      // 1. Resolve chat → org (handles deep links, onboarding, existing mappings)
-      const resolution = await (ctx as any).runAction(generatedApi.api.onboarding.telegramResolver.resolveChatToOrg, {
-        telegramChatId: chatId,
-        senderName: senderName || undefined,
-        startParam,
-      });
+      let organizationId: Id<"organizations"> | null = null;
+      let routeToSystemBot = false;
+      let isNew = false;
 
-      if (!resolution?.organizationId) {
-        console.error("[Telegram Webhook] Could not resolve org for chat", chatId);
+      if (authContext.mode === "custom") {
+        organizationId = authContext.organizationId;
+      } else {
+        const resolution = await (ctx as any).runAction(
+          generatedApi.api.onboarding.telegramResolver.resolveChatToOrg,
+          {
+            telegramChatId: chatId,
+            senderName: senderName || undefined,
+            startParam,
+          }
+        );
+
+        if (!resolution?.organizationId) {
+          console.error("[Telegram Webhook] Could not resolve org for chat", chatId);
+          return new Response("OK", { status: 200 });
+        }
+
+        organizationId = resolution.organizationId as Id<"organizations">;
+        routeToSystemBot = resolution.routeToSystemBot === true;
+        isNew = resolution.isNew === true;
+      }
+
+      if (!organizationId) {
         return new Response("OK", { status: 200 });
       }
 
@@ -4478,7 +4832,7 @@ http.route({
         generatedApi.internal.api.v1.webchatApi.checkRateLimit,
         {
           ipAddress: `telegram:${chatId}`,
-          organizationId: resolution.organizationId as Id<"organizations">,
+          organizationId,
           channel: "telegram",
           deviceFingerprint: chatId,
           sessionToken: chatId,
@@ -4490,7 +4844,7 @@ http.route({
       if (!telegramRateLimit.allowed || telegramRateLimit.requiresChallenge) {
         await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
           ipAddress: `telegram:${chatId}`,
-          organizationId: resolution.organizationId as Id<"organizations">,
+          organizationId,
           channel: "telegram",
           deviceFingerprint: chatId,
           sessionToken: chatId,
@@ -4509,7 +4863,7 @@ http.route({
 
       await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
         ipAddress: `telegram:${chatId}`,
-        organizationId: resolution.organizationId as Id<"organizations">,
+        organizationId,
         channel: "telegram",
         deviceFingerprint: chatId,
         sessionToken: chatId,
@@ -4525,11 +4879,14 @@ http.route({
       // For /start commands with deep link params, resolveChatToOrg handles
       // sending the confirmation. If it's just "/start" with no text to process,
       // send a welcome and return.
-      if (text === "/start" || text.startsWith("/start ")) {
+      if (
+        authContext.mode === "platform" &&
+        (text === "/start" || text.startsWith("/start "))
+      ) {
         // If this is a new user routed to System Bot, send a greeting
-        if (resolution.routeToSystemBot && resolution.isNew) {
+        if (routeToSystemBot && isNew) {
           await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
-            organizationId: resolution.organizationId,
+            organizationId,
             channel: "telegram",
             externalContactIdentifier: chatId,
             message: startParam
@@ -4562,7 +4919,7 @@ http.route({
       // 2. Feed into agent pipeline
       // Step 13 of the pipeline auto-sends the reply via channels.router → telegramProvider
       await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
-        organizationId: resolution.organizationId,
+        organizationId,
         channel: "telegram",
         externalContactIdentifier: chatId,
         message: telegramMessage,
