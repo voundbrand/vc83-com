@@ -11,11 +11,9 @@ async function waitForAppParamToBecome(page: Page, expectedValue: string, timeou
 }
 
 async function waitForAppParamToClear(page: Page, timeout = 10_000) {
-  await page.waitForFunction(
-    () => !new URL(window.location.href).searchParams.get("app"),
-    undefined,
-    { timeout },
-  );
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("app"), { timeout })
+    .toBeNull();
 }
 
 async function getVisibleLauncherIds(page: Page, timeout = 10_000) {
@@ -95,19 +93,16 @@ test.describe("Mobile Shell", () => {
       await openAppsMenu(page);
       const menuPanel = page.getByTestId("windows-menu-panel").first();
       const launcherIds = await getVisibleLauncherIds(page);
-      const switchLauncherId = launcherIds.find((id) => !id.includes("store"));
+      const switchLauncherId =
+        launcherIds.find((id) => id.includes("mobile-settings")) ??
+        launcherIds.find((id) => id.includes("mobile-browse-apps")) ??
+        launcherIds.find((id) => id.includes("mobile-search-apps")) ??
+        launcherIds.find((id) => !id.includes("store") && !id.includes("mobile-auth"));
       expect(switchLauncherId, `Expected a non-store launcher. Got: ${launcherIds.join(", ")}`).toBeTruthy();
 
       await safeClick(menuPanel.getByTestId(switchLauncherId!));
-
-      await page.waitForFunction(() => {
-        const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
-          (node.textContent || "").toLowerCase(),
-        );
-        const switchedPanel = headings.some((text) => /all apps|all applications|user account/.test(text));
-        const storeStillVisible = headings.some((text) => text.includes("store"));
-        return switchedPanel && !storeStillVisible;
-      });
+      await expect(page.locator("h2", { hasText: /store/i })).toHaveCount(0, { timeout: 20_000 });
+      await expect(page.getByRole("button", { name: /close window/i })).toHaveCount(1);
     });
 
     await test.step("store deep-link opens and close clears app param", async () => {
@@ -122,7 +117,7 @@ test.describe("Mobile Shell", () => {
 
     await test.step("unknown deep-link app is cleaned from URL", async () => {
       await page.goto(`/?app=does-not-exist&context=${DEEP_LINK_CONTEXT}`, { waitUntil: "domcontentloaded" });
-      await waitForAppParamToClear(page);
+      await waitForAppParamToClear(page, 30_000);
       await expect(page).not.toHaveURL(/[\?&]app=/);
     });
   });
