@@ -1,5 +1,255 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  trustEventActorTypeValidator,
+  trustEventModeValidator,
+  trustEventNameValidator,
+  trustEventSchemaValidationStatusValidator,
+} from "../ai/trustEvents";
+
+// ============================================================================
+// COORDINATION KERNEL ENUMS (Plans 14-15)
+// ============================================================================
+
+export const AGENT_TURN_STATE_VALUES = [
+  "queued",
+  "running",
+  "suspended",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+export const AGENT_TURN_TRANSITION_VALUES = [
+  "inbound_received",
+  "turn_enqueued",
+  "lease_acquired",
+  "lease_heartbeat",
+  "lease_released",
+  "lease_failed",
+  "turn_resumed",
+  "turn_suspended",
+  "turn_completed",
+  "turn_failed",
+  "handoff_initiated",
+  "handoff_completed",
+  "escalation_started",
+  "escalation_resolved",
+  "stale_recovered",
+  "duplicate_dropped",
+  "terminal_deliverable_recorded",
+] as const;
+
+export const agentTurnStateValidator = v.union(
+  v.literal("queued"),
+  v.literal("running"),
+  v.literal("suspended"),
+  v.literal("completed"),
+  v.literal("failed"),
+  v.literal("cancelled"),
+);
+
+export const agentTurnTransitionValidator = v.union(
+  v.literal("inbound_received"),
+  v.literal("turn_enqueued"),
+  v.literal("lease_acquired"),
+  v.literal("lease_heartbeat"),
+  v.literal("lease_released"),
+  v.literal("lease_failed"),
+  v.literal("turn_resumed"),
+  v.literal("turn_suspended"),
+  v.literal("turn_completed"),
+  v.literal("turn_failed"),
+  v.literal("handoff_initiated"),
+  v.literal("handoff_completed"),
+  v.literal("escalation_started"),
+  v.literal("escalation_resolved"),
+  v.literal("stale_recovered"),
+  v.literal("duplicate_dropped"),
+  v.literal("terminal_deliverable_recorded"),
+);
+
+// ============================================================================
+// CORE MEMORY MODEL ENUMS (Plan 17)
+// ============================================================================
+
+export const CORE_MEMORY_TYPE_VALUES = [
+  "identity",
+  "boundary",
+  "empathy",
+  "pride",
+  "caution",
+] as const;
+
+export const CORE_MEMORY_SOURCE_VALUES = [
+  "onboarding_story",
+  "onboarding_roleplay",
+  "operator_curated",
+  "reflection_promoted",
+  "unknown",
+] as const;
+
+export const coreMemoryTypeValidator = v.union(
+  v.literal("identity"),
+  v.literal("boundary"),
+  v.literal("empathy"),
+  v.literal("pride"),
+  v.literal("caution"),
+);
+
+export const coreMemorySourceValidator = v.union(
+  v.literal("onboarding_story"),
+  v.literal("onboarding_roleplay"),
+  v.literal("operator_curated"),
+  v.literal("reflection_promoted"),
+  v.literal("unknown"),
+);
+
+export const coreMemoryValidator = v.object({
+  memoryId: v.string(),
+  type: coreMemoryTypeValidator,
+  title: v.string(),
+  narrative: v.string(),
+  source: coreMemorySourceValidator,
+  immutable: v.boolean(),
+  immutableReason: v.optional(v.string()),
+  tags: v.optional(v.array(v.string())),
+  confidence: v.optional(v.number()),
+  createdAt: v.number(),
+  createdBy: v.optional(v.string()),
+  approvedAt: v.optional(v.number()),
+  approvedBy: v.optional(v.string()),
+  lastReferencedAt: v.optional(v.number()),
+  archivedAt: v.optional(v.number()),
+});
+
+export const coreMemoryPolicyValidator = v.object({
+  immutableByDefault: v.boolean(),
+  requireOwnerApprovalForMutations: v.boolean(),
+  allowOwnerEdits: v.boolean(),
+  minCoreMemories: v.number(),
+  maxCoreMemories: v.number(),
+  requiredMemoryTypes: v.array(coreMemoryTypeValidator),
+});
+
+export const soulDriftScoresValidator = v.object({
+  identity: v.number(),
+  scope: v.number(),
+  boundary: v.number(),
+  performance: v.number(),
+  overall: v.number(),
+});
+
+// ============================================================================
+// TRUST EVENT TAXONOMY (ATX-003)
+// ============================================================================
+
+export const trustEventPayloadValidator = v.object({
+  // Base payload fields (ATX-002 contract)
+  event_id: v.string(),
+  event_version: v.string(),
+  occurred_at: v.number(),
+  org_id: v.id("organizations"),
+  mode: trustEventModeValidator,
+  channel: v.string(),
+  session_id: v.string(),
+  actor_type: trustEventActorTypeValidator,
+  actor_id: v.string(),
+
+  // Business layer context fields
+  source_layer: v.optional(v.string()),
+  resolved_layer: v.optional(v.string()),
+  enforcement_action: v.optional(v.string()),
+  request_origin: v.optional(v.string()),
+
+  // Lifecycle transition fields
+  lifecycle_state_from: v.optional(v.string()),
+  lifecycle_state_to: v.optional(v.string()),
+  lifecycle_checkpoint: v.optional(v.string()),
+  lifecycle_transition_actor: v.optional(v.string()),
+  lifecycle_transition_reason: v.optional(v.string()),
+
+  // Content DNA fields
+  content_profile_id: v.optional(v.string()),
+  content_profile_version: v.optional(v.string()),
+  source_object_ids: v.optional(v.array(v.string())),
+  artifact_types: v.optional(v.array(v.string())),
+
+  // Memory consent fields
+  consent_scope: v.optional(v.string()),
+  consent_decision: v.optional(v.string()),
+  memory_candidate_ids: v.optional(v.array(v.string())),
+  consent_prompt_version: v.optional(v.string()),
+
+  // Knowledge ingestion fields
+  knowledge_item_id: v.optional(v.string()),
+  knowledge_kind: v.optional(v.string()),
+  ingest_status: v.optional(v.string()),
+  processor_stage: v.optional(v.string()),
+  failure_reason: v.optional(v.string()),
+
+  // Setup artifact generation fields
+  setup_session_id: v.optional(v.string()),
+  artifact_kind: v.optional(v.string()),
+  artifact_path: v.optional(v.string()),
+  artifact_checksum: v.optional(v.string()),
+  generator_model: v.optional(v.string()),
+
+  // Setup connect handoff fields
+  detected_artifacts: v.optional(v.array(v.string())),
+  validation_status: v.optional(v.string()),
+  validation_errors: v.optional(v.array(v.string())),
+  persisted_object_ids: v.optional(v.array(v.string())),
+
+  // Soul evolution governance fields
+  proposal_id: v.optional(v.string()),
+  proposal_version: v.optional(v.string()),
+  risk_level: v.optional(v.string()),
+  review_decision: v.optional(v.string()),
+  rollback_target: v.optional(v.string()),
+
+  // Guardrail enforcement fields
+  policy_type: v.optional(v.string()),
+  policy_id: v.optional(v.string()),
+  tool_name: v.optional(v.string()),
+  enforcement_decision: v.optional(v.string()),
+  override_source: v.optional(v.string()),
+
+  // Team handoff fields
+  team_session_id: v.optional(v.string()),
+  handoff_id: v.optional(v.string()),
+  from_agent_id: v.optional(v.string()),
+  to_agent_id: v.optional(v.string()),
+  context_digest: v.optional(v.string()),
+
+  // Trust telemetry fields
+  taxonomy_version: v.optional(v.string()),
+  event_namespace: v.optional(v.string()),
+  schema_validation_status: v.optional(trustEventSchemaValidationStatusValidator),
+  metric_name: v.optional(v.string()),
+  metric_value: v.optional(v.number()),
+
+  // Super-admin parity fields
+  platform_agent_id: v.optional(v.string()),
+  training_template_id: v.optional(v.string()),
+  parity_mode: v.optional(v.string()),
+  customer_agent_template_link: v.optional(v.string()),
+});
+
+export const aiTrustEvents = defineTable({
+  event_name: trustEventNameValidator,
+  payload: trustEventPayloadValidator,
+  schema_validation_status: trustEventSchemaValidationStatusValidator,
+  schema_errors: v.optional(v.array(v.string())),
+  created_at: v.number(),
+})
+  .index("by_org_occurred_at", ["payload.org_id", "payload.occurred_at"])
+  .index("by_event_name_occurred_at", ["event_name", "payload.occurred_at"])
+  .index("by_mode_occurred_at", ["payload.mode", "payload.occurred_at"])
+  .index("by_schema_status_occurred_at", [
+    "schema_validation_status",
+    "payload.occurred_at",
+  ]);
 
 /**
  * AI Integration Schemas - General AI Assistant + Email AI Specialist
@@ -361,6 +611,57 @@ export const aiAgentMemory = defineTable({
     filterFields: ["organizationId"],
   });
 
+/**
+ * Organization Knowledge Chunks
+ *
+ * Chunk/index storage for semantic retrieval across organization media docs.
+ */
+export const organizationKnowledgeChunks = defineTable({
+  organizationId: v.id("organizations"),
+  mediaId: v.id("organizationMedia"),
+  chunkId: v.string(),
+  chunkOrdinal: v.number(),
+  chunkText: v.string(),
+  chunkCharCount: v.number(),
+  tokenEstimate: v.number(),
+  startOffset: v.number(),
+  endOffset: v.number(),
+  sourceFilename: v.string(),
+  sourceDescription: v.optional(v.string()),
+  sourceTags: v.optional(v.array(v.string())),
+  sourceUpdatedAt: v.number(),
+  indexVersion: v.number(),
+  indexedAt: v.number(),
+
+  // Multiple embedding fields (per-org provider choice)
+  embeddingProvider: v.optional(v.string()),
+  embeddingModel: v.optional(v.string()),
+  embeddingDimensions: v.optional(v.number()),
+  embedding_openai_1536: v.optional(v.array(v.float64())),
+  embedding_voyage_1024: v.optional(v.array(v.float64())),
+  embedding_cohere_1024: v.optional(v.array(v.float64())),
+})
+  .index("by_organization", ["organizationId"])
+  .index("by_media", ["mediaId"])
+  .index("by_org_media", ["organizationId", "mediaId"])
+  .index("by_org_indexed_at", ["organizationId", "indexedAt"])
+  .index("by_org_chunk_id", ["organizationId", "chunkId"])
+  .vectorIndex("by_embedding_openai_1536", {
+    vectorField: "embedding_openai_1536",
+    dimensions: 1536,
+    filterFields: ["organizationId"],
+  })
+  .vectorIndex("by_embedding_voyage_1024", {
+    vectorField: "embedding_voyage_1024",
+    dimensions: 1024,
+    filterFields: ["organizationId"],
+  })
+  .vectorIndex("by_embedding_cohere_1024", {
+    vectorField: "embedding_cohere_1024",
+    dimensions: 1024,
+    filterFields: ["organizationId"],
+  });
+
 // ============================================================================
 // AI MODEL DISCOVERY (Auto-Discovery System)
 // ============================================================================
@@ -399,6 +700,17 @@ export const aiModels = defineTable({
   // Platform availability (super admin controlled)
   isPlatformEnabled: v.optional(v.boolean()), // Whether this model is available platform-wide
   isSystemDefault: v.optional(v.boolean()),   // Whether this model is a system default (recommended)
+  lifecycleStatus: v.optional(v.union(
+    v.literal("discovered"),
+    v.literal("enabled"),
+    v.literal("default"),
+    v.literal("deprecated"),
+    v.literal("retired")
+  )),
+  deprecatedAt: v.optional(v.number()),
+  retiredAt: v.optional(v.number()),
+  replacementModelId: v.optional(v.string()),
+  retirementReason: v.optional(v.string()),
 
   // Validation tracking (for testing tool calling before enabling)
   validationStatus: v.optional(v.union(
@@ -424,7 +736,8 @@ export const aiModels = defineTable({
   .index("by_new", ["isNew"])
   .index("by_platform_enabled", ["isPlatformEnabled"])
   .index("by_system_default", ["isSystemDefault"])
-  .index("by_validation_status", ["validationStatus"]);
+  .index("by_validation_status", ["validationStatus"])
+  .index("by_lifecycle_status", ["lifecycleStatus"]);
 
 /**
  * AI Work Items
@@ -470,6 +783,56 @@ export const aiWorkItems = defineTable({
   .index("by_conversation", ["conversationId"])
   .index("by_status", ["status"])
   .index("by_org_status", ["organizationId", "status"]);
+
+/**
+ * Agent Inbox Receipts
+ *
+ * Durable ingress receipts for inbound agent runtime processing.
+ * Receipt lifecycle: accepted -> processing -> completed|failed|duplicate
+ */
+export const agentInboxReceipts = defineTable({
+  organizationId: v.id("organizations"),
+  sessionId: v.id("agentSessions"),
+  agentId: v.id("objects"),
+  channel: v.string(),
+  externalContactIdentifier: v.string(),
+  idempotencyKey: v.string(),
+  payloadHash: v.optional(v.string()),
+
+  status: v.union(
+    v.literal("accepted"),
+    v.literal("processing"),
+    v.literal("completed"),
+    v.literal("failed"),
+    v.literal("duplicate")
+  ),
+
+  turnId: v.optional(v.id("agentTurns")),
+  duplicateCount: v.number(),
+  firstSeenAt: v.number(),
+  lastSeenAt: v.number(),
+  processingStartedAt: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+  failedAt: v.optional(v.number()),
+  failureReason: v.optional(v.string()),
+
+  terminalDeliverable: v.optional(v.object({
+    pointerType: v.string(),
+    pointerId: v.string(),
+    status: v.union(v.literal("success"), v.literal("failed")),
+    recordedAt: v.number(),
+  })),
+
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_idempotency_key", ["organizationId", "idempotencyKey"])
+  .index("by_session", ["sessionId"])
+  .index("by_status", ["status"])
+  .index("by_org_status", ["organizationId", "status"])
+  .index("by_turn", ["turnId"])
+  .index("by_org_time", ["organizationId", "createdAt"]);
 
 // ============================================================================
 // AI TRAINING DATA COLLECTION (Custom Model Training)

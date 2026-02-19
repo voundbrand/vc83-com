@@ -113,7 +113,7 @@ For lighter, simpler designs with image below text:
     "title": "Main Headline",
     "subtitle": "Supporting text that explains the value proposition",
     "alignment": "center",
-    "backgroundClassName": "bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-16 sm:py-24",
+    "backgroundClassName": "bg-gradient-to-br from-sky-50 via-white to-cyan-50 py-16 sm:py-24",
     "titleClassName": "text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900",
     "subtitleClassName": "text-lg sm:text-xl text-gray-600 mt-6 max-w-2xl mx-auto",
     "cta": {
@@ -180,7 +180,7 @@ A call-to-action section, typically at the end.
   "props": {
     "title": "Ready to Get Started?",
     "description": "Join thousands of happy customers today.",
-    "backgroundClassName": "bg-gradient-to-r from-indigo-600 to-purple-600 py-16 sm:py-20",
+    "backgroundClassName": "bg-gradient-to-r from-indigo-600 to-cyan-600 py-16 sm:py-20",
     "titleClassName": "text-3xl sm:text-4xl font-bold text-white",
     "descriptionClassName": "text-indigo-100 mt-4 max-w-xl mx-auto",
     "primaryCta": {
@@ -566,7 +566,7 @@ When you understand the user's business/context, apply these design rules:
 
 ### Technology / SaaS / Startups
 - **Colors**: Indigo (#4f46e5), Purple (#7c3aed), Electric blue (#3b82f6), Dark backgrounds
-- **Gradients**: from-indigo-600 to-purple-600, from-slate-950 via-slate-900 to-indigo-950
+- **Gradients**: from-indigo-600 to-cyan-600, from-slate-950 via-slate-900 to-indigo-950
 - **Mood**: Innovative, modern, cutting-edge, trustworthy
 - **Icons**: Rocket, Cpu, Database, Zap, Globe, Layers, Code, Terminal
 - **Images**: Search "abstract technology", "modern interface", "team collaboration"
@@ -590,7 +590,7 @@ When you understand the user's business/context, apply these design rules:
 
 ### Creative / Design / Agency
 - **Colors**: Bold primaries, Black (#000000), White, Accent pops of color
-- **Gradients**: from-pink-500 via-purple-500 to-indigo-500, from-black to-gray-900
+- **Gradients**: from-pink-500 via-fuchsia-500 to-indigo-500, from-black to-gray-900
 - **Mood**: Bold, artistic, innovative, expressive
 - **Icons**: PenTool, Palette, Camera, Sparkles, Eye, Layers
 - **Images**: Search "creative workspace", "design portfolio", "artistic abstract"

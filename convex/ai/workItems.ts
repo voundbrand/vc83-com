@@ -121,6 +121,32 @@ export function aggregateToolSuccessFailure(
   };
 }
 
+const RECEIPT_STATUS_VALUES = [
+  "accepted",
+  "processing",
+  "completed",
+  "failed",
+  "duplicate",
+] as const;
+
+async function fetchOrganizationReceipts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: string
+) {
+  const groups = await Promise.all(
+    RECEIPT_STATUS_VALUES.map((status) =>
+      ctx.db
+        .query("agentInboxReceipts")
+        .withIndex("by_org_status", (q: any) =>
+          q.eq("organizationId", organizationId).eq("status", status)
+        )
+        .collect()
+    )
+  );
+  return groups.flat();
+}
+
 // ============================================================================
 // CONTACT SYNC QUERIES
 // ============================================================================
@@ -401,6 +427,96 @@ export const getToolSuccessFailureRatio = query({
         recentWorkItems.map((item) => item.status),
         { windowHours: clampedHours, since }
       ),
+    };
+  },
+});
+
+/**
+ * Receipt operations dashboard for support and incident triage.
+ */
+export const getReceiptOperationsDashboard = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    staleMinutes: v.optional(v.number()),
+    minAgingMinutes: v.optional(v.number()),
+    minDuplicateCount: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const now = Date.now();
+    const staleMs = Math.max(1, Math.floor(args.staleMinutes ?? 10)) * 60 * 1000;
+    const agingMs = Math.max(1, Math.floor(args.minAgingMinutes ?? 15)) * 60 * 1000;
+    const minDuplicateCount = Math.max(1, Math.floor(args.minDuplicateCount ?? 1));
+    const limit = Math.max(1, Math.floor(args.limit ?? 50));
+
+    const receipts = await fetchOrganizationReceipts(ctx, args.organizationId);
+
+    const summary = {
+      total: receipts.length,
+      accepted: receipts.filter((receipt) => receipt.status === "accepted").length,
+      processing: receipts.filter((receipt) => receipt.status === "processing").length,
+      completed: receipts.filter((receipt) => receipt.status === "completed").length,
+      failed: receipts.filter((receipt) => receipt.status === "failed").length,
+      duplicate: receipts.filter((receipt) => receipt.status === "duplicate").length,
+      withDuplicates: receipts.filter((receipt) => receipt.duplicateCount > 0).length,
+    };
+
+    const aging = receipts
+      .filter((receipt) => receipt.status === "accepted" || receipt.status === "processing")
+      .map((receipt) => ({
+        receiptId: receipt._id,
+        status: receipt.status,
+        turnId: receipt.turnId,
+        idempotencyKey: receipt.idempotencyKey,
+        ageMs: now - receipt.firstSeenAt,
+        duplicateCount: receipt.duplicateCount,
+      }))
+      .filter((receipt) => receipt.ageMs >= agingMs)
+      .sort((a, b) => b.ageMs - a.ageMs)
+      .slice(0, limit);
+
+    const duplicates = receipts
+      .filter((receipt) => receipt.duplicateCount >= minDuplicateCount)
+      .map((receipt) => ({
+        receiptId: receipt._id,
+        status: receipt.status,
+        turnId: receipt.turnId,
+        idempotencyKey: receipt.idempotencyKey,
+        duplicateCount: receipt.duplicateCount,
+        lastSeenAt: receipt.lastSeenAt,
+      }))
+      .sort((a, b) => {
+        if (b.duplicateCount !== a.duplicateCount) {
+          return b.duplicateCount - a.duplicateCount;
+        }
+        return b.lastSeenAt - a.lastSeenAt;
+      })
+      .slice(0, limit);
+
+    const stuck = receipts
+      .filter((receipt) => receipt.status === "processing")
+      .map((receipt) => {
+        const startedAt = receipt.processingStartedAt ?? receipt.firstSeenAt;
+        return {
+          receiptId: receipt._id,
+          turnId: receipt.turnId,
+          idempotencyKey: receipt.idempotencyKey,
+          processingAgeMs: now - startedAt,
+          duplicateCount: receipt.duplicateCount,
+        };
+      })
+      .filter((receipt) => receipt.processingAgeMs >= staleMs)
+      .sort((a, b) => b.processingAgeMs - a.processingAgeMs)
+      .slice(0, limit);
+
+    return {
+      summary,
+      aging,
+      duplicates,
+      stuck,
     };
   },
 });

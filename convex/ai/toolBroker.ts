@@ -12,6 +12,98 @@
  */
 
 // ============================================================================
+// TOOL ARGUMENT PARSING / NORMALIZATION ADAPTER
+// ============================================================================
+
+export interface ParseToolCallArgumentsOptions {
+  strict?: boolean;
+}
+
+export interface ParsedToolCallArguments {
+  args: Record<string, unknown>;
+  normalizedArguments: string;
+  isError: boolean;
+  error?: string;
+}
+
+type ProviderToolCallEnvelope = {
+  function?: {
+    arguments?: string | null;
+  };
+};
+
+export function normalizeToolArgumentString(rawArguments: unknown): string {
+  if (typeof rawArguments === "string") {
+    const trimmed = rawArguments.trim();
+    if (
+      trimmed === ""
+      || trimmed === "undefined"
+      || trimmed === "null"
+    ) {
+      return "{}";
+    }
+    return trimmed;
+  }
+
+  if (rawArguments && typeof rawArguments === "object") {
+    try {
+      return JSON.stringify(rawArguments);
+    } catch {
+      return "{}";
+    }
+  }
+
+  return "{}";
+}
+
+export function parseToolCallArguments(
+  rawArguments: unknown,
+  options: ParseToolCallArgumentsOptions = {}
+): ParsedToolCallArguments {
+  const normalizedArguments = normalizeToolArgumentString(rawArguments);
+
+  try {
+    const parsed = JSON.parse(normalizedArguments);
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      const nonObjectError = "Tool arguments must be a JSON object";
+      return {
+        args: {},
+        normalizedArguments,
+        isError: options.strict === true,
+        error: nonObjectError,
+      };
+    }
+
+    return {
+      args: parsed as Record<string, unknown>,
+      normalizedArguments,
+      isError: false,
+    };
+  } catch (error) {
+    const parseError = error instanceof Error ? error.message : String(error);
+    return {
+      args: {},
+      normalizedArguments,
+      isError: options.strict === true,
+      error: `Invalid tool arguments JSON: ${parseError}`,
+    };
+  }
+}
+
+export function normalizeToolCallsForProvider<T extends ProviderToolCallEnvelope>(
+  toolCalls: T[]
+): T[] {
+  return toolCalls.map((toolCall) => ({
+    ...toolCall,
+    function: {
+      ...(toolCall.function ?? {}),
+      arguments: normalizeToolArgumentString(toolCall.function?.arguments),
+    },
+  }));
+}
+
+// ============================================================================
 // INTENT PATTERNS (deterministic keyword matching)
 // ============================================================================
 

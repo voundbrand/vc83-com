@@ -16,6 +16,8 @@ export interface DeliverAssistantResponseArgs {
   recipientIdentifier: string;
   assistantContent: string;
   sessionId: string;
+  turnId?: Id<"agentTurns">;
+  receiptId?: Id<"agentInboxReceipts">;
   metadata?: Record<string, unknown>;
 }
 
@@ -23,6 +25,7 @@ export interface DeliverAssistantResponseResult {
   skipped: boolean;
   delivered: boolean;
   queuedToDeadLetter: boolean;
+  deadLetterEntryId?: string;
 }
 
 export async function deliverAssistantResponseWithFallback(
@@ -55,7 +58,7 @@ export async function deliverAssistantResponseWithFallback(
     console.error("[AgentExecution] Outbound delivery failed, adding to DLQ:", errorStr);
 
     try {
-      await ctx.runMutation(refs.addToDeadLetterQueue, {
+      const deadLetterResult = await ctx.runMutation(refs.addToDeadLetterQueue, {
         organizationId: args.organizationId,
         channel: args.channel,
         recipientIdentifier: args.recipientIdentifier,
@@ -63,9 +66,22 @@ export async function deliverAssistantResponseWithFallback(
         error: errorStr,
         sessionId: args.sessionId,
         providerConversationId,
-      });
+        turnId: args.turnId,
+        receiptId: args.receiptId,
+      }) as { entryId?: string } | null;
 
-      return { skipped: false, delivered: false, queuedToDeadLetter: true };
+      const deadLetterEntryId =
+        typeof deadLetterResult?.entryId === "string"
+          ? deadLetterResult.entryId
+          : undefined;
+      return deadLetterEntryId
+        ? {
+            skipped: false,
+            delivered: false,
+            queuedToDeadLetter: true,
+            deadLetterEntryId,
+          }
+        : { skipped: false, delivered: false, queuedToDeadLetter: true };
     } catch (dlqError) {
       // Preserve historical behavior: log and continue so session state is not rolled back by adapter failures.
       console.error("[AgentExecution] Failed to add to dead letter queue:", dlqError);

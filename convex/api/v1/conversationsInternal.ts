@@ -7,6 +7,34 @@
 
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "../../_generated/server";
+import {
+  AGENT_LIFECYCLE_CHECKPOINT_VALUES,
+  resolveSessionLifecycleState,
+} from "../../ai/agentLifecycle";
+import {
+  TRUST_EVENT_TAXONOMY_VERSION,
+  validateTrustEventPayload,
+} from "../../ai/trustEvents";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../_generated/api");
+
+const LIFECYCLE_CHECKPOINT_SET = new Set<string>(AGENT_LIFECYCLE_CHECKPOINT_VALUES);
+
+function resolveOperatorReplyReason(reason?: string): string {
+  if (typeof reason !== "string") {
+    return "operator_reply_in_stream";
+  }
+  const normalized = reason.trim();
+  return normalized.length > 0 ? normalized : "operator_reply_in_stream";
+}
+
+function resolveLifecycleCheckpoint(checkpoint?: unknown): string {
+  if (typeof checkpoint === "string" && LIFECYCLE_CHECKPOINT_SET.has(checkpoint)) {
+    return checkpoint;
+  }
+  return "escalation_taken_over";
+}
 
 /**
  * LIST CONVERSATIONS
@@ -182,6 +210,9 @@ export const sendMessageInternal = internalMutation({
     organizationId: v.id("organizations"),
     sessionId: v.id("agentSessions"),
     content: v.string(),
+    reason: v.optional(v.string()),
+    note: v.optional(v.string()),
+    providerConversationId: v.optional(v.string()),
     performedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -191,26 +222,146 @@ export const sendMessageInternal = internalMutation({
       throw new Error("Session not found");
     }
 
-    // Only allow messages to active or handed_off sessions
-    if (session.status === "closed") {
-      throw new Error("Cannot send message to a closed session");
+    if (session.status !== "handed_off") {
+      throw new Error("reply_in_stream requires handed_off session status");
     }
 
-    // Insert the human message
+    const content = args.content.trim();
+    if (content.length === 0) {
+      throw new Error("Message content cannot be empty");
+    }
+
+    const now = Date.now();
+    const reason = resolveOperatorReplyReason(args.reason);
+    const actorId = args.performedBy?.trim() || "operator_api";
+    const lifecycleState = resolveSessionLifecycleState(session);
+    const lifecycleCheckpoint = resolveLifecycleCheckpoint(session.lifecycleCheckpoint);
+
+    const deliveryResult = await (ctx as any).runAction(
+      generatedApi.internal.channels.router.sendMessage,
+      {
+        organizationId: args.organizationId,
+        channel: session.channel,
+        recipientIdentifier: session.externalContactIdentifier,
+        content,
+        providerConversationId: args.providerConversationId,
+      }
+    ) as {
+      success?: boolean;
+      error?: string;
+      providerMessageId?: string;
+    };
+
+    if (!deliveryResult?.success) {
+      const deliveryError = deliveryResult?.error || "channel_delivery_failed";
+
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: session.agentId,
+        actionType: "session_reply_in_stream_failed",
+        actionData: {
+          sessionId: args.sessionId,
+          threadId: args.sessionId,
+          channel: session.channel,
+          externalContactIdentifier: session.externalContactIdentifier,
+          lifecycleState,
+          lifecycleCheckpoint,
+          reason,
+          note: args.note,
+          deliveryError,
+          providerConversationId: args.providerConversationId,
+        },
+        performedAt: now,
+      });
+
+      throw new Error(`Failed to deliver operator reply: ${deliveryError}`);
+    }
+
+    // Persist delivered operator reply as outbound assistant turn.
     const messageId = await ctx.db.insert("agentSessionMessages", {
       sessionId: args.sessionId,
-      role: "user",
-      content: args.content,
-      timestamp: Date.now(),
+      role: "assistant",
+      content,
+      timestamp: now,
     });
 
-    // Update session stats
-    await ctx.db.patch(args.sessionId, {
-      messageCount: session.messageCount + 1,
-      lastMessageAt: Date.now(),
+    const escalationState = session.escalationState;
+    if (escalationState?.status === "taken_over") {
+      await ctx.db.patch(args.sessionId, {
+        messageCount: session.messageCount + 1,
+        lastMessageAt: now,
+        escalationState: {
+          ...escalationState,
+          status: "taken_over",
+          humanMessages: [
+            ...(escalationState.humanMessages || []),
+            content,
+          ],
+        },
+      });
+    } else {
+      await ctx.db.patch(args.sessionId, {
+        messageCount: session.messageCount + 1,
+        lastMessageAt: now,
+      });
+    }
+
+    const trustEventPayload = {
+      event_id: `trust.lifecycle.operator_reply_in_stream.v1:${args.sessionId}:${messageId}:${now}`,
+      event_version: TRUST_EVENT_TAXONOMY_VERSION,
+      occurred_at: now,
+      org_id: args.organizationId,
+      mode: "lifecycle" as const,
+      channel: session.channel || "runtime",
+      session_id: String(args.sessionId),
+      actor_type: "user" as const,
+      actor_id: actorId,
+      lifecycle_state_from: lifecycleState,
+      lifecycle_state_to: lifecycleState,
+      lifecycle_checkpoint: lifecycleCheckpoint,
+      lifecycle_transition_actor: "operator",
+      lifecycle_transition_reason: reason,
+    };
+
+    const trustValidation = validateTrustEventPayload(
+      "trust.lifecycle.operator_reply_in_stream.v1",
+      trustEventPayload,
+    );
+
+    await ctx.db.insert("aiTrustEvents", {
+      event_name: "trust.lifecycle.operator_reply_in_stream.v1",
+      payload: trustEventPayload,
+      schema_validation_status: trustValidation.ok ? "passed" : "failed",
+      schema_errors: trustValidation.ok ? undefined : trustValidation.errors,
+      created_at: now,
     });
 
-    return { messageId };
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: session.agentId,
+      actionType: "session_reply_in_stream",
+      actionData: {
+        sessionId: args.sessionId,
+        threadId: args.sessionId,
+        channel: session.channel,
+        externalContactIdentifier: session.externalContactIdentifier,
+        lifecycleState,
+        lifecycleCheckpoint,
+        reason,
+        note: args.note,
+        providerConversationId: args.providerConversationId,
+        providerMessageId: deliveryResult.providerMessageId,
+        trustEventName: "trust.lifecycle.operator_reply_in_stream.v1",
+        trustEventId: trustEventPayload.event_id,
+      },
+      performedAt: now,
+    });
+
+    return {
+      messageId,
+      providerMessageId: deliveryResult.providerMessageId,
+      trustEventId: trustEventPayload.event_id,
+    };
   },
 });
 

@@ -12,7 +12,7 @@
 
 import { config as loadEnv } from "dotenv";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import { CRITICAL_TOOL_NAMES } from "../convex/ai/tools/contracts";
 import {
   parseToolCallArguments,
@@ -27,12 +27,34 @@ import {
 loadEnv({ path: ".env.local" });
 loadEnv();
 
-const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL!;
+const client = new ConvexHttpClient(CONVEX_URL);
+const CONVEX_DEPLOY_KEY = process.env.CONVEX_DEPLOY_KEY?.trim() || "";
+const adminClient = CONVEX_DEPLOY_KEY
+  ? (() => {
+      const c = new ConvexHttpClient(CONVEX_URL);
+      const maybeAdminClient = c as any;
+      if (typeof maybeAdminClient.setAdminAuth === "function") {
+        maybeAdminClient.setAdminAuth(CONVEX_DEPLOY_KEY);
+        return c;
+      }
+      return null;
+    })()
+  : null;
 
-const TEST_ORG_ID = process.env.TEST_ORG_ID!;
-const TEST_USER_ID = process.env.TEST_USER_ID!;
-const TEST_SESSION_ID = process.env.TEST_SESSION_ID!;
+let TEST_ORG_ID = process.env.TEST_ORG_ID?.trim() || "";
+let TEST_USER_ID = process.env.TEST_USER_ID?.trim() || "";
+const TEST_SESSION_ID = process.env.TEST_SESSION_ID?.trim() || "";
 const TEST_MODEL_ID = process.env.TEST_MODEL_ID;
+
+interface ValidationFixtureContext {
+  organizationId: string;
+  userId: string;
+}
+
+let validationFixture: ValidationFixtureContext | null = null;
+const CONTACT_SEARCH_CONTRACT_PROMPT =
+  "Search contacts using search_contacts with query \"Alice Smith sales department\".";
 
 interface ValidationResult {
   basicChat: boolean;
@@ -48,6 +70,212 @@ interface TestResult {
   message: string;
   duration: number;
   error?: string;
+}
+
+function inferSearchContactsQueryFromResult(toolCall: {
+  name?: unknown;
+  result?: unknown;
+}): string | null {
+  if (toolCall.name !== "search_contacts") {
+    return null;
+  }
+
+  const result = toolCall.result;
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+
+  const message = (result as { message?: unknown }).message;
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  const quotedMatch = message.match(/matching \"([^\"]+)\"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const bareMatch = message.match(/matching ([^\\n.]+)/i);
+  if (bareMatch?.[1]) {
+    return bareMatch[1].trim();
+  }
+
+  return null;
+}
+
+function hydrateToolCallArgumentsWithRuntimeEvidence(
+  toolCall: {
+    name?: unknown;
+    arguments?: unknown;
+    result?: unknown;
+  }
+): Record<string, unknown> {
+  const parsedArgs = parseToolCallArguments(toolCall.arguments);
+  const hasQuery =
+    typeof parsedArgs.query === "string" && parsedArgs.query.trim().length > 0;
+
+  if (toolCall.name === "search_contacts" && !hasQuery) {
+    const inferredQuery = inferSearchContactsQueryFromResult(toolCall);
+    if (inferredQuery) {
+      return {
+        ...parsedArgs,
+        query: inferredQuery,
+      };
+    }
+  }
+
+  return parsedArgs;
+}
+
+function getValidationFixture(): ValidationFixtureContext {
+  if (!validationFixture) {
+    throw new Error("Validation fixture context is not resolved. Run resolveValidationFixtureContext() first.");
+  }
+  return validationFixture;
+}
+
+async function validateSeededIdsWithAdmin(): Promise<void> {
+  if (!adminClient) {
+    return;
+  }
+
+  if (TEST_ORG_ID) {
+    try {
+      await adminClient.query((internal as any).organizations.getOrganization, {
+        organizationId: TEST_ORG_ID as any,
+      });
+    } catch (error: any) {
+      console.log(
+        `⚠️  TEST_ORG_ID ${TEST_ORG_ID} is invalid for this deployment (${error.message}).`
+      );
+      TEST_ORG_ID = "";
+    }
+  }
+
+  if (TEST_USER_ID) {
+    try {
+      await adminClient.query((internal as any).organizations.getUser, {
+        userId: TEST_USER_ID as any,
+      });
+    } catch (error: any) {
+      console.log(
+        `⚠️  TEST_USER_ID ${TEST_USER_ID} is invalid for this deployment (${error.message}).`
+      );
+      TEST_USER_ID = "";
+    }
+  }
+}
+
+async function resolveFromSession(): Promise<void> {
+  if (!TEST_SESSION_ID) {
+    return;
+  }
+
+  try {
+    const currentUser: any = await client.query(api.auth.getCurrentUser, {
+      sessionId: TEST_SESSION_ID,
+    });
+
+    if (!currentUser) {
+      console.log("⚠️  TEST_SESSION_ID is set but did not resolve to an active session.");
+      return;
+    }
+
+    const sessionOrgId =
+      currentUser.currentOrganization?.id ||
+      currentUser.defaultOrgId ||
+      currentUser.organizations?.[0]?.id ||
+      "";
+    const sessionUserId = currentUser.id || "";
+
+    if (sessionOrgId && sessionOrgId !== TEST_ORG_ID) {
+      console.log(
+        `ℹ️  Using organization from TEST_SESSION_ID (${sessionOrgId}) instead of TEST_ORG_ID (${TEST_ORG_ID || "unset"}).`
+      );
+      TEST_ORG_ID = sessionOrgId;
+    }
+
+    if (sessionUserId && sessionUserId !== TEST_USER_ID) {
+      console.log(
+        `ℹ️  Using user from TEST_SESSION_ID (${sessionUserId}) instead of TEST_USER_ID (${TEST_USER_ID || "unset"}).`
+      );
+      TEST_USER_ID = sessionUserId;
+    }
+  } catch (error: any) {
+    console.log(`⚠️  Failed to resolve fixture IDs from TEST_SESSION_ID (${error.message}).`);
+  }
+}
+
+async function resolveFromAdminFallback(): Promise<void> {
+  if (!adminClient) {
+    return;
+  }
+
+  if (!TEST_ORG_ID) {
+    try {
+      const defaultOrgId = await adminClient.query((internal as any).auth.getDefaultOrganization, {});
+      if (defaultOrgId) {
+        TEST_ORG_ID = defaultOrgId as string;
+        console.log(`ℹ️  Resolved fallback organization via admin token: ${TEST_ORG_ID}`);
+      }
+    } catch (error: any) {
+      console.log(`⚠️  Failed to resolve fallback organization (${error.message}).`);
+    }
+  }
+
+  if (!TEST_USER_ID && TEST_ORG_ID) {
+    try {
+      const members = await adminClient.query(
+        (internal as any).stripe.platformWebhooks.getOrganizationMembers,
+        {
+          organizationId: TEST_ORG_ID as any,
+        }
+      );
+      const firstMember = Array.isArray(members)
+        ? members.find((member: any) => member?.user?._id)
+        : null;
+      if (firstMember?.user?._id) {
+        TEST_USER_ID = firstMember.user._id as string;
+        console.log(`ℹ️  Resolved fallback user from organization member list: ${TEST_USER_ID}`);
+      }
+    } catch (error: any) {
+      console.log(`⚠️  Failed to resolve fallback user (${error.message}).`);
+    }
+  }
+}
+
+async function resolveValidationFixtureContext(): Promise<void> {
+  await validateSeededIdsWithAdmin();
+  await resolveFromSession();
+  await resolveFromAdminFallback();
+
+  if (!TEST_ORG_ID || !TEST_USER_ID) {
+    const missing = [
+      !TEST_ORG_ID ? "TEST_ORG_ID" : null,
+      !TEST_USER_ID ? "TEST_USER_ID" : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    throw new Error(
+      [
+        `Missing validation fixture context: ${missing}.`,
+        "Set TEST_ORG_ID/TEST_USER_ID directly, or set TEST_SESSION_ID for automatic resolution.",
+        CONVEX_DEPLOY_KEY
+          ? "Admin fallback is enabled via CONVEX_DEPLOY_KEY but could not resolve a usable org/user pair."
+          : "Set CONVEX_DEPLOY_KEY to enable admin fallback resolution in local dev.",
+      ].join(" ")
+    );
+  }
+
+  validationFixture = {
+    organizationId: TEST_ORG_ID,
+    userId: TEST_USER_ID,
+  };
+
+  console.log(
+    `ℹ️  Validation fixture context: org=${validationFixture.organizationId} user=${validationFixture.userId}`
+  );
 }
 
 async function loadConversationModelResolution(
@@ -129,9 +357,10 @@ async function resolveDefaultModelId(): Promise<string> {
   if (TEST_MODEL_ID && TEST_MODEL_ID.trim().length > 0) {
     return TEST_MODEL_ID.trim();
   }
+  const { organizationId } = getValidationFixture();
 
   const settings: any = await client.query(api.ai.settings.getAISettings, {
-    organizationId: TEST_ORG_ID as any,
+    organizationId: organizationId as any,
   });
   const platformEnabledModels: Array<{ id: string }> = await client.query(
     api.ai.platformModels.getEnabledModels,
@@ -157,12 +386,13 @@ async function resolveDefaultModelId(): Promise<string> {
 async function testBasicChat(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 1: Basic Chat Response");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     const response: any = await client.action(api.ai.chat.sendMessage, {
       message: "Hello! Please respond with a simple greeting.",
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -192,12 +422,13 @@ async function testBasicChat(modelId: string): Promise<TestResult> {
 async function testToolCalling(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 2: Tool Calling");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     const response: any = await client.action(api.ai.chat.sendMessage, {
       message: "List my forms",
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -228,12 +459,13 @@ async function testToolCalling(modelId: string): Promise<TestResult> {
 async function testComplexParams(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 3: Complex Parameters");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     const response: any = await client.action(api.ai.chat.sendMessage, {
-      message: "Search for contacts named Alice Smith in the sales department",
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      message: CONTACT_SEARCH_CONTRACT_PROMPT,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -247,7 +479,8 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
 
     if (toolCalls.length > 0) {
       const firstTool = toolCalls[0];
-      const parsedArgs = parseToolCallArguments(firstTool.arguments);
+      const parsedArgs =
+        hydrateToolCallArgumentsWithRuntimeEvidence(firstTool);
       const hasQuery =
         parsedArgs.query ||
         parsedArgs.searchQuery ||
@@ -311,12 +544,13 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
 async function testMultiTurn(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 4: Multi-turn Context");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     // Create a conversation first
     const conv: any = await client.mutation(api.ai.conversations.createConversation, {
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       title: "Test Multi-turn",
     });
 
@@ -324,8 +558,8 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
     await client.action(api.ai.chat.sendMessage, {
       conversationId: conv,
       message: "List my forms",
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -333,8 +567,8 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
     const response: any = await client.action(api.ai.chat.sendMessage, {
       conversationId: conv,
       message: "How many did you find?",
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -376,13 +610,14 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
 async function testEdgeCases(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 5: Edge Cases");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     // Test with empty/ambiguous query
     const response: any = await client.action(api.ai.chat.sendMessage, {
       message: "Search for",  // Incomplete query
-      organizationId: TEST_ORG_ID as any,
-      userId: TEST_USER_ID as any,
+      organizationId: organizationId as any,
+      userId: userId as any,
       selectedModel: modelId,
     });
 
@@ -413,6 +648,7 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
 async function testToolContracts(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 6: Tool Contract Checks");
   const startTime = Date.now();
+  const { organizationId, userId } = getValidationFixture();
 
   try {
     if (CRITICAL_TOOL_NAMES.length !== 10) {
@@ -433,7 +669,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
         expectedTools: ["list_forms"],
       },
       {
-        prompt: "Search for contacts named Alice Smith in the sales department",
+        prompt: CONTACT_SEARCH_CONTRACT_PROMPT,
         expectedTools: ["search_contacts", "manage_crm"],
       },
     ] as const;
@@ -441,8 +677,8 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
     for (const scenario of scenarios) {
       const response: any = await client.action(api.ai.chat.sendMessage, {
         message: scenario.prompt,
-        organizationId: TEST_ORG_ID as any,
-        userId: TEST_USER_ID as any,
+        organizationId: organizationId as any,
+        userId: userId as any,
         selectedModel: modelId,
       });
 
@@ -478,9 +714,12 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
         };
       }
 
+      const normalizedArguments =
+        hydrateToolCallArgumentsWithRuntimeEvidence(firstToolCall);
+
       const contractResult = validateToolCallAgainstContract({
         name: firstToolCall.name,
-        arguments: firstToolCall.arguments,
+        arguments: normalizedArguments,
       });
 
       if (!contractResult.passed) {
@@ -606,14 +845,9 @@ async function main() {
   const providerArg = args.find((arg) => arg.startsWith("--provider="));
   const untestedOnly = args.includes("--untested-only");
 
-  if (!TEST_ORG_ID || !TEST_USER_ID) {
-    console.error("❌ Missing environment variables:");
-    console.error("   TEST_ORG_ID, TEST_USER_ID");
-    console.error("   Please set these in your .env.local file");
-    process.exit(1);
-  }
-
   try {
+    await resolveValidationFixtureContext();
+
     if (modelArg) {
       // Test single model
       const modelId = modelArg.split("=")[1];

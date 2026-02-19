@@ -537,7 +537,7 @@ const TEMPLATES: TemplateConfig[] = [
           title: "TechForward Conference 2024",
           subtitle: "Join 500+ industry leaders for three days of insights, networking, and innovation in software development.",
           alignment: "center",
-          backgroundClassName: "bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white py-24",
+          backgroundClassName: "bg-gradient-to-br from-blue-600 via-cyan-600 to-indigo-700 text-white py-24",
           cta: { text: "Register Now - €299", actionType: "form" },
           secondaryCta: { text: "View Agenda", href: "#agenda", actionType: "scroll" },
         },

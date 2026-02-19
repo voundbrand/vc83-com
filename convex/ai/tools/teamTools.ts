@@ -13,6 +13,12 @@
 
 import type { AITool, ToolExecutionContext } from "./registry";
 
+interface TeamHandoffPayload {
+  reason: string;
+  summary: string;
+  goal: string;
+}
+
 // Lazy-load to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -23,6 +29,42 @@ function getInternal(): any {
     _apiCache = require("../../_generated/api");
   }
   return _apiCache.internal;
+}
+
+function getTrimmedArg(args: Record<string, unknown>, key: string): string {
+  const value = args[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function normalizeTeamHandoffPayload(
+  args: Record<string, unknown>
+): { payload?: TeamHandoffPayload; error?: string } {
+  const reason = getTrimmedArg(args, "reason");
+  const summary =
+    getTrimmedArg(args, "summary")
+    || getTrimmedArg(args, "contextNote")
+    || reason;
+  const goal = getTrimmedArg(args, "goal");
+
+  if (!reason) {
+    return { error: "tag_in_specialist requires handoff.reason." };
+  }
+
+  if (!summary) {
+    return { error: "tag_in_specialist requires handoff.summary." };
+  }
+
+  if (!goal) {
+    return { error: "tag_in_specialist requires handoff.goal." };
+  }
+
+  return {
+    payload: {
+      reason,
+      summary,
+      goal,
+    },
+  };
 }
 
 /**
@@ -48,18 +90,31 @@ export const tagInSpecialistTool: AITool = {
       },
       reason: {
         type: "string",
-        description: "Brief context for why you're tagging them in",
+        description: "Why the PM is handing off this turn",
+      },
+      summary: {
+        type: "string",
+        description: "Concise continuity summary the specialist should read first",
+      },
+      goal: {
+        type: "string",
+        description: "Specific objective the specialist should complete next",
       },
       contextNote: {
         type: "string",
-        description: "Key context the specialist needs to know (conversation summary)",
+        description: "Legacy alias for summary (kept for backward compatibility)",
       },
     },
-    required: ["specialistType", "reason"],
+    required: ["specialistType", "reason", "summary", "goal"],
   },
   execute: async (ctx: ToolExecutionContext, args: Record<string, unknown>) => {
     if (!ctx.agentSessionId || !ctx.agentId) {
       return { error: "No agent session context — tag_in_specialist requires an agent session" };
+    }
+
+    const handoffPayload = normalizeTeamHandoffPayload(args);
+    if (!handoffPayload.payload) {
+      return { error: handoffPayload.error || "Invalid handoff payload" };
     }
 
     // 1. Find specialist by subtype — search all active agents
@@ -78,7 +133,6 @@ export const tagInSpecialistTool: AITool = {
     }
 
     // 2. Execute validated handoff via teamHarness
-    const contextSummary = (args.contextNote as string) || (args.reason as string);
     const handoffResult = await ctx.runMutation(
       getInternal().ai.teamHarness.executeTeamHandoff,
       {
@@ -86,8 +140,7 @@ export const tagInSpecialistTool: AITool = {
         fromAgentId: ctx.agentId,
         toAgentId: targetAgent._id,
         organizationId: ctx.organizationId,
-        reason: args.reason as string,
-        contextSummary,
+        handoff: handoffPayload.payload,
       }
     );
 
@@ -106,7 +159,7 @@ export const tagInSpecialistTool: AITool = {
         organizationId: ctx.organizationId,
         pmName: "PM",
         specialistName,
-        reason: (args.reason as string) || "",
+        reason: handoffPayload.payload.reason,
       }
     );
 

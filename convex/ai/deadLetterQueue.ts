@@ -48,11 +48,13 @@ export const addToDeadLetterQueue = internalMutation({
     error: v.string(),
     sessionId: v.optional(v.string()),
     providerConversationId: v.optional(v.string()),
+    turnId: v.optional(v.id("agentTurns")),
+    receiptId: v.optional(v.id("agentInboxReceipts")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    await ctx.db.insert("objects", {
+    const entryId = await ctx.db.insert("objects", {
       type: "dead_letter",
       name: `DLQ — ${args.channel} → ${args.recipientIdentifier.slice(0, 10)}...`,
       organizationId: args.organizationId,
@@ -63,6 +65,8 @@ export const addToDeadLetterQueue = internalMutation({
         content: args.content,
         providerConversationId: args.providerConversationId,
         sessionId: args.sessionId,
+        turnId: args.turnId,
+        receiptId: args.receiptId,
         error: args.error,
         attempts: 1,
         firstAttemptAt: now,
@@ -76,6 +80,8 @@ export const addToDeadLetterQueue = internalMutation({
     console.warn(
       `[DeadLetterQueue] Message queued for retry: ${args.channel} → ${args.recipientIdentifier.slice(0, 10)}...`
     );
+
+    return { entryId };
   },
 });
 

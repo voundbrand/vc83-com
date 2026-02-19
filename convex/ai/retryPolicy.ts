@@ -28,6 +28,8 @@ export interface RetryPolicy {
   jitter: number;
   /** HTTP status codes that are retryable */
   retryableStatuses?: number[];
+  /** Honor per-error retryAfterMs hints (e.g., rate-limit responses). */
+  honorRetryAfter?: boolean;
 }
 
 export interface RetryResult<T> {
@@ -49,6 +51,15 @@ export const LLM_RETRY_POLICY: RetryPolicy = {
 };
 
 export const CHANNEL_RETRY_POLICIES: Record<string, RetryPolicy> = {
+  slack: {
+    maxAttempts: 4,
+    baseDelayMs: 500,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    jitter: 0.1,
+    retryableStatuses: [429, 500, 502, 503, 504],
+    honorRetryAfter: true,
+  },
   telegram: {
     maxAttempts: 3,
     baseDelayMs: 400,
@@ -101,12 +112,17 @@ function calculateDelay(policy: RetryPolicy, attempt: number): number {
  * Check if an error is retryable based on the retry policy.
  */
 export function isRetryableError(error: unknown, policy: RetryPolicy): boolean {
+  const err = error as Record<string, unknown>;
+  const explicitRetryable = err?.retryable;
+  if (typeof explicitRetryable === "boolean") {
+    return explicitRetryable;
+  }
+
   if (!policy.retryableStatuses || policy.retryableStatuses.length === 0) {
     return true; // Retry all errors if no status filter
   }
 
   // Check for HTTP-like status codes in error
-  const err = error as Record<string, unknown>;
   const status = err?.status ?? err?.statusCode ?? (err?.response as Record<string, unknown>)?.status;
 
   if (typeof status === "number") {
@@ -115,8 +131,25 @@ export function isRetryableError(error: unknown, policy: RetryPolicy): boolean {
 
   // Retry network errors (no status code)
   const message = String(err?.message || "");
-  const networkErrors = ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "fetch failed", "network"];
+  const networkErrors = [
+    "ECONNREFUSED",
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "fetch failed",
+    "network",
+    "ratelimited",
+    "too many requests",
+  ];
   return networkErrors.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()));
+}
+
+function extractRetryAfterMs(error: unknown): number | undefined {
+  const err = error as Record<string, unknown>;
+  const retryAfterCandidate = err?.retryAfterMs ?? err?.retryAfter;
+  if (typeof retryAfterCandidate === "number" && retryAfterCandidate > 0) {
+    return retryAfterCandidate;
+  }
+  return undefined;
 }
 
 /**
@@ -153,7 +186,13 @@ export async function withRetry<T>(
 
       // Don't wait after the last attempt
       if (attempt < policy.maxAttempts - 1) {
-        const delay = calculateDelay(policy, attempt);
+        const defaultDelay = calculateDelay(policy, attempt);
+        const retryAfterDelay = policy.honorRetryAfter
+          ? extractRetryAfterMs(error)
+          : undefined;
+        const delay = retryAfterDelay
+          ? Math.max(defaultDelay, retryAfterDelay)
+          : defaultDelay;
         console.warn(
           `[Retry] Attempt ${attempt + 1}/${policy.maxAttempts} failed, retrying in ${Math.round(delay)}ms:`,
           error instanceof Error ? error.message : String(error)

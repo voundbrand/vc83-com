@@ -3,6 +3,14 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 import { isAppEnabledByTier } from "./licensing/appFeatureMapping";
+import type { Id } from "./_generated/dataModel";
+
+const releaseStageValidator = v.union(
+  v.literal("none"),
+  v.literal("new"),
+  v.literal("beta"),
+  v.literal("wip"),
+);
 
 /**
  * App Availability Management
@@ -331,8 +339,13 @@ export const bulkSetAppAvailability = mutation({
  * @returns Object with organizations, apps, and availability mappings
  */
 export const getAvailabilityMatrix = query({
-  args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }) => {
+  args: {
+    sessionId: v.string(),
+    cursor: v.optional(v.string()),
+    pageSize: v.optional(v.number()),
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, { sessionId, cursor, pageSize, search }) => {
     try {
       const { userId } = await requireAuthenticatedUser(ctx, sessionId);
       const userContext = await getUserContext(ctx, userId);
@@ -342,7 +355,19 @@ export const getAvailabilityMatrix = query({
         return null;
       }
 
-      const organizations = await ctx.db.query("organizations").collect();
+      const normalizedSearch = search?.trim().slice(0, 120);
+      const pageLimit = Math.max(10, Math.min(pageSize ?? 25, 100));
+
+      const organizationsPage = normalizedSearch
+        ? await ctx.db
+            .query("organizations")
+            .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
+            .paginate({ cursor: cursor ?? null, numItems: pageLimit })
+        : await ctx.db
+            .query("organizations")
+            .order("desc")
+            .paginate({ cursor: cursor ?? null, numItems: pageLimit });
+
       // Only show active and approved apps in the matrix (exclude pending/rejected)
       const apps = await ctx.db
         .query("apps")
@@ -353,12 +378,64 @@ export const getAvailabilityMatrix = query({
           )
         )
         .collect();
-      const availabilities = await ctx.db.query("appAvailabilities").collect();
+
+      const availabilities: {
+        organizationId: Id<"organizations">;
+        appId: Id<"apps">;
+        isAvailable: boolean;
+      }[] = [];
+
+      const apiSettings: {
+        organizationId: Id<"organizations">;
+        apiKeysEnabled: boolean;
+      }[] = [];
+
+      for (const org of organizationsPage.page) {
+        const orgAvailabilities = await ctx.db
+          .query("appAvailabilities")
+          .withIndex("by_org", (q) => q.eq("organizationId", org._id))
+          .collect();
+
+        for (const row of orgAvailabilities) {
+          availabilities.push({
+            organizationId: row.organizationId,
+            appId: row.appId,
+            isAvailable: row.isAvailable,
+          });
+        }
+
+        const orgApiSettings = await ctx.db
+          .query("objects")
+          .withIndex("by_org_type", (q) =>
+            q.eq("organizationId", org._id).eq("type", "organization_settings")
+          )
+          .filter((q) => q.eq(q.field("subtype"), "api"))
+          .first();
+
+        const customProperties = orgApiSettings?.customProperties as
+          | { apiKeysEnabled?: boolean }
+          | undefined;
+
+        apiSettings.push({
+          organizationId: org._id,
+          apiKeysEnabled: customProperties?.apiKeysEnabled ?? false,
+        });
+      }
 
       return {
-        organizations,
+        organizations: organizationsPage.page.map((org) => ({
+          _id: org._id,
+          name: org.name,
+          slug: org.slug,
+          isActive: org.isActive,
+        })),
         apps,
         availabilities,
+        apiSettings,
+        pageInfo: {
+          continueCursor: organizationsPage.continueCursor,
+          isDone: organizationsPage.isDone,
+        },
       };
     } catch (error) {
       // Catch any permission errors (like user switching) and return null
@@ -366,5 +443,78 @@ export const getAvailabilityMatrix = query({
       console.error("Access error in getAvailabilityMatrix:", error);
       return null;
     }
+  },
+});
+
+/**
+ * List app rollout metadata (super admin only).
+ * Used by system-admin manage surfaces to edit Product OS release badges.
+ */
+export const listAppReleaseStages = query({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Super admin access required to view app release stages");
+    }
+
+    const apps = await ctx.db
+      .query("apps")
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("status"), "approved"),
+        ),
+      )
+      .collect();
+
+    return apps
+      .map((app) => ({
+        _id: app._id,
+        code: app.code,
+        name: app.name,
+        category: app.category,
+        status: app.status,
+        releaseStage: app.releaseStage ?? "none",
+        updatedAt: app.updatedAt,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  },
+});
+
+/**
+ * Update app rollout badge stage (super admin only).
+ */
+export const setAppReleaseStage = mutation({
+  args: {
+    sessionId: v.string(),
+    appId: v.id("apps"),
+    releaseStage: releaseStageValidator,
+  },
+  handler: async (ctx, { sessionId, appId, releaseStage }) => {
+    const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Super admin access required to update app release stages");
+    }
+
+    const app = await ctx.db.get(appId);
+    if (!app) {
+      throw new Error("App not found");
+    }
+
+    await ctx.db.patch(appId, {
+      releaseStage,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      appId,
+      code: app.code,
+      releaseStage,
+    };
   },
 });

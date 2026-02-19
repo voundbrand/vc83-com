@@ -26,6 +26,92 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { SUBTYPE_DEFAULT_PROFILES } from "./ai/toolScoping";
+import {
+  normalizeChannelBindingsContract,
+  webchatChannelBindingValidator,
+  type ChannelBindingContractRecord,
+} from "./webchatCustomizationContract";
+
+function resolveChannelCandidates(channel: string): string[] {
+  // Native guest should reuse webchat-enabled agents until dedicated config ships.
+  return channel === "native_guest" ? ["native_guest", "webchat"] : [channel];
+}
+
+function hasEnabledChannelBinding(
+  customProperties: Record<string, unknown> | undefined,
+  channel: string
+): boolean {
+  const channelCandidates = resolveChannelCandidates(channel);
+  const rawBindings = customProperties?.channelBindings;
+
+  if (Array.isArray(rawBindings)) {
+    return rawBindings.some((binding) => {
+      if (!binding || typeof binding !== "object") {
+        return false;
+      }
+      const bindingRecord = binding as Record<string, unknown>;
+      return (
+        typeof bindingRecord.channel === "string" &&
+        channelCandidates.includes(bindingRecord.channel) &&
+        bindingRecord.enabled === true
+      );
+    });
+  }
+
+  if (rawBindings && typeof rawBindings === "object") {
+    const legacyBindings = rawBindings as Record<string, unknown>;
+    return channelCandidates.some((candidate) => {
+      const channelConfig = legacyBindings[candidate];
+      return (
+        !!channelConfig &&
+        typeof channelConfig === "object" &&
+        (channelConfig as Record<string, unknown>).enabled === true
+      );
+    });
+  }
+
+  return false;
+}
+
+interface ActiveAgentCandidate {
+  status?: string;
+  subtype?: string;
+  customProperties?: Record<string, unknown>;
+}
+
+interface ActiveAgentResolutionArgs {
+  channel?: string;
+  subtype?: string;
+}
+
+export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidate>(
+  agents: T[],
+  args: ActiveAgentResolutionArgs
+): T | null {
+  const activeAgents = agents.filter((agent) => agent.status === "active");
+
+  let candidates = activeAgents;
+  if (args.subtype) {
+    candidates = activeAgents.filter((agent) => agent.subtype === args.subtype);
+    if (candidates.length === 0) {
+      // Do not route to a different subtype when callers explicitly request one.
+      return null;
+    }
+  }
+
+  if (args.channel) {
+    const requestedChannel = args.channel;
+    const channelAgent = candidates.find((agent) => {
+      const props = agent.customProperties as Record<string, unknown> | undefined;
+      return hasEnabledChannelBinding(props, requestedChannel);
+    });
+    if (channelAgent) {
+      return channelAgent;
+    }
+  }
+
+  return candidates[0] ?? null;
+}
 
 // ============================================================================
 // AGENT QUERIES
@@ -108,6 +194,7 @@ export const getActiveAgentForOrg = internalQuery({
   args: {
     organizationId: v.id("organizations"),
     channel: v.optional(v.string()),
+    subtype: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const agents = await ctx.db
@@ -116,22 +203,10 @@ export const getActiveAgentForOrg = internalQuery({
         q.eq("organizationId", args.organizationId).eq("type", "org_agent")
       )
       .collect();
-
-    // Filter to active agents, excluding templates (which should never receive messages)
-    const activeAgents = agents.filter((a) => a.status === "active");
-
-    if (args.channel) {
-      // Find agent with this channel binding enabled
-      const channelAgent = activeAgents.find((a) => {
-        const props = a.customProperties as Record<string, unknown> | undefined;
-        const bindings = props?.channelBindings as Array<{ channel: string; enabled: boolean }> | undefined;
-        return bindings?.some((b) => b.channel === args.channel && b.enabled);
-      });
-      if (channelAgent) return channelAgent;
-    }
-
-    // Return first active agent as fallback
-    return activeAgents[0] ?? null;
+    return resolveActiveAgentForOrgCandidates(agents, {
+      channel: args.channel,
+      subtype: args.subtype,
+    });
   },
 });
 
@@ -198,10 +273,7 @@ export const createAgent = mutation({
     temperature: v.optional(v.number()),
     maxTokens: v.optional(v.number()),
     // Channel Bindings
-    channelBindings: v.optional(v.array(v.object({
-      channel: v.string(),
-      enabled: v.boolean(),
-    }))),
+    channelBindings: v.optional(v.array(webchatChannelBindingValidator)),
     // Escalation Policy (per-agent HITL configuration)
     escalationPolicy: v.optional(v.any()),
   },
@@ -212,6 +284,9 @@ export const createAgent = mutation({
       .first();
 
     if (!session) throw new Error("Invalid session");
+    const normalizedChannelBindings = normalizeChannelBindingsContract(
+      args.channelBindings as ChannelBindingContractRecord[] | undefined
+    );
 
     const agentId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -241,7 +316,7 @@ export const createAgent = mutation({
         modelId: args.modelId || "anthropic/claude-sonnet-4-20250514",
         temperature: args.temperature ?? 0.7,
         maxTokens: args.maxTokens || 4096,
-        channelBindings: args.channelBindings || [],
+        channelBindings: normalizedChannelBindings,
         // Escalation policy (per-agent HITL configuration)
         ...(args.escalationPolicy ? { escalationPolicy: args.escalationPolicy } : {}),
         // Stats (populated at runtime)
@@ -308,10 +383,7 @@ export const updateAgent = mutation({
       modelId: v.optional(v.string()),
       temperature: v.optional(v.number()),
       maxTokens: v.optional(v.number()),
-      channelBindings: v.optional(v.array(v.object({
-        channel: v.string(),
-        enabled: v.boolean(),
-      }))),
+      channelBindings: v.optional(v.array(webchatChannelBindingValidator)),
       // Escalation Policy (per-agent HITL configuration)
       escalationPolicy: v.optional(v.any()),
     }),
@@ -330,13 +402,23 @@ export const updateAgent = mutation({
     }
 
     enforceNotProtected(agent);
+    const normalizedUpdates = {
+      ...args.updates,
+      ...(args.updates.channelBindings
+        ? {
+            channelBindings: normalizeChannelBindingsContract(
+              args.updates.channelBindings as ChannelBindingContractRecord[]
+            ),
+          }
+        : {}),
+    };
 
     await ctx.db.patch(args.agentId, {
       name: args.updates.name || agent.name,
       subtype: args.updates.subtype || agent.subtype,
       customProperties: {
         ...agent.customProperties,
-        ...args.updates,
+        ...normalizedUpdates,
       },
       updatedAt: Date.now(),
     });
@@ -346,7 +428,7 @@ export const updateAgent = mutation({
       objectId: args.agentId,
       actionType: "updated",
       actionData: {
-        updatedFields: Object.keys(args.updates),
+        updatedFields: Object.keys(normalizedUpdates),
       },
       performedBy: session.userId,
       performedAt: Date.now(),

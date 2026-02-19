@@ -58,6 +58,22 @@ export interface ToolExecutionContext extends ActionCtx {
   contactId?: string;
 }
 
+export type ChannelSafeCtaVariant = {
+  label: string;
+  url: string;
+  fallbackText: string;
+};
+
+export type ChannelSafeCtaPayload = {
+  kind: "external_url";
+  default: ChannelSafeCtaVariant;
+  byChannel: {
+    telegram: ChannelSafeCtaVariant & { parseMode: "plain_text" };
+    webchat: ChannelSafeCtaVariant;
+    native_guest: ChannelSafeCtaVariant;
+  };
+};
+
 /**
  * Tool definition interface
  */

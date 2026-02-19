@@ -254,7 +254,12 @@ export const getConversationMessages = httpAction(async (ctx, request) => {
  * POST /api/v1/conversations/:sessionId/messages
  *
  * Request Body:
- * { content: string }
+ * {
+ *   content: string,
+ *   reason?: string, // required by policy for reply_in_stream audit
+ *   note?: string,
+ *   providerConversationId?: string
+ * }
  */
 export const sendConversationMessage = httpAction(async (ctx, request) => {
   try {
@@ -295,11 +300,29 @@ export const sendConversationMessage = httpAction(async (ctx, request) => {
     }
 
     const body = await request.json();
-    const { content } = body;
+    const { content, reason, note, providerConversationId } = body;
 
     if (!content || typeof content !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing required field: content" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (reason !== undefined && typeof reason !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Field reason must be a string" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (note !== undefined && typeof note !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Field note must be a string" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (providerConversationId !== undefined && typeof providerConversationId !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Field providerConversationId must be a string" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -310,12 +333,20 @@ export const sendConversationMessage = httpAction(async (ctx, request) => {
         organizationId: authContext.organizationId,
         sessionId,
         content,
+        reason,
+        note,
+        providerConversationId,
         performedBy: authContext.userId,
       }
     );
 
     return new Response(
-      JSON.stringify({ success: true, messageId: result.messageId }),
+      JSON.stringify({
+        success: true,
+        messageId: result.messageId,
+        providerMessageId: result.providerMessageId,
+        trustEventId: result.trustEventId,
+      }),
       {
         status: 201,
         headers: {
@@ -333,9 +364,21 @@ export const sendConversationMessage = httpAction(async (ctx, request) => {
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
-    if (errMsg.includes("closed session")) {
+    if (errMsg.includes("reply_in_stream requires handed_off")) {
       return new Response(
-        JSON.stringify({ error: "Cannot send message to a closed conversation" }),
+        JSON.stringify({ error: "Conversation must be handed_off before in-stream operator reply" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (errMsg.includes("Failed to deliver operator reply:")) {
+      return new Response(
+        JSON.stringify({ error: errMsg.replace("Failed to deliver operator reply: ", "") }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (errMsg.includes("Message content cannot be empty")) {
+      return new Response(
+        JSON.stringify({ error: "Message content cannot be empty" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }

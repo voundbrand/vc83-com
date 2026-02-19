@@ -356,6 +356,7 @@ export const createBuilderApp = mutation({
         products: [] as Id<"objects">[],
         forms: [] as Id<"objects">[],
         contacts: [] as Id<"objects">[],
+        agents: [] as Id<"objects">[],
       },
       // Deployment
       deployment: {
@@ -513,6 +514,7 @@ export const linkObjectsToBuilderApp = mutation({
     bookings: v.optional(v.array(v.id("objects"))),
     workflows: v.optional(v.array(v.id("objects"))),
     checkouts: v.optional(v.array(v.id("objects"))),
+    agents: v.optional(v.array(v.id("objects"))),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -546,6 +548,7 @@ export const linkObjectsToBuilderApp = mutation({
       bookings: args.bookings !== undefined ? args.bookings : (currentLinkedObjects.bookings || []),
       workflows: args.workflows !== undefined ? args.workflows : (currentLinkedObjects.workflows || []),
       checkouts: args.checkouts !== undefined ? args.checkouts : (currentLinkedObjects.checkouts || []),
+      agents: args.agents !== undefined ? args.agents : (currentLinkedObjects.agents || []),
     };
 
     await ctx.db.patch(args.appId, {
@@ -567,6 +570,7 @@ export const linkObjectsToBuilderApp = mutation({
       ...(args.bookings || []),
       ...(args.workflows || []),
       ...(args.checkouts || []),
+      ...(args.agents || []),
     ];
 
     for (const linkedId of allLinkedIds) {
@@ -606,6 +610,7 @@ export const linkObjectsToBuilderApp = mutation({
         bookings: args.bookings?.length || 0,
         workflows: args.workflows?.length || 0,
         checkouts: args.checkouts?.length || 0,
+        agents: args.agents?.length || 0,
       },
       performedBy: userId,
       performedAt: Date.now(),
@@ -690,6 +695,7 @@ export const getExistingRecordsForConnection = query({
       booking: "booking",
       workflow: "workflow",
       checkout: "checkout_instance",
+      agent: "org_agent",
     };
 
     const results: Record<

@@ -17,6 +17,27 @@
 
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  agentTurnStateValidator,
+  agentTurnTransitionValidator,
+} from "./aiSchemas";
+
+export const teamHandoffPayloadValidator = v.object({
+  reason: v.string(),
+  summary: v.string(),
+  goal: v.string(),
+});
+
+export const teamHandoffHistoryEntryValidator = v.object({
+  fromAgentId: v.id("objects"),
+  toAgentId: v.id("objects"),
+  reason: v.string(),
+  summary: v.string(),
+  goal: v.string(),
+  timestamp: v.number(),
+  // Legacy compatibility field retained while consumers migrate.
+  contextSummary: v.optional(v.string()),
+});
 
 /**
  * AGENT SESSIONS
@@ -32,6 +53,7 @@ import { v } from "convex/values";
 export const agentSessions = defineTable({
   agentId: v.id("objects"),
   organizationId: v.id("organizations"),
+  // Channel transport identifier (for example: telegram, webchat, native_guest).
   channel: v.string(),
   externalContactIdentifier: v.string(),
 
@@ -77,6 +99,15 @@ export const agentSessions = defineTable({
     isComplete: v.boolean(),
     completedAt: v.optional(v.number()),
     contentDNAId: v.optional(v.string()),
+    memoryConsent: v.optional(v.object({
+      status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("declined")),
+      consentScope: v.literal("content_dna_profile"),
+      consentPromptVersion: v.string(),
+      memoryCandidateIds: v.array(v.string()),
+      promptedAt: v.number(),
+      decidedAt: v.optional(v.number()),
+      decisionSource: v.optional(v.literal("user")),
+    })),
   })),
 
   // ========== END GUIDED SESSION FIELDS ==========
@@ -89,16 +120,10 @@ export const agentSessions = defineTable({
     isTeamSession: v.boolean(),
     participatingAgentIds: v.array(v.id("objects")),
     activeAgentId: v.id("objects"),
-    handoffHistory: v.array(v.object({
-      fromAgentId: v.id("objects"),
-      toAgentId: v.id("objects"),
-      reason: v.string(),
-      contextSummary: v.string(),
-      timestamp: v.number(),
-    })),
+    handoffHistory: v.array(teamHandoffHistoryEntryValidator),
     sharedContext: v.optional(v.string()),
     conversationGoal: v.optional(v.string()),
-    handoffNotes: v.optional(v.any()),
+    handoffNotes: v.optional(teamHandoffPayloadValidator),
   })),
 
   // Legacy: kept for backward compat, superseded by teamSession.participatingAgentIds
@@ -138,6 +163,29 @@ export const agentSessions = defineTable({
     v.literal("manual"),
     v.literal("handed_off")
   )),
+
+  // Canonical lifecycle contract checkpointing (ALC-004/ALC-005).
+  lifecycleState: v.optional(v.union(
+    v.literal("draft"),
+    v.literal("active"),
+    v.literal("paused"),
+    v.literal("escalated"),
+    v.literal("takeover"),
+    v.literal("resolved"),
+  )),
+  lifecycleCheckpoint: v.optional(v.union(
+    v.literal("approval_requested"),
+    v.literal("approval_resolved"),
+    v.literal("escalation_detected"),
+    v.literal("escalation_created"),
+    v.literal("escalation_taken_over"),
+    v.literal("escalation_dismissed"),
+    v.literal("escalation_resolved"),
+    v.literal("escalation_timed_out"),
+    v.literal("agent_resumed"),
+  )),
+  lifecycleUpdatedAt: v.optional(v.number()),
+  lifecycleUpdatedBy: v.optional(v.string()),
 
   // LLM-generated summary on close (for future context injection)
   summary: v.optional(v.object({
@@ -223,3 +271,84 @@ export const agentSessionMessages = defineTable({
   timestamp: v.number(),
 })
   .index("by_session", ["sessionId"]);
+
+/**
+ * AGENT TURNS
+ *
+ * Explicit turn lifecycle records for deterministic runtime orchestration.
+ * One active turn per (sessionId, agentId) is enforced in runtime helpers.
+ */
+export const agentTurns = defineTable({
+  organizationId: v.id("organizations"),
+  sessionId: v.id("agentSessions"),
+  agentId: v.id("objects"),
+
+  state: agentTurnStateValidator,
+  transitionVersion: v.number(),
+
+  // Lease/CAS fields
+  leaseOwner: v.optional(v.string()),
+  leaseToken: v.optional(v.string()),
+  leaseExpiresAt: v.optional(v.number()),
+  lastHeartbeatAt: v.optional(v.number()),
+
+  // Replay/idempotency hooks
+  idempotencyKey: v.optional(v.string()),
+  inboundMessageHash: v.optional(v.string()),
+
+  // Terminal delivery pointer (Plan 15 contract target)
+  terminalDeliverable: v.optional(v.object({
+    pointerType: v.string(),
+    pointerId: v.string(),
+    status: v.union(v.literal("success"), v.literal("failed")),
+    recordedAt: v.number(),
+  })),
+
+  // Lifecycle timing
+  queuedAt: v.number(),
+  startedAt: v.optional(v.number()),
+  suspendedAt: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+  failedAt: v.optional(v.number()),
+  cancelledAt: v.optional(v.number()),
+  failureReason: v.optional(v.string()),
+
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_session_agent_state", ["sessionId", "agentId", "state"])
+  .index("by_session_agent_created", ["sessionId", "agentId", "createdAt"])
+  .index("by_session_created", ["sessionId", "createdAt"])
+  .index("by_org_state", ["organizationId", "state"])
+  .index("by_org_idempotency_key", ["organizationId", "idempotencyKey"])
+  .index("by_state_lease_expiry", ["state", "leaseExpiresAt"]);
+
+/**
+ * EXECUTION EDGES
+ *
+ * Append-only transition and runtime events for replay and audit.
+ */
+export const executionEdges = defineTable({
+  organizationId: v.id("organizations"),
+  sessionId: v.id("agentSessions"),
+  agentId: v.id("objects"),
+  turnId: v.id("agentTurns"),
+
+  transition: agentTurnTransitionValidator,
+  fromState: v.optional(agentTurnStateValidator),
+  toState: v.optional(agentTurnStateValidator),
+
+  edgeOrdinal: v.number(),
+  idempotencyKey: v.optional(v.string()),
+  payloadHash: v.optional(v.string()),
+  metadata: v.optional(v.any()),
+
+  occurredAt: v.number(),
+  createdAt: v.number(),
+})
+  .index("by_turn", ["turnId"])
+  .index("by_turn_ordinal", ["turnId", "edgeOrdinal"])
+  .index("by_session_time", ["sessionId", "occurredAt"])
+  .index("by_session_transition", ["sessionId", "transition"])
+  .index("by_org_time", ["organizationId", "occurredAt"]);

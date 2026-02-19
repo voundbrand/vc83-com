@@ -12,6 +12,7 @@
 
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { soulDriftScoresValidator } from "./aiSchemas";
 
 /**
  * SOUL PROPOSALS
@@ -41,8 +42,16 @@ export const soulProposals = defineTable({
     v.literal("conversation"),
     v.literal("reflection"),
     v.literal("owner_directed"),
+    v.literal("alignment"),
   ),
   evidenceMessages: v.optional(v.array(v.string())),
+  alignmentMode: v.optional(v.union(
+    v.literal("monitor"),
+    v.literal("remediate"),
+  )),
+  driftScores: v.optional(soulDriftScoresValidator),
+  driftSummary: v.optional(v.string()),
+  driftSignalSource: v.optional(v.string()),
 
   // Status
   status: v.union(

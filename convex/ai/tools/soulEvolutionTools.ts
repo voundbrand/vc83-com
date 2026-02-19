@@ -126,9 +126,15 @@ Your proposal goes to the owner for approval. Be specific about WHAT to change a
       );
     }
 
+    const operatorReviewPayload = await ctx.runQuery(
+      getInternal().ai.soulEvolution.getProposalOperatorReviewPayload,
+      { proposalId }
+    );
+
     return {
       success: true,
       proposalId,
+      operatorReviewPayload,
       message: "Proposal submitted. The owner will be notified for approval.",
     };
   },
@@ -209,16 +215,27 @@ export const viewPendingProposalsTool: AITool = {
       return { message: "No pending proposals." };
     }
 
-    return {
-      pendingCount: proposals.length,
+    const proposalsWithReviewPayload = await Promise.all(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      proposals: proposals.map((p: any) => ({
-        id: p._id,
-        type: p.proposalType,
-        field: p.targetField,
-        proposed: p.proposedValue,
-        reason: p.reason,
-        createdAt: new Date(p.createdAt).toISOString(),
+      proposals.map(async (proposal: any) => ({
+        proposal,
+        operatorReviewPayload: await ctx.runQuery(
+          getInternal().ai.soulEvolution.getProposalOperatorReviewPayload,
+          { proposalId: proposal._id }
+        ),
+      }))
+    );
+
+    return {
+      pendingCount: proposalsWithReviewPayload.length,
+      proposals: proposalsWithReviewPayload.map(({ proposal, operatorReviewPayload }) => ({
+        id: proposal._id,
+        type: proposal.proposalType,
+        field: proposal.targetField,
+        proposed: proposal.proposedValue,
+        reason: proposal.reason,
+        createdAt: new Date(proposal.createdAt).toISOString(),
+        operatorReviewPayload,
       })),
     };
   },

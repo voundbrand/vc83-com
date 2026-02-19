@@ -23,12 +23,34 @@ const { internal: internalApi } = require("../_generated/api") as {
   internal: Record<string, Record<string, Record<string, unknown>>>;
 };
 import type {
+  ChannelProvider,
   ChannelType,
   ProviderId,
   OutboundMessage,
   SendResult,
+  ProviderCredentialField,
   ProviderCredentials,
 } from "./types";
+
+export function providerSupportsChannel(
+  provider: ChannelProvider,
+  channel: string
+): boolean {
+  return provider.capabilities.supportedChannels.includes(channel as ChannelType);
+}
+
+export function credentialFieldRequiresDecryption(
+  credentials: ProviderCredentials,
+  field: ProviderCredentialField
+): boolean {
+  if (credentials.credentialSource !== "oauth_connection") {
+    return false;
+  }
+  return (
+    Array.isArray(credentials.encryptedFields) &&
+    credentials.encryptedFields.includes(field)
+  );
+}
 
 /**
  * Get the active provider binding for an org + channel.
@@ -92,12 +114,55 @@ export const getProviderCredentials = internalQuery({
       const metadata = connection.customProperties as Record<string, unknown>;
       return {
         providerId: "whatsapp",
+        credentialSource: "oauth_connection",
+        encryptedFields: ["whatsappAccessToken"],
         whatsappPhoneNumberId: metadata?.phoneNumberId as string,
         whatsappAccessToken: connection.accessToken, // Encrypted — decrypted in sendMessage action
         whatsappWabaId: metadata?.wabaId as string,
         whatsappOrganizationId: args.organizationId,
         webhookSecret: process.env.META_APP_SECRET,
       } as ProviderCredentials;
+    }
+
+    // Slack uses oauthConnections; optional env fallback is gated by policy.
+    if (args.providerId === "slack") {
+      const connection = await ctx.db
+        .query("oauthConnections")
+        .withIndex("by_org_and_provider", (q) =>
+          q.eq("organizationId", args.organizationId).eq("provider", "slack")
+        )
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .first();
+
+      if (connection) {
+        const metadata = connection.customProperties as Record<string, unknown>;
+        return {
+          providerId: "slack",
+          credentialSource: "oauth_connection",
+          encryptedFields: ["slackBotToken"],
+          // Stored encrypted in oauthConnections; decrypted at send time.
+          slackBotToken: connection.accessToken,
+          slackTeamId: connection.providerAccountId,
+          slackBotUserId: metadata?.botUserId as string | undefined,
+          slackAppId: metadata?.appId as string | undefined,
+          slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
+        } as ProviderCredentials;
+      }
+
+      const tokenPolicy = process.env.SLACK_BOT_TOKEN_POLICY || "oauth_connection_only";
+      if (
+        tokenPolicy === "oauth_or_env_fallback" &&
+        process.env.SLACK_BOT_TOKEN
+      ) {
+        return {
+          providerId: "slack",
+          credentialSource: "env_fallback",
+          slackBotToken: process.env.SLACK_BOT_TOKEN,
+          slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
+        } as ProviderCredentials;
+      }
+
+      return null;
     }
 
     // Default: query objects table for per-org settings
@@ -114,6 +179,7 @@ export const getProviderCredentials = internalQuery({
     if (settings) {
       return {
         providerId: args.providerId,
+        credentialSource: "object_settings",
         ...(settings.customProperties as Record<string, unknown>),
       } as ProviderCredentials;
     }
@@ -164,6 +230,7 @@ export const getProviderCredentials = internalQuery({
 
         return {
           providerId: "infobip",
+          credentialSource: "platform_fallback",
           infobipApiKey: apiKey,
           infobipBaseUrl: baseUrl,
           infobipSmsSenderId: orgSenderId,
@@ -216,6 +283,9 @@ export const sendMessage = internalAction({
       ) {
         // Platform bot fallback — telegramProvider.sendMessage reads TELEGRAM_BOT_TOKEN from env
         providerId = "telegram";
+      } else if (args.channel === "slack") {
+        // Slack can resolve credentials from active OAuth connection or env fallback policy.
+        providerId = "slack";
       } else {
         return {
           success: false,
@@ -230,6 +300,12 @@ export const sendMessage = internalAction({
     const provider = getProvider(providerId);
     if (!provider) {
       return { success: false, error: `Provider not found: ${providerId}` };
+    }
+    if (!providerSupportsChannel(provider, args.channel)) {
+      return {
+        success: false,
+        error: `Provider ${providerId} does not support channel: ${args.channel}`,
+      };
     }
 
     // 2. Get credentials
@@ -246,12 +322,29 @@ export const sendMessage = internalAction({
     }
 
     // 2b. Decrypt WhatsApp access token (stored encrypted in oauthConnections)
-    if (providerId === "whatsapp" && credentials.whatsappAccessToken) {
+    if (
+      providerId === "whatsapp" &&
+      credentials.whatsappAccessToken &&
+      credentialFieldRequiresDecryption(credentials, "whatsappAccessToken")
+    ) {
       const decryptedToken = await (ctx.runAction as Function)(
         internalApi.oauth.encryption.decryptToken,
         { encrypted: credentials.whatsappAccessToken }
       ) as string;
       credentials = { ...credentials, whatsappAccessToken: decryptedToken };
+    }
+
+    // 2c. Decrypt Slack bot token when sourced from oauthConnections.
+    if (
+      providerId === "slack" &&
+      credentials.slackBotToken &&
+      credentialFieldRequiresDecryption(credentials, "slackBotToken")
+    ) {
+      const decryptedToken = await (ctx.runAction as Function)(
+        internalApi.oauth.encryption.decryptToken,
+        { encrypted: credentials.slackBotToken }
+      ) as string;
+      credentials = { ...credentials, slackBotToken: decryptedToken };
     }
 
     // 3. Determine if this is a platform-owned send (no per-org binding)
@@ -318,7 +411,7 @@ export const sendMessage = internalAction({
         async () => {
           const sendResult = await provider.sendMessage(credentials, message);
           if (!sendResult.success) {
-            throw new Error(sendResult.error || "Send returned failure");
+            throw buildProviderSendError(sendResult);
           }
           return sendResult;
         },
@@ -362,15 +455,26 @@ export const sendMessage = internalAction({
     // 5. Deduct credits for platform SMS (per-org enterprise pays Infobip directly)
     if (isPlatformSms && result.success) {
       try {
-        await (ctx.runMutation as Function)(
+        const smsCreditDeduction = await (ctx.runMutation as Function)(
           internalApi.credits.index.deductCreditsInternalMutation,
           {
             organizationId: args.organizationId,
             amount: 2, // sms_outbound cost
             action: "sms_outbound",
             description: `SMS to ${args.recipientIdentifier.slice(0, 6)}...`,
+            softFailOnExhausted: true,
           }
         );
+
+        if (!smsCreditDeduction.success) {
+          console.warn("[Router] SMS credit deduction skipped:", {
+            organizationId: args.organizationId,
+            errorCode: smsCreditDeduction.errorCode,
+            message: smsCreditDeduction.message,
+            creditsRequired: smsCreditDeduction.creditsRequired,
+            creditsAvailable: smsCreditDeduction.creditsAvailable,
+          });
+        }
       } catch (e) {
         // Credit deduction failure shouldn't block SMS delivery
         console.error("[Router] SMS credit deduction failed:", e);
@@ -401,6 +505,33 @@ function isMarkdownParseError(error: unknown): boolean {
     message.includes("formatting") ||
     message.includes("bad request: can't parse")
   );
+}
+
+function buildProviderSendError(
+  sendResult: SendResult
+): Error & {
+  status?: number;
+  statusCode?: number;
+  retryAfterMs?: number;
+  retryable?: boolean;
+} {
+  const error = new Error(sendResult.error || "Send returned failure") as Error & {
+    status?: number;
+    statusCode?: number;
+    retryAfterMs?: number;
+    retryable?: boolean;
+  };
+  if (typeof sendResult.statusCode === "number") {
+    error.status = sendResult.statusCode;
+    error.statusCode = sendResult.statusCode;
+  }
+  if (typeof sendResult.retryAfterMs === "number") {
+    error.retryAfterMs = sendResult.retryAfterMs;
+  }
+  if (typeof sendResult.retryable === "boolean") {
+    error.retryable = sendResult.retryable;
+  }
+  return error;
 }
 
 /**

@@ -562,7 +562,7 @@ export function CtaSection(props: CtaProps) {
     subtitle,
     cta,
     secondaryCta,
-    backgroundClassName = "bg-gradient-to-r from-blue-600 to-purple-600",
+    backgroundClassName = "bg-gradient-to-r from-blue-600 to-cyan-600",
     titleClassName = "text-white",
   } = props;
 

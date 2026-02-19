@@ -175,8 +175,11 @@ export const cacheModels = internalMutation({
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     let newCount = 0;
     let updatedCount = 0;
+    let deprecatedCount = 0;
+    const fetchedModelIds = new Set<string>();
 
     for (const model of models as OpenRouterModel[]) {
+      fetchedModelIds.add(model.id);
       // Extract provider from model ID (e.g., "anthropic/claude-3-5-sonnet" -> "anthropic")
       const provider = model.id.split("/")[0];
 
@@ -225,7 +228,11 @@ export const cacheModels = internalMutation({
           },
           lastSeenAt: fetchedAt,
           isNew: model.created > sevenDaysAgo,
-          // Keep existing isPlatformEnabled value
+          lifecycleStatus:
+            existing.lifecycleStatus === "retired"
+              ? "retired"
+              : existing.lifecycleStatus ?? "discovered",
+          // Keep existing platform/default toggles.
         });
         updatedCount++;
       } else {
@@ -248,12 +255,36 @@ export const cacheModels = internalMutation({
           lastSeenAt: fetchedAt,
           isNew: model.created > sevenDaysAgo,
           isPlatformEnabled: false, // Disabled by default - super admin must enable
+          lifecycleStatus: "discovered",
         });
         newCount++;
       }
     }
 
-    console.log(`✅ Updated model cache: ${newCount} new, ${updatedCount} updated`);
+    const existingModels = await ctx.db.query("aiModels").collect();
+    for (const model of existingModels) {
+      if (fetchedModelIds.has(model.modelId)) {
+        continue;
+      }
+      if (model.lifecycleStatus === "retired") {
+        continue;
+      }
+
+      await ctx.db.patch(model._id, {
+        lifecycleStatus: "deprecated",
+        deprecatedAt: model.deprecatedAt ?? fetchedAt,
+        isPlatformEnabled: false,
+        isSystemDefault: false,
+        retirementReason:
+          model.retirementReason
+          ?? "Model no longer present in discovery feed; auto-deprecated for safety",
+      });
+      deprecatedCount++;
+    }
+
+    console.log(
+      `✅ Updated model cache: ${newCount} new, ${updatedCount} updated, ${deprecatedCount} auto-deprecated`
+    );
   },
 });
 

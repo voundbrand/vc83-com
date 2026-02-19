@@ -556,6 +556,41 @@ Each model card shows:
 
 ---
 
+## Runtime Operability Playbooks (Canonical IDs)
+
+These runbooks are tied to real runtime identifiers in the Convex backend. Use these exact IDs when triaging incidents.
+
+### Canonical incident signal map
+
+| Incident class | Alert identifiers | Triage queries/mutations |
+|---|---|---|
+| Model outage | `ai/platformAlerts:sendPlatformAlert` with `alertType=service_outage|openrouter_error|rate_limit|openrouter_payment|slo_breach` | `ai/agentSessions:getModelFallbackRate`, `ai/platformModels:getEnabledModels`, `ai/platformModelManagement:disablePlatformModel`, `ai/platformModelManagement:enablePlatformModel` |
+| Tool degradation | `ai/platformAlerts:sendPlatformAlert` with `alertType=slo_breach`, `sloMetric=tool_success_rate|escalation_rate` | `ai/agentSessions:getToolSuccessFailureRatio`, `ai/agentSessions:getAgingReceipts`, `ai/agentSessions:getDuplicateReceipts`, `ai/agentSessions:getStuckReceipts`, `ai/agentSessions:getReplaySafeReceiptDebug`, `ai/agentSessions:requestReplaySafeReceipt` |
+| Cost spike | `ai/platformAlerts:sendPlatformAlert` with `alertType=slo_breach`, `sloMetric=cost_per_successful_task_usd` | `ai/billing:getUsageSummary`, `ai/agentSessions:getAgentStats`, `ai/modelPricing:getModelPricing` |
+
+### Model outage quick flow
+
+1. Confirm `model_fallback_rate` severity and fallback trend via `ai/agentSessions:getModelFallbackRate`.
+2. Identify failing model IDs; disable clearly failing ones with `ai/platformModelManagement:disablePlatformModel`.
+3. Validate healthy replacements are still enabled (`ai/platformModels:getEnabledModels`).
+4. Re-enable only after release-gate pass through `ai/platformModelManagement:enablePlatformModel` (`operationalReviewAcknowledged=true`).
+
+### Tool degradation quick flow
+
+1. Check tool success/failure distribution with `ai/agentSessions:getToolSuccessFailureRatio`.
+2. Check receipt health: `getAgingReceipts`, `getDuplicateReceipts`, `getStuckReceipts`.
+3. For replay-safe handling, inspect `getReplaySafeReceiptDebug` and log replay intent with `requestReplaySafeReceipt`.
+4. If outbound backlog persists, use operator DLQ recovery flow (`ai/deadLetterQueue:retryDeadLetters`).
+
+### Cost spike quick flow
+
+1. Measure spend regression with `ai/billing:getUsageSummary`.
+2. Correlate spend with agent-level throughput/cost from `ai/agentSessions:getAgentStats`.
+3. Check model pricing resolution for suspect model IDs (`ai/modelPricing:getModelPricing`).
+4. Hold non-critical model changes until cost SLO returns below warning threshold for two windows.
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -724,7 +759,7 @@ This validation strategy ensures that only reliable, well-tested AI models are a
 
 **Key Takeaways:**
 - ✅ Test BEFORE enabling platform-wide
-- ✅ Use 5-phase validation suite
+- ✅ Use 6-phase validation suite
 - ✅ Review test results in UI
 - ✅ Mark reliable models as system defaults
 - ✅ Re-test after provider updates

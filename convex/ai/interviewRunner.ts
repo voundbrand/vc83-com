@@ -21,15 +21,19 @@
 import { query, mutation, action, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { requireAuthenticatedUser } from "../rbacHelpers";
 import type {
   InterviewTemplate,
-  InterviewPhase,
-  InterviewQuestion,
   InterviewState,
   InterviewProgress,
-  ExtractionResult,
   SkipCondition,
 } from "../schemas/interviewSchemas";
+import {
+  TRUST_EVENT_TAXONOMY_VERSION,
+  validateTrustEventPayload,
+  type TrustEventName,
+  type TrustEventPayload,
+} from "./trustEvents";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +49,95 @@ function getApi(): any {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getInternal(): any {
   return getApi().internal;
+}
+
+const INTERVIEW_MEMORY_CONSENT_SCOPE = "content_dna_profile";
+const INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION = "interview-memory-consent-v1";
+const INTERVIEW_TRUST_CHANNEL = "interview";
+const INTERVIEW_TRUST_ARTIFACTS_VERSION = "trust-artifacts.v1";
+
+interface MemoryCandidate {
+  fieldId: string;
+  label: string;
+  value: unknown;
+  valuePreview: string;
+  phaseId: string;
+  phaseName: string;
+  questionId: string;
+  questionPrompt: string;
+}
+
+interface DistilledCoreMemory {
+  memoryId: string;
+  type: "identity" | "boundary" | "empathy" | "pride" | "caution";
+  title: string;
+  narrative: string;
+  source: "onboarding_story";
+  immutable: true;
+  immutableReason: "onboarding_anchor";
+  sourceFieldId: string;
+}
+
+export interface CoreMemoryDistillationBundle {
+  generatedAt: number;
+  sourceTemplateName: string;
+  memories: DistilledCoreMemory[];
+}
+
+interface PhaseSummary {
+  phaseId: string;
+  phaseName: string;
+  items: Array<{
+    fieldId: string;
+    label: string;
+    valuePreview: string;
+    questionId: string;
+    questionPrompt: string;
+  }>;
+}
+
+interface TrustArtifactEntry {
+  fieldId: string;
+  label: string;
+  valuePreview: string;
+  phaseId: string;
+  phaseName: string;
+  questionId: string;
+  questionPrompt: string;
+}
+
+interface TrustArtifactCard {
+  cardId: "soul_card" | "guardrails_card" | "team_charter";
+  title: string;
+  summary: string;
+  identityAnchors: TrustArtifactEntry[];
+  guardrails: TrustArtifactEntry[];
+  handoffBoundaries: TrustArtifactEntry[];
+  driftCues: TrustArtifactEntry[];
+}
+
+interface MemoryLedgerArtifactCard {
+  cardId: "memory_ledger";
+  title: string;
+  summary: string;
+  identityAnchors: TrustArtifactEntry[];
+  guardrails: TrustArtifactEntry[];
+  handoffBoundaries: TrustArtifactEntry[];
+  driftCues: TrustArtifactEntry[];
+  consentScope: string;
+  consentDecision: "accepted";
+  consentPromptVersion: string;
+  ledgerEntries: TrustArtifactEntry[];
+}
+
+interface TrustArtifactsBundle {
+  version: string;
+  generatedAt: number;
+  sourceTemplateName: string;
+  soulCard: TrustArtifactCard;
+  guardrailsCard: TrustArtifactCard;
+  teamCharter: TrustArtifactCard;
+  memoryLedger: MemoryLedgerArtifactCard;
 }
 
 // ============================================================================
@@ -71,7 +164,7 @@ export const getInterviewProgress = query({
     }
 
     const props = template.customProperties as InterviewTemplate;
-    const state = session.interviewState;
+    const state = session.interviewState as InterviewState | undefined;
 
     if (!state) {
       return null;
@@ -136,6 +229,8 @@ export const getCurrentContext = query({
 
     const currentPhase = props.phases[state.currentPhaseIndex];
     const currentQuestion = currentPhase?.questions[state.currentQuestionIndex];
+    const phaseSummaries = buildPhaseSummaries(props, state.extractedData);
+    const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
 
     return {
       phase: currentPhase
@@ -157,6 +252,10 @@ export const getCurrentContext = query({
         : null,
       extractedData: state.extractedData,
       isComplete: state.isComplete,
+      contentDNAId: state.contentDNAId,
+      memoryConsent: state.memoryConsent || null,
+      phaseSummaries,
+      memoryCandidateIds: buildMemoryCandidateIds(memoryCandidates),
     };
   },
 });
@@ -328,6 +427,219 @@ export const resumeInterview = mutation({
   },
 });
 
+/**
+ * CANCEL INTERVIEW SESSION
+ * Hard-delete an in-progress guided interview session and all session artifacts.
+ * Used by UI "Cancel & Delete" so users can exit without keeping interview state.
+ */
+export const cancelInterviewSession = mutation({
+  args: {
+    sessionId: v.string(),
+    interviewSessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const session = await ctx.db.get(args.interviewSessionId);
+    if (!session) {
+      return {
+        success: true,
+        deleted: false,
+        reason: "session_not_found" as const,
+        deletedMessages: 0,
+        deletedTurns: 0,
+        deletedEdges: 0,
+      };
+    }
+
+    if (session.sessionMode !== "guided") {
+      throw new Error("Only guided interview sessions can be canceled with delete.");
+    }
+
+    const messages = await ctx.db
+      .query("agentSessionMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.interviewSessionId))
+      .collect();
+
+    const turns = await ctx.db
+      .query("agentTurns")
+      .withIndex("by_session_created", (q) => q.eq("sessionId", args.interviewSessionId))
+      .collect();
+
+    const edges = await ctx.db
+      .query("executionEdges")
+      .withIndex("by_session_time", (q) => q.eq("sessionId", args.interviewSessionId))
+      .collect();
+
+    for (const edge of edges) {
+      await ctx.db.delete(edge._id);
+    }
+
+    for (const turn of turns) {
+      await ctx.db.delete(turn._id);
+    }
+
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+
+    await ctx.db.delete(args.interviewSessionId);
+
+    return {
+      success: true,
+      deleted: true,
+      deletedMessages: messages.length,
+      deletedTurns: turns.length,
+      deletedEdges: edges.length,
+    };
+  },
+});
+
+/**
+ * DECIDE MEMORY CONSENT
+ * User-facing checkpoint before durable Content DNA persistence.
+ */
+export const decideMemoryConsent = mutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    decision: v.union(v.literal("accept"), v.literal("decline")),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sessionMode !== "guided" || !session.interviewState || !session.interviewTemplateId) {
+      throw new Error("Invalid interview session");
+    }
+
+    if (!session.interviewState.isComplete) {
+      throw new Error("Interview must be complete before deciding memory consent.");
+    }
+
+    const templateObject = await ctx.db.get(session.interviewTemplateId);
+    if (!templateObject) {
+      throw new Error("Interview template not found");
+    }
+    const template = templateObject.customProperties as InterviewTemplate;
+
+    const actorId = "interview_user";
+
+    const interviewState = session.interviewState as InterviewState;
+    const now = Date.now();
+    const memoryCandidates = buildMemoryCandidates(template, interviewState.extractedData);
+    const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+    const promptedAt = interviewState.memoryConsent?.promptedAt || now;
+
+    if (args.decision === "accept") {
+      const acceptedState: InterviewState = {
+        ...interviewState,
+        memoryConsent: {
+          status: "accepted",
+          consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+          consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+          memoryCandidateIds,
+          promptedAt,
+          decidedAt: now,
+          decisionSource: "user",
+        },
+      };
+
+      await ctx.db.patch(args.sessionId, {
+        interviewState: acceptedState,
+      });
+
+      await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_decided.v1", {
+        organizationId: session.organizationId,
+        sessionId: args.sessionId,
+        actorType: "user",
+        actorId,
+        consentDecision: "accepted",
+        memoryCandidateIds,
+      });
+
+      const completion = await persistContentDNAFromInterview(ctx, {
+        sessionId: args.sessionId,
+        session: {
+          organizationId: session.organizationId,
+          interviewTemplateId: session.interviewTemplateId,
+          interviewState: acceptedState,
+          channel: session.channel,
+        },
+        template,
+      });
+
+      return {
+        decision: "accepted" as const,
+        contentDNAId: completion.contentDNAId,
+      };
+    }
+
+    const contentDNAId = interviewState.contentDNAId as Id<"objects"> | undefined;
+    if (contentDNAId) {
+      const linksFrom = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_object", (q) => q.eq("fromObjectId", contentDNAId))
+        .collect();
+      const linksTo = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_to_object", (q) => q.eq("toObjectId", contentDNAId))
+        .collect();
+      const actions = await ctx.db
+        .query("objectActions")
+        .withIndex("by_object", (q) => q.eq("objectId", contentDNAId))
+        .collect();
+
+      for (const link of [...linksFrom, ...linksTo]) {
+        await ctx.db.delete(link._id);
+      }
+      for (const action of actions) {
+        await ctx.db.delete(action._id);
+      }
+      await ctx.db.delete(contentDNAId);
+    }
+
+    const declinedState: InterviewState = {
+      ...interviewState,
+      contentDNAId: undefined,
+      memoryConsent: {
+        status: "declined",
+        consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+        consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+        memoryCandidateIds,
+        promptedAt,
+        decidedAt: now,
+        decisionSource: "user",
+      },
+    };
+
+    await ctx.db.patch(args.sessionId, {
+      interviewState: declinedState,
+      status: "closed",
+    });
+
+    await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_decided.v1", {
+      organizationId: session.organizationId,
+      sessionId: args.sessionId,
+      actorType: "user",
+      actorId,
+      consentDecision: "declined",
+      memoryCandidateIds,
+    });
+
+    await emitMemoryConsentTrustEvent(ctx, "trust.memory.write_blocked_no_consent.v1", {
+      organizationId: session.organizationId,
+      sessionId: args.sessionId,
+      actorType: "system",
+      actorId: "interview_runner",
+      consentDecision: "blocked",
+      memoryCandidateIds,
+    });
+
+    return {
+      decision: "declined" as const,
+      contentDNAId: null,
+    };
+  },
+});
+
 // ============================================================================
 // INTERNAL QUERIES
 // ============================================================================
@@ -430,7 +742,7 @@ export const advanceInterview = internalMutation({
     }
 
     const props = template.customProperties as InterviewTemplate;
-    const state = { ...session.interviewState };
+    const state: InterviewState = { ...session.interviewState } as InterviewState;
     const now = Date.now();
 
     // Merge extracted data
@@ -516,13 +828,32 @@ export const advanceInterview = internalMutation({
     if (canComplete.ready) {
       state.isComplete = true;
       state.completedAt = now;
+      const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
+      const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+      state.memoryConsent = {
+        status: "pending",
+        consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+        consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+        memoryCandidateIds,
+        promptedAt: now,
+      };
 
       await ctx.db.patch(args.sessionId, { interviewState: state });
+
+      await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_prompted.v1", {
+        organizationId: session.organizationId,
+        sessionId: args.sessionId,
+        actorType: "system",
+        actorId: "interview_runner",
+        consentDecision: "pending",
+        memoryCandidateIds,
+      });
 
       return {
         advanced: true,
         advanceType: "interview_complete",
         extractedData: state.extractedData,
+        memoryCandidateIds,
       };
     }
 
@@ -549,7 +880,7 @@ export const completeInterview = internalMutation({
       throw new Error("Invalid session");
     }
 
-    const state = session.interviewState;
+    const state = session.interviewState as InterviewState;
     if (!state.isComplete) {
       throw new Error("Interview not yet complete");
     }
@@ -560,66 +891,32 @@ export const completeInterview = internalMutation({
     }
 
     const props = template.customProperties as InterviewTemplate;
+    const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
+    const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+    const consentAccepted = state.memoryConsent?.status === "accepted";
 
-    // Create Content DNA object
-    const contentDNAId = await ctx.db.insert("objects", {
-      organizationId: session.organizationId,
-      type: "content_profile",
-      subtype: "interview_extracted",
-      name: `Content DNA - ${new Date().toISOString().split("T")[0]}`,
-      description: `Extracted from interview using template: ${props.templateName}`,
-      status: "active",
-      customProperties: {
-        extractedData: state.extractedData,
-        sourceTemplateId: session.interviewTemplateId,
-        sourceSessionId: args.sessionId,
-        extractedAt: Date.now(),
-        schema: props.outputSchema,
-      },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Link Content DNA to session
-    await ctx.db.insert("objectLinks", {
-      organizationId: session.organizationId,
-      fromObjectId: contentDNAId,
-      toObjectId: session.interviewTemplateId,
-      linkType: "extracted_from_template",
-      createdAt: Date.now(),
-    });
-
-    // Update session with Content DNA ID
-    const updatedState: InterviewState = {
-      ...state,
-      contentDNAId: contentDNAId,
-    };
-
-    await ctx.db.patch(args.sessionId, {
-      interviewState: updatedState,
-      status: "closed",
-    });
-
-    // Log completion
-    await ctx.db.insert("objectActions", {
-      organizationId: session.organizationId,
-      objectId: contentDNAId,
-      actionType: "interview_completed",
-      actionData: {
+    if (!consentAccepted) {
+      await emitMemoryConsentTrustEvent(ctx, "trust.memory.write_blocked_no_consent.v1", {
+        organizationId: session.organizationId,
         sessionId: args.sessionId,
-        templateId: session.interviewTemplateId,
-        templateName: props.templateName,
-        durationMinutes: Math.round((Date.now() - state.startedAt) / 60000),
-        extractedFieldCount: Object.keys(state.extractedData).length,
-      },
-      performedAt: Date.now(),
-    });
+        actorType: "system",
+        actorId: "interview_runner",
+        consentDecision: "blocked",
+        memoryCandidateIds,
+      });
+      throw new Error("Memory consent must be accepted before saving Content DNA.");
+    }
 
-    return {
-      contentDNAId,
-      extractedFieldCount: Object.keys(state.extractedData).length,
-      durationMinutes: Math.round((Date.now() - state.startedAt) / 60000),
-    };
+    return await persistContentDNAFromInterview(ctx, {
+      sessionId: args.sessionId,
+      session: {
+        organizationId: session.organizationId,
+        interviewTemplateId: session.interviewTemplateId,
+        interviewState: state,
+        channel: session.channel,
+      },
+      template: props,
+    });
   },
 });
 
@@ -643,7 +940,7 @@ export const skipPhase = internalMutation({
     }
 
     const props = template.customProperties as InterviewTemplate;
-    const state = { ...session.interviewState };
+    const state: InterviewState = { ...session.interviewState } as InterviewState;
 
     const currentPhase = props.phases[state.currentPhaseIndex];
 
@@ -671,8 +968,28 @@ export const skipPhase = internalMutation({
       // No more phases
       const canComplete = checkCompletionCriteria(props, state);
       if (canComplete.ready) {
+        const now = Date.now();
         state.isComplete = true;
-        state.completedAt = Date.now();
+        state.completedAt = now;
+        const memoryCandidateIds = buildMemoryCandidateIds(
+          buildMemoryCandidates(props, state.extractedData),
+        );
+        state.memoryConsent = {
+          status: "pending",
+          consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+          consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+          memoryCandidateIds,
+          promptedAt: now,
+        };
+
+        await emitMemoryConsentTrustEvent(ctx, "trust.memory.consent_prompted.v1", {
+          organizationId: session.organizationId,
+          sessionId: args.sessionId,
+          actorType: "system",
+          actorId: "interview_runner",
+          consentDecision: "pending",
+          memoryCandidateIds,
+        });
       }
     } else {
       state.currentPhaseIndex = nextPhaseIndex;
@@ -697,6 +1014,563 @@ export const skipPhase = internalMutation({
 // ============================================================================
 // HELPERS
 // ============================================================================
+
+function formatExtractedValuePreview(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).join(", ");
+  }
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function buildMemoryCandidates(
+  template: InterviewTemplate,
+  extractedData: Record<string, unknown>,
+): MemoryCandidate[] {
+  const candidates: MemoryCandidate[] = [];
+
+  for (const phase of template.phases) {
+    for (const question of phase.questions) {
+      const value = extractedData[question.extractionField];
+      if (value === undefined || value === null || value === "") {
+        continue;
+      }
+
+      candidates.push({
+        fieldId: question.extractionField,
+        label: question.promptText,
+        value,
+        valuePreview: formatExtractedValuePreview(value),
+        phaseId: phase.phaseId,
+        phaseName: phase.phaseName,
+        questionId: question.questionId,
+        questionPrompt: question.promptText,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function buildPhaseSummaries(
+  template: InterviewTemplate,
+  extractedData: Record<string, unknown>,
+): PhaseSummary[] {
+  const byPhase = new Map<string, PhaseSummary>();
+
+  for (const candidate of buildMemoryCandidates(template, extractedData)) {
+    if (!byPhase.has(candidate.phaseId)) {
+      byPhase.set(candidate.phaseId, {
+        phaseId: candidate.phaseId,
+        phaseName: candidate.phaseName,
+        items: [],
+      });
+    }
+
+    byPhase.get(candidate.phaseId)!.items.push({
+      fieldId: candidate.fieldId,
+      label: candidate.label,
+      valuePreview: candidate.valuePreview,
+      questionId: candidate.questionId,
+      questionPrompt: candidate.questionPrompt,
+    });
+  }
+
+  return Array.from(byPhase.values());
+}
+
+function buildMemoryCandidateIds(candidates: MemoryCandidate[]): string[] {
+  return candidates.map((candidate) => candidate.fieldId);
+}
+
+const ONBOARDING_CORE_MEMORY_FIELD_MAPPINGS: Array<{
+  fieldId: string;
+  type: DistilledCoreMemory["type"];
+  title: string;
+}> = [
+  {
+    fieldId: "coreMemoryIdentityAnchor",
+    type: "identity",
+    title: "Brand Promise Anchor",
+  },
+  {
+    fieldId: "coreMemoryBoundaryAnchor",
+    type: "boundary",
+    title: "Escalation Boundary Anchor",
+  },
+  {
+    fieldId: "coreMemoryEmpathyAnchor",
+    type: "empathy",
+    title: "Empathy Anchor",
+  },
+];
+
+function normalizeCoreMemoryNarrative(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  return normalized;
+}
+
+export function distillOnboardingCoreMemories(
+  template: InterviewTemplate,
+  extractedData: Record<string, unknown>,
+  generatedAt: number,
+): CoreMemoryDistillationBundle {
+  const memories: DistilledCoreMemory[] = [];
+
+  for (const mapping of ONBOARDING_CORE_MEMORY_FIELD_MAPPINGS) {
+    const narrative = normalizeCoreMemoryNarrative(extractedData[mapping.fieldId]);
+    if (!narrative) {
+      continue;
+    }
+
+    memories.push({
+      memoryId: `onboarding_${mapping.fieldId}`,
+      type: mapping.type,
+      title: mapping.title,
+      narrative,
+      source: "onboarding_story",
+      immutable: true,
+      immutableReason: "onboarding_anchor",
+      sourceFieldId: mapping.fieldId,
+    });
+  }
+
+  return {
+    generatedAt,
+    sourceTemplateName: template.templateName,
+    memories,
+  };
+}
+
+function toTrustArtifactEntry(candidate: MemoryCandidate): TrustArtifactEntry {
+  return {
+    fieldId: candidate.fieldId,
+    label: candidate.label,
+    valuePreview: candidate.valuePreview,
+    phaseId: candidate.phaseId,
+    phaseName: candidate.phaseName,
+    questionId: candidate.questionId,
+    questionPrompt: candidate.questionPrompt,
+  };
+}
+
+function uniqueTrustArtifactEntries(entries: TrustArtifactEntry[]): TrustArtifactEntry[] {
+  const seen = new Set<string>();
+  const output: TrustArtifactEntry[] = [];
+
+  for (const entry of entries) {
+    const key = `${entry.phaseId}:${entry.questionId}:${entry.fieldId}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    output.push(entry);
+  }
+
+  return output;
+}
+
+type TrustArtifactFacet = "identity" | "guardrails" | "handoff" | "drift";
+
+const TRUST_ARTIFACT_FACET_KEYWORDS: Record<TrustArtifactFacet, string[]> = {
+  identity: [
+    "identity",
+    "anchor",
+    "mission",
+    "promise",
+    "persona",
+    "voice",
+    "north star",
+    "brand",
+    "mandate",
+  ],
+  guardrails: [
+    "guardrail",
+    "policy",
+    "non-negotiable",
+    "nonnegotiable",
+    "approval",
+    "blocked",
+    "prohibited",
+    "red line",
+    "immutable",
+    "safety",
+    "override",
+  ],
+  handoff: [
+    "handoff",
+    "escalation",
+    "escalate",
+    "owner",
+    "specialist",
+    "route",
+    "context packet",
+    "context envelope",
+    "quality gate",
+    "incident sla",
+  ],
+  drift: [
+    "drift",
+    "signal",
+    "monitor",
+    "review cadence",
+    "rollback",
+    "retraining",
+    "regression",
+    "correction",
+    "recovery",
+    "degrade",
+  ],
+};
+
+function collectFacetEntries(
+  candidates: MemoryCandidate[],
+  facet: TrustArtifactFacet,
+): TrustArtifactEntry[] {
+  const keywords = TRUST_ARTIFACT_FACET_KEYWORDS[facet];
+
+  return uniqueTrustArtifactEntries(
+    candidates
+      .filter((candidate) => {
+        const haystack = [
+          candidate.fieldId,
+          candidate.label,
+          candidate.questionPrompt,
+          candidate.phaseId,
+          candidate.phaseName,
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return keywords.some((keyword) => haystack.includes(keyword));
+      })
+      .map(toTrustArtifactEntry),
+  );
+}
+
+function buildFallbackEntry(
+  fieldId: string,
+  label: string,
+  valuePreview: string,
+): TrustArtifactEntry {
+  return {
+    fieldId,
+    label,
+    valuePreview,
+    phaseId: "system",
+    phaseName: "System Generated",
+    questionId: "system_generated",
+    questionPrompt: label,
+  };
+}
+
+function selectEntriesWithFallback(
+  primary: TrustArtifactEntry[],
+  fallback: TrustArtifactEntry[],
+  maxCount: number,
+  fallbackFieldId: string,
+  fallbackLabel: string,
+  fallbackMessage: string,
+): TrustArtifactEntry[] {
+  const combined = uniqueTrustArtifactEntries([...primary, ...fallback]).slice(0, maxCount);
+  if (combined.length > 0) {
+    return combined;
+  }
+
+  return [buildFallbackEntry(fallbackFieldId, fallbackLabel, fallbackMessage)];
+}
+
+function buildTrustArtifactsBundle(
+  template: InterviewTemplate,
+  candidates: MemoryCandidate[],
+  generatedAt: number,
+): TrustArtifactsBundle {
+  const fallbackPool = uniqueTrustArtifactEntries(candidates.map(toTrustArtifactEntry));
+
+  const identityAnchors = selectEntriesWithFallback(
+    collectFacetEntries(candidates, "identity"),
+    fallbackPool,
+    6,
+    "fallback_identity_anchor",
+    "Identity Anchor",
+    "No explicit identity anchor captured; review template outputs before deployment.",
+  );
+  const guardrails = selectEntriesWithFallback(
+    collectFacetEntries(candidates, "guardrails"),
+    fallbackPool,
+    6,
+    "fallback_guardrail",
+    "Guardrail Boundary",
+    "No explicit guardrail captured; define policy boundaries before enabling autonomy.",
+  );
+  const handoffBoundaries = selectEntriesWithFallback(
+    collectFacetEntries(candidates, "handoff"),
+    fallbackPool,
+    6,
+    "fallback_handoff_boundary",
+    "Handoff Boundary",
+    "No explicit handoff boundary captured; define escalation ownership before launch.",
+  );
+  const driftCues = selectEntriesWithFallback(
+    collectFacetEntries(candidates, "drift"),
+    fallbackPool,
+    6,
+    "fallback_drift_cue",
+    "Drift Cue",
+    "No explicit drift cue captured; define review cadence to prevent silent trust erosion.",
+  );
+
+  const baseCard = (
+    cardId: "soul_card" | "guardrails_card" | "team_charter",
+    title: string,
+    summary: string,
+  ): TrustArtifactCard => ({
+    cardId,
+    title,
+    summary,
+    identityAnchors,
+    guardrails,
+    handoffBoundaries,
+    driftCues,
+  });
+
+  return {
+    version: INTERVIEW_TRUST_ARTIFACTS_VERSION,
+    generatedAt,
+    sourceTemplateName: template.templateName,
+    soulCard: baseCard(
+      "soul_card",
+      "Soul Card",
+      "Identity anchors and trust posture extracted from the interview session.",
+    ),
+    guardrailsCard: baseCard(
+      "guardrails_card",
+      "Guardrails Card",
+      "Operational boundaries and approval expectations required for safe execution.",
+    ),
+    teamCharter: baseCard(
+      "team_charter",
+      "Team Charter",
+      "Handoff expectations and ownership cues for coordinated multi-agent operations.",
+    ),
+    memoryLedger: {
+      cardId: "memory_ledger",
+      title: "Memory Ledger",
+      summary: `${candidates.length} consented memory entries with source attribution.`,
+      identityAnchors,
+      guardrails,
+      handoffBoundaries,
+      driftCues,
+      consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+      consentDecision: "accepted",
+      consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+      ledgerEntries:
+        fallbackPool.length > 0
+          ? fallbackPool
+          : [buildFallbackEntry("fallback_memory_ledger", "Memory Ledger Entry", "No memory entries were captured.")],
+    },
+  };
+}
+
+async function insertTrustEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  eventName: TrustEventName,
+  payload: TrustEventPayload,
+) {
+  const validation = validateTrustEventPayload(eventName, payload);
+  await ctx.db.insert("aiTrustEvents", {
+    event_name: eventName,
+    payload,
+    schema_validation_status: validation.ok ? "passed" : "failed",
+    schema_errors: validation.ok ? undefined : validation.errors,
+    created_at: Date.now(),
+  });
+}
+
+async function emitMemoryConsentTrustEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  eventName: TrustEventName,
+  args: {
+    organizationId: Id<"organizations">;
+    sessionId: Id<"agentSessions">;
+    actorType: "user" | "system";
+    actorId: string;
+    consentDecision: "pending" | "accepted" | "declined" | "blocked";
+    memoryCandidateIds: string[];
+  },
+) {
+  const occurredAt = Date.now();
+  await insertTrustEvent(ctx, eventName, {
+    event_id: `${eventName}:${args.sessionId}:${occurredAt}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: occurredAt,
+    org_id: args.organizationId,
+    mode: "lifecycle",
+    channel: INTERVIEW_TRUST_CHANNEL,
+    session_id: args.sessionId,
+    actor_type: args.actorType,
+    actor_id: args.actorId,
+    consent_scope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+    consent_decision: args.consentDecision,
+    memory_candidate_ids: args.memoryCandidateIds,
+    consent_prompt_version: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+  });
+}
+
+async function persistContentDNAFromInterview(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    sessionId: Id<"agentSessions">;
+    session: {
+      organizationId: Id<"organizations">;
+      interviewTemplateId: Id<"objects">;
+      interviewState: InterviewState;
+      channel: string;
+    };
+    template: InterviewTemplate;
+  },
+) {
+  const { sessionId, session, template } = args;
+  const state = session.interviewState;
+  const now = Date.now();
+
+  if (state.contentDNAId) {
+    return {
+      contentDNAId: state.contentDNAId,
+      extractedFieldCount: Object.keys(state.extractedData).length,
+      durationMinutes: Math.round((now - state.startedAt) / 60000),
+    };
+  }
+
+  const memoryCandidates = buildMemoryCandidates(template, state.extractedData);
+  const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+  const trustArtifacts = buildTrustArtifactsBundle(template, memoryCandidates, now);
+  const coreMemoryDistillation = distillOnboardingCoreMemories(
+    template,
+    state.extractedData,
+    now
+  );
+  const trustArtifactTypes = ["soul_card", "guardrails_card", "team_charter", "memory_ledger"] as const;
+
+  const contentDNAId = await ctx.db.insert("objects", {
+    organizationId: session.organizationId,
+    type: "content_profile",
+    subtype: "interview_extracted",
+    name: `Content DNA - ${new Date(now).toISOString().split("T")[0]}`,
+    description: `Extracted from interview using template: ${template.templateName}`,
+    status: "active",
+    customProperties: {
+      extractedData: state.extractedData,
+      sourceTemplateId: session.interviewTemplateId,
+      sourceSessionId: sessionId,
+      extractedAt: now,
+      schema: template.outputSchema,
+      memoryConsent: {
+        scope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+        decision: "accepted",
+        decidedAt: now,
+        candidateIds: memoryCandidateIds,
+        promptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+      },
+      coreMemoryDistillation,
+      trustArtifacts,
+      sourceAttribution: memoryCandidates.map((candidate) => ({
+        fieldId: candidate.fieldId,
+        phaseId: candidate.phaseId,
+        phaseName: candidate.phaseName,
+        questionId: candidate.questionId,
+        questionPrompt: candidate.questionPrompt,
+      })),
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert("objectLinks", {
+    organizationId: session.organizationId,
+    fromObjectId: contentDNAId,
+    toObjectId: session.interviewTemplateId,
+    linkType: "extracted_from_template",
+    createdAt: now,
+  });
+
+  const updatedState: InterviewState = {
+    ...state,
+    contentDNAId,
+  };
+
+  await ctx.db.patch(sessionId, {
+    interviewState: updatedState,
+    status: "closed",
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: session.organizationId,
+    objectId: contentDNAId,
+    actionType: "interview_completed",
+    actionData: {
+      sessionId,
+      templateId: session.interviewTemplateId,
+      templateName: template.templateName,
+      durationMinutes: Math.round((now - state.startedAt) / 60000),
+      extractedFieldCount: Object.keys(state.extractedData).length,
+      consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
+      consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
+      trustArtifactTypes,
+    },
+    performedAt: now,
+  });
+
+  await insertTrustEvent(ctx, "trust.brain.content_dna.composed.v1", {
+    event_id: `trust.brain.content_dna.composed.v1:${sessionId}:${now}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: now,
+    org_id: session.organizationId,
+    mode: "lifecycle",
+    channel: session.channel || INTERVIEW_TRUST_CHANNEL,
+    session_id: sessionId,
+    actor_type: "system",
+    actor_id: "interview_runner",
+    content_profile_id: contentDNAId,
+    content_profile_version: String(template.version),
+    source_object_ids: [sessionId, session.interviewTemplateId],
+    artifact_types: ["content_profile", ...trustArtifactTypes, "memory_consent_snapshot"],
+  });
+
+  await insertTrustEvent(ctx, "trust.brain.content_dna.source_linked.v1", {
+    event_id: `trust.brain.content_dna.source_linked.v1:${sessionId}:${now}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: now,
+    org_id: session.organizationId,
+    mode: "lifecycle",
+    channel: session.channel || INTERVIEW_TRUST_CHANNEL,
+    session_id: sessionId,
+    actor_type: "system",
+    actor_id: "interview_runner",
+    content_profile_id: contentDNAId,
+    content_profile_version: String(template.version),
+    source_object_ids: [sessionId, session.interviewTemplateId],
+    artifact_types: ["template_link"],
+  });
+
+  return {
+    contentDNAId,
+    extractedFieldCount: Object.keys(state.extractedData).length,
+    durationMinutes: Math.round((now - state.startedAt) / 60000),
+    trustArtifactTypes: [...trustArtifactTypes],
+  };
+}
 
 /**
  * Evaluate a skip condition against extracted data
@@ -877,13 +1751,6 @@ export const submitInterviewAnswer = action({
         sessionId: args.sessionId,
         extractionResults,
       });
-
-      // 9. If interview complete, save Content DNA
-      if (advanceResult.advanceType === "interview_complete") {
-        await ctx.runMutation(getInternal().ai.interviewRunner.completeInterview, {
-          sessionId: args.sessionId,
-        });
-      }
     }
 
     return {
@@ -1011,6 +1878,11 @@ export function buildInterviewPromptContext(context: {
   parts.push("");
   parts.push(`Expected response type: ${context.question.expectedDataType}`);
   parts.push(`Extract answer to field: "${context.question.extractionField}"`);
+  parts.push("");
+  parts.push("Message quality rules:");
+  parts.push("- Ask exactly one question in the user-facing text.");
+  parts.push("- Do not bundle multiple questions together.");
+  parts.push("- If a CTA/link is provided, include at most one follow-up question.");
 
   // Follow-up handling
   if (context.pendingFollowUp && context.question.followUpPrompts?.length) {

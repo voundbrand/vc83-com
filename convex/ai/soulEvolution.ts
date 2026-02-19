@@ -9,14 +9,254 @@ import { action, mutation, query, internalMutation, internalQuery, internalActio
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import {
+  CORE_MEMORY_SOURCE_VALUES,
+  CORE_MEMORY_TYPE_VALUES,
+} from "../schemas/aiSchemas";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+
+type CoreMemoryType = (typeof CORE_MEMORY_TYPE_VALUES)[number];
+type CoreMemorySource = (typeof CORE_MEMORY_SOURCE_VALUES)[number];
+
+export interface CoreMemory {
+  memoryId: string;
+  type: CoreMemoryType;
+  title: string;
+  narrative: string;
+  source: CoreMemorySource;
+  immutable: boolean;
+  immutableReason?: string;
+  tags?: string[];
+  confidence?: number;
+  createdAt: number;
+  createdBy?: string;
+  approvedAt?: number;
+  approvedBy?: string;
+  lastReferencedAt?: number;
+  archivedAt?: number;
+}
+
+export interface CoreMemoryPolicy {
+  immutableByDefault: boolean;
+  requireOwnerApprovalForMutations: boolean;
+  allowOwnerEdits: boolean;
+  minCoreMemories: number;
+  maxCoreMemories: number;
+  requiredMemoryTypes: CoreMemoryType[];
+}
+
+type SoulModel = Record<string, unknown> & {
+  coreMemories?: CoreMemory[];
+  coreMemoryPolicy?: CoreMemoryPolicy;
+  version?: number;
+  lastUpdatedAt?: number;
+  lastUpdatedBy?: string;
+};
+
+export type SoulProposalTriggerType =
+  | "conversation"
+  | "reflection"
+  | "owner_directed"
+  | "alignment";
+
+export type SoulAlignmentMode = "monitor" | "remediate";
+
+export interface SoulDriftScores {
+  identity: number;
+  scope: number;
+  boundary: number;
+  performance: number;
+  overall: number;
+}
+
+export interface ProposalPolicySnapshot {
+  pendingCount: number;
+  proposalsLast24Hours: number;
+  proposalsLast7Days: number;
+  lastRejectedAgeMs?: number;
+  lastProposalAgeMs?: number;
+  conversationCount: number;
+  sessionCount: number;
+}
+
+export interface ProposalPolicyDecision {
+  allowed: boolean;
+  reason?: string;
+}
+
+export interface OperatorReviewPayload {
+  targetField: string;
+  proposalType: "add" | "modify" | "remove" | "add_faq";
+  triggerType: SoulProposalTriggerType;
+  requiresOwnerApproval: true;
+  immutableByDefault: boolean;
+  coreMemoryTarget: boolean;
+  riskLevel: "low" | "medium" | "high";
+  reviewChecklist: string[];
+  summary: string;
+  proposedValuePreview: string;
+}
+
+const CORE_MEMORY_TYPE_SET = new Set<string>(CORE_MEMORY_TYPE_VALUES);
+const CORE_MEMORY_SOURCE_SET = new Set<string>(CORE_MEMORY_SOURCE_VALUES);
+
+export const DEFAULT_CORE_MEMORY_POLICY: CoreMemoryPolicy = {
+  immutableByDefault: true,
+  requireOwnerApprovalForMutations: true,
+  allowOwnerEdits: true,
+  minCoreMemories: 3,
+  maxCoreMemories: 5,
+  requiredMemoryTypes: ["identity", "boundary", "empathy"],
+};
+
+function toNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function normalizeCoreMemoryType(value: unknown): CoreMemoryType {
+  const normalized = toNonEmptyString(value)?.toLowerCase();
+  if (normalized && CORE_MEMORY_TYPE_SET.has(normalized)) {
+    return normalized as CoreMemoryType;
+  }
+  return "identity";
+}
+
+function normalizeCoreMemorySource(value: unknown): CoreMemorySource {
+  const normalized = toNonEmptyString(value)?.toLowerCase();
+  if (normalized && CORE_MEMORY_SOURCE_SET.has(normalized)) {
+    return normalized as CoreMemorySource;
+  }
+  return "unknown";
+}
+
+function normalizeTagArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const tags = value
+    .map((tag) => toNonEmptyString(tag)?.toLowerCase())
+    .filter((tag): tag is string => Boolean(tag));
+  return tags.length > 0 ? Array.from(new Set(tags)) : undefined;
+}
+
+function normalizeOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function normalizeCoreMemory(
+  value: unknown,
+  indexHint = 0,
+): CoreMemory | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const narrative = toNonEmptyString(record.narrative ?? record.content ?? record.story);
+  if (!narrative) {
+    return null;
+  }
+
+  const createdAt = normalizeOptionalNumber(record.createdAt) ?? Date.now();
+  const memoryId =
+    toNonEmptyString(record.memoryId)
+    ?? toNonEmptyString(record.id)
+    ?? `core-memory-${createdAt}-${indexHint}`;
+
+  return {
+    memoryId,
+    type: normalizeCoreMemoryType(record.type),
+    title:
+      toNonEmptyString(record.title)
+      ?? toNonEmptyString(record.summary)
+      ?? `Core Memory ${indexHint + 1}`,
+    narrative,
+    source: normalizeCoreMemorySource(record.source),
+    immutable:
+      typeof record.immutable === "boolean"
+        ? record.immutable
+        : DEFAULT_CORE_MEMORY_POLICY.immutableByDefault,
+    immutableReason:
+      toNonEmptyString(record.immutableReason)
+      ?? (DEFAULT_CORE_MEMORY_POLICY.immutableByDefault ? "identity_anchor" : undefined),
+    tags: normalizeTagArray(record.tags),
+    confidence: normalizeOptionalNumber(record.confidence),
+    createdAt,
+    createdBy: toNonEmptyString(record.createdBy) ?? undefined,
+    approvedAt: normalizeOptionalNumber(record.approvedAt),
+    approvedBy: toNonEmptyString(record.approvedBy) ?? undefined,
+    lastReferencedAt: normalizeOptionalNumber(record.lastReferencedAt),
+    archivedAt: normalizeOptionalNumber(record.archivedAt),
+  };
+}
+
+export function normalizeCoreMemoryPolicy(value: unknown): CoreMemoryPolicy {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_CORE_MEMORY_POLICY };
+  }
+
+  const policy = value as Record<string, unknown>;
+  const min = normalizeOptionalNumber(policy.minCoreMemories) ?? DEFAULT_CORE_MEMORY_POLICY.minCoreMemories;
+  const maxRaw = normalizeOptionalNumber(policy.maxCoreMemories) ?? DEFAULT_CORE_MEMORY_POLICY.maxCoreMemories;
+  const max = Math.max(min, maxRaw);
+  const requiredMemoryTypes = Array.isArray(policy.requiredMemoryTypes)
+    ? policy.requiredMemoryTypes
+        .map((memoryType) => normalizeCoreMemoryType(memoryType))
+    : DEFAULT_CORE_MEMORY_POLICY.requiredMemoryTypes;
+
+  return {
+    immutableByDefault:
+      typeof policy.immutableByDefault === "boolean"
+        ? policy.immutableByDefault
+        : DEFAULT_CORE_MEMORY_POLICY.immutableByDefault,
+    requireOwnerApprovalForMutations:
+      typeof policy.requireOwnerApprovalForMutations === "boolean"
+        ? policy.requireOwnerApprovalForMutations
+        : DEFAULT_CORE_MEMORY_POLICY.requireOwnerApprovalForMutations,
+    allowOwnerEdits:
+      typeof policy.allowOwnerEdits === "boolean"
+        ? policy.allowOwnerEdits
+        : DEFAULT_CORE_MEMORY_POLICY.allowOwnerEdits,
+    minCoreMemories: min,
+    maxCoreMemories: max,
+    requiredMemoryTypes: Array.from(new Set(requiredMemoryTypes)),
+  };
+}
+
+export function normalizeSoulModel(value: unknown): SoulModel {
+  const soul = (value && typeof value === "object"
+    ? { ...(value as Record<string, unknown>) }
+    : {}) as SoulModel;
+
+  const normalizedCoreMemories = Array.isArray(soul.coreMemories)
+    ? soul.coreMemories
+        .map((memory, index) => normalizeCoreMemory(memory, index))
+        .filter((memory): memory is CoreMemory => memory !== null)
+    : [];
+
+  soul.coreMemories = normalizedCoreMemories;
+  soul.coreMemoryPolicy = normalizeCoreMemoryPolicy(soul.coreMemoryPolicy);
+  return soul;
+}
 
 // ============================================================================
 // SOUL EVOLUTION POLICY
 // ============================================================================
 
-export const DEFAULT_SOUL_EVOLUTION_POLICY = {
+export interface SoulEvolutionPolicy {
+  maxProposalsPerDay: number;
+  maxProposalsPerWeek: number;
+  cooldownAfterRejection: number;
+  cooldownBetweenProposals: number;
+  requireMinConversations: number;
+  requireMinSessions: number;
+  maxPendingProposals: number;
+  autoReflectionSchedule: "daily" | "weekly" | "off";
+  protectedFields: string[];
+}
+
+export const DEFAULT_SOUL_EVOLUTION_POLICY: SoulEvolutionPolicy = {
   maxProposalsPerDay: 3,
   maxProposalsPerWeek: 10,
   cooldownAfterRejection: 24 * 60 * 60 * 1000, // 24h in ms
@@ -24,11 +264,430 @@ export const DEFAULT_SOUL_EVOLUTION_POLICY = {
   requireMinConversations: 20,
   requireMinSessions: 5,
   maxPendingProposals: 5,
-  autoReflectionSchedule: "weekly" as const,
+  autoReflectionSchedule: "weekly",
   protectedFields: ["neverDo", "blockedTopics", "escalationTriggers"],
 };
 
-export type SoulEvolutionPolicy = typeof DEFAULT_SOUL_EVOLUTION_POLICY;
+const SOUL_PROPOSAL_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "applied",
+] as const;
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || Number.isNaN(value) || !Number.isFinite(value)) {
+    return null;
+  }
+  return value;
+}
+
+function clampDriftScore(value: unknown): number {
+  const numeric = toFiniteNumber(value);
+  if (numeric === null) return 0;
+  if (numeric < 0) return 0;
+  if (numeric > 1) return 1;
+  return Number(numeric.toFixed(4));
+}
+
+function normalizeDriftScores(value: unknown): SoulDriftScores | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const identity = clampDriftScore(record.identity);
+  const scope = clampDriftScore(record.scope);
+  const boundary = clampDriftScore(record.boundary);
+  const performance = clampDriftScore(record.performance);
+  const overallRaw = toFiniteNumber(record.overall);
+  const overall = clampDriftScore(
+    overallRaw === null ? (identity + scope + boundary + performance) / 4 : overallRaw
+  );
+
+  return {
+    identity,
+    scope,
+    boundary,
+    performance,
+    overall,
+  };
+}
+
+function normalizeAlignmentMode(value: unknown): SoulAlignmentMode | undefined {
+  if (value === "monitor" || value === "remediate") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeCooldownMs(value: unknown): number {
+  const numeric = toFiniteNumber(value);
+  if (numeric === null || numeric < 0) return 0;
+  return Math.floor(numeric);
+}
+
+function normalizePositivePolicyInteger(
+  value: unknown,
+  fallback: number,
+  minimum = 1,
+): number {
+  const numeric = toFiniteNumber(value);
+  if (numeric === null) {
+    return fallback;
+  }
+  const rounded = Math.floor(numeric);
+  return rounded < minimum ? minimum : rounded;
+}
+
+function normalizeNonNegativePolicyInteger(
+  value: unknown,
+  fallback: number,
+): number {
+  const numeric = toFiniteNumber(value);
+  if (numeric === null) {
+    return fallback;
+  }
+  const rounded = Math.floor(numeric);
+  return rounded < 0 ? 0 : rounded;
+}
+
+function normalizeProtectedFieldList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_SOUL_EVOLUTION_POLICY.protectedFields];
+  }
+  const fields = value
+    .map((item) => toNonEmptyString(item))
+    .filter((item): item is string => Boolean(item));
+  if (fields.length === 0) {
+    return [...DEFAULT_SOUL_EVOLUTION_POLICY.protectedFields];
+  }
+  return Array.from(new Set(fields));
+}
+
+export function normalizeSoulEvolutionPolicy(value: unknown): SoulEvolutionPolicy {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_SOUL_EVOLUTION_POLICY };
+  }
+
+  const policy = value as Record<string, unknown>;
+  const maxProposalsPerDay = normalizePositivePolicyInteger(
+    policy.maxProposalsPerDay,
+    DEFAULT_SOUL_EVOLUTION_POLICY.maxProposalsPerDay,
+    1,
+  );
+  const maxProposalsPerWeek = Math.max(
+    maxProposalsPerDay,
+    normalizePositivePolicyInteger(
+      policy.maxProposalsPerWeek,
+      DEFAULT_SOUL_EVOLUTION_POLICY.maxProposalsPerWeek,
+      1,
+    ),
+  );
+  const cooldownAfterRejection = normalizeNonNegativePolicyInteger(
+    policy.cooldownAfterRejection,
+    DEFAULT_SOUL_EVOLUTION_POLICY.cooldownAfterRejection,
+  );
+  const cooldownBetweenProposals = normalizeNonNegativePolicyInteger(
+    policy.cooldownBetweenProposals,
+    DEFAULT_SOUL_EVOLUTION_POLICY.cooldownBetweenProposals,
+  );
+  const requireMinConversations = normalizeNonNegativePolicyInteger(
+    policy.requireMinConversations,
+    DEFAULT_SOUL_EVOLUTION_POLICY.requireMinConversations,
+  );
+  const requireMinSessions = normalizeNonNegativePolicyInteger(
+    policy.requireMinSessions,
+    DEFAULT_SOUL_EVOLUTION_POLICY.requireMinSessions,
+  );
+  const maxPendingProposals = normalizePositivePolicyInteger(
+    policy.maxPendingProposals,
+    DEFAULT_SOUL_EVOLUTION_POLICY.maxPendingProposals,
+    1,
+  );
+  const autoReflectionSchedule =
+    policy.autoReflectionSchedule === "daily"
+    || policy.autoReflectionSchedule === "weekly"
+    || policy.autoReflectionSchedule === "off"
+      ? policy.autoReflectionSchedule
+      : DEFAULT_SOUL_EVOLUTION_POLICY.autoReflectionSchedule;
+
+  return {
+    maxProposalsPerDay,
+    maxProposalsPerWeek,
+    cooldownAfterRejection,
+    cooldownBetweenProposals,
+    requireMinConversations,
+    requireMinSessions,
+    maxPendingProposals,
+    autoReflectionSchedule,
+    protectedFields: normalizeProtectedFieldList(policy.protectedFields),
+  };
+}
+
+export function evaluateProposalCreationPolicy(
+  policy: SoulEvolutionPolicy,
+  snapshot: ProposalPolicySnapshot,
+): ProposalPolicyDecision {
+  if (snapshot.pendingCount >= policy.maxPendingProposals) {
+    return { allowed: false, reason: "Too many pending proposals" };
+  }
+
+  if (snapshot.proposalsLast24Hours >= policy.maxProposalsPerDay) {
+    return { allowed: false, reason: "Daily limit reached" };
+  }
+
+  if (snapshot.proposalsLast7Days >= policy.maxProposalsPerWeek) {
+    return { allowed: false, reason: "Weekly limit reached" };
+  }
+
+  const cooldownAfterRejection = normalizeCooldownMs(policy.cooldownAfterRejection);
+  if (
+    typeof snapshot.lastRejectedAgeMs === "number"
+    && snapshot.lastRejectedAgeMs < cooldownAfterRejection
+  ) {
+    return { allowed: false, reason: "Cooling down after rejection" };
+  }
+
+  const cooldownBetweenProposals = normalizeCooldownMs(policy.cooldownBetweenProposals);
+  if (
+    typeof snapshot.lastProposalAgeMs === "number"
+    && snapshot.lastProposalAgeMs < cooldownBetweenProposals
+  ) {
+    return { allowed: false, reason: "Cooling down between proposals" };
+  }
+
+  if (snapshot.conversationCount < policy.requireMinConversations) {
+    return { allowed: false, reason: "Not enough conversations for proposal generation" };
+  }
+
+  if (snapshot.sessionCount < policy.requireMinSessions) {
+    return { allowed: false, reason: "Not enough sessions for proposal generation" };
+  }
+
+  return { allowed: true };
+}
+
+async function collectProposalPolicySnapshot(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  agentId: Id<"objects">,
+): Promise<ProposalPolicySnapshot> {
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+  const proposalBuckets = await Promise.all(
+    SOUL_PROPOSAL_STATUSES.map((status) =>
+      ctx.db
+        .query("soulProposals")
+        .withIndex("by_agent_status", (q: any) =>
+          q.eq("agentId", agentId).eq("status", status)
+        )
+        .collect()
+    )
+  );
+  const proposals = proposalBuckets.flat();
+
+  let pendingCount = 0;
+  let proposalsLast24Hours = 0;
+  let proposalsLast7Days = 0;
+  let latestCreatedAt = 0;
+  let latestRejectedAt = 0;
+
+  for (const proposal of proposals) {
+    if (proposal.status === "pending") {
+      pendingCount += 1;
+    }
+    if (proposal.createdAt >= dayAgo) {
+      proposalsLast24Hours += 1;
+    }
+    if (proposal.createdAt >= weekAgo) {
+      proposalsLast7Days += 1;
+    }
+    if (proposal.createdAt > latestCreatedAt) {
+      latestCreatedAt = proposal.createdAt;
+    }
+    if (proposal.status === "rejected") {
+      const rejectedAt = proposal.reviewedAt ?? proposal.createdAt;
+      if (rejectedAt > latestRejectedAt) {
+        latestRejectedAt = rejectedAt;
+      }
+    }
+  }
+
+  const sessions = await ctx.db
+    .query("agentSessions")
+    .withIndex("by_agent", (q: any) => q.eq("agentId", agentId))
+    .collect();
+
+  const conversationMetrics = await ctx.db
+    .query("agentConversationMetrics")
+    .withIndex("by_agent", (q: any) => q.eq("agentId", agentId))
+    .collect();
+
+  return {
+    pendingCount,
+    proposalsLast24Hours,
+    proposalsLast7Days,
+    lastRejectedAgeMs: latestRejectedAt > 0 ? now - latestRejectedAt : undefined,
+    lastProposalAgeMs: latestCreatedAt > 0 ? now - latestCreatedAt : undefined,
+    conversationCount: conversationMetrics.length,
+    sessionCount: sessions.length,
+  };
+}
+
+function formatDriftSummary(scores: SoulDriftScores): string {
+  return [
+    `identity=${scores.identity.toFixed(2)}`,
+    `scope=${scores.scope.toFixed(2)}`,
+    `boundary=${scores.boundary.toFixed(2)}`,
+    `performance=${scores.performance.toFixed(2)}`,
+    `overall=${scores.overall.toFixed(2)}`,
+  ].join(", ");
+}
+
+function isCoreMemoryTargetField(targetField: string): boolean {
+  return targetField === "coreMemories" || targetField.startsWith("coreMemories.");
+}
+
+function isCoreMemoryPolicyTargetField(targetField: string): boolean {
+  return targetField === "coreMemoryPolicy" || targetField.startsWith("coreMemoryPolicy.");
+}
+
+function previewProposalValue(value: string): string {
+  return value.length <= 220 ? value : `${value.slice(0, 217)}...`;
+}
+
+function proposedCoreMemoryExplicitlyMutable(proposedValue: string): boolean {
+  try {
+    const parsed = JSON.parse(proposedValue);
+    if (Array.isArray(parsed)) {
+      return parsed.some(
+        (item) =>
+          item && typeof item === "object" && (item as Record<string, unknown>).immutable === false
+      );
+    }
+    if (parsed && typeof parsed === "object") {
+      return (parsed as Record<string, unknown>).immutable === false;
+    }
+  } catch {
+    // Non-JSON payloads are normalized later and inherit immutable-by-default policy.
+  }
+
+  return false;
+}
+
+function parseCoreMemoryProposalValue(proposedValue: string): unknown {
+  try {
+    return JSON.parse(proposedValue);
+  } catch {
+    return {
+      narrative: proposedValue,
+      title: "Proposed Core Memory",
+      type: "identity",
+      source: "operator_curated",
+    };
+  }
+}
+
+export function evaluateCoreMemoryProposalGuard(args: {
+  targetField: string;
+  proposalType: "add" | "modify" | "remove" | "add_faq";
+  proposedValue: string;
+  policy: CoreMemoryPolicy;
+}): { allowed: boolean; reason?: string } {
+  if (isCoreMemoryPolicyTargetField(args.targetField)) {
+    return {
+      allowed: false,
+      reason: "Core memory policy is operator-managed and cannot be changed by agent proposals.",
+    };
+  }
+
+  if (!isCoreMemoryTargetField(args.targetField)) {
+    return { allowed: true };
+  }
+
+  if (args.proposalType !== "add") {
+    return {
+      allowed: false,
+      reason: "Core memories are immutable-by-default; only additive proposals are allowed.",
+    };
+  }
+
+  if (
+    args.policy.immutableByDefault
+    && proposedCoreMemoryExplicitlyMutable(args.proposedValue)
+  ) {
+    return {
+      allowed: false,
+      reason: "Core memory proposal cannot set immutable=false while immutable-by-default is enabled.",
+    };
+  }
+
+  return { allowed: true };
+}
+
+export function buildOperatorReviewPayload(args: {
+  targetField: string;
+  proposalType: "add" | "modify" | "remove" | "add_faq";
+  triggerType: SoulProposalTriggerType;
+  reason: string;
+  proposedValue: string;
+  policy: CoreMemoryPolicy;
+  driftSummary?: string;
+}): OperatorReviewPayload {
+  const coreMemoryTarget = isCoreMemoryTargetField(args.targetField);
+  const immutableByDefault = args.policy.immutableByDefault;
+  const guard = evaluateCoreMemoryProposalGuard({
+    targetField: args.targetField,
+    proposalType: args.proposalType,
+    proposedValue: args.proposedValue,
+    policy: args.policy,
+  });
+
+  const reviewChecklist = [
+    "Confirm proposal intent matches recent conversation evidence.",
+    "Confirm no policy-protected fields are being bypassed.",
+  ];
+
+  if (coreMemoryTarget) {
+    reviewChecklist.push(
+      immutableByDefault
+        ? "Confirm core-memory immutability is preserved (no mutable override)."
+        : "Confirm mutable core-memory exception is explicitly justified."
+    );
+  }
+
+  if (args.driftSummary) {
+    reviewChecklist.push(`Review drift context: ${args.driftSummary}`);
+  }
+
+  if (!guard.allowed && guard.reason) {
+    reviewChecklist.push(`Guardrail block reason: ${guard.reason}`);
+  }
+
+  const riskLevel: OperatorReviewPayload["riskLevel"] = !guard.allowed
+    ? "high"
+    : coreMemoryTarget
+      ? "high"
+      : args.triggerType === "alignment"
+        ? "medium"
+        : "low";
+
+  return {
+    targetField: args.targetField,
+    proposalType: args.proposalType,
+    triggerType: args.triggerType,
+    requiresOwnerApproval: true,
+    immutableByDefault,
+    coreMemoryTarget,
+    riskLevel,
+    reviewChecklist,
+    summary: args.reason,
+    proposedValuePreview: previewProposalValue(args.proposedValue),
+  };
+}
 
 // ============================================================================
 // RATE LIMITING & VALIDATION
@@ -36,7 +695,7 @@ export type SoulEvolutionPolicy = typeof DEFAULT_SOUL_EVOLUTION_POLICY;
 
 /**
  * Check whether a new proposal can be created for this agent.
- * Enforces daily/pending limits and post-rejection cooldown.
+ * Enforces policy guards for pending/day/week/cooldown + conversation/session gates.
  */
 export const canCreateProposalQuery = internalQuery({
   args: {
@@ -50,53 +709,9 @@ export const canCreateProposalQuery = internalQuery({
     const config = (agent.customProperties || {}) as Record<string, any>;
     if (config.protected) return { allowed: false, reason: "Protected agent" };
 
-    const policy: SoulEvolutionPolicy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
-
-    // Check pending count
-    const pending = await ctx.db
-      .query("soulProposals")
-      .withIndex("by_agent_status", (q) =>
-        q.eq("agentId", args.agentId).eq("status", "pending")
-      )
-      .collect();
-
-    if (pending.length >= policy.maxPendingProposals) {
-      return { allowed: false, reason: "Too many pending proposals" };
-    }
-
-    // Check daily count
-    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const recentProposals = await ctx.db
-      .query("soulProposals")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("agentId"), args.agentId),
-          q.gte(q.field("createdAt"), dayAgo)
-        )
-      )
-      .collect();
-
-    if (recentProposals.length >= policy.maxProposalsPerDay) {
-      return { allowed: false, reason: "Daily limit reached" };
-    }
-
-    // Check rejection cooldown
-    const rejectedProposals = await ctx.db
-      .query("soulProposals")
-      .withIndex("by_agent_status", (q) =>
-        q.eq("agentId", args.agentId).eq("status", "rejected")
-      )
-      .order("desc")
-      .first();
-
-    if (rejectedProposals) {
-      const rejectedAt = rejectedProposals.reviewedAt ?? rejectedProposals.createdAt;
-      if (Date.now() - rejectedAt < policy.cooldownAfterRejection) {
-        return { allowed: false, reason: "Cooling down after rejection" };
-      }
-    }
-
-    return { allowed: true };
+    const policy = normalizeSoulEvolutionPolicy(config.soulEvolutionPolicy);
+    const snapshot = await collectProposalPolicySnapshot(ctx, args.agentId);
+    return evaluateProposalCreationPolicy(policy, snapshot);
   },
 });
 
@@ -140,8 +755,19 @@ export const createProposal = internalMutation({
       v.literal("conversation"),
       v.literal("reflection"),
       v.literal("owner_directed"),
+      v.literal("alignment"),
     ),
     evidenceMessages: v.optional(v.array(v.string())),
+    alignmentMode: v.optional(v.union(v.literal("monitor"), v.literal("remediate"))),
+    driftScores: v.optional(v.object({
+      identity: v.number(),
+      scope: v.number(),
+      boundary: v.number(),
+      performance: v.number(),
+      overall: v.number(),
+    })),
+    driftSummary: v.optional(v.string()),
+    driftSignalSource: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Skip rate limits for owner-directed proposals
@@ -156,7 +782,9 @@ export const createProposal = internalMutation({
         return null;
       }
 
-      const policy: SoulEvolutionPolicy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
+      const policy = normalizeSoulEvolutionPolicy(config.soulEvolutionPolicy);
+      const soul = normalizeSoulModel(config.soul);
+      const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
 
       // Protected field check
       const validation = validateProposalTarget(args.targetField, policy);
@@ -165,56 +793,46 @@ export const createProposal = internalMutation({
         return null;
       }
 
-      // Pending count check
-      const pending = await ctx.db
-        .query("soulProposals")
-        .withIndex("by_agent_status", (q) =>
-          q.eq("agentId", args.agentId).eq("status", "pending")
-        )
-        .collect();
-
-      if (pending.length >= policy.maxPendingProposals) {
-        console.log(`[SoulEvolution] Proposal blocked: too many pending`);
+      const coreMemoryGuard = evaluateCoreMemoryProposalGuard({
+        targetField: args.targetField,
+        proposalType: args.proposalType,
+        proposedValue: args.proposedValue,
+        policy: coreMemoryPolicy,
+      });
+      if (!coreMemoryGuard.allowed) {
+        console.log(`[SoulEvolution] Proposal blocked: ${coreMemoryGuard.reason}`);
         return null;
       }
 
-      // Daily limit check
-      const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-      const recentProposals = await ctx.db
-        .query("soulProposals")
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("agentId"), args.agentId),
-            q.gte(q.field("createdAt"), dayAgo)
-          )
-        )
-        .collect();
-
-      if (recentProposals.length >= policy.maxProposalsPerDay) {
-        console.log(`[SoulEvolution] Proposal blocked: daily limit reached`);
+      const snapshot = await collectProposalPolicySnapshot(ctx, args.agentId);
+      const decision = evaluateProposalCreationPolicy(policy, snapshot);
+      if (!decision.allowed) {
+        console.log(`[SoulEvolution] Proposal blocked: ${decision.reason}`);
         return null;
-      }
-
-      // Rejection cooldown check
-      const lastRejection = await ctx.db
-        .query("soulProposals")
-        .withIndex("by_agent_status", (q) =>
-          q.eq("agentId", args.agentId).eq("status", "rejected")
-        )
-        .order("desc")
-        .first();
-
-      if (lastRejection) {
-        const rejectedAt = lastRejection.reviewedAt ?? lastRejection.createdAt;
-        if (Date.now() - rejectedAt < policy.cooldownAfterRejection) {
-          console.log(`[SoulEvolution] Proposal blocked: cooling down after rejection`);
-          return null;
-        }
       }
     }
 
+    const driftScores = normalizeDriftScores(args.driftScores);
+    const alignmentMode =
+      args.triggerType === "alignment"
+        ? normalizeAlignmentMode(args.alignmentMode) ?? "monitor"
+        : undefined;
+
+    if (args.triggerType === "alignment" && !driftScores) {
+      console.log("[SoulEvolution] Alignment proposal blocked: missing driftScores");
+      return null;
+    }
+
+    const driftSummary = toNonEmptyString(args.driftSummary)
+      ?? (driftScores ? formatDriftSummary(driftScores) : undefined);
+    const driftSignalSource = toNonEmptyString(args.driftSignalSource) ?? undefined;
+
     return await ctx.db.insert("soulProposals", {
       ...args,
+      alignmentMode,
+      driftScores,
+      driftSummary,
+      driftSignalSource,
       status: "pending",
       createdAt: Date.now(),
     });
@@ -307,31 +925,74 @@ export const applyProposal = internalMutation({
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent.customProperties || {}) as Record<string, any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const soul = config.soul || {} as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const soulRecord = soul as Record<string, unknown>;
 
     // Snapshot the soul before modification (for version history)
     const previousSoulSnapshot = JSON.stringify(soul);
 
     // Apply the change based on proposal type
     const field = proposal.targetField;
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+    const coreMemoryGuard = evaluateCoreMemoryProposalGuard({
+      targetField: field,
+      proposalType: proposal.proposalType,
+      proposedValue: proposal.proposedValue,
+      policy: coreMemoryPolicy,
+    });
+    if (!coreMemoryGuard.allowed) {
+      return { error: coreMemoryGuard.reason ?? "Core memory proposal blocked by policy." };
+    }
 
     switch (proposal.proposalType) {
       case "add": {
-        const current = soul[field] || [];
+        if (field === "coreMemories") {
+          const currentCoreMemories = Array.isArray(soul.coreMemories)
+            ? [...soul.coreMemories]
+            : [];
+          const normalizedCandidate = normalizeCoreMemory(
+            parseCoreMemoryProposalValue(proposal.proposedValue),
+            currentCoreMemories.length,
+          );
+          if (!normalizedCandidate) {
+            return { error: "Invalid core memory proposal payload." };
+          }
+
+          if (coreMemoryPolicy.immutableByDefault) {
+            normalizedCandidate.immutable = true;
+            normalizedCandidate.immutableReason =
+              normalizedCandidate.immutableReason ?? "identity_anchor";
+          }
+
+          if (normalizedCandidate.source === "unknown") {
+            normalizedCandidate.source = "operator_curated";
+          }
+          normalizedCandidate.approvedAt = Date.now();
+          normalizedCandidate.approvedBy = "owner";
+          soul.coreMemories = [...currentCoreMemories, normalizedCandidate];
+          break;
+        }
+
+        const current = soulRecord[field];
         if (Array.isArray(current)) {
-          soul[field] = [...current, proposal.proposedValue];
+          soulRecord[field] = [...current, proposal.proposedValue];
         }
         break;
       }
       case "modify": {
-        soul[field] = proposal.proposedValue;
+        if (isCoreMemoryTargetField(field) || isCoreMemoryPolicyTargetField(field)) {
+          return { error: "Core memory records are immutable in proposal apply path." };
+        }
+        soulRecord[field] = proposal.proposedValue;
         break;
       }
       case "remove": {
-        const arr = soul[field] || [];
+        if (isCoreMemoryTargetField(field) || isCoreMemoryPolicyTargetField(field)) {
+          return { error: "Core memory records are immutable in proposal apply path." };
+        }
+        const arr = soulRecord[field];
         if (Array.isArray(arr)) {
-          soul[field] = arr.filter((item: string) => item !== proposal.currentValue);
+          soulRecord[field] = arr.filter((item: string) => item !== proposal.currentValue);
         }
         break;
       }
@@ -381,6 +1042,34 @@ export const applyProposal = internalMutation({
 // ============================================================================
 // QUERIES
 // ============================================================================
+
+export const getProposalOperatorReviewPayload = internalQuery({
+  args: {
+    proposalId: v.id("soulProposals"),
+  },
+  handler: async (ctx, args) => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) {
+      return null;
+    }
+
+    const agent = await ctx.db.get(proposal.agentId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent?.customProperties || {}) as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const policy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+
+    return buildOperatorReviewPayload({
+      targetField: proposal.targetField,
+      proposalType: proposal.proposalType,
+      triggerType: proposal.triggerType,
+      reason: proposal.reason,
+      proposedValue: proposal.proposedValue,
+      policy,
+      driftSummary: proposal.driftSummary ?? undefined,
+    });
+  },
+});
 
 /**
  * Get pending proposals for an agent
@@ -466,6 +1155,10 @@ export const notifyOwnerOfProposal = internalAction({
     const agentName = (agent?.customProperties as any)?.soul?.name
       || (agent?.customProperties as any)?.displayName
       || "Your agent";
+    const reviewPayload = await (ctx as any).runQuery(
+      generatedApi.internal.ai.soulEvolution.getProposalOperatorReviewPayload,
+      { proposalId: args.proposalId }
+    );
 
     // Format proposal message
     const typeLabels: Record<string, string> = {
@@ -481,6 +1174,13 @@ export const notifyOwnerOfProposal = internalAction({
       `"${proposal.proposedValue}"\n`,
       `*Reason:* ${proposal.reason}`,
     ];
+
+    if (reviewPayload?.riskLevel) {
+      lines.push(`*Operator risk:* ${String(reviewPayload.riskLevel).toUpperCase()}`);
+    }
+    if (Array.isArray(reviewPayload?.reviewChecklist) && reviewPayload.reviewChecklist.length > 0) {
+      lines.push(`*Review checklist:* ${reviewPayload.reviewChecklist.slice(0, 2).join(" | ")}`);
+    }
 
     if (proposal.currentValue) {
       lines.splice(2, 0, `*Currently:* "${proposal.currentValue}"`);
@@ -882,18 +1582,18 @@ export const rollbackSoul = internalMutation({
       throw new Error(`Version ${args.targetVersion} not found`);
     }
 
-    const targetSoul = JSON.parse(targetHistory.newSoul);
-    const currentSoul = config.soul || {};
+    const targetSoul = normalizeSoulModel(JSON.parse(targetHistory.newSoul));
+    const currentSoul = normalizeSoulModel(config.soul);
     const currentVersion = currentSoul.version ?? 1;
     const newVersion = currentVersion + 1;
 
     // Apply rollback — restore target soul with new version number
-    const rolledBackSoul = {
+    const rolledBackSoul = normalizeSoulModel({
       ...targetSoul,
       version: newVersion,
       lastUpdatedAt: Date.now(),
       lastUpdatedBy: args.requestedBy,
-    };
+    });
 
     await ctx.db.patch(args.agentId, {
       customProperties: {
@@ -993,17 +1693,17 @@ export const rollbackSoulAuth = mutation({
       throw new Error(`Version ${args.targetVersion} not found`);
     }
 
-    const targetSoul = JSON.parse(targetHistory.newSoul);
-    const currentSoul = config.soul || {};
+    const targetSoul = normalizeSoulModel(JSON.parse(targetHistory.newSoul));
+    const currentSoul = normalizeSoulModel(config.soul);
     const currentVersion = currentSoul.version ?? 1;
     const newVersion = currentVersion + 1;
 
-    const rolledBackSoul = {
+    const rolledBackSoul = normalizeSoulModel({
       ...targetSoul,
       version: newVersion,
       lastUpdatedAt: Date.now(),
       lastUpdatedBy: "owner_web",
-    };
+    });
 
     await ctx.db.patch(args.agentId, {
       customProperties: {
@@ -1056,7 +1756,7 @@ export const scheduledReflection = internalAction({
       const config = (agent.customProperties || {}) as Record<string, any>;
       if (config.protected) continue;
 
-      const policy = config.soulEvolutionPolicy ?? DEFAULT_SOUL_EVOLUTION_POLICY;
+      const policy = normalizeSoulEvolutionPolicy(config.soulEvolutionPolicy);
       if (policy.autoReflectionSchedule === "off") continue;
 
       // Check rate limits

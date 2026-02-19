@@ -1,568 +1,170 @@
 /**
  * INTERVIEW TEMPLATE SEEDS
  *
- * Default interview templates that are seeded for new organizations.
- * These cover common use cases for client onboarding.
+ * Default trust-first interview templates seeded for new organizations.
  *
  * Templates:
- * - Quick Brand Voice (15 min, 3 phases)
- * - Agency Client Discovery (45 min, 6 phases)
- * - Thought Leader Extraction (25 min, 4 phases)
+ * - Customer Agent Identity Blueprint (quick)
+ * - Agent Team Shape Charter (standard)
+ * - Platform Agent Trust Training (deep discovery)
  *
- * See: convex/schemas/interviewSchemas.ts for type definitions
+ * Each template explicitly captures identity anchors, guardrails,
+ * handoff boundaries, and drift cues so downstream Brain/Setup/Agents/Admin
+ * surfaces can consume a shared trust artifact model.
  */
 
-import type { InterviewTemplate, InterviewPhase } from "../schemas/interviewSchemas";
+import type { InterviewTemplate } from "../schemas/interviewSchemas";
 
 // ============================================================================
-// TEMPLATE A: QUICK BRAND VOICE (15 min, 3 phases)
+// TEMPLATE A: CUSTOMER AGENT IDENTITY BLUEPRINT (20 min, 4 phases)
 // ============================================================================
 
-export const quickBrandVoiceTemplate: InterviewTemplate = {
-  templateName: "Quick Brand Voice",
-  description: "A fast 15-minute interview to capture the essentials of your brand voice, audience, and communication style.",
+export const customerAgentIdentityBlueprintTemplate: InterviewTemplate = {
+  templateName: "Customer Agent Identity Blueprint",
+  description:
+    "A trust-first onboarding interview that defines who your customer-facing agent is, what it must never do, when it must hand off, and how to detect drift.",
   version: 1,
   status: "active",
-  estimatedMinutes: 15,
+  estimatedMinutes: 20,
   mode: "quick",
   language: "en",
 
   phases: [
     {
-      phaseId: "who_you_are",
-      phaseName: "Who You Are",
+      phaseId: "identity_anchors",
+      phaseName: "Identity Anchors",
       order: 1,
       isRequired: true,
       estimatedMinutes: 5,
-      introPrompt: "Let's start with the basics. I'd love to learn about you and your business.",
-      completionPrompt: "Great! I now have a good sense of who you are. Let's talk about your audience next.",
+      introPrompt:
+        "Let's define the core identity your agent should hold under pressure.",
+      completionPrompt:
+        "Great. We now have the agent's identity anchors. Next we'll define trust guardrails.",
       questions: [
         {
-          questionId: "q1_business",
-          promptText: "Tell me about your business. What do you do, and what makes it unique?",
-          helpText: "Share your elevator pitch or how you'd explain your business to a friend.",
+          questionId: "q1_identity_north_star",
+          promptText:
+            "What is this agent's identity north star? Describe the one promise it should never break.",
           expectedDataType: "freeform",
-          extractionField: "bio",
+          extractionField: "identityNorthStar",
           followUpPrompts: [
-            "Can you tell me more about what makes your approach different?",
-            "What's the one thing you want people to remember about your business?",
+            "When this agent performs perfectly, what do users consistently feel?",
           ],
         },
         {
-          questionId: "q1_role",
-          promptText: "What's your role, and how long have you been doing this?",
-          expectedDataType: "text",
-          extractionField: "role",
+          questionId: "q1_customer_promise",
+          promptText:
+            "What customer promise should this agent reinforce in every important interaction?",
+          expectedDataType: "freeform",
+          extractionField: "customerPromise",
         },
         {
-          questionId: "q1_experience",
-          promptText: "How many years of experience do you have in this field?",
-          expectedDataType: "text",
-          extractionField: "experience",
-          validationRules: { minLength: 1 },
+          questionId: "q1_voice_signature",
+          promptText:
+            "How should the agent sound when things get tense? Include tone words and phrases it should use.",
+          expectedDataType: "freeform",
+          extractionField: "voiceSignature",
         },
       ],
     },
     {
-      phaseId: "your_audience",
-      phaseName: "Your Audience",
+      phaseId: "guardrail_contract",
+      phaseName: "Guardrail Contract",
       order: 2,
       isRequired: true,
       estimatedMinutes: 5,
-      introPrompt: "Now let's talk about the people you serve.",
-      completionPrompt: "Perfect! I have a clear picture of your audience. Finally, let's capture your voice.",
+      introPrompt: "Now define boundaries the agent must respect at all times.",
+      completionPrompt:
+        "Perfect. We have the guardrails. Next let's define handoff boundaries.",
       questions: [
         {
-          questionId: "q2_icp",
-          promptText: "Describe your ideal customer. Who do you love working with?",
-          helpText: "Think about your best clients - what do they have in common?",
-          expectedDataType: "freeform",
-          extractionField: "icp",
-          followUpPrompts: [
-            "What specific challenges do they face that you help with?",
-            "Where do they typically find you?",
-          ],
-        },
-        {
-          questionId: "q2_pain_points",
-          promptText: "What's the biggest pain point or frustration your customers have before working with you?",
-          expectedDataType: "freeform",
-          extractionField: "painPoints",
-        },
-        {
-          questionId: "q2_channels",
-          promptText: "Where does your audience hang out online? Which platforms do they use most?",
+          questionId: "q2_non_negotiable_guardrails",
+          promptText:
+            "List the non-negotiable guardrails. What must the agent never generate, claim, or execute?",
           expectedDataType: "list",
-          extractionField: "channels",
-          validationRules: { options: ["LinkedIn", "Instagram", "Twitter/X", "Facebook", "TikTok", "YouTube", "Email newsletters", "Podcasts", "Other"] },
+          extractionField: "nonNegotiableGuardrails",
+        },
+        {
+          questionId: "q2_approval_required_actions",
+          promptText:
+            "Which actions require explicit human approval before execution?",
+          expectedDataType: "list",
+          extractionField: "approvalRequiredActions",
+        },
+        {
+          questionId: "q2_sensitive_topics",
+          promptText:
+            "Which sensitive topics require extra caution or refusal patterns?",
+          expectedDataType: "list",
+          extractionField: "sensitiveTopics",
         },
       ],
     },
     {
-      phaseId: "your_voice",
-      phaseName: "Your Voice",
+      phaseId: "handoff_boundaries",
+      phaseName: "Handoff Boundaries",
       order: 3,
       isRequired: true,
       estimatedMinutes: 5,
-      introPrompt: "Last section! Let's capture how you communicate.",
-      completionPrompt: "Excellent! I now have everything I need to understand your brand voice. Thank you!",
+      introPrompt:
+        "Let's define exactly when this agent should hand work to a human or specialist.",
+      completionPrompt:
+        "Excellent. We now have explicit handoff boundaries. Last: drift detection.",
       questions: [
         {
-          questionId: "q3_tone",
-          promptText: "How would you describe your communication style? (e.g., professional, casual, witty, authoritative)",
+          questionId: "q3_handoff_signals",
+          promptText:
+            "What concrete signals trigger a handoff? (examples: high-risk request, confidence drop, policy ambiguity)",
+          expectedDataType: "list",
+          extractionField: "handoffSignals",
+        },
+        {
+          questionId: "q3_handoff_context_packet",
+          promptText:
+            "When a handoff happens, what context packet must be passed so the next owner can act safely?",
+          expectedDataType: "freeform",
+          extractionField: "handoffContextPacket",
+        },
+        {
+          questionId: "q3_human_owner_role",
+          promptText:
+            "Who is the default human owner for escalations, and what is their decision authority?",
           expectedDataType: "text",
-          extractionField: "tone",
-          followUpPrompts: [
-            "If your brand was a person, how would their friends describe them?",
-          ],
-        },
-        {
-          questionId: "q3_avoid_words",
-          promptText: "Are there any words, phrases, or topics you never want associated with your brand?",
-          expectedDataType: "list",
-          extractionField: "avoidWords",
-        },
-        {
-          questionId: "q3_brand_inspo",
-          promptText: "Name 2-3 brands or public figures whose communication style you admire.",
-          expectedDataType: "list",
-          extractionField: "brandInspo",
-        },
-      ],
-    },
-  ],
-
-  outputSchema: {
-    fields: [
-      { fieldId: "bio", fieldName: "Business Bio", dataType: "string", category: "brand", required: true },
-      { fieldId: "role", fieldName: "Role", dataType: "string", category: "brand", required: true },
-      { fieldId: "experience", fieldName: "Years of Experience", dataType: "string", category: "expertise", required: false },
-      { fieldId: "icp", fieldName: "Ideal Customer Profile", dataType: "string", category: "audience", required: true },
-      { fieldId: "painPoints", fieldName: "Customer Pain Points", dataType: "string", category: "audience", required: false },
-      { fieldId: "channels", fieldName: "Preferred Channels", dataType: "string[]", category: "content_prefs", required: false },
-      { fieldId: "tone", fieldName: "Communication Tone", dataType: "string", category: "voice", required: true },
-      { fieldId: "avoidWords", fieldName: "Words to Avoid", dataType: "string[]", category: "voice", required: false },
-      { fieldId: "brandInspo", fieldName: "Brand Inspiration", dataType: "string[]", category: "voice", required: false },
-    ],
-  },
-
-  completionCriteria: {
-    minPhasesCompleted: 3,
-    requiredPhaseIds: ["who_you_are", "your_audience", "your_voice"],
-  },
-
-  interviewerPersonality: "Warm, curious, and encouraging. You make people feel comfortable sharing about themselves.",
-  followUpDepth: 2,
-  silenceHandling: "Take your time - there's no rush. If you're stuck, just describe what first comes to mind.",
-};
-
-// ============================================================================
-// TEMPLATE B: AGENCY CLIENT DISCOVERY (45 min, 6 phases)
-// ============================================================================
-
-export const agencyClientDiscoveryTemplate: InterviewTemplate = {
-  templateName: "Agency Client Discovery",
-  description: "A comprehensive 45-minute deep dive for agencies onboarding new clients. Covers business context, brand identity, audience, content strategy, voice, and goals.",
-  version: 1,
-  status: "active",
-  estimatedMinutes: 45,
-  mode: "deep_discovery",
-  language: "en",
-
-  phases: [
-    {
-      phaseId: "business_context",
-      phaseName: "Business Context",
-      order: 1,
-      isRequired: true,
-      estimatedMinutes: 8,
-      introPrompt: "Let's start by understanding your business at a high level.",
-      completionPrompt: "I have a solid understanding of your business model. Let's explore your brand identity next.",
-      questions: [
-        {
-          questionId: "q1_business_model",
-          promptText: "What's your business model? How do you make money?",
-          expectedDataType: "freeform",
-          extractionField: "businessModel",
-          followUpPrompts: ["What's your primary revenue stream?"],
-        },
-        {
-          questionId: "q1_revenue",
-          promptText: "Can you share your revenue streams? What percentage comes from each?",
-          expectedDataType: "freeform",
-          extractionField: "revenue",
-        },
-        {
-          questionId: "q1_team_size",
-          promptText: "How big is your team?",
-          expectedDataType: "text",
-          extractionField: "teamSize",
-        },
-        {
-          questionId: "q1_stage",
-          promptText: "What growth stage would you say you're at? (startup, growth, established, enterprise)",
-          expectedDataType: "choice",
-          extractionField: "stage",
-          validationRules: { options: ["Startup", "Growth", "Established", "Enterprise"] },
+          extractionField: "humanOwnerRole",
         },
       ],
     },
     {
-      phaseId: "brand_identity",
-      phaseName: "Brand Identity",
-      order: 2,
-      isRequired: true,
-      estimatedMinutes: 8,
-      introPrompt: "Now let's dive into who you are as a brand.",
-      completionPrompt: "Your brand identity is coming into focus. Let's talk about your audience.",
-      questions: [
-        {
-          questionId: "q2_mission",
-          promptText: "What's your mission statement? Why does your company exist beyond making money?",
-          expectedDataType: "freeform",
-          extractionField: "mission",
-          followUpPrompts: ["If you had to explain your 'why' to a five-year-old, what would you say?"],
-        },
-        {
-          questionId: "q2_values",
-          promptText: "What are your core values? (List 3-5)",
-          expectedDataType: "list",
-          extractionField: "values",
-        },
-        {
-          questionId: "q2_personality",
-          promptText: "If your brand was a person, how would you describe their personality?",
-          expectedDataType: "freeform",
-          extractionField: "personality",
-        },
-        {
-          questionId: "q2_visual",
-          promptText: "Describe your visual identity. What colors, imagery, and aesthetic define your brand?",
-          expectedDataType: "freeform",
-          extractionField: "visualIdentity",
-        },
-      ],
-    },
-    {
-      phaseId: "target_audience",
-      phaseName: "Target Audience",
-      order: 3,
-      isRequired: true,
-      estimatedMinutes: 8,
-      introPrompt: "Let's get specific about who you're trying to reach.",
-      completionPrompt: "I have a detailed picture of your audience. Now let's discuss your content approach.",
-      questions: [
-        {
-          questionId: "q3_primary_icp",
-          promptText: "Describe your primary ideal customer in detail. Demographics, psychographics, behaviors.",
-          expectedDataType: "freeform",
-          extractionField: "primaryIcp",
-          followUpPrompts: ["What does a day in their life look like?", "What keeps them up at night?"],
-        },
-        {
-          questionId: "q3_secondary_icp",
-          promptText: "Do you have a secondary audience? Describe them.",
-          expectedDataType: "freeform",
-          extractionField: "secondaryIcp",
-        },
-        {
-          questionId: "q3_journey",
-          promptText: "Walk me through your customer's journey. How do they discover you, evaluate you, and become a customer?",
-          expectedDataType: "freeform",
-          extractionField: "journey",
-        },
-        {
-          questionId: "q3_objections",
-          promptText: "What objections or hesitations do prospects typically have before buying?",
-          expectedDataType: "list",
-          extractionField: "objections",
-        },
-      ],
-    },
-    {
-      phaseId: "content_strategy",
-      phaseName: "Content Strategy",
-      order: 4,
-      isRequired: false,
-      estimatedMinutes: 7,
-      introPrompt: "Let's talk about your content efforts so far.",
-      completionPrompt: "I understand your content landscape. Time to nail down your voice.",
-      skipCondition: {
-        field: "businessModel",
-        operator: "contains",
-        value: "B2B enterprise",
-      },
-      questions: [
-        {
-          questionId: "q4_current",
-          promptText: "What content are you currently creating? How often do you publish?",
-          expectedDataType: "freeform",
-          extractionField: "currentEfforts",
-        },
-        {
-          questionId: "q4_success",
-          promptText: "What content has worked best for you? Any viral moments or high performers?",
-          expectedDataType: "freeform",
-          extractionField: "successStories",
-        },
-        {
-          questionId: "q4_topics",
-          promptText: "What topics do you 'own'? What are you the go-to expert for?",
-          expectedDataType: "list",
-          extractionField: "ownedTopics",
-        },
-        {
-          questionId: "q4_competitor",
-          promptText: "Whose content do you admire in your space? What do they do well?",
-          expectedDataType: "freeform",
-          extractionField: "competitorInspo",
-        },
-      ],
-    },
-    {
-      phaseId: "voice_tone",
-      phaseName: "Voice & Tone",
-      order: 5,
-      isRequired: true,
-      estimatedMinutes: 7,
-      introPrompt: "Let's capture exactly how you want to sound.",
-      completionPrompt: "Your voice is crystal clear. Final stretch - let's talk goals!",
-      questions: [
-        {
-          questionId: "q5_style",
-          promptText: "Describe your communication style in 3-5 adjectives.",
-          expectedDataType: "list",
-          extractionField: "style",
-        },
-        {
-          questionId: "q5_formality",
-          promptText: "On a scale of 1-10, how formal is your communication? (1 = super casual, 10 = very formal)",
-          expectedDataType: "rating",
-          extractionField: "formality",
-          validationRules: { minValue: 1, maxValue: 10 },
-        },
-        {
-          questionId: "q5_humor",
-          promptText: "How do you feel about humor in your content? Do you use it? What kind?",
-          expectedDataType: "freeform",
-          extractionField: "humor",
-        },
-        {
-          questionId: "q5_hot_takes",
-          promptText: "Do you have any contrarian views or 'hot takes' in your industry?",
-          expectedDataType: "freeform",
-          extractionField: "hotTakes",
-        },
-      ],
-    },
-    {
-      phaseId: "goals_constraints",
-      phaseName: "Goals & Constraints",
-      order: 6,
-      isRequired: true,
-      estimatedMinutes: 7,
-      introPrompt: "Finally, let's define success and set some boundaries.",
-      completionPrompt: "We're all done! I have everything I need to create a comprehensive Content DNA profile for you.",
-      questions: [
-        {
-          questionId: "q6_goals",
-          promptText: "What are your top 3 goals for the next 90 days?",
-          expectedDataType: "list",
-          extractionField: "goals90d",
-        },
-        {
-          questionId: "q6_frequency",
-          promptText: "How often do you want to publish content? What's realistic for your bandwidth?",
-          expectedDataType: "text",
-          extractionField: "frequency",
-        },
-        {
-          questionId: "q6_platforms",
-          promptText: "Which platforms do you want to focus on? Rank them by priority.",
-          expectedDataType: "list",
-          extractionField: "platforms",
-        },
-        {
-          questionId: "q6_avoid",
-          promptText: "Are there any topics that are completely off-limits? Anything you never want to discuss publicly?",
-          expectedDataType: "list",
-          extractionField: "avoidTopics",
-        },
-      ],
-    },
-  ],
-
-  outputSchema: {
-    fields: [
-      { fieldId: "businessModel", fieldName: "Business Model", dataType: "string", category: "brand", required: true },
-      { fieldId: "revenue", fieldName: "Revenue Streams", dataType: "string", category: "brand", required: false },
-      { fieldId: "teamSize", fieldName: "Team Size", dataType: "string", category: "brand", required: false },
-      { fieldId: "stage", fieldName: "Growth Stage", dataType: "string", category: "brand", required: true },
-      { fieldId: "mission", fieldName: "Mission Statement", dataType: "string", category: "brand", required: true },
-      { fieldId: "values", fieldName: "Core Values", dataType: "string[]", category: "brand", required: true },
-      { fieldId: "personality", fieldName: "Brand Personality", dataType: "string", category: "voice", required: true },
-      { fieldId: "visualIdentity", fieldName: "Visual Identity", dataType: "string", category: "brand", required: false },
-      { fieldId: "primaryIcp", fieldName: "Primary ICP", dataType: "string", category: "audience", required: true },
-      { fieldId: "secondaryIcp", fieldName: "Secondary ICP", dataType: "string", category: "audience", required: false },
-      { fieldId: "journey", fieldName: "Customer Journey", dataType: "string", category: "audience", required: false },
-      { fieldId: "objections", fieldName: "Common Objections", dataType: "string[]", category: "audience", required: false },
-      { fieldId: "currentEfforts", fieldName: "Current Content Efforts", dataType: "string", category: "content_prefs", required: false },
-      { fieldId: "successStories", fieldName: "Content Success Stories", dataType: "string", category: "content_prefs", required: false },
-      { fieldId: "ownedTopics", fieldName: "Owned Topics", dataType: "string[]", category: "expertise", required: false },
-      { fieldId: "competitorInspo", fieldName: "Competitor Inspiration", dataType: "string", category: "content_prefs", required: false },
-      { fieldId: "style", fieldName: "Communication Style", dataType: "string[]", category: "voice", required: true },
-      { fieldId: "formality", fieldName: "Formality Level", dataType: "number", category: "voice", required: true },
-      { fieldId: "humor", fieldName: "Humor Preferences", dataType: "string", category: "voice", required: false },
-      { fieldId: "hotTakes", fieldName: "Hot Takes", dataType: "string", category: "expertise", required: false },
-      { fieldId: "goals90d", fieldName: "90-Day Goals", dataType: "string[]", category: "goals", required: true },
-      { fieldId: "frequency", fieldName: "Content Frequency", dataType: "string", category: "content_prefs", required: true },
-      { fieldId: "platforms", fieldName: "Priority Platforms", dataType: "string[]", category: "content_prefs", required: true },
-      { fieldId: "avoidTopics", fieldName: "Topics to Avoid", dataType: "string[]", category: "voice", required: false },
-    ],
-  },
-
-  completionCriteria: {
-    minPhasesCompleted: 5,
-    requiredPhaseIds: ["business_context", "brand_identity", "target_audience", "voice_tone", "goals_constraints"],
-  },
-
-  interviewerPersonality: "Professional yet warm. You're a seasoned consultant who asks insightful questions and makes clients feel heard.",
-  followUpDepth: 3,
-  silenceHandling: "No pressure - this is about capturing the real you. Take a moment to think if you need to.",
-};
-
-// ============================================================================
-// TEMPLATE C: THOUGHT LEADER EXTRACTION (25 min, 4 phases)
-// ============================================================================
-
-export const thoughtLeaderExtractionTemplate: InterviewTemplate = {
-  templateName: "Thought Leader Extraction",
-  description: "A 25-minute interview designed to extract unique expertise, stories, and opinions for thought leadership content.",
-  version: 1,
-  status: "active",
-  estimatedMinutes: 25,
-  mode: "standard",
-  language: "en",
-
-  phases: [
-    {
-      phaseId: "expertise",
-      phaseName: "Expertise",
-      order: 1,
-      isRequired: true,
-      estimatedMinutes: 7,
-      introPrompt: "Let's uncover what makes you a true expert in your field.",
-      completionPrompt: "Your expertise is impressive! Now let's capture some of your best stories.",
-      questions: [
-        {
-          questionId: "q1_topics",
-          promptText: "What are your top 3 topics you could talk about for hours without notes?",
-          expectedDataType: "list",
-          extractionField: "expertTopics",
-          followUpPrompts: ["What aspect of this topic do most people get wrong?"],
-        },
-        {
-          questionId: "q1_contrarian",
-          promptText: "What's your unique take that goes against the mainstream thinking in your industry?",
-          expectedDataType: "freeform",
-          extractionField: "contrarian",
-          followUpPrompts: ["Why do you think most people see this differently?"],
-        },
-        {
-          questionId: "q1_frameworks",
-          promptText: "Have you developed any frameworks, methodologies, or mental models? Describe them.",
-          expectedDataType: "freeform",
-          extractionField: "frameworks",
-        },
-      ],
-    },
-    {
-      phaseId: "stories",
-      phaseName: "Stories",
-      order: 2,
-      isRequired: true,
-      estimatedMinutes: 7,
-      introPrompt: "Stories are content gold. Let's capture your best ones.",
-      completionPrompt: "These stories are powerful. Now let's get your bold opinions.",
-      questions: [
-        {
-          questionId: "q2_origin",
-          promptText: "Tell me your origin story. How did you get into this field? What was the turning point?",
-          expectedDataType: "freeform",
-          extractionField: "originStory",
-          followUpPrompts: ["What would have happened if you hadn't made that choice?"],
-        },
-        {
-          questionId: "q2_failure",
-          promptText: "What's your biggest professional failure? What did you learn from it?",
-          expectedDataType: "freeform",
-          extractionField: "failureStory",
-          followUpPrompts: ["How has that experience shaped how you work today?"],
-        },
-        {
-          questionId: "q2_transformation",
-          promptText: "Tell me about a client or customer transformation that you're proud of.",
-          expectedDataType: "freeform",
-          extractionField: "transformationStory",
-        },
-      ],
-    },
-    {
-      phaseId: "opinions",
-      phaseName: "Opinions",
-      order: 3,
-      isRequired: true,
-      estimatedMinutes: 6,
-      introPrompt: "Time for your bold takes and predictions.",
-      completionPrompt: "Love the hot takes! Final section - let's nail down your style.",
-      questions: [
-        {
-          questionId: "q3_disagreements",
-          promptText: "What industry trends or 'best practices' do you strongly disagree with?",
-          expectedDataType: "freeform",
-          extractionField: "disagreements",
-        },
-        {
-          questionId: "q3_predictions",
-          promptText: "What are your predictions for your industry in the next 2 years?",
-          expectedDataType: "freeform",
-          extractionField: "predictions",
-        },
-        {
-          questionId: "q3_advice",
-          promptText: "What advice would you give your younger self when starting out?",
-          expectedDataType: "freeform",
-          extractionField: "advice",
-        },
-      ],
-    },
-    {
-      phaseId: "style",
-      phaseName: "Style",
+      phaseId: "drift_watch",
+      phaseName: "Drift Cues",
       order: 4,
       isRequired: true,
       estimatedMinutes: 5,
-      introPrompt: "Final section! Let's capture how you like to communicate.",
-      completionPrompt: "Perfect! I now have everything I need to create thought leadership content that sounds authentically you.",
+      introPrompt:
+        "Finally, define how you'll detect trust drift before it becomes user-visible damage.",
+      completionPrompt:
+        "Great. Your trust blueprint is complete and ready to power Soul Card and guardrail artifacts.",
       questions: [
         {
-          questionId: "q4_explain",
-          promptText: "How would you explain what you do to a 10-year-old?",
-          expectedDataType: "freeform",
-          extractionField: "simpleExplanation",
-        },
-        {
-          questionId: "q4_catchphrases",
-          promptText: "Do you have any catchphrases, mantras, or sayings you use often?",
+          questionId: "q4_drift_cues",
+          promptText:
+            "List the top drift cues that indicate the agent is moving away from intended identity or policy.",
           expectedDataType: "list",
-          extractionField: "catchphrases",
+          extractionField: "driftCues",
         },
         {
-          questionId: "q4_length",
-          promptText: "What's your preferred content length? Short punchy posts or long-form deep dives?",
-          expectedDataType: "choice",
-          extractionField: "postLength",
-          validationRules: { options: ["Short and punchy", "Medium length", "Long-form deep dives", "Mix of all"] },
+          questionId: "q4_drift_review_cadence",
+          promptText:
+            "How often should drift be reviewed, and by whom?",
+          expectedDataType: "text",
+          extractionField: "driftReviewCadence",
+        },
+        {
+          questionId: "q4_drift_recovery_playbook",
+          promptText:
+            "What should happen immediately when drift is detected? Define first-response steps.",
+          expectedDataType: "freeform",
+          extractionField: "driftRecoveryPlaybook",
         },
       ],
     },
@@ -570,44 +172,497 @@ export const thoughtLeaderExtractionTemplate: InterviewTemplate = {
 
   outputSchema: {
     fields: [
-      { fieldId: "expertTopics", fieldName: "Expert Topics", dataType: "string[]", category: "expertise", required: true },
-      { fieldId: "contrarian", fieldName: "Contrarian Views", dataType: "string", category: "expertise", required: true },
-      { fieldId: "frameworks", fieldName: "Proprietary Frameworks", dataType: "string", category: "expertise", required: false },
-      { fieldId: "originStory", fieldName: "Origin Story", dataType: "string", category: "brand", required: true },
-      { fieldId: "failureStory", fieldName: "Failure Story", dataType: "string", category: "brand", required: false },
-      { fieldId: "transformationStory", fieldName: "Transformation Story", dataType: "string", category: "brand", required: false },
-      { fieldId: "disagreements", fieldName: "Industry Disagreements", dataType: "string", category: "expertise", required: true },
-      { fieldId: "predictions", fieldName: "Industry Predictions", dataType: "string", category: "expertise", required: false },
-      { fieldId: "advice", fieldName: "Advice to Younger Self", dataType: "string", category: "brand", required: false },
-      { fieldId: "simpleExplanation", fieldName: "Simple Explanation", dataType: "string", category: "voice", required: true },
-      { fieldId: "catchphrases", fieldName: "Catchphrases", dataType: "string[]", category: "voice", required: false },
-      { fieldId: "postLength", fieldName: "Preferred Post Length", dataType: "string", category: "content_prefs", required: true },
+      { fieldId: "identityNorthStar", fieldName: "Identity North Star", dataType: "string", category: "brand", required: true },
+      { fieldId: "customerPromise", fieldName: "Customer Promise", dataType: "string", category: "audience", required: true },
+      { fieldId: "voiceSignature", fieldName: "Voice Signature", dataType: "string", category: "voice", required: true },
+      { fieldId: "nonNegotiableGuardrails", fieldName: "Non-Negotiable Guardrails", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "approvalRequiredActions", fieldName: "Approval Required Actions", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "sensitiveTopics", fieldName: "Sensitive Topics", dataType: "string[]", category: "voice", required: false },
+      { fieldId: "handoffSignals", fieldName: "Handoff Signals", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "handoffContextPacket", fieldName: "Handoff Context Packet", dataType: "string", category: "content_prefs", required: true },
+      { fieldId: "humanOwnerRole", fieldName: "Escalation Owner Role", dataType: "string", category: "brand", required: true },
+      { fieldId: "driftCues", fieldName: "Drift Cues", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "driftReviewCadence", fieldName: "Drift Review Cadence", dataType: "string", category: "goals", required: true },
+      { fieldId: "driftRecoveryPlaybook", fieldName: "Drift Recovery Playbook", dataType: "string", category: "goals", required: true },
     ],
   },
 
   completionCriteria: {
     minPhasesCompleted: 4,
-    requiredPhaseIds: ["expertise", "stories", "opinions", "style"],
+    requiredPhaseIds: ["identity_anchors", "guardrail_contract", "handoff_boundaries", "drift_watch"],
   },
 
-  interviewerPersonality: "An intellectual peer who's genuinely fascinated by your expertise. You ask probing questions that help uncover insights.",
+  interviewerPersonality:
+    "Clear, calm, and trust-oriented. You help the user articulate identity, safety boundaries, and escalation decisions without ambiguity.",
   followUpDepth: 2,
-  silenceHandling: "Take your time - the best insights often need a moment to surface.",
+  silenceHandling:
+    "Take your time. If useful, I can offer examples of identity anchors, guardrails, handoff boundaries, or drift cues.",
+};
+
+// ============================================================================
+// TEMPLATE B: AGENT TEAM SHAPE CHARTER (30 min, 5 phases)
+// ============================================================================
+
+export const agentTeamShapeCharterTemplate: InterviewTemplate = {
+  templateName: "Agent Team Shape Charter",
+  description:
+    "A structured interview for multi-agent teams that defines specialist identity anchors, cross-agent guardrails, handoff boundaries, and drift operating cues.",
+  version: 1,
+  status: "active",
+  estimatedMinutes: 30,
+  mode: "standard",
+  language: "en",
+
+  phases: [
+    {
+      phaseId: "team_identity_anchors",
+      phaseName: "Team Identity Anchors",
+      order: 1,
+      isRequired: true,
+      estimatedMinutes: 6,
+      introPrompt: "Start by defining the team mission and identity anchors.",
+      completionPrompt:
+        "Great. The team identity is clear. Next we'll define specialist guardrails.",
+      questions: [
+        {
+          questionId: "q1_team_north_star",
+          promptText:
+            "What is the team's north star outcome, and what trust promise should hold across every specialist?",
+          expectedDataType: "freeform",
+          extractionField: "teamNorthStar",
+        },
+        {
+          questionId: "q1_team_identity_anchors",
+          promptText:
+            "List the identity anchors every specialist agent must preserve.",
+          expectedDataType: "list",
+          extractionField: "teamIdentityAnchors",
+        },
+        {
+          questionId: "q1_specialist_personas",
+          promptText:
+            "List the core specialist personas in this team (for example: researcher, closer, support analyst).",
+          expectedDataType: "list",
+          extractionField: "specialistPersonas",
+        },
+      ],
+    },
+    {
+      phaseId: "specialist_guardrails",
+      phaseName: "Specialist Guardrails",
+      order: 2,
+      isRequired: true,
+      estimatedMinutes: 6,
+      introPrompt:
+        "Now define what each specialist is allowed or forbidden to do.",
+      completionPrompt:
+        "Guardrails are defined. Let's design handoff boundaries next.",
+      questions: [
+        {
+          questionId: "q2_role_guardrails",
+          promptText:
+            "What role-specific guardrails apply to each specialist?",
+          expectedDataType: "list",
+          extractionField: "roleGuardrails",
+        },
+        {
+          questionId: "q2_shared_safety_policies",
+          promptText:
+            "What shared safety policies apply to the full team regardless of role?",
+          expectedDataType: "list",
+          extractionField: "sharedSafetyPolicies",
+        },
+        {
+          questionId: "q2_approval_escalation_matrix",
+          promptText:
+            "Describe the approval and escalation matrix when a specialist reaches a risky decision boundary.",
+          expectedDataType: "freeform",
+          extractionField: "approvalEscalationMatrix",
+        },
+      ],
+    },
+    {
+      phaseId: "handoff_design",
+      phaseName: "Handoff Boundaries",
+      order: 3,
+      isRequired: true,
+      estimatedMinutes: 6,
+      introPrompt:
+        "Define exactly how specialists hand work to each other and to humans.",
+      completionPrompt:
+        "Great. Handoff boundaries are explicit. Next: drift governance.",
+      questions: [
+        {
+          questionId: "q3_handoff_boundaries",
+          promptText:
+            "What boundaries decide when one specialist must hand off to another?",
+          expectedDataType: "list",
+          extractionField: "handoffBoundaries",
+        },
+        {
+          questionId: "q3_handoff_context_envelope",
+          promptText:
+            "What minimum context envelope must travel with every handoff?",
+          expectedDataType: "freeform",
+          extractionField: "handoffContextEnvelope",
+        },
+        {
+          questionId: "q3_quality_gate_checks",
+          promptText:
+            "What quality gates should be checked before a handoff is considered complete?",
+          expectedDataType: "list",
+          extractionField: "qualityGateChecks",
+        },
+      ],
+    },
+    {
+      phaseId: "drift_governance",
+      phaseName: "Drift Governance",
+      order: 4,
+      isRequired: true,
+      estimatedMinutes: 6,
+      introPrompt:
+        "Now define how the team detects and corrects drift.",
+      completionPrompt:
+        "Excellent. Drift governance is clear. Last: admin visibility.",
+      questions: [
+        {
+          questionId: "q4_team_drift_cues",
+          promptText:
+            "List the team-level drift cues that indicate identity, guardrail, or handoff degradation.",
+          expectedDataType: "list",
+          extractionField: "teamDriftCues",
+        },
+        {
+          questionId: "q4_drift_owner_role",
+          promptText:
+            "Who owns drift review and correction decisions?",
+          expectedDataType: "text",
+          extractionField: "driftOwnerRole",
+        },
+        {
+          questionId: "q4_correction_protocol",
+          promptText:
+            "What is the correction protocol when drift is confirmed?",
+          expectedDataType: "freeform",
+          extractionField: "correctionProtocol",
+        },
+      ],
+    },
+    {
+      phaseId: "admin_visibility",
+      phaseName: "Admin Visibility",
+      order: 5,
+      isRequired: true,
+      estimatedMinutes: 6,
+      introPrompt:
+        "Finish by defining what Admin needs to safely monitor team trust.",
+      completionPrompt:
+        "Perfect. The team charter is complete and ready for downstream trust surfaces.",
+      questions: [
+        {
+          questionId: "q5_admin_reporting_cadence",
+          promptText:
+            "How often should Admin receive trust health summaries for this team?",
+          expectedDataType: "text",
+          extractionField: "adminReportingCadence",
+        },
+        {
+          questionId: "q5_admin_intervention_triggers",
+          promptText:
+            "Which trust events should trigger direct Admin intervention?",
+          expectedDataType: "list",
+          extractionField: "adminInterventionTriggers",
+        },
+        {
+          questionId: "q5_audit_trail_expectations",
+          promptText:
+            "What evidence should always be present in the audit trail after major decisions or escalations?",
+          expectedDataType: "freeform",
+          extractionField: "auditTrailExpectations",
+        },
+      ],
+    },
+  ],
+
+  outputSchema: {
+    fields: [
+      { fieldId: "teamNorthStar", fieldName: "Team North Star", dataType: "string", category: "goals", required: true },
+      { fieldId: "teamIdentityAnchors", fieldName: "Team Identity Anchors", dataType: "string[]", category: "brand", required: true },
+      { fieldId: "specialistPersonas", fieldName: "Specialist Personas", dataType: "string[]", category: "brand", required: true },
+      { fieldId: "roleGuardrails", fieldName: "Role Guardrails", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "sharedSafetyPolicies", fieldName: "Shared Safety Policies", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "approvalEscalationMatrix", fieldName: "Approval Escalation Matrix", dataType: "string", category: "goals", required: true },
+      { fieldId: "handoffBoundaries", fieldName: "Handoff Boundaries", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "handoffContextEnvelope", fieldName: "Handoff Context Envelope", dataType: "string", category: "content_prefs", required: true },
+      { fieldId: "qualityGateChecks", fieldName: "Handoff Quality Gates", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "teamDriftCues", fieldName: "Team Drift Cues", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "driftOwnerRole", fieldName: "Drift Owner Role", dataType: "string", category: "brand", required: true },
+      { fieldId: "correctionProtocol", fieldName: "Drift Correction Protocol", dataType: "string", category: "goals", required: true },
+      { fieldId: "adminReportingCadence", fieldName: "Admin Reporting Cadence", dataType: "string", category: "goals", required: true },
+      { fieldId: "adminInterventionTriggers", fieldName: "Admin Intervention Triggers", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "auditTrailExpectations", fieldName: "Audit Trail Expectations", dataType: "string", category: "goals", required: true },
+    ],
+  },
+
+  completionCriteria: {
+    minPhasesCompleted: 5,
+    requiredPhaseIds: [
+      "team_identity_anchors",
+      "specialist_guardrails",
+      "handoff_design",
+      "drift_governance",
+      "admin_visibility",
+    ],
+  },
+
+  interviewerPersonality:
+    "Precise and systems-minded while remaining collaborative. You help teams codify trust operations in language operators can act on.",
+  followUpDepth: 3,
+  silenceHandling:
+    "If helpful, I can provide examples of role guardrails, handoff boundaries, and drift cue definitions.",
+};
+
+// ============================================================================
+// TEMPLATE C: PLATFORM AGENT TRUST TRAINING (40 min, 5 phases)
+// ============================================================================
+
+export const platformAgentTrustTrainingTemplate: InterviewTemplate = {
+  templateName: "Platform Agent Trust Training",
+  description:
+    "A deep-discovery trust interview for super-admin platform agents, focused on policy guardrails, operator handoffs, and drift response with customer parity.",
+  version: 1,
+  status: "active",
+  estimatedMinutes: 40,
+  mode: "deep_discovery",
+  language: "en",
+
+  phases: [
+    {
+      phaseId: "platform_identity_anchors",
+      phaseName: "Platform Identity Anchors",
+      order: 1,
+      isRequired: true,
+      estimatedMinutes: 8,
+      introPrompt:
+        "Let's define the platform agent's role, mandate, and trust boundary.",
+      completionPrompt:
+        "Great. Platform identity is clear. Next we'll lock policy guardrails.",
+      questions: [
+        {
+          questionId: "q1_platform_mandate",
+          promptText:
+            "What is the platform agent's mandate, and where does its authority stop?",
+          expectedDataType: "freeform",
+          extractionField: "platformMandate",
+        },
+        {
+          questionId: "q1_operator_persona",
+          promptText:
+            "How should this platform agent present itself to operators when stakes are high?",
+          expectedDataType: "freeform",
+          extractionField: "operatorPersona",
+        },
+        {
+          questionId: "q1_customer_promise_boundary",
+          promptText:
+            "What customer trust promise must this platform agent always protect?",
+          expectedDataType: "freeform",
+          extractionField: "customerPromiseBoundary",
+        },
+      ],
+    },
+    {
+      phaseId: "policy_guardrails",
+      phaseName: "Policy Guardrails",
+      order: 2,
+      isRequired: true,
+      estimatedMinutes: 8,
+      introPrompt:
+        "Now define immutable and conditional policy boundaries for platform behavior.",
+      completionPrompt:
+        "Excellent. Policy guardrails are set. Next we'll map handoffs and escalations.",
+      questions: [
+        {
+          questionId: "q2_immutable_policies",
+          promptText:
+            "List immutable policies the platform agent can never override.",
+          expectedDataType: "list",
+          extractionField: "immutablePolicies",
+        },
+        {
+          questionId: "q2_override_requirements",
+          promptText:
+            "If policy override is ever allowed, what explicit approvals and evidence are required?",
+          expectedDataType: "list",
+          extractionField: "overrideRequirements",
+        },
+        {
+          questionId: "q2_prohibited_actions",
+          promptText:
+            "List prohibited actions that must always be blocked and escalated.",
+          expectedDataType: "list",
+          extractionField: "prohibitedActions",
+        },
+      ],
+    },
+    {
+      phaseId: "handoff_and_escalation",
+      phaseName: "Handoff and Escalation Boundaries",
+      order: 3,
+      isRequired: true,
+      estimatedMinutes: 8,
+      introPrompt:
+        "Define how this platform agent hands work to human operators or specialist services.",
+      completionPrompt:
+        "Great. Escalation boundaries are explicit. Next: drift monitoring.",
+      questions: [
+        {
+          questionId: "q3_platform_handoff_boundaries",
+          promptText:
+            "Which conditions require immediate handoff from platform agent to human operator?",
+          expectedDataType: "list",
+          extractionField: "platformHandoffBoundaries",
+        },
+        {
+          questionId: "q3_escalation_ownership_map",
+          promptText:
+            "Describe escalation ownership by issue type, including who is accountable for final decisions.",
+          expectedDataType: "freeform",
+          extractionField: "escalationOwnershipMap",
+        },
+        {
+          questionId: "q3_incident_sla",
+          promptText:
+            "What incident response SLA should this platform agent enforce for escalations?",
+          expectedDataType: "text",
+          extractionField: "incidentSla",
+        },
+      ],
+    },
+    {
+      phaseId: "drift_monitoring",
+      phaseName: "Drift Monitoring",
+      order: 4,
+      isRequired: true,
+      estimatedMinutes: 8,
+      introPrompt:
+        "Define how platform drift is detected, triaged, and rolled back.",
+      completionPrompt:
+        "Drift safeguards are set. Final phase: parity and operator readiness.",
+      questions: [
+        {
+          questionId: "q4_platform_drift_cues",
+          promptText:
+            "List platform drift cues that suggest policy, identity, or escalation behavior is degrading.",
+          expectedDataType: "list",
+          extractionField: "platformDriftCues",
+        },
+        {
+          questionId: "q4_rollback_triggers",
+          promptText:
+            "Which trigger conditions require rollback of recent model/prompt/soul changes?",
+          expectedDataType: "list",
+          extractionField: "rollbackTriggers",
+        },
+        {
+          questionId: "q4_retraining_cadence",
+          promptText:
+            "What retraining or calibration cadence should keep platform behavior aligned?",
+          expectedDataType: "text",
+          extractionField: "retrainingCadence",
+        },
+      ],
+    },
+    {
+      phaseId: "parity_readiness",
+      phaseName: "Parity and Readiness",
+      order: 5,
+      isRequired: true,
+      estimatedMinutes: 8,
+      introPrompt:
+        "Finish by defining how platform workflows stay aligned with customer-facing trust workflows.",
+      completionPrompt:
+        "Excellent. Platform trust training is complete and parity-ready.",
+      questions: [
+        {
+          questionId: "q5_customer_parity_checklist",
+          promptText:
+            "List the checks that ensure platform-agent behavior stays in parity with customer agent trust standards.",
+          expectedDataType: "list",
+          extractionField: "customerParityChecklist",
+        },
+        {
+          questionId: "q5_training_handoff_checklist",
+          promptText:
+            "What handoff checklist should operators run before promoting new platform training changes?",
+          expectedDataType: "list",
+          extractionField: "trainingHandoffChecklist",
+        },
+        {
+          questionId: "q5_admin_drift_signal_routing",
+          promptText:
+            "How should drift signals be routed to Admin, and what context is required for action?",
+          expectedDataType: "freeform",
+          extractionField: "adminDriftSignalRouting",
+        },
+      ],
+    },
+  ],
+
+  outputSchema: {
+    fields: [
+      { fieldId: "platformMandate", fieldName: "Platform Mandate", dataType: "string", category: "brand", required: true },
+      { fieldId: "operatorPersona", fieldName: "Operator-Facing Persona", dataType: "string", category: "voice", required: true },
+      { fieldId: "customerPromiseBoundary", fieldName: "Customer Promise Boundary", dataType: "string", category: "audience", required: true },
+      { fieldId: "immutablePolicies", fieldName: "Immutable Policies", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "overrideRequirements", fieldName: "Override Requirements", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "prohibitedActions", fieldName: "Prohibited Actions", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "platformHandoffBoundaries", fieldName: "Platform Handoff Boundaries", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "escalationOwnershipMap", fieldName: "Escalation Ownership Map", dataType: "string", category: "goals", required: true },
+      { fieldId: "incidentSla", fieldName: "Incident Response SLA", dataType: "string", category: "goals", required: true },
+      { fieldId: "platformDriftCues", fieldName: "Platform Drift Cues", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "rollbackTriggers", fieldName: "Rollback Triggers", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "retrainingCadence", fieldName: "Retraining Cadence", dataType: "string", category: "goals", required: true },
+      { fieldId: "customerParityChecklist", fieldName: "Customer Parity Checklist", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "trainingHandoffChecklist", fieldName: "Training Handoff Checklist", dataType: "string[]", category: "goals", required: true },
+      { fieldId: "adminDriftSignalRouting", fieldName: "Admin Drift Signal Routing", dataType: "string", category: "goals", required: true },
+    ],
+  },
+
+  completionCriteria: {
+    minPhasesCompleted: 5,
+    requiredPhaseIds: [
+      "platform_identity_anchors",
+      "policy_guardrails",
+      "handoff_and_escalation",
+      "drift_monitoring",
+      "parity_readiness",
+    ],
+  },
+
+  interviewerPersonality:
+    "Operationally rigorous and trust-forward. You help super-admins define clear platform safety boundaries and escalation operating conditions.",
+  followUpDepth: 3,
+  silenceHandling:
+    "Take your time. If useful, I can provide examples for policy guardrails, handoff boundaries, and drift response playbooks.",
 };
 
 // ============================================================================
 // ALL SEED TEMPLATES
 // ============================================================================
 
-export const SEED_TEMPLATES = [
-  quickBrandVoiceTemplate,
-  agencyClientDiscoveryTemplate,
-  thoughtLeaderExtractionTemplate,
+export const SEED_TEMPLATES: InterviewTemplate[] = [
+  customerAgentIdentityBlueprintTemplate,
+  agentTeamShapeCharterTemplate,
+  platformAgentTrustTrainingTemplate,
 ];
 
 /**
  * Get a seed template by mode
  */
-export function getSeedTemplateByMode(mode: "quick" | "standard" | "deep_discovery"): InterviewTemplate | undefined {
-  return SEED_TEMPLATES.find((t) => t.mode === mode);
+export function getSeedTemplateByMode(
+  mode: "quick" | "standard" | "deep_discovery",
+): InterviewTemplate | undefined {
+  return SEED_TEMPLATES.find((template) => template.mode === mode);
 }

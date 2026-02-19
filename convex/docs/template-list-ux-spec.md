@@ -69,11 +69,11 @@ This specification redesigns the "All Templates" tab to provide clear visual hie
 ```
 
 **Visual Styling:**
-- **Background:** `var(--win95-bg)` (slightly darker than cards)
-- **Border Top:** 4px solid `var(--win95-border)` (visual separation)
+- **Background:** `var(--shell-surface)` (slightly darker than cards)
+- **Border Top:** 4px solid `var(--shell-border)` (visual separation)
 - **Padding:** 12px 16px
 - **Typography:**
-  - Title: 13px, bold, `var(--win95-text)`
+  - Title: 13px, bold, `var(--shell-text)`
   - Description: 11px, regular, `var(--neutral-gray)`
 
 ---
@@ -86,7 +86,7 @@ This specification redesigns the "All Templates" tab to provide clear visual hie
 
 | Origin | Badge Text | Icon | Color | Position |
 |--------|-----------|------|-------|----------|
-| Default Set | `⭐ DEFAULT` | Star | `var(--win95-highlight)` / white | Top-right of name |
+| Default Set | `⭐ DEFAULT` | Star | `var(--shell-accent)` / white | Top-right of name |
 | Custom Org | `🏢 CUSTOM` | Building | `#8B5CF6` / white | Top-right of name |
 | System | `🌐 SYSTEM` | Globe | `var(--neutral-gray)` / white | Top-right of name |
 
@@ -96,7 +96,7 @@ const getOriginBadge = (template: Template) => {
   if (template.customProperties?.isDefault) {
     return (
       <span className="origin-badge" style={{
-        background: 'var(--win95-highlight)',
+        background: 'var(--shell-accent)',
         color: 'white',
         padding: '2px 8px',
         fontSize: '10px',
@@ -264,7 +264,7 @@ const getOriginBadge = (template: Template) => {
 
 ```tsx
 <div style={{
-  background: 'color-mix(in srgb, var(--info) 5%, var(--win95-bg))',
+  background: 'color-mix(in srgb, var(--info) 5%, var(--shell-surface))',
   border: '2px solid var(--info)',
   borderRadius: '4px',
   padding: '12px',
@@ -366,8 +366,8 @@ function categorizeTemplates(
   <div className="section-empty-state" style={{
     padding: '24px',
     textAlign: 'center',
-    background: 'var(--win95-bg-light)',
-    border: '2px dashed var(--win95-border)',
+    background: 'var(--shell-surface-elevated)',
+    border: '2px dashed var(--shell-border)',
     margin: '8px 0'
   }}>
     <p style={{
@@ -385,9 +385,9 @@ function categorizeTemplates(
       <button style={{
         padding: '6px 12px',
         fontSize: '11px',
-        background: 'var(--win95-highlight)',
+        background: 'var(--shell-accent)',
         color: 'white',
-        border: '2px solid var(--win95-border)',
+        border: '2px solid var(--shell-border)',
         cursor: 'pointer'
       }}>
         Duplicate from System Templates ↓
@@ -455,14 +455,14 @@ const [infoExpanded, setInfoExpanded] = useState(() => {
 
 ```css
 .section-header {
-  background: var(--win95-bg);
-  border-top: 4px solid var(--win95-border);
-  border-bottom: 2px solid var(--win95-border-light);
-  color: var(--win95-text);
+  background: var(--shell-surface);
+  border-top: 4px solid var(--shell-border);
+  border-bottom: 2px solid var(--shell-border-soft);
+  color: var(--shell-text);
 }
 
 .section-title {
-  color: var(--win95-text);
+  color: var(--shell-text);
   font-weight: bold;
 }
 
@@ -476,7 +476,7 @@ const [infoExpanded, setInfoExpanded] = useState(() => {
 
 ```css
 .badge-default {
-  background: var(--win95-highlight);
+  background: var(--shell-accent);
   color: white;
 }
 
@@ -519,9 +519,9 @@ const [infoExpanded, setInfoExpanded] = useState(() => {
 
 ```css
 .info-panel {
-  background: color-mix(in srgb, var(--info) 5%, var(--win95-bg));
+  background: color-mix(in srgb, var(--info) 5%, var(--shell-surface));
   border: 2px solid var(--info);
-  color: var(--win95-text);
+  color: var(--shell-text);
 }
 
 .info-panel-header {

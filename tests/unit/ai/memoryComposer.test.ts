@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   composeKnowledgeContext,
   estimateTokensFromText,
+  rankSemanticRetrievalChunks,
+  tokenizeSemanticRetrievalText,
 } from "../../../convex/ai/memoryComposer";
 
 describe("memoryComposer", () => {
@@ -77,5 +79,46 @@ describe("memoryComposer", () => {
 
     expect(composed.documents.length).toBeLessThan(3);
     expect(composed.droppedDocumentCount).toBeGreaterThan(0);
+  });
+
+  it("tokenizes retrieval text with stop-word filtering", () => {
+    const tokens = tokenizeSemanticRetrievalText(
+      "What are the emergency plumbing prices in Berlin?"
+    );
+    expect(tokens).toContain("emergency");
+    expect(tokens).toContain("plumbing");
+    expect(tokens).toContain("prices");
+    expect(tokens).not.toContain("what");
+    expect(tokens).not.toContain("are");
+  });
+
+  it("ranks semantic chunks with confidence metadata", () => {
+    const ranked = rankSemanticRetrievalChunks({
+      queryText: "emergency plumbing prices",
+      candidates: [
+        {
+          chunkId: "c-1",
+          chunkText: "Emergency plumbing prices start at $199 for same-day callouts.",
+          sourceFilename: "pricing.md",
+          sourceTags: ["pricing", "plumbing"],
+          sourceUpdatedAt: Date.now(),
+        },
+        {
+          chunkId: "c-2",
+          chunkText: "Our office opening hours are Monday to Friday.",
+          sourceFilename: "hours.md",
+          sourceTags: ["hours"],
+          sourceUpdatedAt: Date.now(),
+        },
+      ],
+      limit: 5,
+    });
+
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].chunkId).toBe("c-1");
+    expect(ranked[0].semanticScore).toBeGreaterThan(0.1);
+    expect(ranked[0].confidence).toBeCloseTo(ranked[0].semanticScore, 4);
+    expect(["low", "medium", "high"]).toContain(ranked[0].confidenceBand);
+    expect(ranked[0].matchedTokens).toContain("emergency");
   });
 });

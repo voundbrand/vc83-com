@@ -313,6 +313,55 @@ export const READ_ONLY_TOOLS = new Set([
 // MAIN RESOLUTION FUNCTION
 // ============================================================================
 
+export interface ToolScopingAudit {
+  startCount: number;
+  finalCount: number;
+  orgAllowListCount: number;
+  orgDenyListCount: number;
+  removedByPlatform: string[];
+  removedByOrgAllow: string[];
+  removedByOrgDeny: string[];
+  removedByIntegration: string[];
+  removedByAgentProfile: string[];
+  removedByAgentEnable: string[];
+  removedByAgentDisable: string[];
+  removedByAutonomy: string[];
+  removedBySession: string[];
+  removedByChannel: string[];
+  finalToolNames: string[];
+}
+
+export interface ResolvedToolsWithAudit {
+  tools: ToolDefinition[];
+  audit: ToolScopingAudit;
+}
+
+function normalizeToolNames(toolNames: string[]): string[] {
+  return Array.from(
+    new Set(
+      toolNames
+        .map((toolName) => toolName.trim())
+        .filter((toolName) => toolName.length > 0)
+    )
+  );
+}
+
+function applyScopedFilter(
+  tools: ToolDefinition[],
+  predicate: (tool: ToolDefinition) => boolean,
+  removedBucket: string[]
+): ToolDefinition[] {
+  const retained: ToolDefinition[] = [];
+  for (const tool of tools) {
+    if (predicate(tool)) {
+      retained.push(tool);
+    } else {
+      removedBucket.push(tool.name);
+    }
+  }
+  return retained;
+}
+
 /**
  * Resolve the final set of active tools for a given agent + session context.
  *
@@ -324,75 +373,155 @@ export const READ_ONLY_TOOLS = new Set([
  *
  * Always injects `query_org_data` at the end if not already present.
  */
-export function resolveActiveTools(params: ResolveActiveToolsParams): ToolDefinition[] {
+export function resolveActiveToolsWithAudit(
+  params: ResolveActiveToolsParams
+): ResolvedToolsWithAudit {
   let tools = [...params.allTools];
+  const orgEnabled = normalizeToolNames(params.orgEnabled);
+  const orgDisabled = normalizeToolNames(params.orgDisabled);
+  const agentEnabled = normalizeToolNames(params.agentEnabled);
+  const agentDisabled = normalizeToolNames(params.agentDisabled);
+  const sessionDisabled = normalizeToolNames(params.sessionDisabled);
+  const platformBlocked = normalizeToolNames(params.platformBlocked);
+  const connectedIntegrations = new Set(normalizeToolNames(params.connectedIntegrations));
+
+  const audit: ToolScopingAudit = {
+    startCount: tools.length,
+    finalCount: 0,
+    orgAllowListCount: orgEnabled.length,
+    orgDenyListCount: orgDisabled.length,
+    removedByPlatform: [],
+    removedByOrgAllow: [],
+    removedByOrgDeny: [],
+    removedByIntegration: [],
+    removedByAgentProfile: [],
+    removedByAgentEnable: [],
+    removedByAgentDisable: [],
+    removedByAutonomy: [],
+    removedBySession: [],
+    removedByChannel: [],
+    finalToolNames: [],
+  };
 
   // ── Layer 1: Platform blocked ──
-  if (params.platformBlocked.length > 0) {
-    const blocked = new Set(params.platformBlocked);
-    tools = tools.filter(t => !blocked.has(t.name));
+  if (platformBlocked.length > 0) {
+    const blocked = new Set(platformBlocked);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => !blocked.has(tool.name),
+      audit.removedByPlatform
+    );
   }
 
   // ── Layer 2: Org-level allow/deny ──
-  if (params.orgEnabled.length > 0) {
-    const allowed = new Set(params.orgEnabled);
-    tools = tools.filter(t => allowed.has(t.name));
+  if (orgEnabled.length > 0) {
+    const allowed = new Set(orgEnabled);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => allowed.has(tool.name),
+      audit.removedByOrgAllow
+    );
   }
-  if (params.orgDisabled.length > 0) {
-    const blocked = new Set(params.orgDisabled);
-    tools = tools.filter(t => !blocked.has(t.name));
+  if (orgDisabled.length > 0) {
+    const blocked = new Set(orgDisabled);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => !blocked.has(tool.name),
+      audit.removedByOrgDeny
+    );
   }
 
   // ── Layer 2b: Integration-aware filter ──
   // Remove tools whose required integration isn't connected
-  tools = tools.filter(t => {
-    const requiredIntegration = INTEGRATION_REQUIREMENTS[t.name];
+  tools = applyScopedFilter(tools, (tool) => {
+    const requiredIntegration = INTEGRATION_REQUIREMENTS[tool.name];
     if (!requiredIntegration) return true; // no requirement → keep
-    return params.connectedIntegrations.includes(requiredIntegration);
-  });
+    return connectedIntegrations.has(requiredIntegration);
+  }, audit.removedByIntegration);
 
   // ── Layer 3: Agent profile + explicit tools ──
   if (params.agentProfile && TOOL_PROFILES[params.agentProfile]) {
     const profile = TOOL_PROFILES[params.agentProfile];
     if (!profile.includes("*")) {
       const profileSet = new Set(profile);
-      tools = tools.filter(t => profileSet.has(t.name));
+      tools = applyScopedFilter(
+        tools,
+        (tool) => profileSet.has(tool.name),
+        audit.removedByAgentProfile
+      );
     }
   }
 
-  if (params.agentEnabled.length > 0) {
-    const allowed = new Set(params.agentEnabled);
-    tools = tools.filter(t => allowed.has(t.name));
+  if (agentEnabled.length > 0) {
+    const allowed = new Set(agentEnabled);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => allowed.has(tool.name),
+      audit.removedByAgentEnable
+    );
   }
-  if (params.agentDisabled.length > 0) {
-    const blocked = new Set(params.agentDisabled);
-    tools = tools.filter(t => !blocked.has(t.name));
+  if (agentDisabled.length > 0) {
+    const blocked = new Set(agentDisabled);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => !blocked.has(tool.name),
+      audit.removedByAgentDisable
+    );
   }
 
   // ── Layer 3b: Autonomy filter ──
   if (params.autonomyLevel === "draft_only") {
-    tools = tools.filter(t => t.readOnly === true);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => tool.readOnly === true,
+      audit.removedByAutonomy
+    );
   }
 
   // ── Layer 4: Session overrides + channel restrictions ──
-  if (params.sessionDisabled.length > 0) {
-    const blocked = new Set(params.sessionDisabled);
-    tools = tools.filter(t => !blocked.has(t.name));
+  if (sessionDisabled.length > 0) {
+    const blocked = new Set(sessionDisabled);
+    tools = applyScopedFilter(
+      tools,
+      (tool) => !blocked.has(tool.name),
+      audit.removedBySession
+    );
   }
 
   const channelBlocked = CHANNEL_TOOL_RESTRICTIONS[params.channel] ?? [];
   if (channelBlocked.length > 0) {
     const blocked = new Set(channelBlocked);
-    tools = tools.filter(t => !blocked.has(t.name));
+    tools = applyScopedFilter(
+      tools,
+      (tool) => !blocked.has(tool.name),
+      audit.removedByChannel
+    );
   }
 
   // ── Always include universal read tool ──
-  if (!tools.find(t => t.name === "query_org_data")) {
-    const queryTool = params.allTools.find(t => t.name === "query_org_data");
+  if (!tools.find((tool) => tool.name === "query_org_data")) {
+    const queryTool = params.allTools.find((tool) => tool.name === "query_org_data");
     if (queryTool) tools.push(queryTool);
   }
 
-  return tools;
+  audit.finalCount = tools.length;
+  audit.finalToolNames = tools.map((tool) => tool.name);
+  audit.removedByPlatform = normalizeToolNames(audit.removedByPlatform);
+  audit.removedByOrgAllow = normalizeToolNames(audit.removedByOrgAllow);
+  audit.removedByOrgDeny = normalizeToolNames(audit.removedByOrgDeny);
+  audit.removedByIntegration = normalizeToolNames(audit.removedByIntegration);
+  audit.removedByAgentProfile = normalizeToolNames(audit.removedByAgentProfile);
+  audit.removedByAgentEnable = normalizeToolNames(audit.removedByAgentEnable);
+  audit.removedByAgentDisable = normalizeToolNames(audit.removedByAgentDisable);
+  audit.removedByAutonomy = normalizeToolNames(audit.removedByAutonomy);
+  audit.removedBySession = normalizeToolNames(audit.removedBySession);
+  audit.removedByChannel = normalizeToolNames(audit.removedByChannel);
+
+  return { tools, audit };
+}
+
+export function resolveActiveTools(params: ResolveActiveToolsParams): ToolDefinition[] {
+  return resolveActiveToolsWithAudit(params).tools;
 }
 
 // ============================================================================
@@ -467,5 +596,67 @@ export const getConnectedIntegrations = internalQuery({
     }
 
     return integrations;
+  },
+});
+
+export interface OrgToolPolicy {
+  orgEnabled: string[];
+  orgDisabled: string[];
+  policySource: "none" | "ai_tool_policy";
+  policyObjectId?: string;
+}
+
+function getArrayValue(
+  properties: Record<string, unknown>,
+  keys: string[]
+): string[] {
+  for (const key of keys) {
+    const value = properties[key];
+    if (!Array.isArray(value)) {
+      continue;
+    }
+
+    return normalizeToolNames(
+      value.filter((entry): entry is string => typeof entry === "string")
+    );
+  }
+
+  return [];
+}
+
+// ============================================================================
+// DB QUERY: GET ORG TOOL POLICY
+// Reads org-level tool allow/deny policy from `objects` type `ai_tool_policy`.
+// ============================================================================
+
+export const getOrgToolPolicy = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<OrgToolPolicy> => {
+    const policyObject = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "ai_tool_policy")
+      )
+      .first();
+
+    if (!policyObject) {
+      return {
+        orgEnabled: [],
+        orgDisabled: [],
+        policySource: "none",
+      };
+    }
+
+    const properties =
+      (policyObject.customProperties as Record<string, unknown> | undefined) ?? {};
+
+    return {
+      orgEnabled: getArrayValue(properties, ["enabledTools", "allowList", "orgEnabled"]),
+      orgDisabled: getArrayValue(properties, ["disabledTools", "denyList", "orgDisabled"]),
+      policySource: "ai_tool_policy",
+      policyObjectId: String(policyObject._id),
+    };
   },
 });

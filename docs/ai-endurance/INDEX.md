@@ -1,6 +1,6 @@
 # AI Endurance Index
 
-**Last updated:** 2026-02-17  
+**Last updated:** 2026-02-18  
 **Purpose:** Top-level map for endurance planning, including completed waves, open residuals, and CommonGround-inspired protocol upgrades.
 
 ---
@@ -78,16 +78,42 @@ For every file in `docs/ai-endurance/implementation-plans/`:
 - Lane K: Plan 20 + residual closure from Plans 01/02/03/04/13
 - Lane L: Plan 21 (runtime hotspot refactor after kernel/memory stabilization)
 
+Lane H progress checklist:
+- [x] `WSH-01` schema foundation (`agentTurns` + `executionEdges` + transition enums)
+- [x] `WSH-02` lease/CAS helpers
+- [x] `WSH-03` turn-first inbound runtime + `turnId` propagation
+- [x] `WSH-04` handoff/escalation turn transitions + stale-turn recovery
+- [x] `WSH-05` inbox receipt schema + receipt-first ingress
+- [x] `WSH-06` idempotency/dedupe ack + one terminal deliverable pointer
+- [x] `WSH-07` receipt operations queries + replay-safe debug endpoints
+
+Lane K progress checklist:
+- [x] `WSK-01` canonical operability playbooks with runtime identifier mapping
+- [x] `WSK-02` operability checklist, ownership map, and tabletop evidence links
+- [x] `WSK-03` unified typed knowledge composition contract + load telemetry
+- [x] `WSK-04` shared tool parsing/normalization adapter across chat + agent
+- [x] `WSK-05` org-level allow/deny matrix and policy-audit coverage
+- [x] `WSK-06` model lifecycle retirement/deprecation workflow + safety checks
+- [x] `WSK-07` channel adapter conformance + credential boundary hardening
+
+Lane K operability ownership map:
+
+| Scenario | Primary owner | Secondary owner | Evidence link |
+|---|---|---|---|
+| Model outage / provider instability | Platform AI on-call | Runtime reliability | `docs/ai-endurance/BLOCKERS.md#tt-20-a-model-outage` |
+| Tool degradation / receipt instability | Runtime reliability | Platform AI on-call | `docs/ai-endurance/BLOCKERS.md#tt-20-b-tool-degradation` |
+| Cost spike / budget integrity | AI economics owner | Platform AI on-call | `docs/ai-endurance/BLOCKERS.md#tt-20-c-cost-spike` |
+
 ---
 
 ## Status board
 
 | Plan | Status | Queue IDs |
 |---|---|---|
-| 01 | `OPEN (residual)` | `WSK-03` |
-| 02 | `OPEN (residual)` | `WSK-04` |
-| 03 | `OPEN (residual)` | `WSK-05` |
-| 04 | `OPEN (residual)` | `WSK-06` |
+| 01 | `DONE (residual closed)` | `WSK-03` |
+| 02 | `DONE (residual closed)` | `WSK-04` |
+| 03 | `DONE (residual closed)` | `WSK-05` |
+| 04 | `DONE (residual closed)` | `WSK-06` |
 | 05 | `DONE` | Archive (`WS1-*`) |
 | 06 | `DONE` | Archive (`WS2-*`) |
 | 07 | `DONE` | Archive (`WSG-02`) |
@@ -96,15 +122,15 @@ For every file in `docs/ai-endurance/implementation-plans/`:
 | 10 | `DONE` | Archive (`WS3-*`) |
 | 11 | `DONE` | Archive (`WS5-*`, `WSG-01`) |
 | 12 | `DONE` | Archive (`WSG-04`, `WSG-05`) |
-| 13 | `OPEN (residual)` | `WSK-07` |
-| 14 | `OPEN` | `WSH-01..WSH-04` |
-| 15 | `OPEN` | `WSH-05..WSH-07` |
-| 16 | `OPEN` | `WSI-01..WSI-03` |
-| 17 | `OPEN` | `WSJ-01..WSJ-03` |
-| 18 | `OPEN` | `WSJ-04..WSJ-06` |
-| 19 | `OPEN` | `WSI-04..WSI-06` |
-| 20 | `OPEN` | `WSK-01..WSK-02` |
-| 21 | `OPEN` | `WSL-01..WSL-06` |
+| 13 | `DONE (residual closed)` | `WSK-07` |
+| 14 | `DONE` | `WSH-01..WSH-04` |
+| 15 | `DONE` | `WSH-05..WSH-07` |
+| 16 | `DONE` | `WSI-01..WSI-03` |
+| 17 | `DONE` | `WSJ-01..WSJ-03` |
+| 18 | `DONE` | `WSJ-04..WSJ-06` |
+| 19 | `DONE` | `WSI-04..WSI-06` |
+| 20 | `DONE` | `WSK-01..WSK-02` |
+| 21 | `DONE` | `WSL-01..WSL-06` |
 
 ---
 

@@ -60,9 +60,12 @@ import {
   organizationAiSettings,
   aiAgentTasks,
   aiAgentMemory,
+  organizationKnowledgeChunks,
   aiModels,
   aiWorkItems,
-  aiTrainingExamples
+  agentInboxReceipts,
+  aiTrainingExamples,
+  aiTrustEvents,
 } from "./schemas/aiSchemas";
 
 // 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
@@ -115,10 +118,21 @@ import {
 } from "./schemas/projectFileSchemas";
 
 // 🤖 AGENT SESSION SCHEMAS (Agent ↔ external contact conversations)
-import { agentSessions, agentSessionMessages } from "./schemas/agentSessionSchemas";
+import {
+  agentSessions,
+  agentSessionMessages,
+  agentTurns,
+  executionEdges,
+} from "./schemas/agentSessionSchemas";
 
 // 💬 WEBCHAT SCHEMAS (Public webchat widget API - Layer 4 comms)
-import { webchatSessions, webchatRateLimits } from "./schemas/webchatSchemas";
+import {
+  webchatSessions,
+  anonymousIdentityLedger,
+  anonymousClaimTokens,
+  webchatRateLimits,
+  onboardingFunnelEvents,
+} from "./schemas/webchatSchemas";
 
 // 📱 TELEGRAM SCHEMAS (Telegram chat_id → org mapping)
 import { telegramMappings } from "./schemas/telegramSchemas";
@@ -249,8 +263,11 @@ export default defineSchema({
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
   aiModels,               // AI model discovery cache (auto-refreshed daily)
   aiWorkItems,            // Work items for human-in-the-loop approval workflow
+  agentInboxReceipts,     // Durable inbound receipts for agent runtime ingress
+  aiTrustEvents,          // Deterministic trust telemetry taxonomy events
   aiAgentTasks,          // Email AI tasks with approval workflow
   aiAgentMemory,         // Email templates and preferences with vector search
+  organizationKnowledgeChunks, // Indexed chunks for org knowledge semantic retrieval
   aiTrainingExamples,    // Training data collection for custom model fine-tuning
 
   // 💳 AI BILLING v3.1: Three-tier system (€49 or €2,500-€12,000/mo, VAT incl.)
@@ -340,10 +357,15 @@ export default defineSchema({
   // 🤖 AGENT SESSIONS: Agent ↔ external contact conversations
   agentSessions,             // Conversation sessions (org + channel + contact)
   agentSessionMessages,      // Individual messages within sessions
+  agentTurns,                // Explicit turn lifecycle rows (coordination kernel)
+  executionEdges,            // Turn transition edge/audit events
 
   // 💬 WEBCHAT: Public webchat widget API (Layer 4 comms)
   webchatSessions,           // Anonymous visitor sessions (24h expiry)
+  anonymousIdentityLedger,   // Durable anonymous identity mapping + claim status
+  anonymousClaimTokens,      // Signed one-time claim token lifecycle
   webchatRateLimits,         // IP-based rate limiting for public endpoints
+  onboardingFunnelEvents,    // Deterministic onboarding funnel telemetry
 
   // 📱 TELEGRAM: Chat_id → organization routing
   telegramMappings,          // Maps Telegram DM/group chat IDs to organizations

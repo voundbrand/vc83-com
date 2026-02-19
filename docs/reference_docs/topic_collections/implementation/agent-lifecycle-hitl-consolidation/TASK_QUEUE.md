@@ -1,0 +1,97 @@
+# Agent Lifecycle HITL Consolidation Task Queue
+
+**Last updated:** 2026-02-18  
+**Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-lifecycle-hitl-consolidation`  
+**Source request:** Use AI-Endurance/Common Ground Core as the backbone for multi-agent layers, keep daily operations in Agents/HITL surfaces, and phase Brain infrastructure out only after retrieval parity is complete.
+
+---
+
+## Queue rules
+
+1. Allowed statuses are only: `READY`, `IN_PROGRESS`, `PENDING`, `BLOCKED`, `DONE`.
+2. Only one task may be `IN_PROGRESS` globally unless a lane explicitly allows one in-progress task per lane.
+3. Promote a task from `PENDING` to `READY` only when all dependencies are `DONE`.
+4. Selection order is deterministic: `P0` -> `P1` -> `P2`, then lowest ID.
+5. If a task is `BLOCKED`, write a concrete unblock condition in `Notes` and continue with next `READY` row.
+6. Every row must include concrete verification commands in `Verify`.
+7. Keep lane boundaries strict to minimize merge conflicts.
+8. Sync `INDEX.md`, `MASTER_PLAN.md`, and `TASK_QUEUE.md` after each completed task.
+
+---
+
+## Verification profiles
+
+| Profile | Command |
+|---|---|
+| `V-TYPE` | `npm run typecheck` |
+| `V-LINT` | `npm run lint` |
+| `V-UNIT` | `npm run test:unit` |
+| `V-AI-TESTS` | `npx vitest run tests/unit/ai tests/integration/ai` |
+| `V-DOCS` | `npm run docs:guard` |
+| `V-AGENTS-LINT` | `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` |
+| `V-ROUTES-LINT` | `npx eslint src/app/brain/page.tsx src/app/page.tsx src/components/window-content/all-apps-window.tsx src/hooks/window-registry.tsx` |
+
+---
+
+## Execution lanes
+
+| Lane | Purpose | Primary ownership | Merge-overlap policy |
+|---|---|---|---|
+| `A` | Brain UI decommission and routing cleanup | `src/app/page.tsx`; `src/components/window-content/all-apps-window.tsx`; `src/hooks/window-registry.tsx`; `src/app/brain/page.tsx` | No lifecycle UX redesign in lane `A` |
+| `B` | Soul and lifecycle contract normalization | `convex/agentOntology.ts`; `convex/ai/agentExecution.ts`; lifecycle docs | No UI-heavy changes before contract rows are `DONE` |
+| `C` | HITL intervention cockpit flow (drill-down/context/actions) | `src/components/window-content/agents/*`; escalation/approval/session views | Keep backend model changes scoped to lane `B` contracts |
+| `D` | Layer integration audit (Core/harnesses/memory/KB/app layer) | new integration audit docs + mapping tables | No broad refactors until audit matrix is complete |
+| `E` | Knowledge/retrieval convergence for trainable agents | `convex/organizationMedia.ts`; `convex/brainKnowledge.ts`; runtime retrieval paths | Coordinate with lane `C` to avoid simultaneous UX/backend churn |
+| `F` | Hardening, telemetry, and rollout | tests + docs + release guardrails | Starts after all `P0` rows are `DONE` or `BLOCKED` |
+| `G` | Runtime correctness defects found in architecture audit | `convex/agentOntology.ts`; `convex/ai/tools/coordinatorTools.ts`; `src/components/window-content/agents/agent-sessions-viewer.tsx`; `convex/ai/agentSessions.ts` | Land before deeper lifecycle UX expansion |
+| `H` | Post-hardening visibility closure for residual layer gaps | `src/components/window-content/agents/agent-trust-cockpit.tsx`; escalation/approval payload shaping; trust evidence docs | Starts after `ALC-010`; keep scope limited to harness/memory/knowledge intervention visibility contracts |
+
+---
+
+## Dependency-based status flow
+
+1. Start with lane `A` (`ALC-001`..`ALC-003`).
+2. Lane `G` starts immediately after `ALC-001` to close critical correctness defects.
+3. Lane `B` starts after `ALC-011` and `ALC-012` are `DONE`.
+4. Lane `D` starts after `ALC-011` is `DONE`.
+5. Lane `C` starts after `ALC-004` is `DONE`.
+6. Lane `E` starts after `ALC-006` and `ALC-008` are `DONE`.
+7. Lane `F` starts only after all `P0` rows are `DONE` or explicitly `BLOCKED`.
+8. Lane `H` starts after `ALC-010` is `DONE`.
+
+---
+
+## Task queue
+
+| ID | Lane | Plan | Priority | Status | Depends On | Task | Primary files | Verify | Notes |
+|---|---|---:|---|---|---|---|---|---|---|
+| `ALC-001` | `A` | 1 | `P0` | `DONE` | - | Remove Brain from active launch surfaces (desktop product menu, All Apps system tools, window registry) and redirect `/brain` to `/agents` | `src/app/page.tsx`; `src/components/window-content/all-apps-window.tsx`; `src/hooks/window-registry.tsx`; `src/app/brain/page.tsx` | `V-TYPE`; `V-ROUTES-LINT`; `V-DOCS` | Completed 2026-02-18: Brain is no longer directly launchable from shell UI; `/brain` now redirects to `/agents`. |
+| `ALC-002` | `A` | 1 | `P1` | `DONE` | `ALC-001` | Remove remaining Brain-specific shell copy/translation seeds from active launch paths and add explicit deprecation notes | `convex/translations/seedWindowTitles.ts`; related i18n docs; shell menu docs | `V-LINT`; `V-DOCS` | Completed 2026-02-18: removed `ui.windows.brain.title` from active window-title seeds and added explicit shell/i18n deprecation notes. Verify: `npm run lint` (pass, existing warnings only), `npm run docs:guard` (pass). |
+| `ALC-003` | `A` | 1 | `P1` | `DONE` | `ALC-013`, `ALC-014` | Archive or fence Brain window components behind non-user-facing internal flag | `src/components/window-content/brain-window/*`; build/docs refs | `V-TYPE`; `V-LINT`; `V-DOCS` | Completed 2026-02-18: Brain window is now fenced behind internal-only `NEXT_PUBLIC_INTERNAL_BRAIN_WINDOW`; default UI shows an archival notice with `/agents` CTA. Verify: `npm run typecheck` (blocked by pre-existing TS7006 in `src/components/window-content/super-admin-organizations-window/manage-org/index.tsx`), `npm run lint` (pass with existing warnings), `npm run docs:guard` (pass). |
+| `ALC-004` | `B` | 2 | `P0` | `DONE` | `ALC-001`, `ALC-011`, `ALC-012` | Define canonical Soul + lifecycle state model (draft -> active -> paused -> escalated -> takeover -> resolved) with HITL transitions | `docs/reference_docs/topic_collections/implementation/agent-lifecycle-hitl-consolidation/MASTER_PLAN.md`; lifecycle backend touchpoints | `V-DOCS`; `V-TYPE` | Completed 2026-02-18: canonical lifecycle state/actor/checkpoint contract documented in `MASTER_PLAN.md` and codified in `convex/ai/agentLifecycle.ts`. Verify: `npm run docs:guard` (pass), `npm run typecheck` (blocked by pre-existing TS7006 implicit-any errors in `src/components/window-content/super-admin-organizations-window/manage-org/index.tsx`). |
+| `ALC-005` | `B` | 2 | `P0` | `DONE` | `ALC-004` | Bind lifecycle contract to runtime enforcement and telemetry events | `convex/ai/agentExecution.ts`; `convex/ai/agentApprovals.ts`; `convex/ai/escalation.ts`; telemetry modules | `V-TYPE`; `V-LINT`; `V-UNIT` | Completed 2026-02-18: approvals + escalation + runtime pause checkpoints now call `internal.ai.agentLifecycle.recordLifecycleTransition`; lifecycle checkpoints persist to session and emit trust transition telemetry. Verify: `npm run typecheck` (same pre-existing TS7006 failures), `npm run lint` (pass with existing warnings), `npm run test:unit` (pass). |
+| `ALC-006` | `C` | 3 | `P0` | `DONE` | `ALC-004` | Build operator drill-down workflow: queue -> session timeline -> blocker reason -> intervention action panel | `src/components/window-content/agents/agent-trust-cockpit.tsx`; `src/components/window-content/agents/agent-sessions-viewer.tsx`; escalation/approval panels | `V-AGENTS-LINT`; `V-TYPE`; `V-UNIT` | Completed 2026-02-18: Trust cockpit now provides a live intervention drill-down workflow with prioritized queue, per-item blocker context, session timeline, and direct approval/escalation action controls. Verify: `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` (pass with existing warnings), `npm run typecheck` (blocked by pre-existing TS7006 in `src/components/window-content/super-admin-organizations-window/manage-org/index.tsx`), `npm run test:unit` (pass, 64 files / 316 tests). |
+| `ALC-007` | `C` | 3 | `P1` | `DONE` | `ALC-006` | Add intervention action templates (send file, override draft, handoff back to agent) with auditable logs | `src/components/window-content/agents/*`; `convex/ai/agentApprovals.ts`; `convex/ai/escalation.ts` | `V-AGENTS-LINT`; `V-TYPE`; `V-UNIT` | Completed 2026-02-18: trust cockpit intervention panel now includes explicit action templates (`send_file`, `override_draft`, `handoff_back_to_agent`) with required payload capture (file name/URL, operator note), and approval/escalation mutations now persist template-aware audit metadata (`interventionTemplateId`, `resumeCheckpoint`, reason) in `objectActions`; contract helper added in `convex/ai/interventionTemplates.ts` with regression coverage in `tests/unit/ai/interventionTemplatesContract.test.ts`. Verify: `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` (pass with pre-existing warnings), `npm run typecheck` (pass), `npm run test:unit` (pass: 66 files, 325 tests). |
+| `ALC-008` | `D` | 4 | `P0` | `DONE` | `ALC-001`, `ALC-011` | Produce integration audit matrix for Common Ground Core, harnesses, memory systems, KB, and app-layer concepts | `docs/reference_docs/topic_collections/implementation/agent-lifecycle-hitl-consolidation/MASTER_PLAN.md`; `INDEX.md` | `V-DOCS` | Completed 2026-02-18: refreshed overlap/ownership audit matrix with explicit `covered`/`partial` row states, concrete evidence file paths, and unblock criteria + owning tasks for each partial gap (`LC-GAP-01`..`LC-GAP-05`), while preserving canonical lifecycle naming (`draft -> active -> paused -> escalated -> takeover -> resolved -> active`). Verify: `npm run docs:guard` (pass). |
+| `ALC-009` | `E` | 5 | `P0` | `DONE` | `ALC-006`, `ALC-008` | Close trainability gap: ensure uploaded knowledge (including pdf/audio/link/text) becomes retrievable runtime context with provenance | `convex/organizationMedia.ts`; `convex/brainKnowledge.ts`; `convex/ai/agentExecution.ts` | `V-TYPE`; `V-LINT`; `V-AI-TESTS` | Completed 2026-02-18: hardened bridge retrieval for legacy teach ingests by inferring missing `sourceType` from URL/media/knowledgeKind, preserving provenance tags for `pdf/audio/link/text`; extended bridge regression coverage for non-layercake text, legacy audio fallback inference, and link inference (`tests/unit/ai/knowledgeItemRetrievalBridge.test.ts`). Verify (resume pass 2026-02-18): `npm run typecheck` (pass), `npm run lint` (pass with pre-existing warnings), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 53 files, 198 tests). |
+| `ALC-010` | `F` | 6 | `P1` | `DONE` | `ALC-005`, `ALC-007`, `ALC-009` | Final hardening: regression tests, operator runbook, rollout/rollback checklist | tests + `MASTER_PLAN.md` + `INDEX.md` | `V-TYPE`; `V-LINT`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: added lifecycle/guardrail regression coverage (`tests/unit/ai/agentLifecycleContract.test.ts`, `tests/unit/ai/trustTelemetryDashboards.test.ts`) and published lane-F operator runbook + rollout/rollback checklist in `MASTER_PLAN.md` and `INDEX.md`. Explicit HITL rollback triggers: `trust_soul_post_approval_rollback_rate > 0.10`, `trust_team_handoff_context_loss_rate > 0.08`, intervention template contract failures, or lifecycle transition payload validation failures. |
+| `ALC-011` | `G` | 2 | `P0` | `DONE` | `ALC-001` | Fix cross-layer PM routing: add subtype-aware active-agent resolution for coordinator flows | `convex/agentOntology.ts`; `convex/ai/tools/coordinatorTools.ts`; coordinator tests | `V-TYPE`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: coordinator flows now route PM lookup through a shared subtype-locked resolver (`pm`) and regression coverage now includes cross-layer escalation/delegation subtype assertions (`tests/unit/ai/coordinatorSubtypeRouting.test.ts`) plus subtype/channel non-fallback behavior (`tests/unit/ai/activeAgentRouting.test.ts`). Verify: `npm run typecheck` (same pre-existing TS7006 implicit-any blockers in `src/components/window-content/super-admin-organizations-window/manage-org/index.tsx`), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 53 files, 195 tests), `npm run docs:guard` (pass). |
+| `ALC-012` | `G` | 3 | `P0` | `DONE` | `ALC-001` | Fix manual session handoff UX/contract so `handOffToUserId` is valid and selectable | `src/components/window-content/agents/agent-sessions-viewer.tsx`; `convex/ai/agentSessions.ts` | `V-TYPE`; `V-AGENTS-LINT`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: sessions viewer now uses selectable org-user handoff targets and no longer emits empty IDs; backend handoff enforces active-org-member target validation; added `src/components/window-content/agents/session-handoff.ts` and `tests/unit/ai/sessionHandoffContract.test.ts`. Verify: agents lint command passed (warnings only), docs guard passed, `npm run typecheck` blocked by pre-existing repo errors. |
+| `ALC-013` | `E` | 5 | `P0` | `DONE` | `ALC-008` | Implement teach-source retrieval parity: non-layercake ingest paths must produce runtime-searchable knowledge chunks or equivalent retrieval bridge | `convex/organizationMedia.ts`; `convex/brainKnowledge.ts`; `convex/ai/agentExecution.ts`; retrieval tests | `V-TYPE`; `V-LINT`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: added tenant-safe `knowledge_item` retrieval bridge for non-layercake teach sources and merged bridge docs into semantic + fallback runtime retrieval paths; persisted source provenance tags/metadata for teach ingests; added bridge coverage tests in `tests/unit/ai/knowledgeItemRetrievalBridge.test.ts` and retrieval integration assertions. Verify: `npm run typecheck` (blocked by pre-existing TS7006 in `src/components/window-content/super-admin-organizations-window/manage-org/index.tsx`), `npm run lint` (pass with existing warnings), `npx vitest run tests/unit/ai tests/integration/ai` (pass), `npm run docs:guard` (pass). |
+| `ALC-014` | `B` | 2 | `P1` | `DONE` | `ALC-005`, `ALC-013` | Migrate trust telemetry/event taxonomy off `brain` mode naming to lifecycle-centric modes with compatibility shim | `convex/ai/trustEvents.ts`; `convex/ai/trustTelemetry.ts`; `convex/ai/interviewRunner.ts`; docs | `V-TYPE`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: trust mode canonicalized to `lifecycle`, legacy `brain` mode normalized via compatibility shim, and new `trust.lifecycle.transition_checkpoint.v1` taxonomy event added. Verify: `npm run typecheck` (same pre-existing TS7006 failures), `npx vitest run tests/unit/ai tests/integration/ai` (pass), `npm run docs:guard` (pass). |
+| `ALC-015` | `H` | 7 | `P1` | `DONE` | `ALC-010` | Surface canonical harness context envelope in intervention queue/timeline and enforce payload contract in escalation/approval outputs | `convex/ai/escalation.ts`; `convex/ai/agentApprovals.ts`; `src/components/window-content/agents/agent-trust-cockpit.tsx`; harness regression tests | `V-AGENTS-LINT`; `V-TYPE`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: introduced canonical harness envelope contract (`convex/ai/harnessContextEnvelope.ts`), enforced normalized `harnessContext` payloads in escalation/approval outputs, and surfaced harness layer/tool/handoff evidence in trust cockpit intervention drill-down with regression coverage in `tests/unit/ai/harnessContextEnvelope.test.ts`. Verify: `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` (pass with pre-existing warnings), `npm run typecheck` (pass), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 56 files, 212 tests), `npm run docs:guard` (pass). |
+| `ALC-016` | `H` | 7 | `P1` | `DONE` | `ALC-015` | Add intervention-time memory provenance panel (consent scope/decision + candidate attribution) for escalation/takeover views | `src/components/window-content/agents/agent-trust-cockpit.tsx`; memory/trust event wiring; provenance tests | `V-AGENTS-LINT`; `V-TYPE`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: intervention drill-down now renders escalation/takeover memory provenance evidence (consent scope/decision, candidate attribution, blocked-without-consent signal) sourced from trust-event timeline wiring in `convex/ai/agentSessions.ts`; regression coverage added in `tests/unit/ai/interventionEvidence.test.ts`. Verify: `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` (pass with pre-existing warnings), `npm run typecheck` (pass), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 57 files, 214 tests), `npm run docs:guard` (pass). |
+| `ALC-017` | `H` | 7 | `P1` | `DONE` | `ALC-015` | Expose retrieval citation provenance (chunk vs `knowledge_item_bridge`, source kind/path) in operator drill-down | `src/components/window-content/agents/agent-trust-cockpit.tsx`; retrieval mapping helpers; retrieval explainability tests | `V-AGENTS-LINT`; `V-TYPE`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: intervention drill-down now surfaces retrieval citation provenance (chunk-index vs `knowledge_item_bridge`, source kind/path, fallback markers) using retrieval snapshots wired into control-center timeline payloads in `convex/ai/agentSessions.ts`; normalization/mapping helpers and regression coverage added via `src/components/window-content/agents/intervention-evidence.ts` and `tests/unit/ai/interventionEvidence.test.ts`. Verify: `npx eslint src/components/window-content/agents-window.tsx src/components/window-content/agents src/app/agents src/hooks/window-registry.tsx src/app/page.tsx` (pass with pre-existing warnings), `npm run typecheck` (pass), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 57 files, 214 tests), `npm run docs:guard` (pass). |
+| `ALC-018` | `H` | 7 | `P1` | `DONE` | `ALC-016`, `ALC-017` | Final extension hardening: regression pack + operator acceptance checklist for harness/memory/knowledge visibility | tests + `MASTER_PLAN.md` + `INDEX.md` | `V-TYPE`; `V-LINT`; `V-AI-TESTS`; `V-DOCS` | Completed 2026-02-18: lane-H visibility hardening is closed with regression pack (`tests/unit/ai/harnessContextEnvelope.test.ts`, `tests/unit/ai/interventionEvidence.test.ts`) and operator acceptance checklist published in `MASTER_PLAN.md`; `LC-GAP-01`..`LC-GAP-03` unblock criteria are now satisfied in tests/docs. Verify: `npm run typecheck` (pass), `npm run lint` (pass with pre-existing warnings), `npx vitest run tests/unit/ai tests/integration/ai` (pass: 57 files, 214 tests), `npm run docs:guard` (pass). |
+
+---
+
+## Current kickoff
+
+- Active task: none.
+- Lane A status: decommission scope complete (`ALC-001`..`ALC-003` are `DONE`).
+- Lane D status: integration audit matrix complete with evidence/ownership/unblock mapping (`ALC-008` is `DONE`).
+- Lane C status: intervention flow complete (`ALC-006`, `ALC-007` are `DONE`).
+- Lane H status: extension closure complete (`ALC-015`..`ALC-018` are `DONE`).
+- Next tasks to execute: none in lane `H` (extension complete).
+- Immediate objective: maintain regression coverage for harness/memory/knowledge intervention visibility during future lifecycle UX changes.

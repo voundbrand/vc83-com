@@ -15,6 +15,20 @@ Team coordination provides:
 4. **Group chat** — team visibility into customer conversations
 5. **Coordination rules** — guardrails on handoff frequency, budgets, and permissions
 
+## Current Runtime Contract
+
+The current production handoff contract is documented in:
+
+- `docs/platform/codebase_atlas/flows/F4-team-harness.md`
+
+Canonical payload keys for `tag_in_specialist` and `executeTeamHandoff`:
+
+- `reason`
+- `summary`
+- `goal`
+
+Legacy `contextNote`/`contextSummary` fields are still read for compatibility, but new writes should use the canonical payload.
+
 ---
 
 ## Team Session Model

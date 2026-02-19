@@ -24,6 +24,21 @@ function getInternal(): any {
   return _apiCache.internal;
 }
 
+const COORDINATOR_PM_SUBTYPE = "pm";
+
+async function getActivePmAgentForOrg(
+  ctx: ToolExecutionContext,
+  organizationId: ToolExecutionContext["organizationId"]
+) {
+  return await ctx.runQuery(
+    getInternal().agentOntology.getActiveAgentForOrg,
+    {
+      organizationId,
+      subtype: COORDINATOR_PM_SUBTYPE,
+    }
+  );
+}
+
 /**
  * Escalate an issue to the parent agency's PM agent.
  * Available to L3 (Client PM) and L4 (Customer Service) agents.
@@ -71,13 +86,7 @@ export const escalateToParentTool: AITool = {
     }
 
     // 2. Find parent org's PM agent
-    const parentPM = await ctx.runQuery(
-      getInternal().agentOntology.getActiveAgentForOrg,
-      {
-        organizationId: org.parentOrganizationId,
-        subtype: "pm",
-      }
-    );
+    const parentPM = await getActivePmAgentForOrg(ctx, org.parentOrganizationId);
 
     // 3. Create escalation record in objects table
     const escalationId = await ctx.runMutation(
@@ -170,13 +179,7 @@ export const delegateToChildTool: AITool = {
     }
 
     // 2. Find client PM agent
-    const clientPM = await ctx.runQuery(
-      getInternal().agentOntology.getActiveAgentForOrg,
-      {
-        organizationId: clientOrg._id,
-        subtype: "pm",
-      }
-    );
+    const clientPM = await getActivePmAgentForOrg(ctx, clientOrg._id);
 
     // 3. Create delegation record
     const delegationId = await ctx.runMutation(

@@ -13,6 +13,67 @@ import { evaluateModelEnablementReleaseGates } from "./modelEnablementGates";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
+export type ModelLifecycleStatus =
+  | "discovered"
+  | "enabled"
+  | "default"
+  | "deprecated"
+  | "retired";
+
+export function deriveLifecycleState(args: {
+  isPlatformEnabled: boolean;
+  isSystemDefault: boolean;
+  deprecatedAt?: number;
+  retiredAt?: number;
+}): ModelLifecycleStatus {
+  if (typeof args.retiredAt === "number") {
+    return "retired";
+  }
+  if (typeof args.deprecatedAt === "number") {
+    return "deprecated";
+  }
+  if (args.isSystemDefault) {
+    return "default";
+  }
+  if (args.isPlatformEnabled) {
+    return "enabled";
+  }
+  return "discovered";
+}
+
+export function validateRetirementSafety(args: {
+  modelId: string;
+  isSystemDefault: boolean;
+  replacementModel: {
+    modelId: string;
+    isPlatformEnabled: boolean;
+    lifecycleStatus?: string;
+  } | null;
+}): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (args.isSystemDefault && !args.replacementModel) {
+    reasons.push(
+      `Default model ${args.modelId} requires a replacement model before retirement.`
+    );
+  }
+
+  if (args.replacementModel) {
+    if (!args.replacementModel.isPlatformEnabled) {
+      reasons.push(
+        `Replacement model ${args.replacementModel.modelId} must be platform-enabled.`
+      );
+    }
+    if (args.replacementModel.lifecycleStatus === "retired") {
+      reasons.push(
+        `Replacement model ${args.replacementModel.modelId} cannot be retired.`
+      );
+    }
+  }
+
+  return { ok: reasons.length === 0, reasons };
+}
+
 /**
  * Get all discovered AI models with their platform availability status
  */
@@ -50,6 +111,18 @@ export const getPlatformModels = query({
         // Platform availability - default to disabled for new models
         isPlatformEnabled: model.isPlatformEnabled ?? false,
         isSystemDefault: model.isSystemDefault ?? false,
+        lifecycleStatus:
+          model.lifecycleStatus
+          ?? deriveLifecycleState({
+            isPlatformEnabled: model.isPlatformEnabled ?? false,
+            isSystemDefault: model.isSystemDefault ?? false,
+            deprecatedAt: model.deprecatedAt,
+            retiredAt: model.retiredAt,
+          }),
+        deprecatedAt: model.deprecatedAt,
+        retiredAt: model.retiredAt,
+        replacementModelId: model.replacementModelId,
+        retirementReason: model.retirementReason,
         // Validation tracking
         validationStatus: model.validationStatus,
         testResults: model.testResults,
@@ -91,6 +164,11 @@ export const enablePlatformModel = mutation({
     if (!model) {
       throw new Error(`Model ${args.modelId} not found`);
     }
+    if (model.lifecycleStatus === "retired") {
+      throw new Error(
+        `Model ${args.modelId} is retired and cannot be re-enabled without lifecycle override.`
+      );
+    }
 
     const releaseGateResult = evaluateModelEnablementReleaseGates({
       model: {
@@ -108,8 +186,17 @@ export const enablePlatformModel = mutation({
     }
 
     // Enable the model
+    const lifecycleStatus = deriveLifecycleState({
+      isPlatformEnabled: true,
+      isSystemDefault: model.isSystemDefault ?? false,
+      deprecatedAt: model.deprecatedAt,
+      retiredAt: undefined,
+    });
     await ctx.db.patch(model._id, {
       isPlatformEnabled: true,
+      lifecycleStatus,
+      retiredAt: undefined,
+      retirementReason: undefined,
     });
 
     return {
@@ -150,8 +237,19 @@ export const disablePlatformModel = mutation({
     }
 
     // Disable the model
+    const lifecycleStatus =
+      model.lifecycleStatus === "retired"
+        ? "retired"
+        : deriveLifecycleState({
+          isPlatformEnabled: false,
+          isSystemDefault: false,
+          deprecatedAt: model.deprecatedAt,
+          retiredAt: model.retiredAt,
+        });
     await ctx.db.patch(model._id, {
       isPlatformEnabled: false,
+      isSystemDefault: false,
+      lifecycleStatus,
     });
 
     return {
@@ -197,6 +295,13 @@ export const batchEnableModels = mutation({
         missingModels.push(modelId);
         continue;
       }
+      if (model.lifecycleStatus === "retired") {
+        blockedModels.push({
+          modelId: model.modelId,
+          reasons: ["retired models cannot be batch-enabled"],
+        });
+        continue;
+      }
 
       const releaseGateResult = evaluateModelEnablementReleaseGates({
         model: {
@@ -237,8 +342,18 @@ export const batchEnableModels = mutation({
     }
 
     for (const model of modelsToEnable) {
+      const existing = await ctx.db.get(model._id);
+      const lifecycleStatus = deriveLifecycleState({
+        isPlatformEnabled: true,
+        isSystemDefault: existing?.isSystemDefault ?? false,
+        deprecatedAt: existing?.deprecatedAt,
+        retiredAt: undefined,
+      });
       await ctx.db.patch(model._id, {
         isPlatformEnabled: true,
+        lifecycleStatus,
+        retiredAt: undefined,
+        retirementReason: undefined,
       });
       enabledCount++;
     }
@@ -289,10 +404,23 @@ export const toggleSystemDefault = mutation({
     if (args.isDefault && !model.isPlatformEnabled) {
       throw new Error("Only platform-enabled models can be set as system default");
     }
+    if (
+      args.isDefault
+      && (model.lifecycleStatus === "retired" || model.lifecycleStatus === "deprecated")
+    ) {
+      throw new Error("Deprecated or retired models cannot be system defaults");
+    }
 
     // Update the model
+    const lifecycleStatus = deriveLifecycleState({
+      isPlatformEnabled: model.isPlatformEnabled ?? false,
+      isSystemDefault: args.isDefault,
+      deprecatedAt: model.deprecatedAt,
+      retiredAt: model.retiredAt,
+    });
     await ctx.db.patch(model._id, {
       isSystemDefault: args.isDefault,
+      lifecycleStatus,
     });
 
     return {
@@ -300,6 +428,190 @@ export const toggleSystemDefault = mutation({
       message: args.isDefault
         ? `${model.name} is now a system default`
         : `${model.name} is no longer a system default`,
+    };
+  },
+});
+
+/**
+ * Mark a model as deprecated while optionally guiding operators to a replacement.
+ */
+export const deprecatePlatformModel = mutation({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+    replacementModelId: v.optional(v.string()),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const model = await ctx.db
+      .query("aiModels")
+      .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
+      .first();
+
+    if (!model) {
+      throw new Error(`Model ${args.modelId} not found`);
+    }
+    if (model.lifecycleStatus === "retired") {
+      throw new Error(`Model ${args.modelId} is retired and cannot be deprecated`);
+    }
+
+    let replacementModel = null as
+      | {
+          _id: Id<"aiModels">;
+          modelId: string;
+          isPlatformEnabled?: boolean;
+          lifecycleStatus?: string;
+          deprecatedAt?: number;
+        }
+      | null;
+    if (args.replacementModelId) {
+      replacementModel = await ctx.db
+        .query("aiModels")
+        .withIndex("by_model_id", (q) => q.eq("modelId", args.replacementModelId!))
+        .first();
+      if (!replacementModel) {
+        throw new Error(`Replacement model ${args.replacementModelId} not found`);
+      }
+      if (!replacementModel.isPlatformEnabled) {
+        throw new Error("Replacement model must be platform-enabled before deprecation");
+      }
+      if (replacementModel.lifecycleStatus === "retired") {
+        throw new Error("Replacement model cannot be retired");
+      }
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(model._id, {
+      lifecycleStatus: "deprecated",
+      deprecatedAt: model.deprecatedAt ?? now,
+      replacementModelId: args.replacementModelId,
+      retirementReason: args.reason,
+      isSystemDefault:
+        args.replacementModelId && model.isSystemDefault ? false : model.isSystemDefault,
+    });
+
+    if (replacementModel && model.isSystemDefault) {
+      const replacementLifecycleStatus = deriveLifecycleState({
+        isPlatformEnabled: replacementModel.isPlatformEnabled ?? false,
+        isSystemDefault: true,
+        deprecatedAt: replacementModel.lifecycleStatus === "deprecated"
+          ? replacementModel.deprecatedAt
+          : undefined,
+        retiredAt: undefined,
+      });
+      await ctx.db.patch(replacementModel._id, {
+        isSystemDefault: true,
+        lifecycleStatus: replacementLifecycleStatus,
+      });
+    }
+
+    return {
+      success: true,
+      message: `Model ${model.name} marked as deprecated`,
+    };
+  },
+});
+
+/**
+ * Retire a model from platform use with optional replacement safety checks.
+ */
+export const retirePlatformModel = mutation({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+    replacementModelId: v.optional(v.string()),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const model = await ctx.db
+      .query("aiModels")
+      .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
+      .first();
+
+    if (!model) {
+      throw new Error(`Model ${args.modelId} not found`);
+    }
+    if (model.lifecycleStatus === "retired") {
+      throw new Error(`Model ${args.modelId} is already retired`);
+    }
+
+    let replacementModel = null as
+      | {
+          _id: Id<"aiModels">;
+          modelId: string;
+          isPlatformEnabled?: boolean;
+          lifecycleStatus?: string;
+          deprecatedAt?: number;
+        }
+      | null;
+    if (args.replacementModelId) {
+      replacementModel = await ctx.db
+        .query("aiModels")
+        .withIndex("by_model_id", (q) => q.eq("modelId", args.replacementModelId!))
+        .first();
+      if (!replacementModel) {
+        throw new Error(`Replacement model ${args.replacementModelId} not found`);
+      }
+    }
+
+    const retirementSafety = validateRetirementSafety({
+      modelId: model.modelId,
+      isSystemDefault: model.isSystemDefault ?? false,
+      replacementModel: replacementModel
+        ? {
+            modelId: replacementModel.modelId,
+            isPlatformEnabled: replacementModel.isPlatformEnabled ?? false,
+            lifecycleStatus: replacementModel.lifecycleStatus,
+          }
+        : null,
+    });
+    if (!retirementSafety.ok) {
+      throw new Error(retirementSafety.reasons.join(" "));
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(model._id, {
+      isPlatformEnabled: false,
+      isSystemDefault: false,
+      lifecycleStatus: "retired",
+      deprecatedAt: model.deprecatedAt ?? now,
+      retiredAt: now,
+      replacementModelId: args.replacementModelId,
+      retirementReason: args.reason ?? "retired_by_operator",
+    });
+
+    if (replacementModel && model.isSystemDefault) {
+      const replacementLifecycleStatus = deriveLifecycleState({
+        isPlatformEnabled: replacementModel.isPlatformEnabled ?? false,
+        isSystemDefault: true,
+        deprecatedAt: replacementModel.lifecycleStatus === "deprecated"
+          ? replacementModel.deprecatedAt
+          : undefined,
+        retiredAt: undefined,
+      });
+      await ctx.db.patch(replacementModel._id, {
+        isSystemDefault: true,
+        lifecycleStatus: replacementLifecycleStatus,
+      });
+    }
+
+    return {
+      success: true,
+      message: `Model ${model.name} has been retired`,
     };
   },
 });

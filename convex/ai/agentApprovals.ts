@@ -22,8 +22,77 @@ import { TOOL_REGISTRY } from "./tools/registry";
 import type { ToolExecutionContext } from "./tools/registry";
 import type { Id } from "../_generated/dataModel";
 import { getToolCreditCost } from "../credits/index";
+import {
+  interventionTemplateValidator,
+  normalizeInterventionTemplateInput,
+} from "./interventionTemplates";
+import {
+  buildHarnessContextEnvelope,
+  normalizeHarnessContextEnvelope,
+  type HarnessContextEnvelope,
+} from "./harnessContextEnvelope";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+
+interface TeamHandoffEntryShape {
+  fromAgentId: unknown;
+  toAgentId: unknown;
+  reason?: unknown;
+  summary?: unknown;
+  goal?: unknown;
+  contextSummary?: unknown;
+  timestamp?: unknown;
+}
+
+async function buildApprovalHarnessContext(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    agentId: Id<"objects">;
+    sessionId: Id<"agentSessions">;
+    organizationId: Id<"organizations">;
+    actionType?: string;
+  },
+): Promise<HarnessContextEnvelope> {
+  const [organization, session, agent] = await Promise.all([
+    ctx.db.get(args.organizationId),
+    ctx.db.get(args.sessionId),
+    ctx.db.get(args.agentId),
+  ]);
+
+  return buildHarnessContextEnvelope({
+    source: "approval",
+    organization: organization
+      ? {
+          _id: String(organization._id),
+          slug: organization.slug,
+          parentOrganizationId: organization.parentOrganizationId
+            ? String(organization.parentOrganizationId)
+            : undefined,
+        }
+      : null,
+    agentSubtype: agent?.subtype,
+    toolsUsed: args.actionType ? [args.actionType] : [],
+    teamSession: session?.teamSession
+      ? {
+          handoffHistory: session.teamSession.handoffHistory.map((entry: TeamHandoffEntryShape) => ({
+            fromAgentId: String(entry.fromAgentId),
+            toAgentId: String(entry.toAgentId),
+            reason: typeof entry.reason === "string" ? entry.reason : "",
+            summary: typeof entry.summary === "string" ? entry.summary : undefined,
+            goal: typeof entry.goal === "string" ? entry.goal : undefined,
+            contextSummary:
+              typeof entry.contextSummary === "string" ? entry.contextSummary : undefined,
+            timestamp: typeof entry.timestamp === "number" ? entry.timestamp : undefined,
+          })),
+        }
+      : undefined,
+  });
+}
+
+function readApprovalHarnessContext(value: unknown): HarnessContextEnvelope | undefined {
+  return normalizeHarnessContextEnvelope(value) || undefined;
+}
 
 // ============================================================================
 // CREATE APPROVAL (Internal — called by execution pipeline)
@@ -41,6 +110,14 @@ export const createApprovalRequest = internalMutation({
     actionPayload: v.any(),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
+    const harnessContext = await buildApprovalHarnessContext(ctx, {
+      agentId: args.agentId,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      actionType: args.actionType,
+    });
+
     const approvalId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "agent_approval",
@@ -53,12 +130,31 @@ export const createApprovalRequest = internalMutation({
         sessionId: args.sessionId,
         actionType: args.actionType,
         actionPayload: args.actionPayload,
-        requestedAt: Date.now(),
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24h expiry
+        harnessContext,
+        requestedAt: now,
+        expiresAt: now + 24 * 60 * 60 * 1000, // 24h expiry
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     });
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "active",
+        toState: "draft",
+        actor: "agent",
+        actorId: String(args.agentId),
+        checkpoint: "approval_requested",
+        reason: `approval_required:${args.actionType}`,
+        metadata: {
+          approvalId,
+          actionType: args.actionType,
+          harnessContext,
+        },
+      },
+    );
 
     // Audit trail
     await ctx.db.insert("objectActions", {
@@ -69,9 +165,10 @@ export const createApprovalRequest = internalMutation({
         agentId: args.agentId,
         tool: args.actionType,
         sessionId: args.sessionId,
+        harnessContext,
       },
       performedBy: args.agentId,
-      performedAt: Date.now(),
+      performedAt: now,
     });
 
     return approvalId;
@@ -100,7 +197,22 @@ export const getPendingApprovals = query({
       )
       .collect();
 
-    return approvals.filter((a) => a.status === "pending");
+    return approvals
+      .filter((a) => a.status === "pending")
+      .map((approval) => {
+        const customProperties = (approval.customProperties || {}) as Record<string, unknown>;
+        const harnessContext = readApprovalHarnessContext(customProperties.harnessContext);
+        if (!harnessContext) {
+          return approval;
+        }
+        return {
+          ...approval,
+          customProperties: {
+            ...customProperties,
+            harnessContext,
+          },
+        };
+      });
   },
 });
 
@@ -132,7 +244,20 @@ export const getApprovals = query({
     approvals.sort((a, b) => b.createdAt - a.createdAt);
 
     const limit = args.limit || 50;
-    return approvals.slice(0, limit);
+    return approvals.slice(0, limit).map((approval) => {
+      const customProperties = (approval.customProperties || {}) as Record<string, unknown>;
+      const harnessContext = readApprovalHarnessContext(customProperties.harnessContext);
+      if (!harnessContext) {
+        return approval;
+      }
+      return {
+        ...approval,
+        customProperties: {
+          ...customProperties,
+          harnessContext,
+        },
+      };
+    });
   },
 });
 
@@ -147,6 +272,7 @@ export const approveAction = mutation({
   args: {
     sessionId: v.string(),
     approvalId: v.id("objects"),
+    interventionTemplate: v.optional(interventionTemplateValidator),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
@@ -161,16 +287,48 @@ export const approveAction = mutation({
       throw new Error("Approval not found or not pending");
     }
 
+    const interventionTemplate = normalizeInterventionTemplateInput(
+      args.interventionTemplate
+    );
+    const approvalCustomProperties = (approval.customProperties || {}) as Record<string, unknown>;
+    const harnessContext = readApprovalHarnessContext(approvalCustomProperties.harnessContext);
+    const now = Date.now();
+
     // Mark as approved
     await ctx.db.patch(args.approvalId, {
       status: "approved",
       customProperties: {
         ...approval.customProperties,
-        resolvedAt: Date.now(),
+        ...(harnessContext ? { harnessContext } : {}),
+        resolvedAt: now,
         resolvedBy: session.userId,
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
+
+    const approvalSessionId =
+      (approval.customProperties as { sessionId?: Id<"agentSessions"> } | undefined)
+        ?.sessionId;
+    if (approvalSessionId) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+        {
+          sessionId: approvalSessionId,
+          fromState: "draft",
+          toState: "active",
+          actor: "operator",
+          actorId: String(session.userId),
+          checkpoint: "approval_resolved",
+          reason: "approval_approved",
+          metadata: {
+            approvalId: args.approvalId,
+            interventionTemplateId: interventionTemplate?.templateId,
+            ...(harnessContext ? { harnessContext } : {}),
+          },
+        },
+      );
+    }
 
     // Schedule execution
     await (ctx.scheduler as any).runAfter(0, generatedApi.internal.ai.agentApprovals.executeApprovedAction, {
@@ -182,9 +340,16 @@ export const approveAction = mutation({
       organizationId: approval.organizationId,
       objectId: args.approvalId,
       actionType: "approval_granted",
-      actionData: { resolvedBy: session.userId },
+      actionData: {
+        resolvedBy: session.userId,
+        reason: "approval_approved",
+        resumeCheckpoint: "approval_resolved",
+        interventionTemplateId: interventionTemplate?.templateId,
+        ...(harnessContext ? { harnessContext } : {}),
+        ...(interventionTemplate ? { interventionTemplate } : {}),
+      },
       performedBy: session.userId,
-      performedAt: Date.now(),
+      performedAt: now,
     });
   },
 });
@@ -197,6 +362,7 @@ export const rejectAction = mutation({
     sessionId: v.string(),
     approvalId: v.id("objects"),
     reason: v.optional(v.string()),
+    interventionTemplate: v.optional(interventionTemplateValidator),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
@@ -211,16 +377,49 @@ export const rejectAction = mutation({
       throw new Error("Approval not found or not pending");
     }
 
+    const interventionTemplate = normalizeInterventionTemplateInput(
+      args.interventionTemplate
+    );
+    const approvalCustomProperties = (approval.customProperties || {}) as Record<string, unknown>;
+    const harnessContext = readApprovalHarnessContext(approvalCustomProperties.harnessContext);
+    const now = Date.now();
+
     await ctx.db.patch(args.approvalId, {
       status: "rejected",
       customProperties: {
         ...approval.customProperties,
-        resolvedAt: Date.now(),
+        ...(harnessContext ? { harnessContext } : {}),
+        resolvedAt: now,
         resolvedBy: session.userId,
         rejectionReason: args.reason,
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
+
+    const approvalSessionId =
+      (approval.customProperties as { sessionId?: Id<"agentSessions"> } | undefined)
+        ?.sessionId;
+    if (approvalSessionId) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+        {
+          sessionId: approvalSessionId,
+          fromState: "draft",
+          toState: "active",
+          actor: "operator",
+          actorId: String(session.userId),
+          checkpoint: "approval_resolved",
+          reason: "approval_rejected",
+          metadata: {
+            approvalId: args.approvalId,
+            rejectionReason: args.reason,
+            interventionTemplateId: interventionTemplate?.templateId,
+            ...(harnessContext ? { harnessContext } : {}),
+          },
+        },
+      );
+    }
 
     // Audit trail
     await ctx.db.insert("objectActions", {
@@ -230,9 +429,13 @@ export const rejectAction = mutation({
       actionData: {
         resolvedBy: session.userId,
         reason: args.reason,
+        resumeCheckpoint: "approval_resolved",
+        interventionTemplateId: interventionTemplate?.templateId,
+        ...(harnessContext ? { harnessContext } : {}),
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
       performedBy: session.userId,
-      performedAt: Date.now(),
+      performedAt: now,
     });
   },
 });
@@ -298,13 +501,27 @@ export const executeApprovedAction = internalAction({
 
       // Deduct credits for successful execution
       try {
-        await (ctx as any).runMutation(generatedApi.internal.credits.index.deductCreditsInternalMutation, {
+        const approvalCreditDeduction = await (ctx as any).runMutation(
+          generatedApi.internal.credits.index.deductCreditsInternalMutation,
+          {
           organizationId: approval.organizationId,
           amount: toolCreditCost,
           action: `tool_${toolName}`,
           relatedEntityType: "agent_approval",
           relatedEntityId: args.approvalId as unknown as string,
-        });
+            softFailOnExhausted: true,
+          }
+        );
+
+        if (!approvalCreditDeduction.success) {
+          console.warn(`[AgentApprovals] Credit deduction skipped for ${toolName}:`, {
+            organizationId: approval.organizationId,
+            errorCode: approvalCreditDeduction.errorCode,
+            message: approvalCreditDeduction.message,
+            creditsRequired: approvalCreditDeduction.creditsRequired,
+            creditsAvailable: approvalCreditDeduction.creditsAvailable,
+          });
+        }
       } catch (creditErr) {
         console.error(`[AgentApprovals] Credit deduction failed for ${toolName}:`, creditErr);
       }

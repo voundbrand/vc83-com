@@ -9,7 +9,6 @@ import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
-import { OpenRouterClient } from "./openrouter";
 import { getToolSchemas, executeTool } from "./tools/registry";
 import { calculateCostFromUsage } from "./modelPricing";
 import { getAgentMessageCost } from "../credits/index";
@@ -27,17 +26,21 @@ import {
   selectFirstPlatformEnabledModel,
 } from "./modelPolicy";
 import {
-  getAuthProfileCooldownMs,
-  isAuthProfileRotatableError,
-  orderAuthProfilesForSession,
   resolveOpenRouterAuthProfiles,
 } from "./authProfilePolicy";
-import { buildModelFailoverCandidates } from "./modelFailoverPolicy";
-import { LLM_RETRY_POLICY, withRetry } from "./retryPolicy";
 import { shouldRequireToolApproval, type ToolApprovalAutonomyLevel } from "./escalation";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
 import { getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
-import { getKnowledgeContent } from "./systemKnowledge";
+import { composeKnowledgeContract } from "./systemKnowledge";
+import {
+  normalizeToolCallsForProvider,
+  parseToolCallArguments,
+} from "./toolBroker";
+import {
+  buildOpenRouterMessages,
+  executeChatCompletionWithFailover,
+  type ChatRuntimeFailoverResult,
+} from "./chatRuntimeOrchestration";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
@@ -184,15 +187,6 @@ export function buildModelResolutionPayload(args: {
       ? args.selectionSource
       : undefined,
   };
-}
-
-interface ChatCompletionFailoverResult {
-  response: ChatResponse;
-  usedModel: string;
-  selectedAuthProfileId: string | null;
-  usedAuthProfileId: string | null;
-  authProfileFallbackUsed: boolean;
-  modelFallbackUsed: boolean;
 }
 
 const CHAT_DANGEROUS_TOOL_ALLOWLIST = [
@@ -576,7 +570,8 @@ export const sendMessage = action({
     // This includes: meta-context, hero-definition, guide-positioning, plan-and-cta,
     // knowledge-base-structure, follow-up-sequences, and all adapted frameworks
     if (args.isSetupMode && isPageBuilderContext) {
-      const setupKnowledge = getKnowledgeContent("setup");
+      const setupKnowledgeLoad = composeKnowledgeContract("setup");
+      const setupKnowledge = setupKnowledgeLoad.documents;
       if (setupKnowledge.length > 0) {
         const knowledgeBlock = setupKnowledge
           .map((k) => `## ${k.name}\n\n${k.content}`)
@@ -609,12 +604,31 @@ Generate files in the builder file explorer:
 - \`kb/success-stories.md\` - Testimonials and case studies
 - \`kb/industry-context.md\` - Industry-specific knowledge
 
+**Deterministic kickoff contract (required):**
+1. On the first setup response, always emit \`agent-config.json\` plus at least one \`kb/*.md\` file.
+2. Emit every file as a fenced block with language and filename on the opening fence line.
+3. Keep file paths stable between turns and update file contents instead of renaming.
+4. If business details are missing, use explicit placeholders instead of skipping required files.
+
+**Fence syntax (required):**
+\`\`\`json agent-config.json
+{
+  "name": "example-agent"
+}
+\`\`\`
+
+\`\`\`markdown kb/hero-profile.md
+# Hero Profile
+...
+\`\`\`
+
 ---
 
 # System Knowledge Library
 
 ${knowledgeBlock}`;
 
+        console.log("[AI Chat][KnowledgeLoad]", setupKnowledgeLoad.telemetry);
         console.log(`[AI Chat] Injected ${setupKnowledge.length} setup knowledge documents (~${Math.round(knowledgeBlock.length / 1024)}KB)`);
       }
     }
@@ -643,40 +657,15 @@ ${knowledgeBlock}`;
 
     console.log(`[AI Chat] Using ${isPageBuilderContext ? 'page builder' : 'normal chat'} system prompt`);
 
-    // Build messages array, filtering out incomplete tool calling sequences
-    // (assistant messages with tool_calls but no corresponding tool results)
-    const messages: ChatMessage[] = [
-      { role: "system" as const, content: systemPrompt },
-    ];
-
-    for (let i = 0; i < conversation.messages.length; i++) {
-      const msg = conversation.messages[i];
-      const nextMsg = conversation.messages[i + 1];
-
-      // If this is an assistant message with tool_calls, check if next message is a tool result
-      if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
-        // Check if the next message is a tool result (starts with [Tool Result])
-        const hasToolResult = nextMsg && nextMsg.role === "assistant" && nextMsg.content?.startsWith("[Tool Result]");
-
-        if (!hasToolResult) {
-          // This is a proposal without execution - don't include tool_calls
-          console.log(`[AI Chat] Filtering out incomplete tool call from history (message ${i})`);
-          messages.push({
-            role: msg.role,
-            content: msg.content,
-            // OMIT tool_calls to prevent OpenRouter 400 error
-          });
-          continue;
-        }
-      }
-
-      // Normal message - include as-is
-      messages.push({
-        role: msg.role,
-        content: msg.content,
-        tool_calls: msg.toolCalls,
-      });
-    }
+    const messages: ChatMessage[] = buildOpenRouterMessages({
+      systemPrompt,
+      conversationMessages: conversation.messages,
+      onFilteredIncompleteToolCall: ({ messageIndex }) => {
+        console.log(
+          `[AI Chat] Filtering out incomplete tool call from history (message ${messageIndex})`
+        );
+      },
+    });
 
     console.log(`[AI Chat] Built ${messages.length} messages for OpenRouter (${conversation.messages.length} in DB)`);
 
@@ -686,131 +675,90 @@ ${knowledgeBlock}`;
     const availableTools = getToolSchemas(builderMode);
 
     console.log(`[AI Chat] Builder mode: ${builderMode || 'none'}, available tools: ${availableTools.length}`);
-
-    const executeChatCompletionWithFailover = async (params: {
-      primaryModelId: string;
-      messages: ChatMessage[];
-      tools?: typeof availableTools;
-      preferredAuthProfileId?: string | null;
-      includeSessionPin: boolean;
-    }): Promise<ChatCompletionFailoverResult> => {
-      const modelsToTry = buildModelFailoverCandidates({
-        primaryModelId: params.primaryModelId,
-        orgEnabledModelIds,
-        orgDefaultModelId: orgDefaultModel,
-        platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
-        safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
-        sessionPinnedModelId:
-          params.includeSessionPin && !args.selectedModel
-            ? conversationPinnedModel
-            : null,
-      });
-      const authProfilesToTry = orderAuthProfilesForSession(
-        authProfiles,
-        params.preferredAuthProfileId
-      );
-      const selectedAuthProfileId = authProfilesToTry[0]?.profileId ?? null;
-      let lastErrorMessage = "OpenRouter request failed";
-
-      for (const tryModel of modelsToTry) {
-        for (const authProfile of authProfilesToTry) {
-          const client = new OpenRouterClient(authProfile.apiKey);
-          try {
-            const retryResult = await withRetry(
-              () =>
-                client.chatCompletion({
-                  model: tryModel,
-                  messages: params.messages,
-                  tools: params.tools,
-                  temperature: settings.llm.temperature,
-                  max_tokens: settings.llm.maxTokens,
-                }),
-              LLM_RETRY_POLICY
-            );
-            const response = retryResult.result as ChatResponse;
-            if (!response.choices || response.choices.length === 0) {
-              throw new Error("Invalid response from OpenRouter: no choices returned");
-            }
-
-            const usedAuthProfileId = authProfile.profileId;
-            if (authProfile.source === "profile") {
-              await (ctx as any).runMutation(
-                generatedApi.internal.ai.settings.recordAuthProfileSuccess,
-                {
-                  organizationId: args.organizationId,
-                  profileId: authProfile.profileId,
-                }
-              );
-            }
-
-            const modelFallbackUsed = tryModel !== params.primaryModelId;
-            const authProfileFallbackUsed =
-              Boolean(selectedAuthProfileId) &&
-              selectedAuthProfileId !== usedAuthProfileId;
-            const failoverStage = modelFallbackUsed
-              ? "model_failover"
-              : authProfileFallbackUsed
-                ? "auth_profile_rotation"
-                : "none";
-            console.log("[AI Chat][FailoverStage]", {
-              primaryModelId: params.primaryModelId,
-              usedModel: tryModel,
-              selectedAuthProfileId,
-              usedAuthProfileId,
-              failoverStage,
-              attempts: retryResult.attempts,
-            });
-
-            return {
-              response,
-              usedModel: tryModel,
-              selectedAuthProfileId,
-              usedAuthProfileId,
-              authProfileFallbackUsed,
-              modelFallbackUsed,
-            };
-          } catch (apiError) {
-            const errorMessage =
-              apiError instanceof Error ? apiError.message : String(apiError);
-            lastErrorMessage = errorMessage;
-            console.error(
-              `[AI Chat] Model ${tryModel} failed with auth profile ${authProfile.profileId}:`,
-              errorMessage
-            );
-
-            if (
-              authProfile.source === "profile" &&
-              isAuthProfileRotatableError(apiError)
-            ) {
-              const previousFailureCount =
-                authProfileFailureCounts.get(authProfile.profileId) ?? 0;
-              const nextFailureCount = previousFailureCount + 1;
-              authProfileFailureCounts.set(authProfile.profileId, nextFailureCount);
-              const cooldownUntil = Date.now() + getAuthProfileCooldownMs(nextFailureCount);
-              await (ctx as any).runMutation(
-                generatedApi.internal.ai.settings.recordAuthProfileFailure,
-                {
-                  organizationId: args.organizationId,
-                  profileId: authProfile.profileId,
-                  reason: errorMessage.slice(0, 300),
-                  cooldownUntil,
-                }
-              );
-            }
-          }
+    const recordAuthProfileSuccess = async ({
+      organizationId,
+      profileId,
+    }: {
+      organizationId: Id<"organizations">;
+      profileId: string;
+    }) => {
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.settings.recordAuthProfileSuccess,
+        {
+          organizationId,
+          profileId,
         }
-      }
-
-      throw new Error(lastErrorMessage);
+      );
+    };
+    const recordAuthProfileFailure = async ({
+      organizationId,
+      profileId,
+      reason,
+      cooldownUntil,
+    }: {
+      organizationId: Id<"organizations">;
+      profileId: string;
+      reason: string;
+      cooldownUntil: number;
+    }) => {
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.settings.recordAuthProfileFailure,
+        {
+          organizationId,
+          profileId,
+          reason,
+          cooldownUntil,
+        }
+      );
     };
 
     const initialCompletion = await executeChatCompletionWithFailover({
+      organizationId: args.organizationId,
       primaryModelId: model,
       messages,
       tools: availableTools,
+      selectedModel: args.selectedModel,
+      conversationPinnedModel,
+      orgEnabledModelIds,
+      orgDefaultModelId: orgDefaultModel,
+      platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
+      safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+      authProfiles,
+      llmTemperature: settings.llm.temperature,
+      llmMaxTokens: settings.llm.maxTokens,
+      authProfileFailureCounts,
+      onAuthProfileSuccess: recordAuthProfileSuccess,
+      onAuthProfileFailure: recordAuthProfileFailure,
+      onFailoverSuccess: ({
+        primaryModelId,
+        usedModel,
+        selectedAuthProfileId,
+        usedAuthProfileId,
+        modelFallbackUsed,
+        authProfileFallbackUsed,
+      }) => {
+        const failoverStage = modelFallbackUsed
+          ? "model_failover"
+          : authProfileFallbackUsed
+            ? "auth_profile_rotation"
+            : "none";
+        console.log("[AI Chat][FailoverStage]", {
+          primaryModelId,
+          usedModel,
+          selectedAuthProfileId,
+          usedAuthProfileId,
+          failoverStage,
+        });
+      },
+      onAttemptFailure: ({ modelId, profileId, errorMessage }) => {
+        console.error(
+          `[AI Chat] Model ${modelId} failed with auth profile ${profileId}:`,
+          errorMessage
+        );
+      },
       includeSessionPin: true,
-    });
-    let response: ChatResponse = initialCompletion.response;
+    }) as ChatRuntimeFailoverResult;
+    let response: ChatResponse = initialCompletion.response as unknown as ChatResponse;
     let usedModel = initialCompletion.usedModel;
     let selectedAuthProfileId = initialCompletion.selectedAuthProfileId;
     let usedAuthProfileId = initialCompletion.usedAuthProfileId;
@@ -826,21 +774,20 @@ ${knowledgeBlock}`;
     let maxToolCallRounds = providerConfig.maxToolCallRounds;
     let hasProposedTools = false; // Track if any tools were proposed (not executed)
 
-    while (response.choices[0].message.tool_calls && toolCallRounds < maxToolCallRounds) {
+    while (toolCallRounds < maxToolCallRounds) {
+      const currentToolCalls = response.choices[0].message.tool_calls;
+      if (!currentToolCalls) {
+        break;
+      }
+
       toolCallRounds++;
       console.log(`[AI Chat] Tool call round ${toolCallRounds}`);
 
       // Add assistant message with tool calls first
-      // IMPORTANT: Ensure all tool_calls have an arguments field
-      // Anthropic sometimes omits it when no parameters are provided
-      // But OpenRouter/Bedrock expects it to always be present
-      const toolCallsWithArgs = response.choices[0].message.tool_calls.map((tc) => ({
-        ...tc,
-        function: {
-          ...tc.function,
-          arguments: tc.function.arguments || "{}"  // Add empty args if missing
-        }
-      }));
+      // Ensure all tool calls contain normalized argument strings before replaying to providers.
+      const toolCallsWithArgs = normalizeToolCallsForProvider<ToolCallFromAPI>(
+        currentToolCalls
+      );
 
       messages.push({
         role: "assistant" as const,
@@ -849,22 +796,20 @@ ${knowledgeBlock}`;
       });
 
       // Execute each tool call
-      for (const toolCall of response.choices[0].message.tool_calls) {
+      for (const toolCall of toolCallsWithArgs) {
         const startTime = Date.now();
 
-        // Parse tool arguments safely (do this ONCE outside try/catch)
-        let parsedArgs = {};
-        try {
-          const argsString = toolCall.function.arguments || "{}";
-          // Handle case where AI sends "undefined" or empty string
-          if (argsString === "undefined" || argsString === "" || argsString === "null") {
-            parsedArgs = {};
-          } else {
-            parsedArgs = JSON.parse(argsString);
-          }
-        } catch {
-          console.error(`[AI Chat] Failed to parse tool arguments for ${toolCall.function.name}:`, toolCall.function.arguments);
-          parsedArgs = {}; // Use empty object if parsing fails
+        const parsedArgsResult = parseToolCallArguments(
+          toolCall.function.arguments,
+          { strict: false }
+        );
+        const parsedArgs = parsedArgsResult.args;
+        if (parsedArgsResult.error) {
+          console.error(
+            `[AI Chat] Failed to parse tool arguments for ${toolCall.function.name}:`,
+            toolCall.function.arguments,
+            parsedArgsResult.error
+          );
         }
 
         // CRITICAL DECISION: Should this tool be proposed or executed immediately?
@@ -1057,12 +1002,52 @@ ${knowledgeBlock}`;
       // Get next response after tool execution (without tools to force final answer)
       try {
         const followUpCompletion = await executeChatCompletionWithFailover({
+          organizationId: args.organizationId,
           primaryModelId: usedModel,
           messages,
+          selectedModel: args.selectedModel,
+          conversationPinnedModel,
+          orgEnabledModelIds,
+          orgDefaultModelId: orgDefaultModel,
+          platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
+          safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+          authProfiles,
+          llmTemperature: settings.llm.temperature,
+          llmMaxTokens: settings.llm.maxTokens,
+          authProfileFailureCounts,
+          onAuthProfileSuccess: recordAuthProfileSuccess,
+          onAuthProfileFailure: recordAuthProfileFailure,
+          onFailoverSuccess: ({
+            primaryModelId,
+            usedModel,
+            selectedAuthProfileId,
+            usedAuthProfileId,
+            modelFallbackUsed,
+            authProfileFallbackUsed,
+          }) => {
+            const failoverStage = modelFallbackUsed
+              ? "model_failover"
+              : authProfileFallbackUsed
+                ? "auth_profile_rotation"
+                : "none";
+            console.log("[AI Chat][FailoverStage]", {
+              primaryModelId,
+              usedModel,
+              selectedAuthProfileId,
+              usedAuthProfileId,
+              failoverStage,
+            });
+          },
+          onAttemptFailure: ({ modelId, profileId, errorMessage }) => {
+            console.error(
+              `[AI Chat] Model ${modelId} failed with auth profile ${profileId}:`,
+              errorMessage
+            );
+          },
           includeSessionPin: false,
           preferredAuthProfileId: usedAuthProfileId ?? selectedAuthProfileId,
-        });
-        response = followUpCompletion.response;
+        }) as ChatRuntimeFailoverResult;
+        response = followUpCompletion.response as unknown as ChatResponse;
         usedModel = followUpCompletion.usedModel;
         selectedAuthProfileId = followUpCompletion.selectedAuthProfileId;
         usedAuthProfileId = followUpCompletion.usedAuthProfileId;
@@ -1181,7 +1166,7 @@ ${knowledgeBlock}`;
 
     // 11. Deduct credits for the successful chat turn.
     try {
-      await (ctx as any).runMutation(
+      const chatCreditDeduction = await (ctx as any).runMutation(
         generatedApi.internal.credits.index.deductCreditsInternalMutation,
         {
           organizationId: args.organizationId,
@@ -1190,8 +1175,19 @@ ${knowledgeBlock}`;
           action: "agent_message",
           relatedEntityType: "ai_conversation",
           relatedEntityId: String(conversationId),
+          softFailOnExhausted: true,
         }
       );
+
+      if (!chatCreditDeduction.success) {
+        console.warn("[AI Chat] Credit deduction skipped:", {
+          organizationId: args.organizationId,
+          errorCode: chatCreditDeduction.errorCode,
+          message: chatCreditDeduction.message,
+          creditsRequired: chatCreditDeduction.creditsRequired,
+          creditsAvailable: chatCreditDeduction.creditsAvailable,
+        });
+      }
     } catch (error) {
       console.error("[AI Chat] Credit deduction failed after successful response:", error);
     }

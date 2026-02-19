@@ -18,6 +18,7 @@ export type ChannelType =
   | "facebook_messenger"
   | "webchat"
   | "telegram"
+  | "slack"
   | "pushover";
 
 // Provider identifiers — each maps to a TypeScript implementation
@@ -30,7 +31,16 @@ export type ProviderId =
   | "twilio"
   | "whatsapp"
   | "telegram"
+  | "slack"
   | "direct";
+
+export type ProviderCredentialSource =
+  | "oauth_connection"
+  | "object_settings"
+  | "env_fallback"
+  | "platform_fallback";
+
+export type ProviderCredentialField = "whatsappAccessToken" | "slackBotToken";
 
 // Normalized inbound message from any provider
 export interface NormalizedInboundMessage {
@@ -45,6 +55,7 @@ export interface NormalizedInboundMessage {
 export interface InboundMessageMetadata {
   providerId: ProviderId;
   providerMessageId?: string;
+  providerEventId?: string;
   providerConversationId?: string;
   senderName?: string;
   senderAvatar?: string;
@@ -55,6 +66,7 @@ export interface InboundMessageMetadata {
   }>;
   skipOutbound?: boolean;
   raw?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 // Outbound message to send through a provider
@@ -77,11 +89,15 @@ export interface SendResult {
   providerMessageId?: string;
   error?: string;
   retryable?: boolean;
+  statusCode?: number;
+  retryAfterMs?: number;
 }
 
 // Provider credentials stored in objects table (customProperties)
 export interface ProviderCredentials {
   providerId: ProviderId;
+  credentialSource?: ProviderCredentialSource;
+  encryptedFields?: ProviderCredentialField[];
   // Chatwoot
   chatwootUrl?: string;
   chatwootApiToken?: string;
@@ -112,6 +128,12 @@ export interface ProviderCredentials {
   telegramBotToken?: string;
   telegramBotUsername?: string;
   telegramWebhookSecret?: string;
+  // Slack (per-org OAuth bot)
+  slackBotToken?: string;
+  slackBotUserId?: string;
+  slackTeamId?: string;
+  slackAppId?: string;
+  slackSigningSecret?: string;
   // Generic
   apiKey?: string;
   apiSecret?: string;

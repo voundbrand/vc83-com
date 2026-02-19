@@ -1,6 +1,6 @@
 # AI Endurance Master Plan
 
-**Date:** 2026-02-17  
+**Date:** 2026-02-18  
 **Scope:** Keep `vc83-com` durable under rapid model/provider/tool changes while scaling from single-agent behavior to reliable multi-agent coordination.
 
 ---
@@ -55,14 +55,14 @@ Open and re-activated in this wave:
 | WS3 Tool contract reliability | 10 | `DONE` | Archive (`WS3-*`) |
 | WS4 Knowledge pipeline v1 | 09 | `DONE` | Archive (`WS4-*`) |
 | WS5 Observability/SLOs v1 | 11 | `DONE` | Archive (`WS5-*`) |
-| WS6 Security/refactor seam v1 | 13 | `PARTIAL (residual)` | `WSK-07` |
-| WS7 Coordination kernel | 14 | `OPEN` | `WSH-01..WSH-04` |
-| WS8 Receipts + idempotency contract | 15 | `OPEN` | `WSH-05..WSH-07` |
-| WS9 Harness/team semantics | 16 | `OPEN` | `WSI-01..WSI-03` |
-| WS10 Core memory + semantic retrieval | 17, 18 | `OPEN` | `WSJ-01..WSJ-06` |
-| WS11 Soul-loop drift unification | 19 | `OPEN` | `WSI-04..WSI-06` |
-| WS12 Operability + residual closure | 20 + residual 01/02/03/04/13 | `OPEN` | `WSK-01..WSK-07` |
-| WS13 Hotspot refactor v2 | 21 | `OPEN` | `WSL-01..WSL-06` |
+| WS6 Security/refactor seam v1 | 13 | `DONE (residual closed)` | `WSK-07` |
+| WS7 Coordination kernel | 14 | `DONE` | `WSH-01..WSH-04` |
+| WS8 Receipts + idempotency contract | 15 | `DONE` | `WSH-05..WSH-07` |
+| WS9 Harness/team semantics | 16 | `DONE` | `WSI-01..WSI-03` |
+| WS10 Core memory + semantic retrieval | 17, 18 | `DONE` | `WSJ-01..WSJ-06` |
+| WS11 Soul-loop drift unification | 19 | `DONE` | `WSI-04..WSI-06` |
+| WS12 Operability + residual closure | 20 + residual 01/02/03/04/13 | `DONE` | `WSK-01..WSK-07` |
+| WS13 Hotspot refactor v2 | 21 | `DONE` | `WSL-01..WSL-06` |
 
 ---
 
@@ -79,30 +79,58 @@ Open and re-activated in this wave:
 
 ## Phase 6 (next): Coordination kernel + receipt contract
 
-- [ ] Implement explicit turn state machine and lease/CAS semantics (Plan 14).
-- [ ] Move all ingress to receipt-first idempotent contract with terminal deliverable pointer (Plan 15).
+- [x] Implement explicit turn state machine and lease/CAS semantics (Plan 14).
+- [x] Move all ingress to receipt-first idempotent contract with terminal deliverable pointer (Plan 15).
+- [x] `WSH-01`: Added `agentTurns` + `executionEdges` schema contracts and turn transition enums.
+- [x] `WSH-02`: Lease helpers (`acquire`, `heartbeat`, `release`, `fail`) with optimistic concurrency.
+- [x] `WSH-03`: Turn-first inbound runtime path and `turnId` propagation.
+- [x] `WSH-04`: Handoff/escalation turn transitions and stale-turn recovery.
+- [x] `WSH-05`: Receipt schema and receipt-first ingress helper.
+- [x] `WSH-06`: Idempotency keys, dedupe ack semantics, terminal deliverable pointer enforcement.
+- [x] `WSH-07`: Receipt operations queries and replay-safe debug endpoints.
 
 **Exit criteria:** duplicate inbound deliveries cannot create duplicate side effects; runtime progression is turn-driven and replay-safe.
 
 ## Phase 7: Harness/memory/soul integration
 
-- [ ] Wire harness context into runtime and formalize team handoff contract (Plan 16).
-- [ ] Ship core memory anchors through onboarding and soul lifecycle (Plan 17).
-- [ ] Upgrade retrieval to semantic + citation-aware context assembly (Plan 18).
-- [ ] Unify reflection engine and drift-aware soul policy enforcement (Plan 19).
+- [x] Wire harness context into runtime and formalize team handoff contract (Plan 16).
+- [x] Ship core memory anchors through onboarding and soul lifecycle (Plan 17).
+- [x] Upgrade retrieval to semantic + citation-aware context assembly (Plan 18).
+- [x] Unify reflection engine and drift-aware soul policy enforcement (Plan 19).
 
 **Exit criteria:** one reflection engine, memory anchors are immutable-by-default, semantic retrieval is production with fallback and telemetry.
 
 ## Phase 8: Operability + residual plan closure
 
-- [ ] Publish and link runbooks for model outage, tool degradation, cost spikes (Plan 20).
-- [ ] Close unfinished seams from Plans 01/02/03/04/13.
+- [x] Publish and link runbooks for model outage, tool degradation, cost spikes (Plan 20).
+- [x] Close unfinished seams from Plans 01/02/03/04/13.
+- [x] `WSK-01`: canonical playbooks published with runtime identifier mappings (`ai/platformAlerts`, `ai/agentSessions`, `ai/billing`, `ai/platformModelManagement`).
+- [x] `WSK-02`: operability checklist + ownership map + tabletop drill evidence links.
+- [x] `WSK-03`: typed knowledge composition contract + load telemetry.
+- [x] `WSK-04`: shared tool parsing/normalization adapters across runtimes.
+- [x] `WSK-05`: org-level allow/deny matrix + policy-audit coverage.
+- [x] `WSK-06`: model lifecycle retirement/deprecation workflow + safety checks.
+- [x] `WSK-07`: adapter conformance + control-plane/plugin credential boundaries.
+
+Phase 8 operability ownership map:
+
+| Incident class | Primary owner | Secondary owner | Runtime surfaces |
+|---|---|---|---|
+| Model outage / provider instability | Platform AI on-call | Runtime reliability | `ai/platformAlerts`, `ai/agentSessions:getModelFallbackRate`, `ai/platformModelManagement` |
+| Tool degradation / receipt instability | Runtime reliability | Platform AI on-call | `ai/agentSessions:getToolSuccessFailureRatio`, `ai/agentSessions:getAgingReceipts`, `ai/agentSessions:getStuckReceipts` |
+| Cost spike / budget integrity | AI economics owner | Platform AI on-call | `ai/billing:getUsageSummary`, `ai/agentSessions:getAgentStats`, `ai/modelPricing:getModelPricing` |
+
+Tabletop drill evidence links:
+
+- Model outage drill packet: `docs/ai-endurance/BLOCKERS.md#tt-20-a-model-outage`
+- Tool degradation drill packet: `docs/ai-endurance/BLOCKERS.md#tt-20-b-tool-degradation`
+- Cost spike drill packet: `docs/ai-endurance/BLOCKERS.md#tt-20-c-cost-spike`
 
 **Exit criteria:** all known residual gaps are represented by completed queue tasks and validated in code/docs.
 
 ## Phase 9: Runtime hotspot refactor v2
 
-- [ ] Characterize current behavior and extract major orchestration seams from `agentExecution.ts` and `chat.ts` (Plan 21).
+- [x] Characterize current behavior and extract major orchestration seams from `agentExecution.ts` and `chat.ts` (Plan 21).
 
 **Exit criteria:** hotspot modules are decomposed behind tested interfaces with no unintended behavior drift.
 
@@ -134,4 +162,3 @@ For each queue task:
 4. Update `TASK_QUEUE.md` status/notes.
 5. Update `INDEX.md` and this file when plan status changes.
 6. If blocked, log in `BLOCKERS.md` and continue with next promotable task.
-

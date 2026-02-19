@@ -472,6 +472,110 @@ export const KNOWLEDGE_REGISTRY: KnowledgeRegistryEntry[] = [
 // Helper Functions
 // ============================================================
 
+export type KnowledgeCompositionMode = "setup" | "customer" | "builder";
+
+export interface ComposedKnowledgeDocument extends KnowledgeRegistryEntry {
+  content: string;
+}
+
+export interface KnowledgeLoadTelemetry {
+  mode: KnowledgeCompositionMode;
+  requestedTriggers: string[];
+  matchedTriggers: string[];
+  documentCount: number;
+  totalBytes: number;
+  documentIds: string[];
+}
+
+export interface KnowledgeCompositionContract {
+  mode: KnowledgeCompositionMode;
+  documents: ComposedKnowledgeDocument[];
+  telemetry: KnowledgeLoadTelemetry;
+}
+
+const MODE_TO_USAGE: Record<KnowledgeCompositionMode, UsageMode> = {
+  setup: "SETUP_MODE",
+  customer: "CUSTOMER_MODE",
+  builder: "BUILDER_MODE",
+};
+
+function normalizeTriggers(additionalTriggers: string[]): string[] {
+  return Array.from(
+    new Set(
+      additionalTriggers
+        .map((trigger) => trigger.trim())
+        .filter((trigger) => trigger.length > 0)
+    )
+  );
+}
+
+function resolveEntriesForMode(
+  mode: KnowledgeCompositionMode,
+  additionalTriggers: string[] = []
+): { entries: KnowledgeRegistryEntry[]; matchedTriggers: string[] } {
+  const targetMode = MODE_TO_USAGE[mode];
+  const baseEntries = KNOWLEDGE_REGISTRY.filter(
+    (entry) => entry.usage === targetMode || entry.usage === "ALWAYS_LOAD"
+  );
+
+  const baseIds = new Set(baseEntries.map((entry) => entry.id));
+  const triggerEntriesById = new Map<string, KnowledgeRegistryEntry>();
+  const matchedTriggerSet = new Set<string>();
+
+  for (const trigger of additionalTriggers) {
+    const matchedEntries = getEntriesByTrigger(trigger);
+    if (matchedEntries.length > 0) {
+      matchedTriggerSet.add(trigger);
+    }
+    for (const entry of matchedEntries) {
+      if (baseIds.has(entry.id) || triggerEntriesById.has(entry.id)) {
+        continue;
+      }
+      triggerEntriesById.set(entry.id, entry);
+    }
+  }
+
+  const entries = [...baseEntries, ...triggerEntriesById.values()].sort(
+    (a, b) => a.priority - b.priority
+  );
+
+  return {
+    entries,
+    matchedTriggers: Array.from(matchedTriggerSet),
+  };
+}
+
+export function composeKnowledgeContract(
+  mode: KnowledgeCompositionMode,
+  additionalTriggers: string[] = []
+): KnowledgeCompositionContract {
+  const requestedTriggers = normalizeTriggers(additionalTriggers);
+  const { entries, matchedTriggers } = resolveEntriesForMode(
+    mode,
+    requestedTriggers
+  );
+
+  const documents = entries
+    .map((entry) => ({
+      ...entry,
+      content: KNOWLEDGE_CONTENT[entry.id] || "",
+    }))
+    .filter((entry) => entry.content.length > 0);
+
+  return {
+    mode,
+    documents,
+    telemetry: {
+      mode,
+      requestedTriggers,
+      matchedTriggers,
+      documentCount: documents.length,
+      totalBytes: documents.reduce((total, entry) => total + entry.content.length, 0),
+      documentIds: documents.map((entry) => entry.id),
+    },
+  };
+}
+
 /** Get IDs of knowledge entries that should always be loaded. */
 export function getAlwaysLoadIds(): string[] {
   return KNOWLEDGE_REGISTRY.filter((k) => k.usage === "ALWAYS_LOAD")
@@ -481,29 +585,17 @@ export function getAlwaysLoadIds(): string[] {
 
 /** Get IDs for setup-mode knowledge (core + frameworks). */
 export function getSetupKnowledgeIds(): string[] {
-  return KNOWLEDGE_REGISTRY.filter(
-    (k) => k.usage === "SETUP_MODE" || k.usage === "ALWAYS_LOAD"
-  )
-    .sort((a, b) => a.priority - b.priority)
-    .map((k) => k.id);
+  return resolveEntriesForMode("setup").entries.map((entry) => entry.id);
 }
 
 /** Get IDs for customer-mode knowledge. */
 export function getCustomerKnowledgeIds(): string[] {
-  return KNOWLEDGE_REGISTRY.filter(
-    (k) => k.usage === "CUSTOMER_MODE" || k.usage === "ALWAYS_LOAD"
-  )
-    .sort((a, b) => a.priority - b.priority)
-    .map((k) => k.id);
+  return resolveEntriesForMode("customer").entries.map((entry) => entry.id);
 }
 
 /** Get IDs for builder-mode knowledge (composition docs). */
 export function getBuilderKnowledgeIds(): string[] {
-  return KNOWLEDGE_REGISTRY.filter(
-    (k) => k.usage === "BUILDER_MODE" || k.usage === "ALWAYS_LOAD"
-  )
-    .sort((a, b) => a.priority - b.priority)
-    .map((k) => k.id);
+  return resolveEntriesForMode("builder").entries.map((entry) => entry.id);
 }
 
 /** Get entries matching specific triggers. */
@@ -524,27 +616,12 @@ export function getEntryById(
 
 /** Get all file paths for a given mode. */
 export function getFilePaths(
-  mode: "setup" | "customer" | "builder",
+  mode: KnowledgeCompositionMode,
   additionalTriggers: string[] = []
 ): string[] {
-  const modeMap: Record<string, UsageMode> = {
-    setup: "SETUP_MODE",
-    customer: "CUSTOMER_MODE",
-    builder: "BUILDER_MODE",
-  };
-  const targetMode = modeMap[mode];
-  const baseEntries = KNOWLEDGE_REGISTRY.filter(
-    (k) => k.usage === targetMode || k.usage === "ALWAYS_LOAD"
+  return resolveEntriesForMode(mode, normalizeTriggers(additionalTriggers)).entries.map(
+    (entry) => entry.filePath
   );
-
-  const baseIds = new Set(baseEntries.map((k) => k.id));
-  const triggerEntries = additionalTriggers
-    .flatMap((t) => getEntriesByTrigger(t))
-    .filter((k) => !baseIds.has(k.id));
-
-  return [...baseEntries, ...triggerEntries]
-    .sort((a, b) => a.priority - b.priority)
-    .map((k) => k.filePath);
 }
 
 /**
@@ -589,32 +666,12 @@ export function detectSkillTriggers(message: string): string[] {
  * - "setup" mode: all core + all frameworks (~78KB)
  */
 export function getKnowledgeContent(
-  mode: "setup" | "customer" | "builder",
+  mode: KnowledgeCompositionMode,
   additionalTriggers: string[] = []
 ): Array<{ id: string; name: string; content: string }> {
-  const modeMap: Record<string, UsageMode> = {
-    setup: "SETUP_MODE",
-    customer: "CUSTOMER_MODE",
-    builder: "BUILDER_MODE",
-  };
-  const targetMode = modeMap[mode];
-  const baseEntries = KNOWLEDGE_REGISTRY.filter(
-    (k) => k.usage === targetMode || k.usage === "ALWAYS_LOAD"
+  return composeKnowledgeContract(mode, additionalTriggers).documents.map(
+    ({ id, name, content }) => ({ id, name, content })
   );
-
-  const baseIds = new Set(baseEntries.map((k) => k.id));
-  const triggerEntries = additionalTriggers
-    .flatMap((t) => getEntriesByTrigger(t))
-    .filter((k) => !baseIds.has(k.id));
-
-  return [...baseEntries, ...triggerEntries]
-    .sort((a, b) => a.priority - b.priority)
-    .map((k) => ({
-      id: k.id,
-      name: k.name,
-      content: KNOWLEDGE_CONTENT[k.id] || "",
-    }))
-    .filter((k) => k.content.length > 0);
 }
 
 /**

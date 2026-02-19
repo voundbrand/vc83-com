@@ -212,6 +212,125 @@ type DeductCreditsResult = {
   parentOrganizationId?: Id<"organizations">;
 };
 
+type SoftDeductCreditsFailure = {
+  success: false;
+  errorCode: "CREDITS_EXHAUSTED" | "CHILD_CREDIT_CAP_REACHED" | "SHARED_POOL_EXHAUSTED";
+  message: string;
+  creditsRequired?: number;
+  creditsAvailable?: number;
+};
+
+type CreditExhaustionCode = SoftDeductCreditsFailure["errorCode"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toCreditExhaustionCode(value: unknown): CreditExhaustionCode | null {
+  if (
+    value === "CREDITS_EXHAUSTED" ||
+    value === "CHILD_CREDIT_CAP_REACHED" ||
+    value === "SHARED_POOL_EXHAUSTED"
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function parseJsonPayloadFromMessage(message: string): Record<string, unknown> | null {
+  const candidates: string[] = [];
+  const trimmed = message.trim();
+
+  if (trimmed.length > 0) {
+    candidates.push(trimmed);
+  }
+
+  const convexErrorMarker = "ConvexError:";
+  const markerIndex = trimmed.indexOf(convexErrorMarker);
+  if (markerIndex >= 0) {
+    const afterMarker = trimmed.slice(markerIndex + convexErrorMarker.length).trim();
+    if (afterMarker.length > 0) {
+      candidates.push(afterMarker);
+    }
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(trimmed.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (isRecord(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // Ignore parse errors and continue checking fallback message formats.
+    }
+  }
+
+  return null;
+}
+
+export function parseCreditExhaustionError(
+  error: unknown
+): SoftDeductCreditsFailure | null {
+  const sourceMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
+
+  const payloadCandidates: Array<Record<string, unknown>> = [];
+
+  if (isRecord(error)) {
+    payloadCandidates.push(error);
+
+    if (isRecord(error.data)) {
+      payloadCandidates.push(error.data);
+    }
+
+    if (isRecord(error.cause)) {
+      payloadCandidates.push(error.cause);
+    }
+
+    if (typeof error.message === "string") {
+      const parsedMessagePayload = parseJsonPayloadFromMessage(error.message);
+      if (parsedMessagePayload) {
+        payloadCandidates.push(parsedMessagePayload);
+      }
+    }
+  }
+
+  if (sourceMessage) {
+    const parsedMessagePayload = parseJsonPayloadFromMessage(sourceMessage);
+    if (parsedMessagePayload) {
+      payloadCandidates.push(parsedMessagePayload);
+    }
+  }
+
+  for (const payload of payloadCandidates) {
+    const code = toCreditExhaustionCode(payload.code);
+    if (!code) {
+      continue;
+    }
+
+    return {
+      success: false,
+      errorCode: code,
+      message:
+        typeof payload.message === "string"
+          ? payload.message
+          : sourceMessage ?? "Credit deduction failed",
+      creditsRequired:
+        typeof payload.creditsRequired === "number" ? payload.creditsRequired : undefined,
+      creditsAvailable:
+        typeof payload.creditsAvailable === "number" ? payload.creditsAvailable : undefined,
+    };
+  }
+
+  return null;
+}
+
 export async function deductCreditsInternal(
   ctx: MutationCtx,
   args: {
@@ -762,9 +881,22 @@ export const deductCreditsInternalMutation = internalMutation({
     action: v.string(),
     relatedEntityType: v.optional(v.string()),
     relatedEntityId: v.optional(v.string()),
+    softFailOnExhausted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    return await deductCreditsInternal(ctx, args);
+    const { softFailOnExhausted, ...deductArgs } = args;
+
+    try {
+      return await deductCreditsInternal(ctx, deductArgs);
+    } catch (error) {
+      if (softFailOnExhausted) {
+        const parsed = parseCreditExhaustionError(error);
+        if (parsed) {
+          return parsed;
+        }
+      }
+      throw error;
+    }
   },
 });
 

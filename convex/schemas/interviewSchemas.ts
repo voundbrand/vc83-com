@@ -155,6 +155,17 @@ export interface InterviewState {
   isComplete: boolean;
   completedAt?: number;
   contentDNAId?: string; // ID of saved Content DNA object
+
+  // Explicit user-controlled memory consent checkpoint
+  memoryConsent?: {
+    status: "pending" | "accepted" | "declined";
+    consentScope: "content_dna_profile";
+    consentPromptVersion: string;
+    memoryCandidateIds: string[];
+    promptedAt: number;
+    decidedAt?: number;
+    decisionSource?: "user";
+  };
 }
 
 // ============================================================================
@@ -178,6 +189,15 @@ export const interviewStateValidator = v.object({
   isComplete: v.boolean(),
   completedAt: v.optional(v.number()),
   contentDNAId: v.optional(v.string()),
+  memoryConsent: v.optional(v.object({
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("declined")),
+    consentScope: v.literal("content_dna_profile"),
+    consentPromptVersion: v.string(),
+    memoryCandidateIds: v.array(v.string()),
+    promptedAt: v.number(),
+    decidedAt: v.optional(v.number()),
+    decisionSource: v.optional(v.literal("user")),
+  })),
 });
 
 /**

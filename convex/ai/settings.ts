@@ -11,6 +11,21 @@ function normalizeAuthProfileId(value: string): string {
   return value.trim();
 }
 
+export function findRetiredModelIds(
+  selectedModels: Array<{ modelId: string }>,
+  modelRecords: Array<{ modelId: string; lifecycleStatus?: string }>
+): string[] {
+  const retired = new Set(
+    modelRecords
+      .filter((model) => model.lifecycleStatus === "retired")
+      .map((model) => model.modelId)
+  );
+
+  return selectedModels
+    .map((model) => model.modelId)
+    .filter((modelId) => retired.has(modelId));
+}
+
 /**
  * Get AI settings for an organization
  */
@@ -146,10 +161,13 @@ export const upsertAISettings = mutation({
     let llmConfig = args.llm;
     if (!llmConfig.enabledModels || llmConfig.enabledModels.length === 0) {
       // Get system default models (models marked by super admin as recommended)
-      const systemDefaults = await ctx.db
+      const systemDefaultsRaw = await ctx.db
         .query("aiModels")
         .withIndex("by_system_default", (q) => q.eq("isSystemDefault", true))
         .collect();
+      const systemDefaults = systemDefaultsRaw.filter(
+        (model) => model.lifecycleStatus !== "retired"
+      );
 
       // Auto-enable system defaults
       if (systemDefaults.length > 0) {
@@ -188,6 +206,29 @@ export const upsertAISettings = mutation({
       // If defaultModelId not provided, set it
       if (!llmConfig.defaultModelId) {
         llmConfig.defaultModelId = defaultModel.modelId;
+      }
+
+      // Ensure selected models are not retired.
+      const modelRecords = (
+        await Promise.all(
+          llmConfig.enabledModels.map((model) =>
+            ctx.db
+              .query("aiModels")
+              .withIndex("by_model_id", (q) => q.eq("modelId", model.modelId))
+              .first()
+          )
+        )
+      )
+        .filter((model): model is NonNullable<typeof model> => model !== null)
+        .map((model) => ({
+          modelId: model.modelId,
+          lifecycleStatus: model.lifecycleStatus,
+        }));
+      const retiredModelIds = findRetiredModelIds(llmConfig.enabledModels, modelRecords);
+      if (retiredModelIds.length > 0) {
+        throw new Error(
+          `Retired models cannot be enabled: ${retiredModelIds.join(", ")}`
+        );
       }
     }
 
