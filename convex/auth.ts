@@ -591,6 +591,7 @@ export const getCurrentUser = query({
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
       isPasswordSet: user.isPasswordSet || false,
       hasPasskey, // Include passkey status for encouragement UI
       isSuperAdmin,

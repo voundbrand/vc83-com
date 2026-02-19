@@ -12,8 +12,13 @@
  * - organizationName: Optional organization name for new accounts
  */
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
 import { fetchAction } from "convex/nextjs";
+import {
+  isMissingOAuthSignupStoreStateFunctionError,
+  OAUTH_SIGNUP_STORE_STATE_MISSING_MESSAGE,
+} from "@/lib/auth/oauth-signup-runtime";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const generatedApi: any = require("@convex/_generated/api");
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -22,6 +27,19 @@ export async function GET(request: NextRequest) {
   const callback = searchParams.get("callback");
   const organizationName = searchParams.get("organizationName");
   const cliState = searchParams.get("cliState"); // CLI's original state for CSRF protection
+  const identityClaimToken = searchParams.get("identityClaimToken");
+  const onboardingChannel = searchParams.get("onboardingChannel");
+
+  const onboardingCampaign = {
+    source: searchParams.get("utm_source") || searchParams.get("utmSource") || undefined,
+    medium: searchParams.get("utm_medium") || searchParams.get("utmMedium") || undefined,
+    campaign: searchParams.get("utm_campaign") || searchParams.get("utmCampaign") || undefined,
+    content: searchParams.get("utm_content") || searchParams.get("utmContent") || undefined,
+    term: searchParams.get("utm_term") || searchParams.get("utmTerm") || undefined,
+    referrer: searchParams.get("referrer") || undefined,
+    landingPath: searchParams.get("landingPath") || undefined,
+  };
+  const hasOnboardingCampaign = Object.values(onboardingCampaign).some((value) => typeof value === "string" && value.length > 0);
 
   if (!provider || !["microsoft", "google", "github"].includes(provider)) {
     return NextResponse.json(
@@ -43,6 +61,8 @@ export async function GET(request: NextRequest) {
   const callbackUrl = callback || `${appUrl}/`; // Platform defaults to home, CLI requires explicit callback
 
   try {
+    const runAction = fetchAction as any;
+
     // Generate OAuth state and get provider auth URL
     const state = crypto.randomUUID();
     const cliToken = sessionType === "cli" ? `cli_session_${crypto.randomUUID().replace(/-/g, '')}` : undefined;
@@ -53,12 +73,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Store state
-    await fetchAction(api.api.v1.oauthSignup.storeOAuthSignupState, {
+    await runAction(generatedApi.api.api.v1.oauthSignup.storeOAuthSignupState, {
       state,
       sessionType,
       callbackUrl,
       provider,
       organizationName: organizationName || undefined,
+      identityClaimToken: identityClaimToken || undefined,
+      onboardingChannel: onboardingChannel || undefined,
+      onboardingCampaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
       cliToken,
       cliState: cliState || undefined, // CLI's original state for CSRF protection
       createdAt: Date.now(),
@@ -136,6 +159,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(authUrl);
   } catch (error: unknown) {
     console.error("OAuth signup initiation error:", error);
+    if (isMissingOAuthSignupStoreStateFunctionError(error)) {
+      return NextResponse.json(
+        {
+          error: OAUTH_SIGNUP_STORE_STATE_MISSING_MESSAGE,
+          error_description: "Run `npx convex deploy` so storeOAuthSignupState is available at runtime.",
+        },
+        { status: 503 }
+      );
+    }
+
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
       { error: "Failed to initiate OAuth signup", error_description: errorMessage },
@@ -143,4 +176,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

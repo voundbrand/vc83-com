@@ -14,6 +14,134 @@ import { action, internalAction, internalMutation, internalQuery } from "../../_
 import { Id } from "../../_generated/dataModel";
 const generatedApi: any = require("../../_generated/api");
 
+async function ensureOrgOwnerRoleId(ctx: any): Promise<Id<"roles">> {
+  let ownerRole = await ctx.db
+    .query("roles")
+    .filter((q: any) => q.eq(q.field("name"), "org_owner"))
+    .first();
+
+  if (!ownerRole) {
+    const ownerRoleId = await ctx.db.insert("roles", {
+      name: "org_owner",
+      description: "Organization owner with full permissions",
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    ownerRole = await ctx.db.get(ownerRoleId);
+  }
+
+  return ownerRole._id;
+}
+
+async function ensureOrganizationMember(
+  ctx: any,
+  args: { userId: Id<"users">; organizationId: Id<"organizations">; roleId: Id<"roles"> }
+) {
+  const existingMembership = await ctx.db
+    .query("organizationMembers")
+    .withIndex("by_user_and_org", (q: any) =>
+      q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+    )
+    .first();
+
+  if (!existingMembership) {
+    await ctx.db.insert("organizationMembers", {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      role: args.roleId,
+      isActive: true,
+      joinedAt: Date.now(),
+      acceptedAt: Date.now(),
+      invitedBy: args.userId,
+    });
+    return;
+  }
+
+  if (!existingMembership.isActive) {
+    await ctx.db.patch(existingMembership._id, {
+      isActive: true,
+      acceptedAt: existingMembership.acceptedAt || Date.now(),
+    });
+  }
+}
+
+async function ensureOrganizationBootstrapRecords(
+  ctx: any,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    email: string;
+  }
+) {
+  const existingOrgStorage = await ctx.db
+    .query("organizationStorage")
+    .withIndex("by_organization", (q: any) => q.eq("organizationId", args.organizationId))
+    .first();
+  if (!existingOrgStorage) {
+    await ctx.db.insert("organizationStorage", {
+      organizationId: args.organizationId,
+      totalSizeBytes: 0,
+      totalSizeGB: 0,
+      fileCount: 0,
+      byCategoryBytes: {},
+      lastCalculated: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+
+  const existingUserQuota = await ctx.db
+    .query("userStorageQuotas")
+    .withIndex("by_org_and_user", (q: any) =>
+      q.eq("organizationId", args.organizationId).eq("userId", args.userId)
+    )
+    .first();
+  if (!existingUserQuota) {
+    await ctx.db.insert("userStorageQuotas", {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      storageUsedBytes: 0,
+      fileCount: 0,
+      isEnforced: true,
+      storageLimitBytes: 250 * 1024 * 1024,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+
+  const existingApiSettings = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+    )
+    .filter((q: any) => q.eq(q.field("subtype"), "api"))
+    .first();
+
+  if (!existingApiSettings) {
+    await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "organization_settings",
+      subtype: "api",
+      name: "API Settings",
+      status: "active",
+      customProperties: {
+        apiKeysEnabled: true,
+      },
+      createdBy: args.userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+
+  const orgDoc = await ctx.db.get(args.organizationId);
+  if (orgDoc && !orgDoc.email) {
+    await ctx.db.patch(args.organizationId, {
+      email: args.email,
+      updatedAt: Date.now(),
+    });
+  }
+}
+
 /**
  * Exchange OAuth Code for User Info (Internal)
  * 
@@ -243,6 +371,7 @@ export const findOrCreateUserFromOAuth = internalMutation({
     firstName: v.string(),
     lastName: v.string(),
     organizationName: v.optional(v.string()),
+    claimedOrganizationId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args): Promise<{
     userId: Id<"users">;
@@ -258,14 +387,46 @@ export const findOrCreateUserFromOAuth = internalMutation({
       .withIndex("email", (q) => q.eq("email", email))
       .first();
 
+    const ownerRoleId = await ensureOrgOwnerRoleId(ctx);
+
     if (existingUser) {
-      // User exists - return their info
-      if (!existingUser.defaultOrgId) {
+      let organizationId = existingUser.defaultOrgId;
+
+      if (args.claimedOrganizationId) {
+        const claimedOrg = await ctx.db.get(args.claimedOrganizationId);
+        if (!claimedOrg) {
+          throw new Error("Claimed organization not found");
+        }
+
+        await ensureOrganizationMember(ctx, {
+          userId: existingUser._id,
+          organizationId: args.claimedOrganizationId,
+          roleId: ownerRoleId,
+        });
+
+        await ensureOrganizationBootstrapRecords(ctx, {
+          userId: existingUser._id,
+          organizationId: args.claimedOrganizationId,
+          email,
+        });
+
+        if (!existingUser.defaultOrgId) {
+          await ctx.db.patch(existingUser._id, {
+            defaultOrgId: args.claimedOrganizationId,
+            updatedAt: Date.now(),
+          });
+        }
+
+        organizationId = args.claimedOrganizationId;
+      }
+
+      if (!organizationId) {
         throw new Error("User exists but has no default organization");
       }
+
       return {
         userId: existingUser._id,
-        organizationId: existingUser.defaultOrgId,
+        organizationId,
         isNewUser: false,
       };
     }
@@ -288,49 +449,59 @@ export const findOrCreateUserFromOAuth = internalMutation({
       updatedAt: Date.now(),
     });
 
-    // Create default organization
-    const orgName = args.organizationName || `${args.firstName}${args.lastName ? ` ${args.lastName}` : ''}'s Organization`;
-    
-    // Generate unique slug
-    let baseSlug = orgName
-      .toLowerCase()
-      .replace(/'/g, '')
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 50);
-    
-    if (!baseSlug) {
-      baseSlug = "organization";
-    }
+    let organizationId: Id<"organizations">;
+    let orgName = args.organizationName || `${args.firstName}${args.lastName ? ` ${args.lastName}` : ""}'s Organization`;
+    const claimedSignup = !!args.claimedOrganizationId;
 
-    let slug = baseSlug;
-    let counter = 2;
-    while (true) {
-      const existing = await ctx.db
-        .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .first();
-      
-      if (!existing) break;
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-      if (counter > 1000) {
-        const randomSuffix = Math.floor(Math.random() * 100000);
-        slug = `${baseSlug}-${randomSuffix}`;
-        break;
+    if (args.claimedOrganizationId) {
+      const claimedOrg = await ctx.db.get(args.claimedOrganizationId);
+      if (!claimedOrg) {
+        throw new Error("Claimed organization not found");
       }
-    }
+      organizationId = args.claimedOrganizationId;
+      orgName = claimedOrg.name || orgName;
+    } else {
+      // Create default organization
+      let baseSlug = orgName
+        .toLowerCase()
+        .replace(/'/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 50);
 
-    const organizationId = await ctx.db.insert("organizations", {
-      name: orgName,
-      slug,
-      businessName: orgName,
-      isPersonalWorkspace: true,
-      isActive: true,
-      email,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+      if (!baseSlug) {
+        baseSlug = "organization";
+      }
+
+      let slug = baseSlug;
+      let counter = 2;
+      while (true) {
+        const existing = await ctx.db
+          .query("organizations")
+          .withIndex("by_slug", (q) => q.eq("slug", slug))
+          .first();
+
+        if (!existing) break;
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+        if (counter > 1000) {
+          const randomSuffix = Math.floor(Math.random() * 100000);
+          slug = `${baseSlug}-${randomSuffix}`;
+          break;
+        }
+      }
+
+      organizationId = await ctx.db.insert("organizations", {
+        name: orgName,
+        slug,
+        businessName: orgName,
+        isPersonalWorkspace: true,
+        isActive: true,
+        email,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     // Set as default organization
     await ctx.db.patch(userId, {
@@ -338,70 +509,17 @@ export const findOrCreateUserFromOAuth = internalMutation({
       updatedAt: Date.now(),
     });
 
-    // Get or create org_owner role
-    let ownerRole = await ctx.db
-      .query("roles")
-      .filter((q) => q.eq(q.field("name"), "org_owner"))
-      .first();
-
-    if (!ownerRole) {
-      const ownerRoleId = await ctx.db.insert("roles", {
-        name: "org_owner",
-        description: "Organization owner with full permissions",
-        isActive: true,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      ownerRole = await ctx.db.get(ownerRoleId);
-    }
-
     // Add user as organization owner
-    await ctx.db.insert("organizationMembers", {
+    await ensureOrganizationMember(ctx, {
       userId,
       organizationId,
-      role: ownerRole!._id,
-      isActive: true,
-      joinedAt: Date.now(),
-      acceptedAt: Date.now(),
-      invitedBy: userId,
+      roleId: ownerRoleId,
     });
 
-    // Initialize organization storage
-    await ctx.db.insert("organizationStorage", {
-      organizationId,
-      totalSizeBytes: 0,
-      totalSizeGB: 0,
-      fileCount: 0,
-      byCategoryBytes: {},
-      lastCalculated: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Initialize user storage quota
-    await ctx.db.insert("userStorageQuotas", {
-      organizationId,
+    await ensureOrganizationBootstrapRecords(ctx, {
       userId,
-      storageUsedBytes: 0,
-      fileCount: 0,
-      isEnforced: true,
-      storageLimitBytes: 250 * 1024 * 1024, // 250 MB for Free tier
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Initialize API settings
-    await ctx.db.insert("objects", {
       organizationId,
-      type: "organization_settings",
-      subtype: "api",
-      name: "API Settings",
-      status: "active",
-      customProperties: {
-        apiKeysEnabled: true,
-      },
-      createdBy: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      email,
     });
 
     // Log audit event (same as web onboarding)
@@ -415,6 +533,7 @@ export const findOrCreateUserFromOAuth = internalMutation({
         signupMethod: "oauth",
         planTier: "free",
         organizationName: orgName,
+        claimedSignup,
       },
       success: true,
       createdAt: Date.now(),
@@ -470,6 +589,14 @@ export const completeOAuthSignup = action({
     expiresAt: number;
     isNewUser: boolean;
     provider: "microsoft" | "google" | "github";
+    identityClaim?: {
+      success: boolean;
+      alreadyClaimed?: boolean;
+      tokenType?: "guest_session_claim" | "telegram_org_claim";
+      linkedOrganizationId?: Id<"organizations">;
+      linkedSessionToken?: string;
+      errorCode?: string;
+    };
   }> => {
     // Get state record (contains callback URL and other metadata)
     const stateRecord = await (ctx as any).runQuery(generatedApi.internal.api.v1.oauthSignup.getOAuthSignupStateInternal, {
@@ -479,6 +606,17 @@ export const completeOAuthSignup = action({
       callbackUrl: string;
       provider: "microsoft" | "google" | "github";
       organizationName?: string;
+      identityClaimToken?: string;
+      onboardingChannel?: string;
+      onboardingCampaign?: {
+        source?: string;
+        medium?: string;
+        campaign?: string;
+        content?: string;
+        term?: string;
+        referrer?: string;
+        landingPath?: string;
+      };
       cliToken?: string;
       expiresAt: number;
     } | null;
@@ -501,13 +639,52 @@ export const completeOAuthSignup = action({
       redirectUri,
     });
 
+    let inspectedClaim:
+      | {
+          valid: boolean;
+          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          channel?: "webchat" | "native_guest" | "telegram";
+          organizationId?: Id<"organizations">;
+          reason?: string;
+        }
+      | null = null;
+
+    if (stateRecord.identityClaimToken) {
+      inspectedClaim = await (ctx as any).runAction(
+        generatedApi.internal.onboarding.identityClaims.inspectIdentityClaimToken,
+        {
+          signedToken: stateRecord.identityClaimToken,
+        }
+      );
+    }
+
     // Find or create user
     const userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
       email: userInfo.email,
       firstName: userInfo.name.firstName,
       lastName: userInfo.name.lastName,
       organizationName: stateRecord.organizationName,
+      claimedOrganizationId:
+        inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
+          ? inspectedClaim.organizationId
+          : undefined,
     });
+
+    const candidateChannel =
+      stateRecord.onboardingChannel ||
+      (inspectedClaim?.valid ? inspectedClaim.channel : undefined) ||
+      "platform_web";
+    const signupChannel =
+      candidateChannel === "webchat" ||
+      candidateChannel === "native_guest" ||
+      candidateChannel === "telegram"
+        ? candidateChannel
+        : "platform_web";
+
+    const signupCampaign =
+      stateRecord.onboardingCampaign && typeof stateRecord.onboardingCampaign === "object"
+        ? stateRecord.onboardingCampaign
+        : undefined;
 
     // For new users, trigger additional onboarding tasks (async, don't block login)
     if (userResult.isNewUser) {
@@ -571,7 +748,50 @@ export const completeOAuthSignup = action({
         // Log but don't fail signup if Stripe customer creation fails
         console.error("[OAuth Signup] Failed to create Stripe customer:", error);
       }
+
+      try {
+        await (ctx as any).runMutation(generatedApi.internal.onboarding.funnelEvents.emitFunnelEvent, {
+          eventName: "onboarding.funnel.signup",
+          channel: signupChannel,
+          organizationId: userResult.organizationId,
+          userId: userResult.userId,
+          eventKey: `onboarding.funnel.signup:${userResult.userId}`,
+          campaign: signupCampaign,
+          metadata: {
+            provider: args.provider,
+            sessionType: args.sessionType,
+            usedIdentityClaim: Boolean(stateRecord.identityClaimToken),
+          },
+        });
+      } catch (funnelError) {
+        console.error("[OAuth Signup] Funnel signup event failed (non-blocking):", funnelError);
+      }
     }
+
+    const consumeIdentityClaimIfPresent = async (organizationId: Id<"organizations">) => {
+      if (!stateRecord.identityClaimToken) {
+        return undefined;
+      }
+
+      try {
+        const result = await (ctx as any).runMutation(
+          generatedApi.internal.onboarding.identityClaims.consumeIdentityClaimToken,
+          {
+            signedToken: stateRecord.identityClaimToken,
+            userId: userResult.userId,
+            organizationId,
+            claimSource: "oauth_signup_complete",
+          }
+        );
+        return result;
+      } catch (claimError) {
+        console.error("[OAuth Signup] Failed to consume identity claim token:", claimError);
+        return {
+          success: false,
+          errorCode: "claim_consume_failed",
+        };
+      }
+    };
 
     // Create session based on sessionType
     if (args.sessionType === "cli") {
@@ -593,6 +813,8 @@ export const completeOAuthSignup = action({
         state: args.state,
       });
 
+      const identityClaim = await consumeIdentityClaimIfPresent(userResult.organizationId);
+
       return {
         token: cliToken,
         sessionId,
@@ -602,6 +824,7 @@ export const completeOAuthSignup = action({
         expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
         isNewUser: userResult.isNewUser,
         provider: args.provider, // Return provider for "last used" tracking
+        identityClaim,
       };
     } else {
       // Create platform session
@@ -684,6 +907,8 @@ export const completeOAuthSignup = action({
         state: args.state,
       });
 
+      const identityClaim = await consumeIdentityClaimIfPresent(userResult.organizationId);
+
       return {
         token: sessionId, // Platform sessions use session ID as token
         sessionId,
@@ -693,6 +918,7 @@ export const completeOAuthSignup = action({
         expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
         isNewUser: userResult.isNewUser,
         provider: args.provider, // Return provider for "last used" tracking
+        identityClaim,
       };
     }
   },
@@ -732,6 +958,9 @@ export const storeOAuthSignupState = action({
     callbackUrl: v.string(),
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
+    identityClaimToken: v.optional(v.string()),
+    onboardingChannel: v.optional(v.string()),
+    onboardingCampaign: v.optional(v.any()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
@@ -744,6 +973,9 @@ export const storeOAuthSignupState = action({
       callbackUrl: args.callbackUrl,
       provider: args.provider,
       organizationName: args.organizationName,
+      identityClaimToken: args.identityClaimToken,
+      onboardingChannel: args.onboardingChannel,
+      onboardingCampaign: args.onboardingCampaign,
       cliToken: args.cliToken,
       cliState: args.cliState,
       createdAt: args.createdAt,
@@ -764,6 +996,9 @@ export const storeOAuthSignupStateInternal = internalMutation({
     callbackUrl: v.string(),
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
+    identityClaimToken: v.optional(v.string()),
+    onboardingChannel: v.optional(v.string()),
+    onboardingCampaign: v.optional(v.any()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
@@ -776,6 +1011,9 @@ export const storeOAuthSignupStateInternal = internalMutation({
       callbackUrl: args.callbackUrl,
       provider: args.provider,
       organizationName: args.organizationName,
+      identityClaimToken: args.identityClaimToken,
+      onboardingChannel: args.onboardingChannel,
+      onboardingCampaign: args.onboardingCampaign,
       cliToken: args.cliToken,
       cliState: args.cliState,
       createdAt: args.createdAt,
@@ -799,6 +1037,17 @@ export const getOAuthSignupState = action({
     callbackUrl: string;
     provider: "microsoft" | "google" | "github";
     organizationName?: string;
+    identityClaimToken?: string;
+    onboardingChannel?: string;
+    onboardingCampaign?: {
+      source?: string;
+      medium?: string;
+      campaign?: string;
+      content?: string;
+      term?: string;
+      referrer?: string;
+      landingPath?: string;
+    };
     cliToken?: string;
     cliState?: string;
     expiresAt: number;
@@ -831,6 +1080,9 @@ export const getOAuthSignupStateInternal = internalQuery({
       callbackUrl: stateRecord.callbackUrl,
       provider: stateRecord.provider,
       organizationName: stateRecord.organizationName,
+      identityClaimToken: stateRecord.identityClaimToken,
+      onboardingChannel: stateRecord.onboardingChannel,
+      onboardingCampaign: stateRecord.onboardingCampaign,
       cliToken: stateRecord.cliToken,
       cliState: stateRecord.cliState,
       expiresAt: stateRecord.expiresAt,
@@ -856,4 +1108,3 @@ export const deleteOAuthSignupState = internalMutation({
     }
   },
 });
-

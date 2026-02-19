@@ -11,10 +11,25 @@
  * Usage: Run via Convex dashboard → Functions → onboarding/seedPlatformAgents → seedAll
  */
 
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+  type MutationCtx,
+} from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { InterviewTemplate } from "../schemas/interviewSchemas";
+import { SEED_TEMPLATES } from "../seeds/interviewTemplates";
+import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+import {
+  TRUST_EVENT_TAXONOMY_VERSION,
+  validateTrustEventPayload,
+  type TrustEventName,
+  type TrustEventPayload,
+} from "../ai/trustEvents";
 
 // ============================================================================
 // PLATFORM ORG IDENTIFICATION
@@ -24,6 +39,315 @@ function getPlatformOrgId(): Id<"organizations"> {
   const id = process.env.PLATFORM_ORG_ID || process.env.TEST_ORG_ID;
   if (!id) throw new Error("PLATFORM_ORG_ID or TEST_ORG_ID must be set");
   return id as Id<"organizations">;
+}
+
+const PLATFORM_TRUST_TRAINING_TEMPLATE_NAME = "Platform Agent Trust Training";
+const CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME = "Customer Agent Identity Blueprint";
+const PLATFORM_TRAINING_CHANNEL = "admin_training" as const;
+const PLATFORM_TRAINING_PARITY_MODE = "customer_workflow_parity.v1";
+const START_TRAINING_CONFIRMATION_PREFIX = "START_PLATFORM_TRUST_TRAINING";
+const PUBLISH_TRAINING_CONFIRMATION_PREFIX = "PUBLISH_PLATFORM_TRUST_TRAINING";
+const MIN_OPERATOR_NOTE_LENGTH = 20;
+
+type ReadCtx = QueryCtx | MutationCtx;
+type WriteCtx = MutationCtx;
+
+// Dynamic require to avoid TS2589 deep type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _generatedApiCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getGeneratedApi(): any {
+  if (!_generatedApiCache) {
+    _generatedApiCache = require("../_generated/api");
+  }
+  return _generatedApiCache;
+}
+
+function getUtcDayKey(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function buildStartTrainingConfirmationToken(dayKey: string): string {
+  return `${START_TRAINING_CONFIRMATION_PREFIX}:${dayKey}`;
+}
+
+function buildPublishTrainingConfirmationToken(dayKey: string): string {
+  return `${PUBLISH_TRAINING_CONFIRMATION_PREFIX}:${dayKey}`;
+}
+
+function getSeedTemplateByName(templateName: string): InterviewTemplate {
+  const template = SEED_TEMPLATES.find((entry) => entry.templateName === templateName);
+  if (!template) {
+    throw new Error(`Seed template "${templateName}" not found`);
+  }
+  return template;
+}
+
+function getCompletedAtTimestamp(
+  session: {
+    startedAt: number;
+    lastMessageAt: number;
+    interviewState?: {
+      completedAt?: number;
+    };
+  },
+): number {
+  return session.interviewState?.completedAt ?? session.lastMessageAt ?? session.startedAt;
+}
+
+function getSessionContentDNAId(
+  session: {
+    interviewState?: {
+      contentDNAId?: string;
+    };
+  },
+): string | null {
+  const contentDNAId = session.interviewState?.contentDNAId;
+  return typeof contentDNAId === "string" && contentDNAId.length > 0 ? contentDNAId : null;
+}
+
+function hasAcceptedMemoryConsent(
+  session: {
+    interviewState?: {
+      memoryConsent?: {
+        status?: "pending" | "accepted" | "declined";
+      };
+      contentDNAId?: string;
+      isComplete?: boolean;
+    };
+  },
+): boolean {
+  return (
+    session.interviewState?.isComplete === true &&
+    session.interviewState?.memoryConsent?.status === "accepted" &&
+    typeof session.interviewState?.contentDNAId === "string" &&
+    session.interviewState.contentDNAId.length > 0
+  );
+}
+
+function getActionSessionId(
+  action: {
+    actionData?: Record<string, unknown>;
+  },
+): string | null {
+  const sessionId = action.actionData?.sessionId;
+  if (typeof sessionId === "string" && sessionId.length > 0) {
+    return sessionId;
+  }
+  return null;
+}
+
+function assertOperatorSafeguards(args: {
+  providedToken: string;
+  expectedToken: string;
+  parityChecklistAccepted: boolean;
+  operatorNote: string;
+}) {
+  if (args.providedToken !== args.expectedToken) {
+    throw new Error("Confirmation token mismatch. Review platform action safeguards and retry.");
+  }
+  if (!args.parityChecklistAccepted) {
+    throw new Error("Parity checklist acknowledgement is required for platform-wide actions.");
+  }
+  if (args.operatorNote.trim().length < MIN_OPERATOR_NOTE_LENGTH) {
+    throw new Error(`Operator note must be at least ${MIN_OPERATOR_NOTE_LENGTH} characters.`);
+  }
+}
+
+async function requireSuperAdminSession(
+  ctx: ReadCtx,
+  sessionId: string,
+): Promise<{ userId: Id<"users"> }> {
+  const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+  const userContext = await getUserContext(ctx, userId);
+  if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+    throw new Error("Insufficient permissions. Super admin access required.");
+  }
+  return { userId };
+}
+
+async function upsertTemplateFromSeed(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    now: number;
+    templateName: string;
+  },
+): Promise<{ templateId: Id<"objects">; created: boolean }> {
+  const template = getSeedTemplateByName(args.templateName);
+  const existing = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "interview_template")
+    )
+    .filter((q) => q.eq(q.field("name"), args.templateName))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      subtype: template.mode,
+      description: template.description,
+      status: "active",
+      customProperties: template,
+      updatedAt: args.now,
+    });
+    return { templateId: existing._id, created: false };
+  }
+
+  const templateId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "interview_template",
+    subtype: template.mode,
+    name: template.templateName,
+    description: template.description,
+    status: "active",
+    customProperties: template,
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: templateId,
+    actionType: "seeded",
+    actionData: { template: template.templateName, mode: template.mode },
+    performedAt: args.now,
+  });
+
+  return { templateId, created: true };
+}
+
+async function ensureTrustTrainingTemplates(
+  ctx: WriteCtx,
+  organizationId: Id<"organizations">,
+  now: number,
+): Promise<{
+  trustTrainingTemplateId: Id<"objects">;
+  customerBaselineTemplateId: Id<"objects">;
+}> {
+  const trustTemplateResult = await upsertTemplateFromSeed(ctx, {
+    organizationId,
+    now,
+    templateName: PLATFORM_TRUST_TRAINING_TEMPLATE_NAME,
+  });
+  const customerTemplateResult = await upsertTemplateFromSeed(ctx, {
+    organizationId,
+    now,
+    templateName: CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME,
+  });
+
+  return {
+    trustTrainingTemplateId: trustTemplateResult.templateId,
+    customerBaselineTemplateId: customerTemplateResult.templateId,
+  };
+}
+
+async function getTemplateByName(
+  ctx: ReadCtx,
+  organizationId: Id<"organizations">,
+  templateName: string,
+) {
+  return ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "interview_template")
+    )
+    .filter((q) => q.eq(q.field("name"), templateName))
+    .first();
+}
+
+function buildCustomerTemplateLink(
+  customerTemplateId: Id<"objects"> | null,
+): string {
+  if (customerTemplateId) {
+    return `objects/${customerTemplateId}`;
+  }
+  return CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME;
+}
+
+async function getPublishedSessionIdSet(
+  ctx: ReadCtx,
+  organizationId: Id<"organizations">,
+): Promise<Set<string>> {
+  const completionActions = await ctx.db
+    .query("objectActions")
+    .withIndex("by_org_action_type", (q) =>
+      q.eq("organizationId", organizationId).eq("actionType", "platform_training_session_completed")
+    )
+    .collect();
+
+  const publishedSessionIds = new Set<string>();
+  for (const action of completionActions) {
+    const sessionId = getActionSessionId(action);
+    if (sessionId) {
+      publishedSessionIds.add(sessionId);
+    }
+  }
+  return publishedSessionIds;
+}
+
+async function getTrustTrainingSessions(
+  ctx: ReadCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    trustTrainingTemplateId: Id<"objects">;
+  },
+) {
+  const sessions = await ctx.db
+    .query("agentSessions")
+    .withIndex("by_org_session_mode", (q) =>
+      q.eq("organizationId", args.organizationId).eq("sessionMode", "guided")
+    )
+    .collect();
+
+  return sessions
+    .filter(
+      (session) =>
+        session.channel === PLATFORM_TRAINING_CHANNEL &&
+        session.interviewTemplateId === args.trustTrainingTemplateId,
+    )
+    .sort((a, b) => b.startedAt - a.startedAt);
+}
+
+async function insertAdminTrustEvent(
+  ctx: WriteCtx,
+  args: {
+    eventName:
+      | "trust.admin.training_session_started.v1"
+      | "trust.admin.training_artifact_published.v1"
+      | "trust.admin.training_session_completed.v1";
+    organizationId: Id<"organizations">;
+    trainingSessionId: Id<"agentSessions">;
+    actorId: Id<"users">;
+    platformAgentId: Id<"objects">;
+    trainingTemplateId: Id<"objects">;
+    customerTemplateLink: string;
+  },
+) {
+  const now = Date.now();
+  const payload = {
+    event_id: `${args.eventName}:${args.trainingSessionId}:${now}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: now,
+    org_id: args.organizationId,
+    mode: "admin" as const,
+    channel: PLATFORM_TRAINING_CHANNEL,
+    session_id: args.trainingSessionId,
+    actor_type: "admin" as const,
+    actor_id: args.actorId,
+    platform_agent_id: args.platformAgentId,
+    training_template_id: args.trainingTemplateId,
+    parity_mode: PLATFORM_TRAINING_PARITY_MODE,
+    customer_agent_template_link: args.customerTemplateLink,
+  } satisfies TrustEventPayload;
+  const validation = validateTrustEventPayload(args.eventName, payload);
+  await ctx.db.insert("aiTrustEvents", {
+    event_name: args.eventName as TrustEventName,
+    payload,
+    schema_validation_status: validation.ok ? "passed" : "failed",
+    schema_errors: validation.ok ? undefined : validation.errors,
+    created_at: now,
+  });
 }
 
 // ============================================================================
@@ -83,13 +407,13 @@ const QUINN_SOUL = {
   emojiUsage: "minimal" as const,
   soulMarkdown: `# Quinn — l4yercak3 System Bot
 
-I'm Quinn, the first point of contact for everyone who discovers l4yercak3 via Telegram.
+I'm Quinn, the first point of contact for everyone who discovers l4yercak3 via Telegram, webchat, or native guest chat.
 
 My job is simple: turn a stranger into a happy user in under 2 minutes.
 
 ## How I work
 
-When someone sends /start, I greet them in their language and walk them through a quick setup:
+When someone starts a conversation, I greet them in their language and walk them through a quick setup:
 1. What's your business called?
 2. What industry are you in?
 3. Who's your audience?
@@ -119,53 +443,61 @@ Once I have the basics, I create their org and their first agent. Then I introdu
 
 const QUINN_SYSTEM_PROMPT = `You are Quinn, the l4yercak3 platform assistant.
 
-ROLE: You are the System Bot — the first agent every new user talks to on Telegram.
+ROLE:
+- You are the global System Bot for Telegram, webchat, and native guest chat.
+- Your job is to route each user into the correct funnel path quickly and safely.
 
 CORE BEHAVIOR:
-- When a new user starts a conversation, guide them through onboarding.
-- Detect their language from their first message and respond in that language.
+- Detect language from the user's first message and stay in that language.
 - Supported languages: English, German, Polish, Spanish, French, Japanese.
-- Ask about ONE thing at a time. Never combine questions.
-- Keep messages short — this is Telegram, not email.
+- Ask ONE question at a time. Never ask two questions in one message.
+- Keep each message to max 3 short lines.
 
-ACCOUNT DETECTION (ask this BEFORE business questions):
-- After greeting, ask: "Do you already have a l4yercak3 account?"
-- If they say YES: Ask for their email address. Use the verify_telegram_link tool with action='lookup_email' and their email. If a match is found, tell them a verification code was sent to their email. When they provide the code, use verify_telegram_link with action='verify_code'. If verification succeeds, congratulate them — their Telegram is now connected and they're done. Do NOT continue with onboarding.
-- If they say NO (or don't have an account): Continue with normal onboarding below.
-- If the user ignores the question or seems confused, assume no account and proceed.
+GLOBAL FUNNEL STATES:
+1) Existing account (needs linking/login)
+2) No account (new onboarding)
+3) Upgrade plan intent
+4) Buy credits intent
+5) Sub-account intent
 
-ONBOARDING FLOW (only for new users):
-1. Greet the user, introduce yourself
-2. Ask: Do you already have a l4yercak3 account? (see ACCOUNT DETECTION above)
-3. Ask: What is your business called?
-4. Ask: What industry or niche are you in?
-5. Ask: Who is your target audience?
-6. Ask: What do you want your AI agent to help with? (customer support, sales, booking, general)
-7. Summarize what you collected and ask for confirmation
-8. When confirmed, use the complete_onboarding tool to create their org and agent
+TOOL USAGE:
+- Existing Telegram account linking: use verify_telegram_link.
+- New account handoff: use start_account_creation_handoff.
+- Sub-account flow: use start_sub_account_flow.
+- Plan upgrades: use start_plan_upgrade_checkout.
+- Credit packs: use start_credit_pack_checkout.
+- New workspace creation after full onboarding confirmation: use complete_onboarding.
 
-AFTER ONBOARDING:
-- Tell the user their agent is ready
-- Explain that the next message they send will go to their own agent
-- Wish them well
+ONBOARDING LOGIC:
+- First, identify account status and primary goal.
+- If the user wants upgrade/credits/sub-account, use the matching conversion tool and do NOT force full onboarding questions.
+- If the user needs a new account first, use start_account_creation_handoff and pause until they complete login/signup.
+- Only run full onboarding questions when the user is creating a brand-new workspace.
+
+FULL ONBOARDING PATH:
+1. Business name
+2. Industry/niche
+3. Target audience
+4. Primary use case + tone
+5. Summary + explicit confirmation
+6. Use complete_onboarding only after confirmation
 
 RULES:
-- Never skip the confirmation step
-- If the user seems confused, offer examples
-- If the user wants to start over, reset and begin from step 1
-- If the user asks something unrelated to onboarding, briefly answer then redirect
-- Be concise: max 3 short lines per message`;
+- Never skip confirmation before complete_onboarding.
+- If user is confused, give a short example and then ask exactly one question.
+- If user asks unrelated questions, answer briefly and redirect to the current step.
+- Keep CTA messages channel-safe: always include a plain URL fallback.`;
 
 // ============================================================================
 // ONBOARDING INTERVIEW TEMPLATE
 // ============================================================================
 
-const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
+export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
   templateName: "Platform Onboarding",
-  description: "Quick onboarding interview for new Telegram users. Collects business basics to bootstrap their org and first agent.",
-  version: 1,
+  description: "Global onboarding interview for Telegram, webchat, and native guest users. Routes users into account/link/upgrade/credits/sub-account paths and collects setup data when full onboarding is needed.",
+  version: 2,
   status: "active",
-  estimatedMinutes: 3,
+  estimatedMinutes: 4,
   mode: "quick",
   language: "en",
   additionalLanguages: ["de", "pl", "es", "fr", "ja"],
@@ -178,7 +510,7 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       isRequired: true,
       estimatedMinutes: 0.5,
       introPrompt: "Detect the user's language from their greeting and respond in that language. Introduce yourself as Quinn.",
-      completionPrompt: "Great! Now let's learn about your business.",
+      completionPrompt: "Great. Next, identify their account status and primary goal.",
       questions: [
         {
           questionId: "q_language",
@@ -190,11 +522,57 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       ],
     },
     {
-      phaseId: "business_context",
-      phaseName: "Business Context",
+      phaseId: "funnel_state",
+      phaseName: "Account & Goal Routing",
       order: 2,
       isRequired: true,
+      estimatedMinutes: 0.75,
+      introPrompt: "Identify account status and route the user to the right funnel path.",
+      completionPrompt: "Funnel path identified. Continue only with the flow that matches their goal.",
+      questions: [
+        {
+          questionId: "q_account_status",
+          promptText: "Do you already have a l4yercak3 account? (yes/no)",
+          expectedDataType: "choice",
+          extractionField: "accountStatus",
+          validationRules: { options: ["existing_account", "no_account"] },
+        },
+        {
+          questionId: "q_primary_goal",
+          promptText: "What do you want to do right now? (new setup, upgrade, credits, sub-account, or link existing account)",
+          helpText: "Use this to route to full onboarding vs conversion tools.",
+          expectedDataType: "choice",
+          extractionField: "primaryGoal",
+          validationRules: {
+            options: [
+              "full_onboarding",
+              "upgrade_plan",
+              "buy_credits",
+              "create_sub_account",
+              "just_link_account",
+            ],
+          },
+        },
+        {
+          questionId: "q_needs_full_onboarding",
+          promptText: "Should we run full onboarding for a brand-new workspace now? (yes/no)",
+          expectedDataType: "choice",
+          extractionField: "needsFullOnboarding",
+          validationRules: { options: ["yes", "no"] },
+        },
+      ],
+    },
+    {
+      phaseId: "business_context",
+      phaseName: "Business Context",
+      order: 3,
+      isRequired: true,
       estimatedMinutes: 1,
+      skipCondition: {
+        field: "needsFullOnboarding",
+        operator: "equals",
+        value: "no",
+      },
       introPrompt: "Ask about their business.",
       completionPrompt: "Got it! Now let's talk about what your agent should do.",
       questions: [
@@ -225,9 +603,14 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
     {
       phaseId: "agent_purpose",
       phaseName: "Agent Purpose",
-      order: 3,
+      order: 4,
       isRequired: true,
       estimatedMinutes: 1,
+      skipCondition: {
+        field: "needsFullOnboarding",
+        operator: "equals",
+        value: "no",
+      },
       introPrompt: "Ask what their agent should help with.",
       completionPrompt: "Perfect! Let me confirm everything before I set things up.",
       questions: [
@@ -249,17 +632,62 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       ],
     },
     {
+      phaseId: "core_memory_anchors",
+      phaseName: "Core Memory Anchors",
+      order: 5,
+      isRequired: true,
+      estimatedMinutes: 0.75,
+      skipCondition: {
+        field: "needsFullOnboarding",
+        operator: "equals",
+        value: "no",
+      },
+      introPrompt: "Capture identity, boundary, and empathy anchors that should persist through future model changes.",
+      completionPrompt: "Great anchors. I'll carry these into your agent's onboarding memory profile.",
+      questions: [
+        {
+          questionId: "q_core_memory_identity",
+          promptText: "What should your agent always remember about your brand promise?",
+          helpText: "One sentence is enough. This becomes a long-lived identity anchor.",
+          expectedDataType: "text",
+          extractionField: "coreMemoryIdentityAnchor",
+          validationRules: { required: true, minLength: 8 },
+        },
+        {
+          questionId: "q_core_memory_boundary",
+          promptText: "What is one boundary your agent should never cross without escalating?",
+          helpText: "Example: legal advice, refunds above a threshold, sensitive account actions.",
+          expectedDataType: "text",
+          extractionField: "coreMemoryBoundaryAnchor",
+          validationRules: { required: true, minLength: 8 },
+        },
+        {
+          questionId: "q_core_memory_empathy",
+          promptText: "In difficult moments, how should your agent make customers feel?",
+          helpText: "Describe the tone/experience you want customers to remember.",
+          expectedDataType: "text",
+          extractionField: "coreMemoryEmpathyAnchor",
+          validationRules: { required: true, minLength: 8 },
+        },
+      ],
+    },
+    {
       phaseId: "confirmation",
       phaseName: "Confirmation & Creation",
-      order: 4,
+      order: 6,
       isRequired: true,
       estimatedMinutes: 0.5,
+      skipCondition: {
+        field: "needsFullOnboarding",
+        operator: "equals",
+        value: "no",
+      },
       introPrompt: "Summarize everything collected and ask the user to confirm before creating.",
       completionPrompt: "Your agent is ready! The next message you send will go straight to them.",
       questions: [
         {
           questionId: "q_confirm",
-          promptText: "Here's what I've got — does everything look right? (yes/no)",
+          promptText: "Here's what I've got for your new workspace — does everything look right? (yes/no)",
           expectedDataType: "text",
           extractionField: "confirmed",
         },
@@ -270,21 +698,27 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
   outputSchema: {
     fields: [
       { fieldId: "detectedLanguage", fieldName: "Detected Language", dataType: "string", category: "brand", required: false },
-      { fieldId: "businessName", fieldName: "Business Name", dataType: "string", category: "brand", required: true },
-      { fieldId: "industry", fieldName: "Industry", dataType: "string", category: "brand", required: true },
-      { fieldId: "targetAudience", fieldName: "Target Audience", dataType: "string", category: "audience", required: true },
-      { fieldId: "primaryUseCase", fieldName: "Primary Use Case", dataType: "string", category: "goals", required: true },
+      { fieldId: "accountStatus", fieldName: "Account Status", dataType: "string", category: "goals", required: true },
+      { fieldId: "primaryGoal", fieldName: "Primary Goal", dataType: "string", category: "goals", required: true },
+      { fieldId: "needsFullOnboarding", fieldName: "Needs Full Onboarding", dataType: "string", category: "goals", required: true },
+      { fieldId: "businessName", fieldName: "Business Name", dataType: "string", category: "brand", required: false },
+      { fieldId: "industry", fieldName: "Industry", dataType: "string", category: "brand", required: false },
+      { fieldId: "targetAudience", fieldName: "Target Audience", dataType: "string", category: "audience", required: false },
+      { fieldId: "primaryUseCase", fieldName: "Primary Use Case", dataType: "string", category: "goals", required: false },
       { fieldId: "tonePreference", fieldName: "Tone Preference", dataType: "string", category: "voice", required: false },
-      { fieldId: "confirmed", fieldName: "Confirmation", dataType: "string", category: "goals", required: true },
+      { fieldId: "coreMemoryIdentityAnchor", fieldName: "Core Memory Identity Anchor", dataType: "string", category: "voice", required: false },
+      { fieldId: "coreMemoryBoundaryAnchor", fieldName: "Core Memory Boundary Anchor", dataType: "string", category: "goals", required: false },
+      { fieldId: "coreMemoryEmpathyAnchor", fieldName: "Core Memory Empathy Anchor", dataType: "string", category: "voice", required: false },
+      { fieldId: "confirmed", fieldName: "Confirmation", dataType: "string", category: "goals", required: false },
     ],
   },
 
   completionCriteria: {
-    minPhasesCompleted: 3,
-    requiredPhaseIds: ["business_context", "agent_purpose", "confirmation"],
+    minPhasesCompleted: 1,
+    requiredPhaseIds: ["funnel_state"],
   },
 
-  interviewerPersonality: "Warm, efficient, multilingual. You're a concise setup assistant on Telegram — one question at a time, max 3 lines per message.",
+  interviewerPersonality: "Warm, efficient, multilingual. You're a concise setup assistant across Telegram, webchat, and native guest channels — one question at a time, max 3 lines per message.",
   followUpDepth: 1,
   silenceHandling: "No rush! Just tell me about your business whenever you're ready.",
 };
@@ -295,7 +729,7 @@ const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
 
 const QUINN_CUSTOM_PROPERTIES = {
   displayName: "Quinn",
-  personality: "Warm, efficient, multilingual platform ambassador. Guides new users through onboarding in under 2 minutes.",
+  personality: "Warm, efficient, multilingual platform ambassador. Routes users through onboarding, account linking, and conversion flows in under 2 minutes.",
   language: "en",
   additionalLanguages: ["de", "pl", "es", "fr", "ja"],
   systemPrompt: QUINN_SYSTEM_PROMPT,
@@ -306,7 +740,14 @@ const QUINN_CUSTOM_PROPERTIES = {
     { q: "Can I change my agent later?", a: "Absolutely! You can customize your agent's personality, knowledge, and tools anytime." },
   ],
   knowledgeBaseTags: [] as string[],
-  enabledTools: ["complete_onboarding", "verify_telegram_link"],
+  enabledTools: [
+    "complete_onboarding",
+    "verify_telegram_link",
+    "start_account_creation_handoff",
+    "start_sub_account_flow",
+    "start_plan_upgrade_checkout",
+    "start_credit_pack_checkout",
+  ],
   disabledTools: [] as string[],
   autonomyLevel: "autonomous",
   maxMessagesPerDay: 1000,
@@ -320,6 +761,7 @@ const QUINN_CUSTOM_PROPERTIES = {
   channelBindings: [
     { channel: "telegram", enabled: true },
     { channel: "webchat", enabled: true },
+    { channel: "native_guest", enabled: true },
   ],
   totalMessages: 0,
   totalCostUsd: 0,
@@ -471,7 +913,7 @@ export const seedAll = internalMutation({
       templateId = existingOnboardingTemplate._id;
 
       await ctx.db.patch(templateId, {
-        description: "Quick onboarding interview for new Telegram users",
+        description: "Global onboarding interview for Telegram, webchat, and native guest users",
         status: "active",
         customProperties: ONBOARDING_INTERVIEW_TEMPLATE,
         updatedAt: now,
@@ -484,7 +926,7 @@ export const seedAll = internalMutation({
         type: "interview_template",
         subtype: "quick",
         name: "Platform Onboarding",
-        description: "Quick onboarding interview for new Telegram users",
+        description: "Global onboarding interview for Telegram, webchat, and native guest users",
         status: "active",
         customProperties: ONBOARDING_INTERVIEW_TEMPLATE,
         createdAt: now,
@@ -501,6 +943,28 @@ export const seedAll = internalMutation({
 
       console.log(`[seedPlatformAgents] Onboarding template upserted (created): ${templateId}`);
     }
+
+    // ------------------------------------------------------------------
+    // 2b. UPSERT TRUST TRAINING PARITY TEMPLATES
+    // ------------------------------------------------------------------
+
+    const trustTrainingTemplateResult = await upsertTemplateFromSeed(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateName: PLATFORM_TRUST_TRAINING_TEMPLATE_NAME,
+    });
+    console.log(
+      `[seedPlatformAgents] ${PLATFORM_TRUST_TRAINING_TEMPLATE_NAME} upserted (${trustTrainingTemplateResult.created ? "created" : "updated"}): ${trustTrainingTemplateResult.templateId}`,
+    );
+
+    const customerBaselineTemplateResult = await upsertTemplateFromSeed(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateName: CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME,
+    });
+    console.log(
+      `[seedPlatformAgents] ${CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME} upserted (${customerBaselineTemplateResult.created ? "created" : "updated"}): ${customerBaselineTemplateResult.templateId}`,
+    );
 
     // ------------------------------------------------------------------
     // 3. UPSERT ENTERPRISE LICENSE (unlimited credits for System Bot)
@@ -588,10 +1052,356 @@ export const seedAll = internalMutation({
       platformOrgId,
       quinnId,
       templateId,
+      trustTrainingTemplateId: trustTrainingTemplateResult.templateId,
+      customerBaselineTemplateId: customerBaselineTemplateResult.templateId,
       quinnCreated: !existingQuinn,
       templateCreated: !existingOnboardingTemplate,
+      trustTrainingTemplateCreated: trustTrainingTemplateResult.created,
+      customerBaselineTemplateCreated: customerBaselineTemplateResult.created,
       initialWorkerId,
       workerCreated: existingWorkers.length === 0,
+    };
+  },
+});
+
+// ============================================================================
+// PUBLIC: Super-admin trust training loop (Lane F / ATX-012)
+// ============================================================================
+
+export const getTrustTrainingLoopStatus = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+
+    const platformOrgId = getPlatformOrgId();
+    const platformOrg = await ctx.db.get(platformOrgId);
+    if (!platformOrg) {
+      throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+    }
+
+    const trustTrainingTemplate = await getTemplateByName(
+      ctx,
+      platformOrgId,
+      PLATFORM_TRUST_TRAINING_TEMPLATE_NAME,
+    );
+    const customerBaselineTemplate = await getTemplateByName(
+      ctx,
+      platformOrgId,
+      CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME,
+    );
+
+    const publishedSessionIds = await getPublishedSessionIdSet(ctx, platformOrgId);
+    const trainingSessions = trustTrainingTemplate
+      ? await getTrustTrainingSessions(ctx, {
+          organizationId: platformOrgId,
+          trustTrainingTemplateId: trustTrainingTemplate._id,
+        })
+      : [];
+
+    const activeSession = trainingSessions.find((session) => session.status === "active") ?? null;
+    const completedSessions = trainingSessions.filter((session) => hasAcceptedMemoryConsent(session));
+    const latestCompletedSession = completedSessions[0] ?? null;
+    const latestPublishedSession =
+      trainingSessions.find((session) => publishedSessionIds.has(`${session._id}`)) ?? null;
+
+    const now = Date.now();
+    const todayDayKey = getUtcDayKey(now);
+    const completedToday = latestCompletedSession
+      ? getUtcDayKey(getCompletedAtTimestamp(latestCompletedSession)) === todayDayKey
+      : false;
+    const publishedToday = latestPublishedSession
+      ? getUtcDayKey(getCompletedAtTimestamp(latestPublishedSession)) === todayDayKey
+      : false;
+    const latestCompletedDayKey = latestCompletedSession
+      ? getUtcDayKey(getCompletedAtTimestamp(latestCompletedSession))
+      : todayDayKey;
+
+    return {
+      platformOrgId,
+      platformOrgName: platformOrg.name,
+      trainingChannel: PLATFORM_TRAINING_CHANNEL,
+      parityMode: PLATFORM_TRAINING_PARITY_MODE,
+      trustTrainingTemplateId: trustTrainingTemplate?._id ?? null,
+      customerBaselineTemplateId: customerBaselineTemplate?._id ?? null,
+      customerTemplateLink: buildCustomerTemplateLink(customerBaselineTemplate?._id ?? null),
+      startGuardToken: buildStartTrainingConfirmationToken(todayDayKey),
+      publishGuardToken: buildPublishTrainingConfirmationToken(latestCompletedDayKey),
+      needsTemplateSeed: !trustTrainingTemplate || !customerBaselineTemplate,
+      canStartTraining: Boolean(!activeSession && !publishedToday),
+      completedToday,
+      publishedToday,
+      activeSession: activeSession
+        ? {
+            sessionId: activeSession._id,
+            startedAt: activeSession.startedAt,
+            agentId: activeSession.agentId,
+          }
+        : null,
+      latestCompletedSession: latestCompletedSession
+        ? {
+            sessionId: latestCompletedSession._id,
+            startedAt: latestCompletedSession.startedAt,
+            completedAt: getCompletedAtTimestamp(latestCompletedSession),
+            contentDNAId: getSessionContentDNAId(latestCompletedSession),
+            isPublished: publishedSessionIds.has(`${latestCompletedSession._id}`),
+          }
+        : null,
+      parityChecklist: [
+        "Use the trust-training template and guided interview runtime used by customer flows.",
+        "Require accepted memory consent before publishing platform artifacts.",
+        "Record explicit operator intent for every platform-wide training publish action.",
+      ],
+      recentSessions: trainingSessions.slice(0, 7).map((session) => ({
+        sessionId: session._id,
+        status: session.status,
+        startedAt: session.startedAt,
+        completedAt: getCompletedAtTimestamp(session),
+        contentDNAId: getSessionContentDNAId(session),
+        memoryConsentStatus: session.interviewState?.memoryConsent?.status ?? null,
+        isPublished: publishedSessionIds.has(`${session._id}`),
+      })),
+    };
+  },
+});
+
+export const startTrustTrainingSession = mutation({
+  args: {
+    sessionId: v.string(),
+    confirmationToken: v.string(),
+    parityChecklistAccepted: v.boolean(),
+    operatorNote: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+
+    const platformOrgId = getPlatformOrgId();
+    const platformOrg = await ctx.db.get(platformOrgId);
+    if (!platformOrg) {
+      throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+    }
+
+    const now = Date.now();
+    const dayKey = getUtcDayKey(now);
+    assertOperatorSafeguards({
+      providedToken: args.confirmationToken,
+      expectedToken: buildStartTrainingConfirmationToken(dayKey),
+      parityChecklistAccepted: args.parityChecklistAccepted,
+      operatorNote: args.operatorNote,
+    });
+
+    const { trustTrainingTemplateId, customerBaselineTemplateId } =
+      await ensureTrustTrainingTemplates(ctx, platformOrgId, now);
+
+    const publishedSessionIds = await getPublishedSessionIdSet(ctx, platformOrgId);
+    const trainingSessions = await getTrustTrainingSessions(ctx, {
+      organizationId: platformOrgId,
+      trustTrainingTemplateId,
+    });
+
+    const activeSession = trainingSessions.find((session) => session.status === "active");
+    if (activeSession) {
+      return {
+        success: true,
+        alreadyActive: true,
+        sessionId: activeSession._id,
+        trustTrainingTemplateId,
+      };
+    }
+
+    const publishedToday = trainingSessions.some(
+      (session) =>
+        publishedSessionIds.has(`${session._id}`) &&
+        getUtcDayKey(getCompletedAtTimestamp(session)) === dayKey,
+    );
+    if (publishedToday) {
+      throw new Error("A platform trust-training session is already published for today.");
+    }
+
+    const startResult = await ctx.runMutation(
+      getGeneratedApi().api.ai.interviewRunner.startInterview,
+      {
+        sessionId: args.sessionId,
+        templateId: trustTrainingTemplateId,
+        organizationId: platformOrgId,
+        channel: PLATFORM_TRAINING_CHANNEL,
+        externalContactIdentifier: `${PLATFORM_TRAINING_CHANNEL}:${dayKey}:${now}`,
+      },
+    );
+
+    const trainingSessionId = startResult.sessionId as Id<"agentSessions">;
+    const trainingSession = await ctx.db.get(trainingSessionId);
+    if (!trainingSession) {
+      throw new Error("Training session was created but could not be loaded.");
+    }
+
+    await ctx.db.insert("objectActions", {
+      organizationId: platformOrgId,
+      objectId: trustTrainingTemplateId,
+      actionType: "platform_training_session_started",
+      actionData: {
+        sessionId: `${trainingSessionId}`,
+        initiatedBy: `${userId}`,
+        operatorNote: args.operatorNote.trim(),
+        dayKey,
+        parityMode: PLATFORM_TRAINING_PARITY_MODE,
+      },
+      performedBy: userId,
+      performedAt: now,
+    });
+
+    await insertAdminTrustEvent(ctx, {
+      eventName: "trust.admin.training_session_started.v1",
+      organizationId: platformOrgId,
+      trainingSessionId,
+      actorId: userId,
+      platformAgentId: trainingSession.agentId,
+      trainingTemplateId: trustTrainingTemplateId,
+      customerTemplateLink: buildCustomerTemplateLink(customerBaselineTemplateId),
+    });
+
+    return {
+      success: true,
+      sessionId: trainingSessionId,
+      trustTrainingTemplateId,
+      customerBaselineTemplateId,
+      startedAt: trainingSession.startedAt,
+      firstQuestion: startResult.firstQuestion,
+    };
+  },
+});
+
+export const publishTrustTrainingSession = mutation({
+  args: {
+    sessionId: v.string(),
+    trainingSessionId: v.id("agentSessions"),
+    confirmationToken: v.string(),
+    parityChecklistAccepted: v.boolean(),
+    operatorNote: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+
+    const platformOrgId = getPlatformOrgId();
+    const platformOrg = await ctx.db.get(platformOrgId);
+    if (!platformOrg) {
+      throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+    }
+
+    const trainingSession = await ctx.db.get(args.trainingSessionId);
+    if (!trainingSession) {
+      throw new Error("Training session not found.");
+    }
+    if (trainingSession.organizationId !== platformOrgId) {
+      throw new Error("Training session does not belong to the platform org.");
+    }
+    if (trainingSession.channel !== PLATFORM_TRAINING_CHANNEL) {
+      throw new Error("Training session channel mismatch.");
+    }
+    if (!trainingSession.interviewTemplateId) {
+      throw new Error("Training session is missing template metadata.");
+    }
+
+    const tokenDayKey = getUtcDayKey(getCompletedAtTimestamp(trainingSession));
+    assertOperatorSafeguards({
+      providedToken: args.confirmationToken,
+      expectedToken: buildPublishTrainingConfirmationToken(tokenDayKey),
+      parityChecklistAccepted: args.parityChecklistAccepted,
+      operatorNote: args.operatorNote,
+    });
+
+    if (!hasAcceptedMemoryConsent(trainingSession)) {
+      throw new Error("Training session must be complete with accepted memory consent before publish.");
+    }
+
+    const contentDNAIdRaw = getSessionContentDNAId(trainingSession);
+    if (!contentDNAIdRaw) {
+      throw new Error("Training session has no content profile artifact to publish.");
+    }
+    const contentDNAId = contentDNAIdRaw as Id<"objects">;
+
+    const completionActions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", platformOrgId).eq("actionType", "platform_training_session_completed")
+      )
+      .collect();
+    const alreadyCompleted = completionActions.some(
+      (action) => getActionSessionId(action) === `${args.trainingSessionId}`,
+    );
+    if (alreadyCompleted) {
+      return {
+        success: true,
+        alreadyPublished: true,
+        sessionId: args.trainingSessionId,
+        contentDNAId,
+      };
+    }
+
+    const now = Date.now();
+    const customerTemplate = await getTemplateByName(
+      ctx,
+      platformOrgId,
+      CUSTOMER_TRUST_BASELINE_TEMPLATE_NAME,
+    );
+    const customerTemplateLink = buildCustomerTemplateLink(customerTemplate?._id ?? null);
+
+    await ctx.db.insert("objectActions", {
+      organizationId: platformOrgId,
+      objectId: contentDNAId,
+      actionType: "platform_training_artifact_published",
+      actionData: {
+        sessionId: `${args.trainingSessionId}`,
+        templateId: `${trainingSession.interviewTemplateId}`,
+        operatorNote: args.operatorNote.trim(),
+        parityMode: PLATFORM_TRAINING_PARITY_MODE,
+        customerTemplateLink,
+      },
+      performedBy: userId,
+      performedAt: now,
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: platformOrgId,
+      objectId: contentDNAId,
+      actionType: "platform_training_session_completed",
+      actionData: {
+        sessionId: `${args.trainingSessionId}`,
+        templateId: `${trainingSession.interviewTemplateId}`,
+        completedAt: getCompletedAtTimestamp(trainingSession),
+        operatorNote: args.operatorNote.trim(),
+      },
+      performedBy: userId,
+      performedAt: now,
+    });
+
+    await insertAdminTrustEvent(ctx, {
+      eventName: "trust.admin.training_artifact_published.v1",
+      organizationId: platformOrgId,
+      trainingSessionId: args.trainingSessionId,
+      actorId: userId,
+      platformAgentId: trainingSession.agentId,
+      trainingTemplateId: trainingSession.interviewTemplateId,
+      customerTemplateLink,
+    });
+
+    await insertAdminTrustEvent(ctx, {
+      eventName: "trust.admin.training_session_completed.v1",
+      organizationId: platformOrgId,
+      trainingSessionId: args.trainingSessionId,
+      actorId: userId,
+      platformAgentId: trainingSession.agentId,
+      trainingTemplateId: trainingSession.interviewTemplateId,
+      customerTemplateLink,
+    });
+
+    return {
+      success: true,
+      alreadyPublished: false,
+      sessionId: args.trainingSessionId,
+      contentDNAId,
+      publishedAt: now,
     };
   },
 });

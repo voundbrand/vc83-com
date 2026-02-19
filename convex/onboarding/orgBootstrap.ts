@@ -48,6 +48,20 @@ export const createMinimalOrg = internalMutation({
       updatedAt: now,
     });
 
+    await ctx.db.insert("auditLogs", {
+      organizationId: orgId,
+      action: "onboarding.telegram_org_bootstrap.create",
+      resource: "organizations",
+      resourceId: String(orgId),
+      metadata: {
+        source: args.source,
+        industry: args.industry,
+        telegramChatId: args.telegramChatId,
+      },
+      success: true,
+      createdAt: now,
+    });
+
     return orgId;
   },
 });

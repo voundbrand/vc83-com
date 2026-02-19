@@ -94,6 +94,39 @@ export const run = internalAction({
 
     console.log("[completeOnboarding] Created org:", orgId);
 
+    let identityClaimToken: string | null = null;
+    let identityClaimLink: string | null = null;
+    try {
+      await ctx.runMutation(internalApi.onboarding.identityClaims.syncTelegramIdentityLedger, {
+        telegramChatId: args.telegramChatId,
+        organizationId: orgId,
+      });
+
+      const claimTokenResult = await ctx.runMutation(
+        internalApi.onboarding.identityClaims.issueTelegramOrgClaimToken,
+        {
+          telegramChatId: args.telegramChatId,
+          organizationId: orgId,
+          issuedBy: "complete_onboarding",
+        }
+      ) as { claimToken?: string } | null;
+
+      identityClaimToken =
+        claimTokenResult?.claimToken && claimTokenResult.claimToken.length > 0
+          ? claimTokenResult.claimToken
+          : null;
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+      if (appUrl && identityClaimToken) {
+        identityClaimLink =
+          `${appUrl}/api/auth/oauth-signup` +
+          `?provider=google&sessionType=platform` +
+          `&identityClaimToken=${encodeURIComponent(identityClaimToken)}`;
+      }
+    } catch (claimTokenError) {
+      console.error("[completeOnboarding] Failed to issue Telegram org claim token:", claimTokenError);
+    }
+
     // 3. Seed credits
     try {
       await ctx.runMutation(
@@ -175,6 +208,20 @@ export const run = internalAction({
           }),
         });
         console.log("[completeOnboarding] Intro sent via Telegram");
+
+        if (identityClaimLink) {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: args.telegramChatId,
+              text:
+                "When you're ready to use the web dashboard, claim this workspace with your account:\n" +
+                identityClaimLink,
+            }),
+          });
+          console.log("[completeOnboarding] Claim link sent via Telegram");
+        }
       } catch (e) {
         console.error("[completeOnboarding] Telegram intro failed (non-blocking):", e);
       }
@@ -211,6 +258,8 @@ export const run = internalAction({
       organizationId: orgId,
       agentId: agentResult.agentId,
       agentName,
+      identityClaimToken: identityClaimToken || undefined,
+      identityClaimLink: identityClaimLink || undefined,
     };
   },
 });

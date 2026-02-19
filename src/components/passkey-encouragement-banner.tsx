@@ -92,7 +92,7 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
       className="border-2 p-4 mb-4 animate-fade-in"
       style={{
         backgroundColor: 'var(--info)',
-        borderColor: 'var(--win95-border)',
+        borderColor: 'var(--shell-border)',
         opacity: 0.95,
       }}
     >
@@ -114,8 +114,8 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
               disabled={isSettingUp}
               className="beveled-button px-3 py-1.5 text-xs font-bold disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--win95-bg-light)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--shell-surface-elevated)',
+                color: 'var(--shell-text)',
               }}
             >
               {isSettingUp ? t("ui.login.passkey_banner.button_setting_up") : t("ui.login.passkey_banner.button_setup")}

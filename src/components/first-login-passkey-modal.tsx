@@ -95,16 +95,16 @@ export function FirstLoginPasskeyModal({
       <div
         className="border-4 shadow-lg max-w-md w-full mx-4"
         style={{
-          borderColor: 'var(--win95-border)',
-          background: 'var(--win95-bg)',
+          borderColor: 'var(--shell-border)',
+          background: 'var(--shell-surface)',
         }}
       >
         {/* Modal Header */}
         <div
           className="px-3 py-2 flex items-center justify-between"
           style={{
-            backgroundColor: 'var(--win95-highlight)',
-            color: 'var(--win95-titlebar-text)',
+            backgroundColor: 'var(--shell-accent)',
+            color: 'var(--shell-titlebar-text)',
           }}
         >
           <span className="text-sm font-bold flex items-center gap-2">
@@ -114,12 +114,12 @@ export function FirstLoginPasskeyModal({
         </div>
 
         {/* Modal Content */}
-        <div className="p-6" style={{ background: 'var(--win95-bg)' }}>
+        <div className="p-6" style={{ background: 'var(--shell-surface)' }}>
           <div className="text-center mb-6">
             <div className="inline-block p-3 rounded-full mb-3" style={{ backgroundColor: 'var(--info)', opacity: 0.1 }}>
               <Smartphone size={32} style={{ color: 'var(--info)' }} />
             </div>
-            <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--win95-text)' }}>
+            <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--shell-text)' }}>
               Add Face ID / Touch ID?
             </h2>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
@@ -129,15 +129,15 @@ export function FirstLoginPasskeyModal({
 
           {/* Benefits List */}
           <div className="mb-6 space-y-2">
-            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--shell-text)' }}>
               <Check size={12} style={{ color: 'var(--success)' }} />
               <span>Instant login with fingerprint or face</span>
             </div>
-            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--shell-text)' }}>
               <Check size={12} style={{ color: 'var(--success)' }} />
               <span>No more typing passwords</span>
             </div>
-            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--shell-text)' }}>
               <Check size={12} style={{ color: 'var(--success)' }} />
               <span>Phishing-proof security</span>
             </div>
@@ -150,8 +150,8 @@ export function FirstLoginPasskeyModal({
               disabled={isSettingUp}
               className="beveled-button w-full px-4 py-2 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               style={{
-                backgroundColor: 'var(--win95-highlight)',
-                color: 'var(--win95-titlebar-text)',
+                backgroundColor: 'var(--shell-accent)',
+                color: 'var(--shell-titlebar-text)',
               }}
             >
               {isSettingUp ? (
@@ -172,8 +172,8 @@ export function FirstLoginPasskeyModal({
               disabled={isSettingUp}
               className="beveled-button w-full px-4 py-2 text-sm font-bold"
               style={{
-                backgroundColor: 'var(--win95-button-face)',
-                color: 'var(--win95-text)',
+                backgroundColor: 'var(--shell-button-surface)',
+                color: 'var(--shell-text)',
               }}
             >
               Maybe later

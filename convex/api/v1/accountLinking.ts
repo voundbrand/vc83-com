@@ -46,7 +46,7 @@ export const confirmLinking = httpAction(async (ctx, request) => {
 
   try {
     const body = await request.json();
-    const { linkingState } = body;
+    const { linkingState, identityClaimToken } = body;
 
     if (!linkingState || typeof linkingState !== "string") {
       return jsonResponse(
@@ -102,29 +102,58 @@ export const confirmLinking = httpAction(async (ctx, request) => {
       metadata: { name: state.sourceName },
     });
 
+    const defaultOrganizationId = await ctx.runQuery(
+      internal.api.v1.accountLinkingInternal.getUserDefaultOrg,
+      { userId: state.targetUserId }
+    );
+
+    if (!defaultOrganizationId) {
+      return jsonResponse(
+        { success: false, error: "Linked account has no default organization" },
+        400,
+        origin
+      );
+    }
+
     // Create a session for the user
     const sessionId: Id<"sessions"> = await ctx.runMutation(
       internal.api.v1.oauthSignup.createPlatformSession,
       {
         userId: state.targetUserId,
         email: state.targetEmail,
-        // Get organization from user's default org
-        organizationId: await ctx.runQuery(
-          internal.api.v1.accountLinkingInternal.getUserDefaultOrg,
-          { userId: state.targetUserId }
-        ),
+        organizationId: defaultOrganizationId,
       }
     );
+
+    let identityClaim:
+      | {
+          success: boolean;
+          alreadyClaimed?: boolean;
+          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          linkedOrganizationId?: Id<"organizations">;
+          linkedSessionToken?: string;
+          errorCode?: string;
+        }
+      | undefined;
+
+    if (typeof identityClaimToken === "string" && identityClaimToken.length > 0) {
+      identityClaim = await ctx.runMutation(
+        internal.onboarding.identityClaims.consumeIdentityClaimToken,
+        {
+          signedToken: identityClaimToken,
+          userId: state.targetUserId,
+          organizationId: defaultOrganizationId,
+          claimSource: "account_linking_confirm",
+        }
+      );
+    }
 
     // Get user profile for response
     const user = await ctx.runQuery(
       internal.api.v1.mobileOAuthInternal.getUserProfileForMobile,
       {
         userId: state.targetUserId,
-        organizationId: await ctx.runQuery(
-          internal.api.v1.accountLinkingInternal.getUserDefaultOrg,
-          { userId: state.targetUserId }
-        ),
+        organizationId: defaultOrganizationId,
       }
     );
 
@@ -136,6 +165,7 @@ export const confirmLinking = httpAction(async (ctx, request) => {
         email: state.targetEmail,
         linkedProvider: state.sourceProvider,
         user,
+        identityClaim,
       },
       200,
       origin
@@ -254,6 +284,110 @@ export const getLinkingStatus = httpAction(async (ctx, request) => {
       {
         success: false,
         error: error instanceof Error ? error.message : "Failed to get linking status",
+      },
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/auth/link-account/claim
+ *
+ * Claims an anonymous identity token for an already-authenticated platform session.
+ * This allows idempotent "claim after login/signup" without replaying auth flows.
+ */
+export const claimIdentity = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+
+  try {
+    const body = await request.json();
+    const { sessionId, identityClaimToken } = body;
+
+    if (!sessionId || typeof sessionId !== "string") {
+      return jsonResponse(
+        { success: false, error: "Missing sessionId" },
+        400,
+        origin
+      );
+    }
+
+    if (!identityClaimToken || typeof identityClaimToken !== "string") {
+      return jsonResponse(
+        { success: false, error: "Missing identityClaimToken" },
+        400,
+        origin
+      );
+    }
+
+    const sessionLookup = await ctx.runQuery(
+      internal.api.v1.accountLinkingInternal.getPlatformSession,
+      { sessionId }
+    ) as
+      | { status: "invalid_session_id" }
+      | { status: "invalid_or_expired" }
+      | {
+          status: "active";
+          session: {
+            userId: Id<"users">;
+            organizationId: Id<"organizations">;
+          };
+        };
+
+    if (sessionLookup.status === "invalid_session_id") {
+      return jsonResponse(
+        { success: false, error: "Invalid sessionId" },
+        400,
+        origin
+      );
+    }
+
+    if (sessionLookup.status !== "active") {
+      return jsonResponse(
+        { success: false, error: "Invalid or expired session" },
+        401,
+        origin
+      );
+    }
+
+    const session = sessionLookup.session;
+
+    const claimResult = await ctx.runMutation(
+      internal.onboarding.identityClaims.consumeIdentityClaimToken,
+      {
+        signedToken: identityClaimToken,
+        userId: session.userId,
+        organizationId: session.organizationId,
+        claimSource: "account_linking_claim_endpoint",
+      }
+    );
+
+    if (!claimResult.success) {
+      return jsonResponse(
+        {
+          success: false,
+          error: "Unable to claim identity token",
+          errorCode: claimResult.errorCode,
+        },
+        400,
+        origin
+      );
+    }
+
+    return jsonResponse(
+      {
+        success: true,
+        claim: claimResult,
+      },
+      200,
+      origin
+    );
+  } catch (error) {
+    console.error("[Account Linking] Claim error:", error);
+    return jsonResponse(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to claim identity token",
       },
       500,
       origin

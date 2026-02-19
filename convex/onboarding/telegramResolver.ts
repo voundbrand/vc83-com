@@ -30,6 +30,48 @@ function getPlatformOrgId(): Id<"organizations"> {
   return id as Id<"organizations">;
 }
 
+async function emitTelegramFunnelEvent(
+  ctx: any,
+  args: {
+    eventName:
+      | "onboarding.funnel.first_touch"
+      | "onboarding.funnel.activation";
+    organizationId: Id<"organizations">;
+    telegramChatId: string;
+    eventKey: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  await (ctx.runMutation as Function)(
+    internalApi.onboarding.funnelEvents.emitFunnelEvent,
+    {
+      eventName: args.eventName,
+      channel: "telegram",
+      organizationId: args.organizationId,
+      telegramChatId: args.telegramChatId,
+      eventKey: args.eventKey,
+      metadata: args.metadata,
+    }
+  );
+}
+
+async function logTelegramAbuseSignal(
+  ctx: any,
+  args: {
+    organizationId?: Id<"organizations">;
+    telegramChatId: string;
+    reason: string;
+    startParam?: string;
+  }
+) {
+  await (ctx.runMutation as Function)(internalApi.onboarding.telegramResolver.logAbuseSignal, {
+    organizationId: args.organizationId,
+    telegramChatId: args.telegramChatId,
+    reason: args.reason,
+    startParam: args.startParam,
+  });
+}
+
 /**
  * Resolve a Telegram chat_id to an organization.
  * Called by the bridge script and webhook handler before routing to the agent pipeline.
@@ -42,12 +84,23 @@ export const resolveChatToOrg = action({
   },
   handler: async (ctx, args) => {
     const PLATFORM_ORG_ID = getPlatformOrgId();
+    let startParam = args.startParam?.trim();
+
+    if (startParam && startParam.length > 160) {
+      await logTelegramAbuseSignal(ctx, {
+        organizationId: PLATFORM_ORG_ID,
+        telegramChatId: args.telegramChatId,
+        reason: "oversized_start_param",
+        startParam,
+      });
+      startParam = undefined;
+    }
 
     // Handle /start deep links
-    if (args.startParam) {
+    if (startParam) {
       // ── Path B: Dashboard "Connect Telegram" link (link_{token}) ──
-      if (args.startParam.startsWith("link_")) {
-        const token = args.startParam.slice(5);
+      if (startParam.startsWith("link_")) {
+        const token = startParam.slice(5);
 
         const tokenResult = (await (ctx.runQuery as Function)(
           internalApi.onboarding.telegramLinking.lookupLinkToken,
@@ -118,13 +171,20 @@ export const resolveChatToOrg = action({
             routeToSystemBot: false,
           };
         }
+
+        await logTelegramAbuseSignal(ctx, {
+          organizationId: PLATFORM_ORG_ID,
+          telegramChatId: args.telegramChatId,
+          reason: "invalid_or_expired_link_token",
+          startParam,
+        });
         // Token not found or expired — fall through to normal flow
       }
 
       // ── Sub-org deep link routing (existing behavior) ──
       const deepLinkResult = (await (ctx.runQuery as Function)(
         internalApi.onboarding.agencySubOrgBootstrap.resolveDeepLink,
-        { slug: args.startParam }
+        { slug: startParam }
       )) as { organizationId: Id<"organizations"> } | null;
 
       if (deepLinkResult) {
@@ -176,8 +236,8 @@ export const resolveChatToOrg = action({
             if (parentMappings && String(parentMappings.organizationId) === String(targetOrg.parentOrganizationId)) {
               testingMode = true;
               isExternalCustomer = false;
-            }
-          }
+	    }
+    }
         } catch {
           // Non-fatal — testing mode detection is optional
         }
@@ -207,6 +267,19 @@ export const resolveChatToOrg = action({
         internalApi.credits.index.grantDailyCreditsInternalMutation,
         { organizationId: existing.organizationId }
       );
+      await (ctx.runMutation as Function)(
+        internalApi.onboarding.identityClaims.syncTelegramIdentityLedger,
+        {
+          telegramChatId: args.telegramChatId,
+          organizationId: existing.organizationId,
+        }
+      );
+      await emitTelegramFunnelEvent(ctx, {
+        eventName: "onboarding.funnel.activation",
+        organizationId: existing.organizationId,
+        telegramChatId: args.telegramChatId,
+        eventKey: `onboarding.funnel.activation:telegram:${args.telegramChatId}`,
+      });
       return {
         organizationId: existing.organizationId,
         isNew: false,
@@ -231,6 +304,16 @@ export const resolveChatToOrg = action({
         senderName: args.senderName,
       }
     );
+
+    await emitTelegramFunnelEvent(ctx, {
+      eventName: "onboarding.funnel.first_touch",
+      organizationId: PLATFORM_ORG_ID,
+      telegramChatId: args.telegramChatId,
+      eventKey: `onboarding.funnel.first_touch:telegram:${args.telegramChatId}`,
+      metadata: {
+        routeToSystemBot: true,
+      },
+    });
 
     return {
       organizationId: PLATFORM_ORG_ID,
@@ -295,6 +378,72 @@ export const activateMapping = internalMutation({
     await ctx.db.patch(mapping._id, {
       organizationId: args.organizationId,
       status: "active",
+    });
+
+    const now = Date.now();
+    const ledgerEntry = await ctx.db
+      .query("anonymousIdentityLedger")
+      .withIndex("by_telegram_chat", (q) => q.eq("telegramChatId", args.telegramChatId))
+      .first();
+
+    const claimFields =
+      mapping.userId
+        ? {
+            claimStatus: "claimed" as const,
+            claimedByUserId: mapping.userId,
+            claimedOrganizationId: args.organizationId,
+            claimedAt: now,
+          }
+        : {
+            claimStatus: "unclaimed" as const,
+            claimedByUserId: undefined,
+            claimedOrganizationId: undefined,
+            claimedAt: undefined,
+          };
+
+    if (ledgerEntry) {
+      await ctx.db.patch(ledgerEntry._id, {
+        organizationId: args.organizationId,
+        ...claimFields,
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+      return;
+    }
+
+    await ctx.db.insert("anonymousIdentityLedger", {
+      identityKey: `telegram:${args.telegramChatId}`,
+      channel: "telegram",
+      organizationId: args.organizationId,
+      telegramChatId: args.telegramChatId,
+      ...claimFields,
+      createdAt: now,
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+  },
+});
+
+export const logAbuseSignal = internalMutation({
+  args: {
+    organizationId: v.optional(v.id("organizations")),
+    telegramChatId: v.string(),
+    reason: v.string(),
+    startParam: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("auditLogs", {
+      organizationId: args.organizationId,
+      action: "onboarding.abuse.signal",
+      resource: "telegramResolver",
+      resourceId: args.telegramChatId,
+      metadata: {
+        channel: "telegram",
+        reason: args.reason,
+        startParam: args.startParam,
+      },
+      success: false,
+      createdAt: Date.now(),
     });
   },
 });

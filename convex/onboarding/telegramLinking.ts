@@ -16,11 +16,6 @@ import { internalMutation, internalQuery, mutation, query } from "../_generated/
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
-const { internal: internalApi } = require("../_generated/api") as {
-  internal: Record<string, Record<string, Record<string, unknown>>>;
-};
-
 // ============================================================================
 // PATH B: DASHBOARD DEEP LINK — Token Generation & Validation
 // ============================================================================
@@ -298,6 +293,56 @@ export const verifyCodeAndLink = internalMutation({
             status: "active",
             userId,
             createdAt: Date.now(),
+          });
+        }
+
+        const now = Date.now();
+        const ledgerEntry = await ctx.db
+          .query("anonymousIdentityLedger")
+          .withIndex("by_telegram_chat", (q) => q.eq("telegramChatId", args.telegramChatId))
+          .first();
+
+        if (ledgerEntry) {
+          await ctx.db.patch(ledgerEntry._id, {
+            organizationId: targetOrgId,
+            claimStatus: "claimed",
+            claimedByUserId: userId,
+            claimedOrganizationId: targetOrgId,
+            claimedAt: ledgerEntry.claimedAt || now,
+            updatedAt: now,
+            lastActivityAt: now,
+          });
+        } else {
+          await ctx.db.insert("anonymousIdentityLedger", {
+            identityKey: `telegram:${args.telegramChatId}`,
+            channel: "telegram",
+            organizationId: targetOrgId,
+            telegramChatId: args.telegramChatId,
+            claimStatus: "claimed",
+            claimedByUserId: userId,
+            claimedOrganizationId: targetOrgId,
+            claimedAt: now,
+            createdAt: now,
+            updatedAt: now,
+            lastActivityAt: now,
+          });
+        }
+
+        const pendingClaimTokens = await ctx.db
+          .query("anonymousClaimTokens")
+          .withIndex("by_telegram_chat", (q) => q.eq("telegramChatId", args.telegramChatId))
+          .filter((q) => q.eq(q.field("status"), "issued"))
+          .collect();
+
+        for (const token of pendingClaimTokens) {
+          await ctx.db.patch(token._id, {
+            status: "revoked",
+            metadata: {
+              ...(token.metadata || {}),
+              revokedAt: now,
+              revokeReason: "telegram_email_link_completed",
+              revokedByUserId: userId,
+            },
           });
         }
 

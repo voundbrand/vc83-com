@@ -6,6 +6,7 @@
  */
 
 import { internalQuery } from "../../_generated/server";
+import type { Doc, Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
 
 /**
@@ -30,5 +31,46 @@ export const getUserDefaultOrg = internalQuery({
     }
 
     return membership.organizationId;
+  },
+});
+
+/**
+ * Resolve and validate a platform session used by claim endpoint.
+ */
+export type PlatformSessionLookupResult =
+  | { status: "invalid_session_id" }
+  | { status: "invalid_or_expired" }
+  | {
+      status: "active";
+      session: Doc<"sessions">;
+    };
+
+type PlatformSessionLookupDb = {
+  normalizeId: (tableName: "sessions", id: string) => Id<"sessions"> | null;
+  get: (id: Id<"sessions">) => Promise<Doc<"sessions"> | null>;
+};
+
+export async function resolvePlatformSessionForClaim(
+  db: PlatformSessionLookupDb,
+  sessionId: string,
+  now = Date.now()
+): Promise<PlatformSessionLookupResult> {
+  const normalizedSessionId = db.normalizeId("sessions", sessionId);
+  if (!normalizedSessionId) {
+    return { status: "invalid_session_id" };
+  }
+
+  const session = await db.get(normalizedSessionId);
+  if (!session || session.expiresAt < now) {
+    return { status: "invalid_or_expired" };
+  }
+
+  return { status: "active", session };
+}
+
+export const getPlatformSession = internalQuery({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args) => {
+    return resolvePlatformSessionForClaim(ctx.db, args.sessionId);
   },
 });
