@@ -22,6 +22,7 @@ async function getVisibleLauncherIds(page: Page, timeout = 10_000) {
   const menuPanel = page.getByTestId("windows-menu-panel").first();
   const launchers = menuPanel.locator('[data-testid^="windows-menu-launcher-"]');
 
+  // Launcher inventory can vary by auth state and runtime app availability.
   await expect
     .poll(async () => launchers.count(), { timeout })
     .toBeGreaterThan(0);
