@@ -53,6 +53,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_CONVEX_URL: "https://agreeable-lion-828.convex.cloud"
       NEXT_PUBLIC_API_ENDPOINT_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3000"
       ATX_SESSION_ID: ${{ secrets.ATX_SESSION_ID }}
 
     steps:
@@ -71,6 +72,29 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Start Next.js server
+        run: |
+          nohup npx next dev --port 3000 --hostname 127.0.0.1 > /tmp/next-mobile-shell.log 2>&1 &
+          echo $! > /tmp/next-mobile-shell.pid
+
+      - name: Wait for Next.js server
+        run: |
+          for i in $(seq 1 300); do
+            if curl -fsS "$PLAYWRIGHT_BASE_URL/" >/dev/null; then
+              echo "Next.js server is ready"
+              exit 0
+            fi
+            if [ -f /tmp/next-mobile-shell.pid ] && ! kill -0 "$(cat /tmp/next-mobile-shell.pid)" 2>/dev/null; then
+              echo "Next.js server exited early"
+              tail -n 200 /tmp/next-mobile-shell.log || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Timed out waiting for Next.js server"
+          tail -n 200 /tmp/next-mobile-shell.log || true
+          exit 1
+
       - name: Run mobile shell QA
         run: npm run test:e2e:mobile
 
@@ -79,6 +103,17 @@ jobs:
 
       - name: Run authenticated mobile shell QA
         run: npm run test:e2e:mobile:auth
+
+      - name: Print Next.js server log on failure
+        if: failure()
+        run: tail -n 300 /tmp/next-mobile-shell.log || true
+
+      - name: Stop Next.js server
+        if: always()
+        run: |
+          if [ -f /tmp/next-mobile-shell.pid ]; then
+            kill "$(cat /tmp/next-mobile-shell.pid)" || true
+          fi
 
       - name: Upload Playwright artifacts
         if: always()
