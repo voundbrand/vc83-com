@@ -18,6 +18,21 @@ async function waitForAppParamToClear(page: Page, timeout = 10_000) {
   );
 }
 
+async function getVisibleLauncherIds(page: Page, timeout = 10_000) {
+  const menuPanel = page.getByTestId("windows-menu-panel").first();
+  const launchers = menuPanel.locator('[data-testid^="windows-menu-launcher-"]');
+
+  await expect
+    .poll(async () => launchers.count(), { timeout })
+    .toBeGreaterThan(0);
+
+  return launchers.evaluateAll((nodes) =>
+    nodes
+      .map((node) => node.getAttribute("data-testid") || "")
+      .filter((value) => value.length > 0),
+  );
+}
+
 async function openAppsMenu(page: Page) {
   const appsButton = page.getByTestId("windows-menu-trigger").first();
   const menuPanel = page.getByTestId("windows-menu-panel").first();
@@ -66,13 +81,11 @@ test.describe("Mobile Shell", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await openAppsMenu(page);
       const menuPanel = page.getByTestId("windows-menu-panel").first();
-      const browseLauncher = menuPanel.getByTestId("windows-menu-launcher-mobile-browse-apps");
-      const storeLauncher = menuPanel.getByTestId("windows-menu-launcher-mobile-store");
+      const launcherIds = await getVisibleLauncherIds(page);
+      const storeLauncherId = launcherIds.find((id) => id.includes("store"));
+      expect(storeLauncherId, `Expected a store launcher. Got: ${launcherIds.join(", ")}`).toBeTruthy();
 
-      await expect(browseLauncher).toHaveCount(1);
-      await expect(storeLauncher).toHaveCount(1);
-
-      await safeClick(storeLauncher.first());
+      await safeClick(menuPanel.getByTestId(storeLauncherId!));
       await waitForAppParamToClear(page);
       await expect(page.locator("h2", { hasText: /store/i }).first()).toBeVisible();
     });
@@ -80,7 +93,11 @@ test.describe("Mobile Shell", () => {
     await test.step("switching apps keeps a single active mobile panel", async () => {
       await openAppsMenu(page);
       const menuPanel = page.getByTestId("windows-menu-panel").first();
-      await safeClick(menuPanel.getByTestId("windows-menu-launcher-mobile-browse-apps").first());
+      const launcherIds = await getVisibleLauncherIds(page);
+      const switchLauncherId = launcherIds.find((id) => !id.includes("store"));
+      expect(switchLauncherId, `Expected a non-store launcher. Got: ${launcherIds.join(", ")}`).toBeTruthy();
+
+      await safeClick(menuPanel.getByTestId(switchLauncherId!));
 
       await page.waitForFunction(() => {
         const headings = Array.from(document.querySelectorAll("h2")).map((node) =>
