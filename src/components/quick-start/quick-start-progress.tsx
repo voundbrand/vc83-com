@@ -24,9 +24,9 @@ export function QuickStartProgressComponent({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-gray-400 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] w-full max-w-lg">
         {/* Title Bar */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-3 py-2 flex items-center justify-between border-b-4 border-gray-400">
+        <div className="bg-gradient-to-r from-violet-600 to-violet-700 px-3 py-2 flex items-center justify-between border-b-4 border-gray-400">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-purple-800 border-2 border-purple-900" />
+            <div className="w-4 h-4 bg-violet-800 border-2 border-violet-900" />
             <span className="text-white font-bold text-sm">
               {isComplete
                 ? "Setup Complete!"
@@ -56,7 +56,7 @@ export function QuickStartProgressComponent({
               </div>
               <div className="h-8 bg-white border-4 border-gray-400 shadow-inner">
                 <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-violet-500 to-violet-600 transition-all duration-300"
                   style={{ width: `${progress.progress}%` }}
                 />
               </div>
@@ -86,7 +86,7 @@ export function QuickStartProgressComponent({
                     step.status === "completed"
                       ? "bg-green-50 border-green-400"
                       : step.status === "in_progress"
-                      ? "bg-purple-50 border-purple-400"
+                      ? "bg-violet-50 border-violet-400"
                       : step.status === "error"
                       ? "bg-red-50 border-red-400"
                       : "bg-gray-50 border-gray-300"
@@ -100,7 +100,7 @@ export function QuickStartProgressComponent({
                       <Check className="w-3 h-3" />
                     </div>
                   ) : step.status === "in_progress" ? (
-                    <div className="w-5 h-5 bg-purple-600 border-2 border-purple-800 flex items-center justify-center">
+                    <div className="w-5 h-5 bg-violet-600 border-2 border-violet-800 flex items-center justify-center">
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                     </div>
                   ) : step.status === "error" ? (
@@ -143,7 +143,7 @@ export function QuickStartProgressComponent({
           {(isComplete || hasError) && (
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
+              className="w-full px-4 py-2 bg-violet-600 text-white border-4 border-violet-800 font-bold text-sm hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
             >
               CLOSE
             </button>

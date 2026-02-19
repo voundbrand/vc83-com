@@ -1,7 +1,7 @@
 # Legacy Style Eradication Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/legacy-style-eradication`  
-**Last updated:** 2026-02-18
+**Last updated:** 2026-02-19
 
 ---
 
@@ -24,9 +24,10 @@ Non-negotiable constraints:
 - Fresh full-project regex scan (post-edit) on `src`, `convex`, and `scripts`: `2955` matches across `244` files.
 - Pass delta (pre-edit -> post-edit): `-958` matches and `-30` files.
 - Legacy button class occurrences in `src` moved from `333` to `300` (`-33`) after replacing remaining `beveled-button*` usage in `integrations-window`.
-- Priority-window migration status (products/events/checkout/media-library/integrations): `0` matches for `retro-button|beveled-button|var(--win95-|--win95-`.
+- Priority-window migration status (integrations/super-admin/web-publishing/org-owner/ai-chat/products/booking/events/benefits/checkout/media-library): `0` matches for queue legacy patterns in migrated families.
 - Current gate result remains **triggered** (`2955` matches, `244` files; thresholds are `>=200` matches OR `>=40` files).
-- `LSE-012` is not `DONE` (currently `BLOCKED`), so Lane `G` closeout remains blocked by dependency and failing `V-LEGACY`.
+- Lane `F` residual snapshot refresh on 2026-02-19 (`/Users/foundbrand_001/Development/vc83-com/tmp/reports/legacy-style-lse012-lanef-residual.txt`): `1523` scoped matches across `src/components` + `convex` + `scripts` (excluding `scripts/training/output`), with `0` matches in shared non-window `src/components`, `0` in `convex`, and `5` intentional guard literals in `scripts`.
+- `LSE-012` is now `DONE`; `LSE-013` is `READY` and Lane `G` closeout remains gated on refreshed baseline scan evidence plus unresolved `V-TYPE`/`V-LEGACY` outcomes.
 
 ---
 
@@ -53,7 +54,9 @@ Non-negotiable constraints:
 
 ## Current kickoff
 
-- Active lane/task: none (`LSE-002`, `LSE-003`, `LSE-004`, `LSE-005`, `LSE-006`, `LSE-007`, `LSE-008`, `LSE-009`, `LSE-010`, `LSE-011`, `LSE-012`, `LSE-013`, and `LSE-014` are `BLOCKED`).
-- Lane `G` checkpoint (2026-02-18): scans and verify commands were re-executed for `LSE-013`/`LSE-014`; dependency `LSE-012` is still not `DONE`, `V-TYPE` fails on `src/components/window-content/media-library-window/components/left-sidebar.tsx:32`, `V-LINT` passes with warnings, `V-UNIT` passes (`71` files, `346` tests), `V-DOCS` passes, and `V-LEGACY` fails on broad scoped debt.
-- Immediate objective: clear upstream dependency blockers (`BLK-LSE-002`, `BLK-LSE-003`, `BLK-LSE-004`) so implemented Lane `C` rows can be promoted from `BLOCKED`.
-- Next milestone: close `LSE-005..LSE-007`, then proceed to Lane `D` (`LSE-008`, `LSE-009`) and Lane `E` gating.
+- Active lane/task: none (`LSE-012` is now `DONE`; `LSE-013` is `READY`; `LSE-014` remains `BLOCKED` by dependency on `LSE-013`).
+- Lane `E` closeout reruns on 2026-02-19: scoped queue-pattern scan for Lane `E` files (`src/components/builder/*`, `src/app/builder/*`, `src/app/page.tsx`, `src/app/auth/*`, `src/components/window-content/login-window.tsx`, `src/lib/shell/url-state.ts`) is `0` for `retro-*`, `zinc-*`, `purple-*`, `--win95-*`, `var(--win95-*)`, and `data-window-style`.
+- Lane `E` verify stack reruns: `V-TYPE` pass, `V-LINT` pass with warnings (`2980`, `0` errors), `V-UNIT` pass (`89` files, `456` tests), `V-DOCS` pass, and `V-LEGACY` fail on known global debt outside Lane `E`.
+- Lane `F` closeout reruns on 2026-02-19 (`LSE-012`): shared/tail queue-pattern scan is `0` for non-window `src/components` and `convex`; scripts hits are reduced to intentional guard literals. Verify: `V-TYPE` fail (`TS2589` at `src/components/interview/template-designer.tsx:57`), `V-LINT` pass with warnings (`2987`, `0` errors), `V-UNIT` pass (`90` files, `459` tests), `V-DOCS` pass, and `V-LEGACY` fail on broad guarded baseline debt.
+- Immediate objective: execute Lane `G` at `LSE-013` to rerun baseline/full-project debt checkpoints with refreshed metrics.
+- Next milestone: complete `LSE-013`, then promote `LSE-014` for final docs/closeout synchronization.

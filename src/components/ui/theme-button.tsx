@@ -23,9 +23,9 @@ export const ThemeButton = forwardRef<HTMLButtonElement, ThemeButtonProps>(
     const baseClasses = "font-pixel transition-all";
 
     const variantClasses = {
-      default: "retro-button",
-      primary: "retro-button-primary",
-      small: "retro-button-small",
+      default: "desktop-shell-button",
+      primary: "desktop-shell-button-primary",
+      small: "desktop-shell-button-small",
     };
 
     return (

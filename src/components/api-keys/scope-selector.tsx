@@ -151,7 +151,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
             checked={hasWildcard}
             onChange={() => toggleScope("*")}
             disabled={disabled}
-            className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+            className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
           />
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
                           }}
                           onChange={() => selectAllInCategory(category)}
                           disabled={disabled}
-                          className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                          className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
                         />
                         <span className="font-semibold text-gray-900">
                           {category}
@@ -230,7 +230,7 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
                               checked={isSelected}
                               onChange={() => toggleScope(scope.value)}
                               disabled={disabled}
-                              className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 ml-6"
+                              className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500 ml-6"
                             />
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -257,21 +257,21 @@ export function ScopeSelector({ selectedScopes, onChange, disabled }: ScopeSelec
 
       {/* Permission Summary */}
       {!hasWildcard && selectedScopes.length > 0 && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <h4 className="font-semibold text-purple-900 mb-2">
+        <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
+          <h4 className="font-semibold text-violet-900 mb-2">
             Permission Summary
           </h4>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-purple-700">
+              <span className="text-violet-700">
                 <strong>{scopeSummary.total}</strong> permissions selected
               </span>
               {getRiskBadge(scopeSummary.riskLevel)}
             </div>
             <div className="space-y-1">
               {Object.entries(scopeSummary.byCategory).map(([category, count]) => (
-                <div key={category} className="flex items-center gap-2 text-purple-700">
-                  <span className="w-4 h-4 flex items-center justify-center text-purple-600">
+                <div key={category} className="flex items-center gap-2 text-violet-700">
+                  <span className="w-4 h-4 flex items-center justify-center text-violet-600">
                     <Check className="w-3 h-3" />
                   </span>
                   <span>

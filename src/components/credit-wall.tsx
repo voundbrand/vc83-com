@@ -115,7 +115,7 @@ export function CreditWall({
         <div className="flex items-center gap-1.5 ml-auto">
           <button
             onClick={onBuyCredits || (() => handleOpenStore("credits"))}
-            className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
+            className="desktop-shell-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
             style={{
               borderColor: "var(--shell-border-soft)",
               background: "var(--tone-surface-elevated)",
@@ -129,7 +129,7 @@ export function CreditWall({
           {upgrade && (
             <button
               onClick={onUpgrade || (() => handleOpenStore("plans"))}
-              className="retro-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
+              className="desktop-shell-button px-2.5 py-1 text-[11px] font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap"
               style={{
                 borderColor: "var(--shell-border-soft)",
                 background: "var(--tone-surface-elevated)",
@@ -197,10 +197,10 @@ export function CreditWall({
         {/* Quick: Buy credit pack */}
         <button
           onClick={onBuyCredits || (() => handleOpenStore("credits"))}
-          className="beveled-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
+          className="desktop-interior-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
           style={{
-            background: "var(--primary)",
-            color: "white",
+            background: "var(--button-primary-bg, var(--tone-accent))",
+            color: "var(--button-primary-text, #0f0f0f)",
           }}
         >
           <ShoppingBag size={14} />
@@ -211,7 +211,7 @@ export function CreditWall({
         {upgrade && (
           <button
             onClick={onUpgrade || (() => handleOpenStore("plans"))}
-            className="beveled-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
+            className="desktop-interior-button flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5"
             style={{
               background: "var(--shell-button-surface)",
               color: "var(--shell-text)",

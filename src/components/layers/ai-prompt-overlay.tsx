@@ -171,11 +171,11 @@ export function AIPromptOverlay({
   return (
     <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
       <div
-        className="pointer-events-auto relative flex w-[560px] max-h-[520px] flex-col rounded-xl border border-zinc-700 shadow-2xl backdrop-blur-sm"
+        className="pointer-events-auto relative flex w-[560px] max-h-[520px] flex-col rounded-xl border border-slate-700 shadow-2xl backdrop-blur-sm"
         style={{ background: "rgba(9, 9, 11, 0.97)" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600/20 text-blue-400">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -184,14 +184,14 @@ export function AIPromptOverlay({
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </span>
-            <h3 className="text-sm font-medium text-zinc-100">AI Workflow Builder</h3>
-            <kbd className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">
+            <h3 className="text-sm font-medium text-slate-100">AI Workflow Builder</h3>
+            <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
               Cmd+K
             </kbd>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-zinc-200 transition-colors"
+            className="text-slate-500 hover:text-slate-200 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -204,7 +204,7 @@ export function AIPromptOverlay({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-[120px]">
           {messages.length === 0 && !isSending && (
             <div className="text-center py-6">
-              <p className="text-xs text-zinc-400 mb-4">
+              <p className="text-xs text-slate-400 mb-4">
                 Describe the workflow you want to build, or try a suggestion:
               </p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -212,7 +212,7 @@ export function AIPromptOverlay({
                   <button
                     key={s}
                     onClick={() => handleSubmit(s)}
-                    className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs text-zinc-300 hover:border-blue-500/50 hover:text-blue-300 transition-colors"
+                    className="rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 hover:border-blue-500/50 hover:text-blue-300 transition-colors"
                   >
                     {s}
                   </button>
@@ -225,7 +225,7 @@ export function AIPromptOverlay({
             <div key={msg.id}>
               {msg.role === "user" ? (
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] rounded-lg bg-blue-600/20 border border-blue-500/30 px-3 py-2 text-xs text-zinc-200">
+                  <div className="max-w-[80%] rounded-lg bg-blue-600/20 border border-blue-500/30 px-3 py-2 text-xs text-slate-200">
                     {msg.content}
                   </div>
                 </div>
@@ -237,7 +237,7 @@ export function AIPromptOverlay({
                       {msg.error}
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 text-xs text-slate-300 leading-relaxed whitespace-pre-wrap max-h-[200px] overflow-y-auto">
                       {/* Show description or strip JSON from displayed text */}
                       {msg.workflowData?.description
                         ? msg.workflowData.description
@@ -265,8 +265,8 @@ export function AIPromptOverlay({
           ))}
 
           {isSending && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-400" />
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-600 border-t-blue-400" />
               Generating workflow...
             </div>
           )}
@@ -275,7 +275,7 @@ export function AIPromptOverlay({
         </div>
 
         {/* Input area */}
-        <div className="border-t border-zinc-800 px-5 py-3">
+        <div className="border-t border-slate-800 px-5 py-3">
           <div className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -288,7 +288,7 @@ export function AIPromptOverlay({
                 }
               }}
               placeholder="Describe your workflow..."
-              className="flex-1 resize-none rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 resize-none rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               rows={2}
               disabled={isSending}
             />
@@ -307,7 +307,7 @@ export function AIPromptOverlay({
               )}
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] text-zinc-600">
+          <p className="mt-1.5 text-[10px] text-slate-600">
             Enter to send, Shift+Enter for new line, Escape to close
           </p>
         </div>
@@ -346,7 +346,7 @@ function WorkflowPreviewCard({
           <p className="text-xs font-medium text-blue-300">
             {data.nodes.length} node{data.nodes.length !== 1 ? "s" : ""}, {data.edges.length} edge{data.edges.length !== 1 ? "s" : ""}
           </p>
-          <p className="mt-0.5 text-[10px] text-zinc-500">{summary}</p>
+          <p className="mt-0.5 text-[10px] text-slate-500">{summary}</p>
         </div>
         <button
           onClick={() => {
@@ -364,7 +364,7 @@ function WorkflowPreviewCard({
         {data.nodes.map((n) => (
           <span
             key={n.id}
-            className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
+            className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400"
           >
             {n.label || n.type}
           </span>

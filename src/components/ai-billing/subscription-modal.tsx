@@ -68,17 +68,17 @@ export function SubscriptionModal({
           <div
             className="flex items-center justify-between px-3 py-2 border-b-2"
             style={{
-              backgroundColor: "var(--primary)",
+              backgroundColor: "var(--window-document-bg-elevated, var(--shell-surface-elevated))",
               borderColor: "var(--shell-border)",
             }}
           >
-            <span className="text-sm font-bold" style={{ color: "white" }}>
+            <span className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
               Subscribe to AI Features
             </span>
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="beveled-button w-6 h-6 flex items-center justify-center"
+              className="desktop-interior-button w-6 h-6 flex items-center justify-center"
               style={{
                 backgroundColor: "var(--shell-button-surface)",
               }}
@@ -105,8 +105,8 @@ export function SubscriptionModal({
                   onClick={() => setIsB2B(false)}
                   className="px-4 py-2 text-sm font-bold flex items-center gap-2"
                   style={{
-                    backgroundColor: !isB2B ? "var(--primary)" : "var(--shell-button-surface)",
-                    color: !isB2B ? "white" : "var(--shell-text)",
+                    backgroundColor: !isB2B ? "var(--button-primary-bg, var(--tone-accent))" : "var(--shell-button-surface)",
+                    color: !isB2B ? "var(--button-primary-text, #0f0f0f)" : "var(--shell-text)",
                     borderRight: "2px solid",
                     borderRightColor: "var(--shell-border)",
                   }}
@@ -118,8 +118,8 @@ export function SubscriptionModal({
                   onClick={() => setIsB2B(true)}
                   className="px-4 py-2 text-sm font-bold flex items-center gap-2"
                   style={{
-                    backgroundColor: isB2B ? "var(--primary)" : "var(--shell-button-surface)",
-                    color: isB2B ? "white" : "var(--shell-text)",
+                    backgroundColor: isB2B ? "var(--button-primary-bg, var(--tone-accent))" : "var(--shell-button-surface)",
+                    color: isB2B ? "var(--button-primary-text, #0f0f0f)" : "var(--shell-text)",
                   }}
                 >
                   <Building2 size={14} />
@@ -174,8 +174,8 @@ export function SubscriptionModal({
                   <div
                     className="text-xs font-bold text-center py-2"
                     style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
+                      backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                      color: "var(--button-primary-text, #0f0f0f)",
                     }}
                   >
                     SELECTED
@@ -253,8 +253,8 @@ export function SubscriptionModal({
                   <div
                     className="text-xs font-bold text-center py-2"
                     style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
+                      backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                      color: "var(--button-primary-text, #0f0f0f)",
                     }}
                   >
                     SELECTED
@@ -306,10 +306,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("starter")}
-                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
+                  className="desktop-interior-button w-full px-3 py-2 text-xs font-bold"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                    color: "var(--button-primary-text, #0f0f0f)",
                   }}
                 >
                   Contact Sales
@@ -360,10 +360,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("professional")}
-                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
+                  className="desktop-interior-button w-full px-3 py-2 text-xs font-bold"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                    color: "var(--button-primary-text, #0f0f0f)",
                   }}
                 >
                   Contact Sales
@@ -414,10 +414,10 @@ export function SubscriptionModal({
 
                 <button
                   onClick={() => handleEnterpriseClick("enterprise")}
-                  className="beveled-button w-full px-3 py-2 text-xs font-bold"
+                  className="desktop-interior-button w-full px-3 py-2 text-xs font-bold"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                    color: "var(--button-primary-text, #0f0f0f)",
                   }}
                 >
                   Contact Sales
@@ -465,7 +465,7 @@ export function SubscriptionModal({
               <button
                 onClick={onClose}
                 disabled={isProcessing}
-                className="beveled-button px-4 py-2 text-sm font-bold"
+                className="desktop-interior-button px-4 py-2 text-sm font-bold"
                 style={{
                   backgroundColor: "var(--shell-button-surface)",
                   color: "var(--shell-text)",
@@ -476,10 +476,10 @@ export function SubscriptionModal({
               <button
                 onClick={handleSubscribe}
                 disabled={!selectedTier || isProcessing}
-                className="beveled-button px-4 py-2 text-sm font-bold flex items-center gap-2"
+                className="desktop-interior-button px-4 py-2 text-sm font-bold flex items-center gap-2"
                 style={{
-                  backgroundColor: "var(--primary)",
-                  color: "white",
+                  backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                   opacity: !selectedTier || isProcessing ? 0.5 : 1,
                   cursor: !selectedTier || isProcessing ? "not-allowed" : "pointer",
                 }}

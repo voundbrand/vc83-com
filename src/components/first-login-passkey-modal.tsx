@@ -148,7 +148,7 @@ export function FirstLoginPasskeyModal({
             <button
               onClick={handleSetup}
               disabled={isSettingUp}
-              className="beveled-button w-full px-4 py-2 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              className="desktop-interior-button w-full px-4 py-2 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               style={{
                 backgroundColor: 'var(--shell-accent)',
                 color: 'var(--shell-titlebar-text)',
@@ -170,7 +170,7 @@ export function FirstLoginPasskeyModal({
             <button
               onClick={handleSkip}
               disabled={isSettingUp}
-              className="beveled-button w-full px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button w-full px-4 py-2 text-sm font-bold"
               style={{
                 backgroundColor: 'var(--shell-button-surface)',
                 color: 'var(--shell-text)',

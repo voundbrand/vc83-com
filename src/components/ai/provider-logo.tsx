@@ -112,7 +112,7 @@ export function getProviderColor(provider: string): string {
       return "text-blue-600";
     case "meta":
     case "meta-llama":
-      return "text-purple-600";
+      return "text-violet-600";
     case "mistral":
     case "mistralai":
       return "text-red-600";

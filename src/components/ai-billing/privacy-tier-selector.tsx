@@ -109,7 +109,7 @@ export function PrivacyTierSelector({
               disabled={!isAvailable || !canChangeTier}
               className={`
                 w-full text-left p-4 rounded-lg border-2 transition-all
-                ${isSelected ? 'border-[#6B46C1] bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300'}
+                ${isSelected ? 'border-[#6B46C1] bg-violet-50' : 'border-gray-200 bg-white hover:border-gray-300'}
                 ${!isAvailable ? 'opacity-60 cursor-not-allowed' : canChangeTier ? 'cursor-pointer' : 'cursor-not-allowed'}
                 ${!canChangeTier && 'opacity-75'}
               `}

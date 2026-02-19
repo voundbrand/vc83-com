@@ -14,7 +14,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <button className="retro-button px-2 py-1 text-xs" disabled>
+      <button className="desktop-shell-button px-2 py-1 text-xs" disabled>
         <ShellMoonIcon size={14} tone="active" />
       </button>
     )
@@ -27,7 +27,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleMode}
-      className="retro-button px-2 py-1 text-xs"
+      className="desktop-shell-button px-2 py-1 text-xs"
       title={`Switch to ${nextModeLabel} Mode`}
       aria-label={`Switch to ${nextModeLabel} Mode`}
     >

@@ -87,7 +87,7 @@ export function ConfirmationModal({
           </div>
           <button
             onClick={onClose}
-            className="beveled-button w-5 h-5 flex items-center justify-center hover:opacity-80"
+            className="desktop-interior-button w-5 h-5 flex items-center justify-center hover:opacity-80"
             style={{
               background: "var(--shell-button-surface)",
             }}
@@ -115,7 +115,7 @@ export function ConfirmationModal({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="beveled-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="desktop-interior-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: "var(--shell-button-surface)",
               color: "var(--shell-text)",
@@ -126,7 +126,7 @@ export function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="beveled-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+            className="desktop-interior-button px-4 py-1.5 text-xs font-semibold min-w-[80px] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             style={{
               background: variant === "danger" ? "var(--error)" : "var(--primary)",
               color: "white",

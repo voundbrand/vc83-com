@@ -133,14 +133,14 @@ export function AppUnavailable({
             <div className="flex gap-2">
               <button
                 onClick={handleUpgradeClick}
-                className="beveled-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
+                className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
               >
                 <ShoppingBag size={16} />
                 Open Store
               </button>
               <button
                 onClick={() => window.history.back()}
-                className="beveled-button px-4 py-2 text-sm font-bold"
+                className="desktop-interior-button px-4 py-2 text-sm font-bold"
                 style={{
                   backgroundColor: "var(--shell-button-surface)",
                   color: "var(--shell-text)",

@@ -137,7 +137,7 @@ export function ConfirmationStepEnhanced({
     return (
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
         </div>
         <p className="text-center text-gray-600">Generating your tickets...</p>
       </div>
@@ -152,7 +152,7 @@ export function ConfirmationStepEnhanced({
           <CheckCircle className="w-12 h-12 text-white" />
         </div>
         <div>
-          <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
             Payment Successful!
           </h1>
           <p className="text-xl text-gray-600 mt-2">
@@ -162,8 +162,8 @@ export function ConfirmationStepEnhanced({
       </div>
 
       {/* Email Confirmation Banner */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 flex items-start gap-4 shadow-sm">
-        <div className="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+      <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border-2 border-violet-200 rounded-2xl p-6 flex items-start gap-4 shadow-sm">
+        <div className="flex-shrink-0 w-12 h-12 bg-violet-600 rounded-xl flex items-center justify-center shadow-lg">
           <Mail className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1">
@@ -172,7 +172,7 @@ export function ConfirmationStepEnhanced({
           </h3>
           <p className="text-gray-700">
             We&apos;ve sent your tickets and receipt to{" "}
-            <span className="font-semibold text-purple-600">
+            <span className="font-semibold text-violet-600">
               {checkoutData.customerInfo?.email}
             </span>
           </p>
@@ -186,12 +186,12 @@ export function ConfirmationStepEnhanced({
       {ticketData && (
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent"></div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-              <span className="font-bold text-purple-900">Your Ticket</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-300 to-transparent"></div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full">
+              <Sparkles className="w-5 h-5 text-violet-600" />
+              <span className="font-bold text-violet-900">Your Ticket</span>
             </div>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent"></div>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-300 to-transparent"></div>
           </div>
 
           <ModernTicketPDF ticketData={ticketData} />
@@ -243,7 +243,7 @@ export function ConfirmationStepEnhanced({
           {/* Total */}
           <div className="flex items-center justify-between pt-4 border-t-2 border-gray-300">
             <span className="text-xl font-bold text-gray-900">Total Paid</span>
-            <span className="text-3xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="text-3xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
               {formatPrice(totalAmount)}
             </span>
           </div>
@@ -266,7 +266,7 @@ export function ConfirmationStepEnhanced({
           Need help? Contact us at{" "}
           <a
             href="mailto:support@l4yercak3.com"
-            className="text-purple-600 hover:text-purple-700 font-semibold underline"
+            className="text-violet-600 hover:text-violet-700 font-semibold underline"
           >
             support@l4yercak3.com
           </a>

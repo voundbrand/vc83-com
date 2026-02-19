@@ -568,7 +568,7 @@ export function EmailSendModal({
               }
             }}
             disabled={isSendingEmail}
-            className="retro-button-primary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="desktop-shell-button-primary px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isSendingEmail && emailAction === "test" ? (
               <Loader2 size={16} className="animate-spin" />

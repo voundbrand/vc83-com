@@ -8,7 +8,7 @@
 "use client";
 
 import { TriangleAlert } from "lucide-react";
-import { RetroButton } from "./retro-button";
+import { ShellButton } from "./shell-button";
 
 interface RetroConfirmDialogProps {
   isOpen: boolean;
@@ -84,20 +84,20 @@ export function RetroConfirmDialog({
 
           {/* Buttons */}
           <div className="flex gap-3 justify-end">
-            <RetroButton
+            <ShellButton
               variant="secondary"
               onClick={onCancel}
               className="px-6"
             >
               {cancelText}
-            </RetroButton>
-            <RetroButton
+            </ShellButton>
+            <ShellButton
               variant={confirmVariant}
               onClick={onConfirm}
               className="px-6"
             >
               {confirmText}
-            </RetroButton>
+            </ShellButton>
           </div>
         </div>
       </div>

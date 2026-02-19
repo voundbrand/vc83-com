@@ -73,7 +73,7 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
         <button
           onClick={downloadAsPDF}
           disabled={isDownloading}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-5 h-5" />
           {isDownloading ? "Generating PDF..." : "Download Ticket PDF"}
@@ -87,7 +87,7 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
         style={{ aspectRatio: "16/9" }}
       >
         {/* Purple Gradient Header */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-900" />
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-900" />
 
         {/* Animated Background Pattern */}
         <div
@@ -116,7 +116,7 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
                   {ticketData.eventName}
                 </h1>
                 {ticketData.eventDescription && (
-                  <p className="text-purple-100 text-xl font-medium">
+                  <p className="text-violet-100 text-xl font-medium">
                     {ticketData.eventDescription}
                   </p>
                 )}
@@ -126,9 +126,9 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
               <div className="grid grid-cols-2 gap-4">
                 {ticketData.eventDate && (
                   <div className="flex items-center gap-3 px-4 py-3 bg-white/10 backdrop-blur-sm rounded-xl">
-                    <Calendar className="w-6 h-6 text-purple-200" />
+                    <Calendar className="w-6 h-6 text-violet-200" />
                     <div>
-                      <div className="text-xs text-purple-200 uppercase tracking-wide">
+                      <div className="text-xs text-violet-200 uppercase tracking-wide">
                         Date & Time
                       </div>
                       <div className="font-bold">
@@ -146,9 +146,9 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
 
                 {ticketData.eventLocation && (
                   <div className="flex items-center gap-3 px-4 py-3 bg-white/10 backdrop-blur-sm rounded-xl">
-                    <MapPin className="w-6 h-6 text-purple-200" />
+                    <MapPin className="w-6 h-6 text-violet-200" />
                     <div>
-                      <div className="text-xs text-purple-200 uppercase tracking-wide">
+                      <div className="text-xs text-violet-200 uppercase tracking-wide">
                         Location
                       </div>
                       <div className="font-bold text-sm">{ticketData.eventLocation}</div>
@@ -160,11 +160,11 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
 
             {/* Ticket Holder */}
             <div className="space-y-1">
-              <div className="text-purple-200 text-sm uppercase tracking-wide">
+              <div className="text-violet-200 text-sm uppercase tracking-wide">
                 Ticket Holder
               </div>
               <div className="text-2xl font-bold">{ticketData.holderName}</div>
-              <div className="text-purple-100">{ticketData.holderEmail}</div>
+              <div className="text-violet-100">{ticketData.holderEmail}</div>
             </div>
           </div>
 
@@ -184,7 +184,7 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
             {/* Ticket Info */}
             <div className="text-center space-y-2">
               <div className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full">
-                <div className="text-xs text-purple-200 uppercase tracking-wide">
+                <div className="text-xs text-violet-200 uppercase tracking-wide">
                   Ticket Type
                 </div>
                 <div className="font-bold text-white text-sm uppercase">
@@ -192,14 +192,14 @@ export function ModernTicketPDF({ ticketData }: { ticketData: TicketData }) {
                 </div>
               </div>
 
-              <div className="text-sm text-purple-100 font-mono">
+              <div className="text-sm text-violet-100 font-mono">
                 #{ticketData.ticketNumber}
               </div>
             </div>
 
             {/* Scan Instruction */}
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-purple-200">
+              <div className="flex items-center justify-center gap-2 text-violet-200">
                 <QrCode className="w-4 h-4" />
                 <span className="text-xs font-medium">Scan at entrance</span>
               </div>

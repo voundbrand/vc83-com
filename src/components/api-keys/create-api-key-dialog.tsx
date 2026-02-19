@@ -135,7 +135,7 @@ export function CreateApiKeyDialog({
                     />
                     <button
                       onClick={handleCopy}
-                      className="retro-button px-4 py-2 rounded font-semibold transition-colors"
+                      className="desktop-shell-button px-4 py-2 rounded font-semibold transition-colors"
                       style={copied ? {
                         background: 'var(--success)',
                         color: 'var(--shell-titlebar-text)'
@@ -174,7 +174,7 @@ export function CreateApiKeyDialog({
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors"
+                className="desktop-shell-button px-6 py-2 rounded-lg font-semibold transition-colors"
                 style={{
                   background: 'var(--shell-accent)',
                   color: 'var(--shell-titlebar-text)'
@@ -257,7 +257,7 @@ export function CreateApiKeyDialog({
             <button
               onClick={onClose}
               disabled={isCreating}
-              className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
+              className="desktop-shell-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
               style={{
                 background: 'var(--shell-surface-elevated)',
                 color: 'var(--shell-text)',
@@ -269,7 +269,7 @@ export function CreateApiKeyDialog({
             <button
               onClick={handleCreate}
               disabled={isCreating || !name.trim() || selectedScopes.length === 0}
-              className="retro-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="desktop-shell-button px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'var(--shell-accent)',
                 color: 'var(--shell-titlebar-text)'

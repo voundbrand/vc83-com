@@ -112,7 +112,7 @@ export function PasskeyEncouragementBanner({ sessionId, onPasskeySetup }: Passke
             <button
               onClick={handleSetup}
               disabled={isSettingUp}
-              className="beveled-button px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+              className="desktop-interior-button px-3 py-1.5 text-xs font-bold disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--shell-surface-elevated)',
                 color: 'var(--shell-text)',

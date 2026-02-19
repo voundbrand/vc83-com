@@ -1,13 +1,13 @@
 "use client";
 
 import { Building2, Calendar, Mail, MessageSquare, Phone, Send, User, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import Image from "next/image";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useTranslation } from "@/contexts/translation-context";
+import { createPortal } from "react-dom";
 
 interface EnterpriseContactModalProps {
   isOpen: boolean;
@@ -15,14 +15,32 @@ interface EnterpriseContactModalProps {
   title?: string;
 }
 
+type ContactModalApiRefs = {
+  emailService: { sendContactFormEmail: unknown };
+  files: { getFileUrl: unknown };
+};
+
+const { api: apiRefs } = require("../../../convex/_generated/api") as { api: ContactModalApiRefs };
+
 export function EnterpriseContactModal({
   isOpen,
   onClose,
   title = "Enterprise Solutions",
 }: EnterpriseContactModalProps) {
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.contact_modal");
+  const { t } = useNamespaceTranslations("ui.contact_modal");
   const { locale } = useTranslation();
-  const sendContactEmail = useAction(api.emailService.sendContactFormEmail);
+  const unsafeUseAction = useAction as unknown as (
+    actionRef: unknown
+  ) => (args: {
+    name: string;
+    company: string;
+    email: string;
+    phone?: string;
+    message?: string;
+    productInterest: string;
+    locale: string;
+  }) => Promise<unknown>;
+  const sendContactEmail = unsafeUseAction(apiRefs.emailService.sendContactFormEmail);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -33,15 +51,43 @@ export function EnterpriseContactModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Get avatar URL from Convex storage
   const avatarStorageId = process.env.NEXT_PUBLIC_REM_AVATAR_STORAGE_ID;
-  const avatarUrl = useQuery(
-    api.files.getFileUrl,
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => string | null | undefined;
+  const avatarUrl = unsafeUseQuery(
+    apiRefs.files.getFileUrl,
     avatarStorageId ? { storageId: avatarStorageId as Id<"_storage"> } : "skip"
   );
 
-  if (!isOpen || translationsLoading) return null;
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  if (!isOpen || !mounted) return null;
+
+  const handleClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,10 +108,14 @@ export function EnterpriseContactModal({
       setSubmitted(true);
 
       // Reset form after 3 seconds and close
-      setTimeout(() => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+      closeTimerRef.current = setTimeout(() => {
         setSubmitted(false);
         setFormData({ name: "", company: "", email: "", phone: "", message: "" });
         onClose();
+        closeTimerRef.current = null;
       }, 3000);
     } catch (error) {
       console.error("Failed to send contact form:", error);
@@ -76,49 +126,58 @@ export function EnterpriseContactModal({
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ backgroundColor: "var(--modal-overlay-bg, rgba(0, 0, 0, 0.7))", zIndex: 9000 }}
     >
       <div
-        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto border-4"
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border"
         style={{
-          backgroundColor: "var(--shell-surface)",
-          borderColor: "var(--shell-border)",
+          backgroundColor: "var(--window-document-bg, var(--shell-surface))",
+          borderColor: "var(--window-document-border, var(--shell-border))",
+          boxShadow: "var(--modal-shadow)",
         }}
       >
         {/* Window Title Bar */}
         <div
-          className="retro-titlebar flex items-center justify-between select-none"
+          className="flex items-center justify-between px-4 py-3 border-b select-none"
+          style={{
+            backgroundColor: "var(--window-document-bg-elevated, var(--shell-surface-elevated))",
+            borderColor: "var(--window-document-border, var(--shell-border))",
+          }}
         >
           <div className="flex items-center gap-2">
-            <Building2 size={16} style={{ color: "var(--shell-titlebar-text)" }} />
-            <span className="font-semibold text-sm" style={{ color: "var(--shell-titlebar-text)" }}>
+            <Building2 size={16} style={{ color: "var(--shell-text)" }} />
+            <span className="font-semibold text-sm" style={{ color: "var(--shell-text)" }}>
               {title} - {t("ui.contact_modal.title_suffix")}
             </span>
           </div>
           <button
-            onClick={onClose}
-            className="retro-control-button retro-close-btn"
+            onClick={handleClose}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border transition-opacity hover:opacity-80"
+            style={{
+              backgroundColor: "var(--shell-button-surface)",
+              borderColor: "var(--window-document-border, var(--shell-border))",
+            }}
             title="Close"
           >
-            <X size={12} className="select-none window-btn-icon" />
+            <X size={14} className="select-none" style={{ color: "var(--shell-text)" }} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-66px)]">
           {!submitted ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column: Personal Message */}
               <div>
                 {/* Profile Section */}
                 <div
-                  className="p-4 border-2"
+                  className="p-5 border rounded-xl"
                   style={{
-                    backgroundColor: "var(--shell-surface-elevated)",
-                    borderColor: "var(--shell-border)",
+                    backgroundColor: "var(--window-document-bg-elevated, var(--shell-surface-elevated))",
+                    borderColor: "var(--window-document-border, var(--shell-border))",
                   }}
                 >
                   <div className="flex items-start gap-4 mb-4">
@@ -126,10 +185,10 @@ export function EnterpriseContactModal({
                     <div className="flex-shrink-0">
                       {avatarUrl ? (
                         <div
-                          className="w-24 h-24 relative overflow-hidden border-2"
+                          className="w-24 h-24 relative overflow-hidden border"
                           style={{
                             borderRadius: "50%",
-                            borderColor: "var(--shell-border)",
+                            borderColor: "var(--window-document-border, var(--shell-border))",
                           }}
                         >
                           <Image
@@ -137,16 +196,19 @@ export function EnterpriseContactModal({
                             alt="Remington Splettstoesser"
                             fill
                             className="object-cover"
+                            sizes="96px"
+                            quality={100}
+                            unoptimized
                             priority
                           />
                         </div>
                       ) : (
                         <div
-                          className="w-24 h-24 flex items-center justify-center border-2"
+                          className="w-24 h-24 flex items-center justify-center border"
                           style={{
                             borderRadius: "50%",
-                            backgroundColor: "var(--shell-surface-elevated)",
-                            borderColor: "var(--shell-border)",
+                            backgroundColor: "var(--window-document-bg-elevated, var(--shell-surface-elevated))",
+                            borderColor: "var(--window-document-border, var(--shell-border))",
                           }}
                         >
                           <User size={48} style={{ color: "var(--neutral-gray)" }} />
@@ -168,7 +230,7 @@ export function EnterpriseContactModal({
                           <a
                             href="mailto:sales@l4yercak3.com"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--shell-accent)" }}
+                            style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                           >
                             sales@l4yercak3.com
                           </a>
@@ -178,7 +240,7 @@ export function EnterpriseContactModal({
                           <a
                             href="tel:+4915140427103"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--shell-accent)" }}
+                            style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                           >
                             +49 151 404 27 103
                           </a>
@@ -190,7 +252,7 @@ export function EnterpriseContactModal({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--shell-accent)" }}
+                            style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                           >
                             {t("ui.contact_modal.schedule_call")}
                           </a>
@@ -201,10 +263,10 @@ export function EnterpriseContactModal({
 
                   {/* Personal Message */}
                   <div
-                    className="p-3 border-2"
+                    className="p-4 border rounded-lg"
                     style={{
-                      backgroundColor: "var(--shell-surface-elevated)",
-                      borderColor: "var(--shell-border)",
+                      backgroundColor: "var(--window-document-bg, var(--shell-surface))",
+                      borderColor: "var(--window-document-border, var(--shell-border))",
                     }}
                   >
                     <div className="flex gap-2 mb-2">
@@ -224,7 +286,7 @@ export function EnterpriseContactModal({
                       <a
                         href="mailto:sales@l4yercak3.com"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--shell-accent)" }}
+                        style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                       >
                         email
                       </a>
@@ -232,7 +294,7 @@ export function EnterpriseContactModal({
                       <a
                         href="tel:+4915140427103"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--shell-accent)" }}
+                        style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                       >
                         phone
                       </a>
@@ -242,7 +304,7 @@ export function EnterpriseContactModal({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
-                        style={{ color: "var(--shell-accent)" }}
+                        style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                       >
                         calendar
                       </a>
@@ -260,10 +322,17 @@ export function EnterpriseContactModal({
 
               {/* Right Column: Contact Form */}
               <div>
-                <h3 className="text-lg font-bold mb-4" style={{ color: "var(--shell-text)" }}>
-                  {t("ui.contact_modal.form_title")}
-                </h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <div
+                  className="p-5 border rounded-xl"
+                  style={{
+                    backgroundColor: "var(--window-document-bg-elevated, var(--shell-surface-elevated))",
+                    borderColor: "var(--window-document-border, var(--shell-border))",
+                  }}
+                >
+                  <h3 className="text-lg font-bold mb-4" style={{ color: "var(--shell-text)" }}>
+                    {t("ui.contact_modal.form_title")}
+                  </h3>
+                  <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Name */}
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--shell-text)" }}>
@@ -274,12 +343,7 @@ export function EnterpriseContactModal({
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full p-2 text-sm border-2"
-                      style={{
-                        backgroundColor: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
-                        color: "var(--shell-text)",
-                      }}
+                      className="desktop-interior-input"
                       placeholder={t("ui.contact_modal.form_placeholder_name")}
                     />
                   </div>
@@ -294,12 +358,7 @@ export function EnterpriseContactModal({
                       required
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                      className="w-full p-2 text-sm border-2"
-                      style={{
-                        backgroundColor: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
-                        color: "var(--shell-text)",
-                      }}
+                      className="desktop-interior-input"
                       placeholder={t("ui.contact_modal.form_placeholder_company")}
                     />
                   </div>
@@ -314,12 +373,7 @@ export function EnterpriseContactModal({
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full p-2 text-sm border-2"
-                      style={{
-                        backgroundColor: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
-                        color: "var(--shell-text)",
-                      }}
+                      className="desktop-interior-input"
                       placeholder={t("ui.contact_modal.form_placeholder_email")}
                     />
                   </div>
@@ -333,12 +387,7 @@ export function EnterpriseContactModal({
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full p-2 text-sm border-2"
-                      style={{
-                        backgroundColor: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
-                        color: "var(--shell-text)",
-                      }}
+                      className="desktop-interior-input"
                       placeholder={t("ui.contact_modal.form_placeholder_phone")}
                     />
                   </div>
@@ -352,12 +401,7 @@ export function EnterpriseContactModal({
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       rows={4}
-                      className="w-full p-2 text-sm border-2 resize-none"
-                      style={{
-                        backgroundColor: "var(--shell-surface-elevated)",
-                        borderColor: "var(--shell-border)",
-                        color: "var(--shell-text)",
-                      }}
+                      className="desktop-interior-textarea resize-none"
                       placeholder={t("ui.contact_modal.form_placeholder_message")}
                     />
                   </div>
@@ -366,7 +410,7 @@ export function EnterpriseContactModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="retro-button w-full py-2 text-xs font-pixel flex items-center justify-center gap-2"
+                    className="desktop-interior-button desktop-interior-button-primary w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
                     style={{
                       opacity: isSubmitting ? 0.6 : 1,
                       cursor: isSubmitting ? "wait" : "pointer",
@@ -376,17 +420,18 @@ export function EnterpriseContactModal({
                     {isSubmitting ? t("ui.contact_modal.button_sending") : t("ui.contact_modal.button_send")}
                   </button>
 
-                  <p className="text-xs text-center" style={{ color: "var(--neutral-gray)" }}>
+                  <p className="text-xs text-center pt-1" style={{ color: "var(--neutral-gray)" }}>
                     {t("ui.contact_modal.response_time")}
                   </p>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
           ) : (
             // Success State
-            <div className="text-center py-12">
+            <div className="text-center py-12 px-4">
               <div
-                className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center"
+                className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-sm"
                 style={{ backgroundColor: "var(--success)" }}
               >
                 <Send size={48} style={{ color: "white" }} />
@@ -406,4 +451,6 @@ export function EnterpriseContactModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

@@ -87,11 +87,11 @@ export function ModernReceiptPDF({ receiptData }: { receiptData: ReceiptData }) 
         className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200"
       >
         {/* Header with Gradient */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6 text-white">
+        <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-8 py-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-3xl font-bold">{receiptData.organizationName}</h2>
-              <p className="text-purple-100 mt-1">{receiptData.organizationAddress}</p>
+              <p className="text-violet-100 mt-1">{receiptData.organizationAddress}</p>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
               <FileText className="w-8 h-8" />
@@ -194,7 +194,7 @@ export function ModernReceiptPDF({ receiptData }: { receiptData: ReceiptData }) 
             )}
             <div className="flex justify-between pt-3 border-t-2 border-gray-300">
               <span className="text-lg font-bold text-gray-900">Total Paid</span>
-              <span className="text-2xl font-bold text-purple-600">
+              <span className="text-2xl font-bold text-violet-600">
                 {(receiptData.total / 100).toFixed(2)} {receiptData.currency}
               </span>
             </div>

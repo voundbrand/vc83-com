@@ -125,15 +125,15 @@ export function ToolChest({ onNodeDragStart, sessionId }: ToolChestProps) {
   };
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-zinc-800" style={{ background: "#0f0f12" }}>
+    <aside className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-slate-800" style={{ background: "#0f0f12" }}>
       {/* Search */}
-      <div className="border-b border-zinc-800 p-2">
+      <div className="border-b border-slate-800 p-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search nodes..."
-          className="w-full rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           style={{ background: "#18181b" }}
         />
       </div>
@@ -239,10 +239,10 @@ function DraggableNode({
         if (isComingSoon) return;
         onDragStart(e, definition);
       }}
-      className={`group flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-xs text-zinc-200 transition-colors active:cursor-grabbing ${
+      className={`group flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-xs text-slate-200 transition-colors active:cursor-grabbing ${
         isComingSoon
-          ? "cursor-default border-dashed border-zinc-700 opacity-50"
-          : "border-zinc-700 hover:border-blue-500/40 hover:bg-zinc-800"
+          ? "cursor-default border-dashed border-slate-700 opacity-50"
+          : "border-slate-700 hover:border-blue-500/40 hover:bg-slate-800"
       }`}
       style={{ background: isComingSoon ? "transparent" : "#18181b" }}
       title={definition.description}
@@ -268,7 +268,7 @@ function DraggableNode({
             className={`flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] transition-colors ${
               hasVoted
                 ? "text-blue-400"
-                : "text-muted-foreground hover:bg-zinc-700 hover:text-blue-400"
+                : "text-muted-foreground hover:bg-slate-700 hover:text-blue-400"
             }`}
             title={hasVoted ? "You voted for this" : "Vote to prioritize this integration"}
           >

@@ -90,7 +90,7 @@ export function TranslationPromptModal({
     >
       <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white">
           <div className="flex items-center gap-2">
             <Globe size={20} />
             <span className="font-medium">Update Translation?</span>

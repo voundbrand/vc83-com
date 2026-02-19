@@ -135,7 +135,7 @@ export function QuickStartSimple() {
         {/* Close Button */}
         <button
           onClick={handleClose}
-          className="w-full px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
+          className="w-full px-4 py-3 bg-violet-600 text-white border-4 border-violet-800 font-bold text-sm hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
         >
           CLOSE
         </button>
@@ -147,12 +147,12 @@ export function QuickStartSimple() {
     return (
       <div className="p-6 space-y-6">
         {/* Progress Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+        <div className="bg-gradient-to-r from-violet-600 to-violet-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
           <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
             <Settings className="w-5 h-5" />
             Setting Up Your Workspace
           </h2>
-          <p className="text-purple-100 text-sm">
+          <p className="text-violet-100 text-sm">
             Please wait while we configure your account...
           </p>
         </div>
@@ -162,7 +162,7 @@ export function QuickStartSimple() {
           <p className="text-sm font-bold text-gray-800 mb-2">{currentStep}</p>
           <div className="w-full bg-gray-300 border-2 border-gray-500 h-8">
             <div
-              className="bg-purple-600 h-full transition-all duration-300 flex items-center justify-center"
+              className="bg-violet-600 h-full transition-all duration-300 flex items-center justify-center"
               style={{ width: `${progress}%` }}
             >
               {progress > 0 && (
@@ -178,12 +178,12 @@ export function QuickStartSimple() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+      <div className="bg-gradient-to-r from-violet-600 to-violet-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
         <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
           <Rocket className="w-5 h-5" />
           Quick Start Setup
         </h2>
-        <p className="text-purple-100 text-sm">
+        <p className="text-violet-100 text-sm">
           Configure your workspace with pre-configured apps and templates
         </p>
       </div>
@@ -228,7 +228,7 @@ export function QuickStartSimple() {
       <button
         onClick={handleStart}
         disabled={isRunning}
-        className="w-full px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full px-4 py-3 bg-violet-600 text-white border-4 border-violet-800 font-bold text-sm hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <Check className="w-4 h-4" />
         START QUICK SETUP

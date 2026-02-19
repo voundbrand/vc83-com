@@ -120,7 +120,7 @@ export function TaxBreakdown({ calculation, showDetails = false }: TaxBreakdownP
           <DollarSign size={16} />
           Total
         </span>
-        <span className="text-lg font-bold text-purple-600">{formatPrice(total, currency)}</span>
+        <span className="text-lg font-bold text-violet-600">{formatPrice(total, currency)}</span>
       </div>
 
       {/* Tax Behavior Info */}
@@ -178,7 +178,7 @@ export function CompactTaxBreakdown({ calculation }: CompactTaxBreakdownProps) {
 
       <div className="flex justify-between text-base font-bold border-t border-gray-300 pt-1">
         <span>Total:</span>
-        <span className="text-purple-600">{formatPrice(total, currency)}</span>
+        <span className="text-violet-600">{formatPrice(total, currency)}</span>
       </div>
     </div>
   );

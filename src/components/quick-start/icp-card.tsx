@@ -67,7 +67,7 @@ export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
 
       {/* Icon */}
       <div className="mb-4 text-center flex items-center justify-center">
-        <IcpIcon className="w-12 h-12 text-purple-700" />
+        <IcpIcon className="w-12 h-12 text-violet-700" />
       </div>
 
       {/* Name */}
@@ -86,7 +86,7 @@ export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
         <ul className="space-y-1">
           {icp.features.slice(0, 3).map((feature, idx) => (
             <li key={idx} className="text-xs text-gray-700 flex items-start">
-              <span className="text-purple-600 mr-2">▶</span>
+              <span className="text-violet-600 mr-2">▶</span>
               <span>{feature}</span>
             </li>
           ))}
@@ -112,7 +112,7 @@ export function ICPCard({ icp, onSelect, isCompleted = false }: ICPCardProps) {
               ? "bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed"
               : isCompleted
               ? "bg-green-600 text-white border-green-800 hover:bg-green-700"
-              : "bg-purple-600 text-white border-purple-800 hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              : "bg-violet-600 text-white border-violet-800 hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           }
           shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]
         `}

@@ -87,7 +87,7 @@ export function EditModeToolbar({
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center gap-2">
-              <Edit2 size={16} className="text-purple-600" />
+              <Edit2 size={16} className="text-violet-600" />
               <span className="font-semibold text-gray-900">Content Editor</span>
             </div>
             <button
@@ -137,7 +137,7 @@ export function EditModeToolbar({
                   onClick={() => setLanguage("de")}
                   className={`px-3 py-1 text-sm font-medium transition-colors ${
                     currentLanguage === "de"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-violet-600 text-white"
                       : "bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
@@ -147,7 +147,7 @@ export function EditModeToolbar({
                   onClick={() => setLanguage("en")}
                   className={`px-3 py-1 text-sm font-medium transition-colors ${
                     currentLanguage === "en"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-violet-600 text-white"
                       : "bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
@@ -177,7 +177,7 @@ export function EditModeToolbar({
 
                 {/* Other editors */}
                 {otherEditorCount > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-purple-600">
+                  <div className="flex items-center gap-2 text-sm text-violet-600">
                     <Users size={14} />
                     <span>
                       {otherEditorCount} other{" "}

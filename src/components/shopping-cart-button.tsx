@@ -26,12 +26,12 @@ export function ShoppingCartButton({ onOpenCart }: ShoppingCartButtonProps) {
   return (
     <button
       onClick={onOpenCart}
-      className="retro-button-small px-3 py-1 flex items-center gap-2 relative hover:bg-gray-200 transition-colors"
+      className="desktop-shell-button-small px-3 py-1 flex items-center gap-2 relative hover:bg-gray-200 transition-colors"
       title={`Shopping Cart (${itemCount} ${itemCount === 1 ? 'item' : 'items'})`}
     >
       <ShoppingCart className="w-3 h-3" />
       {itemCount > 0 && (
-        <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+        <span className="absolute -top-1 -right-1 bg-violet-600 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
           {itemCount > 9 ? '9+' : itemCount}
         </span>
       )}

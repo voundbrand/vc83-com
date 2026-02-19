@@ -170,12 +170,12 @@ export function QuickStartICPSelector({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+      <div className="bg-gradient-to-r from-violet-600 to-violet-700 border-4 border-gray-400 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
         <h2 className="text-white font-bold text-xl mb-2 flex items-center gap-2">
           <Rocket className="w-5 h-5" />
           Quick Start Setup
         </h2>
-        <p className="text-purple-100 text-sm">
+        <p className="text-violet-100 text-sm">
           Choose your profile to get started with pre-configured apps,
           templates, and workflows
         </p>
@@ -198,9 +198,9 @@ export function QuickStartICPSelector({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-100 to-gray-200 border-4 border-gray-400 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] w-full max-w-2xl">
             {/* Title Bar */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-3 py-2 flex items-center justify-between border-b-4 border-gray-400">
+            <div className="bg-gradient-to-r from-violet-600 to-violet-700 px-3 py-2 flex items-center justify-between border-b-4 border-gray-400">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-purple-800 border-2 border-purple-900" />
+                <div className="w-4 h-4 bg-violet-800 border-2 border-violet-900" />
                 <span className="text-white font-bold text-sm">
                   Confirm Setup
                 </span>
@@ -217,7 +217,7 @@ export function QuickStartICPSelector({
             <div className="p-6 space-y-4">
               {/* Selected ICP Info */}
               <div className="flex items-center gap-4">
-                {SelectedIcpIcon && <SelectedIcpIcon className="w-12 h-12 text-purple-700" />}
+                {SelectedIcpIcon && <SelectedIcpIcon className="w-12 h-12 text-violet-700" />}
                 <div>
                   <h3 className="font-bold text-lg text-gray-900">
                     {selectedICPDefinition.name}
@@ -279,7 +279,7 @@ export function QuickStartICPSelector({
               <div className="flex gap-3">
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 px-4 py-3 bg-purple-600 text-white border-4 border-purple-800 font-bold text-sm hover:bg-purple-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 bg-violet-600 text-white border-4 border-violet-800 font-bold text-sm hover:bg-violet-700 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
                 >
                   <Check className="w-4 h-4" />
                   CONFIRM & START SETUP

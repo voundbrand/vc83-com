@@ -141,10 +141,10 @@ export function UpgradePrompt({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleUpgradeClick}
-                className={`retro-button ${config.button} font-bold inline-flex items-center gap-2`}
+                className={`desktop-shell-button ${config.button} font-bold inline-flex items-center gap-2`}
                 style={{
-                  background: "var(--primary)",
-                  color: "var(--shell-on-accent)",
+                  background: "var(--button-primary-bg, var(--tone-accent))",
+                  color: "var(--button-primary-text, #0f0f0f)",
                 }}
               >
                 <ShoppingBag size={14} />
@@ -471,14 +471,14 @@ export function UpgradeModal({
           <div className="flex gap-2">
             <button
               onClick={handleUpgradeClick}
-              className="beveled-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
+              className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
             >
               <ShoppingBag size={16} />
               View Plans
             </button>
             <button
               onClick={onClose}
-              className="beveled-button px-4 py-2 text-sm font-bold"
+              className="desktop-interior-button px-4 py-2 text-sm font-bold"
               style={{
                 backgroundColor: "var(--shell-button-surface)",
                 color: "var(--shell-text)",

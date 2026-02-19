@@ -50,7 +50,7 @@ function NodeShell({
 
   return (
     <div
-      className={`min-w-[180px] max-w-[220px] rounded-lg border border-zinc-700 shadow-sm transition-shadow ${
+      className={`min-w-[180px] max-w-[220px] rounded-lg border border-slate-700 shadow-sm transition-shadow ${
         selected ? "ring-1" : "hover:shadow-md"
       } ${isExecuting ? "animate-pulse" : ""}`}
       style={{ ...borderStyle, background: "#18181b" }}

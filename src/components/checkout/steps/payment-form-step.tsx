@@ -557,7 +557,7 @@ function StripePaymentForm({
           {/* Total */}
           <div className="flex justify-between items-center pt-2 border-t-2 border-gray-300">
             <span className="text-xl font-bold">{t('ui.checkout.payment_form.order_summary.total')}</span>
-            <span className="text-2xl font-bold text-purple-600">
+            <span className="text-2xl font-bold text-violet-600">
               {formatPrice(totalAmount)}
             </span>
           </div>
@@ -853,7 +853,7 @@ function InvoicePaymentForm({
           type="button"
           onClick={handleCompleteRegistration}
           disabled={isProcessing}
-          className="flex-1 px-6 py-3 text-base font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="flex-1 px-6 py-3 text-base font-bold border-2 border-violet-600 bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           {isProcessing ? (
             <>

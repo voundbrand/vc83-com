@@ -70,7 +70,7 @@ export function CheckoutForm() {
       <button
         type="submit"
         disabled={!stripe || isProcessing}
-        className="w-full py-4 px-6 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+        className="w-full py-4 px-6 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
       >
         {isProcessing ? "Processing..." : "Pay Now"}
       </button>

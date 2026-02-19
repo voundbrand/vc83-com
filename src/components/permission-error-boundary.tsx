@@ -103,10 +103,10 @@ export class PermissionErrorBoundary extends Component<Props, State> {
                 </div>
                 <button
                   onClick={this.handleReset}
-                  className="beveled-button mt-4 px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                  className="desktop-interior-button mt-4 px-4 py-2 text-sm font-semibold flex items-center gap-2"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+                    color: "var(--button-primary-text, #0f0f0f)",
                   }}
                 >
                   <RefreshCw size={14} />
@@ -151,7 +151,7 @@ export class PermissionErrorBoundary extends Component<Props, State> {
               </details>
               <button
                 onClick={this.handleReset}
-                className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                className="desktop-interior-button px-4 py-2 text-sm font-semibold flex items-center gap-2"
                 style={{
                   backgroundColor: "white",
                   color: "var(--error)",

@@ -471,13 +471,13 @@ export function LayersCanvas() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col text-zinc-100" style={{ background: "#09090b", color: "#fafafa" }}>
+    <div className="flex h-full w-full flex-col text-slate-100" style={{ background: "#09090b", color: "#fafafa" }}>
       {/* Top Bar */}
-      <header className="flex h-12 items-center justify-between border-b border-zinc-800 px-4" style={{ background: "#0a0a0b" }}>
+      <header className="flex h-12 items-center justify-between border-b border-slate-800 px-4" style={{ background: "#0a0a0b" }}>
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center justify-center rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+            className="flex items-center justify-center rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
             title="Back to home"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -487,7 +487,7 @@ export function LayersCanvas() {
           <span className="text-sm font-semibold tracking-wide">
             LAYERS
           </span>
-          <span className="text-zinc-500">/</span>
+          <span className="text-slate-500">/</span>
           <input
             type="text"
             value={workflowName}
@@ -519,7 +519,7 @@ export function LayersCanvas() {
               loadWorkflow([], []);
               setIsDirty(false);
             }}
-            className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
             title="Create new workflow"
           >
             + New
@@ -528,7 +528,7 @@ export function LayersCanvas() {
           <div className="relative">
             <button
               onClick={() => setShowWorkflowMenu((prev) => !prev)}
-              className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
+              className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
               title="Open existing workflow"
             >
               Open ▾
@@ -536,9 +536,9 @@ export function LayersCanvas() {
             {showWorkflowMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowWorkflowMenu(false)} />
-                <div className="absolute top-full right-0 mt-1 w-72 rounded-md border border-zinc-700 bg-zinc-900 shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full right-0 mt-1 w-72 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50 max-h-80 overflow-y-auto">
                   {(!workflows || workflows.length === 0) ? (
-                    <div className="px-3 py-4 text-center text-xs text-zinc-500">No workflows yet</div>
+                    <div className="px-3 py-4 text-center text-xs text-slate-500">No workflows yet</div>
                   ) : (
                     workflows.filter((w) => w.status !== "archived").map((w) => (
                       <button
@@ -548,11 +548,11 @@ export function LayersCanvas() {
                           lastLoadedVersion.current = null;
                           setShowWorkflowMenu(false);
                         }}
-                        className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-zinc-800 transition-colors ${workflowId === w._id ? "bg-zinc-800" : ""}`}
+                        className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 transition-colors ${workflowId === w._id ? "bg-slate-800" : ""}`}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-zinc-100">{w.name}</div>
-                          <div className="mt-0.5 text-zinc-500">
+                          <div className="truncate font-medium text-slate-100">{w.name}</div>
+                          <div className="mt-0.5 text-slate-500">
                             {w.nodeCount} node{w.nodeCount !== 1 ? "s" : ""}
                             {w.updatedAt ? ` · ${formatTimeAgo(w.updatedAt)}` : ""}
                           </div>
@@ -581,7 +581,7 @@ export function LayersCanvas() {
                   });
                 }
               }}
-              className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100"
+              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100"
               title="Link to project"
             >
               <option value="">No project</option>
@@ -604,21 +604,21 @@ export function LayersCanvas() {
           <button
             onClick={() => handleSave({ manual: true })}
             disabled={!mounted || !sessionId}
-            className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-50"
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800 disabled:opacity-50"
           >
             Save
           </button>
           {/* Help */}
           <button
             onClick={() => setShowHelp((prev) => !prev)}
-            className={`rounded-md border px-2 py-1.5 text-xs hover:bg-zinc-800 ${showHelp ? "border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400"}`}
+            className={`rounded-md border px-2 py-1.5 text-xs hover:bg-slate-800 ${showHelp ? "border-blue-500 text-blue-400" : "border-slate-700 text-slate-400"}`}
             title="Keyboard shortcuts (?)"
           >
             <HelpIcon />
           </button>
           {/* Settings stub */}
           <button
-            className="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-40"
+            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-40"
             disabled
             title="Workflow settings (coming soon)"
           >
@@ -626,7 +626,7 @@ export function LayersCanvas() {
           </button>
           {/* Share stub */}
           <button
-            className="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-40"
+            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-40"
             disabled
             title="Share workflow (coming soon)"
           >
@@ -642,7 +642,7 @@ export function LayersCanvas() {
             {isRunning ? "Running..." : "Run"}
           </button>
           <button
-            className="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-50"
+            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-50"
             disabled={!workflowId || !mounted || !sessionId || isRunning}
             onClick={() => handleRun("test")}
             title="Test run (mocks LC native and integration nodes)"
@@ -650,7 +650,7 @@ export function LayersCanvas() {
             Test
           </button>
           {/* Divider */}
-          <div className="mx-1 h-5 w-px bg-zinc-700" />
+          <div className="mx-1 h-5 w-px bg-slate-700" />
           {/* User menu */}
           {isSignedIn && user ? (
             <div className="relative">
@@ -665,15 +665,15 @@ export function LayersCanvas() {
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute top-full right-0 mt-1 w-56 rounded-md border border-zinc-700 bg-zinc-900 shadow-xl z-50">
-                    <div className="border-b border-zinc-700 px-3 py-2">
-                      <div className="truncate text-xs font-medium text-zinc-100">{user.firstName || "User"}</div>
-                      <div className="truncate text-[10px] text-zinc-500">{user.email}</div>
+                  <div className="absolute top-full right-0 mt-1 w-56 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50">
+                    <div className="border-b border-slate-700 px-3 py-2">
+                      <div className="truncate text-xs font-medium text-slate-100">{user.firstName || "User"}</div>
+                      <div className="truncate text-[10px] text-slate-500">{user.email}</div>
                     </div>
                     <div className="p-1">
                       <Link
                         href="/"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                         Home
@@ -683,7 +683,7 @@ export function LayersCanvas() {
                           setShowUserMenu(false);
                           await signOut();
                         }}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-red-400 hover:bg-zinc-800"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-red-400 hover:bg-slate-800"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         Sign Out
@@ -696,7 +696,7 @@ export function LayersCanvas() {
           ) : (
             <Link
               href="/?openLogin=layers"
-              className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
+              className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
             >
               Sign In
             </Link>
@@ -732,13 +732,13 @@ export function LayersCanvas() {
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             <Controls
               position="bottom-left"
-              className="!bg-zinc-900 !border-zinc-700 !shadow-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button]:!fill-zinc-300 [&>button:hover]:!bg-zinc-700 [&>button:hover]:!fill-zinc-100"
+              className="!bg-slate-900 !border-slate-700 !shadow-lg [&>button]:!bg-slate-800 [&>button]:!border-slate-700 [&>button]:!fill-slate-300 [&>button:hover]:!bg-slate-700 [&>button:hover]:!fill-slate-100"
             />
             <MiniMap
               position="bottom-right"
               zoomable
               pannable
-              className="!bg-zinc-900/80"
+              className="!bg-slate-900/80"
               nodeColor={(n) => {
                 const def = n.data?.definition as NodeDefinition | undefined;
                 return def?.color ?? "#9CA3AF";
@@ -796,7 +796,7 @@ function MobileGate() {
       className="flex h-screen w-full flex-col items-center justify-center gap-6 px-6 text-center"
       style={{ background: "#09090b", color: "#fafafa" }}
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-800">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
           <line x1="8" y1="21" x2="16" y2="21" />
@@ -805,13 +805,13 @@ function MobileGate() {
       </div>
       <div>
         <h1 className="mb-2 text-lg font-semibold">Layers works best on desktop</h1>
-        <p className="text-sm text-zinc-400 leading-relaxed max-w-xs mx-auto">
+        <p className="text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
           The visual workflow canvas needs a larger screen for drag-and-drop, node connections, and canvas navigation.
         </p>
       </div>
       <Link
         href="/"
-        className="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
+        className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm text-slate-200 hover:bg-slate-800 transition-colors"
       >
         Back to dashboard
       </Link>
@@ -840,12 +840,12 @@ function EmptyCanvasOverlay({
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div
-        className="pointer-events-auto relative w-[540px] rounded-xl border border-zinc-700 p-8 shadow-2xl backdrop-blur-sm"
+        className="pointer-events-auto relative w-[540px] rounded-xl border border-slate-700 p-8 shadow-2xl backdrop-blur-sm"
         style={{ background: "rgba(9, 9, 11, 0.97)" }}
       >
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 text-zinc-500 hover:text-zinc-200 transition-colors"
+          className="absolute right-3 top-3 text-slate-500 hover:text-slate-200 transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -855,7 +855,7 @@ function EmptyCanvasOverlay({
 
         <div className="mb-5 text-center">
           <h2 className="text-base font-semibold">Welcome to Layers</h2>
-          <p className="mt-1 text-xs text-zinc-400">
+          <p className="mt-1 text-xs text-slate-400">
             Build workflows visually, or let AI generate one from a description.
           </p>
         </div>
@@ -875,9 +875,9 @@ function EmptyCanvasOverlay({
             </span>
             <div>
               <p className="text-sm font-medium text-blue-300 group-hover:text-blue-200">Describe with AI</p>
-              <p className="text-xs text-zinc-500">Tell AI what to build and it generates the workflow</p>
+              <p className="text-xs text-slate-500">Tell AI what to build and it generates the workflow</p>
             </div>
-            <kbd className="ml-auto rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">
+            <kbd className="ml-auto rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
               Cmd+K
             </kbd>
           </div>
@@ -886,8 +886,8 @@ function EmptyCanvasOverlay({
         {/* Quick tips */}
         <div className="mb-5 space-y-2">
           {tips.map((tip) => (
-            <div key={tip.icon} className="flex items-center gap-3 text-xs text-zinc-400">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-800/60 text-zinc-500">
+            <div key={tip.icon} className="flex items-center gap-3 text-xs text-slate-400">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-800/60 text-slate-500">
                 {tip.icon === "drag" && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
                 )}
@@ -910,7 +910,7 @@ function EmptyCanvasOverlay({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg border border-zinc-600 px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 transition-colors"
           >
             Start from scratch
           </button>
@@ -939,10 +939,10 @@ function HelpOverlay({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <div className="absolute right-4 top-4 z-50 w-[280px] rounded-xl border border-zinc-700 p-5 shadow-2xl backdrop-blur-sm" style={{ background: "rgba(9, 9, 11, 0.97)" }}>
+    <div className="absolute right-4 top-4 z-50 w-[280px] rounded-xl border border-slate-700 p-5 shadow-2xl backdrop-blur-sm" style={{ background: "rgba(9, 9, 11, 0.97)" }}>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Keyboard Shortcuts</h3>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Keyboard Shortcuts</h3>
+        <button onClick={onClose} className="text-slate-500 hover:text-slate-200 transition-colors">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -952,8 +952,8 @@ function HelpOverlay({ onClose }: { onClose: () => void }) {
       <div className="space-y-2">
         {shortcuts.map((s) => (
           <div key={s.key} className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400">{s.label}</span>
-            <kbd className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">
+            <span className="text-slate-400">{s.label}</span>
+            <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
               {s.key}
             </kbd>
           </div>
@@ -1032,7 +1032,7 @@ function AutoSaveIndicator({
   // No save has happened yet
   if (!lastSavedAt) {
     if (isDirty) {
-      return <span className="text-[10px] text-zinc-500">Unsaved changes</span>;
+      return <span className="text-[10px] text-slate-500">Unsaved changes</span>;
     }
     return null;
   }
@@ -1040,7 +1040,7 @@ function AutoSaveIndicator({
   // Default quiet state — static indicator with passive timestamp
   const agoText = formatTimeAgo(lastSavedAt);
   return (
-    <span className="flex items-center gap-1 text-[10px] text-zinc-500">
+    <span className="flex items-center gap-1 text-[10px] text-slate-500">
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12" />
       </svg>

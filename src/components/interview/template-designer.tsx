@@ -222,9 +222,9 @@ export function InterviewTemplateDesigner({
   const totalMinutes = localPhases.reduce((sum, p) => sum + p.estimatedMinutes, 0);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900 text-zinc-100">
+    <div className="h-full flex flex-col bg-slate-900 text-slate-100">
       {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-zinc-700">
+      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <input
@@ -235,7 +235,7 @@ export function InterviewTemplateDesigner({
                 setHasUnsavedChanges(true);
               }}
               placeholder="Template Name"
-              className="text-xl font-semibold bg-transparent border-none outline-none w-full placeholder:text-zinc-500"
+              className="text-xl font-semibold bg-transparent border-none outline-none w-full placeholder:text-slate-500"
             />
             <input
               type="text"
@@ -245,7 +245,7 @@ export function InterviewTemplateDesigner({
                 setHasUnsavedChanges(true);
               }}
               placeholder="Description..."
-              className="text-sm text-zinc-400 bg-transparent border-none outline-none w-full mt-1 placeholder:text-zinc-600"
+              className="text-sm text-slate-400 bg-transparent border-none outline-none w-full mt-1 placeholder:text-slate-600"
             />
           </div>
 
@@ -257,7 +257,7 @@ export function InterviewTemplateDesigner({
                 setLocalMode(e.target.value as "quick" | "standard" | "deep_discovery");
                 setHasUnsavedChanges(true);
               }}
-              className="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-600 rounded-md"
+              className="px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-md"
             >
               <option value="quick">Quick (15 min)</option>
               <option value="standard">Standard (25 min)</option>
@@ -269,14 +269,14 @@ export function InterviewTemplateDesigner({
               <>
                 <button
                   onClick={handleClone}
-                  className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md"
+                  className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md"
                   title="Clone template"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleArchive}
-                  className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md"
+                  className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md"
                   title="Archive template"
                 >
                   <Archive className="w-4 h-4" />
@@ -286,7 +286,7 @@ export function InterviewTemplateDesigner({
 
             <button
               onClick={onPreview}
-              className="px-3 py-1.5 text-sm bg-zinc-700 text-zinc-200 rounded-md hover:bg-zinc-600 flex items-center gap-1"
+              className="px-3 py-1.5 text-sm bg-slate-700 text-slate-200 rounded-md hover:bg-slate-600 flex items-center gap-1"
             >
               <Play className="w-4 h-4" />
               Preview
@@ -295,7 +295,7 @@ export function InterviewTemplateDesigner({
             <button
               onClick={handleSave}
               disabled={!hasUnsavedChanges}
-              className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-md hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               <Save className="w-4 h-4" />
               Save
@@ -313,7 +313,7 @@ export function InterviewTemplateDesigner({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-4 mt-3 text-sm text-zinc-500">
+        <div className="flex items-center gap-4 mt-3 text-sm text-slate-500">
           <span>{localPhases.length} phases</span>
           <span>{totalQuestions} questions</span>
           <span>~{totalMinutes} min</span>
@@ -324,7 +324,7 @@ export function InterviewTemplateDesigner({
                   ? "bg-green-900 text-green-300"
                   : template.status === "draft"
                     ? "bg-yellow-900 text-yellow-300"
-                    : "bg-zinc-700 text-zinc-400"
+                    : "bg-slate-700 text-slate-400"
               }`}
             >
               {template.status}
@@ -355,7 +355,7 @@ export function InterviewTemplateDesigner({
         {/* Add Phase Button */}
         <button
           onClick={addPhase}
-          className="w-full py-3 border-2 border-dashed border-zinc-700 rounded-lg text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 border-2 border-dashed border-slate-700 rounded-lg text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors flex items-center justify-center gap-2"
         >
           <Plus className="w-5 h-5" />
           Add Phase
@@ -397,15 +397,15 @@ function PhaseCard({
   setEditingQuestion,
 }: PhaseCardProps) {
   return (
-    <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
       {/* Phase Header */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-zinc-750"
         onClick={onToggle}
       >
-        <GripVertical className="w-4 h-4 text-zinc-500 cursor-grab" />
+        <GripVertical className="w-4 h-4 text-slate-500 cursor-grab" />
 
-        <button className="text-zinc-400">
+        <button className="text-slate-400">
           {isExpanded ? (
             <ChevronDown className="w-5 h-5" />
           ) : (
@@ -421,13 +421,13 @@ function PhaseCard({
             onClick={(e) => e.stopPropagation()}
             className="font-medium bg-transparent border-none outline-none"
           />
-          <div className="text-xs text-zinc-500 mt-0.5">
+          <div className="text-xs text-slate-500 mt-0.5">
             {phase.questions.length} questions ~ {phase.estimatedMinutes} min
           </div>
         </div>
 
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <label className="flex items-center gap-1 text-xs text-zinc-400">
+          <label className="flex items-center gap-1 text-xs text-slate-400">
             <input
               type="checkbox"
               checked={phase.isRequired}
@@ -441,15 +441,15 @@ function PhaseCard({
             type="number"
             value={phase.estimatedMinutes}
             onChange={(e) => onUpdate({ estimatedMinutes: parseInt(e.target.value) || 5 })}
-            className="w-12 px-2 py-1 text-xs bg-zinc-700 rounded border-none outline-none"
+            className="w-12 px-2 py-1 text-xs bg-slate-700 rounded border-none outline-none"
             min={1}
             max={30}
           />
-          <span className="text-xs text-zinc-500">min</span>
+          <span className="text-xs text-slate-500">min</span>
 
           <button
             onClick={onRemove}
-            className="p-1 text-zinc-500 hover:text-red-400"
+            className="p-1 text-slate-500 hover:text-red-400"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -458,16 +458,16 @@ function PhaseCard({
 
       {/* Questions */}
       {isExpanded && (
-        <div className="border-t border-zinc-700 px-4 py-3 space-y-3">
+        <div className="border-t border-slate-700 px-4 py-3 space-y-3">
           {/* Intro Prompt */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Phase Introduction</label>
+            <label className="text-xs text-slate-500 block mb-1">Phase Introduction</label>
             <input
               type="text"
               value={phase.introPrompt || ""}
               onChange={(e) => onUpdate({ introPrompt: e.target.value })}
               placeholder="What the interviewer says when entering this phase..."
-              className="w-full px-3 py-2 text-sm bg-zinc-700 rounded border-none outline-none placeholder:text-zinc-500"
+              className="w-full px-3 py-2 text-sm bg-slate-700 rounded border-none outline-none placeholder:text-slate-500"
             />
           </div>
 
@@ -487,7 +487,7 @@ function PhaseCard({
           {/* Add Question Button */}
           <button
             onClick={onAddQuestion}
-            className="w-full py-2 text-sm border border-dashed border-zinc-600 rounded text-zinc-500 hover:text-zinc-300 hover:border-zinc-400 flex items-center justify-center gap-1"
+            className="w-full py-2 text-sm border border-dashed border-slate-600 rounded text-slate-500 hover:text-slate-300 hover:border-slate-400 flex items-center justify-center gap-1"
           >
             <Plus className="w-4 h-4" />
             Add Question
@@ -495,13 +495,13 @@ function PhaseCard({
 
           {/* Completion Prompt */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Phase Completion</label>
+            <label className="text-xs text-slate-500 block mb-1">Phase Completion</label>
             <input
               type="text"
               value={phase.completionPrompt}
               onChange={(e) => onUpdate({ completionPrompt: e.target.value })}
               placeholder="What to say when phase is complete..."
-              className="w-full px-3 py-2 text-sm bg-zinc-700 rounded border-none outline-none placeholder:text-zinc-500"
+              className="w-full px-3 py-2 text-sm bg-slate-700 rounded border-none outline-none placeholder:text-slate-500"
             />
           </div>
         </div>
@@ -532,9 +532,9 @@ function QuestionEditor({
   onRemove,
 }: QuestionEditorProps) {
   return (
-    <div className="bg-zinc-750 rounded-lg p-3 border border-zinc-600">
+    <div className="bg-zinc-750 rounded-lg p-3 border border-slate-600">
       <div className="flex items-start gap-2">
-        <span className="text-xs text-zinc-500 mt-1">Q{index + 1}</span>
+        <span className="text-xs text-slate-500 mt-1">Q{index + 1}</span>
         <div className="flex-1">
           <textarea
             value={question.promptText}
@@ -553,7 +553,7 @@ function QuestionEditor({
                 value={question.helpText || ""}
                 onChange={(e) => onUpdate({ helpText: e.target.value })}
                 placeholder="Help text (shown if user needs clarification)"
-                className="w-full px-2 py-1 text-xs bg-zinc-700 rounded border-none outline-none placeholder:text-zinc-500"
+                className="w-full px-2 py-1 text-xs bg-slate-700 rounded border-none outline-none placeholder:text-slate-500"
               />
 
               {/* Data Type & Field */}
@@ -565,7 +565,7 @@ function QuestionEditor({
                       expectedDataType: e.target.value as InterviewQuestion["expectedDataType"],
                     })
                   }
-                  className="px-2 py-1 text-xs bg-zinc-700 rounded border-none"
+                  className="px-2 py-1 text-xs bg-slate-700 rounded border-none"
                 >
                   <option value="freeform">Freeform</option>
                   <option value="text">Text</option>
@@ -579,13 +579,13 @@ function QuestionEditor({
                   value={question.extractionField}
                   onChange={(e) => onUpdate({ extractionField: e.target.value })}
                   placeholder="Field name (e.g., bio, icp)"
-                  className="flex-1 px-2 py-1 text-xs bg-zinc-700 rounded border-none outline-none placeholder:text-zinc-500"
+                  className="flex-1 px-2 py-1 text-xs bg-slate-700 rounded border-none outline-none placeholder:text-slate-500"
                 />
               </div>
 
               {/* Follow-up Prompts */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">Follow-up prompts (one per line)</label>
+                <label className="text-xs text-slate-500 block mb-1">Follow-up prompts (one per line)</label>
                 <textarea
                   value={question.followUpPrompts?.join("\n") || ""}
                   onChange={(e) =>
@@ -595,7 +595,7 @@ function QuestionEditor({
                   }
                   rows={2}
                   placeholder="Can you elaborate on that?&#10;Tell me more about..."
-                  className="w-full px-2 py-1 text-xs bg-zinc-700 rounded border-none outline-none resize-none placeholder:text-zinc-500"
+                  className="w-full px-2 py-1 text-xs bg-slate-700 rounded border-none outline-none resize-none placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -604,7 +604,7 @@ function QuestionEditor({
 
         <button
           onClick={onRemove}
-          className="p-1 text-zinc-500 hover:text-red-400"
+          className="p-1 text-slate-500 hover:text-red-400"
         >
           <Trash2 className="w-3 h-3" />
         </button>

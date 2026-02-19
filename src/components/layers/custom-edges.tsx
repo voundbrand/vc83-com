@@ -97,7 +97,7 @@ export const WorkflowEdge: FC<EdgeProps> = memo(function WorkflowEdge({
                 ? "border-blue-500 bg-blue-500/20 text-blue-300"
                 : hasMapping
                   ? "border-yellow-500/60 bg-yellow-500/10 text-yellow-400"
-                  : "border-zinc-600 bg-zinc-800 text-zinc-400 opacity-0 hover:opacity-100"
+                  : "border-slate-600 bg-slate-800 text-slate-400 opacity-0 hover:opacity-100"
             }`}
             title={hasMapping ? "Data mapping configured" : "Configure data mapping (Phase 3)"}
             onClick={(e) => {

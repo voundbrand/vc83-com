@@ -86,7 +86,7 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
         <div className="flex flex-wrap items-center gap-2 mb-3">
           {/* Tier Badge */}
           <span
-            className="beveled-button px-3 py-1.5 text-xs font-bold"
+            className="desktop-interior-button px-3 py-1.5 text-xs font-bold"
             style={{
               background: getTierBadgeColor(),
               color: "white",
@@ -97,7 +97,7 @@ export function LicenseHeader({ license }: LicenseHeaderProps) {
 
           {/* Status Badge */}
           <span
-            className="beveled-button px-3 py-1.5 text-xs font-bold"
+            className="desktop-interior-button px-3 py-1.5 text-xs font-bold"
             style={{
               background: getStatusBadgeColor(),
               color: "white",

@@ -102,7 +102,7 @@ export function CheckoutEmbed({
     return (
       <div className={`flex items-center justify-center p-8 ${className}`}>
         <div className="text-center">
-          <Loader2 size={32} className="animate-spin text-purple-600 mx-auto mb-3" />
+          <Loader2 size={32} className="animate-spin text-violet-600 mx-auto mb-3" />
           <p className="text-gray-600 text-sm">Loading checkout...</p>
         </div>
       </div>

@@ -33,7 +33,7 @@ const badgeConfig = {
   'no-training': {
     label: 'No Training',
     tooltip: 'Provider does not train on your data',
-    className: 'bg-purple-100 text-purple-800 border-purple-200',
+    className: 'bg-violet-100 text-violet-800 border-violet-200',
   },
 } as const;
 

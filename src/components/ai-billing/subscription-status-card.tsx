@@ -140,7 +140,7 @@ export function SubscriptionStatusCard({
           <button
             type="button"
             onClick={onManageSubscription}
-            className="px-4 py-2 text-sm font-medium text-[#6B46C1] border border-[#6B46C1] rounded hover:bg-purple-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[#6B46C1] border border-[#6B46C1] rounded hover:bg-violet-50 transition-colors"
           >
             Manage Subscription →
           </button>

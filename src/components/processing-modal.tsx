@@ -83,13 +83,13 @@ export function ProcessingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl border-4 border-purple-600 max-w-md w-full mx-4 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-2xl border-4 border-violet-600 max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
         <div
           className={`p-6 text-white ${
             hasError
               ? "bg-gradient-to-r from-red-600 to-red-700"
-              : "bg-gradient-to-r from-purple-600 to-purple-700"
+              : "bg-gradient-to-r from-violet-600 to-violet-700"
           }`}
         >
           <div className="flex items-center gap-3 mb-2">
@@ -104,7 +104,7 @@ export function ProcessingModal({
                 : t("ui.processing_modal.header.title")}
             </h2>
           </div>
-          <p className={hasError ? "text-red-100 text-sm" : "text-purple-100 text-sm"}>
+          <p className={hasError ? "text-red-100 text-sm" : "text-violet-100 text-sm"}>
             {hasError
               ? t("ui.processing_modal.header.subtitle_error")
               : isInvoicePayment
@@ -134,7 +134,7 @@ export function ProcessingModal({
                     isStepCompleted
                       ? "border-green-400 bg-green-50"
                       : isCurrent
-                      ? "border-purple-400 bg-purple-50"
+                      ? "border-violet-400 bg-violet-50"
                       : "border-gray-200 bg-gray-50"
                   }`}
                 >
@@ -143,7 +143,7 @@ export function ProcessingModal({
                     {isStepCompleted ? (
                       <CheckCircle2 size={24} className="text-green-600" />
                     ) : isCurrent ? (
-                      <Loader2 size={24} className="text-purple-600 animate-spin" />
+                      <Loader2 size={24} className="text-violet-600 animate-spin" />
                     ) : (
                       <div className="w-6 h-6 rounded-full border-2 border-gray-300 bg-white" />
                     )}
@@ -158,7 +158,7 @@ export function ProcessingModal({
                           isStepCompleted
                             ? "text-green-900"
                             : isCurrent
-                            ? "text-purple-900"
+                            ? "text-violet-900"
                             : "text-gray-400"
                         }`}
                       >

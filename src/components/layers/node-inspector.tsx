@@ -53,9 +53,9 @@ export function NodeInspector({
   );
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-zinc-800 text-zinc-100" style={{ background: "#09090b" }}>
+    <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-slate-800 text-slate-100" style={{ background: "#09090b" }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+      <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
         <div className="flex items-center gap-2">
           <div
             className="h-3 w-3 rounded-full"
@@ -76,16 +76,16 @@ export function NodeInspector({
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-zinc-800">
+      <div className="flex border-b border-slate-800">
         <button
           onClick={() => setActiveTab("config")}
-          className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "config" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-zinc-300"}`}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "config" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-slate-300"}`}
         >
           Config
         </button>
         <button
           onClick={() => setActiveTab("logs")}
-          className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "logs" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-zinc-300"}`}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "logs" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-slate-300"}`}
         >
           Logs
           {nodeExecution && (
@@ -127,7 +127,7 @@ export function NodeInspector({
                 {nodeExecution.inputData !== undefined && (
                   <div>
                     <div className="mb-1 text-[10px] font-medium text-muted-foreground">Input</div>
-                    <pre className="max-h-32 overflow-auto rounded bg-zinc-900 p-2 text-[10px] text-zinc-300">
+                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-[10px] text-slate-300">
                       {JSON.stringify(nodeExecution.inputData, null, 2)}
                     </pre>
                   </div>
@@ -135,7 +135,7 @@ export function NodeInspector({
                 {nodeExecution.outputData !== undefined && (
                   <div>
                     <div className="mb-1 text-[10px] font-medium text-muted-foreground">Output</div>
-                    <pre className="max-h-32 overflow-auto rounded bg-zinc-900 p-2 text-[10px] text-zinc-300">
+                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-[10px] text-slate-300">
                       {JSON.stringify(nodeExecution.outputData, null, 2)}
                     </pre>
                   </div>
@@ -153,7 +153,7 @@ export function NodeInspector({
               type="text"
               value={label}
               onChange={(e) => onUpdateLabel(node.id, e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </FieldGroup>
 
@@ -249,7 +249,7 @@ export function NodeInspector({
             <div className="flex gap-2">
               <button
                 onClick={onDuplicate}
-                className="flex-1 rounded-md border border-zinc-700 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800"
+                className="flex-1 rounded-md border border-slate-700 px-2 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800"
                 title="Duplicate node (Cmd+D)"
               >
                 Duplicate
@@ -259,7 +259,7 @@ export function NodeInspector({
                 className={`flex-1 rounded-md border px-2 py-1.5 text-[11px] ${
                   isDisabled
                     ? "border-green-700 text-green-400 hover:bg-green-950/30"
-                    : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    : "border-slate-700 text-slate-300 hover:bg-slate-800"
                 }`}
                 title={isDisabled ? "Enable this node" : "Disable this node"}
               >
@@ -316,7 +316,7 @@ function ConfigFieldInput({
   onChange: (val: unknown) => void;
 }) {
   const inputClasses =
-    "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500";
+    "w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500";
 
   return (
     <div className="space-y-1">
@@ -466,7 +466,7 @@ function CredentialSection({
             <input
               type={showApiKey ? "text" : "password"}
               placeholder="Enter API key..."
-              className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleApiKeySave((e.target as HTMLInputElement).value);
@@ -475,7 +475,7 @@ function CredentialSection({
             />
             <button
               onClick={() => setShowApiKey(!showApiKey)}
-              className="rounded-md border border-zinc-700 px-1.5 py-1.5 text-[10px] text-zinc-400 hover:bg-zinc-800"
+              className="rounded-md border border-slate-700 px-1.5 py-1.5 text-[10px] text-slate-400 hover:bg-slate-800"
               title={showApiKey ? "Hide" : "Show"}
             >
               {showApiKey ? "Hide" : "Show"}
@@ -488,13 +488,13 @@ function CredentialSection({
               );
               if (input) handleApiKeySave(input.value);
             }}
-            className="w-full rounded-md border border-zinc-700 px-2 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800"
+            className="w-full rounded-md border border-slate-700 px-2 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800"
           >
             Save API Key
           </button>
         </div>
       ) : (
-        <div className="rounded-md border border-zinc-700 bg-zinc-900/50 p-2 text-[11px] text-muted-foreground">
+        <div className="rounded-md border border-slate-700 bg-slate-900/50 p-2 text-[11px] text-muted-foreground">
           Credentials required. Configure in Integration Settings.
         </div>
       )}
