@@ -40,7 +40,82 @@ export type ProviderCredentialSource =
   | "env_fallback"
   | "platform_fallback";
 
-export type ProviderCredentialField = "whatsappAccessToken" | "slackBotToken";
+export type ProviderProfileType = "platform" | "organization";
+
+export interface ChannelBindingInstallationIdentity {
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: ProviderProfileType;
+  routeKey?: string;
+  allowPlatformFallback?: boolean;
+}
+
+export interface ChannelProviderBindingContract
+  extends ChannelBindingInstallationIdentity {
+  channel: string;
+  providerId: ProviderId;
+  priority?: number;
+  enabled?: boolean;
+}
+
+// Canonical AI provider taxonomy (BMF-002).
+export const AI_PROVIDER_ID_VALUES = [
+  "openrouter",
+  "openai",
+  "anthropic",
+  "gemini",
+  "grok",
+  "mistral",
+  "kimi",
+  "elevenlabs",
+  "openai_compatible",
+] as const;
+
+export type AiProviderId = (typeof AI_PROVIDER_ID_VALUES)[number];
+
+// Canonical AI credential source taxonomy (BMF-002).
+export const AI_CREDENTIAL_SOURCE_VALUES = [
+  "platform_env",
+  "platform_vault",
+  "organization_setting",
+  "organization_auth_profile",
+  "integration_connection",
+] as const;
+
+export type AiCredentialSource = (typeof AI_CREDENTIAL_SOURCE_VALUES)[number];
+
+// Canonical AI capability matrix (BMF-002).
+export const AI_CAPABILITY_VALUES = [
+  "text",
+  "vision",
+  "audio_in",
+  "audio_out",
+  "tools",
+  "json",
+] as const;
+
+export type AiCapability = (typeof AI_CAPABILITY_VALUES)[number];
+export type AiCapabilityMatrix = Record<AiCapability, boolean>;
+
+// Canonical AI billing source taxonomy (BMF-002).
+export const AI_BILLING_SOURCE_VALUES = [
+  "platform",
+  "byok",
+  "private",
+] as const;
+
+export type AiBillingSource = (typeof AI_BILLING_SOURCE_VALUES)[number];
+
+export type ProviderCredentialField =
+  | "whatsappAccessToken"
+  | "slackBotToken"
+  | "telegramBotToken"
+  | "telegramWebhookSecret"
+  | "chatwootApiToken"
+  | "manychatApiKey"
+  | "resendApiKey";
 
 // Normalized inbound message from any provider
 export interface NormalizedInboundMessage {
@@ -98,6 +173,12 @@ export interface ProviderCredentials {
   providerId: ProviderId;
   credentialSource?: ProviderCredentialSource;
   encryptedFields?: ProviderCredentialField[];
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: ProviderProfileType;
+  bindingRouteKey?: string;
   // Chatwoot
   chatwootUrl?: string;
   chatwootApiToken?: string;

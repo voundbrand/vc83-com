@@ -41,6 +41,7 @@ export const detectWebAppConnectionsTool: AITool = {
     "Returns detected items with similarity-ranked matches from existing organization records. " +
     "Call this after create_webapp to prepare the data connection step.",
   status: "ready",
+  readOnly: true,
   windowName: "Builder",
   parameters: {
     type: "object",

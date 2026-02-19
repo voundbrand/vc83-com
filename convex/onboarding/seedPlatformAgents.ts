@@ -137,6 +137,13 @@ function getActionSessionId(
   return null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
 function assertOperatorSafeguards(args: {
   providedToken: string;
   expectedToken: string;
@@ -767,7 +774,257 @@ const QUINN_CUSTOM_PROPERTIES = {
   totalCostUsd: 0,
   // System bot protection: template is the frozen canonical reference
   protected: true,
+  templateRole: "platform_system_bot_template",
+  templateLayer: "system_onboarding",
+  templateScope: "platform",
+  clonePolicy: {
+    spawnEnabled: false,
+  },
 };
+
+type ProtectedTemplateAgentSeed = {
+  name: string;
+  subtype: string;
+  description: string;
+  role: string;
+  customProperties: Record<string, unknown>;
+};
+
+const USE_CASE_CLONE_POLICY_DEFAULTS = {
+  spawnEnabled: true,
+  maxClonesPerOrg: 12,
+  maxClonesPerTemplatePerOrg: 4,
+  maxClonesPerOwner: 3,
+  allowedPlaybooks: ["event"],
+};
+
+function buildSpecialistTemplateCustomProperties(args: {
+  displayName: string;
+  personality: string;
+  systemPrompt: string;
+  enabledTools: string[];
+  requireApprovalFor?: string[];
+  templateLayer: "orchestration_core" | "event_playbook";
+  templateRole: string;
+  templatePlaybook: "event";
+  maxMessagesPerDay?: number;
+  maxCostPerDay?: number;
+  temperature?: number;
+}): Record<string, unknown> {
+  return {
+    displayName: args.displayName,
+    personality: args.personality,
+    language: "en",
+    additionalLanguages: ["de", "pl", "es", "fr", "ja"],
+    systemPrompt: args.systemPrompt,
+    faqEntries: [],
+    knowledgeBaseTags: [
+      "orchestration_core",
+      args.templateLayer,
+      "event_playbook",
+    ],
+    toolProfile: "general",
+    enabledTools: args.enabledTools,
+    disabledTools: [],
+    autonomyLevel: "autonomous",
+    maxMessagesPerDay: args.maxMessagesPerDay ?? 500,
+    maxCostPerDay: args.maxCostPerDay ?? 30,
+    requireApprovalFor: args.requireApprovalFor ?? [],
+    blockedTopics: [],
+    modelProvider: "openrouter",
+    modelId: "anthropic/claude-sonnet-4.5",
+    temperature: args.temperature ?? 0.35,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "webchat", enabled: true },
+      { channel: "native_guest", enabled: true },
+    ],
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: args.templateLayer,
+    templateRole: args.templateRole,
+    templatePlaybook: args.templatePlaybook,
+    clonePolicy: USE_CASE_CLONE_POLICY_DEFAULTS,
+  };
+}
+
+const ORCHESTRATION_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
+  {
+    name: "Orchestration Runtime Planner",
+    subtype: "general",
+    description: "Protected template for deterministic orchestration runtime planning and intent decomposition.",
+    role: "orchestration_runtime_planner_template",
+    customProperties: buildSpecialistTemplateCustomProperties({
+      displayName: "Runtime Planner",
+      personality: "Deterministic orchestration planner. Convert one goal into explicit, dependency-safe steps and guardrail checkpoints.",
+      systemPrompt:
+        "You are the Orchestration Runtime Planner template. Build deterministic orchestration plans, keep idempotency constraints explicit, and require approvals before publish/payment-impacting changes.",
+      enabledTools: [
+        "create_experience",
+        "create_event_experience",
+        "create_layers_workflow",
+        "link_objects",
+      ],
+      templateLayer: "orchestration_core",
+      templateRole: "orchestration_runtime_planner_template",
+      templatePlaybook: "event",
+      requireApprovalFor: ["deploy_webapp", "publish_checkout"],
+      temperature: 0.2,
+    }),
+  },
+  {
+    name: "Orchestration Data Link Specialist",
+    subtype: "general",
+    description: "Protected template for artifact graph linking and web-app data connection validation.",
+    role: "orchestration_data_link_specialist_template",
+    customProperties: buildSpecialistTemplateCustomProperties({
+      displayName: "Data Link Specialist",
+      personality: "Precise data-link operator. Validate references, resolve missing dependencies, and keep object graph integrity intact.",
+      systemPrompt:
+        "You are the Orchestration Data Link Specialist template. Connect generated artifacts without duplicate drift and emit explicit follow-up gaps.",
+      enabledTools: [
+        "detect_webapp_connections",
+        "connect_webapp_data",
+        "link_objects",
+        "create_layers_workflow",
+      ],
+      templateLayer: "orchestration_core",
+      templateRole: "orchestration_data_link_specialist_template",
+      templatePlaybook: "event",
+      temperature: 0.2,
+    }),
+  },
+  {
+    name: "Orchestration Publishing Operator",
+    subtype: "general",
+    description: "Protected template for controlled publishing handoffs and deployment status validation.",
+    role: "orchestration_publishing_operator_template",
+    customProperties: buildSpecialistTemplateCustomProperties({
+      displayName: "Publishing Operator",
+      personality: "Careful publishing operator. Validate readiness, request explicit approvals, and avoid irreversible actions without checkpoints.",
+      systemPrompt:
+        "You are the Orchestration Publishing Operator template. Drive publish/deploy readiness checks and do not bypass explicit human checkpoints.",
+      enabledTools: [
+        "deploy_webapp",
+        "check_deploy_status",
+        "link_objects",
+      ],
+      templateLayer: "orchestration_core",
+      templateRole: "orchestration_publishing_operator_template",
+      templatePlaybook: "event",
+      requireApprovalFor: ["deploy_webapp", "publish_checkout"],
+      temperature: 0.25,
+    }),
+  },
+  {
+    name: "Event Experience Architect",
+    subtype: "general",
+    description: "Protected template for event playbook intent shaping and artifact recipe decisions.",
+    role: "event_experience_architect_template",
+    customProperties: buildSpecialistTemplateCustomProperties({
+      displayName: "Event Architect",
+      personality: "Event launch architect. Turn a user brief into a coherent event experience with ticketing, forms, and publishing constraints.",
+      systemPrompt:
+        "You are the Event Experience Architect template. Prioritize deterministic event playbook inputs and surface missing constraints before execution.",
+      enabledTools: [
+        "create_event_experience",
+        "create_experience",
+        "create_event",
+        "create_product",
+      ],
+      templateLayer: "event_playbook",
+      templateRole: "event_experience_architect_template",
+      templatePlaybook: "event",
+      temperature: 0.3,
+    }),
+  },
+  {
+    name: "Event Form and Checkout Specialist",
+    subtype: "general",
+    description: "Protected template for event form/checkout artifact quality and payment readiness.",
+    role: "event_form_checkout_specialist_template",
+    customProperties: buildSpecialistTemplateCustomProperties({
+      displayName: "Event Form + Checkout Specialist",
+      personality: "Conversion-focused specialist for forms and checkout artifacts with explicit publish/payment guardrails.",
+      systemPrompt:
+        "You are the Event Form and Checkout Specialist template. Build high-confidence form and checkout artifacts with explicit payment safety controls.",
+      enabledTools: [
+        "create_form",
+        "create_checkout_page",
+        "create_product",
+        "set_product_price",
+      ],
+      templateLayer: "event_playbook",
+      templateRole: "event_form_checkout_specialist_template",
+      templatePlaybook: "event",
+      requireApprovalFor: ["publish_checkout"],
+      temperature: 0.3,
+    }),
+  },
+];
+
+async function upsertProtectedTemplateAgent(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    now: number;
+    seed: ProtectedTemplateAgentSeed;
+  },
+): Promise<{ agentId: Id<"objects">; created: boolean }> {
+  const existing = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .filter((q) => q.eq(q.field("name"), args.seed.name))
+    .first();
+
+  if (existing) {
+    const liveProps = asRecord(existing.customProperties);
+    await ctx.db.patch(existing._id, {
+      subtype: args.seed.subtype,
+      description: args.seed.description,
+      status: "template",
+      customProperties: {
+        ...args.seed.customProperties,
+        totalMessages: typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
+        totalCostUsd: typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
+      },
+      updatedAt: args.now,
+    });
+    return { agentId: existing._id, created: false };
+  }
+
+  const agentId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: args.seed.subtype,
+    name: args.seed.name,
+    description: args.seed.description,
+    status: "template",
+    customProperties: args.seed.customProperties,
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: agentId,
+    actionType: "seeded",
+    actionData: {
+      agent: args.seed.name,
+      subtype: args.seed.subtype,
+      role: args.seed.role,
+      templateLayer: args.seed.customProperties.templateLayer,
+      templatePlaybook: args.seed.customProperties.templatePlaybook,
+    },
+    performedAt: args.now,
+  });
+
+  return { agentId, created: true };
+}
 
 // ============================================================================
 // SEED MUTATION — Upserts Quinn + Onboarding Template
@@ -809,16 +1066,15 @@ export const seedAll = internalMutation({
       quinnId = existingQuinn._id;
 
       // Preserve runtime stats from the live record
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const liveProps = existingQuinn.customProperties as Record<string, any>;
+      const liveProps = asRecord(existingQuinn.customProperties);
       await ctx.db.patch(quinnId, {
         description: "l4yercak3 System Bot — template for onboarding workers",
         status: "template",
         customProperties: {
           ...QUINN_CUSTOM_PROPERTIES,
           // Keep runtime counters from live data
-          totalMessages: liveProps?.totalMessages ?? 0,
-          totalCostUsd: liveProps?.totalCostUsd ?? 0,
+          totalMessages: typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
+          totalCostUsd: typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
         },
         updatedAt: now,
       });
@@ -853,9 +1109,8 @@ export const seedAll = internalMutation({
     // ------------------------------------------------------------------
 
     const existingWorkers = existingAgents.filter((a) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const props = a.customProperties as Record<string, any>;
-      return a.status === "active" && props?.templateAgentId !== undefined;
+      const props = asRecord(a.customProperties);
+      return a.status === "active" && `${props.templateAgentId || ""}` === `${quinnId}`;
     });
 
     let initialWorkerId: Id<"objects"> | null = null;
@@ -873,6 +1128,7 @@ export const seedAll = internalMutation({
           displayName: "Quinn Worker 1",
           status: "active",
           templateAgentId: quinnId,
+          workerPoolRole: "onboarding_worker",
           lastActiveSessionAt: now,
         },
         createdAt: now,
@@ -890,6 +1146,32 @@ export const seedAll = internalMutation({
       console.log(`[seedPlatformAgents] Initial Quinn worker spawned: ${initialWorkerId}`);
     } else {
       console.log(`[seedPlatformAgents] ${existingWorkers.length} worker(s) already exist — skipped`);
+    }
+
+    // ------------------------------------------------------------------
+    // 1c. UPSERT ORCHESTRATION/EVENT SPECIALIST TEMPLATE AGENTS
+    // ------------------------------------------------------------------
+
+    const specialistTemplateResults: Array<{
+      name: string;
+      agentId: Id<"objects">;
+      created: boolean;
+    }> = [];
+
+    for (const seed of ORCHESTRATION_TEMPLATE_AGENT_SEEDS) {
+      const result = await upsertProtectedTemplateAgent(ctx, {
+        organizationId: platformOrgId,
+        now,
+        seed,
+      });
+      specialistTemplateResults.push({
+        name: seed.name,
+        agentId: result.agentId,
+        created: result.created,
+      });
+      console.log(
+        `[seedPlatformAgents] ${seed.name} upserted (${result.created ? "created" : "updated"}): ${result.agentId}`,
+      );
     }
 
     // ------------------------------------------------------------------
@@ -1051,6 +1333,7 @@ export const seedAll = internalMutation({
       success: true,
       platformOrgId,
       quinnId,
+      specialistTemplateAgents: specialistTemplateResults,
       templateId,
       trustTrainingTemplateId: trustTrainingTemplateResult.templateId,
       customerBaselineTemplateId: customerBaselineTemplateResult.templateId,

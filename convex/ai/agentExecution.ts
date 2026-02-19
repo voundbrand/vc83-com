@@ -2,7 +2,7 @@
  * AGENT EXECUTION PIPELINE
  *
  * Core runtime for processing inbound messages through an org's AI agent.
- * Reuses OpenRouter client and tool registry from the existing chat system.
+ * Reuses provider adapter client and tool registry from the existing chat system.
  *
  * Pipeline:
  * 1. Load agent config → 2. Check rate limits → 3. Resolve session →
@@ -33,24 +33,40 @@ import {
   type KnowledgeContextDocument,
 } from "./memoryComposer";
 import {
+  buildAuthProfileFailureCountMap,
   getAuthProfileCooldownMs,
   isAuthProfileRotatableError,
   orderAuthProfilesForSession,
-  resolveOpenRouterAuthProfiles,
+  type ResolvedAuthProfile,
+  resolveAuthProfilesForProvider,
 } from "./authProfilePolicy";
-import { buildModelFailoverCandidates } from "./modelFailoverPolicy";
 import {
   calculateCostFromUsage,
   convertUsdToCredits,
   estimateCreditsFromPricing,
 } from "./modelPricing";
 import {
+  buildEnvApiKeysByProvider,
+  detectProvider,
+  resolveAuthProfileBaseUrl,
+} from "./modelAdapters";
+import { resolveOrganizationProviderBindingForProvider } from "./providerRegistry";
+import {
+  buildModelRoutingMatrix,
   determineModelSelectionSource,
+  normalizeCanonicalBillingSource,
   SAFE_FALLBACK_MODEL_ID,
+  resolveModelRoutingIntent,
+  resolveModelRoutingModality,
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
 } from "./modelPolicy";
+import {
+  normalizeVoiceRuntimeProviderId,
+  resolveVoiceRuntimeAdapter,
+  type VoiceRuntimeProviderId,
+} from "./voiceRuntimeAdapter";
 import {
   checkPreLLMEscalation,
   checkPostLLMEscalation,
@@ -63,6 +79,7 @@ import {
 } from "./escalation";
 import {
   brokerTools,
+  detectIntents,
   extractRecentToolNames,
   type BrokerMetrics,
 } from "./toolBroker";
@@ -203,6 +220,119 @@ export function resolveThreadDeliveryState(args: {
   return "queued";
 }
 
+/**
+ * Spawn (or reuse) an org/user-scoped use-case agent clone from a protected template.
+ * This action is approval-gated by org RBAC and delegates lifecycle management
+ * to the worker pool clone factory.
+ */
+export const spawn_use_case_agent = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    templateAgentId: v.id("objects"),
+    useCase: v.string(),
+    ownerUserId: v.optional(v.id("users")),
+    playbook: v.optional(v.string()),
+    spawnReason: v.optional(v.string()),
+    preferredCloneName: v.optional(v.string()),
+    reuseExisting: v.optional(v.boolean()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args): Promise<{
+    status: "success";
+    cloneAgentId: Id<"objects">;
+    cloneAgentName: string;
+    templateAgentId: Id<"objects">;
+    ownerUserId: Id<"users">;
+    reused: boolean;
+    created: boolean;
+    useCase: string;
+    useCaseKey: string;
+    quota: {
+      orgUsed: number;
+      templateUsed: number;
+      ownerUsed: number;
+      limits: {
+        spawnEnabled: boolean;
+        maxClonesPerOrg: number;
+        maxClonesPerTemplatePerOrg: number;
+        maxClonesPerOwner: number;
+        allowedPlaybooks: string[] | null;
+      };
+    };
+  }> => {
+    const auth = await ctx.runQuery(
+      getInternal().rbacHelpers.requireAuthenticatedUserQuery,
+      { sessionId: args.sessionId },
+    ) as {
+      userId: Id<"users">;
+      organizationId: Id<"organizations">;
+    };
+
+    await ctx.runMutation(getInternal().rbacHelpers.requirePermissionMutation, {
+      userId: auth.userId,
+      permission: "manage_organization",
+      organizationId: args.organizationId,
+    });
+
+    const ownerUserId = args.ownerUserId ?? auth.userId;
+
+    const spawnResult = await ctx.runMutation(
+      getInternal().ai.workerPool.spawnUseCaseAgent,
+      {
+        organizationId: args.organizationId,
+        templateAgentId: args.templateAgentId,
+        ownerUserId,
+        requestedByUserId: auth.userId,
+        useCase: args.useCase,
+        playbook: args.playbook,
+        spawnReason: args.spawnReason,
+        preferredCloneName: args.preferredCloneName,
+        reuseExisting: args.reuseExisting,
+        metadata: args.metadata,
+      },
+    ) as {
+      cloneAgentId: Id<"objects">;
+      reused: boolean;
+      created: boolean;
+      useCase: string;
+      useCaseKey: string;
+      quota: {
+        orgUsed: number;
+        templateUsed: number;
+        ownerUsed: number;
+        limits: {
+          spawnEnabled: boolean;
+          maxClonesPerOrg: number;
+          maxClonesPerTemplatePerOrg: number;
+          maxClonesPerOwner: number;
+          allowedPlaybooks: string[] | null;
+        };
+      };
+    };
+
+    const cloneAgent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+      agentId: spawnResult.cloneAgentId,
+    }) as { name?: string } | null;
+
+    return {
+      status: "success",
+      cloneAgentId: spawnResult.cloneAgentId,
+      cloneAgentName:
+        typeof cloneAgent?.name === "string" && cloneAgent.name.trim().length > 0
+          ? cloneAgent.name
+          : "Use Case Agent Clone",
+      templateAgentId: args.templateAgentId,
+      ownerUserId,
+      reused: spawnResult.reused,
+      created: spawnResult.created,
+      useCase: spawnResult.useCase,
+      useCaseKey: spawnResult.useCaseKey,
+      quota: spawnResult.quota,
+    };
+  },
+});
+
 // ============================================================================
 // MAIN PIPELINE
 // ============================================================================
@@ -226,11 +356,23 @@ export const processInboundMessage = action({
     toolResults?: Array<{ tool: string; status: string; result?: unknown; error?: string }>;
     sessionId?: string;
     turnId?: string;
+    voiceRuntime?: Record<string, unknown>;
   }> => {
+    const inboundMetadata = (args.metadata as Record<string, unknown>) || {};
+    const inboundChannelRouteIdentity = resolveInboundChannelRouteIdentity(
+      inboundMetadata
+    );
+    const inboundDispatchRouteSelectors = resolveInboundDispatchRouteSelectors({
+      channel: args.channel,
+      externalContactIdentifier: args.externalContactIdentifier,
+      metadata: inboundMetadata,
+    });
+
     // 1. Load agent config (with worker pool fallback for system bot)
     let agent = await ctx.runQuery(getInternal().agentOntology.getActiveAgentForOrg, {
       organizationId: args.organizationId,
       channel: args.channel,
+      routeSelectors: inboundDispatchRouteSelectors,
     });
 
     if (!agent) {
@@ -287,6 +429,7 @@ export const processInboundMessage = action({
       organizationId: args.organizationId,
       channel: args.channel,
       externalContactIdentifier: args.externalContactIdentifier,
+      channelRouteIdentity: inboundChannelRouteIdentity,
     });
 
     if (!session) {
@@ -300,7 +443,6 @@ export const processInboundMessage = action({
       reason: "inbound_turn_start",
     });
 
-    const inboundMetadata = (args.metadata as Record<string, unknown>) || {};
     const inboundIdempotencyKey = resolveInboundIdempotencyKey({
       providedKey: inboundMetadata.idempotencyKey,
       metadata: inboundMetadata,
@@ -308,6 +450,7 @@ export const processInboundMessage = action({
       channel: args.channel,
       externalContactIdentifier: args.externalContactIdentifier,
       message: args.message,
+      channelRouteIdentity: inboundChannelRouteIdentity,
     });
 
     const receiptIngress = await ctx.runMutation(getInternal().ai.agentExecution.ingestInboundReceipt, {
@@ -320,6 +463,8 @@ export const processInboundMessage = action({
       metadata: {
         channel: args.channel,
         externalContactIdentifier: args.externalContactIdentifier,
+        channelRouteIdentity: inboundChannelRouteIdentity,
+        routeSelectors: inboundDispatchRouteSelectors,
       },
     }) as {
       receiptId?: Id<"agentInboxReceipts">;
@@ -582,6 +727,71 @@ export const processInboundMessage = action({
       }
     }
 
+    const aiSettings = await ctx.runQuery(getApi().api.ai.settings.getAISettings, {
+      organizationId: args.organizationId,
+    }) as any;
+
+    let inboundMessage = args.message;
+    const inboundVoiceRequest = resolveInboundVoiceRuntimeRequest(inboundMetadata);
+    let voiceRuntimeMetadata: Record<string, unknown> | undefined;
+
+    if (inboundVoiceRequest) {
+      try {
+        const elevenLabsBinding = resolveElevenLabsRuntimeBinding({ aiSettings });
+        const resolvedVoiceAdapter = await resolveVoiceRuntimeAdapter({
+          requestedProviderId: inboundVoiceRequest.requestedProviderId,
+          elevenLabsBinding,
+          fetchFn: fetch,
+        });
+        voiceRuntimeMetadata = {
+          requestedProviderId: inboundVoiceRequest.requestedProviderId,
+          providerId: resolvedVoiceAdapter.adapter.providerId,
+          fallbackProviderId: resolvedVoiceAdapter.fallbackFromProviderId ?? null,
+          healthStatus: resolvedVoiceAdapter.health.status,
+          healthReason: resolvedVoiceAdapter.health.reason ?? null,
+        };
+
+        if (inboundVoiceRequest.audioBase64) {
+          try {
+            const transcription = await resolvedVoiceAdapter.adapter.transcribe({
+              voiceSessionId:
+                inboundVoiceRequest.voiceSessionId ??
+                `voice-turn:${runtimeTurnId}`,
+              audioBytes: decodeInboundVoiceAudioBase64(
+                inboundVoiceRequest.audioBase64
+              ),
+              mimeType: inboundVoiceRequest.mimeType ?? "audio/webm",
+              language: inboundVoiceRequest.language,
+            });
+            const transcriptText = transcription.text.trim();
+            if (transcriptText.length > 0) {
+              inboundMessage = transcriptText;
+            }
+            voiceRuntimeMetadata = {
+              ...voiceRuntimeMetadata,
+              transcribeSuccess: true,
+              transcriptPreview: transcriptText.slice(0, 160),
+            };
+          } catch (error) {
+            voiceRuntimeMetadata = {
+              ...voiceRuntimeMetadata,
+              transcribeSuccess: false,
+              transcriptionError:
+                error instanceof Error ? error.message : "voice_transcription_failed",
+            };
+          }
+        }
+      } catch (error) {
+        voiceRuntimeMetadata = {
+          requestedProviderId: inboundVoiceRequest.requestedProviderId,
+          transcribeSuccess: false,
+          synthesisSuccess: false,
+          runtimeError:
+            error instanceof Error ? error.message : "voice_runtime_resolution_failed",
+        };
+      }
+    }
+
     // 4.5. Fetch org knowledge context:
     //      prefer chunk-index semantic retrieval, fallback to legacy doc retrieval path.
     let knowledgeBaseDocs: KnowledgeContextDocument[] = [];
@@ -605,7 +815,7 @@ export const processInboundMessage = action({
         getInternal().organizationMedia.searchKnowledgeChunksInternal,
         {
           organizationId: args.organizationId,
-          queryText: args.message,
+          queryText: inboundMessage,
           tags: normalizedKnowledgeTags.length > 0 ? normalizedKnowledgeTags : undefined,
         }
       ) as SemanticKnowledgeChunkSearchResult | null;
@@ -680,7 +890,7 @@ export const processInboundMessage = action({
         );
 
         const retrievalDecision = resolveKnowledgeRetrieval({
-          queryText: args.message,
+          queryText: inboundMessage,
           candidateDocs,
         });
         knowledgeBaseDocs = retrievalDecision.documents;
@@ -731,7 +941,7 @@ export const processInboundMessage = action({
       .filter((m) => m.role === "user")
       .map((m) => m.content);
 
-    const preEscalation = checkPreLLMEscalation(args.message, config, recentUserMsgs);
+    const preEscalation = checkPreLLMEscalation(inboundMessage, config, recentUserMsgs);
     if (preEscalation) {
       await ctx.runMutation(getInternal().ai.agentLifecycle.recordLifecycleTransition, {
         sessionId: session._id,
@@ -757,7 +967,7 @@ export const processInboundMessage = action({
         checkpoint: "pre_llm_escalation",
         contactIdentifier: args.externalContactIdentifier,
         channel: args.channel,
-        lastMessage: args.message.slice(0, 200),
+        lastMessage: inboundMessage.slice(0, 200),
         agentName: escAgentName,
         createEscalation: async (escalationArgs) => {
           await ctx.runMutation(getInternal().ai.escalation.createEscalation, escalationArgs);
@@ -788,7 +998,7 @@ export const processInboundMessage = action({
       await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
         sessionId: session._id,
         role: "user",
-        content: args.message,
+        content: inboundMessage,
       });
       await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
         sessionId: session._id,
@@ -823,13 +1033,22 @@ export const processInboundMessage = action({
       };
     }
 
-    const aiSettings = await ctx.runQuery(getApi().api.ai.settings.getAISettings, {
-      organizationId: args.organizationId,
-    });
     const platformEnabledModels = await ctx.runQuery(
       getApi().api.ai.platformModels.getEnabledModels,
       {}
-    ) as Array<{ id: string; contextLength?: number }>;
+    ) as Array<{
+      id: string;
+      contextLength?: number;
+      providerId?: string | null;
+      capabilityMatrix?: {
+        text?: boolean;
+        vision?: boolean;
+        audio_in?: boolean;
+        audio_out?: boolean;
+        tools?: boolean;
+        json?: boolean;
+      } | null;
+    }>;
 
     if (platformEnabledModels.length === 0) {
       return {
@@ -853,6 +1072,19 @@ export const processInboundMessage = action({
     const hasExplicitModelOverride = typeof explicitModelOverride === "string";
     const preferredModel = resolveRequestedModel(aiSettings, explicitModelOverride);
     const orgDefaultModel = resolveOrgDefaultModel(aiSettings);
+    const envApiKeysByProvider = buildEnvApiKeysByProvider({
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+      GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      OPENAI_COMPATIBLE_API_KEY: process.env.OPENAI_COMPATIBLE_API_KEY,
+      XAI_API_KEY: process.env.XAI_API_KEY,
+      MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
+      KIMI_API_KEY: process.env.KIMI_API_KEY,
+      ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+    });
     const orgEnabledModelIds = Array.isArray(aiSettings?.llm?.enabledModels)
       ? aiSettings.llm.enabledModels
           .map((modelSetting: { modelId?: string }) =>
@@ -860,17 +1092,113 @@ export const processInboundMessage = action({
           )
           .filter((modelId: string | null): modelId is string => Boolean(modelId))
       : [];
+    const platformRoutingModels = platformEnabledModels.map((platformModel) => ({
+      modelId: platformModel.id,
+      providerId:
+        typeof platformModel.providerId === "string" &&
+        platformModel.providerId.trim().length > 0
+          ? platformModel.providerId
+          : detectProvider(platformModel.id, aiSettings?.llm?.providerId),
+      capabilityMatrix: platformModel.capabilityMatrix ?? undefined,
+    }));
     const firstPlatformEnabledModel = platformEnabledModels[0]?.id ?? null;
-    const model = selectFirstPlatformEnabledModel(
-      [
-        !hasExplicitModelOverride ? pinnedSessionModelId : null,
-        preferredModel,
-        orgDefaultModel,
-        SAFE_FALLBACK_MODEL_ID,
-        firstPlatformEnabledModel,
-      ],
-      platformEnabledModels.map((platformModel) => platformModel.id)
+    const providerIdsToResolve = new Set<string>([
+      "openrouter",
+      detectProvider(preferredModel, aiSettings?.llm?.providerId),
+    ]);
+    for (const platformModel of platformRoutingModels) {
+      providerIdsToResolve.add(
+        detectProvider(platformModel.providerId ?? platformModel.modelId, aiSettings?.llm?.providerId)
+      );
+    }
+
+    const providerAuthProfilesById = new Map<
+      string,
+      Array<ResolvedAuthProfile & { baseUrl?: string }>
+    >();
+    const authProfileFailureCountsByProvider = new Map<string, Map<string, number>>();
+    const availableProviderIds = new Set<string>();
+    for (const providerIdCandidate of providerIdsToResolve) {
+      const providerId = detectProvider(providerIdCandidate, aiSettings?.llm?.providerId);
+      const resolvedProfiles = resolveAuthProfilesForProvider({
+        providerId,
+        llmSettings: aiSettings?.llm,
+        defaultBillingSource: aiSettings?.billingSource,
+        envApiKeysByProvider,
+        envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+      });
+      if (resolvedProfiles.length === 0) {
+        continue;
+      }
+
+      availableProviderIds.add(providerId);
+      providerAuthProfilesById.set(
+        providerId,
+        resolvedProfiles.map((profile) => ({
+          ...profile,
+          baseUrl: resolveAuthProfileBaseUrl({
+            llmSettings: aiSettings?.llm,
+            providerId: profile.providerId,
+            profileId: profile.profileId,
+            envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+          }),
+        }))
+      );
+      authProfileFailureCountsByProvider.set(
+        providerId,
+        buildAuthProfileFailureCountMap({
+          providerId,
+          llmSettings: aiSettings?.llm,
+        })
+      );
+    }
+
+    if (availableProviderIds.size === 0) {
+      return {
+        status: "error",
+        message: "No auth profiles are configured for any available AI provider",
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+      };
+    }
+
+    const routingIntent = resolveModelRoutingIntent({
+      detectedIntents: detectIntents(inboundMessage),
+      requiresTools: config.useToolBroker === true,
+    });
+    const routingModality = resolveModelRoutingModality({
+      message: inboundMessage,
+      metadata,
+    });
+    const modelRoutingMatrix = buildModelRoutingMatrix({
+      preferredModelId: preferredModel,
+      sessionPinnedModelId: !hasExplicitModelOverride ? pinnedSessionModelId : null,
+      orgDefaultModelId: orgDefaultModel,
+      orgEnabledModelIds,
+      platformModels: platformRoutingModels,
+      safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
+      platformFirstEnabledModelId: firstPlatformEnabledModel,
+      hasExplicitModelOverride,
+      routingIntent,
+      routingModality,
+      availableProviderIds,
+    });
+    const modelRoutingById = new Map(
+      modelRoutingMatrix.map((entry) => [entry.modelId, entry])
     );
+    const modelsToTry = modelRoutingMatrix.map((entry) => entry.modelId);
+    const model =
+      modelsToTry[0] ??
+      selectFirstPlatformEnabledModel(
+        [
+          !hasExplicitModelOverride ? pinnedSessionModelId : null,
+          preferredModel,
+          orgDefaultModel,
+          SAFE_FALLBACK_MODEL_ID,
+          firstPlatformEnabledModel,
+        ],
+        platformEnabledModels.map((platformModel) => platformModel.id)
+      );
     const selectionSource =
       !hasExplicitModelOverride &&
       pinnedSessionModelId &&
@@ -883,6 +1211,9 @@ export const processInboundMessage = action({
             safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
             platformFirstEnabledModelId: firstPlatformEnabledModel,
           });
+    const selectedRoutingReason = model
+      ? modelRoutingById.get(model)?.reason
+      : undefined;
 
     if (!model) {
       return {
@@ -1171,14 +1502,14 @@ export const processInboundMessage = action({
       messages.push({ role: msg.role as "user" | "assistant", content: msg.content });
     }
 
-    messages.push({ role: "user", content: args.message });
+    messages.push({ role: "user", content: inboundMessage });
 
     // 7. Tool broker — narrow tools by intent + recent usage (feature-flagged)
     let brokerMetrics: BrokerMetrics | undefined;
     if (config.useToolBroker) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const recentToolNames = extractRecentToolNames(history as Array<{ role: string; toolCalls?: any }>);
-      const brokerResult = brokerTools(args.message, toolSchemas, recentToolNames);
+      const brokerResult = brokerTools(inboundMessage, toolSchemas, recentToolNames);
       toolSchemas = brokerResult.tools;
       brokerMetrics = brokerResult.metrics;
     }
@@ -1203,8 +1534,34 @@ export const processInboundMessage = action({
       });
     }
 
+    const selectedModelProviderId = detectProvider(model, aiSettings?.llm?.providerId);
+    const selectedModelAuthProfiles = orderAuthProfilesForSession(
+      providerAuthProfilesById.get(selectedModelProviderId) ?? [],
+      pinnedAuthProfileId
+    ) as Array<ResolvedAuthProfile & { baseUrl?: string }>;
+    const primaryAuthProfileId =
+      selectedModelAuthProfiles[0]?.profileId ?? null;
+    const resolveLlmBillingSource = (args: {
+      providerId: string;
+      profileId?: string | null;
+    }): "platform" | "byok" | "private" => {
+      const profileBillingSource =
+        providerAuthProfilesById
+          .get(args.providerId)
+          ?.find((profile) => profile.profileId === args.profileId)?.billingSource;
+      return (
+        normalizeCanonicalBillingSource(
+          profileBillingSource ?? aiSettings?.billingSource ?? null
+        ) ?? "platform"
+      );
+    };
+
     // 7.5. Pre-flight credit check
     const estimatedCost = estimateCreditsFromPricing(resolvedModelPricing);
+    const preflightLlmBillingSource = resolveLlmBillingSource({
+      providerId: selectedModelProviderId,
+      profileId: primaryAuthProfileId,
+    });
 
     try {
       await ctx.runMutation(getInternal().credits.index.grantDailyCreditsInternalMutation, {
@@ -1219,6 +1576,8 @@ export const processInboundMessage = action({
       {
         organizationId: args.organizationId,
         requiredAmount: estimatedCost,
+        billingSource: preflightLlmBillingSource,
+        requestSource: "llm",
       }
     );
 
@@ -1263,41 +1622,58 @@ export const processInboundMessage = action({
     }
     runtimeTurnVersion = leaseHeartbeat.transitionVersion;
 
-    const authProfiles = resolveOpenRouterAuthProfiles({
-      llmSettings: aiSettings?.llm,
-      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
-    });
-    if (authProfiles.length === 0) {
-      return {
-        status: "error",
-        message: "No OpenRouter auth profiles are currently configured",
-        sessionId: session._id,
-        turnId: runtimeTurnId,
-      };
-    }
-
-    const authProfilesToTry = orderAuthProfilesForSession(authProfiles, pinnedAuthProfileId);
-    const primaryAuthProfileId = authProfilesToTry[0]?.profileId ?? null;
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any = null;
     let usedModel = model;
     let usedAuthProfileId = primaryAuthProfileId;
-
-    const modelsToTry = buildModelFailoverCandidates({
-      primaryModelId: model,
-      orgEnabledModelIds,
-      orgDefaultModelId: orgDefaultModel,
-      platformEnabledModelIds: platformEnabledModels.map((platformModel) => platformModel.id),
-      safeFallbackModelId: SAFE_FALLBACK_MODEL_ID,
-      sessionPinnedModelId: !hasExplicitModelOverride ? pinnedSessionModelId : null,
-    });
+    let usedModelRoutingReason = selectedRoutingReason;
+    const cooledProfileIds = new Set<string>();
 
     for (const tryModel of modelsToTry) {
       let succeededOnThisModel = false;
+      const tryProviderId = detectProvider(tryModel, aiSettings?.llm?.providerId);
+      const providerAuthProfiles = providerAuthProfilesById.get(tryProviderId) ?? [];
+
+      if (providerAuthProfiles.length === 0) {
+        console.warn(
+          "[AgentExecution] Skipping model due to missing provider auth profiles",
+          {
+            modelId: tryModel,
+            providerId: tryProviderId,
+            organizationId: args.organizationId,
+          }
+        );
+        continue;
+      }
+
+      const authProfilesToTry = orderAuthProfilesForSession(
+        providerAuthProfiles.filter((profile) =>
+          !cooledProfileIds.has(`${profile.providerId}:${profile.profileId}`)
+        ),
+        pinnedAuthProfileId
+      ) as Array<ResolvedAuthProfile & { baseUrl?: string }>;
+
+      if (authProfilesToTry.length === 0) {
+        console.warn(
+          "[AgentExecution] Skipping model because all provider auth profiles are in cooldown",
+          {
+            modelId: tryModel,
+            providerId: tryProviderId,
+            organizationId: args.organizationId,
+          }
+        );
+        continue;
+      }
+
+      const authProfileFailureCounts =
+        authProfileFailureCountsByProvider.get(tryProviderId) ?? new Map<string, number>();
+      authProfileFailureCountsByProvider.set(tryProviderId, authProfileFailureCounts);
 
       for (const authProfile of authProfilesToTry) {
-        const client = new OpenRouterClient(authProfile.apiKey);
+        const client = new OpenRouterClient(authProfile.apiKey, {
+          providerId: authProfile.providerId,
+          baseUrl: authProfile.baseUrl,
+        });
         try {
           const retryResult = await withRetry(
             () =>
@@ -1313,12 +1689,14 @@ export const processInboundMessage = action({
           response = retryResult.result;
           usedModel = tryModel;
           usedAuthProfileId = authProfile.profileId;
+          usedModelRoutingReason = modelRoutingById.get(tryModel)?.reason;
           succeededOnThisModel = true;
 
           if (authProfile.source === "profile") {
             await ctx.runMutation(getInternal().ai.settings.recordAuthProfileSuccess, {
               organizationId: args.organizationId,
               profileId: authProfile.profileId,
+              providerId: authProfile.providerId,
             });
           }
 
@@ -1336,15 +1714,17 @@ export const processInboundMessage = action({
           );
 
           if (authProfile.source === "profile" && isAuthProfileRotatableError(e)) {
-            const previousFailureCount = aiSettings?.llm?.authProfiles?.find(
-              (profile: { profileId?: string; failureCount?: number }) =>
-                profile.profileId === authProfile.profileId
-            )?.failureCount ?? 0;
+            cooledProfileIds.add(`${authProfile.providerId}:${authProfile.profileId}`);
+            const previousFailureCount =
+              authProfileFailureCounts.get(authProfile.profileId) ?? 0;
+            const nextFailureCount = previousFailureCount + 1;
+            authProfileFailureCounts.set(authProfile.profileId, nextFailureCount);
             const cooldownUntil =
-              Date.now() + getAuthProfileCooldownMs(previousFailureCount + 1);
+              Date.now() + getAuthProfileCooldownMs(nextFailureCount);
             await ctx.runMutation(getInternal().ai.settings.recordAuthProfileFailure, {
               organizationId: args.organizationId,
               profileId: authProfile.profileId,
+              providerId: authProfile.providerId,
               reason: errorMessage.slice(0, 300),
               cooldownUntil,
             });
@@ -1365,7 +1745,7 @@ export const processInboundMessage = action({
       await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
         sessionId: session._id,
         role: "user",
-        content: args.message,
+        content: inboundMessage,
       });
       await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
         sessionId: session._id,
@@ -1419,6 +1799,89 @@ export const processInboundMessage = action({
 
     const assistantContent = choice.message?.content || "";
     const toolCalls = choice.message?.tool_calls || [];
+    let voiceSynthesisResult:
+      | {
+          success: boolean;
+          requestedProviderId: VoiceRuntimeProviderId;
+          providerId: VoiceRuntimeProviderId;
+          fallbackProviderId: VoiceRuntimeProviderId | null;
+          mimeType?: string | null;
+          audioBase64?: string | null;
+          fallbackText?: string | null;
+          error?: string;
+        }
+      | null = null;
+
+    if (inboundVoiceRequest?.synthesizeResponse) {
+      const requestedProviderId = inboundVoiceRequest.requestedProviderId;
+      const elevenLabsBinding = resolveElevenLabsRuntimeBinding({ aiSettings });
+      try {
+        const resolvedVoiceAdapter = await resolveVoiceRuntimeAdapter({
+          requestedProviderId,
+          elevenLabsBinding,
+          fetchFn: fetch,
+        });
+        const voiceId =
+          inboundVoiceRequest.requestedVoiceId ??
+          elevenLabsBinding?.defaultVoiceId;
+
+        try {
+          const synthesis = await resolvedVoiceAdapter.adapter.synthesize({
+            voiceSessionId:
+              inboundVoiceRequest.voiceSessionId ??
+              `voice-turn:${runtimeTurnId}`,
+            text: assistantContent,
+            voiceId,
+          });
+          voiceSynthesisResult = {
+            success: true,
+            requestedProviderId,
+            providerId: synthesis.providerId,
+            fallbackProviderId: resolvedVoiceAdapter.fallbackFromProviderId ?? null,
+            mimeType: synthesis.mimeType,
+            audioBase64: synthesis.audioBase64 ?? null,
+            fallbackText: synthesis.fallbackText ?? null,
+          };
+        } catch (error) {
+          voiceSynthesisResult = {
+            success: false,
+            requestedProviderId,
+            providerId: resolvedVoiceAdapter.adapter.providerId,
+            fallbackProviderId: resolvedVoiceAdapter.fallbackFromProviderId ?? null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "voice_synthesis_failed",
+          };
+        }
+
+        voiceRuntimeMetadata = {
+          ...voiceRuntimeMetadata,
+          synthesizeSuccess: voiceSynthesisResult.success,
+          synthesizeProviderId: voiceSynthesisResult.providerId,
+          synthesizeFallbackProviderId: voiceSynthesisResult.fallbackProviderId,
+        };
+      } catch (error) {
+        voiceSynthesisResult = {
+          success: false,
+          requestedProviderId,
+          providerId: "browser",
+          fallbackProviderId: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "voice_runtime_resolution_failed",
+        };
+        voiceRuntimeMetadata = {
+          ...voiceRuntimeMetadata,
+          synthesizeSuccess: false,
+          runtimeError:
+            error instanceof Error
+              ? error.message
+              : "voice_runtime_resolution_failed",
+        };
+      }
+    }
 
     // Load persisted error state from session (survives across action invocations)
     const existingErrorState = await ctx.runQuery(
@@ -1507,7 +1970,7 @@ export const processInboundMessage = action({
             checkpoint: "tool_failure_escalation",
             contactIdentifier: args.externalContactIdentifier,
             channel: args.channel,
-            lastMessage: args.message.slice(0, 200),
+            lastMessage: inboundMessage.slice(0, 200),
             agentName: tfAgentName,
             createEscalation: async (escalationArgs) => {
               await ctx.runMutation(getInternal().ai.escalation.createEscalation, escalationArgs);
@@ -1592,7 +2055,7 @@ export const processInboundMessage = action({
         checkpoint: "post_llm_escalation",
         contactIdentifier: args.externalContactIdentifier,
         channel: args.channel,
-        lastMessage: args.message.slice(0, 200),
+        lastMessage: inboundMessage.slice(0, 200),
         agentName: postAgentName,
         createEscalation: async (escalationArgs) => {
           await ctx.runMutation(getInternal().ai.escalation.createEscalation, escalationArgs);
@@ -1623,7 +2086,7 @@ export const processInboundMessage = action({
     await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
       sessionId: session._id,
       role: "user",
-      content: args.message,
+      content: inboundMessage,
     });
 
     await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
@@ -1664,6 +2127,11 @@ export const processInboundMessage = action({
 
     // 10.5. Deduct credits for LLM call
     const llmCreditCost = convertUsdToCredits(costUsd);
+    const usedModelProviderId = detectProvider(usedModel, aiSettings?.llm?.providerId);
+    const llmBillingSource = resolveLlmBillingSource({
+      providerId: usedModelProviderId,
+      profileId: usedAuthProfileId,
+    });
     try {
       const llmCreditDeduction = await ctx.runMutation(
         getInternal().credits.index.deductCreditsInternalMutation,
@@ -1673,6 +2141,8 @@ export const processInboundMessage = action({
           action: "agent_message",
           relatedEntityType: "agent_session",
           relatedEntityId: session._id,
+          billingSource: llmBillingSource,
+          requestSource: "llm",
           softFailOnExhausted: true,
         }
       );
@@ -1705,6 +2175,8 @@ export const processInboundMessage = action({
                 action: `tool_${result.tool}`,
                 relatedEntityType: "agent_session",
                 relatedEntityId: session._id,
+                billingSource: "platform",
+                requestSource: "platform_action",
                 softFailOnExhausted: true,
               }
             );
@@ -1780,17 +2252,30 @@ export const processInboundMessage = action({
           selectedAuthProfileId: primaryAuthProfileId,
           usedAuthProfileId,
           selectionSource,
+          routingIntent,
+          routingModality,
+          selectedRoutingReason,
+          usedModelRoutingReason,
           fallbackUsed:
             (selectionSource !== "preferred" && selectionSource !== "session_pinned")
+            || (
+              typeof selectedRoutingReason === "string" &&
+              selectedRoutingReason !== "preferred" &&
+              selectedRoutingReason !== "session_pinned"
+            )
             || usedModel !== model
             || usedAuthProfileFallback,
           fallbackReason:
             usedModel !== model
-              ? "retry_chain"
+              ? usedModelRoutingReason ?? "retry_chain"
               : usedAuthProfileFallback
                 ? "auth_profile_rotation"
                 : selectionSource !== "preferred" && selectionSource !== "session_pinned"
-                ? selectionSource
+                ? selectedRoutingReason ?? selectionSource
+                : typeof selectedRoutingReason === "string" &&
+                    selectedRoutingReason !== "preferred" &&
+                    selectedRoutingReason !== "session_pinned"
+                ? selectedRoutingReason
                 : undefined,
         },
         retrieval: {
@@ -1802,6 +2287,12 @@ export const processInboundMessage = action({
         },
         knowledgeLoad: systemKnowledgeLoad.telemetry,
         toolScoping: toolScopingAudit,
+        ...(voiceRuntimeMetadata ? {
+          voiceRuntime: {
+            ...voiceRuntimeMetadata,
+            synthesis: voiceSynthesisResult ?? undefined,
+          },
+        } : {}),
         ...(brokerMetrics ? {
           broker: {
             brokered: brokerMetrics.brokered,
@@ -1859,6 +2350,12 @@ export const processInboundMessage = action({
       toolResults,
       sessionId: session._id,
       turnId: runtimeTurnId,
+      ...(voiceRuntimeMetadata ? {
+        voiceRuntime: {
+          ...voiceRuntimeMetadata,
+          synthesis: voiceSynthesisResult ?? undefined,
+        },
+      } : {}),
     };
     } catch (error) {
       turnRuntimeError = error instanceof Error ? error.message : String(error);
@@ -2056,6 +2553,291 @@ export const completeInboundReceipt = internalMutation({
 // HELPER FUNCTIONS
 // ============================================================================
 
+export interface InboundChannelRouteIdentity {
+  bindingId?: string;
+  providerId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: "platform" | "organization";
+  routeKey?: string;
+}
+
+function normalizeInboundRouteString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeInboundRouteProfileType(
+  value: unknown
+): "platform" | "organization" | undefined {
+  return value === "platform" || value === "organization" ? value : undefined;
+}
+
+function firstInboundString(
+  ...values: unknown[]
+): string | undefined {
+  for (const value of values) {
+    const normalized = normalizeInboundRouteString(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+}
+
+function deriveInboundRoutePartitionKey(
+  routeIdentity?: InboundChannelRouteIdentity
+): string {
+  if (!routeIdentity) {
+    return "legacy";
+  }
+
+  if (routeIdentity.routeKey) {
+    return `route:${routeIdentity.routeKey}`;
+  }
+
+  const providerId = routeIdentity.providerId || "provider";
+  const identitySeed =
+    routeIdentity.providerInstallationId ||
+    routeIdentity.providerAccountId ||
+    routeIdentity.providerConnectionId ||
+    routeIdentity.providerProfileId;
+
+  if (!identitySeed) {
+    return "legacy";
+  }
+
+  return `${providerId}:${identitySeed}`;
+}
+
+export function resolveInboundChannelRouteIdentity(
+  metadata: Record<string, unknown>
+): InboundChannelRouteIdentity | undefined {
+  const providerId = firstInboundString(metadata.providerId);
+  const providerConnectionId = firstInboundString(
+    metadata.providerConnectionId,
+    metadata.oauthConnectionId
+  );
+  const providerAccountId = firstInboundString(
+    metadata.providerAccountId,
+    metadata.slackTeamId,
+    metadata.teamId
+  );
+  const providerInstallationId = firstInboundString(
+    metadata.providerInstallationId,
+    metadata.installationId,
+    metadata.slackTeamId
+  );
+  const providerProfileId = firstInboundString(
+    metadata.providerProfileId,
+    metadata.appProfileId
+  );
+  const providerProfileType = normalizeInboundRouteProfileType(
+    metadata.providerProfileType
+  );
+  const routeKey = firstInboundString(
+    metadata.routeKey,
+    metadata.bindingRouteKey,
+    metadata.providerRouteKey
+  ) || (
+    providerId && providerInstallationId ? `${providerId}:${providerInstallationId}` : undefined
+  );
+  const bindingId = firstInboundString(metadata.bindingId);
+
+  const identity: InboundChannelRouteIdentity = {
+    bindingId,
+    providerId,
+    providerConnectionId,
+    providerAccountId,
+    providerInstallationId,
+    providerProfileId,
+    providerProfileType,
+    routeKey,
+  };
+
+  return Object.values(identity).some((value) => Boolean(value))
+    ? identity
+    : undefined;
+}
+
+export function resolveInboundDispatchRouteSelectors(args: {
+  channel: string;
+  externalContactIdentifier: string;
+  metadata: Record<string, unknown>;
+}): {
+  channel?: string;
+  providerId?: string;
+  account?: string;
+  team?: string;
+  peer?: string;
+  channelRef?: string;
+} {
+  const metadata = args.metadata;
+  return {
+    channel: normalizeInboundRouteString(args.channel),
+    providerId: firstInboundString(metadata.providerId),
+    account: firstInboundString(
+      metadata.providerAccountId,
+      metadata.accountId,
+      metadata.slackTeamId,
+      metadata.teamId
+    ),
+    team: firstInboundString(
+      metadata.team,
+      metadata.teamId,
+      metadata.providerTeamId,
+      metadata.slackTeamId
+    ),
+    peer: firstInboundString(
+      metadata.peer,
+      metadata.peerId,
+      metadata.providerPeerId,
+      metadata.slackUserId,
+      args.externalContactIdentifier
+    ),
+    channelRef: firstInboundString(
+      metadata.channelRef,
+      metadata.channelId,
+      metadata.providerChannelId,
+      metadata.slackChannelId
+    ),
+  };
+}
+
+export interface InboundVoiceRuntimeRequest {
+  requestedProviderId: VoiceRuntimeProviderId;
+  voiceSessionId?: string;
+  requestedVoiceId?: string;
+  audioBase64?: string;
+  mimeType?: string;
+  language?: string;
+  synthesizeResponse: boolean;
+}
+
+interface ElevenLabsRuntimeBinding {
+  apiKey: string;
+  baseUrl?: string;
+  defaultVoiceId?: string;
+}
+
+function decodeInboundVoiceAudioBase64(payload: string): Uint8Array {
+  const base64Payload = payload.includes(",")
+    ? payload.split(",", 2)[1] ?? ""
+    : payload;
+  return new Uint8Array(Buffer.from(base64Payload, "base64"));
+}
+
+function extractElevenLabsDefaultVoiceId(args: {
+  providerAuthProfiles?: unknown;
+  profileId?: string;
+}): string | undefined {
+  if (!Array.isArray(args.providerAuthProfiles)) {
+    return undefined;
+  }
+
+  for (const profile of args.providerAuthProfiles) {
+    if (typeof profile !== "object" || profile === null) {
+      continue;
+    }
+    const typedProfile = profile as Record<string, unknown>;
+    if (typedProfile.providerId !== "elevenlabs") {
+      continue;
+    }
+    if (
+      args.profileId &&
+      firstInboundString(typedProfile.profileId) !== args.profileId
+    ) {
+      continue;
+    }
+    const metadata = typedProfile.metadata;
+    if (typeof metadata !== "object" || metadata === null) {
+      continue;
+    }
+    const defaultVoiceId = firstInboundString(
+      (metadata as Record<string, unknown>).defaultVoiceId
+    );
+    if (defaultVoiceId) {
+      return defaultVoiceId;
+    }
+  }
+
+  return undefined;
+}
+
+function resolveElevenLabsRuntimeBinding(args: {
+  aiSettings?: {
+    llm?: {
+      providerAuthProfiles?: unknown;
+    } | null;
+    billingSource?: "platform" | "byok" | "private";
+    billingMode?: "platform" | "byok";
+  } | null;
+}): ElevenLabsRuntimeBinding | null {
+  if (!args.aiSettings?.llm) {
+    return null;
+  }
+
+  const binding = resolveOrganizationProviderBindingForProvider({
+    providerId: "elevenlabs",
+    llmSettings: args.aiSettings.llm as any,
+    defaultBillingSource:
+      args.aiSettings.billingSource ??
+      (args.aiSettings.billingMode === "byok" ? "byok" : "platform"),
+    now: Date.now(),
+  });
+  if (!binding) {
+    return null;
+  }
+
+  const defaultVoiceId = extractElevenLabsDefaultVoiceId({
+    providerAuthProfiles: args.aiSettings.llm.providerAuthProfiles,
+    profileId: binding.profileId,
+  });
+
+  return {
+    apiKey: binding.apiKey,
+    baseUrl: binding.baseUrl,
+    defaultVoiceId,
+  };
+}
+
+export function resolveInboundVoiceRuntimeRequest(
+  metadata: Record<string, unknown>
+): InboundVoiceRuntimeRequest | null {
+  const voiceRuntimeRaw = metadata.voiceRuntime;
+  if (typeof voiceRuntimeRaw !== "object" || voiceRuntimeRaw === null) {
+    return null;
+  }
+
+  const voiceRuntime = voiceRuntimeRaw as Record<string, unknown>;
+  const audioBase64 = firstInboundString(voiceRuntime.audioBase64);
+  const synthesizeResponse = voiceRuntime.synthesizeResponse === true;
+
+  if (!audioBase64 && !synthesizeResponse) {
+    return null;
+  }
+
+  return {
+    requestedProviderId: normalizeVoiceRuntimeProviderId(
+      firstInboundString(
+        voiceRuntime.requestedProviderId,
+        voiceRuntime.providerId
+      )
+    ),
+    voiceSessionId: firstInboundString(voiceRuntime.voiceSessionId),
+    requestedVoiceId: firstInboundString(voiceRuntime.requestedVoiceId),
+    audioBase64,
+    mimeType: firstInboundString(voiceRuntime.mimeType),
+    language: firstInboundString(voiceRuntime.language),
+    synthesizeResponse,
+  };
+}
+
 function resolveInboundIdempotencyKey(args: {
   providedKey: unknown;
   metadata?: Record<string, unknown>;
@@ -2063,6 +2845,7 @@ function resolveInboundIdempotencyKey(args: {
   channel: string;
   externalContactIdentifier: string;
   message: string;
+  channelRouteIdentity?: InboundChannelRouteIdentity;
 }): string {
   if (typeof args.providedKey === "string" && args.providedKey.trim().length > 0) {
     return args.providedKey.trim();
@@ -2077,12 +2860,14 @@ function resolveInboundIdempotencyKey(args: {
     metadata.deliveryId,
     metadata.webhookEventId,
   ];
+  const routePartitionKey = deriveInboundRoutePartitionKey(args.channelRouteIdentity);
   for (const candidate of providerKeyCandidates) {
     if (typeof candidate === "string" && candidate.trim().length > 0) {
       return [
         "provider",
         args.organizationId,
         args.channel,
+        routePartitionKey,
         args.externalContactIdentifier,
         candidate.trim(),
       ].join(":");
@@ -2104,7 +2889,9 @@ function resolveInboundIdempotencyKey(args: {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .slice(0, 240);
-  const base = `${args.organizationId}:${args.channel}:${args.externalContactIdentifier}:${timeBucket}:${normalizedMessage}`;
+  const base =
+    `${args.organizationId}:${args.channel}:${routePartitionKey}:` +
+    `${args.externalContactIdentifier}:${timeBucket}:${normalizedMessage}`;
 
   let hash = 0;
   for (let i = 0; i < base.length; i += 1) {

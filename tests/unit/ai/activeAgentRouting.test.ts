@@ -114,4 +114,75 @@ describe("resolveActiveAgentForOrgCandidates", () => {
 
     expect(selected?._id).toBe("webchat_pm");
   });
+
+  it("prefers deterministic route-policy matches before channel fallback", () => {
+    const selected = resolveActiveAgentForOrgCandidates<Candidate>(
+      [
+        {
+          _id: "general_default",
+          status: "active",
+          subtype: "general",
+          customProperties: {
+            channelBindings: [{ channel: "slack", enabled: true }],
+          },
+        },
+        {
+          _id: "general_team_router",
+          status: "active",
+          subtype: "general",
+          customProperties: {
+            channelBindings: [{ channel: "slack", enabled: true }],
+            channelRoutePolicies: [
+              {
+                id: "team-route",
+                channel: "slack",
+                team: "T123",
+                channelRef: "C123",
+                priority: 10,
+              },
+            ],
+          },
+        },
+      ],
+      {
+        channel: "slack",
+        routeSelectors: {
+          channel: "slack",
+          team: "T123",
+          channelRef: "C123",
+        },
+      }
+    );
+
+    expect(selected?._id).toBe("general_team_router");
+  });
+
+  it("uses deterministic tie-breakers for equally specific route policies", () => {
+    const selected = resolveActiveAgentForOrgCandidates<Candidate>(
+      [
+        {
+          _id: "agent_b",
+          status: "active",
+          subtype: "general",
+          customProperties: {
+            channelRoutePolicies: [{ id: "b", team: "T123", priority: 20 }],
+          },
+        },
+        {
+          _id: "agent_a",
+          status: "active",
+          subtype: "general",
+          customProperties: {
+            channelRoutePolicies: [{ id: "a", team: "T123", priority: 10 }],
+          },
+        },
+      ],
+      {
+        channel: "slack",
+        routeSelectors: { team: "T123" },
+      }
+    );
+
+    expect(selected?._id).toBe("agent_a");
+  });
 });

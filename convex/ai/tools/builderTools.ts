@@ -277,6 +277,7 @@ export const checkDeployStatusTool: AITool = {
     "Check deployment prerequisites (GitHub connection) and get the status of a builder app. " +
     "Call this before deploy_webapp to verify readiness, or after to check deployment status.",
   status: "ready",
+  readOnly: true,
   windowName: "Builder",
   parameters: {
     type: "object",

@@ -8,6 +8,14 @@
 import { internalMutation, internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../../_generated/dataModel";
+import {
+  CHECKOUT_LIFECYCLE_STATUS_VALUES,
+  EVENT_LIFECYCLE_STATUS_VALUES,
+  matchesNormalizedStatus,
+  normalizeCheckoutLifecycleStatus,
+  normalizeEventLifecycleStatus,
+  normalizeOrchestrationStatus,
+} from "../../orchestrationContract";
 
 /**
  * Get user by ID (for email sending and other operations)
@@ -30,6 +38,159 @@ export const getOrganizationById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.organizationId);
+  },
+});
+
+function normalizeArtifactName(name: string | null | undefined): string {
+  return (name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+type OrchestrationMetadata = {
+  playbook?: string;
+  experienceKey?: string;
+  stepKey?: string;
+  signature?: string;
+  signatures?: string[];
+  conversationId?: Id<"aiConversations">;
+  payloadDigest?: string;
+  createdByRuntimeAt?: number;
+  updatedByRuntimeAt?: number;
+};
+
+/**
+ * Internal: Find latest artifact by orchestration signature and/or exact name.
+ * Used by create_experience runtime for idempotent duplicate-safe execution.
+ */
+export const internalFindOrchestrationArtifact = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    artifactType: v.string(),
+    signature: v.optional(v.string()),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const objects = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", args.artifactType)
+      )
+      .collect();
+
+    const targetName = normalizeArtifactName(args.name);
+    const targetSignature = args.signature?.trim();
+
+    const matches = objects.filter((objectDoc) => {
+      const customProps = (objectDoc.customProperties || {}) as Record<string, unknown>;
+      const orchestration = (customProps.orchestration || {}) as OrchestrationMetadata;
+
+      const signatures = new Set(
+        [
+          orchestration.signature,
+          ...(Array.isArray(orchestration.signatures)
+            ? orchestration.signatures
+            : []),
+        ].filter((value): value is string => typeof value === "string" && value.length > 0)
+      );
+
+      const matchesSignature =
+        !!targetSignature && signatures.has(targetSignature);
+      const matchesName =
+        targetName.length > 0 &&
+        normalizeArtifactName(objectDoc.name) === targetName;
+
+      if (targetSignature && targetName.length > 0) {
+        return matchesSignature || matchesName;
+      }
+
+      if (targetSignature) return matchesSignature;
+      if (targetName.length > 0) return matchesName;
+      return false;
+    });
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    matches.sort((a, b) => b.updatedAt - a.updatedAt);
+    const latest = matches[0];
+    const customProps = (latest.customProperties || {}) as Record<string, unknown>;
+    const orchestration = (customProps.orchestration || {}) as OrchestrationMetadata;
+    const matchedBySignature =
+      !!targetSignature &&
+      (orchestration.signature === targetSignature ||
+        (Array.isArray(orchestration.signatures) &&
+          orchestration.signatures.includes(targetSignature)));
+
+    return {
+      _id: latest._id,
+      type: latest.type,
+      name: latest.name,
+      status: latest.status,
+      matchedBySignature,
+      orchestration,
+    };
+  },
+});
+
+/**
+ * Internal: Stamp orchestration metadata onto an artifact.
+ * Maintains an append-only signature history for idempotent retries.
+ */
+export const internalStampOrchestrationMetadata = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    objectId: v.id("objects"),
+    playbook: v.string(),
+    experienceKey: v.string(),
+    stepKey: v.string(),
+    signature: v.string(),
+    payloadDigest: v.optional(v.string()),
+    conversationId: v.optional(v.id("aiConversations")),
+  },
+  handler: async (ctx, args) => {
+    const objectDoc = await ctx.db.get(args.objectId);
+    if (!objectDoc || objectDoc.organizationId !== args.organizationId) {
+      throw new Error("Artifact not found");
+    }
+
+    const customProps = (objectDoc.customProperties || {}) as Record<string, unknown>;
+    const previous = (customProps.orchestration || {}) as OrchestrationMetadata;
+
+    const signatureSet = new Set<string>(
+      [
+        previous.signature,
+        ...(Array.isArray(previous.signatures) ? previous.signatures : []),
+        args.signature,
+      ].filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+
+    const now = Date.now();
+    await ctx.db.patch(args.objectId, {
+      customProperties: {
+        ...customProps,
+        orchestration: {
+          ...previous,
+          playbook: args.playbook,
+          experienceKey: args.experienceKey,
+          stepKey: args.stepKey,
+          signature: args.signature,
+          signatures: Array.from(signatureSet),
+          conversationId: args.conversationId ?? previous.conversationId,
+          payloadDigest: args.payloadDigest ?? previous.payloadDigest,
+          createdByRuntimeAt: previous.createdByRuntimeAt ?? now,
+          updatedByRuntimeAt: now,
+        },
+      },
+      updatedAt: now,
+    });
+
+    return {
+      objectId: args.objectId,
+      signatureCount: signatureSet.size,
+    };
   },
 });
 
@@ -133,7 +294,7 @@ export const internalCreateEvent = internalMutation({
       subtype: args.subtype,
       name: args.name,
       description: args.description || "",
-      status: args.published === false ? "draft" : "active", // Default to active (published)
+      status: args.published === false ? "draft" : "published", // Default to published for legacy callers
       createdAt: now,
       updatedAt: now,
       createdBy: args.userId,
@@ -768,7 +929,11 @@ export const internalPublishCheckout = internalMutation({
   },
   handler: async (ctx, args) => {
     const checkout = await ctx.db.get(args.checkoutId);
-    if (!checkout || checkout.type !== "checkout" || checkout.organizationId !== args.organizationId) {
+    if (
+      !checkout ||
+      checkout.type !== "checkout_instance" ||
+      checkout.organizationId !== args.organizationId
+    ) {
       throw new Error("Checkout not found");
     }
 
@@ -1510,7 +1675,7 @@ export const internalListEvents = internalQuery({
 
     // Filter by status
     if (args.status) {
-      events = events.filter((e) => e.status === args.status);
+      events = events.filter((e) => matchesNormalizedStatus(e.status, args.status));
     }
 
     // Filter by subtype
@@ -1582,7 +1747,15 @@ export const internalUpdateEvent = internalMutation({
 
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.status !== undefined) updates.status = args.status;
+    if (args.status !== undefined) {
+      const normalizedStatus = normalizeEventLifecycleStatus(args.status);
+      if (!normalizedStatus) {
+        throw new Error(
+          `Invalid event status. Must be one of: ${EVENT_LIFECYCLE_STATUS_VALUES.join(", ")}`
+        );
+      }
+      updates.status = normalizedStatus;
+    }
 
     // Update custom properties
     const propsUpdates: Record<string, unknown> = {};
@@ -1911,7 +2084,12 @@ export const internalListForms = internalQuery({
       .collect();
 
     if (args.status && args.status !== "all") {
-      forms = forms.filter((f) => f.status === args.status);
+      const normalizedStatus =
+        normalizeOrchestrationStatus(args.status) ?? args.status;
+      forms = forms.filter(
+        (f) =>
+          (normalizeOrchestrationStatus(f.status) ?? f.status) === normalizedStatus
+      );
     }
 
     if (args.subtype) {
@@ -2746,7 +2924,16 @@ export const internalListCheckouts = internalQuery({
       .collect();
 
     if (args.status) {
-      checkouts = checkouts.filter((c) => c.status === args.status);
+      const normalizedStatus = normalizeCheckoutLifecycleStatus(args.status);
+      if (!normalizedStatus) {
+        throw new Error(
+          `Invalid checkout status. Must be one of: ${CHECKOUT_LIFECYCLE_STATUS_VALUES.join(", ")}`
+        );
+      }
+      checkouts = checkouts.filter(
+        (c) =>
+          (normalizeOrchestrationStatus(c.status) ?? c.status) === normalizedStatus
+      );
     } else {
       // Exclude deleted by default
       checkouts = checkouts.filter((c) => c.status !== "deleted");

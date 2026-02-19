@@ -25,6 +25,21 @@ import { searchUnsplashImagesTool } from "./unsplashTool";
 import { INTERVIEW_TOOLS } from "./interviewTools";
 import { tagInSpecialistTool, listTeamAgentsTool } from "./teamTools";
 import {
+  createWebAppTool,
+  deployWebAppTool,
+  checkDeployStatusTool,
+} from "./builderTools";
+import {
+  detectWebAppConnectionsTool,
+  connectWebAppDataTool,
+} from "./connectionTools";
+import {
+  createExperienceTool,
+  createEventExperienceTool,
+} from "./orchestrationTools";
+import { layersWorkflowTool } from "./layersWorkflowTool";
+import { linkObjectsTool } from "./linkObjectsTool";
+import {
   proposeSoulUpdateTool,
   reviewOwnSoulTool,
   viewPendingProposalsTool,
@@ -2011,7 +2026,7 @@ const publishAllTool: AITool = {
   description: `Publish/activate multiple entities at once. Use this when the user asks to "publish everything", "activate all", or "make everything live".
 
 This tool takes arrays of IDs and publishes/activates them all:
-- Events: status changed to "active"
+- Events: status changed to "published"
 - Products: status changed to "active"
 - Forms: status changed to "published"
 - Checkouts: status changed to "published" with public URL generated
@@ -2025,7 +2040,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
       eventIds: {
         type: "array",
         items: { type: "string" },
-        description: "Array of event IDs to activate"
+        description: "Array of event IDs to publish"
       },
       productIds: {
         type: "array",
@@ -2057,7 +2072,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
       checkouts: [],
     };
 
-    // Activate events
+    // Publish events
     if (args.eventIds && Array.isArray(args.eventIds)) {
       for (const eventId of args.eventIds) {
         try {
@@ -2065,7 +2080,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
             organizationId: ctx.organizationId,
             userId: ctx.userId,
             eventId: eventId as Id<"objects">,
-            status: "active",
+            status: "published",
           });
           results.events.push({ id: eventId, success: true });
         } catch {
@@ -2138,7 +2153,7 @@ Example: After creating an event with tickets and a checkout, use this to make t
       success: totalSuccessful > 0,
       message: `Published ${totalSuccessful}/${totalAttempted} items successfully`,
       summary: {
-        events: `${results.events.filter(r => r.success).length}/${results.events.length} activated`,
+        events: `${results.events.filter(r => r.success).length}/${results.events.length} published`,
         products: `${results.products.filter(r => r.success).length}/${results.products.length} activated`,
         forms: `${results.forms.filter(r => r.success).length}/${results.forms.length} published`,
         checkouts: `${results.checkouts.filter(r => r.success).length}/${results.checkouts.length} published`,
@@ -3415,6 +3430,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
     "create_workflow",
     createWorkflowTool
   ),
+  create_layers_workflow: layersWorkflowTool,
+  link_objects: linkObjectsTool,
   enable_workflow: enableWorkflowTool,
   list_workflows: listWorkflowsTool,
   add_behavior_to_workflow: addBehaviorToWorkflowTool,
@@ -3427,6 +3444,15 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Templates
   create_template: createTemplateTool,
   send_email_from_template: sendEmailFromTemplateTool,
+
+  // Builder + Data Connection
+  create_experience: createExperienceTool,
+  create_event_experience: createEventExperienceTool,
+  create_webapp: createWebAppTool,
+  deploy_webapp: deployWebAppTool,
+  check_deploy_status: checkDeployStatusTool,
+  detect_webapp_connections: detectWebAppConnectionsTool,
+  connect_webapp_data: connectWebAppDataTool,
 
   // Web Publishing
   create_page: createPageTool,
@@ -3712,6 +3738,8 @@ export const DATABASE_WRITE_TOOLS = [
   "update_ticket_status",
   // Workflows
   "create_workflow",
+  "create_layers_workflow",
+  "link_objects",
   "enable_workflow",
   "add_behavior_to_workflow",
   "remove_behavior_from_workflow",
@@ -3721,6 +3749,11 @@ export const DATABASE_WRITE_TOOLS = [
   "create_template",
   "send_email_from_template",
   // Web Publishing
+  "create_experience",
+  "create_event_experience",
+  "create_webapp",
+  "deploy_webapp",
+  "connect_webapp_data",
   "create_page",
   "publish_page",
   "create_checkout_page",

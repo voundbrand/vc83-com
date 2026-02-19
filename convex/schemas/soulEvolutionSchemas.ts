@@ -60,6 +60,11 @@ export const soulProposals = defineTable({
     v.literal("rejected"),
     v.literal("applied"),
   ),
+  requiresOwnerApproval: v.optional(v.boolean()),
+  approvalCheckpointId: v.optional(v.string()),
+  appliedAt: v.optional(v.number()),
+  appliedBy: v.optional(v.string()),
+  telemetrySummary: v.optional(v.string()),
 
   // Metadata
   createdAt: v.number(),
@@ -131,6 +136,9 @@ export const soulVersionHistory = defineTable({
   // Rollback tracking
   fromVersion: v.optional(v.number()),
   toVersion: v.optional(v.number()),
+  soulSchemaVersion: v.optional(v.number()),
+  soulOverlayVersion: v.optional(v.number()),
+  rollbackCheckpointId: v.optional(v.string()),
   changedBy: v.optional(v.string()),
 })
   .index("by_agent_version", ["agentId", "version"]);

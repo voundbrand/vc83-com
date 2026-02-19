@@ -275,6 +275,20 @@ export function buildHarnessContext(
     lines.push("  → Call connect_webapp_data with link for 1 item, create for 2 items");
   }
 
+  // Layers workflow + object linking awareness
+  const orchestrationToolNames = ["create_layers_workflow", "link_objects"];
+  const availableOrchestrationTools =
+    filteredToolNames?.filter((t) => orchestrationToolNames.includes(t)) || [];
+  if (availableOrchestrationTools.length > 0) {
+    lines.push("\n**Layers Orchestration:**");
+    lines.push("You can create visual automations and wire cross-object relationships.");
+    lines.push("When building end-to-end launch flows:");
+    lines.push("  1. Call `create_layers_workflow` with nodes/edges/triggers to define the automation graph");
+    lines.push("  2. Use `link_objects` to connect event, form, product, checkout, and workflow artifacts");
+    lines.push("  3. Verify links match intent (product_form, checkout_product, workflow_form, workflow_sequence, event_product)");
+    lines.push("  4. Continue deployment/publishing only after links are confirmed");
+  }
+
   // Layer awareness (4-Layer Architecture)
   if (layerInfo) {
     const layer = layerInfo.layer;

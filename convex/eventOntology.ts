@@ -30,6 +30,10 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import {
+  EVENT_LIFECYCLE_STATUS_VALUES,
+  normalizeEventLifecycleStatus,
+} from "./orchestrationContract";
 
 /**
  * GET EVENTS
@@ -59,7 +63,15 @@ export const getEvents = query({
     }
 
     if (args.status) {
-      events = events.filter((e) => e.status === args.status);
+      const normalizedStatus = normalizeEventLifecycleStatus(args.status);
+      if (!normalizedStatus) {
+        throw new Error(
+          `Invalid status. Must be one of: ${EVENT_LIFECYCLE_STATUS_VALUES.join(", ")}`
+        );
+      }
+      events = events.filter(
+        (e) => (normalizeEventLifecycleStatus(e.status) ?? e.status) === normalizedStatus
+      );
     }
 
     return events;
@@ -213,13 +225,13 @@ export const updateEvent = mutation({
       updates.subtype = args.subtype;
     }
     if (args.status !== undefined) {
-      const validStatuses = ["draft", "published", "in_progress", "completed", "cancelled"];
-      if (!validStatuses.includes(args.status)) {
+      const normalizedStatus = normalizeEventLifecycleStatus(args.status);
+      if (!normalizedStatus) {
         throw new Error(
-          `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+          `Invalid status. Must be one of: ${EVENT_LIFECYCLE_STATUS_VALUES.join(", ")}`
         );
       }
-      updates.status = args.status;
+      updates.status = normalizedStatus;
     }
 
     // Update customProperties

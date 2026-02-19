@@ -26,6 +26,65 @@ function getInternal(): any {
   return _apiCache;
 }
 
+function toNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((item) => toNonEmptyString(item))
+    .filter((item): item is string => Boolean(item));
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return Array.from(new Set(normalized));
+}
+
+function attachSoulV2Overlay(
+  soul: Record<string, unknown>,
+  generatedAt: number,
+): Record<string, unknown> {
+  const identityAnchors = {
+    name: toNonEmptyString(soul.name),
+    tagline: toNonEmptyString(soul.tagline),
+    traits: normalizeStringArray(soul.traits),
+    coreValues: normalizeStringArray(soul.coreValues),
+    neverDo: normalizeStringArray(soul.neverDo),
+    escalationTriggers: normalizeStringArray(soul.escalationTriggers),
+    coreMemories: Array.isArray(soul.coreMemories) ? soul.coreMemories : [],
+  };
+
+  const executionPreferences = {
+    alwaysDo: normalizeStringArray(soul.alwaysDo),
+    communicationStyle: toNonEmptyString(soul.communicationStyle),
+    toneGuidelines: toNonEmptyString(soul.toneGuidelines),
+    greetingStyle: toNonEmptyString(soul.greetingStyle),
+    closingStyle: toNonEmptyString(soul.closingStyle),
+    emojiUsage: toNonEmptyString(soul.emojiUsage),
+  };
+
+  const existingVersion =
+    typeof soul.version === "number" && Number.isFinite(soul.version)
+      ? soul.version
+      : 1;
+
+  return {
+    ...soul,
+    version: Math.max(2, existingVersion),
+    lastUpdatedAt: generatedAt,
+    generatedBy: "agent_self",
+    soulV2: {
+      schemaVersion: 2,
+      identityAnchors,
+      executionPreferences,
+      requireOwnerApprovalForMutations: true,
+    },
+  };
+}
+
 /**
  * Generate a soul for an agent based on business context.
  * Returns structured soul data + rendered markdown.
@@ -164,12 +223,8 @@ IMPORTANT:
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
       const jsonText = jsonMatch ? jsonMatch[1] : content;
 
-      const soul = JSON.parse(jsonText);
-
-      // Add metadata
-      soul.version = 1;
-      soul.lastUpdatedAt = Date.now();
-      soul.generatedBy = "agent_self";
+      const generatedAt = Date.now();
+      const soul = attachSoulV2Overlay(JSON.parse(jsonText), generatedAt);
 
       return {
         status: "success",
@@ -385,10 +440,8 @@ Output ONLY valid JSON, no markdown code blocks.`;
   try {
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
     const jsonText = jsonMatch ? jsonMatch[1] : content;
-    const soul = JSON.parse(jsonText);
-    soul.version = 1;
-    soul.lastUpdatedAt = Date.now();
-    soul.generatedBy = "agent_self";
+    const generatedAt = Date.now();
+    const soul = attachSoulV2Overlay(JSON.parse(jsonText), generatedAt);
     return { status: "success", soul };
   } catch {
     return { status: "error", message: "Failed to parse soul JSON" };

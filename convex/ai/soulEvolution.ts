@@ -13,6 +13,14 @@ import {
   CORE_MEMORY_SOURCE_VALUES,
   CORE_MEMORY_TYPE_VALUES,
 } from "../schemas/aiSchemas";
+import {
+  TRUST_EVENT_NAMESPACE,
+  TRUST_EVENT_TAXONOMY_VERSION,
+  validateTrustEventPayload,
+  type TrustEventActorType,
+  type TrustEventName,
+  type TrustEventPayload,
+} from "./trustEvents";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -46,7 +54,60 @@ export interface CoreMemoryPolicy {
   requiredMemoryTypes: CoreMemoryType[];
 }
 
+export const SOUL_V2_OVERLAY_VERSION = 2;
+
+export const SOUL_V2_IDENTITY_ANCHOR_FIELDS = [
+  "name",
+  "tagline",
+  "traits",
+  "coreValues",
+  "neverDo",
+  "escalationTriggers",
+  "coreMemories",
+] as const;
+
+export const SOUL_V2_EXECUTION_PREFERENCE_FIELDS = [
+  "alwaysDo",
+  "communicationStyle",
+  "toneGuidelines",
+  "greetingStyle",
+  "closingStyle",
+  "emojiUsage",
+] as const;
+
+export type SoulV2IdentityAnchorField =
+  (typeof SOUL_V2_IDENTITY_ANCHOR_FIELDS)[number];
+export type SoulV2ExecutionPreferenceField =
+  (typeof SOUL_V2_EXECUTION_PREFERENCE_FIELDS)[number];
+
+export interface SoulIdentityAnchors {
+  name?: string;
+  tagline?: string;
+  traits?: string[];
+  coreValues?: string[];
+  neverDo?: string[];
+  escalationTriggers?: string[];
+  coreMemories: CoreMemory[];
+}
+
+export interface SoulExecutionPreferences {
+  alwaysDo?: string[];
+  communicationStyle?: string;
+  toneGuidelines?: string;
+  greetingStyle?: string;
+  closingStyle?: string;
+  emojiUsage?: string;
+}
+
+export interface SoulV2Overlay {
+  schemaVersion: number;
+  identityAnchors: SoulIdentityAnchors;
+  executionPreferences: SoulExecutionPreferences;
+  requireOwnerApprovalForMutations: boolean;
+}
+
 type SoulModel = Record<string, unknown> & {
+  soulV2?: SoulV2Overlay;
   coreMemories?: CoreMemory[];
   coreMemoryPolicy?: CoreMemoryPolicy;
   version?: number;
@@ -90,6 +151,7 @@ export interface OperatorReviewPayload {
   proposalType: "add" | "modify" | "remove" | "add_faq";
   triggerType: SoulProposalTriggerType;
   requiresOwnerApproval: true;
+  overlayLayer: "identity_anchor" | "execution_preference" | "legacy";
   immutableByDefault: boolean;
   coreMemoryTarget: boolean;
   riskLevel: "low" | "medium" | "high";
@@ -100,6 +162,8 @@ export interface OperatorReviewPayload {
 
 const CORE_MEMORY_TYPE_SET = new Set<string>(CORE_MEMORY_TYPE_VALUES);
 const CORE_MEMORY_SOURCE_SET = new Set<string>(CORE_MEMORY_SOURCE_VALUES);
+const SOUL_V2_IDENTITY_FIELD_SET = new Set<string>(SOUL_V2_IDENTITY_ANCHOR_FIELDS);
+const SOUL_V2_EXECUTION_FIELD_SET = new Set<string>(SOUL_V2_EXECUTION_PREFERENCE_FIELDS);
 
 export const DEFAULT_CORE_MEMORY_POLICY: CoreMemoryPolicy = {
   immutableByDefault: true,
@@ -142,6 +206,26 @@ function normalizeTagArray(value: unknown): string[] | undefined {
 
 function normalizeOptionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((item) => toNonEmptyString(item))
+    .filter((item): item is string => Boolean(item));
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return Array.from(new Set(normalized));
+}
+
+function normalizeCoreMemories(value: unknown): CoreMemory[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((memory, index) => normalizeCoreMemory(memory, index))
+    .filter((memory): memory is CoreMemory => memory !== null);
 }
 
 export function normalizeCoreMemory(
@@ -228,15 +312,109 @@ export function normalizeSoulModel(value: unknown): SoulModel {
   const soul = (value && typeof value === "object"
     ? { ...(value as Record<string, unknown>) }
     : {}) as SoulModel;
+  const soulRecord = soul as Record<string, unknown>;
+  const existingOverlay =
+    soulRecord.soulV2 && typeof soulRecord.soulV2 === "object"
+      ? (soulRecord.soulV2 as Record<string, unknown>)
+      : null;
+  const rawIdentityAnchors =
+    existingOverlay?.identityAnchors && typeof existingOverlay.identityAnchors === "object"
+      ? (existingOverlay.identityAnchors as Record<string, unknown>)
+      : {};
+  const rawExecutionPreferences =
+    existingOverlay?.executionPreferences && typeof existingOverlay.executionPreferences === "object"
+      ? (existingOverlay.executionPreferences as Record<string, unknown>)
+      : {};
 
-  const normalizedCoreMemories = Array.isArray(soul.coreMemories)
-    ? soul.coreMemories
-        .map((memory, index) => normalizeCoreMemory(memory, index))
-        .filter((memory): memory is CoreMemory => memory !== null)
-    : [];
+  const normalizedCoreMemoriesFromSoul = normalizeCoreMemories(soul.coreMemories);
+  const normalizedCoreMemoriesFromOverlay = normalizeCoreMemories(rawIdentityAnchors.coreMemories);
+  const normalizedCoreMemories =
+    normalizedCoreMemoriesFromOverlay.length > 0
+      ? normalizedCoreMemoriesFromOverlay
+      : normalizedCoreMemoriesFromSoul;
 
-  soul.coreMemories = normalizedCoreMemories;
-  soul.coreMemoryPolicy = normalizeCoreMemoryPolicy(soul.coreMemoryPolicy);
+  const coreMemoryPolicy = normalizeCoreMemoryPolicy(
+    soul.coreMemoryPolicy ?? existingOverlay?.coreMemoryPolicy,
+  );
+
+  const normalizedOverlay: SoulV2Overlay = {
+    schemaVersion: SOUL_V2_OVERLAY_VERSION,
+    identityAnchors: {
+      name: toNonEmptyString(rawIdentityAnchors.name ?? soulRecord.name) ?? undefined,
+      tagline: toNonEmptyString(rawIdentityAnchors.tagline ?? soulRecord.tagline) ?? undefined,
+      traits: normalizeStringArray(rawIdentityAnchors.traits ?? soulRecord.traits),
+      coreValues: normalizeStringArray(rawIdentityAnchors.coreValues ?? soulRecord.coreValues),
+      neverDo: normalizeStringArray(rawIdentityAnchors.neverDo ?? soulRecord.neverDo),
+      escalationTriggers: normalizeStringArray(
+        rawIdentityAnchors.escalationTriggers ?? soulRecord.escalationTriggers,
+      ),
+      coreMemories: normalizedCoreMemories,
+    },
+    executionPreferences: {
+      alwaysDo: normalizeStringArray(rawExecutionPreferences.alwaysDo ?? soulRecord.alwaysDo),
+      communicationStyle: toNonEmptyString(
+        rawExecutionPreferences.communicationStyle ?? soulRecord.communicationStyle,
+      ) ?? undefined,
+      toneGuidelines: toNonEmptyString(
+        rawExecutionPreferences.toneGuidelines ?? soulRecord.toneGuidelines,
+      ) ?? undefined,
+      greetingStyle: toNonEmptyString(
+        rawExecutionPreferences.greetingStyle ?? soulRecord.greetingStyle,
+      ) ?? undefined,
+      closingStyle: toNonEmptyString(
+        rawExecutionPreferences.closingStyle ?? soulRecord.closingStyle,
+      ) ?? undefined,
+      emojiUsage: toNonEmptyString(
+        rawExecutionPreferences.emojiUsage ?? soulRecord.emojiUsage,
+      ) ?? undefined,
+    },
+    requireOwnerApprovalForMutations:
+      typeof existingOverlay?.requireOwnerApprovalForMutations === "boolean"
+        ? existingOverlay.requireOwnerApprovalForMutations
+        : coreMemoryPolicy.requireOwnerApprovalForMutations,
+  };
+
+  soul.soulV2 = normalizedOverlay;
+  soul.coreMemories = normalizedOverlay.identityAnchors.coreMemories;
+  soul.coreMemoryPolicy = coreMemoryPolicy;
+
+  if (normalizedOverlay.identityAnchors.name) {
+    soulRecord.name = normalizedOverlay.identityAnchors.name;
+  }
+  if (normalizedOverlay.identityAnchors.tagline) {
+    soulRecord.tagline = normalizedOverlay.identityAnchors.tagline;
+  }
+  if (normalizedOverlay.identityAnchors.traits) {
+    soulRecord.traits = [...normalizedOverlay.identityAnchors.traits];
+  }
+  if (normalizedOverlay.identityAnchors.coreValues) {
+    soulRecord.coreValues = [...normalizedOverlay.identityAnchors.coreValues];
+  }
+  if (normalizedOverlay.identityAnchors.neverDo) {
+    soulRecord.neverDo = [...normalizedOverlay.identityAnchors.neverDo];
+  }
+  if (normalizedOverlay.identityAnchors.escalationTriggers) {
+    soulRecord.escalationTriggers = [...normalizedOverlay.identityAnchors.escalationTriggers];
+  }
+  if (normalizedOverlay.executionPreferences.alwaysDo) {
+    soulRecord.alwaysDo = [...normalizedOverlay.executionPreferences.alwaysDo];
+  }
+  if (normalizedOverlay.executionPreferences.communicationStyle) {
+    soulRecord.communicationStyle = normalizedOverlay.executionPreferences.communicationStyle;
+  }
+  if (normalizedOverlay.executionPreferences.toneGuidelines) {
+    soulRecord.toneGuidelines = normalizedOverlay.executionPreferences.toneGuidelines;
+  }
+  if (normalizedOverlay.executionPreferences.greetingStyle) {
+    soulRecord.greetingStyle = normalizedOverlay.executionPreferences.greetingStyle;
+  }
+  if (normalizedOverlay.executionPreferences.closingStyle) {
+    soulRecord.closingStyle = normalizedOverlay.executionPreferences.closingStyle;
+  }
+  if (normalizedOverlay.executionPreferences.emojiUsage) {
+    soulRecord.emojiUsage = normalizedOverlay.executionPreferences.emojiUsage;
+  }
+
   return soul;
 }
 
@@ -547,12 +725,55 @@ function formatDriftSummary(scores: SoulDriftScores): string {
   ].join(", ");
 }
 
+function normalizeSoulProposalTargetField(targetField: string): string {
+  const normalized = targetField.trim();
+  const prefixedMappings = [
+    "soulV2.executionPreferences.",
+    "executionPreferences.",
+    "soulV2.identityAnchors.",
+    "identityAnchors.",
+  ];
+
+  for (const prefix of prefixedMappings) {
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
+    }
+  }
+
+  return normalized;
+}
+
+export function isSoulV2IdentityAnchorField(targetField: string): boolean {
+  const normalized = normalizeSoulProposalTargetField(targetField);
+  return normalized.startsWith("coreMemories.")
+    || SOUL_V2_IDENTITY_FIELD_SET.has(normalized);
+}
+
+export function isSoulV2ExecutionPreferenceField(targetField: string): boolean {
+  const normalized = normalizeSoulProposalTargetField(targetField);
+  return SOUL_V2_EXECUTION_FIELD_SET.has(normalized);
+}
+
+function resolveSoulOverlayLayer(
+  targetField: string,
+): "identity_anchor" | "execution_preference" | "legacy" {
+  if (isSoulV2IdentityAnchorField(targetField)) {
+    return "identity_anchor";
+  }
+  if (isSoulV2ExecutionPreferenceField(targetField)) {
+    return "execution_preference";
+  }
+  return "legacy";
+}
+
 function isCoreMemoryTargetField(targetField: string): boolean {
-  return targetField === "coreMemories" || targetField.startsWith("coreMemories.");
+  const normalized = normalizeSoulProposalTargetField(targetField);
+  return normalized === "coreMemories" || normalized.startsWith("coreMemories.");
 }
 
 function isCoreMemoryPolicyTargetField(targetField: string): boolean {
-  return targetField === "coreMemoryPolicy" || targetField.startsWith("coreMemoryPolicy.");
+  const normalized = normalizeSoulProposalTargetField(targetField);
+  return normalized === "coreMemoryPolicy" || normalized.startsWith("coreMemoryPolicy.");
 }
 
 function previewProposalValue(value: string): string {
@@ -589,6 +810,182 @@ function parseCoreMemoryProposalValue(proposedValue: string): unknown {
       source: "operator_curated",
     };
   }
+}
+
+export function evaluateSoulV2ProposalGuard(args: {
+  targetField: string;
+  proposalType: "add" | "modify" | "remove" | "add_faq";
+}): { allowed: boolean; reason?: string } {
+  const targetField = normalizeSoulProposalTargetField(args.targetField);
+  if (targetField === "coreMemories") {
+    return { allowed: true };
+  }
+  if (isSoulV2IdentityAnchorField(targetField)) {
+    return {
+      allowed: false,
+      reason:
+        "Soul v2 identity anchors are immutable; propose execution preferences instead.",
+    };
+  }
+  return { allowed: true };
+}
+
+export function hasExplicitOwnerApprovalCheckpoint(
+  proposal: Record<string, unknown>,
+): boolean {
+  if (proposal.requiresOwnerApproval === false) {
+    return true;
+  }
+  const reviewedAt = normalizeOptionalNumber(proposal.reviewedAt);
+  const reviewedBy = toNonEmptyString(proposal.reviewedBy)?.toLowerCase();
+  const approvalCheckpointId = toNonEmptyString(proposal.approvalCheckpointId);
+  if (!reviewedAt || !reviewedBy) {
+    return false;
+  }
+
+  const explicitOwnerReviewer =
+    reviewedBy === "owner"
+    || reviewedBy === "owner_web"
+    || reviewedBy === "owner_telegram";
+  if (!explicitOwnerReviewer) {
+    return false;
+  }
+
+  return Boolean(approvalCheckpointId) || explicitOwnerReviewer;
+}
+
+function resolveTrustActorType(reviewer: string): TrustEventActorType {
+  const normalized = reviewer.trim().toLowerCase();
+  if (normalized.startsWith("owner") || normalized.startsWith("user")) {
+    return "user";
+  }
+  if (normalized.startsWith("agent")) {
+    return "agent";
+  }
+  return "system";
+}
+
+async function emitSoulTrustEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    eventName: TrustEventName;
+    organizationId: Id<"organizations">;
+    agentId: Id<"objects">;
+    actorType: TrustEventActorType;
+    actorId: string;
+    sessionId?: Id<"agentSessions">;
+    proposalId?: string;
+    proposalVersion?: string;
+    riskLevel?: string;
+    reviewDecision?: string;
+    rollbackTarget?: string;
+    channel?: string;
+    occurredAt?: number;
+  },
+): Promise<void> {
+  const occurredAt = args.occurredAt ?? Date.now();
+  const payload: TrustEventPayload = {
+    event_id: `${args.eventName}:${args.proposalId || String(args.agentId)}:${occurredAt}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: occurredAt,
+    org_id: args.organizationId,
+    mode: "agents",
+    channel: args.channel || "soul_evolution",
+    session_id: args.sessionId ? String(args.sessionId) : `soul:${String(args.agentId)}`,
+    actor_type: args.actorType,
+    actor_id: args.actorId,
+    proposal_id: args.proposalId || "none",
+    proposal_version: args.proposalVersion || `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+    risk_level: args.riskLevel || "unknown",
+    review_decision: args.reviewDecision || "pending",
+    rollback_target: args.rollbackTarget || "none",
+  };
+
+  const validation = validateTrustEventPayload(args.eventName, payload);
+  await ctx.db.insert("aiTrustEvents", {
+    event_name: args.eventName,
+    payload,
+    schema_validation_status: validation.ok ? "passed" : "failed",
+    schema_errors: validation.ok ? undefined : validation.errors,
+    created_at: occurredAt,
+  });
+}
+
+interface OutcomeTelemetrySummary {
+  scannedMetrics: number;
+  ownerCorrectionRate: number;
+  toolFailureRate: number;
+  escalationRate: number;
+  negativeSentimentRate: number;
+  unresolvedQuestionRate: number;
+}
+
+function summarizeOutcomeTelemetry(
+  metrics: Array<Record<string, unknown>>,
+): OutcomeTelemetrySummary {
+  const scannedMetrics = metrics.length;
+  if (scannedMetrics === 0) {
+    return {
+      scannedMetrics: 0,
+      ownerCorrectionRate: 0,
+      toolFailureRate: 0,
+      escalationRate: 0,
+      negativeSentimentRate: 0,
+      unresolvedQuestionRate: 0,
+    };
+  }
+
+  let ownerCorrections = 0;
+  let toolCalls = 0;
+  let toolFailures = 0;
+  let escalations = 0;
+  let negativeSentiments = 0;
+  let unresolvedQuestionSessions = 0;
+
+  for (const metric of metrics) {
+    if (metric.ownerCorrected === true) {
+      ownerCorrections += 1;
+    }
+    const currentToolCalls = normalizeOptionalNumber(metric.toolCallCount) ?? 0;
+    const currentToolFailures = normalizeOptionalNumber(metric.toolFailureCount) ?? 0;
+    toolCalls += currentToolCalls;
+    toolFailures += currentToolFailures;
+
+    if (metric.escalated === true) {
+      escalations += 1;
+    }
+    if (metric.customerSentiment === "negative") {
+      negativeSentiments += 1;
+    }
+    if (Array.isArray(metric.unansweredQuestions) && metric.unansweredQuestions.length > 0) {
+      unresolvedQuestionSessions += 1;
+    }
+  }
+
+  return {
+    scannedMetrics,
+    ownerCorrectionRate: Number((ownerCorrections / scannedMetrics).toFixed(4)),
+    toolFailureRate:
+      toolCalls > 0 ? Number((toolFailures / toolCalls).toFixed(4)) : 0,
+    escalationRate: Number((escalations / scannedMetrics).toFixed(4)),
+    negativeSentimentRate: Number((negativeSentiments / scannedMetrics).toFixed(4)),
+    unresolvedQuestionRate: Number((unresolvedQuestionSessions / scannedMetrics).toFixed(4)),
+  };
+}
+
+function formatOutcomeTelemetrySummary(summary: OutcomeTelemetrySummary): string {
+  if (summary.scannedMetrics === 0) {
+    return "No recent outcome telemetry available.";
+  }
+  return [
+    `metrics=${summary.scannedMetrics}`,
+    `owner_correction_rate=${summary.ownerCorrectionRate.toFixed(2)}`,
+    `tool_failure_rate=${summary.toolFailureRate.toFixed(2)}`,
+    `escalation_rate=${summary.escalationRate.toFixed(2)}`,
+    `negative_sentiment_rate=${summary.negativeSentimentRate.toFixed(2)}`,
+    `unresolved_question_rate=${summary.unresolvedQuestionRate.toFixed(2)}`,
+  ].join(", ");
 }
 
 export function evaluateCoreMemoryProposalGuard(args: {
@@ -638,12 +1035,17 @@ export function buildOperatorReviewPayload(args: {
   driftSummary?: string;
 }): OperatorReviewPayload {
   const coreMemoryTarget = isCoreMemoryTargetField(args.targetField);
+  const overlayLayer = resolveSoulOverlayLayer(args.targetField);
   const immutableByDefault = args.policy.immutableByDefault;
   const guard = evaluateCoreMemoryProposalGuard({
     targetField: args.targetField,
     proposalType: args.proposalType,
     proposedValue: args.proposedValue,
     policy: args.policy,
+  });
+  const soulV2Guard = evaluateSoulV2ProposalGuard({
+    targetField: args.targetField,
+    proposalType: args.proposalType,
   });
 
   const reviewChecklist = [
@@ -666,11 +1068,16 @@ export function buildOperatorReviewPayload(args: {
   if (!guard.allowed && guard.reason) {
     reviewChecklist.push(`Guardrail block reason: ${guard.reason}`);
   }
+  if (!soulV2Guard.allowed && soulV2Guard.reason) {
+    reviewChecklist.push(`Soul v2 guardrail block reason: ${soulV2Guard.reason}`);
+  }
 
-  const riskLevel: OperatorReviewPayload["riskLevel"] = !guard.allowed
+  const riskLevel: OperatorReviewPayload["riskLevel"] = !guard.allowed || !soulV2Guard.allowed
     ? "high"
     : coreMemoryTarget
       ? "high"
+      : overlayLayer === "identity_anchor"
+        ? "high"
       : args.triggerType === "alignment"
         ? "medium"
         : "low";
@@ -680,6 +1087,7 @@ export function buildOperatorReviewPayload(args: {
     proposalType: args.proposalType,
     triggerType: args.triggerType,
     requiresOwnerApproval: true,
+    overlayLayer,
     immutableByDefault,
     coreMemoryTarget,
     riskLevel,
@@ -768,42 +1176,52 @@ export const createProposal = internalMutation({
     })),
     driftSummary: v.optional(v.string()),
     driftSignalSource: v.optional(v.string()),
+    telemetrySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent.customProperties || {}) as Record<string, any>;
+    if (config.protected) {
+      console.log("[SoulEvolution] Proposal blocked: protected agent");
+      return null;
+    }
+
+    const policy = normalizeSoulEvolutionPolicy(config.soulEvolutionPolicy);
+    const soul = normalizeSoulModel(config.soul);
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+
+    // Protected field check
+    const validation = validateProposalTarget(args.targetField, policy);
+    if (!validation.valid) {
+      console.log(`[SoulEvolution] Proposal invalid: ${validation.reason}`);
+      return null;
+    }
+
+    const coreMemoryGuard = evaluateCoreMemoryProposalGuard({
+      targetField: args.targetField,
+      proposalType: args.proposalType,
+      proposedValue: args.proposedValue,
+      policy: coreMemoryPolicy,
+    });
+    if (!coreMemoryGuard.allowed) {
+      console.log(`[SoulEvolution] Proposal blocked: ${coreMemoryGuard.reason}`);
+      return null;
+    }
+
+    const soulV2Guard = evaluateSoulV2ProposalGuard({
+      targetField: args.targetField,
+      proposalType: args.proposalType,
+    });
+    if (!soulV2Guard.allowed) {
+      console.log(`[SoulEvolution] Proposal blocked: ${soulV2Guard.reason}`);
+      return null;
+    }
+
     // Skip rate limits for owner-directed proposals
     if (args.triggerType !== "owner_directed") {
-      const agent = await ctx.db.get(args.agentId);
-      if (!agent) return null;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const config = (agent.customProperties || {}) as Record<string, any>;
-      if (config.protected) {
-        console.log(`[SoulEvolution] Proposal blocked: protected agent`);
-        return null;
-      }
-
-      const policy = normalizeSoulEvolutionPolicy(config.soulEvolutionPolicy);
-      const soul = normalizeSoulModel(config.soul);
-      const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
-
-      // Protected field check
-      const validation = validateProposalTarget(args.targetField, policy);
-      if (!validation.valid) {
-        console.log(`[SoulEvolution] Proposal invalid: ${validation.reason}`);
-        return null;
-      }
-
-      const coreMemoryGuard = evaluateCoreMemoryProposalGuard({
-        targetField: args.targetField,
-        proposalType: args.proposalType,
-        proposedValue: args.proposedValue,
-        policy: coreMemoryPolicy,
-      });
-      if (!coreMemoryGuard.allowed) {
-        console.log(`[SoulEvolution] Proposal blocked: ${coreMemoryGuard.reason}`);
-        return null;
-      }
-
       const snapshot = await collectProposalPolicySnapshot(ctx, args.agentId);
       const decision = evaluateProposalCreationPolicy(policy, snapshot);
       if (!decision.allowed) {
@@ -826,16 +1244,55 @@ export const createProposal = internalMutation({
     const driftSummary = toNonEmptyString(args.driftSummary)
       ?? (driftScores ? formatDriftSummary(driftScores) : undefined);
     const driftSignalSource = toNonEmptyString(args.driftSignalSource) ?? undefined;
+    const telemetrySummary = toNonEmptyString(args.telemetrySummary) ?? undefined;
+    const createdAt = Date.now();
 
-    return await ctx.db.insert("soulProposals", {
+    const reviewPayload = buildOperatorReviewPayload({
+      targetField: args.targetField,
+      proposalType: args.proposalType,
+      triggerType: args.triggerType,
+      reason: args.reason,
+      proposedValue: args.proposedValue,
+      policy: coreMemoryPolicy,
+      driftSummary,
+    });
+
+    const proposalId = await ctx.db.insert("soulProposals", {
       ...args,
       alignmentMode,
       driftScores,
       driftSummary,
       driftSignalSource,
+      telemetrySummary,
+      requiresOwnerApproval: true,
       status: "pending",
-      createdAt: Date.now(),
+      createdAt,
+    } as any);
+
+    let channel = "soul_evolution";
+    if (args.sessionId) {
+      const session = await ctx.db.get(args.sessionId);
+      channel =
+        toNonEmptyString(session?.channel)
+        || channel;
+    }
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_created.v1",
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      actorType: args.triggerType === "owner_directed" ? "user" : "agent",
+      actorId: args.triggerType === "owner_directed" ? "owner" : String(args.agentId),
+      sessionId: args.sessionId,
+      proposalId: String(proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: reviewPayload.riskLevel,
+      reviewDecision: "pending",
+      rollbackTarget: "none",
+      channel,
     });
+
+    return proposalId;
   },
 });
 
@@ -852,12 +1309,30 @@ export const approveProposal = internalMutation({
       return { error: "Proposal not found or already processed" };
     }
 
+    const agent = await ctx.db.get(proposal.agentId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent?.customProperties || {}) as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+    const reviewPayload = buildOperatorReviewPayload({
+      targetField: proposal.targetField,
+      proposalType: proposal.proposalType,
+      triggerType: proposal.triggerType,
+      reason: proposal.reason,
+      proposedValue: proposal.proposedValue,
+      policy: coreMemoryPolicy,
+      driftSummary: proposal.driftSummary ?? undefined,
+    });
+    const reviewedAt = Date.now();
+    const approvalCheckpointId = `owner_approval:${String(args.proposalId)}:${reviewedAt}`;
+
     // Mark as approved
     await ctx.db.patch(args.proposalId, {
       status: "approved",
-      reviewedAt: Date.now(),
-      reviewedBy: "owner",
-    });
+      reviewedAt,
+      reviewedBy: "owner_telegram",
+      approvalCheckpointId,
+    } as any);
 
     // Record feedback for learning loop (Step 10)
     await ctx.db.insert("proposalFeedback", {
@@ -866,7 +1341,21 @@ export const approveProposal = internalMutation({
       proposalId: args.proposalId,
       outcome: "approved",
       proposalSummary: `${proposal.proposalType} ${proposal.targetField}: ${proposal.proposedValue}`,
-      createdAt: Date.now(),
+      createdAt: reviewedAt,
+    });
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_reviewed.v1",
+      organizationId: proposal.organizationId,
+      agentId: proposal.agentId,
+      actorType: "user",
+      actorId: "owner_telegram",
+      sessionId: proposal.sessionId ?? undefined,
+      proposalId: String(args.proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: reviewPayload.riskLevel,
+      reviewDecision: "approved",
+      rollbackTarget: "none",
     });
 
     return { success: true, proposal };
@@ -886,11 +1375,29 @@ export const rejectProposal = internalMutation({
       return { error: "Proposal not found or already processed" };
     }
 
+    const agent = await ctx.db.get(proposal.agentId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent?.customProperties || {}) as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+    const reviewPayload = buildOperatorReviewPayload({
+      targetField: proposal.targetField,
+      proposalType: proposal.proposalType,
+      triggerType: proposal.triggerType,
+      reason: proposal.reason,
+      proposedValue: proposal.proposedValue,
+      policy: coreMemoryPolicy,
+      driftSummary: proposal.driftSummary ?? undefined,
+    });
+    const reviewedAt = Date.now();
+    const approvalCheckpointId = `owner_review:${String(args.proposalId)}:${reviewedAt}`;
+
     await ctx.db.patch(args.proposalId, {
       status: "rejected",
-      reviewedAt: Date.now(),
-      reviewedBy: "owner",
-    });
+      reviewedAt,
+      reviewedBy: "owner_telegram",
+      approvalCheckpointId,
+    } as any);
 
     // Record feedback for learning loop (Step 10)
     await ctx.db.insert("proposalFeedback", {
@@ -899,7 +1406,21 @@ export const rejectProposal = internalMutation({
       proposalId: args.proposalId,
       outcome: "rejected",
       proposalSummary: `${proposal.proposalType} ${proposal.targetField}: ${proposal.proposedValue}`,
-      createdAt: Date.now(),
+      createdAt: reviewedAt,
+    });
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_reviewed.v1",
+      organizationId: proposal.organizationId,
+      agentId: proposal.agentId,
+      actorType: "user",
+      actorId: "owner_telegram",
+      sessionId: proposal.sessionId ?? undefined,
+      proposalId: String(args.proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: reviewPayload.riskLevel,
+      reviewDecision: "rejected",
+      rollbackTarget: "none",
     });
 
     return { success: true };
@@ -918,6 +1439,11 @@ export const applyProposal = internalMutation({
     if (!proposal || proposal.status !== "approved") {
       return { error: "Proposal not approved" };
     }
+    if (!hasExplicitOwnerApprovalCheckpoint(proposal as Record<string, unknown>)) {
+      return {
+        error: "Explicit owner approval checkpoint is required before applying soul updates.",
+      };
+    }
 
     // Load agent
     const agent = await ctx.db.get(proposal.agentId);
@@ -932,7 +1458,7 @@ export const applyProposal = internalMutation({
     const previousSoulSnapshot = JSON.stringify(soul);
 
     // Apply the change based on proposal type
-    const field = proposal.targetField;
+    const field = normalizeSoulProposalTargetField(proposal.targetField);
     const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
     const coreMemoryGuard = evaluateCoreMemoryProposalGuard({
       targetField: field,
@@ -943,6 +1469,26 @@ export const applyProposal = internalMutation({
     if (!coreMemoryGuard.allowed) {
       return { error: coreMemoryGuard.reason ?? "Core memory proposal blocked by policy." };
     }
+    const soulV2Guard = evaluateSoulV2ProposalGuard({
+      targetField: field,
+      proposalType: proposal.proposalType,
+    });
+    if (!soulV2Guard.allowed) {
+      return { error: soulV2Guard.reason ?? "Soul v2 proposal blocked by policy." };
+    }
+
+    if (!soul.soulV2) {
+      soul.soulV2 = {
+        schemaVersion: SOUL_V2_OVERLAY_VERSION,
+        identityAnchors: { coreMemories: soul.coreMemories ?? [] },
+        executionPreferences: {},
+        requireOwnerApprovalForMutations: true,
+      };
+    }
+    const executionPreferences = soul.soulV2.executionPreferences;
+    const identityAnchors = soul.soulV2.identityAnchors;
+    const reviewedBy = toNonEmptyString(proposal.reviewedBy) ?? "owner";
+    const approvedAt = normalizeOptionalNumber(proposal.reviewedAt) ?? Date.now();
 
     switch (proposal.proposalType) {
       case "add": {
@@ -967,10 +1513,22 @@ export const applyProposal = internalMutation({
           if (normalizedCandidate.source === "unknown") {
             normalizedCandidate.source = "operator_curated";
           }
-          normalizedCandidate.approvedAt = Date.now();
-          normalizedCandidate.approvedBy = "owner";
+          normalizedCandidate.approvedAt = approvedAt;
+          normalizedCandidate.approvedBy = reviewedBy;
           soul.coreMemories = [...currentCoreMemories, normalizedCandidate];
+          identityAnchors.coreMemories = [...currentCoreMemories, normalizedCandidate];
           break;
+        }
+
+        if (isSoulV2ExecutionPreferenceField(field)) {
+          if (field === "alwaysDo") {
+            const currentAlwaysDo = Array.isArray(executionPreferences.alwaysDo)
+              ? executionPreferences.alwaysDo
+              : [];
+            executionPreferences.alwaysDo = [...currentAlwaysDo, proposal.proposedValue];
+            break;
+          }
+          return { error: `Field "${field}" does not support additive proposals.` };
         }
 
         const current = soulRecord[field];
@@ -983,12 +1541,71 @@ export const applyProposal = internalMutation({
         if (isCoreMemoryTargetField(field) || isCoreMemoryPolicyTargetField(field)) {
           return { error: "Core memory records are immutable in proposal apply path." };
         }
+        if (isSoulV2IdentityAnchorField(field)) {
+          return { error: "Soul v2 identity anchors are immutable in proposal apply path." };
+        }
+        if (isSoulV2ExecutionPreferenceField(field)) {
+          if (field === "alwaysDo") {
+            const currentAlwaysDo = Array.isArray(executionPreferences.alwaysDo)
+              ? [...executionPreferences.alwaysDo]
+              : [];
+            if (proposal.currentValue) {
+              const index = currentAlwaysDo.findIndex(
+                (entry) => entry === proposal.currentValue,
+              );
+              if (index >= 0) {
+                currentAlwaysDo[index] = proposal.proposedValue;
+              } else {
+                currentAlwaysDo.push(proposal.proposedValue);
+              }
+            } else {
+              currentAlwaysDo.push(proposal.proposedValue);
+            }
+            executionPreferences.alwaysDo = currentAlwaysDo;
+            break;
+          }
+
+          if (
+            field === "communicationStyle"
+            || field === "toneGuidelines"
+            || field === "greetingStyle"
+            || field === "closingStyle"
+            || field === "emojiUsage"
+          ) {
+            executionPreferences[field] = proposal.proposedValue;
+          }
+          break;
+        }
         soulRecord[field] = proposal.proposedValue;
         break;
       }
       case "remove": {
         if (isCoreMemoryTargetField(field) || isCoreMemoryPolicyTargetField(field)) {
           return { error: "Core memory records are immutable in proposal apply path." };
+        }
+        if (isSoulV2IdentityAnchorField(field)) {
+          return { error: "Soul v2 identity anchors are immutable in proposal apply path." };
+        }
+        if (isSoulV2ExecutionPreferenceField(field)) {
+          if (field === "alwaysDo") {
+            const currentAlwaysDo = Array.isArray(executionPreferences.alwaysDo)
+              ? executionPreferences.alwaysDo
+              : [];
+            executionPreferences.alwaysDo = currentAlwaysDo.filter(
+              (entry) => entry !== proposal.currentValue,
+            );
+            break;
+          }
+          if (
+            field === "communicationStyle"
+            || field === "toneGuidelines"
+            || field === "greetingStyle"
+            || field === "closingStyle"
+            || field === "emojiUsage"
+          ) {
+            executionPreferences[field] = undefined;
+          }
+          break;
         }
         const arr = soulRecord[field];
         if (Array.isArray(arr)) {
@@ -1007,13 +1624,19 @@ export const applyProposal = internalMutation({
       }
     }
 
+    const projectedSoul = normalizeSoulModel(soul);
+    const changedAt = Date.now();
+
     // Bump soul version
-    soul.version = (soul.version || 1) + 1;
-    soul.lastUpdatedAt = Date.now();
-    soul.lastUpdatedBy = "agent_self";
+    projectedSoul.version = (projectedSoul.version || 1) + 1;
+    projectedSoul.lastUpdatedAt = changedAt;
+    projectedSoul.lastUpdatedBy = "agent_self_after_owner_approval";
+    if (projectedSoul.soulV2) {
+      projectedSoul.soulV2.schemaVersion = SOUL_V2_OVERLAY_VERSION;
+    }
 
     // Save back to agent
-    config.soul = soul;
+    config.soul = projectedSoul;
     await ctx.db.patch(proposal.agentId, {
       customProperties: config,
     });
@@ -1021,21 +1644,40 @@ export const applyProposal = internalMutation({
     // Mark proposal as applied
     await ctx.db.patch(args.proposalId, {
       status: "applied",
-    });
+      appliedAt: changedAt,
+      appliedBy: "system_after_owner_approval",
+    } as any);
 
     // Record version history (Step 10)
     await ctx.db.insert("soulVersionHistory", {
       agentId: proposal.agentId,
       organizationId: proposal.organizationId,
-      version: soul.version,
+      version: projectedSoul.version,
       previousSoul: previousSoulSnapshot,
-      newSoul: JSON.stringify(soul),
+      newSoul: JSON.stringify(projectedSoul),
       changeType: "soul_proposal_applied",
       proposalId: args.proposalId,
-      changedAt: Date.now(),
+      soulSchemaVersion: SOUL_V2_OVERLAY_VERSION,
+      soulOverlayVersion: projectedSoul.soulV2?.schemaVersion ?? SOUL_V2_OVERLAY_VERSION,
+      changedBy: "system_after_owner_approval",
+      changedAt,
+    } as any);
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_reviewed.v1",
+      organizationId: proposal.organizationId,
+      agentId: proposal.agentId,
+      actorType: resolveTrustActorType("system_after_owner_approval"),
+      actorId: "system_after_owner_approval",
+      sessionId: proposal.sessionId ?? undefined,
+      proposalId: String(args.proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: "medium",
+      reviewDecision: "applied",
+      rollbackTarget: "none",
     });
 
-    return { success: true, newSoulVersion: soul.version };
+    return { success: true, newSoulVersion: projectedSoul.version };
   },
 });
 
@@ -1318,6 +1960,21 @@ export const runSelfReflection = internalAction({
     if (!agent) return { error: "Agent not found" };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const soul = (agent.customProperties as any)?.soul;
+    const telemetrySince = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentMetrics = await (ctx as any).runQuery(
+      generatedApi.internal.ai.selfImprovement.getMetricsSince,
+      {
+        agentId: args.agentId,
+        since: telemetrySince,
+      },
+    );
+    const telemetrySummary = formatOutcomeTelemetrySummary(
+      summarizeOutcomeTelemetry(
+        Array.isArray(recentMetrics)
+          ? (recentMetrics as Array<Record<string, unknown>>)
+          : [],
+      ),
+    );
 
     // 2. Load recent sessions
     const recentSessions = await (ctx as any).runQuery(
@@ -1360,6 +2017,10 @@ ${JSON.stringify(soul, null, 2)}
 ${summaries.join("\n\n")}
 === END CONVERSATIONS ===
 
+=== OUTCOME TELEMETRY (LAST 7 DAYS) ===
+${telemetrySummary}
+=== END TELEMETRY ===
+
 Based on these conversations, suggest 0-3 specific improvements to your soul/personality.
 For each suggestion, output a JSON object:
 {
@@ -1396,10 +2057,12 @@ Rules:
     try {
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1] : content);
+      let proposalCount = 0;
+      let blockedProposalCount = 0;
 
       // Create proposals
       for (const p of (parsed.proposals || [])) {
-        await (ctx as any).runMutation(
+        const proposalId = await (ctx as any).runMutation(
           generatedApi.internal.ai.soulEvolution.createProposal,
           {
             organizationId: args.organizationId,
@@ -1411,11 +2074,22 @@ Rules:
             reason: p.reason,
             triggerType: "reflection" as const,
             evidenceMessages: [],
+            telemetrySummary,
           }
         );
+        if (proposalId) {
+          proposalCount += 1;
+        } else {
+          blockedProposalCount += 1;
+        }
       }
 
-      return { success: true, proposalCount: parsed.proposals?.length || 0 };
+      return {
+        success: true,
+        proposalCount,
+        blockedProposalCount,
+        telemetrySummary,
+      };
     } catch {
       return { error: "Failed to parse reflection output" };
     }
@@ -1483,12 +2157,29 @@ export const approveSoulProposalAuth = mutation({
     if (!proposal || proposal.status !== "pending") {
       throw new Error("Proposal not found or already processed");
     }
+    const agent = await ctx.db.get(proposal.agentId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent?.customProperties || {}) as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+    const reviewPayload = buildOperatorReviewPayload({
+      targetField: proposal.targetField,
+      proposalType: proposal.proposalType,
+      triggerType: proposal.triggerType,
+      reason: proposal.reason,
+      proposedValue: proposal.proposedValue,
+      policy: coreMemoryPolicy,
+      driftSummary: proposal.driftSummary ?? undefined,
+    });
+    const reviewedAt = Date.now();
+    const approvalCheckpointId = `owner_approval:${String(args.proposalId)}:${reviewedAt}`;
 
     await ctx.db.patch(args.proposalId, {
       status: "approved",
-      reviewedAt: Date.now(),
+      reviewedAt,
       reviewedBy: "owner_web",
-    });
+      approvalCheckpointId,
+    } as any);
 
     await ctx.db.insert("proposalFeedback", {
       organizationId: proposal.organizationId,
@@ -1496,7 +2187,21 @@ export const approveSoulProposalAuth = mutation({
       proposalId: args.proposalId,
       outcome: "approved",
       proposalSummary: `${proposal.proposalType} ${proposal.targetField}: ${proposal.proposedValue}`,
-      createdAt: Date.now(),
+      createdAt: reviewedAt,
+    });
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_reviewed.v1",
+      organizationId: proposal.organizationId,
+      agentId: proposal.agentId,
+      actorType: "user",
+      actorId: "owner_web",
+      sessionId: proposal.sessionId ?? undefined,
+      proposalId: String(args.proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: reviewPayload.riskLevel,
+      reviewDecision: "approved",
+      rollbackTarget: "none",
     });
 
     // Schedule apply
@@ -1526,11 +2231,29 @@ export const rejectSoulProposalAuth = mutation({
       throw new Error("Proposal not found or already processed");
     }
 
+    const agent = await ctx.db.get(proposal.agentId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (agent?.customProperties || {}) as Record<string, any>;
+    const soul = normalizeSoulModel(config.soul);
+    const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
+    const reviewPayload = buildOperatorReviewPayload({
+      targetField: proposal.targetField,
+      proposalType: proposal.proposalType,
+      triggerType: proposal.triggerType,
+      reason: proposal.reason,
+      proposedValue: proposal.proposedValue,
+      policy: coreMemoryPolicy,
+      driftSummary: proposal.driftSummary ?? undefined,
+    });
+    const reviewedAt = Date.now();
+    const approvalCheckpointId = `owner_review:${String(args.proposalId)}:${reviewedAt}`;
+
     await ctx.db.patch(args.proposalId, {
       status: "rejected",
-      reviewedAt: Date.now(),
+      reviewedAt,
       reviewedBy: "owner_web",
-    });
+      approvalCheckpointId,
+    } as any);
 
     await ctx.db.insert("proposalFeedback", {
       organizationId: proposal.organizationId,
@@ -1539,7 +2262,21 @@ export const rejectSoulProposalAuth = mutation({
       outcome: "rejected",
       ownerFeedback: args.reason,
       proposalSummary: `${proposal.proposalType} ${proposal.targetField}: ${proposal.proposedValue}`,
-      createdAt: Date.now(),
+      createdAt: reviewedAt,
+    });
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.proposal_reviewed.v1",
+      organizationId: proposal.organizationId,
+      agentId: proposal.agentId,
+      actorType: "user",
+      actorId: "owner_web",
+      sessionId: proposal.sessionId ?? undefined,
+      proposalId: String(args.proposalId),
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: reviewPayload.riskLevel,
+      reviewDecision: "rejected",
+      rollbackTarget: "none",
     });
 
     return { success: true };
@@ -1586,12 +2323,14 @@ export const rollbackSoul = internalMutation({
     const currentSoul = normalizeSoulModel(config.soul);
     const currentVersion = currentSoul.version ?? 1;
     const newVersion = currentVersion + 1;
+    const changedAt = Date.now();
+    const rollbackCheckpointId = `rollback:${String(args.agentId)}:${args.targetVersion}:${changedAt}`;
 
     // Apply rollback — restore target soul with new version number
     const rolledBackSoul = normalizeSoulModel({
       ...targetSoul,
       version: newVersion,
-      lastUpdatedAt: Date.now(),
+      lastUpdatedAt: changedAt,
       lastUpdatedBy: args.requestedBy,
     });
 
@@ -1612,8 +2351,25 @@ export const rollbackSoul = internalMutation({
       changeType: "rollback",
       fromVersion: currentVersion,
       toVersion: args.targetVersion,
+      soulSchemaVersion: SOUL_V2_OVERLAY_VERSION,
+      soulOverlayVersion: rolledBackSoul.soulV2?.schemaVersion ?? SOUL_V2_OVERLAY_VERSION,
+      rollbackCheckpointId,
       changedBy: args.requestedBy,
-      changedAt: Date.now(),
+      changedAt,
+    } as any);
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.rollback_executed.v1",
+      organizationId: agent.organizationId,
+      agentId: args.agentId,
+      actorType: resolveTrustActorType(args.requestedBy),
+      actorId: args.requestedBy,
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: "medium",
+      reviewDecision: "rollback_executed",
+      rollbackTarget: `v${args.targetVersion}`,
+      channel: `${TRUST_EVENT_NAMESPACE}.rollback`,
+      occurredAt: changedAt,
     });
 
     return { success: true, newVersion };
@@ -1697,11 +2453,13 @@ export const rollbackSoulAuth = mutation({
     const currentSoul = normalizeSoulModel(config.soul);
     const currentVersion = currentSoul.version ?? 1;
     const newVersion = currentVersion + 1;
+    const changedAt = Date.now();
+    const rollbackCheckpointId = `rollback:${String(args.agentId)}:${args.targetVersion}:${changedAt}`;
 
     const rolledBackSoul = normalizeSoulModel({
       ...targetSoul,
       version: newVersion,
-      lastUpdatedAt: Date.now(),
+      lastUpdatedAt: changedAt,
       lastUpdatedBy: "owner_web",
     });
 
@@ -1721,8 +2479,25 @@ export const rollbackSoulAuth = mutation({
       changeType: "rollback",
       fromVersion: currentVersion,
       toVersion: args.targetVersion,
+      soulSchemaVersion: SOUL_V2_OVERLAY_VERSION,
+      soulOverlayVersion: rolledBackSoul.soulV2?.schemaVersion ?? SOUL_V2_OVERLAY_VERSION,
+      rollbackCheckpointId,
       changedBy: "owner_web",
-      changedAt: Date.now(),
+      changedAt,
+    } as any);
+
+    await emitSoulTrustEvent(ctx, {
+      eventName: "trust.soul.rollback_executed.v1",
+      organizationId: agent.organizationId,
+      agentId: args.agentId,
+      actorType: "user",
+      actorId: "owner_web",
+      proposalVersion: `overlay-v${SOUL_V2_OVERLAY_VERSION}`,
+      riskLevel: "medium",
+      reviewDecision: "rollback_executed",
+      rollbackTarget: `v${args.targetVersion}`,
+      channel: `${TRUST_EVENT_NAMESPACE}.rollback`,
+      occurredAt: changedAt,
     });
 
     return { success: true, newVersion };

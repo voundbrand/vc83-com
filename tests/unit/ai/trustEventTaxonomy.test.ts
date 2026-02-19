@@ -23,7 +23,7 @@ const BASE_PAYLOAD = {
 
 describe("trust event taxonomy contract", () => {
   it("registers deterministic trust event names without duplicates", () => {
-    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(33);
+    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(36);
     expect(new Set(TRUST_EVENT_NAME_VALUES).size).toBe(TRUST_EVENT_NAME_VALUES.length);
     expect(
       TRUST_EVENT_NAME_VALUES.every((eventName) => isDeterministicTrustEventName(eventName)),
@@ -52,9 +52,18 @@ describe("trust event taxonomy contract", () => {
     expect(
       isModeAllowedForTrustEvent("trust.lifecycle.operator_reply_in_stream.v1", "lifecycle"),
     ).toBe(true);
+    expect(
+      isModeAllowedForTrustEvent("trust.voice.session_transition.v1", "lifecycle"),
+    ).toBe(true);
+    expect(
+      isModeAllowedForTrustEvent("trust.voice.adaptive_flow_decision.v1", "runtime"),
+    ).toBe(true);
 
     expect(
       isModeAllowedForTrustEvent("trust.setup.artifact_generated.v1", "brain"),
+    ).toBe(false);
+    expect(
+      isModeAllowedForTrustEvent("trust.voice.session_transition.v1", "runtime"),
     ).toBe(false);
   });
 
@@ -145,5 +154,65 @@ describe("trust event taxonomy contract", () => {
         "lifecycle_transition_reason",
       ]),
     );
+  });
+
+  it("requires voice session transition fields for voice lifecycle events", () => {
+    const invalid = validateTrustEventPayload(
+      "trust.voice.session_transition.v1",
+      {
+        ...BASE_PAYLOAD,
+      },
+    );
+    expect(invalid.ok).toBe(false);
+    expect(invalid.missing_additional_fields).toEqual(
+      expect.arrayContaining([
+        "voice_session_id",
+        "voice_state_from",
+        "voice_state_to",
+        "voice_transition_reason",
+        "voice_runtime_provider",
+      ]),
+    );
+  });
+
+  it("accepts adaptive-flow payloads when required voice fields are present", () => {
+    const valid = validateTrustEventPayload("trust.voice.adaptive_flow_decision.v1", {
+      ...BASE_PAYLOAD,
+      mode: "runtime",
+      voice_session_id: "voice_sess_1",
+      adaptive_phase_id: "phase_intro",
+      adaptive_decision: "route_to_checkpoint_review",
+      adaptive_confidence: 0.91,
+      consent_checkpoint_id: "cp1_summary_review",
+    });
+    expect(valid.ok).toBe(true);
+  });
+
+  it("requires soul proposal payload fields for soul trust events", () => {
+    const invalid = validateTrustEventPayload("trust.soul.proposal_created.v1", {
+      ...BASE_PAYLOAD,
+      mode: "agents",
+    });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.missing_additional_fields).toEqual(
+      expect.arrayContaining([
+        "proposal_id",
+        "proposal_version",
+        "risk_level",
+        "review_decision",
+        "rollback_target",
+      ]),
+    );
+
+    const valid = validateTrustEventPayload("trust.soul.proposal_created.v1", {
+      ...BASE_PAYLOAD,
+      mode: "agents",
+      proposal_id: "proposal_1",
+      proposal_version: "overlay-v2",
+      risk_level: "high",
+      review_decision: "pending",
+      rollback_target: "none",
+    });
+    expect(valid.ok).toBe(true);
   });
 });

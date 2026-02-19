@@ -1,7 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 
-export const TRUST_EVENT_TAXONOMY_VERSION = "2026-02-18.v2";
+export const TRUST_EVENT_TAXONOMY_VERSION = "2026-02-19.v3";
 export const TRUST_EVENT_NAMESPACE = "trust";
 
 export const TRUST_EVENT_MODE_VALUES = [
@@ -77,6 +77,12 @@ export const TRUST_LIFECYCLE_EVENT_NAMES = [
   "trust.lifecycle.operator_reply_in_stream.v1",
 ] as const;
 
+export const TRUST_VOICE_EVENT_NAMES = [
+  "trust.voice.session_transition.v1",
+  "trust.voice.adaptive_flow_decision.v1",
+  "trust.voice.runtime_failover_triggered.v1",
+] as const;
+
 export const TRUST_BRAIN_EVENT_NAMES = [
   "trust.brain.content_dna.composed.v1",
   "trust.brain.content_dna.source_linked.v1",
@@ -136,6 +142,7 @@ export const TRUST_ADMIN_EVENT_NAMES = [
 export const TRUST_EVENT_NAME_VALUES = [
   ...TRUST_CONTEXT_EVENT_NAMES,
   ...TRUST_LIFECYCLE_EVENT_NAMES,
+  ...TRUST_VOICE_EVENT_NAMES,
   ...TRUST_BRAIN_EVENT_NAMES,
   ...TRUST_MEMORY_EVENT_NAMES,
   ...TRUST_KNOWLEDGE_EVENT_NAMES,
@@ -153,6 +160,9 @@ export const trustEventNameValidator = v.union(
   v.literal("trust.context.layer_violation_blocked.v1"),
   v.literal("trust.lifecycle.transition_checkpoint.v1"),
   v.literal("trust.lifecycle.operator_reply_in_stream.v1"),
+  v.literal("trust.voice.session_transition.v1"),
+  v.literal("trust.voice.adaptive_flow_decision.v1"),
+  v.literal("trust.voice.runtime_failover_triggered.v1"),
   v.literal("trust.brain.content_dna.composed.v1"),
   v.literal("trust.brain.content_dna.source_linked.v1"),
   v.literal("trust.memory.consent_prompted.v1"),
@@ -213,6 +223,30 @@ const LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS = [
   "lifecycle_checkpoint",
   "lifecycle_transition_actor",
   "lifecycle_transition_reason",
+] as const;
+
+const VOICE_SESSION_REQUIRED_ADDITIONAL_FIELDS = [
+  "voice_session_id",
+  "voice_state_from",
+  "voice_state_to",
+  "voice_transition_reason",
+  "voice_runtime_provider",
+] as const;
+
+const VOICE_ADAPTIVE_REQUIRED_ADDITIONAL_FIELDS = [
+  "voice_session_id",
+  "adaptive_phase_id",
+  "adaptive_decision",
+  "adaptive_confidence",
+  "consent_checkpoint_id",
+] as const;
+
+const VOICE_FAILOVER_REQUIRED_ADDITIONAL_FIELDS = [
+  "voice_session_id",
+  "voice_runtime_provider",
+  "voice_failover_provider",
+  "voice_failover_reason",
+  "voice_provider_health_status",
 ] as const;
 
 const CONTENT_DNA_REQUIRED_ADDITIONAL_FIELDS = [
@@ -315,6 +349,19 @@ export interface TrustEventAdditionalPayload {
   lifecycle_transition_actor?: string;
   lifecycle_transition_reason?: string;
 
+  voice_session_id?: string;
+  voice_state_from?: string;
+  voice_state_to?: string;
+  voice_transition_reason?: string;
+  voice_runtime_provider?: string;
+  adaptive_phase_id?: string;
+  adaptive_decision?: string;
+  adaptive_confidence?: number;
+  consent_checkpoint_id?: string;
+  voice_failover_provider?: string;
+  voice_failover_reason?: string;
+  voice_provider_health_status?: string;
+
   content_profile_id?: string;
   content_profile_version?: string;
   source_object_ids?: string[];
@@ -400,6 +447,18 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
   "trust.lifecycle.operator_reply_in_stream.v1": {
     allowed_modes: ["lifecycle"],
     required_additional_fields: LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.voice.session_transition.v1": {
+    allowed_modes: ["lifecycle"],
+    required_additional_fields: VOICE_SESSION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.voice.adaptive_flow_decision.v1": {
+    allowed_modes: ["lifecycle", "runtime"],
+    required_additional_fields: VOICE_ADAPTIVE_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.voice.runtime_failover_triggered.v1": {
+    allowed_modes: ["lifecycle", "runtime"],
+    required_additional_fields: VOICE_FAILOVER_REQUIRED_ADDITIONAL_FIELDS,
   },
   "trust.brain.content_dna.composed.v1": {
     allowed_modes: ["lifecycle"],

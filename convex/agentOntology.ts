@@ -74,21 +74,242 @@ function hasEnabledChannelBinding(
 }
 
 interface ActiveAgentCandidate {
+  _id?: string;
+  name?: string;
   status?: string;
   subtype?: string;
   customProperties?: Record<string, unknown>;
 }
 
+export interface ActiveAgentRouteSelectors {
+  channel?: string;
+  providerId?: string;
+  account?: string;
+  team?: string;
+  peer?: string;
+  channelRef?: string;
+}
+
 interface ActiveAgentResolutionArgs {
   channel?: string;
   subtype?: string;
+  routeSelectors?: ActiveAgentRouteSelectors;
+}
+
+interface AgentRoutePolicy {
+  policyId?: string;
+  priority: number;
+  selectors: ActiveAgentRouteSelectors;
+  policyIndex: number;
+}
+
+interface AgentRouteMatch<T extends ActiveAgentCandidate> {
+  agent: T;
+  policy: AgentRoutePolicy;
+  specificity: number;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeRouteSelectors(
+  value: unknown
+): ActiveAgentRouteSelectors | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const selectors: ActiveAgentRouteSelectors = {
+    channel: normalizeOptionalString(record.channel),
+    providerId: normalizeOptionalString(record.providerId),
+    account: normalizeOptionalString(record.account),
+    team: normalizeOptionalString(record.team),
+    peer: normalizeOptionalString(record.peer),
+    channelRef: normalizeOptionalString(record.channelRef),
+  };
+
+  return Object.values(selectors).some((entry) => Boolean(entry))
+    ? selectors
+    : undefined;
+}
+
+function hasRouteSelectorValue(
+  selectors: ActiveAgentRouteSelectors | undefined
+): selectors is ActiveAgentRouteSelectors {
+  return Boolean(
+    selectors &&
+      Object.values(selectors).some((entry) => typeof entry === "string" && entry.length > 0)
+  );
+}
+
+function extractAgentRoutePolicies(
+  customProperties: Record<string, unknown> | undefined
+): AgentRoutePolicy[] {
+  const rawPolicies =
+    customProperties?.channelRoutePolicies ??
+    customProperties?.routePolicies ??
+    customProperties?.dispatchRoutes;
+
+  if (!Array.isArray(rawPolicies)) {
+    return [];
+  }
+
+  const policies: AgentRoutePolicy[] = [];
+
+  for (let index = 0; index < rawPolicies.length; index += 1) {
+    const rawPolicy = rawPolicies[index];
+    if (!rawPolicy || typeof rawPolicy !== "object") {
+      continue;
+    }
+
+    const policyRecord = rawPolicy as Record<string, unknown>;
+    if (policyRecord.enabled === false) {
+      continue;
+    }
+
+    const selectors = normalizeRouteSelectors({
+      channel: policyRecord.channel,
+      providerId: policyRecord.providerId,
+      account:
+        policyRecord.account ??
+        policyRecord.accountId ??
+        policyRecord.providerAccountId,
+      team:
+        policyRecord.team ??
+        policyRecord.teamId ??
+        policyRecord.providerTeamId ??
+        policyRecord.slackTeamId,
+      peer:
+        policyRecord.peer ??
+        policyRecord.peerId ??
+        policyRecord.externalContactIdentifier ??
+        policyRecord.providerPeerId ??
+        policyRecord.slackUserId,
+      channelRef:
+        policyRecord.channelRef ??
+        policyRecord.channelId ??
+        policyRecord.providerChannelId ??
+        policyRecord.slackChannelId,
+    });
+    if (!selectors) {
+      continue;
+    }
+
+    const rawPriority = policyRecord.priority;
+    const priority = typeof rawPriority === "number" && Number.isFinite(rawPriority)
+      ? rawPriority
+      : 100;
+
+    policies.push({
+      policyId: normalizeOptionalString(policyRecord.id) || `policy_${index}`,
+      priority,
+      selectors,
+      policyIndex: index,
+    });
+  }
+
+  return policies;
+}
+
+function policyMatchesSelectors(
+  policySelectors: ActiveAgentRouteSelectors,
+  selectors: ActiveAgentRouteSelectors
+): boolean {
+  const checks: Array<[string | undefined, string | undefined]> = [
+    [policySelectors.channel, selectors.channel],
+    [policySelectors.providerId, selectors.providerId],
+    [policySelectors.account, selectors.account],
+    [policySelectors.team, selectors.team],
+    [policySelectors.peer, selectors.peer],
+    [policySelectors.channelRef, selectors.channelRef],
+  ];
+
+  for (const [policyValue, selectorValue] of checks) {
+    if (!policyValue) {
+      continue;
+    }
+    if (!selectorValue || selectorValue !== policyValue) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function countSelectorSpecificity(selectors: ActiveAgentRouteSelectors): number {
+  return Object.values(selectors).filter((value) => Boolean(value)).length;
+}
+
+function resolveRoutePolicyMatch<T extends ActiveAgentCandidate>(
+  candidates: T[],
+  selectors: ActiveAgentRouteSelectors
+): AgentRouteMatch<T> | null {
+  const matches: Array<AgentRouteMatch<T>> = [];
+
+  for (const candidate of candidates) {
+    const policies = extractAgentRoutePolicies(candidate.customProperties);
+    if (policies.length === 0) {
+      continue;
+    }
+
+    const matchedPolicies = policies
+      .filter((policy) => policyMatchesSelectors(policy.selectors, selectors))
+      .sort((a, b) => {
+        const specificityDelta =
+          countSelectorSpecificity(b.selectors) - countSelectorSpecificity(a.selectors);
+        if (specificityDelta !== 0) {
+          return specificityDelta;
+        }
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return a.policyIndex - b.policyIndex;
+      });
+    const bestPolicy = matchedPolicies[0];
+    if (!bestPolicy) {
+      continue;
+    }
+
+    matches.push({
+      agent: candidate,
+      policy: bestPolicy,
+      specificity: countSelectorSpecificity(bestPolicy.selectors),
+    });
+  }
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  matches.sort((a, b) => {
+    if (a.specificity !== b.specificity) {
+      return b.specificity - a.specificity;
+    }
+    if (a.policy.priority !== b.policy.priority) {
+      return a.policy.priority - b.policy.priority;
+    }
+    if (a.policy.policyIndex !== b.policy.policyIndex) {
+      return a.policy.policyIndex - b.policy.policyIndex;
+    }
+    return String(a.agent._id || "").localeCompare(String(b.agent._id || ""));
+  });
+
+  return matches[0];
 }
 
 export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidate>(
   agents: T[],
   args: ActiveAgentResolutionArgs
 ): T | null {
-  const activeAgents = agents.filter((agent) => agent.status === "active");
+  const activeAgents = agents
+    .filter((agent) => agent.status === "active")
+    .sort((a, b) => String(a._id || "").localeCompare(String(b._id || "")));
 
   let candidates = activeAgents;
   if (args.subtype) {
@@ -96,6 +317,14 @@ export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidat
     if (candidates.length === 0) {
       // Do not route to a different subtype when callers explicitly request one.
       return null;
+    }
+  }
+
+  const normalizedRouteSelectors = normalizeRouteSelectors(args.routeSelectors);
+  if (hasRouteSelectorValue(normalizedRouteSelectors)) {
+    const routeMatch = resolveRoutePolicyMatch(candidates, normalizedRouteSelectors);
+    if (routeMatch) {
+      return routeMatch.agent;
     }
   }
 
@@ -111,6 +340,82 @@ export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidat
   }
 
   return candidates[0] ?? null;
+}
+
+function readTemplateRole(
+  customProperties: Record<string, unknown> | undefined
+): string | null {
+  const role = customProperties?.templateRole;
+  if (typeof role !== "string") {
+    return null;
+  }
+  const normalized = role.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isProtectedTemplateRecord(candidate: ActiveAgentCandidate): boolean {
+  const props = candidate.customProperties as Record<string, unknown> | undefined;
+  return candidate.status === "template" && props?.protected === true;
+}
+
+export function selectOnboardingTemplateAgent<T extends ActiveAgentCandidate>(
+  agents: T[]
+): T | null {
+  const templates = agents
+    .filter((candidate) => isProtectedTemplateRecord(candidate))
+    .sort((a, b) => String(a._id || "").localeCompare(String(b._id || "")));
+
+  const explicitOnboardingTemplate = templates.find((template) => {
+    const props = template.customProperties as Record<string, unknown> | undefined;
+    return readTemplateRole(props) === "platform_system_bot_template";
+  });
+  if (explicitOnboardingTemplate) {
+    return explicitOnboardingTemplate;
+  }
+
+  const legacyQuinnTemplate = templates.find((template) =>
+    typeof template.name === "string" && template.name.trim().toLowerCase() === "quinn"
+  );
+  if (legacyQuinnTemplate) {
+    return legacyQuinnTemplate;
+  }
+
+  return templates[0] ?? null;
+}
+
+function filterProtectedTemplateAgents<T extends ActiveAgentCandidate>(
+  agents: T[],
+  args?: {
+    templateLayer?: string;
+    templatePlaybook?: string;
+  }
+): T[] {
+  const layerFilter = typeof args?.templateLayer === "string"
+    ? args.templateLayer.trim().toLowerCase()
+    : "";
+  const playbookFilter = typeof args?.templatePlaybook === "string"
+    ? args.templatePlaybook.trim().toLowerCase()
+    : "";
+
+  return agents
+    .filter((candidate) => isProtectedTemplateRecord(candidate))
+    .filter((candidate) => {
+      const props = candidate.customProperties as Record<string, unknown> | undefined;
+      const templateLayer = typeof props?.templateLayer === "string"
+        ? props.templateLayer.trim().toLowerCase()
+        : "";
+      const templatePlaybook = typeof props?.templatePlaybook === "string"
+        ? props.templatePlaybook.trim().toLowerCase()
+        : "";
+      if (layerFilter && templateLayer !== layerFilter) {
+        return false;
+      }
+      if (playbookFilter && templatePlaybook !== playbookFilter) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 }
 
 // ============================================================================
@@ -195,6 +500,14 @@ export const getActiveAgentForOrg = internalQuery({
     organizationId: v.id("organizations"),
     channel: v.optional(v.string()),
     subtype: v.optional(v.string()),
+    routeSelectors: v.optional(v.object({
+      channel: v.optional(v.string()),
+      providerId: v.optional(v.string()),
+      account: v.optional(v.string()),
+      team: v.optional(v.string()),
+      peer: v.optional(v.string()),
+      channelRef: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     const agents = await ctx.db
@@ -206,6 +519,7 @@ export const getActiveAgentForOrg = internalQuery({
     return resolveActiveAgentForOrgCandidates(agents, {
       channel: args.channel,
       subtype: args.subtype,
+      routeSelectors: args.routeSelectors,
     });
   },
 });
@@ -611,10 +925,32 @@ export const getTemplateAgent = internalQuery({
       )
       .collect();
 
-    return agents.find((a) => {
-      const props = a.customProperties as Record<string, unknown> | undefined;
-      return props?.protected === true && a.status === "template";
-    }) ?? null;
+    return selectOnboardingTemplateAgent(agents);
+  },
+});
+
+/**
+ * INTERNAL: List protected template agents for an organization, optionally
+ * filtered by template layer/playbook tags.
+ */
+export const getProtectedTemplateAgents = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    templateLayer: v.optional(v.string()),
+    templatePlaybook: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+      )
+      .collect();
+
+    return filterProtectedTemplateAgents(agents, {
+      templateLayer: args.templateLayer,
+      templatePlaybook: args.templatePlaybook,
+    });
   },
 });
 

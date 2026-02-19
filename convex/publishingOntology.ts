@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rbacHelpers";
 import { checkFeatureAccess, checkResourceLimit } from "./licensing/helpers";
 import { generateVercelDeployUrl } from "./publishingHelpers";
+import { normalizePublishedPageLifecycleStatus } from "./orchestrationContract";
 
 /**
  * PUBLISHING ONTOLOGY v2 - TEMPLATE + THEME ARCHITECTURE
@@ -281,8 +282,12 @@ export const getPublishedPages = query({
         // "active" means all statuses EXCEPT archived
         queryBuilder = queryBuilder.filter((q) => q.neq(q.field("status"), "archived"));
       } else {
+        const normalizedStatus =
+          normalizePublishedPageLifecycleStatus(args.status) ?? args.status;
         // Specific status filter
-        queryBuilder = queryBuilder.filter((q) => q.eq(q.field("status"), args.status));
+        queryBuilder = queryBuilder.filter((q) =>
+          q.eq(q.field("status"), normalizedStatus)
+        );
       }
     }
 

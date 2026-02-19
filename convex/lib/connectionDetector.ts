@@ -251,6 +251,15 @@ export function detectFromBuilderFiles(
       });
     }
 
+    // Events
+    for (const detection of detectEvents(file)) {
+      items.push({
+        id: `detected_${++itemCounter}`,
+        type: "event",
+        placeholderData: { name: detection.name, description: detection.description },
+      });
+    }
+
     // Bookings
     for (const detection of detectBookings(file)) {
       items.push({
@@ -360,6 +369,28 @@ function detectProducts(file: { path: string; content: string }): ProductDetecti
     results.push({ name: match[1], price: match[2]?.trim() || undefined, description: match[3] || undefined });
   }
   return results;
+}
+
+function detectEvents(file: { path: string; content: string }): SimpleDetection[] {
+  const content = file.content;
+  const hasEventTerms =
+    /event|conference|summit|workshop|meetup|webinar|admission|agenda|speaker/i.test(
+      content
+    );
+  const hasDateOrTimeSignal =
+    /\d{4}-\d{2}-\d{2}|\d{1,2}[:.]\d{2}\s?(?:AM|PM)?|january|february|march|april|may|june|july|august|september|october|november|december/i.test(
+      content
+    );
+
+  if (!hasEventTerms || !hasDateOrTimeSignal) return [];
+
+  const componentName = extractComponentName(file.path) || "Event";
+  return [
+    {
+      name: componentName.replace(/([a-z])([A-Z])/g, "$1 $2"),
+      description: `Detected event-oriented content in ${file.path}`,
+    },
+  ];
 }
 
 function detectBookings(file: { path: string; content: string }): SimpleDetection[] {

@@ -115,6 +115,15 @@ Your proposal goes to the owner for approval. Be specific about WHAT to change a
       }
     );
 
+    if (!proposalId) {
+      return {
+        success: false,
+        blocked: true,
+        message:
+          "Proposal blocked by soul evolution guardrails. Ask the owner to review immutable identity anchors or protected fields manually.",
+      };
+    }
+
     // Notify owner via Telegram (if channel is telegram)
     if (channel === "telegram" && contactId) {
       await ctx.runAction(

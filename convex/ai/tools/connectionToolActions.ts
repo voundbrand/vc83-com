@@ -13,6 +13,7 @@ import { internalAction } from "../../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import { detectAllConnections, buildDetectionSummary } from "../../lib/connectionDetector";
+import { getAutoCreateUnsupportedReason } from "./connectionTypeSupport";
 
 // Lazy-load to avoid TS2589
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,7 +21,6 @@ let _internalCache: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getInternal(): any {
   if (!_internalCache) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     _internalCache = require("../../_generated/api").internal;
   }
   return _internalCache;
@@ -295,7 +295,6 @@ export const executeWebAppConnections = internalAction({
  * Create a new record based on type, using the item's placeholder data.
  * Mirrors the creation logic in builder-context.tsx executeConnections.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createRecordForType(
   ctx: { runMutation: (ref: any, args: any) => Promise<any> },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -383,17 +382,13 @@ async function createRecordForType(
       });
     }
 
-    // Booking, checkout, ticket — these don't have internal create mutations yet.
-    // For MVP, skip with a descriptive error so the agent can inform the user.
-    case "booking":
-    case "checkout":
-    case "ticket":
-      throw new Error(
-        `Cannot auto-create ${type} records from agent tools yet. ` +
-        `Please create this ${type} manually in the platform.`
-      );
-
     default:
-      throw new Error(`Unsupported record type: ${type}`);
+      {
+        const unsupportedReason = getAutoCreateUnsupportedReason(type);
+        if (unsupportedReason) {
+          throw new Error(unsupportedReason);
+        }
+        throw new Error(`Unsupported record type: ${type}`);
+      }
   }
 }

@@ -23,6 +23,11 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 import { checkResourceLimit, checkFeatureAccess } from "./licensing/helpers";
+import {
+  CHECKOUT_LIFECYCLE_STATUS_VALUES,
+  normalizeCheckoutLifecycleStatus,
+  normalizeOrchestrationStatus,
+} from "./orchestrationContract";
 // Lazy-load generated API refs to avoid deep type instantiation in deploy typecheck.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -364,11 +369,26 @@ export const updateCheckoutInstance = mutation({
 
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.status !== undefined) updates.status = args.status;
 
-    if (args.configuration) {
+    const normalizedNextStatus =
+      args.status !== undefined
+        ? normalizeCheckoutLifecycleStatus(args.status)
+        : undefined;
+    if (args.status !== undefined) {
+      if (!normalizedNextStatus) {
+        throw new Error(
+          `Invalid checkout status. Must be one of: ${CHECKOUT_LIFECYCLE_STATUS_VALUES.join(", ")}`
+        );
+      }
+      updates.status = normalizedNextStatus;
+    }
+
+    const shouldStampPublishedAt =
+      normalizedNextStatus === "published" && instance.status !== "published";
+
+    if (args.configuration || shouldStampPublishedAt) {
       // CHECK FEATURE ACCESS: Payment providers require Starter tier or higher
-      const providers = args.configuration.paymentProviders || (args.configuration.paymentProvider ? [args.configuration.paymentProvider] : []);
+      const providers = args.configuration?.paymentProviders || (args.configuration?.paymentProvider ? [args.configuration.paymentProvider] : []);
 
       for (const provider of providers) {
         if (provider === "stripe-connect") {
@@ -381,12 +401,12 @@ export const updateCheckoutInstance = mutation({
       }
 
       // CHECK FEATURE ACCESS: Multi-language checkout requires Starter tier or higher
-      if (args.configuration.defaultLanguage && args.configuration.defaultLanguage !== "en") {
+      if (args.configuration?.defaultLanguage && args.configuration.defaultLanguage !== "en") {
         await checkFeatureAccess(ctx, instance.organizationId, "multiLanguageEnabled");
       }
 
       // CHECK FEATURE ACCESS: Stripe Tax requires Starter tier or higher (checking settings object)
-      if (args.configuration.settings && typeof args.configuration.settings === "object") {
+      if (args.configuration?.settings && typeof args.configuration.settings === "object") {
         const settings = args.configuration.settings as { stripeTaxEnabled?: boolean };
         if (settings.stripeTaxEnabled === true) {
           await checkFeatureAccess(ctx, instance.organizationId, "stripeTaxEnabled");
@@ -395,11 +415,11 @@ export const updateCheckoutInstance = mutation({
 
       const customProperties: Record<string, unknown> = {
         ...(instance.customProperties || {}),
-        ...args.configuration,
+        ...(args.configuration || {}),
       };
 
       // Set publishedAt when publishing
-      if (args.status === "published" && instance.status !== "published") {
+      if (shouldStampPublishedAt) {
         customProperties.publishedAt = Date.now();
       }
 
@@ -494,7 +514,13 @@ export const getCheckoutInstances = query({
 
     // Filter by status if provided
     if (args.status) {
-      instances = instances.filter((i) => i.status === args.status);
+      const normalizedStatus =
+        normalizeCheckoutLifecycleStatus(args.status) ??
+        normalizeOrchestrationStatus(args.status) ??
+        args.status;
+      instances = instances.filter(
+        (i) => (normalizeOrchestrationStatus(i.status) ?? i.status) === normalizedStatus
+      );
     } else {
       // Exclude deleted by default
       instances = instances.filter((i) => i.status !== "deleted");
