@@ -19,6 +19,14 @@ const generatedApi: any = require("../_generated/api");
 import {
   normalizeOpenRouterPricingToPerMillion,
 } from "./modelPricing";
+import { buildEnvApiKeysByProvider } from "./modelAdapters";
+import {
+  getAllAiProviders,
+  resolveOrganizationProviderBindingForProvider,
+  resolveOrganizationProviderBindings,
+  stripApiKeyFromBinding,
+} from "./providerRegistry";
+import { aiProviderIdValidator } from "../schemas/coreSchemas";
 
 /**
  * OpenRouter Model Information
@@ -46,6 +54,530 @@ export interface OpenRouterModel {
   };
 }
 
+type ProviderProbeStatus = "healthy" | "degraded" | "offline";
+
+type ProviderModelCatalogProbeResult = {
+  success: boolean;
+  status: ProviderProbeStatus;
+  checkedAt: number;
+  reason?: string;
+  modelCount: number;
+  modelIds: string[];
+  latencyMs?: number;
+};
+
+type ProviderTextProbeResult = {
+  success: boolean;
+  status: ProviderProbeStatus;
+  checkedAt: number;
+  reason?: string;
+  modelId?: string;
+  modelCount?: number;
+  modelIds?: string[];
+  outputCharacters?: number;
+  latencyMs?: number;
+};
+
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function parseJsonSafely(payload: string): unknown {
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+function extractErrorReason(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const typed = payload as Record<string, unknown>;
+  const directMessage = normalizeString(typed.message);
+  if (directMessage) {
+    return directMessage.slice(0, 180);
+  }
+
+  if (typeof typed.error === "string") {
+    return typed.error.slice(0, 180);
+  }
+
+  if (typeof typed.error === "object" && typed.error !== null) {
+    const nested = typed.error as Record<string, unknown>;
+    const nestedMessage = normalizeString(nested.message);
+    if (nestedMessage) {
+      return nestedMessage.slice(0, 180);
+    }
+  }
+
+  return null;
+}
+
+function mapHttpStatusToProbeStatus(statusCode: number): ProviderProbeStatus {
+  if (statusCode >= 500 || statusCode === 429) {
+    return "degraded";
+  }
+  return "offline";
+}
+
+function normalizeModelIdentifier(value: unknown): string | null {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("models/")) {
+    const withoutPrefix = normalizeString(normalized.slice("models/".length));
+    return withoutPrefix ?? normalized;
+  }
+
+  return normalized;
+}
+
+function extractModelIdFromRecord(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const typed = payload as Record<string, unknown>;
+  return (
+    normalizeModelIdentifier(typed.id) ??
+    normalizeModelIdentifier(typed.model) ??
+    normalizeModelIdentifier(typed.name) ??
+    normalizeModelIdentifier(typed.model_id)
+  );
+}
+
+function extractModelIdsFromPayload(payload: unknown): string[] {
+  if (typeof payload !== "object" || payload === null) {
+    return [];
+  }
+
+  const typed = payload as Record<string, unknown>;
+  const candidates: unknown[] = [];
+
+  if (Array.isArray(typed.data)) {
+    candidates.push(...typed.data);
+  }
+  if (Array.isArray(typed.models)) {
+    candidates.push(...typed.models);
+  }
+  if (Array.isArray(typed.items)) {
+    candidates.push(...typed.items);
+  }
+
+  const deduped = new Set<string>();
+  for (const candidate of candidates) {
+    const modelId = extractModelIdFromRecord(candidate);
+    if (!modelId) {
+      continue;
+    }
+    deduped.add(modelId);
+  }
+
+  return Array.from(deduped);
+}
+
+function buildProviderModelCatalogRequest(args: {
+  providerId: string;
+  baseUrl: string;
+  apiKey: string;
+}): {
+  url: string;
+  headers: Record<string, string>;
+} {
+  const baseUrl = args.baseUrl.replace(/\/+$/, "");
+  if (args.providerId === "gemini") {
+    return {
+      url: `${baseUrl}/models?key=${encodeURIComponent(args.apiKey)}`,
+      headers: {
+        accept: "application/json",
+      },
+    };
+  }
+
+  if (args.providerId === "anthropic") {
+    return {
+      url: `${baseUrl}/models`,
+      headers: {
+        accept: "application/json",
+        "x-api-key": args.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+    };
+  }
+
+  return {
+    url: `${baseUrl}/models`,
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${args.apiKey}`,
+    },
+  };
+}
+
+async function fetchProviderModelCatalog(args: {
+  providerId: string;
+  baseUrl: string;
+  apiKey: string;
+  sampleLimit?: number;
+}): Promise<ProviderModelCatalogProbeResult> {
+  const checkedAt = Date.now();
+  const startedAt = checkedAt;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const request = buildProviderModelCatalogRequest(args);
+    const response = await fetch(request.url, {
+      method: "GET",
+      headers: request.headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const payload = parseJsonSafely(await response.text());
+      return {
+        success: false,
+        status: mapHttpStatusToProbeStatus(response.status),
+        checkedAt,
+        reason:
+          extractErrorReason(payload) ?? `provider_probe_http_${response.status}`,
+        modelCount: 0,
+        modelIds: [],
+        latencyMs: Date.now() - startedAt,
+      };
+    }
+
+    const payload = await response.json();
+    const modelIds = extractModelIdsFromPayload(payload);
+    const sampleLimit = Math.max(1, Math.min(args.sampleLimit ?? 8, 25));
+
+    return {
+      success: true,
+      status: "healthy",
+      checkedAt,
+      modelCount: modelIds.length,
+      modelIds: modelIds.slice(0, sampleLimit),
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      status: "degraded",
+      checkedAt,
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 180)
+          : "provider_probe_failed",
+      modelCount: 0,
+      modelIds: [],
+      latencyMs: Date.now() - startedAt,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function getDefaultTextProbeModel(providerId: string): string | null {
+  if (providerId === "openrouter") {
+    return "openai/gpt-4o-mini";
+  }
+  if (providerId === "openai" || providerId === "openai_compatible") {
+    return "gpt-4o-mini";
+  }
+  if (providerId === "anthropic") {
+    return "claude-3-5-haiku-latest";
+  }
+  if (providerId === "gemini") {
+    return "gemini-2.0-flash";
+  }
+  if (providerId === "grok") {
+    return "grok-2-latest";
+  }
+  if (providerId === "mistral") {
+    return "mistral-small-latest";
+  }
+  if (providerId === "kimi") {
+    return "moonshot-v1-8k";
+  }
+  return null;
+}
+
+function buildProviderTextProbeRequest(args: {
+  providerId: string;
+  baseUrl: string;
+  apiKey: string;
+  modelId: string;
+  prompt: string;
+}): {
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+} {
+  const baseUrl = args.baseUrl.replace(/\/+$/, "");
+  if (args.providerId === "anthropic") {
+    return {
+      url: `${baseUrl}/messages`,
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "x-api-key": args.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: args.modelId,
+        max_tokens: 24,
+        temperature: 0,
+        messages: [{ role: "user", content: args.prompt }],
+      }),
+    };
+  }
+
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "content-type": "application/json",
+    authorization: `Bearer ${args.apiKey}`,
+  };
+
+  if (args.providerId === "openrouter") {
+    headers["HTTP-Referer"] =
+      process.env.OPENROUTER_SITE_URL || "https://app.l4yercak3.com";
+    headers["X-Title"] = process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform";
+  }
+
+  return {
+    url: `${baseUrl}/chat/completions`,
+    headers,
+    body: JSON.stringify({
+      model: args.modelId,
+      messages: [{ role: "user", content: args.prompt }],
+      max_tokens: 24,
+      temperature: 0,
+    }),
+  };
+}
+
+function extractTextProbeOutputLength(payload: unknown): number {
+  if (typeof payload !== "object" || payload === null) {
+    return 0;
+  }
+
+  const typed = payload as Record<string, unknown>;
+  if (Array.isArray(typed.content)) {
+    const textParts = typed.content
+      .map((item) => {
+        if (typeof item !== "object" || item === null) {
+          return "";
+        }
+        return normalizeString((item as Record<string, unknown>).text) ?? "";
+      })
+      .filter((value) => value.length > 0);
+    return textParts.join(" ").length;
+  }
+
+  if (!Array.isArray(typed.choices) || typed.choices.length === 0) {
+    return 0;
+  }
+
+  const firstChoice = typed.choices[0];
+  if (typeof firstChoice !== "object" || firstChoice === null) {
+    return 0;
+  }
+  const message = (firstChoice as Record<string, unknown>).message;
+  if (typeof message !== "object" || message === null) {
+    return 0;
+  }
+
+  const content = (message as Record<string, unknown>).content;
+  if (typeof content === "string") {
+    return content.trim().length;
+  }
+  if (Array.isArray(content)) {
+    const textParts = content
+      .map((part) => {
+        if (typeof part !== "object" || part === null) {
+          return "";
+        }
+        return normalizeString((part as Record<string, unknown>).text) ?? "";
+      })
+      .filter((value) => value.length > 0);
+    return textParts.join(" ").length;
+  }
+
+  return 0;
+}
+
+export const probeProviderModelCatalog = internalAction({
+  args: {
+    providerId: aiProviderIdValidator,
+    baseUrl: v.string(),
+    apiKey: v.string(),
+    sampleLimit: v.optional(v.number()),
+  },
+  handler: async (_ctx, args): Promise<ProviderModelCatalogProbeResult> => {
+    if (args.providerId === "elevenlabs") {
+      return {
+        success: false,
+        status: "offline",
+        checkedAt: Date.now(),
+        reason: "provider_does_not_expose_model_catalog",
+        modelCount: 0,
+        modelIds: [],
+      };
+    }
+    return await fetchProviderModelCatalog(args);
+  },
+});
+
+export const probeProviderTextGeneration = internalAction({
+  args: {
+    providerId: aiProviderIdValidator,
+    baseUrl: v.string(),
+    apiKey: v.string(),
+    modelId: v.optional(v.string()),
+    prompt: v.optional(v.string()),
+  },
+  handler: async (_ctx, args): Promise<ProviderTextProbeResult> => {
+    const checkedAt = Date.now();
+    if (args.providerId === "elevenlabs") {
+      return {
+        success: false,
+        status: "offline",
+        checkedAt,
+        reason: "provider_does_not_support_text_generation",
+      };
+    }
+
+    const modelCatalog = await fetchProviderModelCatalog({
+      providerId: args.providerId,
+      baseUrl: args.baseUrl,
+      apiKey: args.apiKey,
+      sampleLimit: 8,
+    });
+    const modelId =
+      normalizeModelIdentifier(args.modelId) ??
+      modelCatalog.modelIds[0] ??
+      getDefaultTextProbeModel(args.providerId);
+
+    if (!modelId) {
+      return {
+        success: false,
+        status: modelCatalog.status,
+        checkedAt,
+        reason: modelCatalog.reason ?? "no_text_probe_model_available",
+        modelCount: modelCatalog.modelCount,
+        modelIds: modelCatalog.modelIds,
+        latencyMs: modelCatalog.latencyMs,
+      };
+    }
+
+    const prompt =
+      normalizeString(args.prompt) ??
+      "Reply with the single word OK.";
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+    try {
+      const request = buildProviderTextProbeRequest({
+        providerId: args.providerId,
+        baseUrl: args.baseUrl,
+        apiKey: args.apiKey,
+        modelId,
+        prompt,
+      });
+      const response = await fetch(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: request.body,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const payload = parseJsonSafely(await response.text());
+        return {
+          success: false,
+          status: mapHttpStatusToProbeStatus(response.status),
+          checkedAt,
+          reason:
+            extractErrorReason(payload) ??
+            `provider_text_probe_http_${response.status}`,
+          modelId,
+          modelCount: modelCatalog.modelCount,
+          modelIds: modelCatalog.modelIds,
+          latencyMs: Date.now() - startedAt,
+        };
+      }
+
+      const payload = await response.json();
+      return {
+        success: true,
+        status: "healthy",
+        checkedAt,
+        modelId,
+        modelCount: modelCatalog.modelCount,
+        modelIds: modelCatalog.modelIds,
+        outputCharacters: extractTextProbeOutputLength(payload),
+        latencyMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        status: "degraded",
+        checkedAt,
+        reason:
+          error instanceof Error
+            ? error.message.slice(0, 180)
+            : "provider_text_probe_failed",
+        modelId,
+        modelCount: modelCatalog.modelCount,
+        modelIds: modelCatalog.modelIds,
+        latencyMs: Date.now() - startedAt,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  },
+});
+
+export const getOpenRouterDiscoveryBinding = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .filter((q) => q.eq(q.field("slug"), "system"))
+      .first();
+
+    if (!systemOrg) {
+      return null;
+    }
+
+    const systemAiSettings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", systemOrg._id)
+      )
+      .first();
+
+    return resolveOrganizationProviderBindingForProvider({
+      llmSettings: systemAiSettings?.llm ?? null,
+      providerId: "openrouter",
+      defaultBillingSource: systemAiSettings?.billingSource,
+      envApiKeysByProvider: buildEnvApiKeysByProvider(process.env),
+      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+      envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+    });
+  },
+});
+
 /**
  * FETCH AVAILABLE MODELS FROM OPENROUTER
  *
@@ -62,17 +594,23 @@ export const fetchAvailableModels = internalAction({
   }> => {
     console.log("🔍 Fetching available models from OpenRouter...");
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENROUTER_API_KEY not configured");
+    const openRouterBinding = await (ctx as any).runQuery(
+      generatedApi.internal.ai.modelDiscovery.getOpenRouterDiscoveryBinding,
+      {}
+    );
+
+    if (!openRouterBinding) {
+      throw new Error(
+        "No OpenRouter provider binding configured for model discovery"
+      );
     }
 
     try {
       // Fetch models from OpenRouter API
-      const response = await fetch("https://openrouter.ai/api/v1/models", {
+      const response = await fetch(`${openRouterBinding.baseUrl}/models`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${openRouterBinding.apiKey}`,
           "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://app.l4yercak3.com",
           "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
         },
@@ -372,6 +910,47 @@ export const getAvailableModels = internalQuery({
       isStale: cached.isExpired,
       lastFetched: cached.fetchedAt,
     };
+  },
+});
+
+/**
+ * Resolve canonical AI provider registry metadata.
+ *
+ * Exposes deterministic provider contract for internal runtime surfaces.
+ */
+export const getProviderRegistry = internalQuery({
+  args: {},
+  handler: async (): Promise<ReturnType<typeof getAllAiProviders>> =>
+    getAllAiProviders(),
+});
+
+/**
+ * Resolve org-scoped provider bindings with deterministic
+ * priority and fallback metadata. Secrets are redacted.
+ */
+export const getOrganizationProviderBindings = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    providerId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    const bindings = resolveOrganizationProviderBindings({
+      llmSettings: settings?.llm ?? null,
+      providerId: args.providerId,
+      defaultBillingSource: settings?.billingSource,
+      envApiKeysByProvider: buildEnvApiKeysByProvider(process.env),
+      envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
+      envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
+    });
+
+    return bindings.map(stripApiKeyFromBinding);
   },
 });
 

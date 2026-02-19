@@ -52,6 +52,53 @@ The local OpenClaw reference project already demonstrates patterns we can transf
 
 ---
 
+## Canonical taxonomy freeze (BMF-002)
+
+This taxonomy is the lane `A` source of truth and must be reused by schema, runtime, and UI tasks.
+
+### Provider IDs
+
+| Canonical ID | Use |
+|---|---|
+| `openrouter` | Aggregated frontier routing via OpenRouter |
+| `openai` | Direct OpenAI API |
+| `anthropic` | Direct Anthropic API |
+| `gemini` | Direct Google Gemini API |
+| `grok` | xAI Grok API |
+| `mistral` | Direct Mistral API |
+| `kimi` | Moonshot/Kimi API |
+| `elevenlabs` | Voice/TTS provider connection |
+| `openai_compatible` | Custom/private OpenAI-compatible endpoints |
+
+### Credential source taxonomy
+
+| Canonical source | Meaning |
+|---|---|
+| `platform_env` | Platform environment fallback credential |
+| `platform_vault` | Platform-managed encrypted credential |
+| `organization_setting` | Organization-scoped credential in AI settings |
+| `organization_auth_profile` | Organization auth-profile credential with failover metadata |
+| `integration_connection` | Credential bound via integration connection object |
+
+### Capability matrix
+
+Every provider/model contract is normalized to this boolean matrix:
+
+- `text`
+- `vision`
+- `audio_in`
+- `audio_out`
+- `tools`
+- `json`
+
+### Billing source taxonomy
+
+- `platform`: platform-managed credentials and platform token billing path.
+- `byok`: organization-supplied provider credentials where LLM token spend is pass-through.
+- `private`: private/self-hosted model endpoint paths with private billing ownership.
+
+---
+
 ## BYOK + credits commercial policy (proposed v1)
 
 1. Platform-sourced LLM requests keep current credit deduction path.
@@ -170,5 +217,23 @@ Mitigation: isolate transport, STT/TTS provider selection, and runtime policy in
 ## Status snapshot
 
 - `BMF-001` is `DONE` with full baseline audit and OpenClaw reference mapping.
-- `BMF-002` is `READY` and is the deterministic next task.
-- All remaining implementation tasks are queued behind lane `A` contract completion.
+- `BMF-002` is `DONE` with canonical provider/credential/capability/billing taxonomy frozen.
+- `BMF-003` is `DONE` with migration-safe provider-agnostic schema contract and backfill scaffolding.
+- `BMF-004` is `DONE` with encrypted credential metadata + decrypt-on-use boundaries across channel/integration settings.
+- `BMF-005` is `DONE` with conformance-checked AI provider registry entries, org binding resolver priority ordering, and explicit fallback metadata/baseUrl resolution for private endpoints.
+- `BMF-006` is `DONE` with explicit provider verification actions (`test_auth`, `list_models`, `test_text`, `test_voice`) wired through Integrations `AI Connections`, provider-safe model/text probe actions in `convex/ai/modelDiscovery.ts`, and persisted redacted connection-health metadata snapshots (status/reason/checkedAt/latency/model+voice counts) in provider profile metadata without storing probe payload content. Verification was run exactly per queue row: `npm run typecheck` (pre-existing failure at `convex/ai/soulEvolution.ts:1568` TS2322), `npm run lint` (warnings only), and `npx eslint convex/integrations convex/oauth convex/channels/router.ts convex/channels/registry.ts` (warnings only).
+- `BMF-007` is `DONE` with provider-scoped auth profile resolution, cooldown policy, and OpenRouter compatibility preservation.
+- `BMF-008` is `DONE` with provider adapter contract normalization across OpenRouter/OpenAI/Anthropic/Gemini/OpenAI-compatible runtime paths.
+- `BMF-009` is `DONE` with intent/modality model routing matrix, provider-aware cooldown-integrated fallback chains, and deterministic model fallback reasons in runtime telemetry.
+- `BMF-010` is `DONE` with deterministic billing-source/request-source credit policy enforcement across chat, agent execution, and approvals.
+- `BMF-011` is `DONE` with explicit BYOK commercial policy modes (flat fee/surcharge/tier-bundled), Stripe metadata propagation, and store pricing transparency policy table rendering.
+- `BMF-012` is `DONE` with legacy token ledger guardrails: credits ledger is authoritative, legacy token mutation mode is blocked, and usage telemetry now carries deterministic billing-source/request-source/ledger metadata.
+- `BMF-013` is `DONE` with Integrations `AI Connections` catalog + panel for provider connection/test/rotate/revoke flows and key-redaction UX across OpenAI/Anthropic/Gemini/Grok/Mistral/Kimi/OpenRouter/ElevenLabs/OpenAI-compatible providers.
+- `BMF-014` is `DONE` with AI settings provider default/fallback editor, per-agent provider/model default controls, and BYOK gating moved from hardcoded super-admin stub to tier-feature checks with fallback upgrade UX.
+- `BMF-015` is `DONE` with measurable conformance harness + threshold gate wiring for model enablement (`tool_call_parse_rate`, `schema_fidelity_rate`, `refusal_handling_rate`, `latency_p95_ms`, `cost_per_1k_tokens_usd`) and updated validation persistence/reporting paths.
+- `BMF-016` is `DONE` with modular voice runtime routing in agent execution (inbound STT + optional outbound TTS) via provider-factory boundaries so STT/TTS providers remain swappable.
+- `BMF-017` is `DONE` with strict-allowlist OpenClaw bridge import (one-way) for auth profiles/private model definitions, deterministic dedupe behavior, and org-bound import guards.
+- `BMF-018` is `DONE` with lane `G` rollout hardening assets: canary/paged backfill + rollback migration runner (`convex/migrations/byokProviderAgnosticRollout.ts`), explicit emergency rollback mutation in `convex/ai/settings.ts`, key-rotation recovery hardening in `convex/integrations/aiConnections.ts` (clear cooldown/failure on key change), and rollout command/runbook coverage in `LANE_G_ROLLOUT_RUNBOOK.md`.
+- `BMF-019` is `DONE` with final GA closeout checklist in `GA_HARDENING_CHECKLIST.md`, including explicit rollback and key-rotation recovery gates plus lane `G` CI verification signoff.
+- Lane `G` verify commands were run exactly for `BMF-018` and `BMF-019`; `npm run typecheck` still reports pre-existing `convex/ai/workerPool.ts` TS7006/TS2698 errors, while `npm run lint` (warnings only), `npm run test:unit`, `npm run test:model` (6/6, conformance `PASS`), and `npm run docs:guard` passed.
+- Lane `B` is complete through `BMF-006`; all queued rows `BMF-001`..`BMF-019` are `DONE`.
