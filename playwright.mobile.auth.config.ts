@@ -4,6 +4,9 @@ const port = Number(process.env.PLAYWRIGHT_PORT || 3000);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 const useExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const isCI = Boolean(process.env.CI);
+const devServerCommand = isCI
+  ? `npx next dev --port ${port} --hostname 127.0.0.1`
+  : `npm run dev -- --port ${port} --hostname 127.0.0.1`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -47,9 +50,9 @@ export default defineConfig({
   webServer: useExternalServer
     ? undefined
     : {
-        command: `npm run dev -- --port ${port} --hostname 127.0.0.1`,
+        command: devServerCommand,
         url: baseURL,
-        timeout: 180_000,
+        timeout: isCI ? 300_000 : 180_000,
         reuseExistingServer: !isCI,
         env: {
           NEXT_TELEMETRY_DISABLED: "1",
