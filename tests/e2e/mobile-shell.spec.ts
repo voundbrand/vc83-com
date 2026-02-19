@@ -134,6 +134,17 @@ test.describe("Mobile Shell", () => {
     await waitForAppParamToClear(page, 30_000);
   });
 
+  test("public /store full-screen keeps section deep-link parity on mobile layouts", async ({ page }) => {
+    await gotoShell(page, "/store?section=credits");
+    await expect(page.getByRole("button", { name: /jump to/i })).toBeVisible();
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("panel"), { timeout: 30_000 })
+      .toBe("credits");
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("section"), { timeout: 30_000 })
+      .toBe("credits");
+  });
+
   test("unknown deep-link app is cleaned from URL", async ({ page }) => {
     await gotoShell(page, `/?app=does-not-exist&context=${DEEP_LINK_CONTEXT}`);
     await waitForAppParamToClear(page, 30_000);

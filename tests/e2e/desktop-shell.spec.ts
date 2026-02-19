@@ -21,6 +21,13 @@ test.describe("Desktop Shell", () => {
       await expect.poll(() => new URL(page.url()).searchParams.get("app")).toBeNull();
     });
 
+    await test.step("public /store full-screen keeps section deep-link parity", async () => {
+      await page.goto("/store?section=calculator", { waitUntil: "commit" });
+      await expect(page.getByRole("heading", { name: /pricing transparency/i })).toBeVisible();
+      await expect.poll(() => new URL(page.url()).searchParams.get("panel")).toBe("calculator");
+      await expect.poll(() => new URL(page.url()).searchParams.get("section")).toBe("calculator");
+    });
+
     await test.step("unknown deep-link is cleaned from URL", async () => {
       await page.goto(`/?app=does-not-exist&context=${DESKTOP_CONTEXT}`, { waitUntil: "commit" });
       await expect.poll(() => new URL(page.url()).searchParams.get("app")).toBeNull();

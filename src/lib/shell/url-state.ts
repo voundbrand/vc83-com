@@ -7,11 +7,29 @@ export interface ShellUrlState {
   context?: string
 }
 
+export type StorePanelSection =
+  | "plans"
+  | "limits"
+  | "addons"
+  | "billing"
+  | "trial"
+  | "credits"
+  | "calculator"
+  | "faq"
+export type StoreCheckoutTier = "pro" | "scale"
+export type StoreCheckoutBillingPeriod = "monthly" | "annual"
+export interface StoreCheckoutIntent {
+  tier: StoreCheckoutTier
+  billingPeriod: StoreCheckoutBillingPeriod
+}
+const STORE_SECTION_QUERY_KEY = "section"
+
 export const SHELL_QUERY_KEYS = Object.freeze([
   SHELL_URL_STATE_KEYS.app,
   SHELL_URL_STATE_KEYS.panel,
   SHELL_URL_STATE_KEYS.entity,
   SHELL_URL_STATE_KEYS.context,
+  STORE_SECTION_QUERY_KEY,
   LEGACY_SHELL_URL_STATE_KEYS.openWindow,
   LEGACY_SHELL_URL_STATE_KEYS.window,
   LEGACY_SHELL_URL_STATE_KEYS.tab,
@@ -19,22 +37,79 @@ export const SHELL_QUERY_KEYS = Object.freeze([
 
 export const SHELL_UPGRADE_QUERY_KEYS = Object.freeze(["upgradeReason", "upgradeResource"])
 
-const STORE_PANEL_SECTIONS = new Set(["plans", "credits"])
+const STORE_PANEL_SECTIONS = new Set<StorePanelSection>([
+  "plans",
+  "limits",
+  "addons",
+  "billing",
+  "trial",
+  "credits",
+  "calculator",
+  "faq",
+])
 
 const getNonEmptyParam = (params: URLSearchParams, key: string): string | undefined => {
   const value = params.get(key)
   return value && value.length > 0 ? value : undefined
 }
 
+const isStorePanelSection = (value: string | undefined): value is StorePanelSection =>
+  value ? STORE_PANEL_SECTIONS.has(value as StorePanelSection) : false
+
+export function getStoreSectionFromQueryParams(params: URLSearchParams): StorePanelSection | undefined {
+  const sectionFromPanel =
+    getNonEmptyParam(params, SHELL_URL_STATE_KEYS.panel) ||
+    getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.tab)
+  if (isStorePanelSection(sectionFromPanel)) {
+    return sectionFromPanel
+  }
+
+  const sectionFromAlias = getNonEmptyParam(params, STORE_SECTION_QUERY_KEY)
+  if (isStorePanelSection(sectionFromAlias)) {
+    return sectionFromAlias
+  }
+
+  return undefined
+}
+
+export function buildStoreAuthReturnPath(options: {
+  fullScreen: boolean
+  section: StorePanelSection
+  checkoutIntent?: StoreCheckoutIntent
+}): string {
+  const params = new URLSearchParams()
+
+  if (options.fullScreen) {
+    params.set(SHELL_URL_STATE_KEYS.panel, options.section)
+    params.set(STORE_SECTION_QUERY_KEY, options.section)
+  } else {
+    params.set(LEGACY_SHELL_URL_STATE_KEYS.openWindow, "store")
+    params.set(SHELL_URL_STATE_KEYS.panel, options.section)
+  }
+
+  if (options.checkoutIntent) {
+    params.set("autostartCheckout", "1")
+    params.set("tier", options.checkoutIntent.tier)
+    params.set("period", options.checkoutIntent.billingPeriod)
+  }
+
+  const pathname = options.fullScreen ? "/store" : "/"
+  const query = params.toString()
+  return `${pathname}${query ? `?${query}` : ""}`
+}
+
 export function parseShellUrlState(params: URLSearchParams): ShellUrlState {
+  const app =
+    getNonEmptyParam(params, SHELL_URL_STATE_KEYS.app) ||
+    getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.openWindow) ||
+    getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.window)
+  const panel =
+    getNonEmptyParam(params, SHELL_URL_STATE_KEYS.panel) ||
+    getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.tab)
+
   return {
-    app:
-      getNonEmptyParam(params, SHELL_URL_STATE_KEYS.app) ||
-      getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.openWindow) ||
-      getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.window),
-    panel:
-      getNonEmptyParam(params, SHELL_URL_STATE_KEYS.panel) ||
-      getNonEmptyParam(params, LEGACY_SHELL_URL_STATE_KEYS.tab),
+    app,
+    panel: panel || (app === "store" ? getStoreSectionFromQueryParams(params) : undefined),
     entity: getNonEmptyParam(params, SHELL_URL_STATE_KEYS.entity),
     context: getNonEmptyParam(params, SHELL_URL_STATE_KEYS.context),
   }
@@ -81,7 +156,7 @@ export function buildShellWindowProps(state: ShellUrlState): Record<string, unkn
     props.initialPanel = state.panel
     props.initialTab = state.panel
 
-    if (state.app === "store" && STORE_PANEL_SECTIONS.has(state.panel)) {
+    if (state.app === "store" && isStorePanelSection(state.panel)) {
       props.initialSection = state.panel
     }
   }
