@@ -6,9 +6,16 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
+import type { FunctionReference } from "convex/server";
 import { Home, Folder, Star, ChevronRight, ChevronDown } from "lucide-react";
+
+const generatedApi = require("../../../../../convex/_generated/api") as {
+  api: {
+    mediaFolderOntology: {
+      getFolderTree: unknown;
+    };
+  };
+};
 
 interface LeftSidebarProps {
   activeSection: "home" | "folders" | "starred";
@@ -29,9 +36,9 @@ export function LeftSidebar({
 
   // Get folder tree
   const folderTree = useQuery(
-    api.mediaFolderOntology.getFolderTree,
-    { organizationId: organizationId as Id<"organizations"> }
-  );
+    generatedApi.api.mediaFolderOntology.getFolderTree as FunctionReference<"query">,
+    { organizationId },
+  ) as FolderNode[] | undefined;
 
   const toggleFolder = (folderId: string) => {
     const newSet = new Set(expandedFolders);
@@ -75,7 +82,7 @@ export function LeftSidebar({
 
       {/* Folder Tree (when in Folders section) */}
       {activeSection === "folders" && (
-        <div className="flex-1 overflow-y-auto p-2 border-t-2" style={{ borderColor: "var(--win95-border)" }}>
+        <div className="flex-1 overflow-y-auto p-2 border-t-2" style={{ borderColor: "var(--shell-border)" }}>
           {folderTree && folderTree.length > 0 ? (
             <FolderTreeView
               folders={folderTree}
@@ -109,8 +116,8 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
       onClick={onClick}
       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold rounded transition-colors"
       style={{
-        background: active ? "var(--win95-highlight-bg)" : "transparent",
-        color: active ? "var(--win95-highlight)" : "var(--win95-text)",
+        background: active ? "var(--shell-accent-soft)" : "transparent",
+        color: active ? "var(--shell-accent)" : "var(--shell-text)",
       }}
     >
       {icon}
@@ -157,8 +164,8 @@ function FolderTreeView({
               className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
               style={{
                 paddingLeft: `${level * 12 + 8}px`,
-                background: isSelected ? "var(--win95-highlight-bg)" : "transparent",
-                color: isSelected ? "var(--win95-highlight)" : "var(--win95-text)",
+                background: isSelected ? "var(--shell-accent-soft)" : "transparent",
+                color: isSelected ? "var(--shell-accent)" : "var(--shell-text)",
               }}
             >
               {hasChildren && (

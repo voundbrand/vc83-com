@@ -10,6 +10,7 @@
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { getProvider } from "./registry";
+import { buildSlackTopLevelConversationIdentifier } from "./providers/slackProvider";
 import type { ProviderCredentials } from "./types";
 import type { Id } from "../_generated/dataModel";
 
@@ -59,6 +60,25 @@ export const resolveOrgFromWhatsAppPhoneNumberId = internalQuery({
     });
 
     return match?.organizationId ?? null;
+  },
+});
+
+/**
+ * Resolve organization from Slack team ID.
+ * Looks up active Slack oauthConnections where providerAccountId is the team ID.
+ */
+export const resolveOrgFromSlackTeamId = internalQuery({
+  args: { teamId: v.string() },
+  handler: async (ctx, args) => {
+    const connection = await ctx.db
+      .query("oauthConnections")
+      .withIndex("by_provider_account", (q) =>
+        q.eq("provider", "slack").eq("providerAccountId", args.teamId)
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .first();
+
+    return connection?.organizationId ?? null;
   },
 });
 
@@ -230,6 +250,368 @@ export const processChatwootWebhook = internalAction({
     }
 
     return result;
+  },
+});
+
+/**
+ * Process an inbound Slack Events API payload.
+ * Uses provider normalization, then feeds into the shared agent pipeline.
+ */
+export function buildSlackEventIdempotencyKey(args: {
+  organizationId: string;
+  providerEventId?: string;
+  nowMs?: number;
+}): string {
+  if (args.providerEventId) {
+    return `slack:${args.organizationId}:${args.providerEventId}`;
+  }
+  return `slack:${args.organizationId}:${args.nowMs ?? Date.now()}`;
+}
+
+export function buildSlackSlashCommandIdempotencyKey(args: {
+  organizationId: string;
+  providerEventId: string;
+}): string {
+  return `slack:${args.organizationId}:slash:${args.providerEventId}`;
+}
+
+export const processSlackEvent = internalAction({
+  args: {
+    payload: v.string(),
+    eventId: v.optional(v.string()),
+    teamId: v.optional(v.string()),
+    retryNum: v.optional(v.number()),
+    retryReason: v.optional(v.string()),
+    signatureTimestamp: v.optional(v.number()),
+    receivedAt: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ status: string; message?: string; response?: string }> => {
+    const provider = getProvider("slack");
+    if (!provider) {
+      console.error("[Slack] Provider not registered");
+      return { status: "error", message: "Slack provider not registered" };
+    }
+
+    let rawPayload: Record<string, unknown>;
+    try {
+      rawPayload = JSON.parse(args.payload) as Record<string, unknown>;
+    } catch {
+      return { status: "error", message: "Invalid JSON payload" };
+    }
+
+    if (rawPayload.type !== "event_callback") {
+      return { status: "skipped", message: "Unsupported Slack payload type" };
+    }
+
+    const teamId =
+      args.teamId ||
+      (rawPayload.team_id as string | undefined) ||
+      (rawPayload.authorizations as Array<Record<string, unknown>> | undefined)?.[0]
+        ?.team_id as string | undefined;
+    if (!teamId) {
+      return { status: "error", message: "Missing Slack team ID" };
+    }
+
+    const organizationId = await (ctx.runQuery as Function)(
+      internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
+      { teamId }
+    ) as Id<"organizations"> | null;
+
+    if (!organizationId) {
+      console.error(`[Slack] No org found for team ${teamId}`);
+      return { status: "error", message: "Unknown Slack workspace" };
+    }
+
+    const credentials = (await (ctx.runQuery as Function)(
+      internalApi.channels.router.getProviderCredentials,
+      { organizationId, providerId: "slack" }
+    )) as ProviderCredentials | null;
+
+    const normalized = provider.normalizeInbound(
+      rawPayload,
+      credentials || ({} as ProviderCredentials)
+    );
+    if (!normalized) {
+      return { status: "skipped", message: "Not an inbound Slack message event" };
+    }
+
+    const providerEventId =
+      args.eventId ||
+      (rawPayload.event_id as string | undefined) ||
+      normalized.metadata.providerEventId ||
+      normalized.metadata.providerMessageId;
+    const idempotencyKey = buildSlackEventIdempotencyKey({
+      organizationId,
+      providerEventId,
+      nowMs: Date.now(),
+    });
+
+    try {
+      const result = (await (ctx.runAction as Function)(
+        api.ai.agentExecution.processInboundMessage,
+        {
+          organizationId,
+          channel: normalized.channel,
+          externalContactIdentifier: normalized.externalContactIdentifier,
+          message: normalized.message,
+          metadata: {
+            ...normalized.metadata,
+            providerEventId,
+            idempotencyKey,
+            slackTeamId: teamId,
+            slackRetryNum: args.retryNum,
+            slackRetryReason: args.retryReason,
+            slackSignatureTimestamp: args.signatureTimestamp,
+            slackReceivedAt: args.receivedAt,
+          },
+        }
+      )) as { status: string; response?: string; message?: string };
+
+      return result;
+    } catch (error) {
+      console.error("[Slack] Agent pipeline error:", error);
+      return { status: "error", message: String(error) };
+    }
+  },
+});
+
+function normalizeSlackCommandName(command: string): string {
+  const trimmed = command.trim();
+  if (!trimmed) return "command";
+  return trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+}
+
+function buildSlackSlashCommandMessage(command: string, text?: string): string {
+  const normalizedText = text?.trim();
+  if (normalizedText && normalizedText.length > 0) {
+    return normalizedText;
+  }
+  return normalizeSlackCommandName(command);
+}
+
+type SlackHitlQuickAction = {
+  action: "takeover" | "resume";
+  sessionId: Id<"agentSessions">;
+  reason: string;
+  note?: string;
+};
+
+function parseSlackHitlQuickAction(text?: string): SlackHitlQuickAction | null {
+  const normalizedText = text?.trim();
+  if (!normalizedText) {
+    return null;
+  }
+
+  const tokens = normalizedText.split(/\s+/);
+  if (tokens.length < 3 || tokens[0].toLowerCase() !== "hitl") {
+    return null;
+  }
+
+  const actionToken = tokens[1].toLowerCase();
+  if (actionToken !== "takeover" && actionToken !== "resume") {
+    return null;
+  }
+
+  const sessionIdToken = tokens[2]?.trim();
+  if (!sessionIdToken) {
+    return null;
+  }
+
+  const note = tokens.slice(3).join(" ").trim();
+  return {
+    action: actionToken,
+    sessionId: sessionIdToken as Id<"agentSessions">,
+    reason:
+      actionToken === "takeover"
+        ? "slack_takeover_slash_command"
+        : "slack_resume_slash_command",
+    note: note.length > 0 ? note : undefined,
+  };
+}
+
+function resolveSlackQuickActionMessage(args: {
+  action: "takeover" | "resume";
+  status?: string;
+}): string {
+  if (args.action === "takeover") {
+    if (args.status === "taken_over" || args.status === "noop_already_taken_over") {
+      return "Takeover is active for this conversation.";
+    }
+    if (args.status === "invalid_takeover_state") {
+      return "Takeover is only valid while escalation is pending.";
+    }
+    return "Unable to take over this conversation.";
+  }
+
+  if (
+    args.status === "resumed_after_dismissal" ||
+    args.status === "resumed_after_resolution" ||
+    args.status === "noop_already_resumed"
+  ) {
+    return "Agent resumed autonomous handling for this conversation.";
+  }
+  if (args.status === "invalid_resume_state") {
+    return "Resume is only valid for escalated or takeover conversations.";
+  }
+  return "Unable to resume this conversation.";
+}
+
+async function postSlackSlashCommandResponse(responseUrl: string | undefined, text: string): Promise<void> {
+  if (!responseUrl || responseUrl.trim().length === 0) {
+    return;
+  }
+
+  try {
+    await fetch(responseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        response_type: "ephemeral",
+        text,
+      }),
+    });
+  } catch (error) {
+    console.warn("[Slack] Failed to post slash command response:", error);
+  }
+}
+
+/**
+ * Process an inbound Slack slash command payload.
+ * Slash commands are always formatted as top-level channel replies.
+ */
+export const processSlackSlashCommand = internalAction({
+  args: {
+    teamId: v.string(),
+    channelId: v.string(),
+    userId: v.string(),
+    userName: v.optional(v.string()),
+    command: v.string(),
+    text: v.optional(v.string()),
+    triggerId: v.optional(v.string()),
+    responseUrl: v.optional(v.string()),
+    retryNum: v.optional(v.number()),
+    retryReason: v.optional(v.string()),
+    signatureTimestamp: v.optional(v.number()),
+    receivedAt: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ status: string; message?: string; response?: string }> => {
+    const provider = getProvider("slack");
+    if (!provider) {
+      console.error("[Slack] Provider not registered");
+      return { status: "error", message: "Slack provider not registered" };
+    }
+
+    const organizationId = await (ctx.runQuery as Function)(
+      internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
+      { teamId: args.teamId }
+    ) as Id<"organizations"> | null;
+
+    if (!organizationId) {
+      console.error(`[Slack] No org found for team ${args.teamId}`);
+      return { status: "error", message: "Unknown Slack workspace" };
+    }
+
+    const credentials = (await (ctx.runQuery as Function)(
+      internalApi.channels.router.getProviderCredentials,
+      { organizationId, providerId: "slack" }
+    )) as ProviderCredentials | null;
+
+    if (!credentials) {
+      return { status: "error", message: "Slack credentials unavailable" };
+    }
+
+    const providerEventId =
+      args.triggerId ||
+      `slash:${args.teamId}:${args.channelId}:${args.userId}:${args.receivedAt ?? Date.now()}`;
+    const idempotencyKey = buildSlackSlashCommandIdempotencyKey({
+      organizationId,
+      providerEventId,
+    });
+    const message = buildSlackSlashCommandMessage(args.command, args.text);
+    const quickAction = parseSlackHitlQuickAction(args.text);
+
+    if (quickAction) {
+      try {
+        const quickActionResult = (await (ctx.runMutation as Function)(
+          internalApi.ai.escalation.handleProviderQuickActionInternal,
+          {
+            sessionId: quickAction.sessionId,
+            action: quickAction.action,
+            source: "slack",
+            actorExternalId: `slack:${args.teamId}:${args.userId}`,
+            actorLabel: args.userName || args.userId,
+            reason: quickAction.reason,
+            note: quickAction.note,
+          },
+        )) as { success?: boolean; status?: string };
+
+        const quickActionMessage = resolveSlackQuickActionMessage({
+          action: quickAction.action,
+          status: quickActionResult?.status,
+        });
+        await postSlackSlashCommandResponse(args.responseUrl, quickActionMessage);
+
+        return {
+          status: quickActionResult?.success ? "success" : "error",
+          message: quickActionMessage,
+        };
+      } catch (error) {
+        const fallbackMessage =
+          "Unable to process HITL quick action. Use `hitl <takeover|resume> <sessionId>`.";
+        await postSlackSlashCommandResponse(args.responseUrl, fallbackMessage);
+        console.error("[Slack] HITL quick action failed:", error);
+        return {
+          status: "error",
+          message: String(error),
+        };
+      }
+    }
+
+    try {
+      const result = (await (ctx.runAction as Function)(
+        api.ai.agentExecution.processInboundMessage,
+        {
+          organizationId,
+          channel: "slack",
+          externalContactIdentifier: buildSlackTopLevelConversationIdentifier(
+            args.channelId,
+            args.userId
+          ),
+          message,
+          metadata: {
+            providerId: "slack",
+            providerEventId,
+            providerMessageId: providerEventId,
+            providerConversationId: undefined,
+            senderName: args.userName || args.userId,
+            idempotencyKey,
+            slackInvocationType: "slash_command",
+            slackResponseMode: "top_level",
+            slackCommand: normalizeSlackCommandName(args.command),
+            slackCommandText: args.text || "",
+            slackUserId: args.userId,
+            slackChannelId: args.channelId,
+            slackTeamId: args.teamId,
+            slackRetryNum: args.retryNum,
+            slackRetryReason: args.retryReason,
+            slackSignatureTimestamp: args.signatureTimestamp,
+            slackReceivedAt: args.receivedAt,
+            slackResponseUrl: args.responseUrl,
+          },
+        }
+      )) as { status: string; response?: string; message?: string };
+
+      return result;
+    } catch (error) {
+      console.error("[Slack] Slash command pipeline error:", error);
+      return { status: "error", message: String(error) };
+    }
   },
 });
 

@@ -16,6 +16,14 @@ import { getProviderByCode } from "./paymentProviders";
 import { getCorsHeaders, handleOptionsRequest } from "./api/v1/corsHeaders";
 import type { Id } from "./_generated/dataModel";
 import type Stripe from "stripe";
+import { SLACK_INTEGRATION_CONFIG } from "./oauth/config";
+import { normalizeClaimTokenForResponse } from "./onboarding/claimTokenResponse";
+import { verifySlackRequestSignature } from "./channels/providers/slackProvider";
+import { addRateLimitHeaders, checkRateLimit } from "./middleware/rateLimit";
+import {
+  WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
+  WEBCHAT_CUSTOMIZATION_FIELDS,
+} from "./webchatCustomizationContract";
 
 const generatedApi: any = require("./_generated/api");
 
@@ -32,6 +40,33 @@ function getErrorCode(error: unknown): string | undefined {
     return data?.code;
   }
   return undefined;
+}
+
+function resolveWebchatHitlQuickActionMessage(args: {
+  action: "takeover" | "resume";
+  status?: string;
+}): string {
+  if (args.action === "takeover") {
+    if (args.status === "taken_over" || args.status === "noop_already_taken_over") {
+      return "Human takeover is active for this conversation.";
+    }
+    if (args.status === "invalid_takeover_state") {
+      return "Takeover is only available while escalation is pending.";
+    }
+    return "Unable to start takeover for this conversation.";
+  }
+
+  if (
+    args.status === "resumed_after_dismissal" ||
+    args.status === "resumed_after_resolution" ||
+    args.status === "noop_already_resumed"
+  ) {
+    return "Agent resumed autonomous handling for this conversation.";
+  }
+  if (args.status === "invalid_resume_state") {
+    return "Resume is only available when the conversation is escalated or taken over.";
+  }
+  return "Unable to resume this conversation.";
 }
 
 const http = httpRouter();
@@ -2283,6 +2318,7 @@ import {
   confirmLinking,
   rejectLinking,
   getLinkingStatus,
+  claimIdentity,
   handleOptions as accountLinkingHandleOptions,
 } from "./api/v1/accountLinking";
 
@@ -2513,6 +2549,20 @@ http.route({
   path: "/api/v1/auth/link-account/status",
   method: "GET",
   handler: getLinkingStatus,
+});
+
+// OPTIONS /api/v1/auth/link-account/claim - CORS preflight
+http.route({
+  path: "/api/v1/auth/link-account/claim",
+  method: "OPTIONS",
+  handler: accountLinkingHandleOptions,
+});
+
+// POST /api/v1/auth/link-account/claim - Claim anonymous/Telegram identity token
+http.route({
+  path: "/api/v1/auth/link-account/claim",
+  method: "POST",
+  handler: claimIdentity,
 });
 
 /**
@@ -3265,18 +3315,38 @@ http.route({
     try {
       // Parse request body
       const body = await request.json();
-      const { organizationId, agentId, sessionToken, message, visitorInfo } = body as {
-        organizationId: string;
-        agentId: string;
+      const {
+        organizationId,
+        agentId,
+        sessionToken,
+        message,
+        visitorInfo,
+        deviceFingerprint,
+        challengeToken,
+        attribution,
+      } = body as {
+        organizationId?: string;
+        agentId?: string;
         sessionToken?: string;
         message: string;
         visitorInfo?: { name?: string; email?: string; phone?: string };
+        deviceFingerprint?: string;
+        challengeToken?: string;
+        attribution?: {
+          source?: string;
+          medium?: string;
+          campaign?: string;
+          content?: string;
+          term?: string;
+          referrer?: string;
+          landingPath?: string;
+        };
       };
 
       // Validate required fields
-      if (!organizationId || !agentId || !message) {
+      if ((!agentId && !sessionToken) || !message) {
         return new Response(
-          JSON.stringify({ error: "Missing required fields: organizationId, agentId, message" }),
+          JSON.stringify({ error: "Missing required fields: agentId or sessionToken, message" }),
           { status: 400, headers: corsHeaders }
         );
       }
@@ -3286,14 +3356,79 @@ http.route({
         request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
         request.headers.get("x-real-ip") ||
         "unknown";
+      const userAgent = request.headers.get("user-agent") || undefined;
+      const requestId = `wc_${crypto.randomUUID()}`;
+      const normalizedSessionToken =
+        typeof sessionToken === "string" && sessionToken.trim().length > 0
+          ? sessionToken.trim()
+          : undefined;
+      const normalizedDeviceFingerprint = typeof deviceFingerprint === "string" ? deviceFingerprint : undefined;
+      const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
+      const normalizedAttribution =
+        attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedOrganizationId =
+        typeof organizationId === "string" && organizationId.trim().length > 0
+          ? (organizationId as Id<"organizations">)
+          : undefined;
+      const normalizedAgentId =
+        typeof agentId === "string" && agentId.trim().length > 0
+          ? (agentId as Id<"objects">)
+          : undefined;
+
+      const resolvedContext = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
+        {
+          organizationId: normalizedOrganizationId,
+          agentId: normalizedAgentId,
+          channel: "webchat",
+          sessionToken: normalizedSessionToken,
+        }
+      );
+
+      if (!resolvedContext) {
+        return new Response(
+          JSON.stringify({ error: "Agent not found, disabled, or session context invalid" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      if (resolvedContext.organizationIdStatus === "overrode_legacy" && normalizedOrganizationId) {
+        console.warn("[Webchat] Ignoring client organizationId mismatch", {
+          providedOrganizationId: normalizedOrganizationId,
+          resolvedOrganizationId: resolvedContext.organizationId,
+          resolvedAgentId: resolvedContext.agentId,
+          source: resolvedContext.source,
+        });
+      }
 
       // Check rate limit
       const rateLimitResult = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.checkRateLimit, {
         ipAddress,
-        organizationId: organizationId as Id<"organizations">,
+        organizationId: resolvedContext.organizationId,
+        channel: "webchat",
+        deviceFingerprint: normalizedDeviceFingerprint,
+        sessionToken: normalizedSessionToken,
+        userAgent,
+        message,
       });
 
-      if (!rateLimitResult.allowed) {
+      if (!rateLimitResult.allowed && !rateLimitResult.requiresChallenge) {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+          ipAddress,
+          organizationId: resolvedContext.organizationId,
+          channel: "webchat",
+          deviceFingerprint: normalizedDeviceFingerprint,
+          sessionToken: normalizedSessionToken,
+          userAgent,
+          message,
+          outcome: "blocked",
+          challengeState: "not_required",
+          reason: rateLimitResult.reason || "velocity_block",
+          riskScore: rateLimitResult.riskScore,
+          requestId,
+          shouldLogSignal: true,
+        });
+
         return new Response(
           JSON.stringify({
             error: "Rate limit exceeded",
@@ -3303,19 +3438,101 @@ http.route({
         );
       }
 
-      // Record rate limit entry
+      let challengeState: "not_required" | "passed" = "not_required";
+      if (rateLimitResult.requiresChallenge) {
+        if (!normalizedChallengeToken || normalizedChallengeToken.trim().length === 0) {
+          await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+            ipAddress,
+            organizationId: resolvedContext.organizationId,
+            channel: "webchat",
+            deviceFingerprint: normalizedDeviceFingerprint,
+            sessionToken: normalizedSessionToken,
+            userAgent,
+            message,
+            outcome: "throttled",
+            challengeState: "required",
+            reason: rateLimitResult.challengeReason || "challenge_required",
+            riskScore: rateLimitResult.riskScore,
+            requestId,
+            shouldLogSignal: true,
+          });
+
+          return new Response(
+            JSON.stringify({
+              error: "Additional verification required",
+              retryAfterMs: rateLimitResult.retryAfterMs,
+              challenge: {
+                type: rateLimitResult.challengeType || "proof_of_human",
+                reason: rateLimitResult.challengeReason || "adaptive_throttle",
+              },
+            }),
+            { status: 429, headers: corsHeaders }
+          );
+        }
+
+        const challengeResult = await (ctx as any).runAction(
+          generatedApi.internal.api.v1.webchatApi.verifyAbuseChallenge,
+          {
+            channel: "webchat",
+            ipAddress,
+            challengeToken: normalizedChallengeToken,
+            requestId,
+          }
+        );
+
+        if (!challengeResult.verified) {
+          await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+            ipAddress,
+            organizationId: resolvedContext.organizationId,
+            channel: "webchat",
+            deviceFingerprint: normalizedDeviceFingerprint,
+            sessionToken: normalizedSessionToken,
+            userAgent,
+            message,
+            outcome: "throttled",
+            challengeState: "failed",
+            reason: challengeResult.reason || "challenge_failed",
+            riskScore: rateLimitResult.riskScore,
+            requestId,
+            shouldLogSignal: true,
+          });
+
+          return new Response(
+            JSON.stringify({
+              error: "Challenge verification failed",
+              retryAfterMs: rateLimitResult.retryAfterMs,
+            }),
+            { status: 429, headers: corsHeaders }
+          );
+        }
+
+        challengeState = "passed";
+      }
+
       await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
         ipAddress,
-        organizationId: organizationId as Id<"organizations">,
+        organizationId: resolvedContext.organizationId,
+        channel: "webchat",
+        deviceFingerprint: normalizedDeviceFingerprint,
+        sessionToken: normalizedSessionToken,
+        userAgent,
+        message,
+        outcome: "allowed",
+        challengeState,
+        reason: rateLimitResult.reason,
+        riskScore: rateLimitResult.riskScore,
+        requestId,
       });
 
       // Handle the message
       const result = await (ctx as any).runAction(generatedApi.internal.api.v1.webchatApi.handleWebchatMessage, {
-        organizationId: organizationId as Id<"organizations">,
-        agentId: agentId as Id<"objects">,
-        sessionToken,
+        organizationId: resolvedContext.organizationId,
+        agentId: resolvedContext.agentId,
+        channel: "webchat",
+        sessionToken: normalizedSessionToken,
         message,
         visitorInfo,
+        attribution: normalizedAttribution,
       });
 
       if (!result.success) {
@@ -3328,6 +3545,7 @@ http.route({
       return new Response(
         JSON.stringify({
           sessionToken: result.sessionToken,
+          claimToken: normalizeClaimTokenForResponse(result.claimToken),
           response: result.response,
           agentName: result.agentName,
         }),
@@ -3335,6 +3553,458 @@ http.route({
       );
     } catch (error) {
       console.error("[Webchat] Error handling message:", error);
+      return new Response(
+        JSON.stringify({ error: getErrorMessage(error) }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/v1/webchat/hitl - CORS preflight
+http.route({
+  path: "/api/v1/webchat/hitl",
+  method: "OPTIONS",
+  handler: httpAction(async (_ctx, request) => {
+    const origin = request.headers.get("origin");
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
+
+// POST /api/v1/webchat/hitl - Provider-native HITL quick actions for webchat
+http.route({
+  path: "/api/v1/webchat/hitl",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const body = await request.json();
+      const { sessionToken, action, actorLabel, reason, note } = body as {
+        sessionToken?: string;
+        action?: string;
+        actorLabel?: string;
+        reason?: string;
+        note?: string;
+      };
+
+      if (typeof sessionToken !== "string" || sessionToken.trim().length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Missing required field: sessionToken" }),
+          { status: 400, headers: corsHeaders },
+        );
+      }
+
+      if (action !== "takeover" && action !== "resume") {
+        return new Response(
+          JSON.stringify({ error: "Invalid action. Must be takeover or resume" }),
+          { status: 400, headers: corsHeaders },
+        );
+      }
+
+      const webchatSession = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.webchatApi.getWebchatSession,
+        { sessionToken: sessionToken.trim() },
+      ) as {
+        agentSessionId?: Id<"agentSessions">;
+      } | null;
+
+      if (!webchatSession?.agentSessionId) {
+        return new Response(
+          JSON.stringify({ error: "Session not found or not ready for HITL actions" }),
+          { status: 404, headers: corsHeaders },
+        );
+      }
+
+      const quickActionResult = await (ctx as any).runMutation(
+        generatedApi.internal.ai.escalation.handleProviderQuickActionInternal,
+        {
+          sessionId: webchatSession.agentSessionId,
+          action,
+          source: "webchat",
+          actorExternalId: `webchat:${sessionToken.trim().slice(-12)}`,
+          actorLabel: typeof actorLabel === "string" ? actorLabel : undefined,
+          reason: typeof reason === "string" ? reason : undefined,
+          note: typeof note === "string" ? note : undefined,
+        },
+      ) as {
+        success?: boolean;
+        status?: string;
+      };
+
+      const message = resolveWebchatHitlQuickActionMessage({
+        action,
+        status: quickActionResult?.status,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: Boolean(quickActionResult?.success),
+          status: quickActionResult?.status || "unknown",
+          sessionId: webchatSession.agentSessionId,
+          message,
+        }),
+        { status: 200, headers: corsHeaders },
+      );
+    } catch (error) {
+      console.error("[Webchat HITL] Error handling quick action:", error);
+      return new Response(
+        JSON.stringify({ error: getErrorMessage(error) }),
+        { status: 500, headers: corsHeaders },
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/v1/native-guest/message - CORS preflight
+http.route({
+  path: "/api/v1/native-guest/message",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
+
+// POST /api/v1/native-guest/message - Send message from native pre-auth guest chat
+http.route({
+  path: "/api/v1/native-guest/message",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const body = await request.json();
+      const {
+        organizationId,
+        agentId,
+        sessionToken,
+        message,
+        visitorInfo,
+        deviceFingerprint,
+        challengeToken,
+        attribution,
+      } = body as {
+        organizationId?: string;
+        agentId?: string;
+        sessionToken?: string;
+        message: string;
+        visitorInfo?: { name?: string; email?: string; phone?: string };
+        deviceFingerprint?: string;
+        challengeToken?: string;
+        attribution?: {
+          source?: string;
+          medium?: string;
+          campaign?: string;
+          content?: string;
+          term?: string;
+          referrer?: string;
+          landingPath?: string;
+        };
+      };
+
+      if ((!agentId && !sessionToken) || !message) {
+        return new Response(
+          JSON.stringify({ error: "Missing required fields: agentId or sessionToken, message" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      const ipAddress =
+        request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+        request.headers.get("x-real-ip") ||
+        "unknown";
+      const userAgent = request.headers.get("user-agent") || undefined;
+      const requestId = `ng_${crypto.randomUUID()}`;
+      const normalizedSessionToken =
+        typeof sessionToken === "string" && sessionToken.trim().length > 0
+          ? sessionToken.trim()
+          : undefined;
+      const normalizedDeviceFingerprint = typeof deviceFingerprint === "string" ? deviceFingerprint : undefined;
+      const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
+      const normalizedAttribution =
+        attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedOrganizationId =
+        typeof organizationId === "string" && organizationId.trim().length > 0
+          ? (organizationId as Id<"organizations">)
+          : undefined;
+      const normalizedAgentId =
+        typeof agentId === "string" && agentId.trim().length > 0
+          ? (agentId as Id<"objects">)
+          : undefined;
+
+      const resolvedContext = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
+        {
+          organizationId: normalizedOrganizationId,
+          agentId: normalizedAgentId,
+          channel: "native_guest",
+          sessionToken: normalizedSessionToken,
+        }
+      );
+
+      if (!resolvedContext) {
+        return new Response(
+          JSON.stringify({ error: "Agent not found, disabled, or session context invalid" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      if (resolvedContext.organizationIdStatus === "overrode_legacy" && normalizedOrganizationId) {
+        console.warn("[Native Guest] Ignoring client organizationId mismatch", {
+          providedOrganizationId: normalizedOrganizationId,
+          resolvedOrganizationId: resolvedContext.organizationId,
+          resolvedAgentId: resolvedContext.agentId,
+          source: resolvedContext.source,
+        });
+      }
+
+      const rateLimitResult = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.checkRateLimit, {
+        ipAddress,
+        organizationId: resolvedContext.organizationId,
+        channel: "native_guest",
+        deviceFingerprint: normalizedDeviceFingerprint,
+        sessionToken: normalizedSessionToken,
+        userAgent,
+        message,
+      });
+
+      if (!rateLimitResult.allowed && !rateLimitResult.requiresChallenge) {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+          ipAddress,
+          organizationId: resolvedContext.organizationId,
+          channel: "native_guest",
+          deviceFingerprint: normalizedDeviceFingerprint,
+          sessionToken: normalizedSessionToken,
+          userAgent,
+          message,
+          outcome: "blocked",
+          challengeState: "not_required",
+          reason: rateLimitResult.reason || "velocity_block",
+          riskScore: rateLimitResult.riskScore,
+          requestId,
+          shouldLogSignal: true,
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: "Rate limit exceeded",
+            retryAfterMs: rateLimitResult.retryAfterMs,
+          }),
+          { status: 429, headers: corsHeaders }
+        );
+      }
+
+      let challengeState: "not_required" | "passed" = "not_required";
+      if (rateLimitResult.requiresChallenge) {
+        if (!normalizedChallengeToken || normalizedChallengeToken.trim().length === 0) {
+          await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+            ipAddress,
+            organizationId: resolvedContext.organizationId,
+            channel: "native_guest",
+            deviceFingerprint: normalizedDeviceFingerprint,
+            sessionToken: normalizedSessionToken,
+            userAgent,
+            message,
+            outcome: "throttled",
+            challengeState: "required",
+            reason: rateLimitResult.challengeReason || "challenge_required",
+            riskScore: rateLimitResult.riskScore,
+            requestId,
+            shouldLogSignal: true,
+          });
+
+          return new Response(
+            JSON.stringify({
+              error: "Additional verification required",
+              retryAfterMs: rateLimitResult.retryAfterMs,
+              challenge: {
+                type: rateLimitResult.challengeType || "proof_of_human",
+                reason: rateLimitResult.challengeReason || "adaptive_throttle",
+              },
+            }),
+            { status: 429, headers: corsHeaders }
+          );
+        }
+
+        const challengeResult = await (ctx as any).runAction(
+          generatedApi.internal.api.v1.webchatApi.verifyAbuseChallenge,
+          {
+            channel: "native_guest",
+            ipAddress,
+            challengeToken: normalizedChallengeToken,
+            requestId,
+          }
+        );
+
+        if (!challengeResult.verified) {
+          await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+            ipAddress,
+            organizationId: resolvedContext.organizationId,
+            channel: "native_guest",
+            deviceFingerprint: normalizedDeviceFingerprint,
+            sessionToken: normalizedSessionToken,
+            userAgent,
+            message,
+            outcome: "throttled",
+            challengeState: "failed",
+            reason: challengeResult.reason || "challenge_failed",
+            riskScore: rateLimitResult.riskScore,
+            requestId,
+            shouldLogSignal: true,
+          });
+
+          return new Response(
+            JSON.stringify({
+              error: "Challenge verification failed",
+              retryAfterMs: rateLimitResult.retryAfterMs,
+            }),
+            { status: 429, headers: corsHeaders }
+          );
+        }
+
+        challengeState = "passed";
+      }
+
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+        ipAddress,
+        organizationId: resolvedContext.organizationId,
+        channel: "native_guest",
+        deviceFingerprint: normalizedDeviceFingerprint,
+        sessionToken: normalizedSessionToken,
+        userAgent,
+        message,
+        outcome: "allowed",
+        challengeState,
+        reason: rateLimitResult.reason,
+        riskScore: rateLimitResult.riskScore,
+        requestId,
+      });
+
+      const result = await (ctx as any).runAction(generatedApi.internal.api.v1.webchatApi.handleWebchatMessage, {
+        organizationId: resolvedContext.organizationId,
+        agentId: resolvedContext.agentId,
+        channel: "native_guest",
+        sessionToken: normalizedSessionToken,
+        message,
+        visitorInfo,
+        attribution: normalizedAttribution,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({
+            error: result.error || "Unable to process message",
+            sessionToken: result.sessionToken,
+          }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          sessionToken: result.sessionToken,
+          claimToken: normalizeClaimTokenForResponse(result.claimToken),
+          response: result.response,
+          agentName: result.agentName,
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    } catch (error) {
+      console.error("[Native Guest] Error handling message:", error);
+      return new Response(
+        JSON.stringify({ error: "Unable to process message" }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/v1/webchat/bootstrap/:agentId - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/webchat/bootstrap/",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
+
+// GET /api/v1/webchat/bootstrap/:agentId - Get deployment bootstrap contract
+http.route({
+  pathPrefix: "/api/v1/webchat/bootstrap/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": origin || "*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const url = new URL(request.url);
+      const pathParts = url.pathname.split("/");
+      const agentId = pathParts[pathParts.length - 1];
+      if (!agentId) {
+        return new Response(
+          JSON.stringify({ error: "Missing agentId in path" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      const requestedChannel = url.searchParams.get("channel");
+      const channel = requestedChannel === "native_guest" ? "native_guest" : "webchat";
+
+      const bootstrap = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.webchatApi.getPublicWebchatBootstrap,
+        {
+          agentId: agentId as Id<"objects">,
+          channel,
+        }
+      );
+
+      if (!bootstrap) {
+        return new Response(
+          JSON.stringify({ error: "Agent not found or channel not enabled" }),
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      return new Response(JSON.stringify(bootstrap), { status: 200, headers: corsHeaders });
+    } catch (error) {
+      console.error("[Webchat] Error getting bootstrap contract:", error);
       return new Response(
         JSON.stringify({ error: getErrorMessage(error) }),
         { status: 500, headers: corsHeaders }
@@ -3384,10 +4054,13 @@ http.route({
           { status: 400, headers: corsHeaders }
         );
       }
+      const requestedChannel = url.searchParams.get("channel");
+      const channel = requestedChannel === "native_guest" ? "native_guest" : "webchat";
 
       // Get webchat config
       const config = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatConfig, {
         agentId: agentId as Id<"objects">,
+        channel,
       });
 
       if (!config) {
@@ -3397,12 +4070,283 @@ http.route({
         );
       }
 
-      return new Response(JSON.stringify(config), { status: 200, headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          ...config,
+          channel,
+          contractVersion: WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
+          customizationFields: WEBCHAT_CUSTOMIZATION_FIELDS,
+        }),
+        { status: 200, headers: corsHeaders }
+      );
     } catch (error) {
       console.error("[Webchat] Error getting config:", error);
       return new Response(
         JSON.stringify({ error: getErrorMessage(error) }),
         { status: 500, headers: corsHeaders }
+      );
+    }
+  }),
+});
+
+// ============================================================================
+// SLACK EVENTS API WEBHOOK
+// ============================================================================
+
+http.route({
+  path: "/slack/events",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!SLACK_INTEGRATION_CONFIG.enabled) {
+      return new Response("Slack integration disabled", { status: 404 });
+    }
+
+    const requestIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const rateLimitResult = await checkRateLimit(
+      ctx as any,
+      `slack_webhook:${requestIp}`,
+      "ip",
+      "free"
+    );
+    if (!rateLimitResult.allowed) {
+      return addRateLimitHeaders(
+        new Response(
+          JSON.stringify({
+            error: "Rate limit exceeded",
+            retryAfter: rateLimitResult.retryAfter,
+          }),
+          {
+            status: 429,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+        rateLimitResult
+      );
+    }
+
+    try {
+      const body = await request.text();
+      const signatureResult = await verifySlackRequestSignature({
+        body,
+        signatureHeader: request.headers.get("x-slack-signature"),
+        timestampHeader: request.headers.get("x-slack-request-timestamp"),
+        signingSecrets: SLACK_INTEGRATION_CONFIG.signingSecretCandidates,
+      });
+
+      if (!signatureResult.valid) {
+        console.error("[Slack Webhook] Signature verification failed:", {
+          reason: signatureResult.reason,
+          requestIp,
+        });
+        return addRateLimitHeaders(
+          new Response("Invalid signature", { status: 401 }),
+          rateLimitResult
+        );
+      }
+
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(body) as Record<string, unknown>;
+      } catch {
+        return addRateLimitHeaders(
+          new Response("Invalid JSON payload", { status: 400 }),
+          rateLimitResult
+        );
+      }
+
+      if (payload.type === "url_verification") {
+        const challenge = typeof payload.challenge === "string" ? payload.challenge : "";
+        return addRateLimitHeaders(
+          new Response(challenge, {
+            status: 200,
+            headers: { "Content-Type": "text/plain" },
+          }),
+          rateLimitResult
+        );
+      }
+
+      if (payload.type !== "event_callback") {
+        return addRateLimitHeaders(
+          new Response(JSON.stringify({ ok: true, ignored: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+          rateLimitResult
+        );
+      }
+
+      const retryNumHeader = request.headers.get("x-slack-retry-num");
+      const parsedRetryNum = retryNumHeader
+        ? Number.parseInt(retryNumHeader, 10)
+        : Number.NaN;
+      const retryNum = Number.isFinite(parsedRetryNum)
+        ? parsedRetryNum
+        : undefined;
+
+      await (ctx as any).scheduler.runAfter(
+        0,
+        generatedApi.internal.channels.webhooks.processSlackEvent,
+        {
+          payload: body,
+          eventId: typeof payload.event_id === "string" ? payload.event_id : undefined,
+          teamId: typeof payload.team_id === "string" ? payload.team_id : undefined,
+          retryNum,
+          retryReason: request.headers.get("x-slack-retry-reason") || undefined,
+          signatureTimestamp: signatureResult.timestampSeconds,
+          receivedAt: Date.now(),
+        }
+      );
+
+      return addRateLimitHeaders(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        rateLimitResult
+      );
+    } catch (error) {
+      console.error("[Slack Webhook] Error:", error);
+      return addRateLimitHeaders(
+        new Response("Internal server error", { status: 500 }),
+        rateLimitResult
+      );
+    }
+  }),
+});
+
+// ============================================================================
+// SLACK SLASH COMMAND WEBHOOK
+// ============================================================================
+
+http.route({
+  path: "/slack/commands",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!SLACK_INTEGRATION_CONFIG.enabled) {
+      return new Response("Slack integration disabled", { status: 404 });
+    }
+
+    if (!SLACK_INTEGRATION_CONFIG.slashCommandsEnabled) {
+      return new Response(
+        JSON.stringify({
+          response_type: "ephemeral",
+          text: "Slash commands are not enabled for this environment.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const requestIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const rateLimitResult = await checkRateLimit(
+      ctx as any,
+      `slack_command:${requestIp}`,
+      "ip",
+      "free"
+    );
+    if (!rateLimitResult.allowed) {
+      return addRateLimitHeaders(
+        new Response(
+          JSON.stringify({
+            response_type: "ephemeral",
+            text: "Rate limit exceeded. Please try again shortly.",
+            retryAfter: rateLimitResult.retryAfter,
+          }),
+          {
+            status: 429,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+        rateLimitResult
+      );
+    }
+
+    try {
+      const body = await request.text();
+      const signatureResult = await verifySlackRequestSignature({
+        body,
+        signatureHeader: request.headers.get("x-slack-signature"),
+        timestampHeader: request.headers.get("x-slack-request-timestamp"),
+        signingSecrets: SLACK_INTEGRATION_CONFIG.signingSecretCandidates,
+      });
+
+      if (!signatureResult.valid) {
+        console.error("[Slack Command] Signature verification failed:", {
+          reason: signatureResult.reason,
+          requestIp,
+        });
+        return addRateLimitHeaders(
+          new Response("Invalid signature", { status: 401 }),
+          rateLimitResult
+        );
+      }
+
+      const payload = new URLSearchParams(body);
+      const teamId = payload.get("team_id")?.trim() || "";
+      const channelId = payload.get("channel_id")?.trim() || "";
+      const userId = payload.get("user_id")?.trim() || "";
+      const command = payload.get("command")?.trim() || "";
+
+      if (!teamId || !channelId || !userId || !command) {
+        return addRateLimitHeaders(
+          new Response("Missing slash command fields", { status: 400 }),
+          rateLimitResult
+        );
+      }
+
+      const retryNumHeader = request.headers.get("x-slack-retry-num");
+      const parsedRetryNum = retryNumHeader
+        ? Number.parseInt(retryNumHeader, 10)
+        : Number.NaN;
+      const retryNum = Number.isFinite(parsedRetryNum)
+        ? parsedRetryNum
+        : undefined;
+
+      await (ctx as any).scheduler.runAfter(
+        0,
+        generatedApi.internal.channels.webhooks.processSlackSlashCommand,
+        {
+          teamId,
+          channelId,
+          userId,
+          userName: payload.get("user_name") || undefined,
+          command,
+          text: payload.get("text") || undefined,
+          triggerId: payload.get("trigger_id") || undefined,
+          responseUrl: payload.get("response_url") || undefined,
+          retryNum,
+          retryReason: request.headers.get("x-slack-retry-reason") || undefined,
+          signatureTimestamp: signatureResult.timestampSeconds,
+          receivedAt: Date.now(),
+        }
+      );
+
+      return addRateLimitHeaders(
+        new Response(
+          JSON.stringify({
+            response_type: "ephemeral",
+            text: "Processing command...",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+        rateLimitResult
+      );
+    } catch (error) {
+      console.error("[Slack Command] Error:", error);
+      return addRateLimitHeaders(
+        new Response("Internal server error", { status: 500 }),
+        rateLimitResult
       );
     }
   }),
@@ -3445,11 +4389,24 @@ http.route({
             callbackQueryId,
           });
         } else if (callbackData.startsWith("esc_")) {
-          // Escalation callbacks (esc_takeover / esc_dismiss)
+          // Escalation callbacks (esc_takeover / esc_resume / esc_dismiss)
+          const callbackActorExternalId = cbq.from?.id
+            ? `telegram:${String(cbq.from.id)}`
+            : undefined;
+          const callbackActorLabel = (
+            cbq.from?.username
+              ? [`@${cbq.from.username}`, cbq.from?.first_name, cbq.from?.last_name]
+              : [cbq.from?.first_name, cbq.from?.last_name]
+          )
+            .filter(Boolean)
+            .join(" ")
+            .trim();
           await (ctx as any).runAction(generatedApi.api.ai.escalation.handleEscalationCallback, {
             callbackData,
             telegramChatId: cbChatId,
             callbackQueryId,
+            actorExternalId: callbackActorExternalId,
+            actorLabel: callbackActorLabel || undefined,
           });
         } else if (callbackData === "soul_history" || callbackData.startsWith("soul_rollback_")) {
           // Resolve org from chat mapping, then find active agent
@@ -3515,6 +4472,56 @@ http.route({
         return new Response("OK", { status: 200 });
       }
 
+      const telegramMessage = text || "[media message]";
+      const telegramRateRequestId = `tg_${chatId}_${Date.now()}`;
+      const telegramRateLimit = await (ctx as any).runQuery(
+        generatedApi.internal.api.v1.webchatApi.checkRateLimit,
+        {
+          ipAddress: `telegram:${chatId}`,
+          organizationId: resolution.organizationId as Id<"organizations">,
+          channel: "telegram",
+          deviceFingerprint: chatId,
+          sessionToken: chatId,
+          userAgent: request.headers.get("user-agent") || "telegram_bot",
+          message: telegramMessage,
+        }
+      );
+
+      if (!telegramRateLimit.allowed || telegramRateLimit.requiresChallenge) {
+        await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+          ipAddress: `telegram:${chatId}`,
+          organizationId: resolution.organizationId as Id<"organizations">,
+          channel: "telegram",
+          deviceFingerprint: chatId,
+          sessionToken: chatId,
+          userAgent: request.headers.get("user-agent") || "telegram_bot",
+          message: telegramMessage,
+          outcome: telegramRateLimit.allowed ? "throttled" : "blocked",
+          challengeState: telegramRateLimit.requiresChallenge ? "required" : "not_required",
+          reason: telegramRateLimit.challengeReason || telegramRateLimit.reason || "telegram_velocity",
+          riskScore: telegramRateLimit.riskScore,
+          requestId: telegramRateRequestId,
+          shouldLogSignal: true,
+        });
+
+        return new Response("OK", { status: 200 });
+      }
+
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.recordRateLimitEntry, {
+        ipAddress: `telegram:${chatId}`,
+        organizationId: resolution.organizationId as Id<"organizations">,
+        channel: "telegram",
+        deviceFingerprint: chatId,
+        sessionToken: chatId,
+        userAgent: request.headers.get("user-agent") || "telegram_bot",
+        message: telegramMessage,
+        outcome: "allowed",
+        challengeState: "not_required",
+        reason: telegramRateLimit.reason,
+        riskScore: telegramRateLimit.riskScore,
+        requestId: telegramRateRequestId,
+      });
+
       // For /start commands with deep link params, resolveChatToOrg handles
       // sending the confirmation. If it's just "/start" with no text to process,
       // send a welcome and return.
@@ -3558,7 +4565,7 @@ http.route({
         organizationId: resolution.organizationId,
         channel: "telegram",
         externalContactIdentifier: chatId,
-        message: text || "[media message]",
+        message: telegramMessage,
         metadata: {
           providerId: "telegram",
           providerMessageId: String(msg.message_id || ""),

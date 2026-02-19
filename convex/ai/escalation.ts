@@ -18,6 +18,15 @@ import { action, query, mutation, internalAction, internalMutation, internalQuer
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import type { Id } from "../_generated/dataModel";
+import {
+  interventionTemplateValidator,
+  normalizeInterventionTemplateInput,
+} from "./interventionTemplates";
+import {
+  buildHarnessContextEnvelope,
+  normalizeHarnessContextEnvelope,
+  type HarnessContextEnvelope,
+} from "./harnessContextEnvelope";
 
 const generatedApi: any = require("../_generated/api");
 
@@ -75,6 +84,70 @@ const NEGATIVE_SENTIMENT_PHRASES = [
 
 const DEFAULT_SENTIMENT_WINDOW = 3; // messages
 const DEFAULT_SENTIMENT_THRESHOLD = 2; // hits within window
+
+async function buildEscalationHarnessContext(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    agentId: Id<"objects">;
+    organizationId: Id<"organizations">;
+    triggerType?: string;
+    teamSession?: {
+      handoffHistory?: Array<{
+        fromAgentId: Id<"objects">;
+        toAgentId: Id<"objects">;
+        reason: string;
+        summary: string;
+        goal: string;
+        contextSummary?: string;
+        timestamp: number;
+      }>;
+    } | null;
+    disabledTools?: string[] | null;
+  },
+): Promise<HarnessContextEnvelope> {
+  const [organization, agent] = await Promise.all([
+    ctx.db.get(args.organizationId),
+    ctx.db.get(args.agentId),
+  ]);
+
+  const toolsUsed =
+    args.triggerType === "tool_failure"
+      ? (args.disabledTools || [])
+      : [];
+
+  return buildHarnessContextEnvelope({
+    source: "escalation",
+    organization: organization
+      ? {
+          _id: String(organization._id),
+          slug: organization.slug,
+          parentOrganizationId: organization.parentOrganizationId
+            ? String(organization.parentOrganizationId)
+            : undefined,
+        }
+      : null,
+    agentSubtype: agent?.subtype,
+    toolsUsed,
+    teamSession: args.teamSession
+      ? {
+          handoffHistory: (args.teamSession.handoffHistory || []).map((entry) => ({
+            fromAgentId: String(entry.fromAgentId),
+            toAgentId: String(entry.toAgentId),
+            reason: entry.reason,
+            summary: entry.summary,
+            goal: entry.goal,
+            contextSummary: entry.contextSummary,
+            timestamp: entry.timestamp,
+          })),
+        }
+      : undefined,
+  });
+}
+
+function readEscalationHarnessContext(value: unknown): HarnessContextEnvelope | undefined {
+  return normalizeHarnessContextEnvelope(value) || undefined;
+}
 
 // ============================================================================
 // ESCALATION POLICY — configurable per agent (stored in customProperties)
@@ -357,6 +430,82 @@ function jaccardSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+async function nextTurnEdgeOrdinal(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  turnId: Id<"agentTurns">
+): Promise<number> {
+  const latest = await ctx.db
+    .query("executionEdges")
+    .withIndex("by_turn_ordinal", (q: any) => q.eq("turnId", turnId))
+    .order("desc")
+    .first();
+  return ((latest?.edgeOrdinal as number | undefined) ?? 0) + 1;
+}
+
+async function findLatestTurnForSessionAgent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  sessionId: Id<"agentSessions">,
+  agentId: Id<"objects">
+): Promise<{ _id: Id<"agentTurns">; state: string; organizationId: Id<"organizations"> } | null> {
+  const runningTurns = await ctx.db
+    .query("agentTurns")
+    .withIndex("by_session_agent_state", (q: any) =>
+      q
+        .eq("sessionId", sessionId)
+        .eq("agentId", agentId)
+        .eq("state", "running")
+    )
+    .collect();
+
+  if (runningTurns.length > 0) {
+    const latestRunning = runningTurns.sort((a: any, b: any) => b.createdAt - a.createdAt)[0];
+    return latestRunning ?? null;
+  }
+
+  const sessionTurns = await ctx.db
+    .query("agentTurns")
+    .withIndex("by_session_created", (q: any) => q.eq("sessionId", sessionId))
+    .collect();
+  const latestForAgent = sessionTurns
+    .filter((turn: any) => turn.agentId === agentId)
+    .sort((a: any, b: any) => b.createdAt - a.createdAt)[0];
+  return latestForAgent ?? null;
+}
+
+async function appendEscalationTurnEdge(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    sessionId: Id<"agentSessions">;
+    agentId: Id<"objects">;
+    transition: "escalation_started" | "escalation_resolved";
+    metadata?: unknown;
+  }
+): Promise<void> {
+  const turn = await findLatestTurnForSessionAgent(ctx, args.sessionId, args.agentId);
+  if (!turn) {
+    return;
+  }
+
+  const now = Date.now();
+  const edgeOrdinal = await nextTurnEdgeOrdinal(ctx, turn._id);
+  await ctx.db.insert("executionEdges", {
+    organizationId: turn.organizationId,
+    sessionId: args.sessionId,
+    agentId: args.agentId,
+    turnId: turn._id,
+    transition: args.transition,
+    fromState: turn.state,
+    toState: turn.state,
+    edgeOrdinal,
+    metadata: args.metadata,
+    occurredAt: now,
+    createdAt: now,
+  });
+}
+
 // ============================================================================
 // CONVEX MUTATIONS — CRUD
 // ============================================================================
@@ -375,6 +524,14 @@ export const createEscalation = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const session = await ctx.db.get(args.sessionId);
+    const harnessContext = await buildEscalationHarnessContext(ctx, {
+      agentId: args.agentId,
+      organizationId: args.organizationId,
+      triggerType: args.triggerType,
+      teamSession: session?.teamSession,
+      disabledTools: session?.errorState?.disabledTools,
+    });
 
     // Patch session with escalation state
     await ctx.db.patch(args.sessionId, {
@@ -387,6 +544,41 @@ export const createEscalation = internalMutation({
       },
     });
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "paused",
+        toState: "escalated",
+        actor: "system",
+        actorId: "escalation_framework",
+        checkpoint: "escalation_created",
+        reason: args.triggerType,
+        metadata: {
+          urgency: args.urgency,
+          triggerType: args.triggerType,
+          reason: args.reason,
+          harnessContext,
+        },
+      },
+    );
+
+    try {
+      await appendEscalationTurnEdge(ctx, {
+        sessionId: args.sessionId,
+        agentId: args.agentId,
+        transition: "escalation_started",
+        metadata: {
+          reason: args.reason,
+          urgency: args.urgency,
+          triggerType: args.triggerType,
+          harnessContext,
+        },
+      });
+    } catch (error) {
+      console.warn("[Escalation] Failed to append escalation_started turn edge", error);
+    }
+
     // Audit log
     await ctx.db.insert("objectActions", {
       organizationId: args.organizationId,
@@ -397,6 +589,7 @@ export const createEscalation = internalMutation({
         reason: args.reason,
         urgency: args.urgency,
         triggerType: args.triggerType,
+        harnessContext,
       },
       performedAt: now,
     });
@@ -433,12 +626,27 @@ export const takeOverEscalation = mutation({
   args: {
     sessionId: v.string(),
     agentSessionId: v.id("agentSessions"),
+    interventionTemplate: v.optional(interventionTemplateValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const session = await ctx.db.get(args.agentSessionId);
     if (!session?.escalationState) throw new Error("No active escalation on this session");
+    const interventionTemplate = normalizeInterventionTemplateInput(
+      args.interventionTemplate
+    );
+    const harnessContext = await buildEscalationHarnessContext(ctx, {
+      agentId: session.agentId,
+      organizationId: session.organizationId,
+      triggerType: session.escalationState.triggerType,
+      teamSession: session.teamSession,
+      disabledTools: session.errorState?.disabledTools,
+    });
+    const transitionReason =
+      interventionTemplate?.note
+      || interventionTemplate?.templateId
+      || "operator_takeover";
 
     const now = Date.now();
 
@@ -453,6 +661,33 @@ export const takeOverEscalation = mutation({
       },
     });
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.agentSessionId,
+        fromState: "escalated",
+        toState: "takeover",
+        actor: "operator",
+        actorId: String(user.userId),
+        checkpoint: "escalation_taken_over",
+        reason: transitionReason,
+      },
+    );
+
+    try {
+      await appendEscalationTurnEdge(ctx, {
+        sessionId: args.agentSessionId,
+        agentId: session.agentId,
+        transition: "escalation_started",
+        metadata: {
+          event: "taken_over",
+          takenOverBy: user.userId,
+        },
+      });
+    } catch (error) {
+      console.warn("[Escalation] Failed to append taken_over turn edge", error);
+    }
+
     // Audit log
     await ctx.db.insert("objectActions", {
       organizationId: session.organizationId,
@@ -461,6 +696,11 @@ export const takeOverEscalation = mutation({
       actionData: {
         sessionId: args.agentSessionId,
         takenOverBy: user.userId,
+        reason: transitionReason,
+        resumeCheckpoint: "escalation_taken_over",
+        interventionTemplateId: interventionTemplate?.templateId,
+        harnessContext,
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
       performedAt: now,
     });
@@ -474,12 +714,27 @@ export const dismissEscalation = mutation({
   args: {
     sessionId: v.string(),
     agentSessionId: v.id("agentSessions"),
+    interventionTemplate: v.optional(interventionTemplateValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const session = await ctx.db.get(args.agentSessionId);
     if (!session?.escalationState) throw new Error("No active escalation on this session");
+    const interventionTemplate = normalizeInterventionTemplateInput(
+      args.interventionTemplate
+    );
+    const harnessContext = await buildEscalationHarnessContext(ctx, {
+      agentId: session.agentId,
+      organizationId: session.organizationId,
+      triggerType: session.escalationState.triggerType,
+      teamSession: session.teamSession,
+      disabledTools: session.errorState?.disabledTools,
+    });
+    const transitionReason =
+      interventionTemplate?.note
+      || interventionTemplate?.templateId
+      || "operator_dismissed";
 
     const now = Date.now();
 
@@ -492,6 +747,45 @@ export const dismissEscalation = mutation({
       },
     });
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.agentSessionId,
+        fromState: "escalated",
+        toState: "resolved",
+        actor: "operator",
+        actorId: String(user.userId),
+        checkpoint: "escalation_dismissed",
+        reason: transitionReason,
+      },
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.agentSessionId,
+        fromState: "resolved",
+        toState: "active",
+        actor: "system",
+        actorId: "escalation_framework",
+        checkpoint: "agent_resumed",
+        reason: "agent_resumed_after_dismissal",
+      },
+    );
+
+    try {
+      await appendEscalationTurnEdge(ctx, {
+        sessionId: args.agentSessionId,
+        agentId: session.agentId,
+        transition: "escalation_resolved",
+        metadata: {
+          event: "dismissed",
+          dismissedBy: user.userId,
+        },
+      });
+    } catch (error) {
+      console.warn("[Escalation] Failed to append dismissed turn edge", error);
+    }
+
     // Audit log
     await ctx.db.insert("objectActions", {
       organizationId: session.organizationId,
@@ -500,6 +794,11 @@ export const dismissEscalation = mutation({
       actionData: {
         sessionId: args.agentSessionId,
         dismissedBy: user.userId,
+        reason: transitionReason,
+        resumeCheckpoint: "agent_resumed",
+        interventionTemplateId: interventionTemplate?.templateId,
+        harnessContext,
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
       performedAt: now,
     });
@@ -514,12 +813,28 @@ export const resolveEscalation = mutation({
     sessionId: v.string(),
     agentSessionId: v.id("agentSessions"),
     resolutionSummary: v.optional(v.string()),
+    interventionTemplate: v.optional(interventionTemplateValidator),
   },
   handler: async (ctx, args) => {
     const user = await requireAuthenticatedUser(ctx, args.sessionId);
 
     const session = await ctx.db.get(args.agentSessionId);
     if (!session?.escalationState) throw new Error("No active escalation on this session");
+    const interventionTemplate = normalizeInterventionTemplateInput(
+      args.interventionTemplate
+    );
+    const harnessContext = await buildEscalationHarnessContext(ctx, {
+      agentId: session.agentId,
+      organizationId: session.organizationId,
+      triggerType: session.escalationState.triggerType,
+      teamSession: session.teamSession,
+      disabledTools: session.errorState?.disabledTools,
+    });
+    const transitionReason =
+      interventionTemplate?.note
+      || args.resolutionSummary
+      || interventionTemplate?.templateId
+      || "operator_resolved";
 
     const now = Date.now();
 
@@ -535,6 +850,46 @@ export const resolveEscalation = mutation({
       },
     });
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.agentSessionId,
+        fromState: "takeover",
+        toState: "resolved",
+        actor: "operator",
+        actorId: String(user.userId),
+        checkpoint: "escalation_resolved",
+        reason: transitionReason,
+      },
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.agentSessionId,
+        fromState: "resolved",
+        toState: "active",
+        actor: "system",
+        actorId: "escalation_framework",
+        checkpoint: "agent_resumed",
+        reason: "agent_resumed_after_resolution",
+      },
+    );
+
+    try {
+      await appendEscalationTurnEdge(ctx, {
+        sessionId: args.agentSessionId,
+        agentId: session.agentId,
+        transition: "escalation_resolved",
+        metadata: {
+          event: "resolved",
+          resolvedBy: user.userId,
+          resolutionSummary: args.resolutionSummary,
+        },
+      });
+    } catch (error) {
+      console.warn("[Escalation] Failed to append resolved turn edge", error);
+    }
+
     // Audit log
     await ctx.db.insert("objectActions", {
       organizationId: session.organizationId,
@@ -544,6 +899,11 @@ export const resolveEscalation = mutation({
         sessionId: args.agentSessionId,
         resolvedBy: user.userId,
         resolutionSummary: args.resolutionSummary,
+        reason: transitionReason,
+        resumeCheckpoint: "agent_resumed",
+        interventionTemplateId: interventionTemplate?.templateId,
+        harnessContext,
+        ...(interventionTemplate ? { interventionTemplate } : {}),
       },
       performedAt: now,
     });
@@ -606,7 +966,7 @@ export const notifyEscalationTelegram = internalAction({
           inline_keyboard: [
             [
               { text: "Take Over", callback_data: `esc_takeover:${args.sessionId}` },
-              { text: "Dismiss", callback_data: `esc_dismiss:${args.sessionId}` },
+              { text: "Resume Agent", callback_data: `esc_resume:${args.sessionId}` },
             ],
           ],
         },
@@ -731,14 +1091,318 @@ export const notifyEscalationEmail = internalAction({
 // ============================================================================
 
 /**
- * Handle Telegram inline button taps for escalation (esc_takeover / esc_dismiss).
+ * Handle Telegram inline button taps for escalation
+ * (esc_takeover / esc_resume / esc_dismiss).
  * Called from the Telegram webhook in http.ts.
  */
+
+const providerQuickActionValidator = v.union(
+  v.literal("takeover"),
+  v.literal("resume"),
+);
+
+const providerQuickActionSourceValidator = v.union(
+  v.literal("telegram"),
+  v.literal("slack"),
+  v.literal("webchat"),
+);
+
+type ProviderQuickAction = "takeover" | "resume";
+type ProviderQuickActionSource = "telegram" | "slack" | "webchat";
+
+function resolveProviderQuickActionActor(args: {
+  source: ProviderQuickActionSource;
+  actorExternalId?: string;
+}): string {
+  const actorExternalId =
+    typeof args.actorExternalId === "string"
+      ? args.actorExternalId.trim()
+      : "";
+  if (actorExternalId.length > 0) {
+    return actorExternalId;
+  }
+  return `${args.source}_quick_action`;
+}
+
+function resolveProviderQuickActionReason(args: {
+  action: ProviderQuickAction;
+  source: ProviderQuickActionSource;
+  escalationStatus: "pending" | "taken_over" | "resolved" | "dismissed" | "timed_out";
+  reason?: string;
+}): string {
+  if (typeof args.reason === "string" && args.reason.trim().length > 0) {
+    return args.reason.trim();
+  }
+
+  if (args.action === "takeover") {
+    return `${args.source}_takeover`;
+  }
+
+  if (args.escalationStatus === "pending") {
+    return `${args.source}_dismissed`;
+  }
+
+  return `${args.source}_resumed`;
+}
+
+function resolveProviderResumeReason(args: {
+  source: ProviderQuickActionSource;
+  escalationStatus: "pending" | "taken_over" | "resolved" | "dismissed" | "timed_out";
+}): string {
+  if (args.escalationStatus === "pending") {
+    return `agent_resumed_after_${args.source}_dismissal`;
+  }
+  return `agent_resumed_after_${args.source}_resolution`;
+}
+
+async function applyProviderQuickAction(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: Id<"agentSessions">;
+  action: ProviderQuickAction;
+  source: ProviderQuickActionSource;
+  actorExternalId?: string;
+  actorLabel?: string;
+  reason?: string;
+  note?: string;
+}) {
+  const session = await args.ctx.db.get(args.sessionId);
+  if (!session?.escalationState) {
+    return { success: false, status: "noop_no_escalation" as const };
+  }
+
+  const escalationStatus = session.escalationState.status;
+  const actorId = resolveProviderQuickActionActor({
+    source: args.source,
+    actorExternalId: args.actorExternalId,
+  });
+  const transitionReason = resolveProviderQuickActionReason({
+    action: args.action,
+    source: args.source,
+    escalationStatus,
+    reason: args.reason,
+  });
+
+  const now = Date.now();
+  const harnessContext = await buildEscalationHarnessContext(args.ctx, {
+    agentId: session.agentId,
+    organizationId: session.organizationId,
+    triggerType: session.escalationState.triggerType,
+    teamSession: session.teamSession,
+    disabledTools: session.errorState?.disabledTools,
+  });
+
+  if (args.action === "takeover") {
+    if (escalationStatus === "taken_over" || session.status === "handed_off") {
+      return { success: true, status: "noop_already_taken_over" as const };
+    }
+
+    if (escalationStatus !== "pending") {
+      return { success: false, status: "invalid_takeover_state" as const };
+    }
+
+    await args.ctx.db.patch(args.sessionId, {
+      status: "handed_off",
+      escalationState: {
+        ...session.escalationState,
+        status: "taken_over" as const,
+        respondedAt: now,
+      },
+    });
+
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "escalated",
+        toState: "takeover",
+        actor: "operator",
+        actorId,
+        checkpoint: "escalation_taken_over",
+        reason: transitionReason,
+      },
+    );
+
+    await args.ctx.db.insert("objectActions", {
+      organizationId: session.organizationId,
+      objectId: session.agentId,
+      actionType: "escalation_taken_over",
+      actionData: {
+        sessionId: args.sessionId,
+        source: args.source,
+        reason: transitionReason,
+        actorExternalId: actorId,
+        actorLabel: args.actorLabel,
+        note: args.note,
+        resumeCheckpoint: "escalation_taken_over",
+        harnessContext,
+      },
+      performedAt: now,
+    });
+
+    return { success: true, status: "taken_over" as const };
+  }
+
+  if (escalationStatus === "pending") {
+    await args.ctx.db.patch(args.sessionId, {
+      escalationState: {
+        ...session.escalationState,
+        status: "dismissed" as const,
+        respondedAt: now,
+      },
+    });
+
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "escalated",
+        toState: "resolved",
+        actor: "operator",
+        actorId,
+        checkpoint: "escalation_dismissed",
+        reason: transitionReason,
+      },
+    );
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "resolved",
+        toState: "active",
+        actor: "system",
+        actorId: `${args.source}_quick_action`,
+        checkpoint: "agent_resumed",
+        reason: resolveProviderResumeReason({
+          source: args.source,
+          escalationStatus,
+        }),
+      },
+    );
+
+    await args.ctx.db.insert("objectActions", {
+      organizationId: session.organizationId,
+      objectId: session.agentId,
+      actionType: "escalation_dismissed",
+      actionData: {
+        sessionId: args.sessionId,
+        source: args.source,
+        reason: transitionReason,
+        actorExternalId: actorId,
+        actorLabel: args.actorLabel,
+        note: args.note,
+        resumeCheckpoint: "agent_resumed",
+        harnessContext,
+      },
+      performedAt: now,
+    });
+
+    return { success: true, status: "resumed_after_dismissal" as const };
+  }
+
+  if (escalationStatus === "taken_over" || session.status === "handed_off") {
+    await args.ctx.db.patch(args.sessionId, {
+      status: "active",
+      handedOffTo: undefined,
+      escalationState: {
+        ...session.escalationState,
+        status: "resolved" as const,
+        respondedAt: now,
+        resolutionSummary: args.note,
+      },
+    });
+
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "takeover",
+        toState: "resolved",
+        actor: "operator",
+        actorId,
+        checkpoint: "escalation_resolved",
+        reason: transitionReason,
+      },
+    );
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+      {
+        sessionId: args.sessionId,
+        fromState: "resolved",
+        toState: "active",
+        actor: "system",
+        actorId: `${args.source}_quick_action`,
+        checkpoint: "agent_resumed",
+        reason: resolveProviderResumeReason({
+          source: args.source,
+          escalationStatus,
+        }),
+      },
+    );
+
+    await args.ctx.db.insert("objectActions", {
+      organizationId: session.organizationId,
+      objectId: session.agentId,
+      actionType: "escalation_resolved",
+      actionData: {
+        sessionId: args.sessionId,
+        source: args.source,
+        reason: transitionReason,
+        actorExternalId: actorId,
+        actorLabel: args.actorLabel,
+        note: args.note,
+        resolutionSummary: args.note,
+        resumeCheckpoint: "agent_resumed",
+        harnessContext,
+      },
+      performedAt: now,
+    });
+
+    return { success: true, status: "resumed_after_resolution" as const };
+  }
+
+  if (
+    escalationStatus === "resolved" ||
+    escalationStatus === "dismissed" ||
+    escalationStatus === "timed_out"
+  ) {
+    return { success: true, status: "noop_already_resumed" as const };
+  }
+
+  return { success: false, status: "invalid_resume_state" as const };
+}
+
+export const handleProviderQuickActionInternal = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    action: providerQuickActionValidator,
+    source: providerQuickActionSourceValidator,
+    actorExternalId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return applyProviderQuickAction({
+      ctx,
+      sessionId: args.sessionId,
+      action: args.action,
+      source: args.source,
+      actorExternalId: args.actorExternalId,
+      actorLabel: args.actorLabel,
+      reason: args.reason,
+      note: args.note,
+    });
+  },
+});
+
 export const handleEscalationCallback = action({
   args: {
     callbackData: v.string(),
     telegramChatId: v.string(),
     callbackQueryId: v.string(),
+    actorExternalId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const [actionType, rawSessionId] = args.callbackData.split(":");
@@ -748,8 +1412,17 @@ export const handleEscalationCallback = action({
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
     if (actionType === "esc_takeover") {
-      // Update session to handed_off + escalation to taken_over
-      await (ctx as any).runMutation(generatedApi.internal.ai.escalation.handleTakeoverInternal, { sessionId });
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.escalation.handleProviderQuickActionInternal,
+        {
+          sessionId,
+          action: "takeover",
+          source: "telegram",
+          actorExternalId: args.actorExternalId,
+          actorLabel: args.actorLabel,
+          reason: "telegram_takeover",
+        },
+      );
 
       if (botToken) {
         await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
@@ -769,8 +1442,24 @@ export const handleEscalationCallback = action({
           }),
         });
       }
-    } else if (actionType === "esc_dismiss") {
-      await (ctx as any).runMutation(generatedApi.internal.ai.escalation.handleDismissInternal, { sessionId });
+    } else if (actionType === "esc_resume" || actionType === "esc_dismiss") {
+      const result = await (ctx as any).runMutation(
+        generatedApi.internal.ai.escalation.handleProviderQuickActionInternal,
+        {
+          sessionId,
+          action: "resume",
+          source: "telegram",
+          actorExternalId: args.actorExternalId,
+          actorLabel: args.actorLabel,
+          reason:
+            actionType === "esc_dismiss"
+              ? "telegram_dismissed"
+              : "telegram_resumed",
+        },
+      ) as {
+        success?: boolean;
+        status?: string;
+      };
 
       if (botToken) {
         await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
@@ -778,7 +1467,10 @@ export const handleEscalationCallback = action({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             callback_query_id: args.callbackQueryId,
-            text: "Escalation dismissed. Agent will continue.",
+            text:
+              result?.status === "resumed_after_resolution"
+                ? "Conversation resolved. Agent resumed."
+                : "Escalation dismissed. Agent resumed.",
           }),
         });
       }
@@ -793,52 +1485,45 @@ export const handleEscalationCallback = action({
 // ============================================================================
 
 export const handleTakeoverInternal = internalMutation({
-  args: { sessionId: v.id("agentSessions") },
+  args: {
+    sessionId: v.id("agentSessions"),
+    actorExternalId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session?.escalationState) return;
-
-    const now = Date.now();
-    await ctx.db.patch(args.sessionId, {
-      status: "handed_off",
-      escalationState: {
-        ...session.escalationState,
-        status: "taken_over" as const,
-        respondedAt: now,
-      },
-    });
-
-    await ctx.db.insert("objectActions", {
-      organizationId: session.organizationId,
-      objectId: session.agentId,
-      actionType: "escalation_taken_over",
-      actionData: { sessionId: args.sessionId, source: "telegram" },
-      performedAt: now,
+    return applyProviderQuickAction({
+      ctx,
+      sessionId: args.sessionId,
+      action: "takeover",
+      source: "telegram",
+      actorExternalId: args.actorExternalId,
+      actorLabel: args.actorLabel,
+      reason: args.reason ?? "telegram_takeover",
+      note: args.note,
     });
   },
 });
 
 export const handleDismissInternal = internalMutation({
-  args: { sessionId: v.id("agentSessions") },
+  args: {
+    sessionId: v.id("agentSessions"),
+    actorExternalId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session?.escalationState) return;
-
-    const now = Date.now();
-    await ctx.db.patch(args.sessionId, {
-      escalationState: {
-        ...session.escalationState,
-        status: "dismissed" as const,
-        respondedAt: now,
-      },
-    });
-
-    await ctx.db.insert("objectActions", {
-      organizationId: session.organizationId,
-      objectId: session.agentId,
-      actionType: "escalation_dismissed",
-      actionData: { sessionId: args.sessionId, source: "telegram" },
-      performedAt: now,
+    return applyProviderQuickAction({
+      ctx,
+      sessionId: args.sessionId,
+      action: "resume",
+      source: "telegram",
+      actorExternalId: args.actorExternalId,
+      actorLabel: args.actorLabel,
+      reason: args.reason ?? "telegram_dismissed",
+      note: args.note,
     });
   },
 });
@@ -869,13 +1554,39 @@ export const autoResumeTimedOutEscalations = internalMutation({
         session.escalationState?.status === "pending" &&
         session.escalationState.escalatedAt < cutoff
       ) {
+        const respondedAt = Date.now();
         await ctx.db.patch(session._id, {
           escalationState: {
             ...session.escalationState,
             status: "timed_out" as const,
-            respondedAt: Date.now(),
+            respondedAt,
           },
         });
+
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+          {
+            sessionId: session._id,
+            fromState: "escalated",
+            toState: "resolved",
+            actor: "system",
+            actorId: "escalation_timeout_worker",
+            checkpoint: "escalation_timed_out",
+            reason: `timeout_ms:${ESCALATION_TIMEOUT_MS}`,
+          },
+        );
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.agentLifecycle.recordLifecycleTransition,
+          {
+            sessionId: session._id,
+            fromState: "resolved",
+            toState: "active",
+            actor: "system",
+            actorId: "escalation_timeout_worker",
+            checkpoint: "agent_resumed",
+            reason: "agent_resumed_after_timeout",
+          },
+        );
         resumed++;
       }
     }
@@ -900,6 +1611,7 @@ export const getEscalationQueue = query({
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
+    const organization = await ctx.db.get(args.organizationId);
 
     // Get sessions with active escalations for this org
     const sessions = await ctx.db
@@ -922,6 +1634,36 @@ export const getEscalationQueue = query({
         const agentName = (agent?.customProperties as any)?.displayName
           || agent?.name
           || "Unknown Agent";
+        const harnessContext = buildHarnessContextEnvelope({
+          source: "escalation",
+          organization: organization
+            ? {
+                _id: String(organization._id),
+                slug: organization.slug,
+                parentOrganizationId: organization.parentOrganizationId
+                  ? String(organization.parentOrganizationId)
+                  : undefined,
+              }
+            : null,
+          agentSubtype: agent?.subtype,
+          toolsUsed:
+            session.escalationState?.triggerType === "tool_failure"
+              ? (session.errorState?.disabledTools || [])
+              : [],
+          teamSession: session.teamSession
+            ? {
+                handoffHistory: session.teamSession.handoffHistory.map((entry) => ({
+                  fromAgentId: String(entry.fromAgentId),
+                  toAgentId: String(entry.toAgentId),
+                  reason: entry.reason,
+                  summary: entry.summary,
+                  goal: entry.goal,
+                  contextSummary: entry.contextSummary,
+                  timestamp: entry.timestamp,
+                })),
+              }
+            : undefined,
+        });
 
         return {
           _id: session._id,
@@ -932,6 +1674,7 @@ export const getEscalationQueue = query({
           escalationState: session.escalationState,
           messageCount: session.messageCount,
           lastMessageAt: session.lastMessageAt,
+          harnessContext,
         };
       })
     );
@@ -945,7 +1688,10 @@ export const getEscalationQueue = query({
       return (a.escalationState?.escalatedAt || 0) - (b.escalationState?.escalatedAt || 0);
     });
 
-    return enriched;
+    return enriched.map((entry) => ({
+      ...entry,
+      harnessContext: readEscalationHarnessContext(entry.harnessContext),
+    }));
   },
 });
 
