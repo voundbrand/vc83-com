@@ -772,6 +772,37 @@ export const consumeIdentityClaimToken = internalMutation({
 
       linkedSessionToken = sessionToken;
       linkedOrganizationId = tokenRecord.organizationId;
+
+      // Keep audit-mode sessions claim-aware so handoff continuity can rely on
+      // the same deterministic claim token linkage used by webchat sessions.
+      const auditSessions = await ctx.db
+        .query("onboardingAuditSessions")
+        .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+        .collect();
+
+      for (const auditSession of auditSessions) {
+        if (String(auditSession.organizationId) !== String(tokenRecord.organizationId)) {
+          continue;
+        }
+
+        const existingMetadata =
+          auditSession.metadata && typeof auditSession.metadata === "object"
+            ? (auditSession.metadata as Record<string, unknown>)
+            : {};
+
+        await ctx.db.patch(auditSession._id, {
+          claimTokenId: tokenRecord.tokenId,
+          metadata: {
+            ...existingMetadata,
+            claimedByUserId: String(args.userId),
+            claimedByOrganizationId: String(args.organizationId),
+            claimSource: args.claimSource,
+            claimedAt: now,
+          },
+          updatedAt: now,
+          lastActivityAt: now,
+        });
+      }
     } else if (tokenRecord.tokenType === "telegram_org_claim") {
       const telegramChatId = payload.telegramChatId || tokenRecord.telegramChatId;
 
@@ -911,6 +942,39 @@ export const consumeIdentityClaimToken = internalMutation({
       });
     } catch (funnelError) {
       console.error("[identityClaims] Funnel claim event failed (non-blocking):", funnelError);
+    }
+
+    try {
+      await ctx.runMutation(
+        generatedApi.internal.onboarding.nurtureScheduler.startNurtureJourney,
+        {
+          organizationId: linkedOrganizationId,
+          userId: args.userId,
+          sourceChannel:
+            tokenRecord.channel === "webchat"
+            || tokenRecord.channel === "native_guest"
+            || tokenRecord.channel === "telegram"
+              ? tokenRecord.channel
+              : "platform_web",
+          preferredChannel:
+            tokenRecord.channel === "telegram" ? "telegram" : "platform_web",
+          recipientIdentifier:
+            tokenRecord.channel === "telegram"
+              ? tokenRecord.telegramChatId
+              : undefined,
+          metadata: {
+            tokenType: tokenRecord.tokenType,
+            claimSource: args.claimSource,
+            alreadyClaimed,
+          },
+          startReason: "identity_claim_consumed",
+        }
+      );
+    } catch (nurtureError) {
+      console.error(
+        "[identityClaims] Failed to initialize Day 0-3 nurture journey (non-blocking):",
+        nurtureError
+      );
     }
 
     return {

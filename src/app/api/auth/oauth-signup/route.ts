@@ -10,6 +10,7 @@
  * - sessionType: "platform" | "cli" (defaults to "platform")
  * - callback: Callback URL (required for CLI, optional for platform - defaults to platform home)
  * - organizationName: Optional organization name for new accounts
+ * - betaCode: Optional beta code for OAuth account auto-approval
  */
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAction } from "convex/nextjs";
@@ -17,8 +18,34 @@ import {
   isMissingOAuthSignupStoreStateFunctionError,
   OAUTH_SIGNUP_STORE_STATE_MISSING_MESSAGE,
 } from "@/lib/auth/oauth-signup-runtime";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const generatedApi: any = require("@convex/_generated/api");
+
+function resolveOnboardingDeviceType(request: NextRequest): string | undefined {
+  const searchParams = request.nextUrl.searchParams;
+  const explicit = searchParams.get("deviceType") || searchParams.get("device_type");
+  if (explicit && explicit.trim().length > 0) {
+    return explicit.trim();
+  }
+
+  const userAgent = request.headers.get("user-agent");
+  if (!userAgent) return undefined;
+
+  const normalizedUserAgent = userAgent.toLowerCase();
+  if (normalizedUserAgent.includes("ipad") || normalizedUserAgent.includes("tablet")) {
+    return "tablet";
+  }
+  if (
+    normalizedUserAgent.includes("iphone") ||
+    normalizedUserAgent.includes("android") ||
+    normalizedUserAgent.includes("mobile")
+  ) {
+    return "mobile";
+  }
+  if (normalizedUserAgent.includes("bot")) {
+    return "bot";
+  }
+  return "desktop";
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -26,6 +53,7 @@ export async function GET(request: NextRequest) {
   const sessionType = (searchParams.get("sessionType") as "platform" | "cli") || "platform";
   const callback = searchParams.get("callback");
   const organizationName = searchParams.get("organizationName");
+  const betaCode = searchParams.get("betaCode") || searchParams.get("beta_code");
   const cliState = searchParams.get("cliState"); // CLI's original state for CSRF protection
   const identityClaimToken = searchParams.get("identityClaimToken");
   const onboardingChannel = searchParams.get("onboardingChannel");
@@ -73,14 +101,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Store state
+    const onboardingDeviceType = resolveOnboardingDeviceType(request);
     await runAction(generatedApi.api.api.v1.oauthSignup.storeOAuthSignupState, {
       state,
       sessionType,
       callbackUrl,
       provider,
       organizationName: organizationName || undefined,
+      betaCode: typeof betaCode === "string" && betaCode.trim().length > 0 ? betaCode.trim() : undefined,
       identityClaimToken: identityClaimToken || undefined,
       onboardingChannel: onboardingChannel || undefined,
+      onboardingDeviceType,
       onboardingCampaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
       cliToken,
       cliState: cliState || undefined, // CLI's original state for CSRF protection

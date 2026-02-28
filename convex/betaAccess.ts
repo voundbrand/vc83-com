@@ -1,27 +1,106 @@
-import { mutation, query, internalMutation, internalQuery, action } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { getAuthenticatedUser, requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
-import { requirePermission } from "./rbacHelpers";
+import { checkPermission, requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 
 const generatedApi: any = require("./_generated/api");
 
-/**
- * Beta Access Gateway System
- *
- * This module implements a toggleable beta access gate for the platform.
- * When enabled, new signups are automatically marked as "pending" and must
- * receive admin approval before accessing the platform.
- *
- * Flow:
- * 1. User signs up normally (OAuth or email/password)
- * 2. If beta gating is ON → user.betaAccessStatus = "pending"
- * 3. If beta gating is OFF → user.betaAccessStatus = "approved"
- * 4. Admin approves/rejects in Organizations → Beta Access tab
- * 5. Approval email sent → user can access platform
- */
+const BETA_GATING_SETTING_KEY = "betaAccessEnabled";
+const BETA_ONBOARDING_ROLLOUT_SETTING_KEY = "betaOnboardingRolloutControls";
+const LEGACY_MANUAL_APPROVAL_STAGE = "legacy_manual_approval";
+const V2_BETA_CODE_AUTO_APPROVE_STAGE = "v2_beta_code_auto_approve";
+const MIGRATION_SOURCE_LEGACY_GATE = "beta_gate_manual_approval_v1";
 
-// ==================== SETTINGS ====================
+type BetaOnboardingRolloutStage =
+  | typeof LEGACY_MANUAL_APPROVAL_STAGE
+  | typeof V2_BETA_CODE_AUTO_APPROVE_STAGE;
+
+type NormalizedRolloutControls = {
+  rolloutStage: BetaOnboardingRolloutStage;
+  killSwitchForceLegacyManualApproval: boolean;
+  migratedFrom: typeof MIGRATION_SOURCE_LEGACY_GATE;
+  updatedAt?: number;
+};
+
+const rolloutStageValidator = v.union(
+  v.literal(LEGACY_MANUAL_APPROVAL_STAGE),
+  v.literal(V2_BETA_CODE_AUTO_APPROVE_STAGE)
+);
+
+function normalizeRolloutStage(value: unknown): BetaOnboardingRolloutStage {
+  if (value === V2_BETA_CODE_AUTO_APPROVE_STAGE) {
+    return V2_BETA_CODE_AUTO_APPROVE_STAGE;
+  }
+  return LEGACY_MANUAL_APPROVAL_STAGE;
+}
+
+function normalizeRolloutControls(value: unknown): Omit<NormalizedRolloutControls, "updatedAt"> {
+  const raw =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+
+  return {
+    rolloutStage: normalizeRolloutStage(raw.rolloutStage),
+    killSwitchForceLegacyManualApproval:
+      raw.killSwitchForceLegacyManualApproval === true,
+    migratedFrom: MIGRATION_SOURCE_LEGACY_GATE,
+  };
+}
+
+async function getPlatformSettingByKey(ctx: any, key: string) {
+  return ctx.db
+    .query("platformSettings")
+    .withIndex("by_key", (q: any) => q.eq("key", key))
+    .first();
+}
+
+async function upsertPlatformSetting(
+  ctx: any,
+  args: {
+    key: string;
+    value: unknown;
+    description: string;
+    updatedBy?: Id<"users">;
+  }
+) {
+  const now = Date.now();
+  const setting = await getPlatformSettingByKey(ctx, args.key);
+
+  if (setting) {
+    await ctx.db.patch(setting._id, {
+      value: args.value,
+      description: args.description,
+      ...(args.updatedBy ? { updatedBy: args.updatedBy } : {}),
+      updatedAt: now,
+    });
+    return;
+  }
+
+  await ctx.db.insert("platformSettings", {
+    key: args.key,
+    value: args.value,
+    description: args.description,
+    ...(args.updatedBy ? { updatedBy: args.updatedBy } : {}),
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function readBetaGatingEnabled(ctx: any): Promise<boolean> {
+  const setting = await getPlatformSettingByKey(ctx, BETA_GATING_SETTING_KEY);
+  return setting?.value === true;
+}
+
+async function readRolloutControls(ctx: any): Promise<NormalizedRolloutControls> {
+  const setting = await getPlatformSettingByKey(
+    ctx,
+    BETA_ONBOARDING_ROLLOUT_SETTING_KEY
+  );
+  const normalized = normalizeRolloutControls(setting?.value);
+  return {
+    ...normalized,
+    updatedAt: setting?.updatedAt,
+  };
+}
 
 /**
  * Check if beta access gating is enabled (platform-wide setting)
@@ -30,30 +109,86 @@ const generatedApi: any = require("./_generated/api");
 export const isBetaGatingEnabled = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const setting = await ctx.db
-      .query("platformSettings")
-      .withIndex("by_key", (q) => q.eq("key", "betaAccessEnabled"))
-      .first();
-
-    // Default to false (gate off) if not set
-    return setting?.value ?? false;
+    return readBetaGatingEnabled(ctx);
   },
 });
 
 /**
- * PUBLIC: Check if beta gating is enabled (for client-side UI)
+ * Resolve onboarding signup approval outcome from rollout stage + kill switch.
+ * Internal contract consumed by signup flows (email/OAuth/chat-first handoff).
+ */
+export const resolveSignupBetaAccessDecision = internalQuery({
+  args: {
+    hasValidBetaCode: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const gatingEnabled = await readBetaGatingEnabled(ctx);
+    const rolloutControls = await readRolloutControls(ctx);
+    const effectiveRolloutStage = rolloutControls.killSwitchForceLegacyManualApproval
+      ? LEGACY_MANUAL_APPROVAL_STAGE
+      : rolloutControls.rolloutStage;
+
+    const shouldAutoApprove =
+      effectiveRolloutStage === V2_BETA_CODE_AUTO_APPROVE_STAGE
+        ? !gatingEnabled || args.hasValidBetaCode
+        : !gatingEnabled;
+
+    const reason =
+      !gatingEnabled
+        ? "gating_disabled"
+        : effectiveRolloutStage === LEGACY_MANUAL_APPROVAL_STAGE
+        ? rolloutControls.killSwitchForceLegacyManualApproval
+          ? "kill_switch_force_legacy_manual"
+          : "legacy_manual_approval"
+        : args.hasValidBetaCode
+        ? "beta_code_auto_approved"
+        : "manual_review_required";
+
+    return {
+      resolvedStatus: shouldAutoApprove ? "approved" : "pending",
+      shouldAutoApprove,
+      reason,
+      gatingEnabled,
+      rolloutStage: rolloutControls.rolloutStage,
+      killSwitchForceLegacyManualApproval:
+        rolloutControls.killSwitchForceLegacyManualApproval,
+      effectiveRolloutStage,
+      supportsBetaCodeAutoApprove:
+        effectiveRolloutStage === V2_BETA_CODE_AUTO_APPROVE_STAGE,
+      migratedFrom: rolloutControls.migratedFrom,
+      updatedAt: rolloutControls.updatedAt,
+    };
+  },
+});
+
+/**
+ * PUBLIC: Check beta gating + rollout controls status (for client-side UI/admin surfaces)
  */
 export const getBetaGatingStatus = query({
   args: {},
   handler: async (ctx) => {
-    const setting = await ctx.db
-      .query("platformSettings")
-      .withIndex("by_key", (q) => q.eq("key", "betaAccessEnabled"))
-      .first();
+    const gatingSetting = await getPlatformSettingByKey(
+      ctx,
+      BETA_GATING_SETTING_KEY
+    );
+    const rolloutControls = await readRolloutControls(ctx);
+    const effectiveRolloutStage = rolloutControls.killSwitchForceLegacyManualApproval
+      ? LEGACY_MANUAL_APPROVAL_STAGE
+      : rolloutControls.rolloutStage;
 
     return {
-      enabled: setting?.value ?? false,
-      updatedAt: setting?.updatedAt,
+      enabled: gatingSetting?.value === true,
+      updatedAt: gatingSetting?.updatedAt,
+      rollout: {
+        rolloutStage: rolloutControls.rolloutStage,
+        killSwitchForceLegacyManualApproval:
+          rolloutControls.killSwitchForceLegacyManualApproval,
+        effectiveRolloutStage,
+        supportsBetaCodeAutoApprove:
+          effectiveRolloutStage === V2_BETA_CODE_AUTO_APPROVE_STAGE,
+        migratedFrom: rolloutControls.migratedFrom,
+        updatedAt: rolloutControls.updatedAt,
+      },
     };
   },
 });
@@ -67,34 +202,99 @@ export const toggleBetaGating = mutation({
     enabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    // Verify admin permission
     const auth = await requireAuthenticatedUser(ctx, args.sessionId);
     await requirePermission(ctx, auth.userId, "manage_platform_settings");
 
-    // Get or create setting
-    const setting = await ctx.db
-      .query("platformSettings")
-      .withIndex("by_key", (q) => q.eq("key", "betaAccessEnabled"))
-      .first();
-
-    if (setting) {
-      await ctx.db.patch(setting._id, {
-        value: args.enabled,
-        updatedBy: auth.userId,
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("platformSettings", {
-        key: "betaAccessEnabled",
-        value: args.enabled,
-        description: "Controls whether beta access gating is enabled platform-wide",
-        updatedBy: auth.userId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
+    await upsertPlatformSetting(ctx, {
+      key: BETA_GATING_SETTING_KEY,
+      value: args.enabled,
+      description: "Controls whether beta access gating is enabled platform-wide",
+      updatedBy: auth.userId,
+    });
 
     return { success: true, enabled: args.enabled };
+  },
+});
+
+/**
+ * Set rollout stage + kill switch for signup approval flow (admin only).
+ */
+export const setBetaOnboardingRolloutControls = mutation({
+  args: {
+    sessionId: v.string(),
+    rolloutStage: rolloutStageValidator,
+    killSwitchForceLegacyManualApproval: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requirePermission(ctx, auth.userId, "manage_platform_settings");
+
+    const controls = {
+      rolloutStage: args.rolloutStage,
+      killSwitchForceLegacyManualApproval:
+        args.killSwitchForceLegacyManualApproval,
+      migratedFrom: MIGRATION_SOURCE_LEGACY_GATE,
+    };
+
+    await upsertPlatformSetting(ctx, {
+      key: BETA_ONBOARDING_ROLLOUT_SETTING_KEY,
+      value: controls,
+      description:
+        "Rollout controls for signup approval policy (legacy manual approval vs v2 beta-code auto-approve).",
+      updatedBy: auth.userId,
+    });
+
+    const effectiveRolloutStage = controls.killSwitchForceLegacyManualApproval
+      ? LEGACY_MANUAL_APPROVAL_STAGE
+      : controls.rolloutStage;
+
+    return {
+      success: true,
+      rollout: {
+        ...controls,
+        effectiveRolloutStage,
+        supportsBetaCodeAutoApprove:
+          effectiveRolloutStage === V2_BETA_CODE_AUTO_APPROVE_STAGE,
+      },
+    };
+  },
+});
+
+/**
+ * Emergency kill switch for signup approval flow (admin only).
+ */
+export const setBetaOnboardingKillSwitch = mutation({
+  args: {
+    sessionId: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requirePermission(ctx, auth.userId, "manage_platform_settings");
+
+    const existing = await readRolloutControls(ctx);
+    const controls = {
+      rolloutStage: existing.rolloutStage,
+      killSwitchForceLegacyManualApproval: args.enabled,
+      migratedFrom: MIGRATION_SOURCE_LEGACY_GATE,
+    };
+
+    await upsertPlatformSetting(ctx, {
+      key: BETA_ONBOARDING_ROLLOUT_SETTING_KEY,
+      value: controls,
+      description:
+        "Rollout controls for signup approval policy (legacy manual approval vs v2 beta-code auto-approve).",
+      updatedBy: auth.userId,
+    });
+
+    return {
+      success: true,
+      killSwitchForceLegacyManualApproval: controls.killSwitchForceLegacyManualApproval,
+      effectiveRolloutStage: controls.killSwitchForceLegacyManualApproval
+        ? LEGACY_MANUAL_APPROVAL_STAGE
+        : controls.rolloutStage,
+      rolloutStage: controls.rolloutStage,
+    };
   },
 });
 
@@ -235,6 +435,42 @@ export const getPendingBetaRequestCount = query({
   },
 });
 
+async function sendBetaApprovalNotifications(
+  ctx: any,
+  user: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    defaultOrgId?: Id<"organizations">;
+  }
+) {
+  const org = user.defaultOrgId ? await ctx.db.get(user.defaultOrgId) : null;
+  const orgName = org?.name || `${user.firstName || "User"}'s Organization`;
+
+  try {
+    await Promise.all([
+      (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaApprovalEmail, {
+        email: user.email,
+        firstName: user.firstName,
+      }),
+      (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
+        eventType: "beta_approved",
+        user: {
+          email: user.email,
+          firstName: user.firstName ?? "User",
+          lastName: user.lastName ?? "",
+        },
+        organization: {
+          name: orgName,
+          planTier: "free",
+        },
+      }),
+    ]);
+  } catch (emailError) {
+    console.error("Failed to send approval emails:", emailError);
+  }
+}
+
 /**
  * Approve beta access request (admin only)
  */
@@ -263,39 +499,40 @@ export const approveBetaAccess = mutation({
       updatedAt: Date.now(),
     });
 
-    // Get user's organization for sales notification
-    const org = await ctx.db.get(user.defaultOrgId!);
-    const orgName = org?.name || `${user.firstName}'s Organization`;
-
-    // Send approval notification emails (fire and forget - don't block on email sending)
-    // Note: We skip the regular welcome email - the beta approval email already welcomes them
-    try {
-      await Promise.all([
-        // 1. Beta approval notification (includes welcome content)
-        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaApprovalEmail, {
-          email: user.email,
-          firstName: user.firstName,
-        }),
-        // 2. Sales notification
-        (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
-          eventType: "beta_approved",
-          user: {
-            email: user.email,
-            firstName: user.firstName ?? "User",
-            lastName: user.lastName ?? "",
-          },
-          organization: {
-            name: orgName,
-            planTier: "free",
-          },
-        }),
-      ]);
-    } catch (emailError) {
-      // Log but don't fail if email fails
-      console.error("Failed to send approval emails:", emailError);
-    }
+    await sendBetaApprovalNotifications(ctx, user);
 
     return { success: true };
+  },
+});
+
+/**
+ * Approve beta access request via signed one-click email link.
+ * Internal-only; HTTP handler verifies link token before invoking this mutation.
+ */
+export const approveBetaAccessFromEmailLink = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return { success: false, reason: "user_not_found" as const };
+    }
+
+    if (user.betaAccessStatus === "approved") {
+      return { success: true, alreadyApproved: true as const };
+    }
+
+    await ctx.db.patch(args.userId, {
+      betaAccessStatus: "approved",
+      betaAccessApprovedAt: Date.now(),
+      betaAccessApprovedBy: undefined,
+      betaAccessRejectionReason: undefined,
+      updatedAt: Date.now(),
+    });
+
+    await sendBetaApprovalNotifications(ctx, user);
+    return { success: true, alreadyApproved: false as const };
   },
 });
 

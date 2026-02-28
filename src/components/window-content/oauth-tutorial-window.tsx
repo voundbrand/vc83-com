@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../convex/_generated/api") as { api: any };
 import { RetroButton } from "@/components/retro-button";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   ChevronLeft,
   ChevronRight,
@@ -35,6 +38,14 @@ interface OAuthCredentials {
   applicationId: Id<"oauthApplications">;
 }
 
+function useOAuthTutorialTx() {
+  const { t } = useNamespaceTranslations("ui.oauth_tutorial");
+  return (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
+}
+
 /**
  * OAuth Tutorial Window
  *
@@ -53,6 +64,7 @@ export function OAuthTutorialWindow({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClose: _onClose,
 }: OAuthTutorialWindowProps) {
+  const tx = useOAuthTutorialTx();
   const [currentStep, setCurrentStep] = useState(0);
   const [oauthCredentials, setOauthCredentials] = useState<OAuthCredentials | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -60,28 +72,28 @@ export function OAuthTutorialWindow({
   const [isCreating, setIsCreating] = useState(false);
 
   // Mutations
-  const createOAuthApp = useMutation(api.oauth.applications.createOAuthApplication);
+  const createOAuthApp = useMutation(apiAny.oauth.applications.createOAuthApplication);
 
   // Tutorial steps
   const steps = [
     {
-      title: "Why OAuth?",
-      subtitle: "Secure authentication for your portal",
+      title: tx("ui.oauth_tutorial.steps.why_oauth.title", "Why OAuth?"),
+      subtitle: tx("ui.oauth_tutorial.steps.why_oauth.subtitle", "Secure authentication for your portal"),
       icon: <Lock className="h-8 w-8" />,
     },
     {
-      title: "Create OAuth App",
-      subtitle: "Generate your credentials",
+      title: tx("ui.oauth_tutorial.steps.create_app.title", "Create OAuth App"),
+      subtitle: tx("ui.oauth_tutorial.steps.create_app.subtitle", "Generate your credentials"),
       icon: <Key className="h-8 w-8" />,
     },
     {
-      title: "Save Credentials",
-      subtitle: "Copy your client ID and secret",
+      title: tx("ui.oauth_tutorial.steps.save_credentials.title", "Save Credentials"),
+      subtitle: tx("ui.oauth_tutorial.steps.save_credentials.subtitle", "Copy your client ID and secret"),
       icon: <Copy className="h-8 w-8" />,
     },
     {
-      title: "All Set!",
-      subtitle: "Your portal is ready for OAuth",
+      title: tx("ui.oauth_tutorial.steps.all_set.title", "All Set!"),
+      subtitle: tx("ui.oauth_tutorial.steps.all_set.subtitle", "Your portal is ready for OAuth"),
       icon: <CheckCircle className="h-8 w-8" />,
     },
   ];
@@ -118,7 +130,7 @@ export function OAuthTutorialWindow({
       setCurrentStep(2);
     } catch (err: unknown) {
       console.error("Failed to create OAuth app:", err);
-      setError(err instanceof Error ? err.message : "Failed to create OAuth application");
+      setError(err instanceof Error ? err.message : tx("ui.oauth_tutorial.errors.create_failed", "Failed to create OAuth application"));
     } finally {
       setIsCreating(false);
     }
@@ -166,10 +178,13 @@ export function OAuthTutorialWindow({
           </div>
           <div>
             <h2 className="font-pixel text-sm" style={{ color: 'var(--win95-text)' }}>
-              OAuth Setup Tutorial
+              {tx("ui.oauth_tutorial.header.title", "OAuth Setup Tutorial")}
             </h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Step {currentStep + 1} of {steps.length}
+              {tx("ui.oauth_tutorial.header.step_progress", "Step {current} of {total}", {
+                current: currentStep + 1,
+                total: steps.length,
+              })}
             </p>
           </div>
         </div>
@@ -179,7 +194,7 @@ export function OAuthTutorialWindow({
           onClick={onSkip}
           className="text-xs"
         >
-          Use Magic Link Instead
+          {tx("ui.oauth_tutorial.header.magic_link_cta", "Use Magic Link Instead")}
         </RetroButton>
       </div>
 
@@ -264,7 +279,7 @@ export function OAuthTutorialWindow({
           className="flex items-center gap-1"
         >
           <ChevronLeft className="h-4 w-4" />
-          <span>Previous</span>
+          <span>{tx("ui.oauth_tutorial.nav.previous", "Previous")}</span>
         </RetroButton>
 
         <RetroButton
@@ -274,12 +289,12 @@ export function OAuthTutorialWindow({
         >
           {isLastStep ? (
             <>
-              <span>Complete Setup</span>
+              <span>{tx("ui.oauth_tutorial.nav.complete_setup", "Complete Setup")}</span>
               <Check className="h-4 w-4" />
             </>
           ) : (
             <>
-              <span>Next</span>
+              <span>{tx("ui.oauth_tutorial.nav.next", "Next")}</span>
               <ChevronRight className="h-4 w-4" />
             </>
           )}
@@ -297,7 +312,7 @@ export function OAuthTutorialWindow({
       >
         <span className="inline-flex items-center gap-1">
           <Info className="h-3 w-3" />
-          OAuth provides secure, industry-standard authentication for your portal
+          {tx("ui.oauth_tutorial.footer.info", "OAuth provides secure, industry-standard authentication for your portal")}
         </span>
       </div>
     </div>
@@ -308,6 +323,7 @@ export function OAuthTutorialWindow({
  * Step 0: Introduction to OAuth
  */
 function Step0Introduction() {
+  const tx = useOAuthTutorialTx();
   return (
     <div className="space-y-4">
       <div
@@ -319,29 +335,40 @@ function Step0Introduction() {
       >
         <h4 className="font-bold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Lock className="h-4 w-4" style={{ color: 'var(--win95-highlight)' }} />
-          What is OAuth?
+          {tx("ui.oauth_tutorial.step0.what_is_oauth", "What is OAuth?")}
         </h4>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--win95-text)' }}>
-          OAuth 2.0 is an industry-standard protocol that allows your contacts to securely
-          log into your portal using their existing Google or Microsoft accounts.
+          {tx(
+            "ui.oauth_tutorial.step0.description",
+            "OAuth 2.0 is an industry-standard protocol that allows your contacts to securely log into your portal using their existing Google or Microsoft accounts.",
+          )}
         </p>
       </div>
 
       <div className="grid gap-3">
         <BenefitCard
           icon={CheckCircle}
-          title="No Password Management"
-          description="Contacts log in with Google/Microsoft - no passwords to remember"
+          title={tx("ui.oauth_tutorial.step0.benefits.no_password_management.title", "No Password Management")}
+          description={tx(
+            "ui.oauth_tutorial.step0.benefits.no_password_management.description",
+            "Contacts log in with Google/Microsoft - no passwords to remember",
+          )}
         />
         <BenefitCard
           icon={ShieldCheck}
-          title="Enhanced Security"
-          description="Industry-standard authentication with automatic security updates"
+          title={tx("ui.oauth_tutorial.step0.benefits.enhanced_security.title", "Enhanced Security")}
+          description={tx(
+            "ui.oauth_tutorial.step0.benefits.enhanced_security.description",
+            "Industry-standard authentication with automatic security updates",
+          )}
         />
         <BenefitCard
           icon={Zap}
-          title="Quick Setup"
-          description="Takes just 2 minutes to configure, then you're done"
+          title={tx("ui.oauth_tutorial.step0.benefits.quick_setup.title", "Quick Setup")}
+          description={tx(
+            "ui.oauth_tutorial.step0.benefits.quick_setup.description",
+            "Takes just 2 minutes to configure, then you're done",
+          )}
         />
       </div>
 
@@ -354,8 +381,11 @@ function Step0Introduction() {
       >
         <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
         <div className="text-xs" style={{ color: 'var(--win95-text)' }}>
-          <strong>Alternative:</strong> If you prefer a simpler setup, you can skip OAuth and use
-          Magic Link authentication instead (email-based, no OAuth configuration needed).
+          <strong>{tx("ui.oauth_tutorial.step0.alternative.label", "Alternative:")}</strong>{" "}
+          {tx(
+            "ui.oauth_tutorial.step0.alternative.description",
+            "If you prefer a simpler setup, you can skip OAuth and use Magic Link authentication instead (email-based, no OAuth configuration needed).",
+          )}
         </div>
       </div>
     </div>
@@ -376,6 +406,7 @@ function Step1CreateApp({
   isCreating: boolean;
   error: string | null;
 }) {
+  const tx = useOAuthTutorialTx();
   return (
     <div className="space-y-4">
       <div
@@ -387,14 +418,14 @@ function Step1CreateApp({
       >
         <h4 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Key className="h-4 w-4" style={{ color: 'var(--win95-highlight)' }} />
-          Portal Configuration
+          {tx("ui.oauth_tutorial.step1.portal_configuration", "Portal Configuration")}
         </h4>
 
         <div className="space-y-2 text-sm" style={{ color: 'var(--win95-text)' }}>
           <div className="flex items-start gap-2">
             <Globe className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--neutral-gray)' }} />
             <div>
-              <div className="font-semibold">Portal URL:</div>
+              <div className="font-semibold">{tx("ui.oauth_tutorial.step1.portal_url", "Portal URL:")}</div>
               <div className="font-mono text-xs" style={{ color: 'var(--neutral-gray)' }}>
                 {portalUrl}
               </div>
@@ -404,9 +435,9 @@ function Step1CreateApp({
           <div className="flex items-start gap-2">
             <Lock className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--neutral-gray)' }} />
             <div>
-              <div className="font-semibold">Redirect URI:</div>
+              <div className="font-semibold">{tx("ui.oauth_tutorial.step1.redirect_uri", "Redirect URI:")}</div>
               <div className="font-mono text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                {portalUrl}/auth/callback
+                {portalUrl}{tx("ui.oauth_tutorial.step1.redirect_path", "/auth/callback")}
               </div>
             </div>
           </div>
@@ -414,9 +445,9 @@ function Step1CreateApp({
           <div className="flex items-start gap-2">
             <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--neutral-gray)' }} />
             <div>
-              <div className="font-semibold">Scopes:</div>
+              <div className="font-semibold">{tx("ui.oauth_tutorial.step1.scopes", "Scopes:")}</div>
               <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                contacts:read, projects:read, invoices:read
+                {tx("ui.oauth_tutorial.step1.scopes_value", "contacts:read, projects:read, invoices:read")}
               </div>
             </div>
           </div>
@@ -433,7 +464,7 @@ function Step1CreateApp({
         >
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-red-600" />
           <div className="text-xs text-red-800">
-            <strong>Error:</strong> {error}
+            <strong>{tx("ui.oauth_tutorial.step1.error_label", "Error:")}</strong> {error}
           </div>
         </div>
       )}
@@ -444,11 +475,13 @@ function Step1CreateApp({
         className="w-full"
         size="lg"
       >
-        {isCreating ? "Creating OAuth App..." : "Create OAuth Application"}
+        {isCreating
+          ? tx("ui.oauth_tutorial.step1.creating_oauth_app", "Creating OAuth App...")
+          : tx("ui.oauth_tutorial.step1.create_oauth_app", "Create OAuth Application")}
       </RetroButton>
 
       <p className="text-xs text-center" style={{ color: 'var(--neutral-gray)' }}>
-        This will generate your Client ID and Client Secret
+        {tx("ui.oauth_tutorial.step1.generate_notice", "This will generate your Client ID and Client Secret")}
       </p>
     </div>
   );
@@ -466,6 +499,7 @@ function Step2SaveCredentials({
   onCopy: (text: string, field: string) => void;
   copiedField: string | null;
 }) {
+  const tx = useOAuthTutorialTx();
   return (
     <div className="space-y-4">
       <div
@@ -478,23 +512,29 @@ function Step2SaveCredentials({
         <div className="flex items-start gap-2">
           <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-red-600" />
           <div className="text-sm text-red-800">
-            <strong className="block mb-1">IMPORTANT: Save These Credentials Now!</strong>
-            Your <strong>Client Secret</strong> will only be shown once.
-            Copy both values before continuing.
+            <strong className="block mb-1">
+              {tx("ui.oauth_tutorial.step2.important_title", "IMPORTANT: Save These Credentials Now!")}
+            </strong>
+            {tx("ui.oauth_tutorial.step2.secret_notice_prefix", "Your")}{" "}
+            <strong>{tx("ui.oauth_tutorial.step2.client_secret", "Client Secret")}</strong>{" "}
+            {tx(
+              "ui.oauth_tutorial.step2.secret_notice_suffix",
+              "will only be shown once. Copy both values before continuing.",
+            )}
           </div>
         </div>
       </div>
 
       <div className="space-y-3">
         <CredentialField
-          label="Client ID"
+          label={tx("ui.oauth_tutorial.step2.client_id", "Client ID")}
           value={credentials.clientId}
           onCopy={() => onCopy(credentials.clientId, 'clientId')}
           copied={copiedField === 'clientId'}
         />
 
         <CredentialField
-          label="Client Secret"
+          label={tx("ui.oauth_tutorial.step2.client_secret", "Client Secret")}
           value={credentials.clientSecret}
           onCopy={() => onCopy(credentials.clientSecret, 'clientSecret')}
           copied={copiedField === 'clientSecret'}
@@ -512,9 +552,11 @@ function Step2SaveCredentials({
         <div className="flex items-start gap-2 text-xs" style={{ color: 'var(--win95-text)' }}>
           <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--win95-highlight)' }} />
           <div>
-            <strong>Where will these be used?</strong><br />
-            These credentials will be automatically added to your portal's environment variables
-            during deployment. You don't need to manually configure them.
+            <strong>{tx("ui.oauth_tutorial.step2.where_used_title", "Where will these be used?")}</strong><br />
+            {tx(
+              "ui.oauth_tutorial.step2.where_used_body",
+              "These credentials will be automatically added to your portal's environment variables during deployment. You don't need to manually configure them.",
+            )}
           </div>
         </div>
       </div>
@@ -527,6 +569,7 @@ function Step2SaveCredentials({
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
+  const tx = useOAuthTutorialTx();
   return (
     <div className="space-y-4 text-center">
       <div className="flex justify-center">
@@ -543,10 +586,10 @@ function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
 
       <div className="space-y-2">
         <h4 className="text-lg font-bold" style={{ color: 'var(--win95-text)' }}>
-          OAuth Setup Complete!
+          {tx("ui.oauth_tutorial.step3.complete_title", "OAuth Setup Complete!")}
         </h4>
         <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-          Your portal is now configured for secure OAuth authentication.
+          {tx("ui.oauth_tutorial.step3.complete_subtitle", "Your portal is now configured for secure OAuth authentication.")}
         </p>
       </div>
 
@@ -558,27 +601,27 @@ function Step3Complete({ portalUrl: _portalUrl }: { portalUrl: string }) {
         }}
       >
         <h5 className="font-bold text-sm" style={{ color: 'var(--win95-text)' }}>
-          What happens next:
+          {tx("ui.oauth_tutorial.step3.what_happens_next", "What happens next:")}
         </h5>
         <ul className="space-y-1 text-xs" style={{ color: 'var(--win95-text)' }}>
           <li className="flex items-start gap-2">
             <CheckCircle className="h-4 w-4 mt-0.5" />
-            <span>Your portal will be deployed with OAuth credentials</span>
+            <span>{tx("ui.oauth_tutorial.step3.next_items.deploy", "Your portal will be deployed with OAuth credentials")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle className="h-4 w-4 mt-0.5" />
-            <span>Contacts can log in with Google or Microsoft</span>
+            <span>{tx("ui.oauth_tutorial.step3.next_items.login", "Contacts can log in with Google or Microsoft")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle className="h-4 w-4 mt-0.5" />
-            <span>Authentication is handled securely and automatically</span>
+            <span>{tx("ui.oauth_tutorial.step3.next_items.security", "Authentication is handled securely and automatically")}</span>
           </li>
         </ul>
       </div>
 
       <div className="pt-4">
         <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-          Click "Complete Setup" to continue with deployment
+          {tx("ui.oauth_tutorial.step3.complete_instruction", 'Click "Complete Setup" to continue with deployment')}
         </p>
       </div>
     </div>
@@ -635,6 +678,7 @@ function CredentialField({
   copied: boolean;
   isSecret?: boolean;
 }) {
+  const tx = useOAuthTutorialTx();
   return (
     <div>
       <label className="block text-xs font-bold mb-1" style={{ color: 'var(--win95-text)' }}>
@@ -660,12 +704,12 @@ function CredentialField({
           {copied ? (
             <>
               <Check className="h-4 w-4" style={{ color: '#10B981' }} />
-              <span>Copied!</span>
+              <span>{tx("ui.oauth_tutorial.credential_field.copied", "Copied!")}</span>
             </>
           ) : (
             <>
               <Copy className="h-4 w-4" />
-              <span>Copy</span>
+              <span>{tx("ui.oauth_tutorial.credential_field.copy", "Copy")}</span>
             </>
           )}
         </RetroButton>
@@ -673,7 +717,7 @@ function CredentialField({
       {isSecret && (
         <p className="text-xs mt-1 text-red-600 inline-flex items-center gap-1">
           <AlertCircle className="h-3 w-3" />
-          This secret will not be shown again
+          {tx("ui.oauth_tutorial.credential_field.secret_once", "This secret will not be shown again")}
         </p>
       )}
     </div>

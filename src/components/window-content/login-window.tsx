@@ -13,12 +13,14 @@ import { api } from "../../../convex/_generated/api";
 
 export function LoginWindow() {
   const [mode, setMode] = useState<"check" | "signin" | "setup" | "signup">("check");
+  const [guestSignupHandoffActive, setGuestSignupHandoffActive] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
+  const [betaCode, setBetaCode] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,18 +32,68 @@ export function LoginWindow() {
   const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [showPasskeySetupPrompt, setShowPasskeySetupPrompt] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState<{apiKey: string; apiKeyPrefix: string; organization: { name: string }; sessionId: string} | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState<{
+    apiKey: string;
+    apiKeyPrefix: string;
+    organization: { name: string };
+    sessionId: string;
+    betaAccessStatus?: "pending" | "approved";
+  } | null>(null);
 
   const { user, isSignedIn, signIn, setupPassword, checkNeedsPasswordSetup, signOut, sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.login");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>,
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   // Check if beta access gating is enabled
   // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const betaGatingStatus = useQuery(api.betaAccess.getBetaGatingStatus);
+  const betaGateEnabled = betaGatingStatus?.enabled === true;
+  const betaCodeAutoApproveEnabled =
+    (betaGatingStatus as {
+      rollout?: { supportsBetaCodeAutoApprove?: boolean };
+    } | undefined)?.rollout?.supportsBetaCodeAutoApprove === true;
 
   // Capture affiliate referral code from ?ref= URL parameter on mount
   useEffect(() => {
     captureRefCode();
+  }, []);
+
+  // Guest chat can deep-link login into signup mode and optionally prefill beta code.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedMode = (params.get("authMode") || "").trim().toLowerCase();
+    const requestedBetaCode = (params.get("betaCode") || params.get("beta_code") || "").trim();
+    let shouldCleanup = false;
+
+    if (requestedMode === "signup") {
+      setMode("signup");
+      setGuestSignupHandoffActive(true);
+      shouldCleanup = true;
+    }
+
+    if (requestedBetaCode.length > 0) {
+      setMode("signup");
+      setBetaCode(requestedBetaCode);
+      setGuestSignupHandoffActive(true);
+      shouldCleanup = true;
+    }
+
+    if (!shouldCleanup) return;
+
+    params.delete("authMode");
+    params.delete("betaCode");
+    params.delete("beta_code");
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
   }, []);
 
   // Get last used OAuth provider from localStorage
@@ -52,6 +104,14 @@ export function LoginWindow() {
       return lastUsed as "microsoft" | "google" | "github";
     }
     return null;
+  };
+
+  const getGuestClaimToken = (): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+    const token = localStorage.getItem("l4yercak3_native_guest_claim_token");
+    if (!token) return undefined;
+    const normalized = token.trim();
+    return normalized.length > 0 ? normalized : undefined;
   };
 
   // Store last used provider
@@ -66,7 +126,35 @@ export function LoginWindow() {
     setLastUsedProvider(provider);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const refcode = getRefCode();
-    const oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=platform${refcode ? `&ref=${encodeURIComponent(refcode)}` : ""}`;
+    const params = new URLSearchParams({
+      provider,
+      sessionType: "platform",
+    });
+
+    if (refcode) {
+      params.set("referrer", refcode);
+    }
+
+    if (mode === "signup") {
+      const normalizedBetaCode = betaCode.trim();
+      const normalizedOrganizationName = organizationName.trim();
+      if (normalizedBetaCode.length > 0) {
+        params.set("betaCode", normalizedBetaCode);
+      }
+      if (normalizedOrganizationName.length > 0) {
+        params.set("organizationName", normalizedOrganizationName);
+      }
+
+      if (guestSignupHandoffActive) {
+        const identityClaimToken = getGuestClaimToken();
+        if (identityClaimToken) {
+          params.set("identityClaimToken", identityClaimToken);
+          params.set("onboardingChannel", "native_guest");
+        }
+      }
+    }
+
+    const oauthUrl = `${appUrl}/api/auth/oauth-signup?${params.toString()}`;
     window.location.href = oauthUrl;
   };
 
@@ -95,6 +183,25 @@ export function LoginWindow() {
     if (provider === "github") return "bg-[#24292e] text-white border-white";
     if (provider === "microsoft") return "bg-[#0078d4] text-white border-white";
     return "bg-white text-gray-700 border-gray-300";
+  };
+
+  const getProviderDisplayName = (provider: "microsoft" | "google" | "github") => {
+    if (provider === "github") {
+      return tx("ui.login.provider.github", "GitHub");
+    }
+    if (provider === "microsoft") {
+      return tx("ui.login.provider.microsoft", "Microsoft");
+    }
+    return tx("ui.login.provider.google", "Google");
+  };
+
+  const getContinueWithProviderLabel = (provider: "microsoft" | "google" | "github") => {
+    const providerName = getProviderDisplayName(provider);
+    return tx(
+      "ui.login.oauth.continue_with",
+      `Continue with ${providerName}`,
+      { provider: providerName },
+    );
   };
 
   const handleCheckEmail = async () => {
@@ -295,6 +402,8 @@ export function LoginWindow() {
           firstName,
           lastName,
           organizationName: organizationName || undefined,
+          betaCode: betaCode || undefined,
+          identityClaimToken: guestSignupHandoffActive ? getGuestClaimToken() : undefined,
           refcode: refcode || undefined,
         }),
       });
@@ -343,6 +452,7 @@ export function LoginWindow() {
         apiKeyPrefix: result.apiKeyPrefix,
         organization: result.organization,
         sessionId: result.sessionId,
+        betaAccessStatus: result.betaAccessStatus,
       });
 
       // Clear form
@@ -351,6 +461,7 @@ export function LoginWindow() {
       setFirstName("");
       setLastName("");
       setOrganizationName("");
+      setBetaCode("");
       setAgreedToTerms(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
@@ -366,6 +477,7 @@ export function LoginWindow() {
     setFirstName("");
     setLastName("");
     setOrganizationName("");
+    setBetaCode("");
     setAgreedToTerms(false);
     setError("");
     setShowPassword(false);
@@ -375,47 +487,67 @@ export function LoginWindow() {
 
   // Show onboarding window after successful signup
   if (signupSuccess) {
+    const pendingApproval =
+      signupSuccess.betaAccessStatus
+        ? signupSuccess.betaAccessStatus === "pending"
+        : Boolean(betaGatingStatus?.enabled);
+
     return (
       <div className="h-full flex flex-col desktop-shell-surface p-6">
         <div className="text-center mb-6">
           <div className="mb-4 flex justify-center">
-            {betaGatingStatus?.enabled ? (
+            {pendingApproval ? (
               <Hourglass className="w-14 h-14" />
             ) : (
               <PartyPopper className="w-14 h-14" />
             )}
           </div>
           <h2 className="font-pixel text-xl desktop-shell-text mb-2">
-            {betaGatingStatus?.enabled ? "Beta Access Requested" : "Welcome to l4yercak3!"}
+            {pendingApproval
+              ? tx("ui.login.signup_success.beta_access_requested", "Beta Access Requested")
+              : tx("ui.login.signup_success.welcome", "Welcome to l4yercak3!")}
           </h2>
           <p className="text-sm desktop-shell-text-muted">
-            {betaGatingStatus?.enabled
-              ? "Your account has been created. You'll need approval to access the platform."
-              : "Your account is ready. Here's your API key to connect external tools."}
+            {pendingApproval
+              ? tx(
+                  "ui.login.signup_success.pending_copy",
+                  "Your account has been created. You'll need approval to access the platform.",
+                )
+              : tx(
+                  "ui.login.signup_success.ready_copy",
+                  "Your account is ready. Here's your API key to connect external tools.",
+                )}
           </p>
         </div>
 
         {/* Beta Access Warning */}
-        {betaGatingStatus?.enabled && (
+        {pendingApproval && (
           <div className="desktop-shell-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
             <p className="text-sm mb-2">
-              <strong>Awaiting Approval</strong>
+              <strong>{tx("ui.login.signup_success.awaiting_approval", "Awaiting Approval")}</strong>
             </p>
             <p className="text-xs">
-              We'll review your request within 24-48 hours. You'll receive an email confirmation once approved. Keep your API key safe for when you get access.
+              {tx(
+                "ui.login.signup_success.pending_review_window",
+                "We'll review your request within 24-48 hours. You'll receive an email confirmation once approved. Keep your API key safe for when you get access.",
+              )}
             </p>
           </div>
         )}
 
-        {!betaGatingStatus?.enabled && (
+        {!pendingApproval && (
           <div className="desktop-shell-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
-            <strong>What's this for?</strong> Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.
+            <strong>{tx("ui.login.signup_success.api_key_purpose_title", "What's this for?")}</strong>{" "}
+            {tx(
+              "ui.login.signup_success.api_key_purpose_body",
+              "Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.",
+            )}
           </div>
         )}
 
         <div className="mb-6">
           <label className="block text-xs font-pixel mb-2 desktop-shell-text">
-            Your API Key
+            {tx("ui.login.signup_success.api_key_label", "Your API Key")}
           </label>
           <div className="p-3 font-mono text-sm break-all" style={{background: 'var(--shell-button-surface)', border: '2px inset var(--shell-border)'}}>
             {signupSuccess.apiKey}
@@ -432,7 +564,7 @@ export function LoginWindow() {
           >
             <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
               <Clipboard className="w-3.5 h-3.5" />
-              Copy to Clipboard
+              {tx("ui.login.signup_success.copy_api_key", "Copy to Clipboard")}
             </span>
           </button>
 
@@ -455,22 +587,40 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           >
             <span className="font-pixel text-xs flex items-center justify-center gap-1.5">
               <Download className="w-3.5 h-3.5" />
-              Download .env File
+              {tx("ui.login.signup_success.download_env", "Download .env File")}
             </span>
           </button>
         </div>
 
         <div className="text-xs desktop-shell-text-muted mb-4 text-center">
-          You can always view and manage your API keys later in <strong>Settings → Integrations</strong>
+          {tx(
+            "ui.login.signup_success.api_keys_manage_prefix",
+            "You can always view and manage your API keys later in",
+          )}{" "}
+          <strong>{tx("ui.login.signup_success.api_keys_manage_location", "Settings -> Integrations")}</strong>
         </div>
 
         <div className="desktop-shell-note mb-6">
-          <h3 className="font-pixel text-sm mb-2">Account Details:</h3>
+          <h3 className="font-pixel text-sm mb-2">
+            {tx("ui.login.signup_success.account_details_title", "Account Details:")}
+          </h3>
           <div className="text-xs space-y-1">
-            <p>Organization: <strong>{signupSuccess.organization.name}</strong></p>
-            <p>Plan: <strong>Free</strong></p>
-            <p>API Keys: <strong>1/1 used</strong></p>
-            <p>Contacts: <strong>0/100 available</strong></p>
+            <p>
+              {tx("ui.login.signup_success.account_details.organization", "Organization:")}{" "}
+              <strong>{signupSuccess.organization.name}</strong>
+            </p>
+            <p>
+              {tx("ui.login.signup_success.account_details.plan", "Plan:")}{" "}
+              <strong>{tx("ui.login.signup_success.account_details.plan_free", "Free")}</strong>
+            </p>
+            <p>
+              {tx("ui.login.signup_success.account_details.api_keys", "API Keys:")}{" "}
+              <strong>{tx("ui.login.signup_success.account_details.api_keys_usage", "1/1 used")}</strong>
+            </p>
+            <p>
+              {tx("ui.login.signup_success.account_details.contacts", "Contacts:")}{" "}
+              <strong>{tx("ui.login.signup_success.account_details.contacts_usage", "0/100 available")}</strong>
+            </p>
           </div>
         </div>
 
@@ -483,7 +633,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
           }}
           className="w-full beveled-button py-3"
         >
-          <span className="font-pixel">Continue to Dashboard →</span>
+          <span className="font-pixel">
+            {tx("ui.login.signup_success.continue_to_dashboard", "Continue to Dashboard ->")}
+          </span>
         </button>
       </div>
     );
@@ -524,7 +676,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <p className="text-sm desktop-shell-text-muted">
               {t('ui.login.status_logged_in')}
               {user.isSuperAdmin && (
-                <span className="ml-2 font-bold" style={{ color: 'var(--success)' }}>[SUPER ADMIN]</span>
+                <span className="ml-2 font-bold" style={{ color: 'var(--success)' }}>
+                  [{tx("ui.login.user.super_admin_badge", "SUPER ADMIN")}]
+                </span>
               )}
               {user.currentOrganization?.role && !user.isSuperAdmin && (
                 <span className="ml-2" style={{ color: 'var(--info)' }}>[{user.currentOrganization.role.name.toUpperCase()}]</span>
@@ -573,10 +727,19 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             </div>
 
             {/* Beta Access Notice */}
-            {betaGatingStatus?.enabled && (
+            {betaGateEnabled && (
               <div className="desktop-shell-note mb-4" style={{background: 'var(--info-bg)', borderColor: 'var(--info)'}}>
                 <p className="text-xs">
-                  <strong>Private Beta:</strong> We're currently in private beta. New signups will require approval before accessing the platform.
+                  <strong>{tx("ui.login.check.private_beta_label", "Private Beta:")}</strong>{" "}
+                  {betaCodeAutoApproveEnabled
+                    ? tx(
+                        "ui.login.check.private_beta_autoapprove_copy",
+                        "New signups require approval unless a valid beta code is provided.",
+                      )
+                    : tx(
+                        "ui.login.check.private_beta_manual_copy",
+                        "New signups require approval before accessing the platform.",
+                      )}
                 </p>
               </div>
             )}
@@ -617,7 +780,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                   )}
-                  Continue with {lastUsedProvider === "github" ? "GitHub" : lastUsedProvider === "microsoft" ? "Microsoft" : "Google"}
+                  {getContinueWithProviderLabel(lastUsedProvider)}
                 </button>
               </div>
             )}
@@ -649,7 +812,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                   )}
-                  Continue with {provider === "github" ? "GitHub" : provider === "microsoft" ? "Microsoft" : "Google"}
+                  {getContinueWithProviderLabel(provider)}
                 </button>
               ))}
             </div>
@@ -659,7 +822,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-white desktop-shell-text-muted">or</span>
+                <span className="px-2 bg-white desktop-shell-text-muted">
+                  {tx("ui.login.common.or", "or")}
+                </span>
               </div>
             </div>
 
@@ -692,19 +857,25 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
             <div className="mt-4 text-center">
               <p className="text-xs desktop-shell-text-muted mb-2">
-                Don't have an account?
+                {tx("ui.login.check.no_account_prompt", "Don't have an account?")}
               </p>
               <button
                 onClick={() => setMode("signup")}
                 className="beveled-button beveled-button-sm"
               >
-                <span className="font-pixel text-xs">Create Free Account →</span>
+                <span className="font-pixel text-xs">
+                  {tx("ui.login.check.create_free_account", "Create Free Account ->")}
+                </span>
               </button>
             </div>
 
             <div className="mt-6 desktop-shell-note">
               <p className="text-xs">
-                <strong>Note:</strong> Invited users can sign in above. Free accounts get 100 contacts, 1 API key, and 250MB storage.
+                <strong>{tx("ui.login.check.note_label", "Note:")}</strong>{" "}
+                {tx(
+                  "ui.login.check.note_invited_users",
+                  "Invited users can sign in above. Free accounts get 100 contacts, 1 API key, and 250MB storage.",
+                )}
               </p>
             </div>
           </div>
@@ -729,20 +900,36 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <Cake className="w-10 h-10" />
                 </div>
                 <h2 className="font-pixel text-lg desktop-shell-text">
-                  {betaGatingStatus?.enabled ? "Apply for Beta Access" : "Start Building with l4yercak3"}
+                  {betaGateEnabled
+                    ? tx("ui.login.signup.title_beta_access", "Apply for Beta Access")
+                    : tx("ui.login.signup.title_start_building", "Start Building with l4yercak3")}
                 </h2>
                 <p className="text-xs mt-2 desktop-shell-text-muted">
-                  {betaGatingStatus?.enabled
-                    ? "Request access to our private beta"
-                    : "100 contacts • 1 API key • Free forever"}
+                  {betaGateEnabled
+                    ? betaCodeAutoApproveEnabled
+                      ? tx(
+                          "ui.login.signup.subtitle_beta_code",
+                          "Request access or activate instantly with a valid beta code",
+                        )
+                      : tx("ui.login.signup.subtitle_private_beta", "Request access to our private beta")
+                    : tx("ui.login.signup.subtitle_free_tier", "100 contacts - 1 API key - Free forever")}
                 </p>
               </div>
 
               {/* Beta Access Notice */}
-              {betaGatingStatus?.enabled && (
+              {betaGateEnabled && (
                 <div className="desktop-shell-note mb-4" style={{background: 'var(--warning-bg)', borderColor: 'var(--warning)'}}>
                   <p className="text-xs">
-                    <strong>Beta Access Required:</strong> Your account will be created, but you'll need admin approval before accessing the platform. We'll email you when approved.
+                    <strong>{tx("ui.login.signup.beta_access_required", "Beta Access Required:")}</strong>{" "}
+                    {betaCodeAutoApproveEnabled
+                      ? tx(
+                          "ui.login.signup.beta_access_code_required",
+                          "Without a valid beta code, you'll need admin approval before platform access.",
+                        )
+                      : tx(
+                          "ui.login.signup.beta_access_manual_approval",
+                          "Your account will be created, but admin approval is still required before platform access.",
+                        )}
                   </p>
                 </div>
               )}
@@ -783,7 +970,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
                     )}
-                    Continue with {lastUsedProvider === "github" ? "GitHub" : lastUsedProvider === "microsoft" ? "Microsoft" : "Google"}
+                    {getContinueWithProviderLabel(lastUsedProvider)}
                   </button>
                 </div>
               )}
@@ -815,7 +1002,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
                     )}
-                    Continue with {provider === "github" ? "GitHub" : provider === "microsoft" ? "Microsoft" : "Google"}
+                    {getContinueWithProviderLabel(provider)}
                   </button>
                 ))}
               </div>
@@ -825,14 +1012,16 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white desktop-shell-text-muted">or</span>
+                  <span className="px-2 bg-white desktop-shell-text-muted">
+                    {tx("ui.login.common.or", "or")}
+                  </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                    First Name
+                    {tx("ui.login.signup.label_first_name", "First Name")}
                   </label>
                   <input
                     type="text"
@@ -845,7 +1034,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
                 <div>
                   <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                    Last Name
+                    {tx("ui.login.signup.label_last_name", "Last Name")}
                   </label>
                   <input
                     type="text"
@@ -859,7 +1048,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
               <div>
                 <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                  Email
+                  {tx("ui.login.signup.label_email", "Email")}
                 </label>
                 <input
                   type="email"
@@ -872,7 +1061,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
               <div>
                 <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                  Password
+                  {tx("ui.login.signup.label_password", "Password")}
                 </label>
                 <div className="desktop-shell-input-wrapper">
                   <input
@@ -881,13 +1070,17 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     className="w-full desktop-shell-input"
-                    placeholder="Min. 8 characters"
+                    placeholder={tx("ui.login.signup.placeholder_password", "Min. 8 characters")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="desktop-shell-eye-toggle"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword
+                        ? tx("ui.login.aria_hide_password", "Hide password")
+                        : tx("ui.login.aria_show_password", "Show password")
+                    }
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -896,7 +1089,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
               <div>
                 <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                  Confirm Password
+                  {tx("ui.login.signup.label_confirm_password", "Confirm Password")}
                 </label>
                 <div className="desktop-shell-input-wrapper">
                   <input
@@ -910,29 +1103,65 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="desktop-shell-eye-toggle"
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showConfirmPassword
+                        ? tx("ui.login.aria_hide_password", "Hide password")
+                        : tx("ui.login.aria_show_password", "Show password")
+                    }
                   >
                     {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
                 {passwordMatch !== null && (
                   <p className={passwordMatch ? "desktop-shell-validation-success" : "desktop-shell-validation-error"}>
-                    {passwordMatch ? "Passwords match" : "Passwords don't match"}
+                    {passwordMatch
+                      ? tx("ui.login.signup.validation_passwords_match", "Passwords match")
+                      : tx("ui.login.signup.validation_passwords_mismatch", "Passwords don't match")}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-pixel mb-1 desktop-shell-text">
-                  Organization Name (optional)
+                  {tx("ui.login.signup.label_organization_name", "Organization Name (optional)")}
                 </label>
                 <input
                   type="text"
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
                   className="w-full desktop-shell-input"
-                  placeholder={`${firstName || 'Your'}'s Organization`}
+                  placeholder={tx(
+                    "ui.login.signup.placeholder_organization",
+                    `${firstName || tx("ui.login.signup.placeholder_org_owner", "Your")}'s Organization`,
+                    {
+                      owner: firstName || tx("ui.login.signup.placeholder_org_owner", "Your"),
+                    },
+                  )}
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-pixel mb-1 desktop-shell-text">
+                  {tx("ui.login.signup.label_beta_code", "Beta Code (optional)")}
+                </label>
+                <input
+                  type="text"
+                  value={betaCode}
+                  onChange={(e) => setBetaCode(e.target.value.toUpperCase())}
+                  className="w-full desktop-shell-input"
+                  placeholder={tx("ui.login.signup.placeholder_beta_code", "BNI-PSW-001")}
+                />
+                <p className="text-[11px] mt-1 desktop-shell-text-muted">
+                  {betaCodeAutoApproveEnabled
+                    ? tx(
+                        "ui.login.signup.beta_code_autoapprove_enabled",
+                        "Valid beta codes skip manual approval while beta gate is enabled.",
+                      )
+                    : tx(
+                        "ui.login.signup.beta_code_autoapprove_disabled",
+                        "Beta-code auto-approval is currently in legacy/manual mode and can be enabled during rollout.",
+                      )}
+                </p>
               </div>
 
               <div className="desktop-shell-note">
@@ -944,7 +1173,14 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     className="mt-1"
                   />
                   <span className="text-xs">
-                    I agree to the <a href="/terms" target="_blank" className="underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="underline">Privacy Policy</a>
+                    {tx("ui.login.signup.terms.prefix", "I agree to the")}{" "}
+                    <a href="/terms" target="_blank" className="underline">
+                      {tx("ui.login.signup.terms.terms_of_service", "Terms of Service")}
+                    </a>{" "}
+                    {tx("ui.login.signup.terms.and", "and")}{" "}
+                    <a href="/privacy" target="_blank" className="underline">
+                      {tx("ui.login.signup.terms.privacy_policy", "Privacy Policy")}
+                    </a>
                   </span>
                 </label>
               </div>
@@ -955,7 +1191,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 className="w-full beveled-button py-2"
               >
                 <span className="font-pixel text-xs">
-                  {loading ? "Creating Account..." : "Create Free Account"}
+                  {loading
+                    ? tx("ui.login.signup.button_creating_account", "Creating Account...")
+                    : tx("ui.login.signup.button_create_free_account", "Create Free Account")}
                 </span>
               </button>
             </form>
@@ -968,7 +1206,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               className="mt-4 beveled-button beveled-button-sm"
             >
               <span>←</span>
-              <span className="font-pixel">Back</span>
+              <span className="font-pixel">{tx("ui.login.signup.button_back", "Back")}</span>
             </button>
           </div>
         </div>
@@ -1168,7 +1406,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                   )}
-                  Continue with {lastUsedProviderSignin === "github" ? "GitHub" : lastUsedProviderSignin === "microsoft" ? "Microsoft" : "Google"}
+                  {getContinueWithProviderLabel(lastUsedProviderSignin)}
                 </button>
               </div>
             )}
@@ -1200,7 +1438,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                   )}
-                  Continue with {provider === "github" ? "GitHub" : provider === "microsoft" ? "Microsoft" : "Google"}
+                  {getContinueWithProviderLabel(provider)}
                 </button>
               ))}
             </div>
@@ -1210,7 +1448,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-white desktop-shell-text-muted">or</span>
+                <span className="px-2 bg-white desktop-shell-text-muted">
+                  {tx("ui.login.common.or", "or")}
+                </span>
               </div>
             </div>
 
@@ -1345,7 +1585,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                 <div className="w-full border-t" style={{ borderColor: 'var(--shell-border)' }}></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 desktop-shell-surface desktop-shell-text-muted">or</span>
+                <span className="px-2 desktop-shell-surface desktop-shell-text-muted">
+                  {tx("ui.login.common.or", "or")}
+                </span>
               </div>
             </div>
 
@@ -1357,7 +1599,9 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             >
               <span className="font-pixel text-xs flex items-center justify-center gap-2">
                 <Smartphone size={14} />
-                {passkeyLoading ? "Authenticating..." : "Sign in with Face ID / Touch ID"}
+                {passkeyLoading
+                  ? tx("ui.login.signin.passkey_authenticating", "Authenticating...")
+                  : tx("ui.login.signin.passkey_button", "Sign in with Face ID / Touch ID")}
               </span>
             </button>
           </div>

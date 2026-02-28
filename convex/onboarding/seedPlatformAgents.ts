@@ -2,7 +2,7 @@
  * SEED PLATFORM AGENTS — System Bot "Quinn"
  *
  * Seeds the L1 platform agent team on the platform org.
- * Quinn is the first agent every new Telegram user talks to.
+ * Quinn is the first agent every new Telegram, webchat, and native guest user can talk to.
  * She runs the onboarding interview, creates their org + agent,
  * then hands off so their next message goes to their own agent.
  *
@@ -24,12 +24,19 @@ import type { Id } from "../_generated/dataModel";
 import type { InterviewTemplate } from "../schemas/interviewSchemas";
 import { SEED_TEMPLATES } from "../seeds/interviewTemplates";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
 import {
   TRUST_EVENT_TAXONOMY_VERSION,
   validateTrustEventPayload,
   type TrustEventName,
   type TrustEventPayload,
 } from "../ai/trustEvents";
+import { UNIVERSAL_ONBOARDING_TEMPLATE_NAME } from "./universalOnboardingContract";
+import {
+  UNIVERSAL_ONBOARDING_FEATURE_REQUEST_CAPTURE_POLICY_LINES,
+  UNIVERSAL_ONBOARDING_LIMITATION_DISCLOSURE_POLICY_LINES,
+  UNIVERSAL_ONBOARDING_PROMPT_POLICY_LINES,
+} from "./universalOnboardingPolicy";
 
 // ============================================================================
 // PLATFORM ORG IDENTIFICATION
@@ -48,6 +55,11 @@ const PLATFORM_TRAINING_PARITY_MODE = "customer_workflow_parity.v1";
 const START_TRAINING_CONFIRMATION_PREFIX = "START_PLATFORM_TRUST_TRAINING";
 const PUBLISH_TRAINING_CONFIRMATION_PREFIX = "PUBLISH_PLATFORM_TRUST_TRAINING";
 const MIN_OPERATOR_NOTE_LENGTH = 20;
+const UNIVERSAL_AGENT_LANGUAGES = [
+  "de", "zh", "es", "fr", "ja", "pl", "it", "pt", "nl", "tr", "sv",
+  "no", "da", "fi", "cs", "sk", "hu", "ro", "bg", "uk", "ru", "ar",
+  "he", "hi", "bn", "ur", "ta", "te", "ko", "vi", "th", "id", "ms",
+] as const;
 
 type ReadCtx = QueryCtx | MutationCtx;
 type WriteCtx = MutationCtx;
@@ -363,7 +375,7 @@ async function insertAdminTrustEvent(
 
 const QUINN_SOUL = {
   name: "Quinn",
-  tagline: "Your first friend on l4yercak3 — here to set you up for success.",
+  tagline: "Your first contact with sevenlayers operating system — here for a short setup handoff into your personal agent.",
   traits: [
     "warm",
     "efficient",
@@ -372,15 +384,15 @@ const QUINN_SOUL = {
     "encouraging",
   ],
   communicationStyle:
-    "Concise and friendly — this is Telegram, not email. Quinn keeps messages short, uses line breaks for readability, and adapts language to match the user.",
+    "Concise and friendly across every channel. Quinn keeps messages short, uses clean line breaks for readability, and adapts language and pacing to match the user.",
   toneGuidelines:
     "Warm but professional. No corporate jargon. Emoji usage is minimal — one per message at most. Celebrates milestones with genuine enthusiasm.",
   coreValues: [
-    "Make onboarding feel effortless",
+    "Make first-contact setup feel effortless",
     "Respect the user's time",
     "Detect and match the user's language",
     "Never assume — always confirm",
-    "Set clear expectations about what happens next",
+    "Hand off quickly to one personal long-term agent",
   ],
   neverDo: [
     "Send walls of text",
@@ -390,14 +402,15 @@ const QUINN_SOUL = {
     "Respond in a different language than the user chose",
     "Skip the confirmation step before creating an org",
     "Reveal internal system details or API names",
+    "Stay in the thread after the personal agent is live",
   ],
   alwaysDo: [
     "Detect language from the user's first message",
     "Introduce yourself by name",
     "Ask one question at a time",
-    "Summarize collected info before creating the org",
-    "Celebrate when onboarding completes",
-    "Explain what happens next after handoff",
+    "Summarize collected info before finalizing workspace personalization",
+    "Finalize handoff immediately once setup is complete",
+    "Explain that Quinn exits after handoff",
     "Keep messages under 3 lines on mobile",
   ],
   escalationTriggers: [
@@ -408,9 +421,9 @@ const QUINN_SOUL = {
     "Three consecutive misunderstandings",
   ],
   greetingStyle:
-    "Hey! I'm Quinn, your setup assistant on l4yercak3. I'll get your AI agent ready in about 2 minutes. Let's start — what's your business called?",
+    "Hey! I'm Quinn, your setup assistant on l4yercak3. I'll run a quick setup and then hand you to your personal agent.",
   closingStyle:
-    "All set! Your agent is live. The next message you send will go straight to them. Have fun!",
+    "All set. Your personal agent is now live, and Quinn signs off here.",
   emojiUsage: "minimal" as const,
   soulMarkdown: `# Quinn — l4yercak3 System Bot
 
@@ -421,16 +434,17 @@ My job is simple: turn a stranger into a happy user in under 2 minutes.
 ## How I work
 
 When someone starts a conversation, I greet them in their language and walk them through a quick setup:
-1. What's your business called?
-2. What industry are you in?
-3. Who's your audience?
-4. What should your AI agent do?
+1. A quick baseline calibration (social energy, preferred voice style, stress-response preference)
+2. What should we call your workspace?
+3. What context are we optimizing for first?
+4. Who is this primarily for?
+5. What should your AI agent do?
 
 I keep it conversational — one question at a time, short messages, no forms.
 
 ## What I believe
 
-Everyone deserves an AI agent that sounds like them. My role is to gather just enough context so the platform can generate a great starting point. I don't need perfection — I need enough to bootstrap.
+Everyone deserves an AI agent that feels genuinely theirs. My role is to capture the right signals quickly so sevenlayers can launch a strong first version in minutes. I optimize for clarity and momentum, then refine with real usage.
 
 ## My personality
 
@@ -438,7 +452,7 @@ I'm warm but efficient. I respect people's time. I match whatever language they 
 
 ## After onboarding
 
-Once I have the basics, I create their org and their first agent. Then I introduce them to their new agent and step aside. My work is done — their agent takes it from here.`,
+Once I have the basics, I check whether their workspace already exists. If it does, I keep the current workspace and optionally rename it only with explicit confirmation. If it doesn't, I create it and warm up their first personalized agent. If they decline deep onboarding, I still run a minimum setup and immediately hand off to their personal agent. I do not stay as the long-term companion.`,
   version: 1,
   lastUpdatedAt: Date.now(),
   generatedBy: "platform_seed",
@@ -452,45 +466,60 @@ const QUINN_SYSTEM_PROMPT = `You are Quinn, the l4yercak3 platform assistant.
 
 ROLE:
 - You are the global System Bot for Telegram, webchat, and native guest chat.
-- Your job is to route each user into the correct funnel path quickly and safely.
+- Your primary job is to deliver a highly personalized first experience and help users discover platform value quickly.
+- Funnel routing and conversion flows are secondary and should never override user intent.
 
 CORE BEHAVIOR:
 - Detect language from the user's first message and stay in that language.
 - Supported languages: English, German, Polish, Spanish, French, Japanese.
 - Ask ONE question at a time. Never ask two questions in one message.
 - Keep each message to max 3 short lines.
+- Keep one continuous companion voice during onboarding only.
+- You are temporary. After personal-agent handoff, you disappear from the active thread.
+- Never expose internal mechanics (templates, clones, specialist routing, orchestration layers).
 
 GLOBAL FUNNEL STATES:
-1) Existing account (needs linking/login)
-2) No account (new onboarding)
-3) Upgrade plan intent
-4) Buy credits intent
-5) Sub-account intent
+1) Personalized discovery (default)
+2) Existing account (needs linking/login)
+3) No account (new onboarding offer)
+4) Optional conversion intents (upgrade, credits, sub-account, Slack)
 
 TOOL USAGE:
-- Existing Telegram account linking: use verify_telegram_link.
-- New account handoff: use start_account_creation_handoff.
-- Sub-account flow: use start_sub_account_flow.
-- Plan upgrades: use start_plan_upgrade_checkout.
-- Credit packs: use start_credit_pack_checkout.
-- New workspace creation after full onboarding confirmation: use complete_onboarding.
+- Personalized setup and workspace warmup are the priority.
+- Existing Telegram account linking: use verify_telegram_link when linking is explicitly requested.
+- New account handoff: use start_account_creation_handoff when account creation/login is required.
+- Slack workspace connect: use start_slack_workspace_connect only when user asks for it.
+- Sub-account flow: use start_sub_account_flow only when user asks for it.
+- Plan upgrades: use start_plan_upgrade_checkout only when user asks for it.
+- Credit packs: use start_credit_pack_checkout only when user asks for it.
+- Audit value-first email request: use request_audit_deliverable_email only after workflow value is delivered.
+- Audit PDF generation after email capture: use generate_audit_workflow_deliverable.
+- New workspace creation or personalization finalization after confirmation: use complete_onboarding.
 
 ONBOARDING LOGIC:
 - First, identify account status and primary goal.
-- If the user wants upgrade/credits/sub-account, use the matching conversion tool and do NOT force full onboarding questions.
+- Offer a short personalization warmup. If they decline deep onboarding, run minimum setup and hand off anyway.
+- If the user wants upgrade/credits/sub-account/Slack setup, use the matching tool only after confirming that is their current priority.
 - If the user needs a new account first, use start_account_creation_handoff and pause until they complete login/signup.
-- Only run full onboarding questions when the user is creating a brand-new workspace.
+- In audit mode, deliver one workflow recommendation before asking for email.
+- After the workflow recommendation is delivered, request email, then generate the audit workflow PDF.
+- Run full onboarding when user opts in to immersive personalization or requests a new workspace.
+- Never position Quinn as the user's permanent assistant.
 
 FULL ONBOARDING PATH:
-1. Business name
-2. Industry/niche
-3. Target audience
-4. Primary use case + tone
-5. Summary + explicit confirmation
-6. Use complete_onboarding only after confirmation
+1. Baseline calibration (social energy, preferred voice, stress-response style)
+2. Workspace name
+3. Workspace context (private or business)
+4. Primary beneficiary
+5. Primary use case + custom communication style
+6. Summary + explicit confirmation
+7. Use complete_onboarding only after confirmation
 
 RULES:
 - Never skip confirmation before complete_onboarding.
+- ${UNIVERSAL_ONBOARDING_PROMPT_POLICY_LINES.join("\n- ")}
+- ${UNIVERSAL_ONBOARDING_LIMITATION_DISCLOSURE_POLICY_LINES.join("\n- ")}
+- ${UNIVERSAL_ONBOARDING_FEATURE_REQUEST_CAPTURE_POLICY_LINES.join("\n- ")}
 - If user is confused, give a short example and then ask exactly one question.
 - If user asks unrelated questions, answer briefly and redirect to the current step.
 - Keep CTA messages channel-safe: always include a plain URL fallback.`;
@@ -500,14 +529,14 @@ RULES:
 // ============================================================================
 
 export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
-  templateName: "Platform Onboarding",
-  description: "Global onboarding interview for Telegram, webchat, and native guest users. Routes users into account/link/upgrade/credits/sub-account paths and collects setup data when full onboarding is needed.",
-  version: 2,
+  templateName: UNIVERSAL_ONBOARDING_TEMPLATE_NAME,
+  description: "Global onboarding interview for Telegram, webchat, and native guest users. Quinn runs short first-contact setup, then hands off permanently to the user's personal agent.",
+  version: 5,
   status: "active",
   estimatedMinutes: 4,
   mode: "quick",
   language: "en",
-  additionalLanguages: ["de", "pl", "es", "fr", "ja"],
+  additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
 
   phases: [
     {
@@ -546,13 +575,15 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         },
         {
           questionId: "q_primary_goal",
-          promptText: "What do you want to do right now? (new setup, upgrade, credits, sub-account, or link existing account)",
-          helpText: "Use this to route to full onboarding vs conversion tools.",
+          promptText: "What do you want to do first? (personalize experience, new setup, link existing account, explore platform, or billing/admin)",
+          helpText: "Default to personalization and discovery unless the user explicitly asks for billing/admin actions.",
           expectedDataType: "choice",
           extractionField: "primaryGoal",
           validationRules: {
             options: [
+              "personalize_experience",
               "full_onboarding",
+              "explore_platform",
               "upgrade_plan",
               "buy_credits",
               "create_sub_account",
@@ -562,7 +593,7 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         },
         {
           questionId: "q_needs_full_onboarding",
-          promptText: "Should we run full onboarding for a brand-new workspace now? (yes/no)",
+          promptText: "Do you want a deeper 2-minute personalization warmup now, or should I do minimum setup and hand off right away? (yes/no)",
           expectedDataType: "choice",
           extractionField: "needsFullOnboarding",
           validationRules: { options: ["yes", "no"] },
@@ -570,46 +601,48 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       ],
     },
     {
-      phaseId: "business_context",
-      phaseName: "Business Context",
+      phaseId: "baseline_calibration",
+      phaseName: "Baseline Calibration",
       order: 3,
       isRequired: true,
-      estimatedMinutes: 1,
+      estimatedMinutes: 0.75,
       skipCondition: {
         field: "needsFullOnboarding",
         operator: "equals",
         value: "no",
       },
-      introPrompt: "Ask about their business.",
-      completionPrompt: "Got it! Now let's talk about what your agent should do.",
+      introPrompt: "Ask three short baseline questions to personalize the first operator voice immediately.",
+      completionPrompt: "Great baseline. Next, capture workspace context.",
       questions: [
         {
-          questionId: "q_business_name",
-          promptText: "What is your business called?",
-          expectedDataType: "text",
-          extractionField: "businessName",
-          validationRules: { required: true, minLength: 1 },
+          questionId: "q_social_energy",
+          promptText: "Quick baseline: today do you want me more social or more direct?",
+          helpText: "Keep this lightweight. Examples: social, balanced, direct.",
+          expectedDataType: "choice",
+          extractionField: "socialEnergyPreference",
+          validationRules: { options: ["social", "balanced", "direct"] },
         },
         {
-          questionId: "q_industry",
-          promptText: "What industry or niche are you in?",
-          helpText: "E.g., fitness, e-commerce, consulting, real estate, restaurant...",
-          expectedDataType: "text",
-          extractionField: "industry",
-          followUpPrompts: ["Can you be a bit more specific?"],
+          questionId: "q_voice_preference",
+          promptText: "For voice style, should your operator feel more masculine, feminine, or neutral?",
+          helpText: "This is just a starting style preference. It can be changed anytime.",
+          expectedDataType: "choice",
+          extractionField: "preferredVoiceStyle",
+          validationRules: { options: ["masculine", "feminine", "neutral"] },
         },
         {
-          questionId: "q_audience",
-          promptText: "Who is your target audience?",
-          helpText: "E.g., small business owners, fitness enthusiasts, local families...",
-          expectedDataType: "text",
-          extractionField: "targetAudience",
+          questionId: "q_hesitation_response",
+          promptText: "If I detect hesitation, should I reassure first, clarify first, or move straight to action?",
+          helpText: "Choose the response style that helps you move fastest.",
+          expectedDataType: "choice",
+          extractionField: "hesitationResponseStyle",
+          validationRules: { options: ["reassure_first", "clarify_first", "action_first"] },
         },
       ],
     },
     {
-      phaseId: "agent_purpose",
-      phaseName: "Agent Purpose",
+      phaseId: "workspace_context",
+      phaseName: "Workspace Context",
       order: 4,
       isRequired: true,
       estimatedMinutes: 1,
@@ -618,30 +651,77 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         operator: "equals",
         value: "no",
       },
+      introPrompt: "Start with neutral workspace context: workspace name, context, and who this helps first.",
+      completionPrompt: "Great context. Next, define the agent mission before revealing the compiled setup summary.",
+      questions: [
+        {
+          questionId: "q_business_name",
+          promptText: "What should we call your workspace?",
+          expectedDataType: "text",
+          extractionField: "workspaceName",
+          validationRules: { required: true, minLength: 1 },
+        },
+        {
+          questionId: "q_industry",
+          promptText: "What context are we optimizing for first? (private, business, or both)",
+          helpText: "Pick what matters most right now. You can switch modes later.",
+          expectedDataType: "choice",
+          extractionField: "workspaceContext",
+          validationRules: { options: ["private", "business", "both"] },
+        },
+        {
+          questionId: "q_audience",
+          promptText: "Who is this primarily for right now?",
+          helpText: "Examples: me, my family, my team, my customers, my community.",
+          expectedDataType: "text",
+          extractionField: "targetAudience",
+        },
+      ],
+    },
+    {
+      phaseId: "agent_purpose",
+      phaseName: "Agent Purpose",
+      order: 5,
+      isRequired: true,
+      estimatedMinutes: 1,
+      skipCondition: {
+        field: "needsFullOnboarding",
+        operator: "equals",
+        value: "no",
+      },
       introPrompt: "Ask what their agent should help with.",
-      completionPrompt: "Perfect! Let me confirm everything before I set things up.",
+      completionPrompt: "Perfect. I'll compile a launch summary next and confirm your one-voice operator setup.",
       questions: [
         {
           questionId: "q_use_case",
-          promptText: "What do you want your AI agent to help with? (customer support, sales, booking, general)",
+          promptText: "What do you want your AI agent to help with first? (life admin, learning, creativity, business ops, general)",
           helpText: "Pick the primary purpose. You can always adjust later.",
           expectedDataType: "choice",
           extractionField: "primaryUseCase",
-          validationRules: { options: ["Customer Support", "Sales", "Booking", "General"] },
+          validationRules: { options: ["Life Admin", "Learning", "Creativity", "Business Ops", "General"] },
         },
         {
           questionId: "q_tone",
-          promptText: "How should your agent sound? (professional, casual, friendly, playful)",
-          expectedDataType: "choice",
+          promptText: "In your own words, how should your operator sound and respond?",
+          helpText: "Example: calm and concise, warm and reassuring, direct and strategic.",
+          expectedDataType: "text",
           extractionField: "tonePreference",
-          validationRules: { options: ["Professional", "Casual", "Friendly", "Playful"] },
+          validationRules: { required: true, minLength: 4 },
+        },
+        {
+          questionId: "q_communication_style",
+          promptText: "If I notice hesitation or stress in your message, how should I respond first?",
+          helpText: "Example: ask a clarifying question, reassure briefly, then move to action.",
+          expectedDataType: "text",
+          extractionField: "communicationStyle",
+          validationRules: { required: true, minLength: 4 },
         },
       ],
     },
     {
       phaseId: "core_memory_anchors",
-      phaseName: "Core Memory Anchors",
-      order: 5,
+      phaseName: "Trust Anchors (Teaser)",
+      order: 6,
       isRequired: true,
       estimatedMinutes: 0.75,
       skipCondition: {
@@ -649,16 +729,16 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         operator: "equals",
         value: "no",
       },
-      introPrompt: "Capture identity, boundary, and empathy anchors that should persist through future model changes.",
-      completionPrompt: "Great anchors. I'll carry these into your agent's onboarding memory profile.",
+      introPrompt: "Capture quick trust anchors only. Keep private context light and teaser-level for now.",
+      completionPrompt: "Great anchors. I'll include these in the compiled launch reveal and keep deeper context for later refinement.",
       questions: [
         {
           questionId: "q_core_memory_identity",
-          promptText: "What should your agent always remember about your brand promise?",
-          helpText: "One sentence is enough. This becomes a long-lived identity anchor.",
+          promptText: "In one sentence, what should your agent always remember about your brand promise?",
+          helpText: "Keep it concise. This is a teaser anchor, not a full private-context deep dive.",
           expectedDataType: "text",
           extractionField: "coreMemoryIdentityAnchor",
-          validationRules: { required: true, minLength: 8 },
+          validationRules: { required: true, minLength: 4 },
         },
         {
           questionId: "q_core_memory_boundary",
@@ -666,22 +746,22 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
           helpText: "Example: legal advice, refunds above a threshold, sensitive account actions.",
           expectedDataType: "text",
           extractionField: "coreMemoryBoundaryAnchor",
-          validationRules: { required: true, minLength: 8 },
+          validationRules: { required: true, minLength: 4 },
         },
         {
           questionId: "q_core_memory_empathy",
           promptText: "In difficult moments, how should your agent make customers feel?",
-          helpText: "Describe the tone/experience you want customers to remember.",
+          helpText: "Use a short phrase. You can expand private nuance later.",
           expectedDataType: "text",
           extractionField: "coreMemoryEmpathyAnchor",
-          validationRules: { required: true, minLength: 8 },
+          validationRules: { required: true, minLength: 4 },
         },
       ],
     },
     {
       phaseId: "confirmation",
       phaseName: "Confirmation & Creation",
-      order: 6,
+      order: 7,
       isRequired: true,
       estimatedMinutes: 0.5,
       skipCondition: {
@@ -689,12 +769,12 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         operator: "equals",
         value: "no",
       },
-      introPrompt: "Summarize everything collected and ask the user to confirm before creating.",
-      completionPrompt: "Your agent is ready! The next message you send will go straight to them.",
+      introPrompt: "Reveal a compiled launch summary (workspace context first, trust teaser second), confirm one consistent operator voice, and ask for explicit confirmation.",
+      completionPrompt: "Your personal agent is ready. Quinn exits now, and the next message goes only to your agent.",
       questions: [
         {
           questionId: "q_confirm",
-          promptText: "Here's what I've got for your new workspace — does everything look right? (yes/no)",
+          promptText: "Here is your launch snapshot for one personalized operator voice. Does this look right? (yes/no)",
           expectedDataType: "text",
           extractionField: "confirmed",
         },
@@ -708,11 +788,15 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       { fieldId: "accountStatus", fieldName: "Account Status", dataType: "string", category: "goals", required: true },
       { fieldId: "primaryGoal", fieldName: "Primary Goal", dataType: "string", category: "goals", required: true },
       { fieldId: "needsFullOnboarding", fieldName: "Needs Full Onboarding", dataType: "string", category: "goals", required: true },
-      { fieldId: "businessName", fieldName: "Business Name", dataType: "string", category: "brand", required: false },
-      { fieldId: "industry", fieldName: "Industry", dataType: "string", category: "brand", required: false },
+      { fieldId: "socialEnergyPreference", fieldName: "Social Energy Preference", dataType: "string", category: "voice", required: false },
+      { fieldId: "preferredVoiceStyle", fieldName: "Preferred Voice Style", dataType: "string", category: "voice", required: false },
+      { fieldId: "hesitationResponseStyle", fieldName: "Hesitation Response Style", dataType: "string", category: "voice", required: false },
+      { fieldId: "workspaceName", fieldName: "Workspace Name", dataType: "string", category: "brand", required: false },
+      { fieldId: "workspaceContext", fieldName: "Workspace Context", dataType: "string", category: "goals", required: false },
       { fieldId: "targetAudience", fieldName: "Target Audience", dataType: "string", category: "audience", required: false },
       { fieldId: "primaryUseCase", fieldName: "Primary Use Case", dataType: "string", category: "goals", required: false },
       { fieldId: "tonePreference", fieldName: "Tone Preference", dataType: "string", category: "voice", required: false },
+      { fieldId: "communicationStyle", fieldName: "Communication Style", dataType: "string", category: "voice", required: false },
       { fieldId: "coreMemoryIdentityAnchor", fieldName: "Core Memory Identity Anchor", dataType: "string", category: "voice", required: false },
       { fieldId: "coreMemoryBoundaryAnchor", fieldName: "Core Memory Boundary Anchor", dataType: "string", category: "goals", required: false },
       { fieldId: "coreMemoryEmpathyAnchor", fieldName: "Core Memory Empathy Anchor", dataType: "string", category: "voice", required: false },
@@ -725,7 +809,7 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
     requiredPhaseIds: ["funnel_state"],
   },
 
-  interviewerPersonality: "Warm, efficient, multilingual. You're a concise setup assistant across Telegram, webchat, and native guest channels — one question at a time, max 3 lines per message.",
+  interviewerPersonality: "Warm, perceptive, multilingual. You are one continuous operator voice across Telegram, webchat, and native guest channels — one question at a time, max 3 lines per message.",
   followUpDepth: 1,
   silenceHandling: "No rush! Just tell me about your business whenever you're ready.",
 };
@@ -738,7 +822,7 @@ const QUINN_CUSTOM_PROPERTIES = {
   displayName: "Quinn",
   personality: "Warm, efficient, multilingual platform ambassador. Routes users through onboarding, account linking, and conversion flows in under 2 minutes.",
   language: "en",
-  additionalLanguages: ["de", "pl", "es", "fr", "ja"],
+  additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
   systemPrompt: QUINN_SYSTEM_PROMPT,
   soul: QUINN_SOUL,
   faqEntries: [
@@ -749,8 +833,11 @@ const QUINN_CUSTOM_PROPERTIES = {
   knowledgeBaseTags: [] as string[],
   enabledTools: [
     "complete_onboarding",
+    "request_audit_deliverable_email",
+    "generate_audit_workflow_deliverable",
     "verify_telegram_link",
     "start_account_creation_handoff",
+    "start_slack_workspace_connect",
     "start_sub_account_flow",
     "start_plan_upgrade_checkout",
     "start_credit_pack_checkout",
@@ -762,7 +849,7 @@ const QUINN_CUSTOM_PROPERTIES = {
   requireApprovalFor: [] as string[],
   blockedTopics: [] as string[],
   modelProvider: "openrouter",
-  modelId: "anthropic/claude-sonnet-4.5",
+  modelId: ONBOARDING_DEFAULT_MODEL_ID,
   temperature: 0.7,
   maxTokens: 4096,
   channelBindings: [
@@ -777,9 +864,110 @@ const QUINN_CUSTOM_PROPERTIES = {
   templateRole: "platform_system_bot_template",
   templateLayer: "system_onboarding",
   templateScope: "platform",
+  soulScope: {
+    capability: "platform_soul_admin",
+    layer: "L2",
+    domain: "platform",
+    classification: "platform_l2",
+    allowPlatformSoulAdmin: true,
+  },
   clonePolicy: {
     spawnEnabled: false,
   },
+};
+
+const SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE = "one_of_one_lead_capture_consultant_template";
+const SAMANTHA_LEAD_CAPTURE_WORKER_NAME = "Samantha Lead Capture 1";
+const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
+  displayName: "Samantha",
+  personality:
+    "Sharp, commercially-minded lead capture consultant. Identifies the highest-leverage business bottleneck quickly and converts it into an actionable implementation plan.",
+  language: "en",
+  additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
+  systemPrompt: [
+    "You are Samantha, a 7-minute lead capture consultant for high-performing business owners.",
+    "Your core job: find the user's highest-impact pain point, recommend one concrete workflow, and deliver a clear implementation plan.",
+    "Language policy:",
+    "- Treat language support as unrestricted: respond in whatever language the user writes.",
+    "- Detect and mirror the user's language on every turn.",
+    "- If the user switches language, switch with them immediately.",
+    "- If confidence is low, ask one short clarification in the user's language; fallback to English only if needed.",
+    "- Never claim you only speak English/German; support multilingual conversation including Chinese when requested.",
+    "Always follow value-first sequencing:",
+    "1) Ask concise context questions to identify the bottleneck.",
+    "2) Deliver one specific workflow recommendation first.",
+    "3) After value delivery, collect lead qualification details before sending the PDF.",
+    "Minimum required before PDF generation: first name, last name, email, phone number, and founder-contact preference (yes/no).",
+    "Ask for additional qualification details when possible: delivery address, revenue, AI project experience, employee count, industry, ownership share, AI budget availability today, and if not today then exact timing.",
+    "Ask this explicitly as one yes/no question: Would you like Remington the founder of sevenlayers.io to discuss implementation support?",
+    "4) Use request_audit_deliverable_email only after value delivery to request or confirm the delivery email.",
+    "5) Generate the implementation PDF using generate_audit_workflow_deliverable only after minimum required fields are captured.",
+    "Never ask for contact details before delivering value.",
+    "Prioritize high-intent leads for follow-up based on completeness and clarity of qualification data.",
+    "Never present a broad list of ideas; give one strongest plan.",
+    "Keep messages concise, direct, and operator-level.",
+  ].join("\n"),
+  faqEntries: [
+    {
+      q: "What do I get in this audit?",
+      a: "One specific workflow recommendation and a clean implementation plan you can execute with or without us.",
+    },
+    {
+      q: "How long does this take?",
+      a: "About seven minutes for context + recommendation, then I generate your implementation brief.",
+    },
+  ],
+  knowledgeBaseTags: ["one_of_one", "lead_capture", "audit_mode"],
+  enabledTools: [
+    "request_audit_deliverable_email",
+    "generate_audit_workflow_deliverable",
+    "start_account_creation_handoff",
+  ],
+  disabledTools: [] as string[],
+  autonomyLevel: "autonomous",
+  maxMessagesPerDay: 1000,
+  maxCostPerDay: 50.0,
+  requireApprovalFor: [] as string[],
+  blockedTopics: [] as string[],
+  modelProvider: "openrouter",
+  modelId: ONBOARDING_DEFAULT_MODEL_ID,
+  temperature: 0.45,
+  maxTokens: 4096,
+  channelBindings: [
+    { channel: "webchat", enabled: true },
+    { channel: "native_guest", enabled: true },
+    { channel: "telegram", enabled: false },
+  ],
+  totalMessages: 0,
+  totalCostUsd: 0,
+  protected: true,
+  templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  templateLayer: "lead_capture",
+  templateScope: "platform",
+  templatePlaybook: "lead_capture",
+  soulScope: {
+    capability: "platform_soul_admin",
+    layer: "L2",
+    domain: "platform",
+    classification: "platform_l2",
+    allowPlatformSoulAdmin: true,
+  },
+  clonePolicy: {
+    spawnEnabled: true,
+    maxClonesPerOrg: 12,
+    maxClonesPerTemplatePerOrg: 4,
+    maxClonesPerOwner: 3,
+    allowedPlaybooks: ["lead_capture"],
+  },
+};
+
+const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
+  name: "Samantha Lead Capture Consultant",
+  subtype: "general",
+  description:
+    "Protected template for one-of-one lead capture audit flow (7-minute bottleneck diagnosis + implementation plan deliverable).",
+  role: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
 };
 
 type ProtectedTemplateAgentSeed = {
@@ -797,6 +985,8 @@ const USE_CASE_CLONE_POLICY_DEFAULTS = {
   maxClonesPerOwner: 3,
   allowedPlaybooks: ["event"],
 };
+const PERSONAL_OPERATOR_TEMPLATE_PLAYBOOK = "personal_operator";
+const PERSONAL_OPERATOR_TEMPLATE_ROLE = "personal_life_operator_template";
 
 function buildSpecialistTemplateCustomProperties(args: {
   displayName: string;
@@ -815,7 +1005,7 @@ function buildSpecialistTemplateCustomProperties(args: {
     displayName: args.displayName,
     personality: args.personality,
     language: "en",
-    additionalLanguages: ["de", "pl", "es", "fr", "ja"],
+    additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
     systemPrompt: args.systemPrompt,
     faqEntries: [],
     knowledgeBaseTags: [
@@ -832,7 +1022,7 @@ function buildSpecialistTemplateCustomProperties(args: {
     requireApprovalFor: args.requireApprovalFor ?? [],
     blockedTopics: [],
     modelProvider: "openrouter",
-    modelId: "anthropic/claude-sonnet-4.5",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
     temperature: args.temperature ?? 0.35,
     maxTokens: 4096,
     channelBindings: [
@@ -846,7 +1036,88 @@ function buildSpecialistTemplateCustomProperties(args: {
     templateLayer: args.templateLayer,
     templateRole: args.templateRole,
     templatePlaybook: args.templatePlaybook,
+    soulScope: {
+      capability: "platform_soul_admin",
+      layer: "L2",
+      domain: "platform",
+      classification: "platform_l2",
+      allowPlatformSoulAdmin: true,
+    },
     clonePolicy: USE_CASE_CLONE_POLICY_DEFAULTS,
+  };
+}
+
+function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown> {
+  return {
+    displayName: "Personal Life Operator",
+    personality:
+      "Personal operations specialist for calendar-aware appointment coordination with deterministic outreach boundaries.",
+    language: "en",
+    additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
+    systemPrompt:
+      "You are the Personal Life Operator template. Coordinate appointments using calendar, contacts, and booking tools while keeping appointment outreach in sandbox domain autonomy until explicit promotion evidence exists.",
+    faqEntries: [],
+    knowledgeBaseTags: [
+      "personal_operator",
+      "appointment_booking",
+      "protected_template",
+    ],
+    toolProfile: "personal_operator",
+    enabledTools: [
+      "check_oauth_connection",
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "tag_contacts",
+      "create_event",
+      "list_events",
+      "update_event",
+      "manage_bookings",
+      "configure_booking_workflow",
+      "escalate_to_human",
+    ],
+    disabledTools: [],
+    // Default approval mode: all mutations stay supervised until explicit promotion.
+    autonomyLevel: "supervised",
+    domainAutonomy: {
+      appointment_booking: {
+        level: "sandbox",
+      },
+    },
+    maxMessagesPerDay: 500,
+    maxCostPerDay: 30,
+    requireApprovalFor: [],
+    blockedTopics: [],
+    modelProvider: "openrouter",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
+    temperature: 0.3,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "webchat", enabled: true },
+      { channel: "telegram", enabled: true },
+      { channel: "native_guest", enabled: true },
+    ],
+    unifiedPersonality: true,
+    teamAccessMode: "invisible",
+    dreamTeamSpecialists: [],
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: "personal_operator",
+    templateRole: PERSONAL_OPERATOR_TEMPLATE_ROLE,
+    templatePlaybook: PERSONAL_OPERATOR_TEMPLATE_PLAYBOOK,
+    soulScope: {
+      capability: "platform_soul_admin",
+      layer: "L2",
+      domain: "platform",
+      classification: "platform_l2",
+      allowPlatformSoulAdmin: true,
+    },
+    clonePolicy: {
+      ...USE_CASE_CLONE_POLICY_DEFAULTS,
+      allowedPlaybooks: [PERSONAL_OPERATOR_TEMPLATE_PLAYBOOK],
+    },
   };
 }
 
@@ -964,6 +1235,18 @@ const ORCHESTRATION_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
     }),
   },
 ];
+const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Personal Life Operator",
+  subtype: "booking_agent",
+  description:
+    "Protected template for personal appointment planning, constrained booking outreach, and one-agent contract defaults.",
+  role: PERSONAL_OPERATOR_TEMPLATE_ROLE,
+  customProperties: buildPersonalOperatorTemplateCustomProperties(),
+};
+const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
+  ...ORCHESTRATION_TEMPLATE_AGENT_SEEDS,
+  PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
+];
 
 async function upsertProtectedTemplateAgent(
   ctx: WriteCtx,
@@ -1024,6 +1307,87 @@ async function upsertProtectedTemplateAgent(
   });
 
   return { agentId, created: true };
+}
+
+async function upsertSamanthaLeadCaptureWorker(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    now: number;
+    templateAgentId: Id<"objects">;
+  },
+): Promise<{ workerId: Id<"objects"> | null; created: boolean }> {
+  const existingAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const existingWorkers = existingAgents.filter((agent) => {
+    const props = asRecord(agent.customProperties);
+    return (
+      agent.status === "active" &&
+      `${props.templateAgentId || ""}` === `${args.templateAgentId}` &&
+      props.workerPoolRole === "lead_capture_consultant"
+    );
+  });
+
+  if (existingWorkers.length > 0) {
+    // Keep existing worker identity/counters but refresh behavior contract from latest seed.
+    const worker = existingWorkers[0];
+    const liveProps = asRecord(worker.customProperties);
+    await ctx.db.patch(worker._id, {
+      subtype: "general",
+      description: "Samantha lead capture consultant worker (seeded)",
+      status: "active",
+      customProperties: {
+        ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+        displayName: "Samantha",
+        status: "active",
+        templateAgentId: args.templateAgentId,
+        workerPoolRole: "lead_capture_consultant",
+        lastActiveSessionAt: args.now,
+        totalMessages: typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
+        totalCostUsd: typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
+      },
+      updatedAt: args.now,
+    });
+    return { workerId: worker._id, created: false };
+  }
+
+  const workerId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: "general",
+    name: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
+    description: "Samantha lead capture consultant worker (seeded)",
+    status: "active",
+    customProperties: {
+      ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+      displayName: "Samantha",
+      status: "active",
+      templateAgentId: args.templateAgentId,
+      workerPoolRole: "lead_capture_consultant",
+      lastActiveSessionAt: args.now,
+    },
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: workerId,
+    actionType: "seeded",
+    actionData: {
+      agent: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
+      role: "lead_capture_consultant",
+      templateId: args.templateAgentId,
+    },
+    performedAt: args.now,
+  });
+
+  return { workerId, created: true };
 }
 
 // ============================================================================
@@ -1149,16 +1513,17 @@ export const seedAll = internalMutation({
     }
 
     // ------------------------------------------------------------------
-    // 1c. UPSERT ORCHESTRATION/EVENT SPECIALIST TEMPLATE AGENTS
+    // 1c. UPSERT PROTECTED SPECIALIST/PERSONAL-OPERATOR TEMPLATE AGENTS
     // ------------------------------------------------------------------
 
     const specialistTemplateResults: Array<{
       name: string;
+      role: string;
       agentId: Id<"objects">;
       created: boolean;
     }> = [];
 
-    for (const seed of ORCHESTRATION_TEMPLATE_AGENT_SEEDS) {
+    for (const seed of PROTECTED_TEMPLATE_AGENT_SEEDS) {
       const result = await upsertProtectedTemplateAgent(ctx, {
         organizationId: platformOrgId,
         now,
@@ -1166,12 +1531,41 @@ export const seedAll = internalMutation({
       });
       specialistTemplateResults.push({
         name: seed.name,
+        role: seed.role,
         agentId: result.agentId,
         created: result.created,
       });
       console.log(
         `[seedPlatformAgents] ${seed.name} upserted (${result.created ? "created" : "updated"}): ${result.agentId}`,
       );
+    }
+
+    const personalOperatorTemplateResult = specialistTemplateResults.find(
+      (entry) => entry.role === PERSONAL_OPERATOR_TEMPLATE_ROLE,
+    ) ?? null;
+
+    // ------------------------------------------------------------------
+    // 1d. UPSERT SAMANTHA LEAD CAPTURE TEMPLATE + WORKER
+    // ------------------------------------------------------------------
+
+    const samanthaTemplateResult = await upsertProtectedTemplateAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED,
+    });
+    console.log(
+      `[seedPlatformAgents] ${SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED.name} upserted (${samanthaTemplateResult.created ? "created" : "updated"}): ${samanthaTemplateResult.agentId}`,
+    );
+
+    const samanthaWorkerResult = await upsertSamanthaLeadCaptureWorker(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateAgentId: samanthaTemplateResult.agentId,
+    });
+    if (samanthaWorkerResult.created) {
+      console.log(`[seedPlatformAgents] Initial Samantha worker spawned: ${samanthaWorkerResult.workerId}`);
+    } else {
+      console.log(`[seedPlatformAgents] Samantha worker already exists — skipped`);
     }
 
     // ------------------------------------------------------------------
@@ -1186,7 +1580,7 @@ export const seedAll = internalMutation({
       .collect();
 
     const existingOnboardingTemplate = existingTemplates.find(
-      (t) => t.name === "Platform Onboarding"
+      (t) => t.name === UNIVERSAL_ONBOARDING_TEMPLATE_NAME
     );
 
     let templateId: Id<"objects">;
@@ -1207,7 +1601,7 @@ export const seedAll = internalMutation({
         organizationId: platformOrgId,
         type: "interview_template",
         subtype: "quick",
-        name: "Platform Onboarding",
+        name: UNIVERSAL_ONBOARDING_TEMPLATE_NAME,
         description: "Global onboarding interview for Telegram, webchat, and native guest users",
         status: "active",
         customProperties: ONBOARDING_INTERVIEW_TEMPLATE,
@@ -1219,7 +1613,7 @@ export const seedAll = internalMutation({
         organizationId: platformOrgId,
         objectId: templateId,
         actionType: "seeded",
-        actionData: { template: "Platform Onboarding", mode: "quick" },
+        actionData: { template: UNIVERSAL_ONBOARDING_TEMPLATE_NAME, mode: "quick" },
         performedAt: now,
       });
 
@@ -1341,8 +1735,50 @@ export const seedAll = internalMutation({
       templateCreated: !existingOnboardingTemplate,
       trustTrainingTemplateCreated: trustTrainingTemplateResult.created,
       customerBaselineTemplateCreated: customerBaselineTemplateResult.created,
+      personalLifeOperatorTemplateId: personalOperatorTemplateResult?.agentId ?? null,
+      personalLifeOperatorTemplateCreated: personalOperatorTemplateResult?.created ?? false,
+      samanthaLeadCaptureTemplateId: samanthaTemplateResult.agentId,
+      samanthaLeadCaptureTemplateCreated: samanthaTemplateResult.created,
+      samanthaLeadCaptureWorkerId: samanthaWorkerResult.workerId,
+      samanthaLeadCaptureWorkerCreated: samanthaWorkerResult.created,
       initialWorkerId,
       workerCreated: existingWorkers.length === 0,
+    };
+  },
+});
+
+export const seedSamanthaLeadCaptureConsultant = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const platformOrgId = getPlatformOrgId();
+    const now = Date.now();
+
+    const platformOrg = await ctx.db.get(platformOrgId);
+    if (!platformOrg) {
+      throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+    }
+
+    const templateResult = await upsertProtectedTemplateAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED,
+    });
+
+    const workerResult = await upsertSamanthaLeadCaptureWorker(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateAgentId: templateResult.agentId,
+    });
+
+    return {
+      success: true,
+      platformOrgId,
+      templateId: templateResult.agentId,
+      templateCreated: templateResult.created,
+      workerId: workerResult.workerId,
+      workerCreated: workerResult.created,
+      templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
     };
   },
 });
@@ -1824,7 +2260,7 @@ export const getOnboardingTemplateId = internalQuery({
       .withIndex("by_org_type", (q) =>
         q.eq("organizationId", args.organizationId).eq("type", "interview_template")
       )
-      .filter((q) => q.eq(q.field("name"), "Platform Onboarding"))
+      .filter((q) => q.eq(q.field("name"), UNIVERSAL_ONBOARDING_TEMPLATE_NAME))
       .first();
 
     return template?._id ?? null;

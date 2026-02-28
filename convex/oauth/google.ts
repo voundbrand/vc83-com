@@ -486,13 +486,14 @@ export const getGoogleConnectionStatus = query({
       };
     }
 
-    // Get personal connection
+    // Get personal connection for the current user
     const personalConnection = await ctx.db
       .query("oauthConnections")
       .withIndex("by_org_and_provider", (q) =>
         q.eq("organizationId", user.defaultOrgId!).eq("provider", "google")
       )
       .filter((q) => q.eq(q.field("userId"), user._id))
+      .filter((q) => q.neq(q.field("status"), "revoked"))
       .first();
 
     // Get organizational connection
@@ -502,6 +503,7 @@ export const getGoogleConnectionStatus = query({
         q.eq("organizationId", user.defaultOrgId!).eq("provider", "google")
       )
       .filter((q) => q.eq(q.field("connectionType"), "organizational"))
+      .filter((q) => q.neq(q.field("status"), "revoked"))
       .first();
 
     return {
@@ -509,17 +511,28 @@ export const getGoogleConnectionStatus = query({
         ? {
             id: personalConnection._id,
             email: personalConnection.providerEmail,
+            connectionType: personalConnection.connectionType,
             status: personalConnection.status,
             connectedAt: personalConnection.connectedAt,
+            scopes: personalConnection.scopes,
             syncSettings: personalConnection.syncSettings,
+            lastSyncAt: personalConnection.lastSyncAt,
+            lastSyncError: personalConnection.lastSyncError,
+            tokenExpiresAt: personalConnection.tokenExpiresAt,
           }
         : null,
       organizational: orgConnection
         ? {
             id: orgConnection._id,
             email: orgConnection.providerEmail,
+            connectionType: orgConnection.connectionType,
             status: orgConnection.status,
             connectedAt: orgConnection.connectedAt,
+            scopes: orgConnection.scopes,
+            syncSettings: orgConnection.syncSettings,
+            lastSyncAt: orgConnection.lastSyncAt,
+            lastSyncError: orgConnection.lastSyncError,
+            tokenExpiresAt: orgConnection.tokenExpiresAt,
           }
         : null,
     };

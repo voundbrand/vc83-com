@@ -13,6 +13,8 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import { createBetaAutoApproveToken } from "../lib/betaAutoApproveToken";
+import { toConvexSiteBaseUrl } from "../integrations/endpointResolver";
 
 // Initialize Resend client
 const createResendClient = () => {
@@ -28,6 +30,7 @@ const createResendClient = () => {
  */
 export const notifySalesOfBetaRequest = internalAction({
   args: {
+    userId: v.optional(v.id("users")),
     email: v.string(),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
@@ -39,8 +42,22 @@ export const notifySalesOfBetaRequest = internalAction({
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
     const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
+    const backendBaseUrl =
+      process.env.CONVEX_SITE_URL
+      || process.env.NEXT_PUBLIC_API_ENDPOINT_URL
+      || toConvexSiteBaseUrl(process.env.NEXT_PUBLIC_CONVEX_URL)
+      || "https://agreeable-lion-828.convex.site";
 
     const fullName = `${args.firstName || ""} ${args.lastName || ""}`.trim() || "Unknown";
+    let autoApproveUrl: string | null = null;
+    if (args.userId) {
+      const token = await createBetaAutoApproveToken({
+        userId: String(args.userId),
+        email: args.email,
+      });
+      autoApproveUrl = `${backendBaseUrl.replace(/\/+$/, "")}/api/beta/auto-approve?token=${encodeURIComponent(token)}`;
+    }
 
     const subject = `🔒 New Beta Access Request: ${fullName}`;
     const html = `
@@ -149,7 +166,13 @@ export const notifySalesOfBetaRequest = internalAction({
         <li>They'll receive an email notification of your decision</li>
       </ul>
 
-      <p><a href="https://l4yercak3.com/?openWindow=organizations&panel=beta-access" class="button">Review in Admin Dashboard</a></p>
+      ${autoApproveUrl ? `
+      <h2>⚡ One-Click Approval</h2>
+      <p><a href="${autoApproveUrl}" class="button" style="margin-right: 10px;">Auto-Approve Beta User</a></p>
+      <p style="font-size: 13px; color: #6B7280;">Secure link expires in 7 days.</p>
+      ` : ''}
+
+      <p><a href="${appBaseUrl.replace(/\/+$/, "")}/?openWindow=organizations&panel=beta-access" class="button">Review in Admin Dashboard</a></p>
     </div>
 
     <div class="footer">

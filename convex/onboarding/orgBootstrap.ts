@@ -14,20 +14,42 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 /**
  * Create a minimal organization for a Telegram-only user.
  * Required fields match the organizations schema in coreSchemas.ts.
  */
 export const createMinimalOrg = internalMutation({
   args: {
-    name: v.string(),
+    workspaceName: v.optional(v.string()),
+    workspaceContext: v.optional(v.string()),
+    name: v.optional(v.string()), // Legacy compatibility alias.
     industry: v.optional(v.string()),
     source: v.string(),
-    telegramChatId: v.optional(v.string()),
+    channelContactIdentifier: v.optional(v.string()),
+    telegramChatId: v.optional(v.string()), // TODO(onboarding-phase6-telegram-alias): remove after compatibility window.
   },
   handler: async (ctx, args) => {
+    const workspaceName =
+      normalizeOptionalString(args.workspaceName) ||
+      normalizeOptionalString(args.name) ||
+      "My Workspace";
+    const workspaceContext =
+      normalizeOptionalString(args.workspaceContext) ||
+      normalizeOptionalString(args.industry);
+    const channelContactIdentifier =
+      normalizeOptionalString(args.channelContactIdentifier) ||
+      normalizeOptionalString(args.telegramChatId);
+
     // Generate a unique slug from the name
-    const baseSlug = args.name
+    const baseSlug = workspaceName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
@@ -38,9 +60,9 @@ export const createMinimalOrg = internalMutation({
     const now = Date.now();
 
     const orgId = await ctx.db.insert("organizations", {
-      name: args.name,
+      name: workspaceName,
       slug,
-      businessName: args.name,
+      businessName: workspaceName,
       plan: "free",
       isPersonalWorkspace: false,
       isActive: true,
@@ -55,13 +77,62 @@ export const createMinimalOrg = internalMutation({
       resourceId: String(orgId),
       metadata: {
         source: args.source,
-        industry: args.industry,
-        telegramChatId: args.telegramChatId,
+        workspaceContext,
+        industry: workspaceContext,
+        channelContactIdentifier,
+        telegramChatId: channelContactIdentifier,
       },
       success: true,
       createdAt: now,
     });
 
     return orgId;
+  },
+});
+
+export const updateOrgFromOnboarding = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    workspaceName: v.optional(v.string()),
+    name: v.optional(v.string()), // Legacy compatibility alias.
+    source: v.string(),
+    channelContactIdentifier: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const organization = await ctx.db.get(args.organizationId);
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    const now = Date.now();
+    const workspaceName =
+      normalizeOptionalString(args.workspaceName) ||
+      normalizeOptionalString(args.name) ||
+      organization.name;
+    await ctx.db.patch(args.organizationId, {
+      name: workspaceName,
+      businessName: workspaceName,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("auditLogs", {
+      organizationId: args.organizationId,
+      action: "onboarding.org_bootstrap.rename_existing",
+      resource: "organizations",
+      resourceId: String(args.organizationId),
+      metadata: {
+        source: args.source,
+        channelContactIdentifier: args.channelContactIdentifier,
+        newName: workspaceName,
+      },
+      success: true,
+      createdAt: now,
+    });
+
+    return {
+      success: true as const,
+      organizationId: args.organizationId,
+      renamed: true as const,
+    };
   },
 });

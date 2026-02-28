@@ -176,7 +176,9 @@ function validateEmail(email: string): { valid: boolean; error?: string } {
  *   "email": "user@example.com",
  *   "password": "securepass123",
  *   "firstName": "John",
- *   "lastName": "Doe"
+ *   "lastName": "Doe",
+ *   "organizationName": "Acme LLC", // optional
+ *   "betaCode": "BETA-1234" // optional
  * }
  *
  * Response:
@@ -192,13 +194,15 @@ export const signUpHandler = httpAction(async (ctx, request) => {
 
   try {
     const body = await request.json();
-    const { email, password, firstName, lastName } = body;
+    const { email, password, firstName, lastName, organizationName, betaCode } = body;
 
     console.log("[Email Auth Sign-Up] Request received:", {
       email,
       hasPassword: !!password,
       hasFirstName: !!firstName,
       hasLastName: !!lastName,
+      hasOrganizationName: typeof organizationName === "string" && organizationName.trim().length > 0,
+      hasBetaCode: typeof betaCode === "string" && betaCode.trim().length > 0,
     });
 
     // Validate email
@@ -290,6 +294,17 @@ export const signUpHandler = httpAction(async (ctx, request) => {
         email: normalizedEmail,
         firstName: firstName.trim(),
         lastName: (lastName || "").trim(),
+        organizationName:
+          typeof organizationName === "string" && organizationName.trim().length > 0
+            ? organizationName.trim()
+            : undefined,
+        betaCode:
+          typeof betaCode === "string" && betaCode.trim().length > 0
+            ? betaCode.trim()
+            : undefined,
+        redemptionChannel: "mobile_email_signup",
+        redemptionSource: "email_signup_mobile",
+        redemptionDeviceType: "mobile",
       }
     );
 
@@ -308,6 +323,20 @@ export const signUpHandler = httpAction(async (ctx, request) => {
       isPrimary: true,
       metadata: { authMethod: "email_password" },
     });
+
+    await ctx.runMutation(
+      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: createResult.organizationId,
+      }
+    );
+    await ctx.runMutation(
+      internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: createResult.organizationId,
+        channel: "desktop",
+      }
+    );
 
     // Create platform session
     const sessionId: Id<"sessions"> = await ctx.runMutation(
@@ -335,14 +364,12 @@ export const signUpHandler = httpAction(async (ctx, request) => {
     );
     const orgName = org?.name || `${firstName}'s Organization`;
 
-    // Check if beta gating is enabled
-    const betaGatingEnabled = await ctx.runQuery(internal.betaAccess.isBetaGatingEnabled, {});
-
-    if (betaGatingEnabled) {
+    if (createResult.betaAccessStatus === "pending") {
       // Send beta access request notifications (async)
       await Promise.all([
         // Notify sales team about beta request
         ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+          userId: createResult.userId,
           email: normalizedEmail,
           firstName: firstName.trim(),
           lastName: (lastName || "").trim(),
@@ -357,7 +384,7 @@ export const signUpHandler = httpAction(async (ctx, request) => {
         }),
       ]);
     } else {
-      // Beta gating disabled - send normal welcome email
+      // Approved path - send normal welcome email
       // Send welcome email (async)
       await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
         email: normalizedEmail,
@@ -403,12 +430,15 @@ export const signUpHandler = httpAction(async (ctx, request) => {
         organizationId: createResult.organizationId,
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
         isNewUser: true,
+        betaAccessStatus: createResult.betaAccessStatus,
+        betaCodeApplied: createResult.betaCodeApplied,
         user: userProfile || {
           id: createResult.userId,
           email: normalizedEmail,
           firstName: firstName.trim(),
           lastName: (lastName || "").trim(),
           isPasswordSet: true,
+          betaAccessStatus: createResult.betaAccessStatus,
           organizations: org
             ? [
                 {
@@ -595,6 +625,20 @@ export const signInHandler = httpAction(async (ctx, request) => {
       userId: user._id,
     });
 
+    await ctx.runMutation(
+      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: user.defaultOrgId,
+      }
+    );
+    await ctx.runMutation(
+      internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: user.defaultOrgId,
+        channel: "desktop",
+      }
+    );
+
     // Create platform session
     const sessionId: Id<"sessions"> = await ctx.runMutation(
       internal.api.v1.oauthSignup.createPlatformSession,
@@ -732,6 +776,126 @@ export const signOutHandler = httpAction(async (ctx, request) => {
     const duration = Date.now() - startTime;
     console.error(`[Email Auth Sign-Out] Error after ${duration}ms:`, error);
 
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Internal server error",
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...getCorsHeaders(origin),
+        },
+      }
+    );
+  }
+});
+
+/**
+ * Current Auth User HTTP Handler
+ *
+ * GET /api/v1/auth/me
+ *
+ * Returns current mobile/platform user profile for the active session.
+ */
+export const getCurrentAuthUserHandler = httpAction(async (ctx, request) => {
+  const startTime = Date.now();
+  const origin = request.headers.get("origin");
+
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing Authorization header",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(origin),
+          },
+        }
+      );
+    }
+
+    const sessionId = authHeader.substring("Bearer ".length).trim();
+    if (!sessionId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid session",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(origin),
+          },
+        }
+      );
+    }
+
+    const sessionContext = await ctx.runQuery(
+      internal.api.v1.emailAuthInternal.resolveSessionContext,
+      { sessionId }
+    );
+
+    if (!sessionContext) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Session not found",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(origin),
+          },
+        }
+      );
+    }
+
+    const user = await ctx.runQuery(
+      internal.api.v1.mobileOAuthInternal.getUserProfileForMobile,
+      {
+        userId: sessionContext.userId,
+        organizationId: sessionContext.organizationId,
+      }
+    );
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "User not found",
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(origin),
+          },
+        }
+      );
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Email Auth Me] Success in ${duration}ms`);
+
+    return new Response(JSON.stringify(user), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...getCorsHeaders(origin),
+      },
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`[Email Auth Me] Error after ${duration}ms:`, error);
     return new Response(
       JSON.stringify({
         success: false,

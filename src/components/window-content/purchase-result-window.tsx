@@ -112,7 +112,7 @@ export function PurchaseResultWindow({
           iconBg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
           title: "Credits Added!",
           subtitle: `${creditCount} credits have been added to your account`,
-          detail: `You purchased ${creditCount} credits for EUR ${euroAmount}.00`,
+          detail: message || `You purchased ${creditCount} credits for EUR ${euroAmount}.00`,
           cards: [
             {
               icon: <Zap size={24} style={{ color: "var(--win95-highlight)", flexShrink: 0 }} />,
@@ -142,7 +142,7 @@ export function PurchaseResultWindow({
           iconBg: "linear-gradient(135deg, #6B46C1 0%, #9333ea 100%)",
           title: `Welcome to ${tierName}!`,
           subtitle: priceDisplay ? `${tierName} Plan — ${priceDisplay}` : `${tierName} Plan activated`,
-          detail: "Your plan upgrade is now active.",
+          detail: message || "Your plan upgrade is now active.",
           cards: [
             {
               icon: <Package size={24} style={{ color: "var(--win95-highlight)", flexShrink: 0 }} />,
@@ -170,7 +170,7 @@ export function PurchaseResultWindow({
           iconBg: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
           title: "AI Subscription Active!",
           subtitle: `${tierName} is now active for your organization`,
-          detail: "Your AI capabilities have been upgraded.",
+          detail: message || "Your AI capabilities have been upgraded.",
           cards: [
             {
               icon: <Bot size={24} style={{ color: "var(--win95-highlight)", flexShrink: 0 }} />,
@@ -355,9 +355,11 @@ export function PurchaseResultWindow({
       message: "An unexpected error occurred during checkout. Please try again or contact support.",
       icon: <HelpCircle size={24} style={{ color: "var(--error)" }} />,
     };
+    const resolvedMessage = message || details.message;
 
     return {
       ...details,
+      message: resolvedMessage,
       typeLabel: label,
     };
   };
@@ -574,14 +576,21 @@ export function PurchaseResultWindow({
               closeWindow("purchase-result");
               // Dynamically import to avoid circular deps
               import("@/components/window-content/store-window").then(({ StoreWindow }) => {
+                const initialSection = type === "credits" ? "credits" : "plans";
+                const deepLinkNonce = `purchase-result-store-${Date.now()}`;
                 openWindow(
                   "store",
                   "l4yercak3 Store",
-                  <StoreWindow />,
+                  <StoreWindow key={`store-${deepLinkNonce}`} initialSection={initialSection} />,
                   { x: 150, y: 80 },
                   { width: 900, height: 650 },
                   "ui.start_menu.store",
-                  undefined
+                  undefined,
+                  {
+                    initialSection,
+                    deepLinkNonce,
+                    openContext: "purchase_result_retry",
+                  }
                 );
               });
             }}

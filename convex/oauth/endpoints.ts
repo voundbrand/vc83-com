@@ -131,14 +131,14 @@ export const authorize = httpAction(async (ctx, request) => {
  */
 export const authorizePost = httpAction(async (ctx, request) => {
   // Parse form data
-  const formData = await request.formData();
-  const action = formData.get("action") as string;
-  const clientId = formData.get("client_id") as string;
-  const redirectUri = formData.get("redirect_uri") as string;
-  const scope = formData.get("scope") as string;
-  const state = formData.get("state") as string | undefined;
-  const codeChallenge = formData.get("code_challenge") as string | undefined;
-  const codeChallengeMethod = formData.get("code_challenge_method") as string | undefined;
+  const formData = new URLSearchParams(await request.text());
+  const action = formData.get("action");
+  const clientId = formData.get("client_id");
+  const redirectUri = formData.get("redirect_uri");
+  const scope = formData.get("scope");
+  const state = formData.get("state") || undefined;
+  const codeChallenge = formData.get("code_challenge") || undefined;
+  const codeChallengeMethod = formData.get("code_challenge_method") || undefined;
 
   // Validate required parameters
   if (!action || !clientId || !redirectUri || !scope) {
@@ -512,10 +512,10 @@ export const token = httpAction(async (ctx, request) => {
 
   try {
     // Parse form data
-    const formData = await request.formData();
-    const grantType = formData.get("grant_type") as string;
-    const clientId = formData.get("client_id") as string;
-    const clientSecret = formData.get("client_secret") as string | null;
+    const formData = new URLSearchParams(await request.text());
+    const grantType = formData.get("grant_type");
+    const clientId = formData.get("client_id");
+    const clientSecret = formData.get("client_secret");
 
     // Validate required parameters
     if (!grantType || !clientId) {
@@ -533,9 +533,9 @@ export const token = httpAction(async (ctx, request) => {
 
     if (grantType === "authorization_code") {
       // Exchange authorization code for access token
-      const code = formData.get("code") as string;
-      const redirectUri = formData.get("redirect_uri") as string;
-      const codeVerifier = formData.get("code_verifier") as string | null;
+      const code = formData.get("code");
+      const redirectUri = formData.get("redirect_uri");
+      const codeVerifier = formData.get("code_verifier");
 
       if (!code || !redirectUri) {
         return new Response(
@@ -568,8 +568,8 @@ export const token = httpAction(async (ctx, request) => {
       });
     } else if (grantType === "refresh_token") {
       // Refresh access token
-      const refreshToken = formData.get("refresh_token") as string;
-      const scope = formData.get("scope") as string | null;
+      const refreshToken = formData.get("refresh_token");
+      const scope = formData.get("scope");
 
       if (!refreshToken) {
         return new Response(
@@ -655,11 +655,11 @@ export const revoke = httpAction(async (ctx, request) => {
 
   try {
     // Parse form data
-    const formData = await request.formData();
-    const token = formData.get("token") as string;
-    const tokenTypeHint = formData.get("token_type_hint") as string | null;
-    const clientId = formData.get("client_id") as string;
-    const clientSecret = formData.get("client_secret") as string | null;
+    const formData = new URLSearchParams(await request.text());
+    const token = formData.get("token");
+    const tokenTypeHint = formData.get("token_type_hint");
+    const clientId = formData.get("client_id");
+    const clientSecret = formData.get("client_secret");
 
     if (!token || !clientId) {
       // RFC 7009: Return 200 even for invalid requests (security consideration)

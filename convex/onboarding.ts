@@ -46,6 +46,8 @@ export const signupFreeAccount = action({
     firstName: v.string(),
     lastName: v.string(),
     organizationName: v.optional(v.string()),
+    betaCode: v.optional(v.string()),
+    identityClaimToken: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -53,6 +55,7 @@ export const signupFreeAccount = action({
     user: { id: Id<"users">; email: string; firstName: string; lastName: string };
     organization: { id: Id<"organizations">; name: string; slug: string };
     apiKeyPrefix: string;
+    betaAccessStatus: "pending" | "approved";
     apiKey: string;
   }> => {
     // 1. Validate email format
@@ -115,15 +118,31 @@ export const signupFreeAccount = action({
       user: { id: Id<"users">; email: string; firstName: string; lastName: string };
       organization: { id: Id<"organizations">; name: string; slug: string };
       apiKeyPrefix: string;
+      betaAccessStatus: "pending" | "approved";
     } = await (ctx as any).runMutation(generatedApi.internal.onboarding.createFreeAccountInternal, {
       email,
       passwordHash,
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
       organizationName: args.organizationName?.trim(),
+      betaCode: args.betaCode?.trim(),
       apiKeyHash,
       apiKeyPrefix: keyPrefix,
     });
+
+    const identityClaimToken = args.identityClaimToken?.trim();
+    if (identityClaimToken) {
+      try {
+        await (ctx as any).runMutation(generatedApi.internal.onboarding.identityClaims.consumeIdentityClaimToken, {
+          signedToken: identityClaimToken,
+          userId: result.user.id,
+          organizationId: result.organization.id,
+          claimSource: "email_signup_complete",
+        });
+      } catch (claimError) {
+        console.error("[Onboarding] Failed to consume identity claim token during email signup:", claimError);
+      }
+    }
 
     // 8. Create Stripe customer for the new organization (enables upgrade path)
     try {
@@ -137,14 +156,13 @@ export const signupFreeAccount = action({
       console.error("Failed to create Stripe customer:", error);
     }
 
-    // 9. Check if beta gating is enabled
-    const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
-
-    if (betaGatingEnabled) {
+    // 9. Notify based on resolved access status (pending manual review vs immediate approval)
+    if (result.betaAccessStatus === "pending") {
       // Send beta access request notifications (async)
       await Promise.all([
         // Notify sales team about beta request
         (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+          userId: result.user.id,
           email,
           firstName: args.firstName,
           lastName: args.lastName,
@@ -181,6 +199,30 @@ export const signupFreeAccount = action({
           planTier: "free", // New users always start on free tier
         },
       });
+    }
+
+    try {
+      await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.nurtureScheduler.startNurtureJourney,
+        {
+          organizationId: result.organization.id,
+          userId: result.user.id,
+          sourceChannel: "platform_web",
+          preferredChannel: "platform_web",
+          firstWinSeededAt:
+            result.betaAccessStatus === "approved" ? Date.now() : undefined,
+          metadata: {
+            signupMethod: "email_signup",
+            betaAccessStatus: result.betaAccessStatus,
+          },
+          startReason: "email_signup_complete",
+        }
+      );
+    } catch (nurtureError) {
+      console.error(
+        "[Onboarding] Failed to initialize Day 0-3 nurture journey (non-blocking):",
+        nurtureError
+      );
     }
 
     // 11. Return result with plaintext API key (only shown once!)
@@ -250,6 +292,7 @@ export const createFreeAccountInternal = internalMutation({
     firstName: v.string(),
     lastName: v.string(),
     organizationName: v.optional(v.string()),
+    betaCode: v.optional(v.string()),
     apiKeyHash: v.string(),
     apiKeyPrefix: v.string(),
   },
@@ -259,6 +302,7 @@ export const createFreeAccountInternal = internalMutation({
     user: { id: Id<"users">; email: string; firstName: string; lastName: string };
     organization: { id: Id<"organizations">; name: string; slug: string };
     apiKeyPrefix: string;
+    betaAccessStatus: "pending" | "approved";
   }> => {
     // 1. Check if user already exists
     const existingUser = await ctx.db
@@ -273,8 +317,61 @@ export const createFreeAccountInternal = internalMutation({
       });
     }
 
-    // 2. Check if beta gating is enabled
-    const betaGatingEnabled: boolean = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
+    const normalizedBetaCode = args.betaCode?.trim();
+    const rolloutDecision: {
+      resolvedStatus: "pending" | "approved";
+      supportsBetaCodeAutoApprove: boolean;
+    } = await (ctx as any).runQuery(
+      generatedApi.internal.betaAccess.resolveSignupBetaAccessDecision,
+      {
+        hasValidBetaCode: false,
+      }
+    );
+
+    const shouldValidateBetaCode = rolloutDecision.supportsBetaCodeAutoApprove;
+    const betaCodeValidation =
+      shouldValidateBetaCode && normalizedBetaCode
+        ? await (ctx as any).runQuery(
+            generatedApi.internal.betaCodes.validateBetaCodeInternal,
+            {
+              code: normalizedBetaCode,
+            }
+          )
+        : null;
+
+    if (
+      shouldValidateBetaCode &&
+      normalizedBetaCode &&
+      (!betaCodeValidation || !betaCodeValidation.isValid || !betaCodeValidation.codeId)
+    ) {
+      const failureReason: string = betaCodeValidation?.reason || "not_found";
+      throw new ConvexError({
+        code:
+          failureReason === "expired"
+            ? "BETA_CODE_EXPIRED"
+            : failureReason === "exhausted"
+            ? "BETA_CODE_EXHAUSTED"
+            : failureReason === "deactivated"
+            ? "BETA_CODE_DEACTIVATED"
+            : "INVALID_BETA_CODE",
+        message: `Beta code cannot be used (${failureReason}).`,
+      });
+    }
+
+    const betaAccessDecision: {
+      resolvedStatus: "pending" | "approved";
+    } =
+      shouldValidateBetaCode && Boolean(betaCodeValidation?.isValid)
+        ? await (ctx as any).runQuery(
+            generatedApi.internal.betaAccess.resolveSignupBetaAccessDecision,
+            {
+              hasValidBetaCode: true,
+            }
+          )
+        : rolloutDecision;
+    const betaAccessStatus: "pending" | "approved" =
+      betaAccessDecision.resolvedStatus;
+    const now = Date.now();
 
     // 3. Create user
     const userId: Id<"users"> = await ctx.db.insert("users", {
@@ -283,12 +380,12 @@ export const createFreeAccountInternal = internalMutation({
       lastName: args.lastName,
       isPasswordSet: true,
       isActive: true,
-      // Set beta access status based on gating setting
-      betaAccessStatus: betaGatingEnabled ? "pending" : "approved",
-      betaAccessRequestedAt: betaGatingEnabled ? Date.now() : undefined,
-      betaAccessApprovedAt: betaGatingEnabled ? undefined : Date.now(),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      // Set beta access status from gating + beta-code validation
+      betaAccessStatus,
+      betaAccessRequestedAt: betaAccessStatus === "pending" ? now : undefined,
+      betaAccessApprovedAt: betaAccessStatus === "approved" ? now : undefined,
+      createdAt: now,
+      updatedAt: now,
     });
 
     // 3. Store password
@@ -438,11 +535,35 @@ export const createFreeAccountInternal = internalMutation({
     // This enables the "show all apps, upgrade when they try to use premium features" approach
     await assignAllAppsToOrgInternal(ctx, organizationId, userId);
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      { organizationId }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId,
+        channel: "desktop",
+      }
+    );
+
     // 15. Provision starter web app templates (Freelancer Portal, etc.)
     // This makes templates immediately available for one-click deployment
     await provisionStarterTemplatesInternal(ctx, organizationId, userId);
 
-    // 16. Return session and metadata (API key returned by action)
+    // 16. If beta code is valid, redeem it against this new user/org
+    if (betaCodeValidation?.isValid && betaCodeValidation.codeId) {
+      await (ctx as any).runMutation(generatedApi.internal.betaCodes.redeemBetaCodeForSignupInternal, {
+        code: betaCodeValidation.code,
+        userId,
+        organizationId,
+        channel: "platform_email_signup",
+        source: "email_signup",
+        deviceType: "web",
+      });
+    }
+
+    // 17. Return session and metadata (API key returned by action)
     return {
       success: true,
       sessionId,
@@ -458,6 +579,7 @@ export const createFreeAccountInternal = internalMutation({
         slug: orgSlug,
       },
       apiKeyPrefix: args.apiKeyPrefix,
+      betaAccessStatus,
     };
   },
 });

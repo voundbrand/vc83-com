@@ -26,6 +26,9 @@ interface Organization {
   name: string;
   slug: string;
   isActive: boolean;
+  isPersonalWorkspace: boolean;
+  parentOrganizationId?: string | null;
+  workspaceType: "personal" | "business";
   role: Role;
   permissions: Permission[];
   isOwner: boolean;
@@ -64,6 +67,9 @@ type QueryOrganization = {
   name: string;
   slug: string;
   isActive: boolean;
+  isPersonalWorkspace: boolean;
+  parentOrganizationId?: string | null;
+  workspaceType: "personal" | "business";
   role: QueryRole;
   permissions: QueryPermission[];
   isOwner: boolean;
@@ -238,6 +244,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: org.name,
         slug: org.slug,
         isActive: org.isActive,
+        isPersonalWorkspace: org.isPersonalWorkspace,
+        parentOrganizationId: org.parentOrganizationId ?? null,
+        workspaceType: org.workspaceType,
         role: org.role,
         permissions: org.permissions
           .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -254,6 +263,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: userQuery.currentOrganization.name,
       slug: userQuery.currentOrganization.slug,
       isActive: userQuery.currentOrganization.isActive,
+      isPersonalWorkspace: userQuery.currentOrganization.isPersonalWorkspace,
+      parentOrganizationId: userQuery.currentOrganization.parentOrganizationId ?? null,
+      workspaceType: userQuery.currentOrganization.workspaceType,
       role: userQuery.currentOrganization.role,
       permissions: userQuery.currentOrganization.permissions
         .filter((p): p is NonNullable<typeof p> => p !== null)

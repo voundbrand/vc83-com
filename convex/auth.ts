@@ -79,6 +79,27 @@ export const setupPassword = action({
         lastName: args.lastName,
       });
 
+    const setupAuthData: {
+      defaultOrgId: Id<"organizations"> | undefined;
+    } = await (ctx as any).runQuery(generatedApi.internal.auth.internalGetUserAuth, {
+      email: args.email,
+    });
+    if (setupAuthData.defaultOrgId) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+        {
+          organizationId: setupAuthData.defaultOrgId,
+        }
+      );
+      await (ctx as any).runMutation(
+        generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+        {
+          organizationId: setupAuthData.defaultOrgId,
+          channel: "desktop",
+        }
+      );
+    }
+
     // Log audit event
     await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId: checkResult.userId!,
@@ -265,6 +286,20 @@ export const signIn = action({
       throw new Error("Benutzer hat keine Standardorganisation. Bitte zuerst festlegen.");
     }
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId,
+      }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId,
+        channel: "desktop",
+      }
+    );
+
     const result: {
       success: boolean;
       sessionId: string;
@@ -449,6 +484,15 @@ export const switchOrganization = mutation({
       throw new Error("Benutzer nicht gefunden");
     }
 
+    const targetOrganization = await ctx.db.get(args.organizationId);
+    if (!targetOrganization || !targetOrganization.isActive) {
+      throw new Error("Die angeforderte Organisation ist nicht verfügbar");
+    }
+
+    const previousOrganization = user.defaultOrgId
+      ? await ctx.db.get(user.defaultOrgId)
+      : null;
+
     // Check if user has access to this organization
     const membership = await ctx.db
       .query("organizationMembers")
@@ -480,7 +524,16 @@ export const switchOrganization = mutation({
       action: "switch_organization",
       resource: "organizations",
       success: true,
-      metadata: { previousOrgId: user.defaultOrgId },
+      metadata: {
+        previousOrgId: user.defaultOrgId,
+        previousWorkspaceType:
+          previousOrganization?.isPersonalWorkspace === true ? "personal" : "business",
+        nextWorkspaceType:
+          targetOrganization.isPersonalWorkspace === true ? "personal" : "business",
+        switchedWorkspaceType:
+          (previousOrganization?.isPersonalWorkspace === true) !==
+          (targetOrganization.isPersonalWorkspace === true),
+      },
     });
 
     return { success: true };
@@ -566,6 +619,9 @@ export const getCurrentUser = query({
           name: org.name,
           slug: org.slug,
           isActive: org.isActive, // Include isActive field
+          isPersonalWorkspace: org.isPersonalWorkspace === true,
+          parentOrganizationId: org.parentOrganizationId || null,
+          workspaceType: org.isPersonalWorkspace === true ? "personal" : "business",
           role: {
             id: role._id,
             name: role.name,
@@ -578,13 +634,19 @@ export const getCurrentUser = query({
     );
 
     // Get the default/current organization
-    const validOrganizations = organizations.filter(Boolean);
+    const validOrganizations = organizations.filter(
+      (org): org is NonNullable<typeof org> => org !== null
+    );
+    const activeOrganizations = validOrganizations.filter((org) => org.isActive);
 
-    // If user has no defaultOrgId but has organizations, use the first one
-    // (Frontend should call setDefaultOrganization mutation to persist this)
-    const currentOrg = user.defaultOrgId
-      ? validOrganizations.find(org => org?.id === user.defaultOrgId)
-      : validOrganizations[0]; // Fallback to first org
+    // Prefer the persisted default, but fall back to an active organization if needed.
+    const preferredOrg = user.defaultOrgId
+      ? validOrganizations.find((org) => org?.id === user.defaultOrgId)
+      : activeOrganizations[0] || validOrganizations[0];
+    const currentOrg =
+      preferredOrg && preferredOrg.isActive
+        ? preferredOrg
+        : activeOrganizations[0] || preferredOrg;
 
     return {
       id: user._id,

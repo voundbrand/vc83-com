@@ -9,7 +9,7 @@
  * existing accounts via OAuth.
  */
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 const generatedApi: any = require("../../_generated/api");
@@ -140,6 +140,31 @@ async function ensureOrganizationBootstrapRecords(
       updatedAt: Date.now(),
     });
   }
+}
+
+type OAuthBetaAccessStatus = "approved" | "pending" | "rejected" | "none";
+
+function normalizeOptionalText(value?: string | null): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function throwBetaCodeValidationError(reason?: string): never {
+  const resolvedReason = reason || "not_found";
+  throw new ConvexError({
+    code:
+      resolvedReason === "expired"
+        ? "BETA_CODE_EXPIRED"
+        : resolvedReason === "exhausted"
+          ? "BETA_CODE_EXHAUSTED"
+          : resolvedReason === "deactivated"
+            ? "BETA_CODE_DEACTIVATED"
+            : "INVALID_BETA_CODE",
+    message: `Beta code cannot be used (${resolvedReason}).`,
+  });
 }
 
 /**
@@ -372,11 +397,17 @@ export const findOrCreateUserFromOAuth = internalMutation({
     lastName: v.string(),
     organizationName: v.optional(v.string()),
     claimedOrganizationId: v.optional(v.id("organizations")),
+    betaCode: v.optional(v.string()),
+    redemptionChannel: v.optional(v.string()),
+    redemptionSource: v.optional(v.string()),
+    redemptionDeviceType: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     userId: Id<"users">;
     organizationId: Id<"organizations">;
     isNewUser: boolean;
+    betaAccessStatus: OAuthBetaAccessStatus;
+    betaCodeApplied: boolean;
   }> => {
     // Normalize email
     const email = args.email.toLowerCase().trim();
@@ -428,11 +459,54 @@ export const findOrCreateUserFromOAuth = internalMutation({
         userId: existingUser._id,
         organizationId,
         isNewUser: false,
+        betaAccessStatus: (existingUser.betaAccessStatus as OAuthBetaAccessStatus | undefined) || "none",
+        betaCodeApplied: false,
       };
     }
 
-    // Check if beta access gating is enabled
-    const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
+    const normalizedBetaCode = normalizeOptionalText(args.betaCode);
+    const rolloutDecision: {
+      resolvedStatus: "pending" | "approved";
+      supportsBetaCodeAutoApprove: boolean;
+    } = await (ctx as any).runQuery(
+      generatedApi.internal.betaAccess.resolveSignupBetaAccessDecision,
+      {
+        hasValidBetaCode: false,
+      }
+    );
+    const shouldValidateBetaCode = rolloutDecision.supportsBetaCodeAutoApprove;
+    const betaCodeValidation =
+      shouldValidateBetaCode && normalizedBetaCode
+        ? await (ctx as any).runQuery(
+            generatedApi.internal.betaCodes.validateBetaCodeInternal,
+            {
+              code: normalizedBetaCode,
+            }
+          )
+        : null;
+
+    if (
+      shouldValidateBetaCode &&
+      normalizedBetaCode &&
+      (!betaCodeValidation || !betaCodeValidation.isValid || !betaCodeValidation.codeId)
+    ) {
+      throwBetaCodeValidationError(betaCodeValidation?.reason);
+    }
+
+    const betaAccessDecision: {
+      resolvedStatus: "pending" | "approved";
+    } =
+      shouldValidateBetaCode && Boolean(betaCodeValidation?.isValid)
+        ? await (ctx as any).runQuery(
+            generatedApi.internal.betaAccess.resolveSignupBetaAccessDecision,
+            {
+              hasValidBetaCode: true,
+            }
+          )
+        : rolloutDecision;
+    const betaAccessStatus: "pending" | "approved" =
+      betaAccessDecision.resolvedStatus;
+    const now = Date.now();
 
     // Create new user (reuse onboarding logic)
     const userId = await ctx.db.insert("users", {
@@ -441,12 +515,11 @@ export const findOrCreateUserFromOAuth = internalMutation({
       lastName: args.lastName,
       isPasswordSet: false, // OAuth users don't have passwords
       isActive: true,
-      // Set beta access status based on gating setting
-      betaAccessStatus: betaGatingEnabled ? "pending" : "approved",
-      betaAccessRequestedAt: betaGatingEnabled ? Date.now() : undefined,
-      betaAccessApprovedAt: betaGatingEnabled ? undefined : Date.now(),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      betaAccessStatus,
+      betaAccessRequestedAt: betaAccessStatus === "pending" ? now : undefined,
+      betaAccessApprovedAt: betaAccessStatus === "approved" ? now : undefined,
+      createdAt: now,
+      updatedAt: now,
     });
 
     let organizationId: Id<"organizations">;
@@ -554,10 +627,23 @@ export const findOrCreateUserFromOAuth = internalMutation({
       userId,
     });
 
+    if (betaCodeValidation?.isValid && betaCodeValidation.codeId) {
+      await (ctx as any).runMutation(generatedApi.internal.betaCodes.redeemBetaCodeForSignupInternal, {
+        code: betaCodeValidation.code,
+        userId,
+        organizationId,
+        channel: normalizeOptionalText(args.redemptionChannel) || "platform_oauth_signup",
+        source: normalizeOptionalText(args.redemptionSource) || "oauth_signup",
+        deviceType: normalizeOptionalText(args.redemptionDeviceType),
+      });
+    }
+
     return {
       userId,
       organizationId,
       isNewUser: true,
+      betaAccessStatus,
+      betaCodeApplied: Boolean(betaCodeValidation?.isValid),
     };
   },
 });
@@ -606,8 +692,10 @@ export const completeOAuthSignup = action({
       callbackUrl: string;
       provider: "microsoft" | "google" | "github";
       organizationName?: string;
+      betaCode?: string;
       identityClaimToken?: string;
       onboardingChannel?: string;
+      onboardingDeviceType?: string;
       onboardingCampaign?: {
         source?: string;
         medium?: string;
@@ -658,18 +746,6 @@ export const completeOAuthSignup = action({
       );
     }
 
-    // Find or create user
-    const userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
-      email: userInfo.email,
-      firstName: userInfo.name.firstName,
-      lastName: userInfo.name.lastName,
-      organizationName: stateRecord.organizationName,
-      claimedOrganizationId:
-        inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
-          ? inspectedClaim.organizationId
-          : undefined,
-    });
-
     const candidateChannel =
       stateRecord.onboardingChannel ||
       (inspectedClaim?.valid ? inspectedClaim.channel : undefined) ||
@@ -680,25 +756,45 @@ export const completeOAuthSignup = action({
       candidateChannel === "telegram"
         ? candidateChannel
         : "platform_web";
-
+    const signupDeviceType =
+      normalizeOptionalText(stateRecord.onboardingDeviceType) ||
+      (args.sessionType === "cli" ? "cli" : "web");
     const signupCampaign =
       stateRecord.onboardingCampaign && typeof stateRecord.onboardingCampaign === "object"
         ? stateRecord.onboardingCampaign
         : undefined;
+    const signupSource =
+      normalizeOptionalText(signupCampaign?.source) ||
+      normalizeOptionalText(signupCampaign?.referrer) ||
+      `oauth_signup_${args.provider}`;
+
+    // Find or create user
+    const userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
+      email: userInfo.email,
+      firstName: userInfo.name.firstName,
+      lastName: userInfo.name.lastName,
+      organizationName: stateRecord.organizationName,
+      betaCode: stateRecord.betaCode,
+      redemptionChannel: signupChannel,
+      redemptionSource: signupSource,
+      redemptionDeviceType: signupDeviceType,
+      claimedOrganizationId:
+        inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
+          ? inspectedClaim.organizationId
+          : undefined,
+    });
 
     // For new users, trigger additional onboarding tasks (async, don't block login)
     if (userResult.isNewUser) {
       // Get organization name for async tasks
       const orgName = stateRecord.organizationName || `${userInfo.name.firstName}${userInfo.name.lastName ? ` ${userInfo.name.lastName}` : ''}'s Organization`;
 
-      // Check if beta gating is enabled
-      const betaGatingEnabled = await (ctx as any).runQuery(generatedApi.internal.betaAccess.isBetaGatingEnabled, {});
-
-      if (betaGatingEnabled) {
+      if (userResult.betaAccessStatus === "pending") {
         // Send beta access request notifications (async)
         await Promise.all([
           // Notify sales team about beta request
           (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+            userId: userResult.userId,
             email: userInfo.email,
             firstName: userInfo.name.firstName,
             lastName: userInfo.name.lastName,
@@ -761,10 +857,60 @@ export const completeOAuthSignup = action({
             provider: args.provider,
             sessionType: args.sessionType,
             usedIdentityClaim: Boolean(stateRecord.identityClaimToken),
+            betaCodeApplied: userResult.betaCodeApplied,
           },
         });
       } catch (funnelError) {
         console.error("[OAuth Signup] Funnel signup event failed (non-blocking):", funnelError);
+      }
+
+      try {
+        await (ctx as any).runMutation(
+          generatedApi.internal.onboarding.nurtureScheduler.startNurtureJourney,
+          {
+            organizationId: userResult.organizationId,
+            userId: userResult.userId,
+            sourceChannel: signupChannel,
+            preferredChannel: signupChannel,
+            firstWinSeededAt:
+              userResult.betaAccessStatus === "approved" ? Date.now() : undefined,
+            metadata: {
+              signupMethod: "oauth_signup",
+              provider: args.provider,
+              sessionType: args.sessionType,
+              betaAccessStatus: userResult.betaAccessStatus,
+            },
+            startReason: "oauth_signup_complete",
+          }
+        );
+      } catch (nurtureError) {
+        console.error(
+          "[OAuth Signup] Failed to initialize Day 0-3 nurture journey (non-blocking):",
+          nurtureError
+        );
+      }
+
+      const referralCode =
+        typeof signupCampaign?.referrer === "string"
+          ? signupCampaign.referrer.trim()
+          : "";
+      if (referralCode.length > 0) {
+        try {
+          await (ctx as any).runMutation(
+            generatedApi.internal.credits.index.trackReferralSignupConversionInternal,
+            {
+              referralCode,
+              referredUserId: userResult.userId,
+              referredOrganizationId: userResult.organizationId,
+              source: "oauth_signup",
+            }
+          );
+        } catch (referralError) {
+          console.error(
+            "[OAuth Signup] Referral attribution failed (non-blocking):",
+            referralError
+          );
+        }
       }
     }
 
@@ -792,6 +938,20 @@ export const completeOAuthSignup = action({
         };
       }
     };
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: userResult.organizationId,
+      }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: userResult.organizationId,
+        channel: "desktop",
+      }
+    );
 
     // Create session based on sessionType
     if (args.sessionType === "cli") {
@@ -958,8 +1118,10 @@ export const storeOAuthSignupState = action({
     callbackUrl: v.string(),
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
+    betaCode: v.optional(v.string()),
     identityClaimToken: v.optional(v.string()),
     onboardingChannel: v.optional(v.string()),
+    onboardingDeviceType: v.optional(v.string()),
     onboardingCampaign: v.optional(v.any()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
@@ -973,8 +1135,10 @@ export const storeOAuthSignupState = action({
       callbackUrl: args.callbackUrl,
       provider: args.provider,
       organizationName: args.organizationName,
+      betaCode: args.betaCode,
       identityClaimToken: args.identityClaimToken,
       onboardingChannel: args.onboardingChannel,
+      onboardingDeviceType: args.onboardingDeviceType,
       onboardingCampaign: args.onboardingCampaign,
       cliToken: args.cliToken,
       cliState: args.cliState,
@@ -996,8 +1160,10 @@ export const storeOAuthSignupStateInternal = internalMutation({
     callbackUrl: v.string(),
     provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
     organizationName: v.optional(v.string()),
+    betaCode: v.optional(v.string()),
     identityClaimToken: v.optional(v.string()),
     onboardingChannel: v.optional(v.string()),
+    onboardingDeviceType: v.optional(v.string()),
     onboardingCampaign: v.optional(v.any()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
@@ -1011,8 +1177,10 @@ export const storeOAuthSignupStateInternal = internalMutation({
       callbackUrl: args.callbackUrl,
       provider: args.provider,
       organizationName: args.organizationName,
+      betaCode: args.betaCode,
       identityClaimToken: args.identityClaimToken,
       onboardingChannel: args.onboardingChannel,
+      onboardingDeviceType: args.onboardingDeviceType,
       onboardingCampaign: args.onboardingCampaign,
       cliToken: args.cliToken,
       cliState: args.cliState,
@@ -1037,8 +1205,10 @@ export const getOAuthSignupState = action({
     callbackUrl: string;
     provider: "microsoft" | "google" | "github";
     organizationName?: string;
+    betaCode?: string;
     identityClaimToken?: string;
     onboardingChannel?: string;
+    onboardingDeviceType?: string;
     onboardingCampaign?: {
       source?: string;
       medium?: string;
@@ -1080,8 +1250,10 @@ export const getOAuthSignupStateInternal = internalQuery({
       callbackUrl: stateRecord.callbackUrl,
       provider: stateRecord.provider,
       organizationName: stateRecord.organizationName,
+      betaCode: stateRecord.betaCode,
       identityClaimToken: stateRecord.identityClaimToken,
       onboardingChannel: stateRecord.onboardingChannel,
+      onboardingDeviceType: stateRecord.onboardingDeviceType,
       onboardingCampaign: stateRecord.onboardingCampaign,
       cliToken: stateRecord.cliToken,
       cliState: stateRecord.cliState,

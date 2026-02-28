@@ -150,3 +150,31 @@ export const deleteSession = internalMutation({
     }
   },
 });
+
+/**
+ * Resolve platform session context
+ *
+ * Used by auth profile refresh endpoints to map session -> user/org.
+ */
+export const resolveSessionContext = internalQuery({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSessionId = ctx.db.normalizeId("sessions", args.sessionId);
+    if (!normalizedSessionId) {
+      return null;
+    }
+
+    const session = await ctx.db.get(normalizedSessionId);
+    if (!session) {
+      return null;
+    }
+
+    return {
+      sessionId: normalizedSessionId,
+      userId: session.userId,
+      organizationId: session.organizationId,
+    };
+  },
+});

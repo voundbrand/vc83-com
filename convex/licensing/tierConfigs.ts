@@ -708,7 +708,7 @@ export const PRO_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
-    aiByokEnabled: true,
+    aiByokEnabled: false,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -949,7 +949,7 @@ export const STARTER_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
-    aiByokEnabled: true,
+    aiByokEnabled: false,
 
     // Compliance
     gdprToolsEnabled: true,
@@ -1188,7 +1188,7 @@ export const PROFESSIONAL_TIER: TierConfig = {
 
     // AI
     aiEnabled: true,
-    aiByokEnabled: true,
+    aiByokEnabled: false,
 
     // Compliance
     gdprToolsEnabled: true,

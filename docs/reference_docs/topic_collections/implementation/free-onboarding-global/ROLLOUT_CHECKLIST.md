@@ -1,58 +1,99 @@
-# Free Onboarding Global Rollout Checklist
+# Free Onboarding Global V2 Launch Checklist
 
-**Date:** 2026-02-17  
-**Queue row:** `FOG-012`  
-**Scope:** Final hardening and release closeout for Telegram, webchat, and `native_guest` onboarding channels.
+**Date:** 2026-02-25 (re-validated)  
+**Queue row:** `FOG2-014`  
+**Scope:** Final verification, documentation closeout, and production launch acceptance for onboarding-v2 rollout controls.
+
+---
+
+## Top closeout risks
+
+1. Rollout-stage or kill-switch drift causing unintended auto-approval behavior.
+2. Regression to Telegram/WhatsApp/Slack/SMS onboarding bootstrap or first-message latency tracking.
+3. Runbook/document drift that slows incident rollback response.
 
 ---
 
 ## Preconditions
 
-1. All `P0` queue tasks are `DONE` or `BLOCKED`.
-2. Identity continuity stack is active (`anonymousIdentityLedger`, `anonymousClaimTokens`, authenticated claim endpoint).
-3. Abuse controls are active on all public channels (`webchat`, `native_guest`, `telegram`).
-4. Quinn onboarding template remains the active cross-channel onboarding router.
+1. All prior `P0` tasks are `DONE` or `BLOCKED`.
+2. `FOG2-013` is `DONE` and rollout policy controls are live.
+3. Kill-switch and rollback commands in `MASTER_PLAN.md` remain source-of-truth and unchanged.
+4. Channel handlers and first-message latency telemetry remain unchanged by this closeout row.
 
 ---
 
-## Staged Exposure Plan
+## Verification record (FOG2-014)
 
-1. **Stage 0 (internal canary):** platform org only, validate end-to-end claim flow and conversion CTA rendering.
-2. **Stage 1 (webchat first):** enable webchat placements for limited campaign traffic and monitor abuse/challenge rates.
-3. **Stage 2 (native desktop guest):** expand native guest launcher availability after stage 1 stability.
-4. **Stage 3 (telegram expansion):** increase Telegram onboarding traffic only after stage 1/2 quality gates hold.
-5. **Stage 4 (full exposure):** all three channels active with shared funnel attribution monitoring.
-
----
-
-## Channel Kill Switches and Rollback Paths
-
-| Channel | Immediate kill switch | Rollback path |
-|---|---|---|
-| `webchat` | Disable `webchat` in active agent `channelBindings` and stop new widget exposure. Emergency fallback: edge block `POST /api/v1/webchat/message`. | Re-enable channel binding on a known-good active agent, verify `GET /api/v1/webchat/config/:agentId`, then re-open widget placements in small slices. |
-| `native_guest` | Disable `native_guest` in active agent `channelBindings` (causes `/api/native-guest/config` to fail closed with 503). Emergency fallback: edge block `POST /api/v1/native-guest/message`. | Restore `native_guest` channel binding and confirm desktop config bootstrap plus message round-trip before relaunch. |
-| `telegram` | Pause inbound at bot level (remove/disable Telegram webhook or disconnect custom bot binding) to halt new Telegram messages. | Restore webhook/binding, send controlled `/start` validation messages, then reopen traffic gradually by campaign/source. |
+| Command | Result |
+|---|---|
+| `npm run typecheck` | Passed (exit `0`) |
+| `npm run lint` | Passed with `3261 problems (0 errors, 3261 warnings)` |
+| `npm run test:unit` | Passed: `Test Files 136 passed | 4 skipped (140)`; `Tests 665 passed | 80 skipped (745)` |
+| `npm run docs:guard` | Passed: `Docs guard passed.` |
 
 ---
 
-## Global Rollback Guardrails
+## Production acceptance checklist
 
-1. Do not delete identity continuity data during rollback (`webchatSessions`, `anonymousIdentityLedger`, `anonymousClaimTokens`).
-2. Keep claim consume endpoint active during rollback window so already-issued claim tokens can complete account linking.
-3. Keep abuse signal logging enabled to preserve forensic visibility while channels are throttled or paused.
-4. If channel binding drift is detected, re-seed the canonical onboarding agent/template before re-exposure.
-
----
-
-## Monitoring and Go/No-Go Signals
-
-1. Funnel events remain monotonic and attributable:
-   - `onboarding.funnel.first_touch`
-   - `onboarding.funnel.activation`
+1. Confirm policy state in Super Admin and by querying `betaAccess.getBetaGatingStatus`.
+2. Verify target rollout state is explicit:
+   - `rollout.configuredRolloutStage` is intentional for the release window.
+   - `rollout.effectiveRolloutStage` matches expectation before traffic expansion.
+3. Run controlled signup spot checks:
+   - no-code signup remains pending when gate is on,
+   - valid beta code signup is approved in `v2_beta_code_auto_approve`.
+4. Run channel smoke checks without handler edits:
+   - Telegram, WhatsApp, Slack, and SMS first inbound messages still route normally,
+   - `onboarding.funnel.channel_first_message_latency` events are still emitted.
+5. Keep telemetry watch active during launch window:
    - `onboarding.funnel.signup`
-   - `onboarding.funnel.claim`
-   - `onboarding.funnel.upgrade`
-   - `onboarding.funnel.credit_purchase`
-2. Abuse indicators remain within expected bands (challenge rate, blocked rate, repeated-message spikes).
-3. Claim success rate for guest-to-auth continuity stays stable after each exposure stage.
-4. Signed-in assistant flows remain unaffected (no auth-gate regressions for existing users).
+   - `onboarding.funnel.channel_first_message_latency`
+6. Publish go/no-go decision in release log with operator on-call owner.
+
+---
+
+## Kill-switch + rollback contract (unchanged from FOG2-013)
+
+Runbook source of truth: `MASTER_PLAN.md` -> `FOG2-013 Rollout + Rollback Runbook` (`./MASTER_PLAN.md#fog2-013-rollout--rollback-runbook`).
+
+1. Emergency stop:
+   - `betaAccess.setBetaOnboardingKillSwitch({ enabled: true })`
+2. Verify rollback effect:
+   - `betaAccess.getBetaGatingStatus`
+   - Confirm `rollout.effectiveRolloutStage === "legacy_manual_approval"`.
+3. Force explicit legacy state if needed:
+   - `betaAccess.setBetaOnboardingRolloutControls({ rolloutStage: "legacy_manual_approval", killSwitchForceLegacyManualApproval: true })`.
+4. Recovery path:
+   - disable kill switch first,
+   - re-promote `rolloutStage` to `v2_beta_code_auto_approve` only after validation checks pass.
+5. Constraint:
+   - do not alter Telegram/WhatsApp/Slack/SMS handlers or first-message telemetry in rollback execution.
+
+---
+
+## Closeout decision
+
+1. `FOG2-014` is complete when:
+   - verification commands pass,
+   - this checklist is published,
+   - workstream docs are synchronized,
+   - kill-switch/rollback contract is confirmed unchanged.
+2. Current state: `FOG2-014` is `DONE` after typecheck remediation in `convex/ai/agentExecution.ts` and successful rerun of all verification commands.
+3. Lane `F` has no promotable rows in this scope.
+
+---
+
+## Lane G convergence guardrails
+
+Use these guardrails when executing `FOG2-015` and `FOG2-016`.
+
+Checkpoint (2026-02-27): `FOG2-015` is `DONE`; `FOG2-016` is `DONE`.
+
+1. Preserve `FOG2-013` rollout/kill-switch/rollback contracts unchanged; rollback remains policy-only.
+2. Enforce clone-first onboarding birthing and keep operator-default free-form create paths hidden.
+3. Set `isPrimary=true` for first successful clone when no primary exists in `orgId + userId`.
+4. Require capability-limit snapshot visibility at birthing handoff (`available now` vs `blocked`).
+5. Route no-fit outcomes to purchase-only custom-agent concierge with exact terms: `€5,000 minimum`, `€2,500 deposit`, `includes 90-minute onboarding with engineer`.
+6. Regression suite for these contracts is now required and landed in `tests/unit/onboarding/cloneFirstBirthingRegression.test.ts`.
+7. Lane `G` closeout state: no promotable rows in scope `FOG2-015`..`FOG2-016`.

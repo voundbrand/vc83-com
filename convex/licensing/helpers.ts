@@ -941,59 +941,82 @@ export const getStorePricingContract = query({
         {
           key: "monthly_cycle",
           title: "Monthly billing",
-          detail: "Monthly plan prices bill every month. Displayed totals include VAT.",
+          detail:
+            "Monthly plans are charged once per month. This option gives you flexibility if your usage changes throughout the year.",
           source: "convex/stripe/platformCheckout.ts",
         },
         {
           key: "annual_cycle",
           title: "Annual billing",
-          detail: "Annual billing is modeled as 10 months billed for 12 months of access in store-facing estimates.",
+          detail:
+            "Annual plans are charged once per year and include discounted pricing compared with paying month-to-month.",
           source: "convex/stripe/stripePrices.ts",
         },
         {
           key: "proration",
           title: "Plan changes and proration",
-          detail: "Upgrades and downgrades are resolved through Stripe subscription management workflows.",
+          detail:
+            "When you change plans mid-cycle, your invoice is automatically adjusted. Unused time is credited and the new plan is prorated for the rest of the billing period.",
           source: "convex/stripe/platformCheckout.ts",
         },
         {
           key: "vat_display",
           title: "VAT-inclusive display",
-          detail: "Store pricing copy and calculator outputs are VAT-inclusive.",
+          detail:
+            "All prices on this page are shown VAT-inclusive. Final tax treatment can vary by billing country and valid business tax IDs.",
           source: "docs/reference_docs/billing/tax-system.md",
         },
       ],
       trialPolicy: {
-        tier: "scale",
-        runtimeTier: "agency",
-        durationDays: 14,
-        summary: "Scale starts with a real 14-day trial enforced by the store checkout path.",
-        source: "convex/stripe/trialCheckout.ts",
+        offers: [
+          {
+            tier: "pro",
+            durationDays: 14,
+            summary: "New customers on Free can try Pro for 14 days before billing starts.",
+          },
+          {
+            tier: "scale",
+            durationDays: 14,
+            summary: "New customers on Free can try Scale for 14 days before billing starts.",
+          },
+        ],
+        source: "convex/stripe/platformCheckout.ts",
       },
       faq: [
         {
-          key: "active_tiers_only",
-          question: "Why are only Free, Pro, Scale, and Enterprise shown?",
-          answer: "These are the active store tiers. Legacy tiers are preserved for compatibility but hidden from pricing UX.",
+          key: "plan_switching",
+          question: "Can I change plans later?",
+          answer:
+            "Yes. You can upgrade or downgrade at any time. Billing is automatically prorated when a change happens in the middle of a cycle.",
           source: "convex/licensing/tierConfigs.ts",
         },
         {
-          key: "scale_runtime_name",
-          question: "Why does Scale map to agency in backend metadata?",
-          answer: "Scale is the customer-facing name while runtime contracts remain keyed as agency for migration safety.",
-          source: "convex/licensing/tierConfigs.ts",
+          key: "annual_discount",
+          question: "What is the difference between monthly and annual billing?",
+          answer:
+            "Monthly billing renews each month, while annual billing renews once per year with discounted pricing.",
+          source: "convex/stripe/stripePrices.ts",
         },
         {
           key: "vat_mode",
-          question: "Do displayed prices include VAT?",
-          answer: "Yes. Store-facing plan and calculator totals are presented as VAT-inclusive.",
+          question: "Do listed prices include VAT?",
+          answer:
+            "Yes. Prices shown in the store are VAT-inclusive. Your final invoice reflects the tax rules for your billing country.",
           source: "docs/reference_docs/billing/tax-system.md",
         },
         {
-          key: "credits_source",
-          question: "How are credits calculated?",
-          answer: "Credits use deterministic volume tiers and bonuses with shared frontend/backend calculation rules.",
+          key: "credits_usage",
+          question: "How do credit top-ups work?",
+          answer:
+            "Credit top-ups are one-time purchases that add usage credits to your workspace. You can buy them whenever you need extra capacity.",
           source: "src/lib/credit-pricing.ts",
+        },
+        {
+          key: "byok_availability",
+          question: "Which plans include Bring Your Own Key (BYOK)?",
+          answer:
+            "BYOK is available on Scale and Enterprise. It is not included on Free or Pro.",
+          source: "convex/stripe/byokCommercialPolicy.ts",
         },
       ],
     };
@@ -1034,7 +1057,7 @@ function getFeatureRequiredTier(featureKey: keyof TierConfig["features"]): strin
   const featureTierMap: Partial<Record<keyof TierConfig["features"], string>> = {
     // Pro tier features
     aiEnabled: "Pro (€29/month)",
-    aiByokEnabled: "Pro (€29/month)",
+    aiByokEnabled: "Scale (€299/month)",
     stripeConnectEnabled: "Pro (€29/month)",
     invoicePaymentEnabled: "Pro (€29/month)",
     manualPaymentEnabled: "Pro (€29/month)",

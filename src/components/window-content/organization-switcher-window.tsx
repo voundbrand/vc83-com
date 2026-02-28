@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useOrganizations, useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { useQuery, useAction } from "convex/react";
-import { Building2, Check, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { Building2, Check, ChevronRight, Plus, Loader2, User, GitBranch } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 const generatedApi = require("../../../convex/_generated/api");
 
@@ -32,10 +32,13 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
 
   const createSubOrg = useAction(generatedApi.api.organizations.createSubOrganization);
   const createPlatformOrg = useAction(generatedApi.api.organizations.createOrganization);
+  const createBusinessOrg = useAction(generatedApi.api.organizations.createBusinessOrganization);
 
   const canCreateSubOrg = license?.features?.subOrgsEnabled === true;
   const canCreatePlatformOrg = canPerform("create_system_organization");
-  const canCreateAnyOrg = canCreateSubOrg || canCreatePlatformOrg;
+  const canCreateBusinessOrg = Boolean(sessionId);
+  const canCreateTopLevelOrg = canCreatePlatformOrg || canCreateBusinessOrg;
+  const canCreateAnyOrg = canCreateSubOrg || canCreateTopLevelOrg;
 
   // Filter to only show active organizations
   const activeOrganizations = organizations.filter(org => org.isActive);
@@ -69,10 +72,15 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
             parentOrganizationId,
             businessName: newOrgName.trim(),
           })
-        : await createPlatformOrg({
-            sessionId,
-            businessName: newOrgName.trim(),
-          });
+        : canCreatePlatformOrg
+          ? await createPlatformOrg({
+              sessionId,
+              businessName: newOrgName.trim(),
+            })
+          : await createBusinessOrg({
+              sessionId,
+              businessName: newOrgName.trim(),
+            });
 
       if (result.success) {
         // Switch to the new organization
@@ -124,6 +132,14 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
         ) : (
           activeOrganizations.map((org) => {
             const isCurrent = currentOrg?.id === org.id;
+            const workspaceAccent = org.isPersonalWorkspace
+              ? "var(--win95-highlight)"
+              : "var(--success-green, #2f8f46)";
+            const rowBackground = isCurrent
+              ? "var(--win95-bg-light)"
+              : org.isPersonalWorkspace
+                ? "rgba(28, 93, 188, 0.07)"
+                : "var(--win95-input-bg)";
             return (
               <button
                 key={org.id}
@@ -131,7 +147,7 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
                 className="w-full px-3 py-2.5 flex items-center gap-3 border-2 transition-all"
                 style={{
                   borderColor: isCurrent ? "var(--win95-highlight)" : "var(--win95-border)",
-                  background: isCurrent ? "var(--win95-bg-light)" : "var(--win95-input-bg)",
+                  background: rowBackground,
                 }}
               >
                 {/* Status indicator */}
@@ -147,12 +163,29 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
 
                 {/* Organization info */}
                 <div className="flex-1 text-left">
-                  <p
-                    className="text-sm font-semibold truncate"
-                    style={{ color: isCurrent ? "var(--win95-highlight)" : "var(--win95-text)" }}
-                  >
-                    {org.name}
-                  </p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p
+                      className="text-sm font-semibold truncate"
+                      style={{ color: isCurrent ? "var(--win95-highlight)" : "var(--win95-text)" }}
+                    >
+                      {org.name}
+                    </p>
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 border rounded-sm"
+                      style={{
+                        borderColor: workspaceAccent,
+                        color: workspaceAccent,
+                        background: "rgba(255, 255, 255, 0.45)",
+                      }}
+                    >
+                      {org.isPersonalWorkspace ? (
+                        <User size={10} />
+                      ) : (
+                        <Building2 size={10} />
+                      )}
+                      {org.parentOrganizationId && <GitBranch size={10} />}
+                    </span>
+                  </div>
                   {org.slug && (
                     <p className="text-xs truncate" style={{ color: "var(--neutral-gray)" }}>
                       /{org.slug}
@@ -178,7 +211,7 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
         >
           {showCreateForm ? (
             <div className="space-y-2">
-              {canCreateSubOrg && canCreatePlatformOrg && (
+              {canCreateSubOrg && canCreateTopLevelOrg && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => setCreateMode("platform")}
@@ -278,7 +311,7 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
             </div>
           ) : (
             <div className="space-y-2">
-              {canCreatePlatformOrg && (
+              {canCreateTopLevelOrg && (
                 <button
                   onClick={() => openCreateForm("platform")}
                   className="w-full px-3 py-2 text-sm font-semibold border-2 flex items-center justify-center gap-2 hover:opacity-80 transition-opacity"
@@ -317,11 +350,11 @@ export function OrganizationSwitcherWindow({ onClose }: OrganizationSwitcherWind
         style={{ borderColor: "var(--win95-border)" }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          {canCreateSubOrg && canCreatePlatformOrg
+          {canCreateSubOrg && canCreateTopLevelOrg
             ? t("ui.start_menu.org_switcher.footer_switch_or_new_org")
             : canCreateSubOrg
               ? t("ui.start_menu.org_switcher.footer_switch_or_sub")
-              : canCreatePlatformOrg
+              : canCreateTopLevelOrg
                 ? t("ui.start_menu.org_switcher.footer_switch_or_platform")
                 : t("ui.start_menu.org_switcher.footer_switch_only")}
         </p>
