@@ -5,11 +5,13 @@
  * Credits are the single currency for all AI/agent/automation usage.
  *
  * Credit Sources:
- * - Daily: 5 credits granted on login, expire at end of day (no rollover)
+ * - Gifted: Referral/redeem/admin grants (may include legacy daily grants)
  * - Monthly: Granted at billing cycle start, expire at end of cycle (no rollover)
  * - Purchased: Never expire while subscription is active (30-day grace if lapsed)
  *
- * Consumption Order: Daily -> Monthly -> Purchased
+ * Canonical Consumption Order: Gifted -> Monthly -> Purchased
+ * Legacy compatibility: historical `daily` bucket can co-exist and is treated
+ * as gifted-equivalent balance during transitional reads/consumption.
  *
  * See: docs/pricing-and-trials/NEW_PRICING_PLAN.md
  */
@@ -26,9 +28,12 @@ import { v } from "convex/values";
 export const creditBalances = defineTable({
   organizationId: v.id("organizations"),
 
-  // Daily credits (reset on login, max from tier config)
+  // Legacy daily credits (kept for backward compatibility)
   dailyCredits: v.number(),
   dailyCreditsLastReset: v.number(), // Timestamp of last daily reset
+
+  // Canonical gifted bucket (referrals/redeem/admin/manual grants)
+  giftedCredits: v.optional(v.number()),
 
   // Monthly credits (from subscription tier)
   monthlyCredits: v.number(),        // Remaining monthly credits
@@ -61,6 +66,7 @@ export const creditTransactions = defineTable({
   // Transaction type
   type: v.union(
     v.literal("daily_grant"),      // Daily login credit grant
+    v.literal("gift_grant"),       // Gifted/referral/redeem/admin grant
     v.literal("monthly_grant"),    // Monthly billing cycle grant
     v.literal("purchase"),         // Credit pack purchase
     v.literal("consumption"),      // Credit used for an action
@@ -75,6 +81,7 @@ export const creditTransactions = defineTable({
 
   // Which credit pool was affected
   creditSource: v.union(
+    v.literal("gifted"),
     v.literal("daily"),
     v.literal("monthly"),
     v.literal("purchased")
@@ -82,11 +89,46 @@ export const creditTransactions = defineTable({
 
   // Running balance after this transaction
   balanceAfter: v.object({
+    gifted: v.optional(v.number()),
     daily: v.number(),
     monthly: v.number(),
     purchased: v.number(),
     total: v.number(),
   }),
+
+  // Immutable reason taxonomy for deterministic ledger semantics
+  reason: v.optional(v.union(
+    v.literal("legacy_daily_grant"),
+    v.literal("gifted_referral_reward"),
+    v.literal("gifted_redeem_code"),
+    v.literal("gifted_admin_grant"),
+    v.literal("gifted_migration_adjustment"),
+    v.literal("monthly_plan_allocation"),
+    v.literal("monthly_manual_adjustment"),
+    v.literal("purchased_checkout_pack"),
+    v.literal("purchased_manual_adjustment"),
+    v.literal("consumption_runtime_action"),
+    v.literal("consumption_parent_fallback"),
+    v.literal("legacy_migration")
+  )),
+
+  // Optional idempotency for grant/write workflows
+  idempotencyKey: v.optional(v.string()),
+
+  // Optional expiry metadata for gifted/monthly semantics
+  expiresAt: v.optional(v.number()),
+  expiryPolicy: v.optional(
+    v.union(
+      v.literal("none"),
+      v.literal("fixed_timestamp"),
+      v.literal("billing_period_end")
+    )
+  ),
+
+  // Scope attribution for personal-vs-org credit semantics
+  scopeType: v.optional(v.union(v.literal("organization"), v.literal("personal"))),
+  scopeOrganizationId: v.optional(v.id("organizations")),
+  scopeUserId: v.optional(v.id("users")),
 
   // Action details (for consumption transactions)
   action: v.optional(v.string()), // "agent_message", "workflow_trigger", "sequence_step", etc.
@@ -110,6 +152,7 @@ export const creditTransactions = defineTable({
   .index("by_organization", ["organizationId"])
   .index("by_organization_type", ["organizationId", "type"])
   .index("by_organization_created", ["organizationId", "createdAt"])
+  .index("by_organization_idempotency", ["organizationId", "idempotencyKey"])
   .index("by_user", ["userId"])
   .index("by_stripe_payment", ["stripePaymentIntentId"]);
 
@@ -152,3 +195,72 @@ export const creditPurchases = defineTable({
   .index("by_organization", ["organizationId"])
   .index("by_payment_intent", ["stripePaymentIntentId"])
   .index("by_purchased_at", ["organizationId", "purchasedAt"]);
+
+/**
+ * CREDIT REDEMPTION CODES
+ *
+ * Super-admin managed code grants for gifted credits.
+ * Policies are enforced at redemption time and fail closed by default.
+ */
+export const creditRedemptionCodes = defineTable({
+  // Normalized code format (uppercase, trimmed)
+  code: v.string(),
+
+  // Lifecycle state
+  status: v.union(
+    v.literal("active"),
+    v.literal("revoked"),
+    v.literal("expired"),
+    v.literal("exhausted")
+  ),
+
+  // Gifted credit grant on successful redemption
+  creditsAmount: v.number(),
+
+  // Usage policy
+  maxRedemptions: v.number(),
+  redemptionCount: v.number(),
+  expiresAt: v.optional(v.number()),
+
+  // Targeting restrictions (optional, fail closed when set and not matched)
+  allowedTierNames: v.optional(v.array(v.string())),
+  allowedOrganizationIds: v.optional(v.array(v.id("organizations"))),
+  allowedUserIds: v.optional(v.array(v.id("users"))),
+
+  // Admin metadata
+  description: v.optional(v.string()),
+  createdByUserId: v.id("users"),
+  revokedByUserId: v.optional(v.id("users")),
+  revokeReason: v.optional(v.string()),
+
+  // Timestamps
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  revokedAt: v.optional(v.number()),
+  lastRedeemedAt: v.optional(v.number()),
+})
+  .index("by_code", ["code"])
+  .index("by_status", ["status"])
+  .index("by_created_at", ["createdAt"])
+  .index("by_expires_at", ["expiresAt"]);
+
+/**
+ * CREDIT CODE REDEMPTIONS
+ *
+ * Auditable per-redeem events linked to credit transactions.
+ */
+export const creditCodeRedemptions = defineTable({
+  codeId: v.id("creditRedemptionCodes"),
+  code: v.string(),
+  redeemedByUserId: v.id("users"),
+  redeemedByOrganizationId: v.id("organizations"),
+  creditsGranted: v.number(),
+  creditTransactionId: v.id("creditTransactions"),
+  idempotencyKey: v.string(),
+  redeemedAt: v.number(),
+})
+  .index("by_code_id", ["codeId"])
+  .index("by_code_id_user", ["codeId", "redeemedByUserId"])
+  .index("by_redeemed_by_org", ["redeemedByOrganizationId"])
+  .index("by_redeemed_by_user", ["redeemedByUserId"])
+  .index("by_redeemed_at", ["redeemedAt"]);
