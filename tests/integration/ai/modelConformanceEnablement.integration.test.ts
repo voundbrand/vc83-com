@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
 import { evaluateModelEnablementReleaseGates } from "../../../convex/ai/modelEnablementGates";
+import { getProviderPluginManifestConformanceIssues } from "../../../convex/ai/providerRegistry";
 
 describe("model conformance + enablement integration", () => {
   it("blocks release enablement when conformance metrics breach thresholds", () => {
@@ -83,5 +84,57 @@ describe("model conformance + enablement integration", () => {
 
     expect(gate.passed).toBe(true);
     expect(gate.reasons).toEqual([]);
+  });
+
+  it("fails release enablement when provider plugin manifest contract checks fail closed", () => {
+    const malformedManifestIssues = getProviderPluginManifestConformanceIssues({
+      contractVersion: "ai_provider_plugin_manifest_v1",
+      id: "openai",
+      label: "Broken OpenAI Plugin",
+      discoverySource: "provider_api",
+      supportsCustomBaseUrl: false,
+      adapter: {
+        requestProtocol: "anthropic_messages",
+        supportsToolCalling: true,
+        supportsStructuredOutput: true,
+        requiresToolCallId: true,
+        toolResultField: "tool_call_id",
+        reasoningParamKind: "none",
+      },
+    });
+
+    expect(malformedManifestIssues.length).toBeGreaterThan(0);
+
+    const gate = evaluateModelEnablementReleaseGates({
+      model: {
+        modelId: "openai/gpt-4o-mini",
+        validationStatus: "validated",
+        testResults: {
+          basicChat: true,
+          toolCalling: true,
+          complexParams: true,
+          multiTurn: true,
+          edgeCases: true,
+          contractChecks: malformedManifestIssues.length === 0,
+          conformance: evaluateModelConformance({
+            samples: [
+              {
+                scenarioId: "good_case",
+                toolCallParsed: true,
+                schemaFidelity: true,
+                refusalHandled: true,
+                latencyMs: 900,
+                totalTokens: 2200,
+                costUsd: 0.12,
+              },
+            ],
+          }),
+        },
+      },
+      operationalReviewAcknowledged: true,
+    });
+
+    expect(gate.passed).toBe(false);
+    expect(gate.missingHardGateChecks).toContain("contractChecks");
   });
 });

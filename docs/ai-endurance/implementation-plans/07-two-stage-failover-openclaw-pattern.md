@@ -15,7 +15,7 @@ This plan translates patterns from:
 
 - Model fallback exists but is static (`convex/ai/retryPolicy.ts`).
 - No explicit auth-profile rotation layer before model fallback.
-- Runtime uses a single OpenRouter key path in critical flows.
+- Runtime still carries legacy single-provider key-path assumptions (historically OpenRouter) in critical flows.
 
 ## Gaps
 
@@ -29,6 +29,7 @@ This plan translates patterns from:
   2. rotate to next auth profile for same provider
   3. apply cooldown/disable to failing profile
   4. fallback to next model only when provider profile pool is exhausted
+- Control-plane policy remains provider-agnostic; OpenRouter-specific adapter behavior stays scoped to the OpenRouter integration path.
 
 ## Implementation chunks
 

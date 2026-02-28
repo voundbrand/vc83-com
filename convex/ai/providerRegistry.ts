@@ -7,6 +7,9 @@ import {
 import {
   buildEnvApiKeysByProvider,
   getDefaultProviderBaseUrl,
+  getProviderAdapterContractConformanceIssues,
+  getProviderAdapterContractSnapshot,
+  type ProviderAdapterContractSnapshot,
 } from "./modelAdapters";
 
 export interface AiProviderRegistryEntry {
@@ -15,6 +18,19 @@ export interface AiProviderRegistryEntry {
   discoverySource: "openrouter_catalog" | "provider_api" | "manual";
   supportsCustomBaseUrl: boolean;
   defaultBaseUrl: string;
+}
+
+export const AI_PROVIDER_PLUGIN_MANIFEST_VERSION =
+  "ai_provider_plugin_manifest_v1" as const;
+
+export interface AiProviderPluginManifest {
+  contractVersion?: typeof AI_PROVIDER_PLUGIN_MANIFEST_VERSION;
+  id: AiProviderId;
+  label: string;
+  discoverySource: AiProviderRegistryEntry["discoverySource"];
+  supportsCustomBaseUrl: boolean;
+  defaultBaseUrl?: string;
+  adapter: Omit<ProviderAdapterContractSnapshot, "providerId">;
 }
 
 export interface ProviderAuthProfileBindingLike {
@@ -97,69 +113,113 @@ const BILLING_SOURCE_VALUES = new Set<AiBillingSource>([
   "private",
 ]);
 
-const BUILT_IN_PROVIDER_ENTRIES: AiProviderRegistryEntry[] = [
+function toPluginAdapterContract(
+  snapshot: ProviderAdapterContractSnapshot
+): AiProviderPluginManifest["adapter"] {
+  const { providerId, ...adapter } = snapshot;
+  void providerId;
+  return adapter;
+}
+
+const BUILT_IN_PROVIDER_PLUGIN_MANIFESTS: AiProviderPluginManifest[] = [
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "openrouter",
     label: "OpenRouter",
     discoverySource: "openrouter_catalog",
     supportsCustomBaseUrl: true,
     defaultBaseUrl: getDefaultProviderBaseUrl("openrouter"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("openrouter")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "openai",
     label: "OpenAI",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("openai"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("openai")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "anthropic",
     label: "Anthropic",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("anthropic"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("anthropic")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "gemini",
     label: "Google Gemini",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("gemini"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("gemini")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "grok",
     label: "xAI Grok",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("grok"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("grok")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "mistral",
     label: "Mistral",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("mistral"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("mistral")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "kimi",
     label: "Kimi",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("kimi"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("kimi")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "elevenlabs",
     label: "ElevenLabs",
     discoverySource: "provider_api",
     supportsCustomBaseUrl: false,
     defaultBaseUrl: getDefaultProviderBaseUrl("elevenlabs"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("elevenlabs")
+    ),
   },
   {
+    contractVersion: AI_PROVIDER_PLUGIN_MANIFEST_VERSION,
     id: "openai_compatible",
     label: "OpenAI-Compatible",
     discoverySource: "manual",
     supportsCustomBaseUrl: true,
     defaultBaseUrl: getDefaultProviderBaseUrl("openai_compatible"),
+    adapter: toPluginAdapterContract(
+      getProviderAdapterContractSnapshot("openai_compatible")
+    ),
   },
 ];
 
@@ -211,6 +271,234 @@ function normalizePriority(value: unknown, fallback: number): number {
   return Math.max(0, Math.floor(value));
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeDiscoverySource(
+  value: unknown
+): AiProviderRegistryEntry["discoverySource"] | null {
+  if (value === "openrouter_catalog") {
+    return "openrouter_catalog";
+  }
+  if (value === "provider_api") {
+    return "provider_api";
+  }
+  if (value === "manual") {
+    return "manual";
+  }
+  return null;
+}
+
+function containsSensitiveManifestKey(key: string): boolean {
+  return /api[_-]?key|token|secret|password/i.test(key);
+}
+
+function collectSensitiveManifestPaths(
+  value: unknown,
+  basePath = ""
+): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const paths: string[] = [];
+  for (const [key, child] of Object.entries(value)) {
+    const path = basePath ? `${basePath}.${key}` : key;
+    if (containsSensitiveManifestKey(key)) {
+      paths.push(path);
+    }
+    paths.push(...collectSensitiveManifestPaths(child, path));
+  }
+
+  return paths;
+}
+
+function parseProviderPluginManifest(value: unknown): {
+  manifest: AiProviderPluginManifest | null;
+  issues: string[];
+} {
+  const issues: string[] = [];
+
+  if (!isRecord(value)) {
+    return {
+      manifest: null,
+      issues: ["manifest must be an object"],
+    };
+  }
+
+  const sensitivePaths = collectSensitiveManifestPaths(value);
+  if (sensitivePaths.length > 0) {
+    issues.push(
+      `manifest must not include credential-like fields (${sensitivePaths.join(
+        ", "
+      )})`
+    );
+  }
+
+  const contractVersion = normalizeString(value.contractVersion);
+  if (
+    contractVersion &&
+    contractVersion !== AI_PROVIDER_PLUGIN_MANIFEST_VERSION
+  ) {
+    issues.push(
+      `manifest.contractVersion must be "${AI_PROVIDER_PLUGIN_MANIFEST_VERSION}"`
+    );
+  }
+
+  const id = normalizeProviderId(value.id);
+  if (!id) {
+    issues.push("manifest.id must be a canonical provider id");
+  }
+
+  const label = normalizeString(value.label);
+  if (!label) {
+    issues.push("manifest.label is required");
+  }
+
+  const discoverySource = normalizeDiscoverySource(value.discoverySource);
+  if (!discoverySource) {
+    issues.push("manifest.discoverySource is invalid");
+  }
+
+  if (typeof value.supportsCustomBaseUrl !== "boolean") {
+    issues.push("manifest.supportsCustomBaseUrl must be boolean");
+  }
+
+  const defaultBaseUrl = normalizeString(value.defaultBaseUrl) ?? undefined;
+
+  const adapterRecord = value.adapter;
+  if (!isRecord(adapterRecord)) {
+    issues.push("manifest.adapter must be an object");
+  }
+
+  const requestProtocol =
+    isRecord(adapterRecord) && typeof adapterRecord.requestProtocol === "string"
+      ? adapterRecord.requestProtocol
+      : null;
+  if (
+    requestProtocol !== "openai_compatible" &&
+    requestProtocol !== "anthropic_messages"
+  ) {
+    issues.push("manifest.adapter.requestProtocol is invalid");
+  }
+
+  const supportsToolCalling =
+    isRecord(adapterRecord) &&
+    typeof adapterRecord.supportsToolCalling === "boolean"
+      ? adapterRecord.supportsToolCalling
+      : null;
+  if (supportsToolCalling === null) {
+    issues.push("manifest.adapter.supportsToolCalling must be boolean");
+  }
+
+  const supportsStructuredOutput =
+    isRecord(adapterRecord) &&
+    typeof adapterRecord.supportsStructuredOutput === "boolean"
+      ? adapterRecord.supportsStructuredOutput
+      : null;
+  if (supportsStructuredOutput === null) {
+    issues.push("manifest.adapter.supportsStructuredOutput must be boolean");
+  }
+
+  const requiresToolCallId =
+    isRecord(adapterRecord) &&
+    typeof adapterRecord.requiresToolCallId === "boolean"
+      ? adapterRecord.requiresToolCallId
+      : null;
+  if (requiresToolCallId === null) {
+    issues.push("manifest.adapter.requiresToolCallId must be boolean");
+  }
+
+  const toolResultField =
+    isRecord(adapterRecord) && typeof adapterRecord.toolResultField === "string"
+      ? adapterRecord.toolResultField
+      : null;
+  if (toolResultField !== "tool_use_id" && toolResultField !== "tool_call_id") {
+    issues.push("manifest.adapter.toolResultField is invalid");
+  }
+
+  const reasoningParamKind =
+    isRecord(adapterRecord) &&
+    typeof adapterRecord.reasoningParamKind === "string"
+      ? adapterRecord.reasoningParamKind
+      : null;
+  if (
+    reasoningParamKind !== "none" &&
+    reasoningParamKind !== "openrouter_reasoning"
+  ) {
+    issues.push("manifest.adapter.reasoningParamKind is invalid");
+  }
+
+  if (issues.length > 0 || !id || !label || !discoverySource) {
+    return {
+      manifest: null,
+      issues,
+    };
+  }
+
+  return {
+    manifest: {
+      contractVersion:
+        contractVersion === AI_PROVIDER_PLUGIN_MANIFEST_VERSION
+          ? AI_PROVIDER_PLUGIN_MANIFEST_VERSION
+          : undefined,
+      id,
+      label,
+      discoverySource,
+      supportsCustomBaseUrl: Boolean(value.supportsCustomBaseUrl),
+      defaultBaseUrl,
+      adapter: {
+        requestProtocol: requestProtocol as AiProviderPluginManifest["adapter"]["requestProtocol"],
+        supportsToolCalling: supportsToolCalling as boolean,
+        supportsStructuredOutput: supportsStructuredOutput as boolean,
+        requiresToolCallId: requiresToolCallId as boolean,
+        toolResultField: toolResultField as AiProviderPluginManifest["adapter"]["toolResultField"],
+        reasoningParamKind:
+          reasoningParamKind as AiProviderPluginManifest["adapter"]["reasoningParamKind"],
+      },
+    },
+    issues,
+  };
+}
+
+export function getProviderPluginManifestSchemaIssues(value: unknown): string[] {
+  return parseProviderPluginManifest(value).issues;
+}
+
+export function getProviderPluginManifestConformanceIssues(
+  value: unknown
+): string[] {
+  const parsed = parseProviderPluginManifest(value);
+  if (!parsed.manifest) {
+    return parsed.issues;
+  }
+
+  const adapterIssues = getProviderAdapterContractConformanceIssues({
+    providerId: parsed.manifest.id,
+    expected: {
+      providerId: parsed.manifest.id,
+      ...parsed.manifest.adapter,
+    },
+  }).map((issue) => `manifest.adapter ${issue}`);
+
+  return [...parsed.issues, ...adapterIssues];
+}
+
+function resolveProviderEntryFromManifest(
+  manifest: AiProviderPluginManifest
+): AiProviderRegistryEntry {
+  return {
+    id: manifest.id,
+    label: manifest.label,
+    discoverySource: manifest.discoverySource,
+    supportsCustomBaseUrl: manifest.supportsCustomBaseUrl,
+    defaultBaseUrl:
+      normalizeString(manifest.defaultBaseUrl) ??
+      getDefaultProviderBaseUrl(manifest.id),
+  };
+}
+
 function getProviderConformanceIssues(
   provider: AiProviderRegistryEntry
 ): string[] {
@@ -253,9 +541,66 @@ function registerProvider(provider: AiProviderRegistryEntry) {
   PROVIDER_REGISTRY[provider.id] = provider;
 }
 
-for (const provider of BUILT_IN_PROVIDER_ENTRIES) {
-  registerProvider(provider);
+export function registerProviderPluginManifest(manifestValue: unknown) {
+  const parsed = parseProviderPluginManifest(manifestValue);
+  const conformanceIssues = getProviderPluginManifestConformanceIssues(
+    manifestValue
+  );
+  if (!parsed.manifest || conformanceIssues.length > 0) {
+    throw new Error(
+      `[AiProviderRegistry] Provider plugin manifest failed conformance checks: ${conformanceIssues.join(
+        "; "
+      )}`
+    );
+  }
+
+  registerProvider(resolveProviderEntryFromManifest(parsed.manifest));
 }
+
+function registerProviderPluginManifestsFromEnv(rawPayload?: string) {
+  const payload = normalizeString(rawPayload);
+  if (!payload) {
+    return;
+  }
+
+  let manifests: unknown;
+  try {
+    manifests = JSON.parse(payload);
+  } catch (error) {
+    throw new Error(
+      `[AiProviderRegistry] Failed to parse AI_PROVIDER_PLUGIN_MANIFESTS_JSON: ${
+        error instanceof Error ? error.message : "invalid_json"
+      }`
+    );
+  }
+
+  if (!Array.isArray(manifests)) {
+    throw new Error(
+      "[AiProviderRegistry] AI_PROVIDER_PLUGIN_MANIFESTS_JSON must be a JSON array"
+    );
+  }
+
+  for (let index = 0; index < manifests.length; index += 1) {
+    const manifest = manifests[index];
+    try {
+      registerProviderPluginManifest(manifest);
+    } catch (error) {
+      throw new Error(
+        `[AiProviderRegistry] Plugin manifest at index ${index} rejected: ${
+          error instanceof Error ? error.message : "unknown_error"
+        }`
+      );
+    }
+  }
+}
+
+for (const manifest of BUILT_IN_PROVIDER_PLUGIN_MANIFESTS) {
+  registerProviderPluginManifest(manifest);
+}
+
+registerProviderPluginManifestsFromEnv(
+  process.env.AI_PROVIDER_PLUGIN_MANIFESTS_JSON
+);
 
 export function getAiProvider(providerId: AiProviderId): AiProviderRegistryEntry {
   const provider = PROVIDER_REGISTRY[providerId];

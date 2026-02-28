@@ -14,6 +14,9 @@ import { config as loadEnv } from "dotenv";
 import { ConvexHttpClient } from "convex/browser";
 import { api, internal } from "../convex/_generated/api";
 import { CRITICAL_TOOL_NAMES } from "../convex/ai/tools/contracts";
+import { OpenRouterClient } from "../convex/ai/openrouter";
+import { detectProvider, buildEnvApiKeysByProvider } from "../convex/ai/modelAdapters";
+import { getToolSchemas } from "../convex/ai/tools/registry";
 import {
   evaluateModelConformance,
   type ModelConformanceSample,
@@ -69,6 +72,24 @@ interface ValidationFixtureContext {
 let validationFixture: ValidationFixtureContext | null = null;
 const CONTACT_SEARCH_CONTRACT_PROMPT =
   "Search contacts using search_contacts with query \"Alice Smith sales department\".";
+const BASIC_CHAT_ACK_TOKEN = "ACK_VALIDATION";
+const MULTI_TURN_CONTEXT_TOKEN_PREFIX = "VCTX";
+
+type ValidationReasoningEffort = "low" | "medium" | "high" | "extra_high";
+
+function resolveValidationReasoningEffort(): ValidationReasoningEffort | undefined {
+  const raw = process.env.MODEL_VALIDATION_REASONING_EFFORT;
+  if (typeof raw !== "string") {
+    return "low";
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "extra_high") {
+    return normalized;
+  }
+  return "low";
+}
+
+const VALIDATION_REASONING_EFFORT = resolveValidationReasoningEffort();
 
 interface ValidationResult {
   basicChat: boolean;
@@ -88,12 +109,251 @@ interface TestResult {
   passed: boolean;
   message: string;
   duration: number;
+  latencySamplesMs?: number[];
   error?: string;
   toolCallParsed?: boolean;
   schemaFidelity?: boolean;
   refusalHandled?: boolean;
   usageTokens?: number;
   costUsd?: number;
+}
+
+interface ValidationConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  tool_calls?: Array<{
+    id?: string;
+    type?: string;
+    function?: {
+      name?: string;
+      arguments?: string;
+    };
+  }>;
+}
+
+function isOperatorRoutingUnresolvedError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("OPERATOR_ROUTING_UNRESOLVED")
+  );
+}
+
+function isNoReleaseReadyPlatformModelError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("No release-ready platform AI models are configured")
+  );
+}
+
+function parseToolCallArguments(rawArguments: unknown): Record<string, unknown> {
+  if (typeof rawArguments !== "string") {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawArguments);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // no-op
+  }
+  return {};
+}
+
+function buildValidationConversationId(): string {
+  return `validation_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+const validationConversationStore = new Map<string, ValidationConversationMessage[]>();
+let forceDirectRuntimeTransport = false;
+
+async function sendValidationMessageViaDirectRuntime(args: {
+  conversationId?: string;
+  message: string;
+  modelId: string;
+}): Promise<{ response: any; latencyMs: number }> {
+  const envApiKeysByProvider = buildEnvApiKeysByProvider({
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    OPENAI_COMPATIBLE_API_KEY: process.env.OPENAI_COMPATIBLE_API_KEY,
+    XAI_API_KEY: process.env.XAI_API_KEY,
+    MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
+    KIMI_API_KEY: process.env.KIMI_API_KEY,
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+  });
+  const detectedProvider = detectProvider(args.modelId, "openrouter");
+  const providerApiKey = envApiKeysByProvider[detectedProvider];
+  const openRouterApiKey = envApiKeysByProvider.openrouter;
+  const providerId = providerApiKey ? detectedProvider : "openrouter";
+  const apiKey = providerApiKey ?? openRouterApiKey;
+  if (!apiKey) {
+    throw new Error(
+      "MODEL_VALIDATION_RUNTIME_MISSING_API_KEY: Configure OPENROUTER_API_KEY or provider-specific API keys."
+    );
+  }
+
+  const client = new OpenRouterClient(apiKey, { providerId });
+  const conversationId = args.conversationId ?? buildValidationConversationId();
+  const existingHistory = validationConversationStore.get(conversationId) ?? [];
+  const nextHistory = [...existingHistory, { role: "user" as const, content: args.message }];
+  const startedAt = Date.now();
+  const runtimeResponse = await client.chatCompletion({
+    model: args.modelId,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a model validation probe. Answer directly and produce tool calls when relevant.",
+      },
+      ...nextHistory,
+    ],
+    tools: getToolSchemas(),
+    temperature: 0,
+    max_tokens: 1024,
+  });
+  const choiceMessage = runtimeResponse?.choices?.[0]?.message;
+  const assistantMessage =
+    typeof choiceMessage?.content === "string" ? choiceMessage.content : "";
+  const runtimeToolCalls = Array.isArray(choiceMessage?.tool_calls)
+    ? choiceMessage.tool_calls
+    : [];
+  const normalizedToolCalls = runtimeToolCalls.map((toolCall: any) => ({
+    id:
+      typeof toolCall?.id === "string"
+        ? toolCall.id
+        : `validation_tool_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`,
+    name: typeof toolCall?.function?.name === "string" ? toolCall.function.name : "tool",
+    arguments: parseToolCallArguments(toolCall?.function?.arguments),
+  }));
+  const usage =
+    runtimeResponse?.usage &&
+    typeof runtimeResponse.usage.total_tokens === "number"
+      ? runtimeResponse.usage
+      : null;
+  const cost = usage
+    ? client.calculateCost(
+      {
+        prompt_tokens: usage.prompt_tokens,
+        completion_tokens: usage.completion_tokens,
+      },
+      args.modelId
+    )
+    : 0;
+  validationConversationStore.set(conversationId, [
+    ...nextHistory,
+    {
+      role: "assistant",
+      content: assistantMessage,
+      tool_calls: runtimeToolCalls,
+    },
+  ]);
+
+  return {
+    response: {
+      conversationId,
+      message: assistantMessage,
+      toolCalls: normalizedToolCalls,
+      usage,
+      cost,
+    },
+    latencyMs: Date.now() - startedAt,
+  };
+}
+
+async function sendValidationMessage(args: {
+  conversationId?: string;
+  message: string;
+  organizationId: string;
+  userId: string;
+  modelId: string;
+}): Promise<{ response: any; latencyMs: number }> {
+  if (
+    forceDirectRuntimeTransport
+    || (args.conversationId && validationConversationStore.has(args.conversationId))
+  ) {
+    forceDirectRuntimeTransport = true;
+    return sendValidationMessageViaDirectRuntime({
+      conversationId: args.conversationId,
+      message: args.message,
+      modelId: args.modelId,
+    });
+  }
+
+  const buildPayload = (useLegacyPageBuilderFlow: boolean) => ({
+    ...(args.conversationId ? { conversationId: args.conversationId as any } : {}),
+    message: args.message,
+    organizationId: args.organizationId as any,
+    userId: args.userId as any,
+    selectedModel: args.modelId,
+    ...(VALIDATION_REASONING_EFFORT
+      ? { reasoningEffort: VALIDATION_REASONING_EFFORT }
+      : {}),
+    ...(useLegacyPageBuilderFlow
+      ? {
+        context: "page_builder" as const,
+        builderMode: "connect" as const,
+      }
+      : {}),
+  });
+
+  const startedAt = Date.now();
+  try {
+    const response: any = await requireClient().action(
+      api.ai.chat.sendMessage,
+      buildPayload(false)
+    );
+    return {
+      response,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    if (isNoReleaseReadyPlatformModelError(error)) {
+      console.warn(
+        `[validation] No release-ready platform model baseline; using direct runtime transport for ${args.modelId}.`
+      );
+      forceDirectRuntimeTransport = true;
+      return sendValidationMessageViaDirectRuntime({
+        conversationId: args.conversationId,
+        message: args.message,
+        modelId: args.modelId,
+      });
+    }
+
+    if (!isOperatorRoutingUnresolvedError(error)) {
+      throw error;
+    }
+    console.warn(
+      `[validation] Desktop operator route unresolved for ${args.modelId}; retrying via legacy page-builder runtime.`
+    );
+    try {
+      const fallbackStartedAt = Date.now();
+      const response: any = await requireClient().action(
+        api.ai.chat.sendMessage,
+        buildPayload(true)
+      );
+      return {
+        response,
+        latencyMs: Date.now() - fallbackStartedAt,
+      };
+    } catch (fallbackError) {
+      if (isNoReleaseReadyPlatformModelError(fallbackError)) {
+        console.warn(
+          `[validation] Legacy runtime blocked by release-ready baseline; using direct runtime transport for ${args.modelId}.`
+        );
+        forceDirectRuntimeTransport = true;
+        return sendValidationMessageViaDirectRuntime({
+          conversationId: args.conversationId,
+          message: args.message,
+          modelId: args.modelId,
+        });
+      }
+      throw fallbackError;
+    }
+  }
 }
 
 function normalizeFiniteNumber(value: unknown): number | undefined {
@@ -140,46 +400,84 @@ function buildConformanceSamples(args: {
     costUsd: result.costUsd ?? 0,
   });
 
-  return [
-    {
-      scenarioId: "basic_chat",
-      latencyMs: args.basicChat.duration,
-      ...withCostFallback(args.basicChat),
-    },
-    {
-      scenarioId: "tool_calling",
-      toolCallParsed: args.toolCalling.toolCallParsed ?? args.toolCalling.passed,
-      latencyMs: args.toolCalling.duration,
-      ...withCostFallback(args.toolCalling),
-    },
-    {
-      scenarioId: "complex_params",
-      schemaFidelity:
-        args.complexParams.schemaFidelity ?? args.complexParams.passed,
-      latencyMs: args.complexParams.duration,
-      ...withCostFallback(args.complexParams),
-    },
-    {
-      scenarioId: "multi_turn",
-      latencyMs: args.multiTurn.duration,
-      ...withCostFallback(args.multiTurn),
-    },
-    {
-      scenarioId: "edge_cases",
-      refusalHandled: args.edgeCases.refusalHandled ?? args.edgeCases.passed,
-      latencyMs: args.edgeCases.duration,
-      ...withCostFallback(args.edgeCases),
-    },
-    {
-      scenarioId: "contract_checks",
-      toolCallParsed:
-        args.contractChecks.toolCallParsed ?? args.contractChecks.passed,
-      schemaFidelity:
-        args.contractChecks.schemaFidelity ?? args.contractChecks.passed,
-      latencyMs: args.contractChecks.duration,
-      ...withCostFallback(args.contractChecks),
-    },
-  ];
+  const normalizeLatencySamples = (result: TestResult): number[] => {
+    const fromSamples = (result.latencySamplesMs || [])
+      .map((value) => Math.round(value))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    if (fromSamples.length > 0) {
+      return fromSamples;
+    }
+    return [Math.max(0, Math.round(result.duration))];
+  };
+
+  const samples: ModelConformanceSample[] = [];
+
+  const appendSamples = (input: {
+    scenarioId: string;
+    result: TestResult;
+    toolCallParsed?: boolean;
+    schemaFidelity?: boolean;
+    refusalHandled?: boolean;
+  }) => {
+    const latencies = normalizeLatencySamples(input.result);
+    const costFallback = withCostFallback(input.result);
+    latencies.forEach((latencyMs, index) => {
+      samples.push({
+        scenarioId:
+          index === 0
+            ? input.scenarioId
+            : `${input.scenarioId}_latency_${index + 1}`,
+        ...(index === 0
+          ? {
+              ...(typeof input.toolCallParsed === "boolean"
+                ? { toolCallParsed: input.toolCallParsed }
+                : {}),
+              ...(typeof input.schemaFidelity === "boolean"
+                ? { schemaFidelity: input.schemaFidelity }
+                : {}),
+              ...(typeof input.refusalHandled === "boolean"
+                ? { refusalHandled: input.refusalHandled }
+                : {}),
+              ...costFallback,
+            }
+          : {}),
+        latencyMs,
+      });
+    });
+  };
+
+  appendSamples({
+    scenarioId: "basic_chat",
+    result: args.basicChat,
+  });
+  appendSamples({
+    scenarioId: "tool_calling",
+    result: args.toolCalling,
+    toolCallParsed: args.toolCalling.toolCallParsed ?? args.toolCalling.passed,
+  });
+  appendSamples({
+    scenarioId: "complex_params",
+    result: args.complexParams,
+    schemaFidelity: args.complexParams.schemaFidelity ?? args.complexParams.passed,
+  });
+  appendSamples({
+    scenarioId: "multi_turn",
+    result: args.multiTurn,
+  });
+  appendSamples({
+    scenarioId: "edge_cases",
+    result: args.edgeCases,
+    refusalHandled: args.edgeCases.refusalHandled ?? args.edgeCases.passed,
+  });
+  appendSamples({
+    scenarioId: "contract_checks",
+    result: args.contractChecks,
+    toolCallParsed: args.contractChecks.toolCallParsed ?? args.contractChecks.passed,
+    schemaFidelity:
+      args.contractChecks.schemaFidelity ?? args.contractChecks.passed,
+  });
+
+  return samples;
 }
 
 function printConformanceSummary(summary: ModelConformanceSummary) {
@@ -469,6 +767,35 @@ async function loadConversationModelResolution(
   return null;
 }
 
+async function loadLatestAssistantMessageContent(
+  conversationId: string,
+  retries = 2,
+  delayMs = 250
+): Promise<string | null> {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const conversation: any = await requireClient().query(api.ai.conversations.getConversation, {
+      conversationId: conversationId as any,
+    });
+    const messages = Array.isArray(conversation?.messages)
+      ? conversation.messages
+      : [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message?.role === "assistant" &&
+        typeof message?.content === "string" &&
+        message.content.trim().length > 0
+      ) {
+        return message.content.trim();
+      }
+    }
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return null;
+}
+
 async function ensureExpectedModelWasUsed(
   response: {
     conversationId?: string;
@@ -517,33 +844,104 @@ async function ensureExpectedModelWasUsed(
   return null;
 }
 
-async function resolveDefaultModelId(): Promise<string> {
-  if (TEST_MODEL_ID && TEST_MODEL_ID.trim().length > 0) {
-    return TEST_MODEL_ID.trim();
+async function probeRuntimeModelSelection(modelId: string): Promise<{
+  selectedModel: string;
+  selectionSource?: string;
+} | null> {
+  const { organizationId, userId } = getValidationFixture();
+  try {
+    const { response } = await sendValidationMessage({
+      message: "Validation routing preflight. Reply with a brief acknowledgement.",
+      organizationId,
+      userId,
+      modelId,
+    });
+
+    let resolution = response?.modelResolution;
+    if (
+      !resolution &&
+      typeof response?.conversationId === "string" &&
+      response.conversationId.trim().length > 0
+    ) {
+      resolution = await loadConversationModelResolution(response.conversationId);
+    }
+
+    if (
+      !resolution ||
+      typeof resolution.selectedModel !== "string" ||
+      resolution.selectedModel.trim().length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      selectedModel: resolution.selectedModel.trim(),
+      selectionSource:
+        typeof resolution.selectionSource === "string" &&
+        resolution.selectionSource.trim().length > 0
+          ? resolution.selectionSource.trim()
+          : undefined,
+    };
+  } catch (error: any) {
+    console.log(
+      `ℹ️  Model routing preflight skipped (${error?.message || "unknown_error"})`
+    );
+    return null;
   }
-  const { organizationId } = getValidationFixture();
+}
 
-  const settings: any = await requireClient().query(api.ai.settings.getAISettings, {
-    organizationId: organizationId as any,
-  });
-  const platformEnabledModels: Array<{ id: string }> = await requireClient().query(
-    api.ai.platformModels.getEnabledModels,
-    {}
-  );
+async function resolveDefaultModelId(): Promise<string> {
+  let candidateModelId: string;
+  let candidateSourceLabel: string;
 
-  const resolved = resolveEffectiveValidationModel({
-    settings,
-    platformEnabledModelIds: platformEnabledModels.map((model) => model.id),
-  });
+  if (TEST_MODEL_ID && TEST_MODEL_ID.trim().length > 0) {
+    candidateModelId = TEST_MODEL_ID.trim();
+    candidateSourceLabel = "TEST_MODEL_ID";
+  } else {
+    const { organizationId } = getValidationFixture();
+    const settings: any = await requireClient().query(api.ai.settings.getAISettings, {
+      organizationId: organizationId as any,
+    });
+    const platformEnabledModels: Array<{ id: string }> = await requireClient().query(
+      api.ai.platformModels.getEnabledModels,
+      {}
+    );
 
-  if (!resolved) {
-    throw new Error("Unable to resolve a default validation model from org/platform policy");
+    const resolved = resolveEffectiveValidationModel({
+      settings,
+      platformEnabledModelIds: platformEnabledModels.map((model) => model.id),
+    });
+
+    if (!resolved) {
+      throw new Error("Unable to resolve a default validation model from org/platform policy");
+    }
+
+    candidateModelId = resolved.modelId;
+    candidateSourceLabel = `org/platform policy (${resolved.selectionSource})`;
+  }
+
+  const runtimeProbe = await probeRuntimeModelSelection(candidateModelId);
+  if (runtimeProbe?.selectedModel && runtimeProbe.selectedModel !== candidateModelId) {
+    const strictModelSelection = process.env.MODEL_VALIDATION_STRICT_MODEL === "1";
+    const rerouteNote = `${candidateModelId} -> ${runtimeProbe.selectedModel}${
+      runtimeProbe.selectionSource ? ` (${runtimeProbe.selectionSource})` : ""
+    }`;
+    if (strictModelSelection) {
+      console.log(
+        `⚠️  Runtime preflight rerouted model ${rerouteNote}, but strict model mode is enabled; continuing with ${candidateModelId}.`
+      );
+      return candidateModelId;
+    }
+    console.log(
+      `ℹ️  Runtime preflight rerouted ${candidateSourceLabel} model ${rerouteNote}; validating routed model.`
+    );
+    return runtimeProbe.selectedModel;
   }
 
   console.log(
-    `ℹ️  TEST_MODEL_ID not set; resolved effective default model ${resolved.modelId} (${resolved.selectionSource})`
+    `ℹ️  Resolved validation model ${candidateModelId} from ${candidateSourceLabel}.`
   );
-  return resolved.modelId;
+  return candidateModelId;
 }
 
 // Test 1: Basic Chat
@@ -553,11 +951,11 @@ async function testBasicChat(modelId: string): Promise<TestResult> {
   const { organizationId, userId } = getValidationFixture();
 
   try {
-    const response: any = await requireClient().action(api.ai.chat.sendMessage, {
-      message: "Hello! Please respond with a simple greeting.",
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+    const { response, latencyMs } = await sendValidationMessage({
+      message: `Reply with exactly "${BASIC_CHAT_ACK_TOKEN}" and nothing else.`,
+      organizationId,
+      userId,
+      modelId,
     });
 
     const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
@@ -567,14 +965,22 @@ async function testBasicChat(modelId: string): Promise<TestResult> {
 
     const duration = Date.now() - startTime;
     const usageAndCost = extractUsageAndCostFromResponse(response);
+    const responseText =
+      typeof response.message === "string" ? response.message.trim() : "";
+    const acknowledgedValidation =
+      responseText.toUpperCase().includes(BASIC_CHAT_ACK_TOKEN);
 
-    if (response.message && response.message.length > 0) {
+    if (responseText.length > 0) {
       console.log(`     ✅ PASS: Got response (${duration}ms)`);
-      console.log(`     Response: ${response.message.substring(0, 80)}...`);
+      if (!acknowledgedValidation) {
+        console.log("     ⚠️  WARN: Model ignored strict ACK token format");
+      }
+      console.log(`     Response: ${responseText.substring(0, 80)}...`);
       return {
         passed: true,
         message: "Basic chat works",
         duration,
+        latencySamplesMs: [latencyMs],
         ...usageAndCost,
       };
     } else {
@@ -583,6 +989,7 @@ async function testBasicChat(modelId: string): Promise<TestResult> {
         passed: false,
         message: "Empty response",
         duration,
+        latencySamplesMs: [latencyMs],
         ...usageAndCost,
       };
     }
@@ -600,11 +1007,11 @@ async function testToolCalling(modelId: string): Promise<TestResult> {
   const { organizationId, userId } = getValidationFixture();
 
   try {
-    const response: any = await requireClient().action(api.ai.chat.sendMessage, {
+    const { response, latencyMs } = await sendValidationMessage({
       message: "List my forms",
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+      organizationId,
+      userId,
+      modelId,
     });
 
     const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
@@ -623,6 +1030,7 @@ async function testToolCalling(modelId: string): Promise<TestResult> {
         passed: true,
         message: "Tool calling works",
         duration,
+        latencySamplesMs: [latencyMs],
         toolCallParsed: true,
         ...usageAndCost,
       };
@@ -632,6 +1040,7 @@ async function testToolCalling(modelId: string): Promise<TestResult> {
         passed: false,
         message: `Wrong tool: ${toolCalls[0]?.name}`,
         duration,
+        latencySamplesMs: [latencyMs],
         toolCallParsed: false,
         ...usageAndCost,
       };
@@ -650,11 +1059,11 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
   const { organizationId, userId } = getValidationFixture();
 
   try {
-    const response: any = await requireClient().action(api.ai.chat.sendMessage, {
+    const { response, latencyMs } = await sendValidationMessage({
       message: CONTACT_SEARCH_CONTRACT_PROMPT,
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+      organizationId,
+      userId,
+      modelId,
     });
 
     const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
@@ -686,6 +1095,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
             passed: true,
             message: "Complex params work",
             duration,
+            latencySamplesMs: [latencyMs],
             schemaFidelity: true,
             ...usageAndCost,
           };
@@ -696,6 +1106,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
           passed: false,
           message: "Missing parameters",
           duration,
+          latencySamplesMs: [latencyMs],
           schemaFidelity: false,
           ...usageAndCost,
         };
@@ -723,6 +1134,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
             passed: true,
             message: "Complex params work",
             duration,
+            latencySamplesMs: [latencyMs],
             schemaFidelity: true,
             ...usageAndCost,
           };
@@ -735,6 +1147,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
           passed: false,
           message: "Missing parameters",
           duration,
+          latencySamplesMs: [latencyMs],
           schemaFidelity: false,
           ...usageAndCost,
         };
@@ -745,6 +1158,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
         passed: false,
         message: `Wrong tool: ${firstTool.name}`,
         duration,
+        latencySamplesMs: [latencyMs],
         schemaFidelity: false,
         ...usageAndCost,
       };
@@ -754,6 +1168,7 @@ async function testComplexParams(modelId: string): Promise<TestResult> {
         passed: false,
         message: "Wrong tool or no tool",
         duration,
+        latencySamplesMs: [latencyMs],
         schemaFidelity: false,
         ...usageAndCost,
       };
@@ -770,6 +1185,9 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
   console.log("\n  🧪 Test 4: Multi-turn Context");
   const startTime = Date.now();
   const { organizationId, userId } = getValidationFixture();
+  const latencySamples: number[] = [];
+  const memoryToken =
+    `${MULTI_TURN_CONTEXT_TOKEN_PREFIX}-${Date.now().toString(36).toUpperCase()}`;
 
   try {
     // Create a conversation first
@@ -780,22 +1198,26 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
     });
 
     // First message
-    await requireClient().action(api.ai.chat.sendMessage, {
+    const firstTurn = await sendValidationMessage({
       conversationId: conv,
-      message: "List my forms",
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+      message:
+        `Remember this token exactly for the next turn: ${memoryToken}. Reply with "READY ${memoryToken}".`,
+      organizationId,
+      userId,
+      modelId,
     });
+    latencySamples.push(firstTurn.latencyMs);
 
     // Second message (should remember context)
-    const response: any = await requireClient().action(api.ai.chat.sendMessage, {
+    const secondTurn = await sendValidationMessage({
       conversationId: conv,
-      message: "How many did you find?",
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+      message: "What token did I ask you to remember? Reply with only the exact token.",
+      organizationId,
+      userId,
+      modelId,
     });
+    latencySamples.push(secondTurn.latencyMs);
+    let response: any = secondTurn.response;
 
     const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
     if (modelCheck) {
@@ -803,35 +1225,68 @@ async function testMultiTurn(modelId: string): Promise<TestResult> {
     }
 
     const duration = Date.now() - startTime;
-    const usageAndCost = extractUsageAndCostFromResponse(response);
-
-    const secondTurnToolCalls = response.toolCalls || [];
-    const maintainedViaMessage = Boolean(response.message && response.message.length > 0);
-    const maintainedViaFollowupTool =
-      secondTurnToolCalls.length > 0 &&
-      ["list_forms", "manage_crm"].includes(secondTurnToolCalls[0].name);
-
-    if (maintainedViaMessage || maintainedViaFollowupTool) {
-      console.log(`     ✅ PASS: Maintained context (${duration}ms)`);
-      if (maintainedViaMessage) {
-        console.log(`     Response: ${response.message.substring(0, 80)}...`);
-      } else {
-        console.log(
-          `     Follow-up tool call: ${secondTurnToolCalls[0].name} (approval-gated flow)`
-        );
+    const usageAndCost = extractUsageAndCostFromResponse(secondTurn.response);
+    const secondTurnToolCalls = Array.isArray(response.toolCalls)
+      ? response.toolCalls
+      : [];
+    let responseText =
+      typeof response.message === "string" ? response.message.trim() : "";
+    if (!responseText) {
+      const replayedMessage = await loadLatestAssistantMessageContent(conv);
+      if (replayedMessage) {
+        responseText = replayedMessage;
       }
+    }
+    let maintainedViaTokenEcho = responseText.toUpperCase().includes(memoryToken);
+
+    // Bounded retry for transient empty duplicate/replay outcomes.
+    if (!maintainedViaTokenEcho && responseText.length === 0) {
+      const retryTurn = await sendValidationMessage({
+        conversationId: conv,
+        message: "Repeat only the exact token I asked you to remember.",
+        organizationId,
+        userId,
+        modelId,
+      });
+      latencySamples.push(retryTurn.latencyMs);
+      response = retryTurn.response;
+      const retryModelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
+      if (retryModelCheck) {
+        return retryModelCheck;
+      }
+      responseText =
+        typeof response.message === "string" ? response.message.trim() : "";
+      if (!responseText) {
+        const replayedMessage = await loadLatestAssistantMessageContent(conv);
+        if (replayedMessage) {
+          responseText = replayedMessage;
+        }
+      }
+      maintainedViaTokenEcho = responseText.toUpperCase().includes(memoryToken);
+    }
+
+    if (maintainedViaTokenEcho) {
+      console.log(`     ✅ PASS: Maintained context (${duration}ms)`);
+      console.log(`     Response: ${responseText.substring(0, 80)}...`);
       return {
         passed: true,
         message: "Multi-turn works",
         duration,
+        latencySamplesMs: latencySamples,
         ...usageAndCost,
       };
     } else {
       console.log(`     ❌ FAIL: Lost context`);
+      if (secondTurnToolCalls.length > 0) {
+        console.log(
+          `     Tool call instead of token recall: ${secondTurnToolCalls[0]?.name || "unknown"}`
+        );
+      }
       return {
         passed: false,
         message: "Context lost",
         duration,
+        latencySamplesMs: latencySamples,
         ...usageAndCost,
       };
     }
@@ -850,11 +1305,11 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
 
   try {
     // Test with empty/ambiguous query
-    const response: any = await requireClient().action(api.ai.chat.sendMessage, {
-      message: "Search for",  // Incomplete query
-      organizationId: organizationId as any,
-      userId: userId as any,
-      selectedModel: modelId,
+    const { response, latencyMs } = await sendValidationMessage({
+      message: "Search for", // Incomplete query
+      organizationId,
+      userId,
+      modelId,
     });
 
     const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
@@ -873,6 +1328,7 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
         passed: true,
         message: "Edge cases handled",
         duration,
+        latencySamplesMs: [latencyMs],
         refusalHandled: true,
         ...usageAndCost,
       };
@@ -882,6 +1338,7 @@ async function testEdgeCases(modelId: string): Promise<TestResult> {
         passed: true,
         message: "Acceptable behavior",
         duration,
+        latencySamplesMs: [latencyMs],
         refusalHandled: true,
         ...usageAndCost,
       };
@@ -900,6 +1357,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
   const { organizationId, userId } = getValidationFixture();
   let totalUsageTokens = 0;
   let totalCostUsd = 0;
+  const latencySamples: number[] = [];
 
   try {
     if (CRITICAL_TOOL_NAMES.length !== 10) {
@@ -928,12 +1386,13 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
     ] as const;
 
     for (const scenario of scenarios) {
-      const response: any = await requireClient().action(api.ai.chat.sendMessage, {
+      const { response, latencyMs } = await sendValidationMessage({
         message: scenario.prompt,
-        organizationId: organizationId as any,
-        userId: userId as any,
-        selectedModel: modelId,
+        organizationId,
+        userId,
+        modelId,
       });
+      latencySamples.push(latencyMs);
 
       const modelCheck = await ensureExpectedModelWasUsed(response, modelId, startTime);
       if (modelCheck) {
@@ -960,6 +1419,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
           passed: false,
           message: `No tool call for ${scenario.expectedTools.join("|")}`,
           duration,
+          latencySamplesMs: latencySamples,
           toolCallParsed: false,
           schemaFidelity: false,
           usageTokens: totalUsageTokens > 0 ? totalUsageTokens : undefined,
@@ -976,6 +1436,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
           passed: false,
           message: `Wrong tool for contract check: ${firstToolCall.name}`,
           duration,
+          latencySamplesMs: latencySamples,
           toolCallParsed: false,
           schemaFidelity: false,
           usageTokens: totalUsageTokens > 0 ? totalUsageTokens : undefined,
@@ -998,6 +1459,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
           passed: false,
           message: contractResult.message,
           duration,
+          latencySamplesMs: latencySamples,
           toolCallParsed: false,
           schemaFidelity: false,
           usageTokens: totalUsageTokens > 0 ? totalUsageTokens : undefined,
@@ -1018,6 +1480,7 @@ async function testToolContracts(modelId: string): Promise<TestResult> {
       passed: true,
       message: "Tool contract checks passed",
       duration,
+      latencySamplesMs: latencySamples,
       toolCallParsed: true,
       schemaFidelity: true,
       usageTokens: totalUsageTokens > 0 ? totalUsageTokens : undefined,
@@ -1040,6 +1503,8 @@ async function validateModel(modelId: string): Promise<ValidationRunResult> {
   console.log(`\n${"=".repeat(70)}`);
   console.log(`🔍 Validating Model: ${modelId}`);
   console.log(`${"=".repeat(70)}`);
+  validationConversationStore.clear();
+  forceDirectRuntimeTransport = false;
 
   const results: ValidationResult = {
     basicChat: false,
@@ -1157,6 +1622,11 @@ async function main() {
     }
 
     await resolveValidationFixtureContext();
+    if (VALIDATION_REASONING_EFFORT) {
+      console.log(
+        `ℹ️  Validation harness reasoning effort: ${VALIDATION_REASONING_EFFORT}`
+      );
+    }
 
     if (modelArg) {
       // Test single model

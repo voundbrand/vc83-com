@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   getAllAiProviders,
+  getProviderPluginManifestConformanceIssues,
+  registerProviderPluginManifest,
   resolveOrganizationProviderBindingForProvider,
   resolveOrganizationProviderBindings,
   stripApiKeyFromBinding,
 } from "../../../convex/ai/providerRegistry";
+import { getProviderAdapterContractSnapshot } from "../../../convex/ai/modelAdapters";
 
 describe("providerRegistry", () => {
   it("returns canonical built-in providers", () => {
@@ -128,5 +131,68 @@ describe("providerRegistry", () => {
     expect("apiKey" in redacted).toBe(false);
     expect(redacted.profileId).toBe("openrouter-primary");
   });
-});
 
+  it("accepts valid provider plugin manifests for canonical adapters", () => {
+    const { providerId, ...adapter } = getProviderAdapterContractSnapshot("openai");
+    void providerId;
+
+    const issues = getProviderPluginManifestConformanceIssues({
+      contractVersion: "ai_provider_plugin_manifest_v1",
+      id: "openai",
+      label: "OpenAI Plugin",
+      discoverySource: "provider_api",
+      supportsCustomBaseUrl: false,
+      defaultBaseUrl: "https://api.openai.com/v1",
+      adapter,
+    });
+
+    expect(issues).toEqual([]);
+  });
+
+  it("fails closed on malformed provider plugin manifests", () => {
+    const malformedManifest = {
+      id: "openai",
+      label: "Broken OpenAI Plugin",
+      discoverySource: "provider_api",
+      supportsCustomBaseUrl: false,
+      // adapter is intentionally missing
+      apiKey: "should-not-be-here",
+    };
+
+    const issues = getProviderPluginManifestConformanceIssues(malformedManifest);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(
+      issues.some((issue) => issue.includes("credential-like fields"))
+    ).toBe(true);
+    expect(() => registerProviderPluginManifest(malformedManifest)).toThrow(
+      /failed conformance checks/
+    );
+  });
+
+  it("fails closed when plugin manifest adapter contract mismatches runtime adapter", () => {
+    const mismatchedManifest = {
+      contractVersion: "ai_provider_plugin_manifest_v1",
+      id: "openai_compatible",
+      label: "Broken OpenAI-Compatible Plugin",
+      discoverySource: "manual",
+      supportsCustomBaseUrl: true,
+      defaultBaseUrl: "https://private.example.ai/v1",
+      adapter: {
+        requestProtocol: "anthropic_messages",
+        supportsToolCalling: true,
+        supportsStructuredOutput: true,
+        requiresToolCallId: true,
+        toolResultField: "tool_call_id",
+        reasoningParamKind: "none",
+      },
+    };
+
+    const issues = getProviderPluginManifestConformanceIssues(mismatchedManifest);
+    expect(
+      issues.some((issue) => issue.includes("requestProtocol mismatch"))
+    ).toBe(true);
+    expect(() => registerProviderPluginManifest(mismatchedManifest)).toThrow(
+      /failed conformance checks/
+    );
+  });
+});

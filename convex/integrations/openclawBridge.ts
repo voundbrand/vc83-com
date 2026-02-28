@@ -2,9 +2,14 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import { getLicenseInternal } from "../licensing/helpers";
 import type { AiProviderId } from "../channels/types";
 import {
+  buildOpenClawNativeFallbackPlan,
   buildOpenClawBridgeImportPlan,
+  resolveOpenClawCompatibilityAdapter,
+  validateOpenClawCompatibilityAdapterDecision,
+  type OpenClawCompatibilityAdapterDecision,
   type OpenClawImportedModelDefinition,
   type OpenClawImportedProviderAuthProfile,
 } from "../ai/openclawBridge";
@@ -244,6 +249,40 @@ function buildInitialAiSettings(args: {
   };
 }
 
+function buildImportResponse(args: {
+  dryRun: boolean;
+  importPlan: {
+    importedAuthProfiles: OpenClawImportedProviderAuthProfile[];
+    importedPrivateModels: OpenClawImportedModelDefinition[];
+    warnings: string[];
+  };
+  mergedProfiles: LlmProviderAuthProfile[];
+  mergedEnabledModels: LlmEnabledModel[];
+  adapterDecision: OpenClawCompatibilityAdapterDecision;
+}) {
+  return {
+    success: true,
+    dryRun: args.dryRun,
+    importedAuthProfileCount: args.importPlan.importedAuthProfiles.length,
+    importedPrivateModelCount: args.importPlan.importedPrivateModels.length,
+    warnings: args.importPlan.warnings,
+    mergedProfileIds: args.mergedProfiles.map(
+      (profile) => `${profile.providerId}:${profile.profileId}`
+    ),
+    mergedModelIds: args.mergedEnabledModels.map((model) => model.modelId),
+    compatibilityMode: args.adapterDecision.mode,
+    fallbackToNative: args.adapterDecision.fallbackToNative,
+    fallbackReason: args.adapterDecision.fallbackReason,
+    featureFlagEnabled: args.adapterDecision.featureFlagEnabled,
+    featureFlagKey: args.adapterDecision.featureFlagKey,
+    nativePolicyPrecedence: args.adapterDecision.nativePolicyPrecedence,
+    directMutationBypassAllowed: args.adapterDecision.directMutationBypassAllowed,
+    trustApprovalRequiredForActionableIntent:
+      args.adapterDecision.trustApprovalRequiredForActionableIntent,
+    compatibilityAdapterContractVersion: args.adapterDecision.contractVersion,
+  };
+}
+
 export const importOpenClawBridge = mutation({
   args: {
     sessionId: v.string(),
@@ -282,11 +321,6 @@ export const importOpenClawBridge = mutation({
       throw new Error("Organization mismatch while importing OpenClaw bridge payload.");
     }
 
-    const importPlan = buildOpenClawBridgeImportPlan({
-      authProfiles: args.payload.authProfiles,
-      privateModels: args.payload.privateModels,
-    });
-
     const existingSettings = await ctx.db
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
@@ -297,6 +331,68 @@ export const importOpenClawBridge = mutation({
     const existingEnabledModels = normalizeEnabledModels(
       existingSettings?.llm?.enabledModels
     );
+
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const organizationFeatureFlags = license.features as Record<string, unknown>;
+    let adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags,
+      adapterRequested: true,
+    });
+    const adapterValidation =
+      validateOpenClawCompatibilityAdapterDecision(adapterDecision);
+    if (!adapterValidation.valid) {
+      adapterDecision = resolveOpenClawCompatibilityAdapter({
+        organizationFeatureFlags,
+        adapterRequested: true,
+        adapterFailed: true,
+        adapterFailureDetail: [
+          "native_authority_contract_violation",
+          adapterValidation.violations.join(","),
+        ]
+          .filter((segment) => segment.length > 0)
+          .join(":"),
+      });
+    }
+
+    if (!adapterDecision.enabled) {
+      const importPlan = buildOpenClawNativeFallbackPlan({
+        adapterDecision,
+      });
+      return buildImportResponse({
+        dryRun: args.dryRun === true,
+        importPlan,
+        mergedProfiles: existingProfiles,
+        mergedEnabledModels: existingEnabledModels,
+        adapterDecision,
+      });
+    }
+
+    let importPlan: ReturnType<typeof buildOpenClawBridgeImportPlan>;
+    try {
+      importPlan = buildOpenClawBridgeImportPlan({
+        authProfiles: args.payload.authProfiles,
+        privateModels: args.payload.privateModels,
+      });
+    } catch (error) {
+      const adapterFailureDetail =
+        error instanceof Error ? error.message : String(error);
+      const fallbackDecision = resolveOpenClawCompatibilityAdapter({
+        organizationFeatureFlags,
+        adapterRequested: true,
+        adapterFailed: true,
+        adapterFailureDetail,
+      });
+      const fallbackPlan = buildOpenClawNativeFallbackPlan({
+        adapterDecision: fallbackDecision,
+      });
+      return buildImportResponse({
+        dryRun: args.dryRun === true,
+        importPlan: fallbackPlan,
+        mergedProfiles: existingProfiles,
+        mergedEnabledModels: existingEnabledModels,
+        adapterDecision: fallbackDecision,
+      });
+    }
 
     const mergedProfiles = mergeProviderAuthProfiles({
       existing: existingProfiles,
@@ -309,17 +405,13 @@ export const importOpenClawBridge = mutation({
     const defaultModelId = mergedEnabledModels.find((model) => model.isDefault)?.modelId;
 
     if (args.dryRun) {
-      return {
-        success: true,
+      return buildImportResponse({
         dryRun: true,
-        importedAuthProfileCount: importPlan.importedAuthProfiles.length,
-        importedPrivateModelCount: importPlan.importedPrivateModels.length,
-        warnings: importPlan.warnings,
-        mergedProfileIds: mergedProfiles.map(
-          (profile) => `${profile.providerId}:${profile.profileId}`
-        ),
-        mergedModelIds: mergedEnabledModels.map((model) => model.modelId),
-      };
+        importPlan,
+        mergedProfiles,
+        mergedEnabledModels,
+        adapterDecision,
+      });
     }
 
     if (existingSettings) {
@@ -348,16 +440,12 @@ export const importOpenClawBridge = mutation({
       );
     }
 
-    return {
-      success: true,
+    return buildImportResponse({
       dryRun: false,
-      importedAuthProfileCount: importPlan.importedAuthProfiles.length,
-      importedPrivateModelCount: importPlan.importedPrivateModels.length,
-      warnings: importPlan.warnings,
-      mergedProfileIds: mergedProfiles.map(
-        (profile) => `${profile.providerId}:${profile.profileId}`
-      ),
-      mergedModelIds: mergedEnabledModels.map((model) => model.modelId),
-    };
+      importPlan,
+      mergedProfiles,
+      mergedEnabledModels,
+      adapterDecision,
+    });
   },
 });

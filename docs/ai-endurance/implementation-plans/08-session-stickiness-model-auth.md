@@ -14,7 +14,7 @@ Reference pattern:
 - Session entities exist for both chat and agent contexts:
   - `convex/ai/conversations.ts`
   - `convex/ai/agentSessions.ts`
-- Model selection can vary per request depending on runtime call path.
+- Control-plane model/auth binding selection can vary per request depending on runtime call path.
 
 ## Gaps
 
@@ -30,6 +30,7 @@ Reference pattern:
   - pin reason and timestamp
   - unlock reason
 - Default behavior: sticky by session, rotate only on failover criteria.
+- Session pin semantics stay provider-agnostic; provider-specific behavior (including OpenRouter-only headers/metadata) remains adapter-scoped.
 
 ## Implementation chunks
 

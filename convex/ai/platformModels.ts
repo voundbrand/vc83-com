@@ -11,9 +11,15 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import {
   normalizeCanonicalProviderId,
+  selectFirstPlatformEnabledModel,
   toCanonicalCapabilityMatrix,
 } from "./modelPolicy";
 import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
+import {
+  evaluateModelReleaseGateSnapshot,
+  type ModelReleaseGateSnapshot,
+} from "./modelReleaseGateAudit";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
 
 function buildRoutingGates(capabilityMatrix: ReturnType<typeof toCanonicalCapabilityMatrix>) {
   return {
@@ -36,6 +42,85 @@ function buildRoutingGates(capabilityMatrix: ReturnType<typeof toCanonicalCapabi
   };
 }
 
+function supportsModelNativeReasoning(model: {
+  capabilities?: { nativeReasoning?: boolean } | null;
+}): boolean {
+  return model.capabilities?.nativeReasoning === true;
+}
+
+function toReleaseGateSnapshot(model: {
+  modelId: string;
+  name: string;
+  provider: string;
+  lifecycleStatus?: string;
+  isPlatformEnabled?: boolean;
+  validationStatus?: "not_tested" | "validated" | "failed";
+  testResults?: ModelReleaseGateSnapshot["testResults"];
+  operationalReviewAcknowledgedAt?: number;
+}): ModelReleaseGateSnapshot {
+  return {
+    modelId: model.modelId,
+    name: model.name,
+    provider: model.provider,
+    lifecycleStatus: model.lifecycleStatus,
+    isPlatformEnabled: model.isPlatformEnabled === true,
+    validationStatus: model.validationStatus,
+    testResults: model.testResults,
+    operationalReviewAcknowledgedAt: model.operationalReviewAcknowledgedAt,
+  };
+}
+
+function isModelReleaseReady(model: {
+  modelId: string;
+  name: string;
+  provider: string;
+  lifecycleStatus?: string;
+  isPlatformEnabled?: boolean;
+  validationStatus?: "not_tested" | "validated" | "failed";
+  testResults?: ModelReleaseGateSnapshot["testResults"];
+  operationalReviewAcknowledgedAt?: number;
+}): boolean {
+  return evaluateModelReleaseGateSnapshot({
+    snapshot: toReleaseGateSnapshot(model),
+  }).releaseReady;
+}
+
+function resolveFreeTierLockedModelId(
+  releaseReadyModels: Array<{
+    modelId: string;
+    isFreeTierLocked?: boolean;
+  }>
+): { modelId: string | null; source: "configured" | "onboarding_default" | "platform_first_enabled" | "none" } {
+  const configured = releaseReadyModels.find(
+    (model) => model.isFreeTierLocked === true
+  );
+  if (configured) {
+    return { modelId: configured.modelId, source: "configured" };
+  }
+
+  const releaseReadyModelIds = releaseReadyModels.map((model) => model.modelId);
+  const onboardingDefault = selectFirstPlatformEnabledModel(
+    [ONBOARDING_DEFAULT_MODEL_ID],
+    releaseReadyModelIds
+  );
+  if (onboardingDefault) {
+    return {
+      modelId: onboardingDefault,
+      source: "onboarding_default",
+    };
+  }
+
+  const platformFirstEnabled = releaseReadyModelIds[0] ?? null;
+  if (platformFirstEnabled) {
+    return {
+      modelId: platformFirstEnabled,
+      source: "platform_first_enabled",
+    };
+  }
+
+  return { modelId: null, source: "none" };
+}
+
 /**
  * Get all platform-enabled models
  *
@@ -50,7 +135,7 @@ export const getEnabledModels = query({
       .withIndex("by_platform_enabled", (q) => q.eq("isPlatformEnabled", true))
       .collect();
 
-    return models.map((model) => {
+    return models.filter((model) => isModelReleaseReady(model)).map((model) => {
       const capabilityMatrix = toCanonicalCapabilityMatrix({
         toolCalling: model.capabilities.toolCalling,
         multimodal: model.capabilities.multimodal,
@@ -68,10 +153,38 @@ export const getEnabledModels = query({
         capabilities: model.capabilities,
         capabilityMatrix,
         routingGates: buildRoutingGates(capabilityMatrix),
+        supportsNativeReasoning: supportsModelNativeReasoning(model),
         isNew: model.isNew,
         isSystemDefault: model.isSystemDefault ?? false,
+        isFreeTierLocked: model.isFreeTierLocked === true,
       };
     });
+  },
+});
+
+/**
+ * Resolve free-tier pinned model policy from release-ready platform models.
+ */
+export const getFreeTierModelPolicy = query({
+  args: {},
+  handler: async (ctx) => {
+    const models = await ctx.db
+      .query("aiModels")
+      .withIndex("by_platform_enabled", (q) => q.eq("isPlatformEnabled", true))
+      .collect();
+    const releaseReadyModels = models.filter((model) => isModelReleaseReady(model));
+    const resolution = resolveFreeTierLockedModelId(
+      releaseReadyModels.map((model) => ({
+        modelId: model.modelId,
+        isFreeTierLocked: model.isFreeTierLocked,
+      }))
+    );
+
+    return {
+      modelId: resolution.modelId,
+      source: resolution.source,
+      candidateModelIds: releaseReadyModels.map((model) => model.modelId),
+    };
   },
 });
 
@@ -107,6 +220,7 @@ export const getSystemDefaults = query({
         capabilities: model.capabilities,
         capabilityMatrix,
         routingGates: buildRoutingGates(capabilityMatrix),
+        supportsNativeReasoning: supportsModelNativeReasoning(model),
       };
     });
   },
@@ -124,11 +238,14 @@ export const getEnabledModelsByProvider = query({
       .query("aiModels")
       .withIndex("by_platform_enabled", (q) => q.eq("isPlatformEnabled", true))
       .collect();
+    const releaseReadyModels = models.filter((model) =>
+      isModelReleaseReady(model)
+    );
 
     // Group by provider
-    const byProvider: Record<string, typeof models> = {};
+    const byProvider: Record<string, typeof releaseReadyModels> = {};
 
-    for (const model of models) {
+    for (const model of releaseReadyModels) {
       if (!byProvider[model.provider]) {
         byProvider[model.provider] = [];
       }
@@ -160,6 +277,7 @@ export const getToolCallingModels = query({
 
     return models
       .filter((model) => model.capabilities.toolCalling)
+      .filter((model) => isModelReleaseReady(model))
       .map((model) => {
         const capabilityMatrix = toCanonicalCapabilityMatrix({
           toolCalling: model.capabilities.toolCalling,
@@ -177,6 +295,7 @@ export const getToolCallingModels = query({
           contextLength: model.contextLength,
           capabilityMatrix,
           routingGates: buildRoutingGates(capabilityMatrix),
+          supportsNativeReasoning: supportsModelNativeReasoning(model),
         };
       });
   },
@@ -197,8 +316,11 @@ export const isModelEnabled = query({
       .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
       .first();
 
+    const isReleaseReady = model ? isModelReleaseReady(model) : false;
+
     return {
       isEnabled: model?.isPlatformEnabled ?? false,
+      isReleaseReady,
       exists: !!model,
     };
   },

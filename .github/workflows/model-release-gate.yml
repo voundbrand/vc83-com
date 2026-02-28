@@ -1,0 +1,109 @@
+name: model-release-gate
+
+on:
+  pull_request:
+    paths:
+      - "convex/ai/**"
+      - "convex/schemas/aiSchemas.ts"
+      - "scripts/ci/model-release-gate-audit.ts"
+      - "tests/unit/ai/modelEnablementGates.test.ts"
+      - "tests/unit/ai/modelReleaseGateAudit.test.ts"
+      - "tests/unit/ai/runtimeModelReleaseGateGuard.test.ts"
+      - "package.json"
+      - ".github/workflows/model-release-gate.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "convex/ai/**"
+      - "convex/schemas/aiSchemas.ts"
+      - "scripts/ci/model-release-gate-audit.ts"
+      - "tests/unit/ai/modelEnablementGates.test.ts"
+      - "tests/unit/ai/modelReleaseGateAudit.test.ts"
+      - "tests/unit/ai/runtimeModelReleaseGateGuard.test.ts"
+      - "package.json"
+      - ".github/workflows/model-release-gate.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Audit mode: audit (report only) or enforce (blocking)."
+        required: false
+        default: "audit"
+        type: choice
+        options:
+          - audit
+          - enforce
+
+jobs:
+  model-release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      MODEL_RELEASE_GATE_MODE_OVERRIDE: ${{ vars.MODEL_RELEASE_GATE_MODE }}
+      MODEL_RELEASE_GATE_REQUIRE_OPERATIONAL_REVIEW_FOR_ENABLED_MODELS: ${{ vars.MODEL_RELEASE_GATE_REQUIRE_OPERATIONAL_REVIEW_FOR_ENABLED_MODELS || '1' }}
+      MODEL_RELEASE_GATE_EXPECTED_CRITICAL_TOOL_CONTRACT_COUNT: ${{ vars.MODEL_RELEASE_GATE_EXPECTED_CRITICAL_TOOL_CONTRACT_COUNT }}
+      MODEL_RELEASE_GATE_REPORT_PATH: tmp/reports/model-release-gate/latest.json
+      MODEL_RELEASE_GATE_SUMMARY_PATH: tmp/reports/model-release-gate/latest.txt
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve mode
+        id: mode
+        shell: bash
+        run: |
+          mode="${{ github.event.inputs.mode }}"
+          if [[ -z "$mode" ]]; then
+            if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+              mode="enforce"
+            else
+              mode="audit"
+            fi
+          fi
+          if [[ -n "${MODEL_RELEASE_GATE_MODE_OVERRIDE:-}" ]]; then
+            mode="$MODEL_RELEASE_GATE_MODE_OVERRIDE"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "MODEL_RELEASE_GATE_MODE=$mode" >> "$GITHUB_ENV"
+          echo "Resolved model release gate mode: $mode"
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          if [[ -z "${NEXT_PUBLIC_CONVEX_URL:-}" ]]; then
+            echo "Missing NEXT_PUBLIC_CONVEX_URL secret."
+            exit 1
+          fi
+          if [[ -z "${CONVEX_DEPLOY_KEY:-}" ]]; then
+            echo "Missing CONVEX_DEPLOY_KEY secret."
+            exit 1
+          fi
+
+      - name: Run model release gate audit
+        shell: bash
+        run: |
+          node --import tsx scripts/ci/model-release-gate-audit.ts
+
+      - name: Upload model release gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-release-gate-report
+          path: |
+            tmp/reports/model-release-gate/latest.json
+            tmp/reports/model-release-gate/latest.txt
+          if-no-files-found: ignore

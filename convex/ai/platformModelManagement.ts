@@ -9,7 +9,20 @@ import { v } from "convex/values";
 import { mutation, query, action, internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
-import { evaluateModelEnablementReleaseGates } from "./modelEnablementGates";
+import {
+  evaluateModelEnablementReleaseGates,
+  REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT,
+} from "./modelEnablementGates";
+import type { ModelReleaseGateSnapshot } from "./modelReleaseGateAudit";
+import {
+  evaluateModelConformance,
+  type ModelConformanceSample,
+  type ModelConformanceSummary,
+} from "./modelConformance";
+import { OpenRouterClient } from "./openrouter";
+import { detectProvider, buildEnvApiKeysByProvider } from "./modelAdapters";
+import { CRITICAL_TOOL_NAMES } from "./tools/contracts";
+import { getToolSchemas } from "./tools/registry";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -19,6 +32,238 @@ export type ModelLifecycleStatus =
   | "default"
   | "deprecated"
   | "retired";
+
+export type ModelValidationRunStatus = "idle" | "running" | "passed" | "failed";
+
+interface ModelValidationResultFlags {
+  basicChat: boolean;
+  toolCalling: boolean;
+  complexParams: boolean;
+  multiTurn: boolean;
+  edgeCases: boolean;
+  contractChecks: boolean;
+}
+
+interface ModelValidationProbeResult {
+  passed: boolean;
+  durationMs: number;
+  latencySamplesMs: number[];
+  usageTokens?: number;
+  costUsd?: number;
+  toolCallParsed?: boolean;
+  schemaFidelity?: boolean;
+  refusalHandled?: boolean;
+  conversationId?: string;
+}
+
+interface ModelValidationRunPayload {
+  results: ModelValidationResultFlags;
+  conformance: ModelConformanceSummary;
+}
+
+interface ValidationConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  tool_calls?: Array<{
+    id?: string;
+    type?: string;
+    function?: {
+      name?: string;
+      arguments?: string;
+    };
+  }>;
+}
+
+interface ValidationTransportState {
+  forceDirectRuntime: boolean;
+}
+
+function isOperatorRoutingUnresolvedError(error: unknown): boolean {
+  return (
+    error instanceof Error
+    && error.message.includes("OPERATOR_ROUTING_UNRESOLVED")
+  );
+}
+
+function isNoReleaseReadyPlatformModelError(error: unknown): boolean {
+  return (
+    error instanceof Error
+    && error.message.includes("No release-ready platform AI models are configured")
+  );
+}
+
+function parseToolCallArguments(
+  rawArguments: unknown
+): Record<string, unknown> {
+  if (typeof rawArguments !== "string") {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawArguments);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // no-op
+  }
+  return {};
+}
+
+function buildValidationConversationId(): string {
+  return `validation_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+async function sendModelValidationMessageViaDirectRuntime(args: {
+  ctx: any;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  modelId: string;
+  message: string;
+  conversationId?: string;
+  conversationStore: Map<string, ValidationConversationMessage[]>;
+}): Promise<{ response: any; latencyMs: number }> {
+  const envApiKeysByProvider = buildEnvApiKeysByProvider({
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    OPENAI_COMPATIBLE_API_KEY: process.env.OPENAI_COMPATIBLE_API_KEY,
+    XAI_API_KEY: process.env.XAI_API_KEY,
+    MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
+    KIMI_API_KEY: process.env.KIMI_API_KEY,
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+  });
+  const detectedProvider = detectProvider(args.modelId, "openrouter");
+  const providerApiKey = envApiKeysByProvider[detectedProvider];
+  const openRouterApiKey = envApiKeysByProvider.openrouter;
+  const providerId = providerApiKey ? detectedProvider : "openrouter";
+  const apiKey = providerApiKey ?? openRouterApiKey;
+  if (!apiKey) {
+    throw new Error(
+      "MODEL_VALIDATION_RUNTIME_MISSING_API_KEY: Configure OPENROUTER_API_KEY or provider-specific API keys."
+    );
+  }
+
+  const client = new OpenRouterClient(apiKey, { providerId });
+  const conversationId = args.conversationId ?? buildValidationConversationId();
+  const existingHistory = args.conversationStore.get(conversationId) ?? [];
+  const nextHistory: ValidationConversationMessage[] = [
+    ...existingHistory,
+    { role: "user", content: args.message },
+  ];
+  const startedAt = Date.now();
+  const runtimeResponse = await client.chatCompletion({
+    model: args.modelId,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a model validation probe. Answer directly and produce tool calls when relevant.",
+      },
+      ...nextHistory,
+    ],
+    tools: getToolSchemas(),
+    temperature: 0,
+    max_tokens: 1024,
+  });
+
+  const choiceMessage = runtimeResponse?.choices?.[0]?.message;
+  const assistantMessage =
+    typeof choiceMessage?.content === "string" ? choiceMessage.content : "";
+  const runtimeToolCalls = Array.isArray(choiceMessage?.tool_calls)
+    ? choiceMessage.tool_calls
+    : [];
+  const normalizedToolCalls = runtimeToolCalls.map((toolCall: any) => ({
+    id:
+      typeof toolCall?.id === "string"
+        ? toolCall.id
+        : `validation_tool_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`,
+    name: typeof toolCall?.function?.name === "string" ? toolCall.function.name : "tool",
+    arguments: parseToolCallArguments(toolCall?.function?.arguments),
+  }));
+  const usage =
+    runtimeResponse?.usage &&
+    typeof runtimeResponse.usage.total_tokens === "number"
+      ? runtimeResponse.usage
+      : null;
+  const cost = usage
+    ? client.calculateCost(
+      {
+        prompt_tokens: usage.prompt_tokens,
+        completion_tokens: usage.completion_tokens,
+      },
+      args.modelId
+    )
+    : 0;
+  const promptTokens = Math.max(0, usage?.prompt_tokens ?? 0);
+  const completionTokens = Math.max(0, usage?.completion_tokens ?? 0);
+  const totalTokens = Math.max(
+    0,
+    usage?.total_tokens ?? promptTokens + completionTokens
+  );
+  const nativeCostInCents = Math.max(0, Math.round(cost * 100));
+
+  args.conversationStore.set(conversationId, [
+    ...nextHistory,
+    {
+      role: "assistant" as const,
+      content: assistantMessage,
+      tool_calls: runtimeToolCalls,
+    },
+  ]);
+
+  // Validation inference telemetry should appear in economics rollups, but never block validation UX.
+  try {
+    await args.ctx.runMutation(generatedApi.api.ai.billing.recordUsage, {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      requestType: "chat",
+      provider: providerId,
+      model: args.modelId,
+      action: "model_validation_probe",
+      requestCount: 1,
+      inputTokens: promptTokens,
+      outputTokens: completionTokens,
+      totalTokens,
+      costInCents: nativeCostInCents,
+      nativeUsageUnit: "tokens",
+      nativeUsageQuantity: totalTokens,
+      nativeInputUnits: promptTokens,
+      nativeOutputUnits: completionTokens,
+      nativeTotalUnits: totalTokens,
+      nativeCostInCents,
+      nativeCostCurrency: "USD",
+      nativeCostSource: "estimated_model_pricing",
+      creditsCharged: 0,
+      creditChargeStatus: "skipped_not_required",
+      success: true,
+      billingSource: "platform",
+      requestSource: "llm",
+      ledgerMode: "credits_ledger",
+      creditLedgerAction: "model_validation_probe",
+      usageMetadata: {
+        source: "platform_model_validation",
+        transport: "direct_runtime",
+        validationConversationId: conversationId,
+      },
+    });
+  } catch (error) {
+    console.warn("[ModelValidation] Failed to persist direct-runtime usage telemetry:", error);
+  }
+
+  return {
+    response: {
+      conversationId,
+      message: assistantMessage,
+      toolCalls: normalizedToolCalls,
+      usage,
+      cost,
+    },
+    latencyMs: Date.now() - startedAt,
+  };
+}
 
 export function deriveLifecycleState(args: {
   isPlatformEnabled: boolean;
@@ -74,6 +319,419 @@ export function validateRetirementSafety(args: {
   return { ok: reasons.length === 0, reasons };
 }
 
+function normalizeFiniteNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function extractUsageAndCostFromResponse(response: unknown): {
+  usageTokens?: number;
+  costUsd?: number;
+} {
+  if (!response || typeof response !== "object") {
+    return {};
+  }
+  const typed = response as {
+    usage?: { total_tokens?: number } | null;
+    cost?: number;
+  };
+  return {
+    usageTokens: normalizeFiniteNumber(typed.usage?.total_tokens),
+    costUsd: normalizeFiniteNumber(typed.cost),
+  };
+}
+
+function extractToolCalls(response: unknown): Array<{
+  name?: string;
+  arguments?: Record<string, unknown>;
+}> {
+  if (!response || typeof response !== "object") {
+    return [];
+  }
+  const toolCalls = (response as { toolCalls?: unknown }).toolCalls;
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+  const normalized: Array<{
+    name?: string;
+    arguments?: Record<string, unknown>;
+  }> = [];
+  for (const toolCall of toolCalls) {
+    if (!toolCall || typeof toolCall !== "object") {
+      continue;
+    }
+    const record = toolCall as Record<string, unknown>;
+    normalized.push({
+      name: typeof record.name === "string" ? record.name : undefined,
+      arguments:
+        record.arguments && typeof record.arguments === "object"
+          ? (record.arguments as Record<string, unknown>)
+          : undefined,
+    });
+  }
+  return normalized;
+}
+
+function buildValidationConformanceSamples(args: {
+  basicChat: ModelValidationProbeResult;
+  toolCalling: ModelValidationProbeResult;
+  complexParams: ModelValidationProbeResult;
+  multiTurn: ModelValidationProbeResult;
+  edgeCases: ModelValidationProbeResult;
+  contractChecks: ModelValidationProbeResult;
+}): ModelConformanceSample[] {
+  const toCostTuple = (probe: ModelValidationProbeResult) => ({
+    totalTokens: probe.usageTokens ?? 1000,
+    costUsd: probe.costUsd ?? 0,
+  });
+  const appendSamples = (input: {
+    scenarioId: string;
+    probe: ModelValidationProbeResult;
+    toolCallParsed?: boolean;
+    schemaFidelity?: boolean;
+    refusalHandled?: boolean;
+  }) => {
+    const costTuple = toCostTuple(input.probe);
+    const latencies = input.probe.latencySamplesMs.length > 0
+      ? input.probe.latencySamplesMs
+      : [Math.max(0, Math.round(input.probe.durationMs))];
+    return latencies.map((latencyMs, index) => ({
+      scenarioId:
+        index === 0 ? input.scenarioId : `${input.scenarioId}_latency_${index + 1}`,
+      latencyMs,
+      ...(index === 0
+        ? {
+            ...costTuple,
+            ...(typeof input.toolCallParsed === "boolean"
+              ? { toolCallParsed: input.toolCallParsed }
+              : {}),
+            ...(typeof input.schemaFidelity === "boolean"
+              ? { schemaFidelity: input.schemaFidelity }
+              : {}),
+            ...(typeof input.refusalHandled === "boolean"
+              ? { refusalHandled: input.refusalHandled }
+              : {}),
+          }
+        : {}),
+    }));
+  };
+
+  return [
+    ...appendSamples({ scenarioId: "basic_chat", probe: args.basicChat }),
+    ...appendSamples({
+      scenarioId: "tool_calling",
+      probe: args.toolCalling,
+      toolCallParsed: args.toolCalling.toolCallParsed ?? args.toolCalling.passed,
+    }),
+    ...appendSamples({
+      scenarioId: "complex_params",
+      probe: args.complexParams,
+      schemaFidelity: args.complexParams.schemaFidelity ?? args.complexParams.passed,
+    }),
+    ...appendSamples({ scenarioId: "multi_turn", probe: args.multiTurn }),
+    ...appendSamples({
+      scenarioId: "edge_cases",
+      probe: args.edgeCases,
+      refusalHandled: args.edgeCases.refusalHandled ?? args.edgeCases.passed,
+    }),
+    ...appendSamples({
+      scenarioId: "contract_checks",
+      probe: args.contractChecks,
+      toolCallParsed: args.contractChecks.toolCallParsed ?? args.contractChecks.passed,
+      schemaFidelity: args.contractChecks.schemaFidelity ?? args.contractChecks.passed,
+    }),
+  ];
+}
+
+export function deriveValidationStatusFromRun(args: {
+  results: ModelValidationResultFlags;
+  conformance: ModelConformanceSummary;
+}): "validated" | "failed" {
+  return Object.values(args.results).every(Boolean) && args.conformance.passed
+    ? "validated"
+    : "failed";
+}
+
+async function sendModelValidationMessage(args: {
+  ctx: any;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  modelId: string;
+  message: string;
+  conversationId?: string;
+  conversationStore: Map<string, ValidationConversationMessage[]>;
+  transportState: ValidationTransportState;
+}): Promise<{ response: any; latencyMs: number }> {
+  if (
+    args.transportState.forceDirectRuntime
+    || (args.conversationId && args.conversationStore.has(args.conversationId))
+  ) {
+    args.transportState.forceDirectRuntime = true;
+    return sendModelValidationMessageViaDirectRuntime({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      modelId: args.modelId,
+      message: args.message,
+      conversationId: args.conversationId,
+      conversationStore: args.conversationStore,
+    });
+  }
+
+  const buildSendMessageArgs = (useLegacyPageBuilderFlow: boolean) => ({
+    ...(args.conversationId ? { conversationId: args.conversationId as any } : {}),
+    organizationId: args.organizationId,
+    userId: args.userId,
+    selectedModel: args.modelId,
+    message: args.message,
+    reasoningEffort: "low" as const,
+    ...(useLegacyPageBuilderFlow
+      ? {
+        context: "page_builder" as const,
+        builderMode: "connect" as const,
+      }
+      : {}),
+  });
+
+  const primaryStartedAt = Date.now();
+  try {
+    const response = await args.ctx.runAction(
+      generatedApi.api.ai.chat.sendMessage,
+      buildSendMessageArgs(false)
+    );
+    return {
+      response,
+      latencyMs: Date.now() - primaryStartedAt,
+    };
+  } catch (error) {
+    if (isNoReleaseReadyPlatformModelError(error)) {
+      console.warn(
+        `[ModelValidation] No release-ready platform model baseline; using direct runtime transport for ${args.modelId}.`
+      );
+      args.transportState.forceDirectRuntime = true;
+      return sendModelValidationMessageViaDirectRuntime({
+        ctx: args.ctx,
+        organizationId: args.organizationId,
+        userId: args.userId,
+        modelId: args.modelId,
+        message: args.message,
+        conversationId: args.conversationId,
+        conversationStore: args.conversationStore,
+      });
+    }
+
+    if (!isOperatorRoutingUnresolvedError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      `[ModelValidation] Desktop operator route unresolved for ${args.modelId}; retrying via legacy page-builder runtime.`
+    );
+
+    const fallbackStartedAt = Date.now();
+    try {
+      const response = await args.ctx.runAction(
+        generatedApi.api.ai.chat.sendMessage,
+        buildSendMessageArgs(true)
+      );
+      return {
+        response,
+        latencyMs: Date.now() - fallbackStartedAt,
+      };
+    } catch (fallbackError) {
+      if (isNoReleaseReadyPlatformModelError(fallbackError)) {
+        console.warn(
+          `[ModelValidation] Legacy runtime blocked by release-ready baseline; using direct runtime transport for ${args.modelId}.`
+        );
+        args.transportState.forceDirectRuntime = true;
+        return sendModelValidationMessageViaDirectRuntime({
+          ctx: args.ctx,
+          organizationId: args.organizationId,
+          userId: args.userId,
+          modelId: args.modelId,
+          message: args.message,
+          conversationId: args.conversationId,
+          conversationStore: args.conversationStore,
+        });
+      }
+      throw fallbackError;
+    }
+  }
+}
+
+async function runModelValidationSuite(args: {
+  ctx: any;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  modelId: string;
+}): Promise<ModelValidationRunPayload> {
+  const conversationStore = new Map<string, ValidationConversationMessage[]>();
+  const transportState: ValidationTransportState = {
+    forceDirectRuntime: false,
+  };
+  const sendValidationProbeMessage = (input: {
+    message: string;
+    conversationId?: string;
+  }) =>
+    sendModelValidationMessage({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      modelId: args.modelId,
+      message: input.message,
+      conversationId: input.conversationId,
+      conversationStore,
+      transportState,
+    });
+
+  const runBasicChat = async (): Promise<ModelValidationProbeResult> => {
+    const { response, latencyMs } = await sendValidationProbeMessage({
+      message: 'Reply with exactly "ACK_VALIDATION" and nothing else.',
+    });
+    const message =
+      typeof response?.message === "string" ? response.message.trim() : "";
+    const usageAndCost = extractUsageAndCostFromResponse(response);
+    return {
+      passed: message.length > 0,
+      durationMs: latencyMs,
+      latencySamplesMs: [latencyMs],
+      ...usageAndCost,
+    };
+  };
+
+  const runToolCalling = async (): Promise<ModelValidationProbeResult> => {
+    const { response, latencyMs } = await sendValidationProbeMessage({
+      message: "List my forms using the available tools.",
+    });
+    const toolCalls = extractToolCalls(response);
+    const usageAndCost = extractUsageAndCostFromResponse(response);
+    return {
+      passed: toolCalls.length > 0,
+      durationMs: latencyMs,
+      latencySamplesMs: [latencyMs],
+      toolCallParsed: toolCalls.length > 0,
+      ...usageAndCost,
+    };
+  };
+
+  const runComplexParams = async (): Promise<ModelValidationProbeResult> => {
+    const { response, latencyMs } = await sendValidationProbeMessage({
+      message:
+        'Search contacts using search_contacts with query "Alice Smith sales department".',
+    });
+    const toolCalls = extractToolCalls(response);
+    const candidate = toolCalls.find(
+      (toolCall) =>
+        toolCall.name === "search_contacts" || toolCall.name === "manage_crm"
+    );
+    const argsObject = candidate?.arguments ?? {};
+    const hasQuerySignal = [
+      "query",
+      "searchQuery",
+      "search_query",
+      "name",
+      "term",
+    ].some(
+      (key) => typeof argsObject[key] === "string" && argsObject[key].trim().length > 0
+    );
+    const usageAndCost = extractUsageAndCostFromResponse(response);
+    return {
+      passed: Boolean(candidate) && hasQuerySignal,
+      durationMs: latencyMs,
+      latencySamplesMs: [latencyMs],
+      schemaFidelity: Boolean(candidate) && hasQuerySignal,
+      ...usageAndCost,
+    };
+  };
+
+  const runMultiTurn = async (): Promise<ModelValidationProbeResult> => {
+    const first = await sendValidationProbeMessage({
+      message: "List my forms.",
+    });
+    const conversationId =
+      typeof first.response?.conversationId === "string"
+        ? first.response.conversationId
+        : undefined;
+    const second = await sendValidationProbeMessage({
+      conversationId,
+      message: "How many did you find?",
+    });
+    const message =
+      typeof second.response?.message === "string"
+        ? second.response.message.trim()
+        : "";
+    const firstUsage = extractUsageAndCostFromResponse(first.response);
+    const secondUsage = extractUsageAndCostFromResponse(second.response);
+    return {
+      passed: message.length > 0,
+      durationMs: first.latencyMs + second.latencyMs,
+      latencySamplesMs: [first.latencyMs, second.latencyMs],
+      usageTokens:
+        (firstUsage.usageTokens ?? 0) + (secondUsage.usageTokens ?? 0),
+      costUsd: (firstUsage.costUsd ?? 0) + (secondUsage.costUsd ?? 0),
+      conversationId,
+    };
+  };
+
+  const runEdgeCases = async (): Promise<ModelValidationProbeResult> => {
+    const { response, latencyMs } = await sendValidationProbeMessage({
+      message: "Search for",
+    });
+    const message =
+      typeof response?.message === "string" ? response.message.trim() : "";
+    const usageAndCost = extractUsageAndCostFromResponse(response);
+    return {
+      passed: message.length > 0,
+      durationMs: latencyMs,
+      latencySamplesMs: [latencyMs],
+      refusalHandled: message.length > 0,
+      ...usageAndCost,
+    };
+  };
+
+  const runContractChecks = async (): Promise<ModelValidationProbeResult> => {
+    const contractCountMatches =
+      CRITICAL_TOOL_NAMES.length === REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT;
+    return {
+      passed: contractCountMatches,
+      durationMs: 0,
+      latencySamplesMs: [0],
+      toolCallParsed: contractCountMatches,
+      schemaFidelity: contractCountMatches,
+    };
+  };
+
+  const basicChat = await runBasicChat();
+  const toolCalling = await runToolCalling();
+  const complexParams = await runComplexParams();
+  const multiTurn = await runMultiTurn();
+  const edgeCases = await runEdgeCases();
+  const contractChecks = await runContractChecks();
+
+  const results: ModelValidationResultFlags = {
+    basicChat: basicChat.passed,
+    toolCalling: toolCalling.passed,
+    complexParams: complexParams.passed,
+    multiTurn: multiTurn.passed,
+    edgeCases: edgeCases.passed,
+    contractChecks: contractChecks.passed,
+  };
+  const conformance = evaluateModelConformance({
+    samples: buildValidationConformanceSamples({
+      basicChat,
+      toolCalling,
+      complexParams,
+      multiTurn,
+      edgeCases,
+      contractChecks,
+    }),
+  });
+
+  return { results, conformance };
+}
+
 /**
  * Get all discovered AI models with their platform availability status
  */
@@ -111,6 +769,7 @@ export const getPlatformModels = query({
         // Platform availability - default to disabled for new models
         isPlatformEnabled: model.isPlatformEnabled ?? false,
         isSystemDefault: model.isSystemDefault ?? false,
+        isFreeTierLocked: model.isFreeTierLocked ?? false,
         lifecycleStatus:
           model.lifecycleStatus
           ?? deriveLifecycleState({
@@ -129,6 +788,12 @@ export const getPlatformModels = query({
         testedBy: model.testedBy,
         testedAt: model.testedAt,
         notes: model.notes,
+        validationRunStatus: model.validationRunStatus,
+        validationRunStartedAt: model.validationRunStartedAt,
+        validationRunFinishedAt: model.validationRunFinishedAt,
+        validationRunMessage: model.validationRunMessage,
+        operationalReviewAcknowledgedAt: model.operationalReviewAcknowledgedAt,
+        operationalReviewAcknowledgedBy: model.operationalReviewAcknowledgedBy,
       })),
     };
   },
@@ -197,6 +862,8 @@ export const enablePlatformModel = mutation({
       lifecycleStatus,
       retiredAt: undefined,
       retirementReason: undefined,
+      operationalReviewAcknowledgedAt: Date.now(),
+      operationalReviewAcknowledgedBy: userId,
     });
 
     return {
@@ -249,6 +916,7 @@ export const disablePlatformModel = mutation({
     await ctx.db.patch(model._id, {
       isPlatformEnabled: false,
       isSystemDefault: false,
+      isFreeTierLocked: false,
       lifecycleStatus,
     });
 
@@ -354,6 +1022,8 @@ export const batchEnableModels = mutation({
         lifecycleStatus,
         retiredAt: undefined,
         retirementReason: undefined,
+        operationalReviewAcknowledgedAt: Date.now(),
+        operationalReviewAcknowledgedBy: userId,
       });
       enabledCount++;
     }
@@ -362,6 +1032,148 @@ export const batchEnableModels = mutation({
       success: true,
       message: `Enabled ${enabledCount} models platform-wide`,
       count: enabledCount,
+    };
+  },
+});
+
+/**
+ * Batch disable multiple models.
+ */
+export const batchDisableModels = mutation({
+  args: {
+    sessionId: v.string(),
+    modelIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    let disabledCount = 0;
+    const missingModels: string[] = [];
+
+    for (const modelId of args.modelIds) {
+      const model = await ctx.db
+        .query("aiModels")
+        .withIndex("by_model_id", (q) => q.eq("modelId", modelId))
+        .first();
+
+      if (!model) {
+        missingModels.push(modelId);
+        continue;
+      }
+
+      const lifecycleStatus =
+        model.lifecycleStatus === "retired"
+          ? "retired"
+          : deriveLifecycleState({
+            isPlatformEnabled: false,
+            isSystemDefault: false,
+            deprecatedAt: model.deprecatedAt,
+            retiredAt: model.retiredAt,
+          });
+      await ctx.db.patch(model._id, {
+        isPlatformEnabled: false,
+        isSystemDefault: false,
+        isFreeTierLocked: false,
+        lifecycleStatus,
+      });
+      disabledCount += 1;
+    }
+
+    if (missingModels.length > 0) {
+      throw new Error(
+        `Batch disable aborted; unknown model IDs: ${missingModels.join(", ")}`
+      );
+    }
+
+    return {
+      success: true,
+      message: `Disabled ${disabledCount} models platform-wide`,
+      count: disabledCount,
+    };
+  },
+});
+
+/**
+ * Set the platform default model.
+ *
+ * Exactly one platform-enabled model should be marked as the default starter.
+ * This mutation promotes the selected model and clears any existing defaults.
+ */
+export const setPlatformDefaultModel = mutation({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const model = await ctx.db
+      .query("aiModels")
+      .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
+      .first();
+
+    if (!model) {
+      throw new Error(`Model ${args.modelId} not found`);
+    }
+
+    if (!model.isPlatformEnabled) {
+      throw new Error("Only platform-enabled models can be set as platform default");
+    }
+    if (model.lifecycleStatus === "retired" || model.lifecycleStatus === "deprecated") {
+      throw new Error("Deprecated or retired models cannot be platform defaults");
+    }
+
+    const currentDefaults = await ctx.db
+      .query("aiModels")
+      .withIndex("by_system_default", (q) => q.eq("isSystemDefault", true))
+      .collect();
+
+    let demotedDefaults = 0;
+    for (const currentDefault of currentDefaults) {
+      if (currentDefault._id === model._id) {
+        continue;
+      }
+
+      const demotedLifecycleStatus = deriveLifecycleState({
+        isPlatformEnabled: currentDefault.isPlatformEnabled ?? false,
+        isSystemDefault: false,
+        deprecatedAt: currentDefault.deprecatedAt,
+        retiredAt: currentDefault.retiredAt,
+      });
+      await ctx.db.patch(currentDefault._id, {
+        isSystemDefault: false,
+        lifecycleStatus: demotedLifecycleStatus,
+      });
+      demotedDefaults += 1;
+    }
+
+    const nextLifecycleStatus = deriveLifecycleState({
+      isPlatformEnabled: model.isPlatformEnabled ?? false,
+      isSystemDefault: true,
+      deprecatedAt: model.deprecatedAt,
+      retiredAt: model.retiredAt,
+    });
+    await ctx.db.patch(model._id, {
+      isSystemDefault: true,
+      lifecycleStatus: nextLifecycleStatus,
+    });
+
+    return {
+      success: true,
+      message:
+        demotedDefaults > 0
+          ? `${model.name} is now the platform default (replaced ${demotedDefaults} previous default${demotedDefaults === 1 ? "" : "s"})`
+          : `${model.name} is now the platform default`,
     };
   },
 });
@@ -433,6 +1245,88 @@ export const toggleSystemDefault = mutation({
 });
 
 /**
+ * Toggle the platform-wide locked model for free-tier organizations.
+ *
+ * Only one model can be locked at a time.
+ */
+export const toggleFreeTierLockedModel = mutation({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+    isLocked: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const model = await ctx.db
+      .query("aiModels")
+      .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
+      .first();
+
+    if (!model) {
+      throw new Error(`Model ${args.modelId} not found`);
+    }
+
+    if (!args.isLocked) {
+      await ctx.db.patch(model._id, {
+        isFreeTierLocked: false,
+      });
+      return {
+        success: true,
+        message: `${model.name} is no longer locked for free-tier organizations`,
+      };
+    }
+
+    if (!model.isPlatformEnabled) {
+      throw new Error("Only platform-enabled models can be locked for free tier");
+    }
+    if (model.lifecycleStatus === "retired" || model.lifecycleStatus === "deprecated") {
+      throw new Error("Deprecated or retired models cannot be locked for free tier");
+    }
+
+    const releaseGateResult = evaluateModelEnablementReleaseGates({
+      model: {
+        modelId: model.modelId,
+        validationStatus: model.validationStatus,
+        testResults: model.testResults,
+      },
+      operationalReviewAcknowledged: true,
+    });
+    if (!releaseGateResult.passed) {
+      throw new Error(
+        `Model ${args.modelId} is not release-ready for free-tier lock: ${releaseGateResult.reasons.join(" ")}`
+      );
+    }
+
+    const currentlyLocked = await ctx.db
+      .query("aiModels")
+      .withIndex("by_free_tier_locked", (q) => q.eq("isFreeTierLocked", true))
+      .collect();
+    for (const lockedModel of currentlyLocked) {
+      if (lockedModel._id !== model._id) {
+        await ctx.db.patch(lockedModel._id, {
+          isFreeTierLocked: false,
+        });
+      }
+    }
+
+    await ctx.db.patch(model._id, {
+      isFreeTierLocked: true,
+    });
+
+    return {
+      success: true,
+      message: `${model.name} is now locked for free-tier organizations`,
+    };
+  },
+});
+
+/**
  * Mark a model as deprecated while optionally guiding operators to a replacement.
  */
 export const deprecatePlatformModel = mutation({
@@ -467,6 +1361,8 @@ export const deprecatePlatformModel = mutation({
           _id: Id<"aiModels">;
           modelId: string;
           isPlatformEnabled?: boolean;
+          isSystemDefault?: boolean;
+          isFreeTierLocked?: boolean;
           lifecycleStatus?: string;
           deprecatedAt?: number;
         }
@@ -493,21 +1389,31 @@ export const deprecatePlatformModel = mutation({
       deprecatedAt: model.deprecatedAt ?? now,
       replacementModelId: args.replacementModelId,
       retirementReason: args.reason,
+      isFreeTierLocked: false,
       isSystemDefault:
         args.replacementModelId && model.isSystemDefault ? false : model.isSystemDefault,
     });
 
-    if (replacementModel && model.isSystemDefault) {
+    if (replacementModel && (model.isSystemDefault || model.isFreeTierLocked)) {
+      const replacementIsSystemDefault =
+        model.isSystemDefault === true
+          ? true
+          : replacementModel.isSystemDefault ?? false;
+      const replacementIsFreeTierLocked =
+        model.isFreeTierLocked === true
+          ? true
+          : replacementModel.isFreeTierLocked ?? false;
       const replacementLifecycleStatus = deriveLifecycleState({
         isPlatformEnabled: replacementModel.isPlatformEnabled ?? false,
-        isSystemDefault: true,
+        isSystemDefault: replacementIsSystemDefault,
         deprecatedAt: replacementModel.lifecycleStatus === "deprecated"
           ? replacementModel.deprecatedAt
           : undefined,
         retiredAt: undefined,
       });
       await ctx.db.patch(replacementModel._id, {
-        isSystemDefault: true,
+        isSystemDefault: replacementIsSystemDefault,
+        isFreeTierLocked: replacementIsFreeTierLocked,
         lifecycleStatus: replacementLifecycleStatus,
       });
     }
@@ -554,6 +1460,8 @@ export const retirePlatformModel = mutation({
           _id: Id<"aiModels">;
           modelId: string;
           isPlatformEnabled?: boolean;
+          isSystemDefault?: boolean;
+          isFreeTierLocked?: boolean;
           lifecycleStatus?: string;
           deprecatedAt?: number;
         }
@@ -587,6 +1495,7 @@ export const retirePlatformModel = mutation({
     await ctx.db.patch(model._id, {
       isPlatformEnabled: false,
       isSystemDefault: false,
+      isFreeTierLocked: false,
       lifecycleStatus: "retired",
       deprecatedAt: model.deprecatedAt ?? now,
       retiredAt: now,
@@ -594,17 +1503,26 @@ export const retirePlatformModel = mutation({
       retirementReason: args.reason ?? "retired_by_operator",
     });
 
-    if (replacementModel && model.isSystemDefault) {
+    if (replacementModel && (model.isSystemDefault || model.isFreeTierLocked)) {
+      const replacementIsSystemDefault =
+        model.isSystemDefault === true
+          ? true
+          : replacementModel.isSystemDefault ?? false;
+      const replacementIsFreeTierLocked =
+        model.isFreeTierLocked === true
+          ? true
+          : replacementModel.isFreeTierLocked ?? false;
       const replacementLifecycleStatus = deriveLifecycleState({
         isPlatformEnabled: replacementModel.isPlatformEnabled ?? false,
-        isSystemDefault: true,
+        isSystemDefault: replacementIsSystemDefault,
         deprecatedAt: replacementModel.lifecycleStatus === "deprecated"
           ? replacementModel.deprecatedAt
           : undefined,
         retiredAt: undefined,
       });
       await ctx.db.patch(replacementModel._id, {
-        isSystemDefault: true,
+        isSystemDefault: replacementIsSystemDefault,
+        isFreeTierLocked: replacementIsFreeTierLocked,
         lifecycleStatus: replacementLifecycleStatus,
       });
     }
@@ -617,7 +1535,7 @@ export const retirePlatformModel = mutation({
 });
 
 /**
- * Manually refresh models from OpenRouter
+ * Manually refresh models from provider discovery fanout
  *
  * Triggers the same model discovery that runs daily via cron job.
  * Super admin only.
@@ -646,7 +1564,7 @@ export const manualRefreshModels = action({
 
     return {
       success: true,
-      message: `Successfully refreshed models. Found ${result.models.length} models from OpenRouter.`,
+      message: `Successfully refreshed models. Found ${result.models.length} models from provider discovery fanout.`,
       count: result.models.length,
       fetchedAt: result.fetchedAt,
     };
@@ -678,6 +1596,191 @@ export const checkSuperAdmin = internalQuery({
         isSuperAdmin: false,
         userId: undefined,
       };
+    }
+  },
+});
+
+/**
+ * Internal release-gate snapshot export for CI and operational audits.
+ */
+export const getModelReleaseGateSnapshots = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<ModelReleaseGateSnapshot[]> => {
+    const models = await ctx.db.query("aiModels").collect();
+    const snapshots = models.map((model) => ({
+      modelId: model.modelId,
+      name: model.name,
+      provider: model.provider,
+      lifecycleStatus: model.lifecycleStatus,
+      isPlatformEnabled: model.isPlatformEnabled === true,
+      validationStatus: model.validationStatus,
+      testResults: model.testResults,
+      operationalReviewAcknowledgedAt: model.operationalReviewAcknowledgedAt,
+    }));
+
+    snapshots.sort((left, right) => left.modelId.localeCompare(right.modelId));
+    return snapshots;
+  },
+});
+
+/**
+ * Update per-model validation run state for UI progress/status display.
+ */
+export const setModelValidationRunState = mutation({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+    status: v.union(
+      v.literal("idle"),
+      v.literal("running"),
+      v.literal("passed"),
+      v.literal("failed")
+    ),
+    message: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const model = await ctx.db
+      .query("aiModels")
+      .withIndex("by_model_id", (q) => q.eq("modelId", args.modelId))
+      .first();
+    if (!model) {
+      throw new Error(`Model ${args.modelId} not found`);
+    }
+
+    await ctx.db.patch(model._id, {
+      validationRunStatus: args.status,
+      validationRunMessage: args.message,
+      validationRunStartedAt: args.startedAt ?? model.validationRunStartedAt,
+      validationRunFinishedAt: args.finishedAt ?? model.validationRunFinishedAt,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Run live validation for a single model from the super-admin UI.
+ */
+export const runPlatformModelValidation = action({
+  args: {
+    sessionId: v.string(),
+    modelId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userCheck = await (ctx as any).runQuery(
+      generatedApi.internal.ai.platformModelManagement.checkSuperAdmin,
+      {
+        sessionId: args.sessionId,
+      }
+    );
+    if (!userCheck?.isSuperAdmin) {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    const currentUser = await (ctx as any).runQuery(
+      generatedApi.api.auth.getCurrentUser,
+      { sessionId: args.sessionId }
+    ) as {
+      id?: string;
+      currentOrganization?: { id?: string } | null;
+      defaultOrgId?: string | null;
+    } | null;
+
+    const organizationId =
+      currentUser?.currentOrganization?.id ?? currentUser?.defaultOrgId;
+    const userId = currentUser?.id;
+    if (!organizationId || !userId) {
+      throw new Error(
+        "Unable to resolve validation fixture context from your authenticated super-admin session."
+      );
+    }
+
+    const startedAt = Date.now();
+    await (ctx as any).runMutation(
+      generatedApi.api.ai.platformModelManagement.setModelValidationRunState,
+      {
+        sessionId: args.sessionId,
+        modelId: args.modelId,
+        status: "running",
+        message: "Validation in progress",
+        startedAt,
+      }
+    );
+
+    try {
+      const validationRun = await runModelValidationSuite({
+        ctx,
+        organizationId: organizationId as Id<"organizations">,
+        userId: userId as Id<"users">,
+        modelId: args.modelId,
+      });
+      const validationStatus = deriveValidationStatusFromRun({
+        results: validationRun.results,
+        conformance: validationRun.conformance,
+      });
+
+      await (ctx as any).runMutation(
+        generatedApi.api.ai.platformModelManagement.updateModelValidation,
+        {
+          sessionId: args.sessionId,
+          modelId: args.modelId,
+          validationStatus,
+          testResults: {
+            ...validationRun.results,
+            conformance: validationRun.conformance,
+            timestamp: Date.now(),
+          },
+          notes: `Validated via super-admin UI on ${new Date().toISOString()}`,
+        }
+      );
+
+      const finishedAt = Date.now();
+      const passedChecks = Object.values(validationRun.results).filter(Boolean).length;
+      const totalChecks = Object.keys(validationRun.results).length;
+      const summaryMessage = `${passedChecks}/${totalChecks} checks passed; conformance=${
+        validationRun.conformance.passed ? "PASS" : "FAIL"
+      }`;
+      await (ctx as any).runMutation(
+        generatedApi.api.ai.platformModelManagement.setModelValidationRunState,
+        {
+          sessionId: args.sessionId,
+          modelId: args.modelId,
+          status: validationStatus === "validated" ? "passed" : "failed",
+          message: summaryMessage,
+          finishedAt,
+        }
+      );
+
+      return {
+        success: true,
+        modelId: args.modelId,
+        validationStatus,
+        summary: summaryMessage,
+      };
+    } catch (error) {
+      const finishedAt = Date.now();
+      const message =
+        error instanceof Error ? error.message : "Model validation failed";
+      await (ctx as any).runMutation(
+        generatedApi.api.ai.platformModelManagement.setModelValidationRunState,
+        {
+          sessionId: args.sessionId,
+          modelId: args.modelId,
+          status: "failed",
+          message,
+          finishedAt,
+        }
+      );
+      throw error;
     }
   },
 });
@@ -765,6 +1868,13 @@ export const updateModelValidation = mutation({
       testedBy: userId,
       testedAt: Date.now(),
       notes: args.notes,
+      validationRunStatus:
+        args.validationStatus === "validated" ? "passed" : "failed",
+      validationRunFinishedAt: Date.now(),
+      validationRunMessage:
+        args.validationStatus === "validated"
+          ? "Validation completed successfully"
+          : "Validation completed with failures",
     });
 
     return {

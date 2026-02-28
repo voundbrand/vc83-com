@@ -32,6 +32,7 @@ Reference patterns:
   - provider protocol details
   - payload translation
   - provider-specific retries where appropriate
+  - intentionally provider-scoped logic (for example OpenRouter-only headers and endpoint quirks)
 
 ## Implementation chunks
 

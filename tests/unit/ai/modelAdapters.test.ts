@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildEnvApiKeysByProvider,
   detectProvider,
+  getProviderAdapterContractConformanceIssues,
+  getProviderAdapterContractSnapshot,
   normalizeModelForProvider,
+  normalizeLocalConnectionContract,
+  normalizePrivacyMode,
   normalizeProviderCompletionResponse,
   normalizeProviderError,
+  resolvePrivacyModeProviderDecision,
+  resolveProviderReasoningContract,
+  resolveProviderReasoningResolution,
   resolveAuthProfileBaseUrl,
 } from "../../../convex/ai/modelAdapters";
 
@@ -12,6 +19,7 @@ describe("model adapter normalization", () => {
   it("normalizes provider aliases and fallback provider hints", () => {
     expect(detectProvider("google/gemini-2.0-flash")).toBe("gemini");
     expect(detectProvider("openai-compatible")).toBe("openai_compatible");
+    expect(detectProvider("local/phi-4-mini")).toBe("openai_compatible");
     expect(detectProvider("gpt-4o", "openai")).toBe("openai");
   });
 
@@ -175,5 +183,127 @@ describe("model adapter normalization", () => {
     expect(envMap.anthropic).toBe("an-key");
     expect(envMap.gemini).toBe("ga-key");
     expect(envMap.openai_compatible).toBe("compat-key");
+  });
+
+  it("resolves provider-native reasoning contract metadata", () => {
+    const openRouterContract = resolveProviderReasoningContract("openrouter");
+    expect(openRouterContract.supportsNativeReasoning).toBe(true);
+    expect(openRouterContract.paramKind).toBe("openrouter_reasoning");
+
+    const openAiContract = resolveProviderReasoningContract("openai");
+    expect(openAiContract.supportsNativeReasoning).toBe(false);
+    expect(openAiContract.paramKind).toBe("none");
+  });
+
+  it("applies native reasoning only for supported provider/model combinations", () => {
+    const nativeResolution = resolveProviderReasoningResolution({
+      providerId: "openrouter",
+      modelSupportsNativeReasoning: true,
+      reasoningEffort: "extra_high",
+    });
+    expect(nativeResolution.mode).toBe("native");
+    expect(nativeResolution.effectiveEffort).toBe("high");
+    expect(nativeResolution.requestPatch).toEqual({
+      reasoning: {
+        effort: "high",
+      },
+    });
+
+    const modelFallback = resolveProviderReasoningResolution({
+      providerId: "openrouter",
+      modelSupportsNativeReasoning: false,
+      reasoningEffort: "high",
+    });
+    expect(modelFallback.mode).toBe("heuristic");
+    expect(modelFallback.reason).toBe("model_not_supported");
+
+    const missingCapabilityFallback = resolveProviderReasoningResolution({
+      providerId: "openrouter",
+      modelSupportsNativeReasoning: null,
+      reasoningEffort: "high",
+    });
+    expect(missingCapabilityFallback.mode).toBe("heuristic");
+    expect(missingCapabilityFallback.reason).toBe("model_capability_missing");
+
+    const providerFallback = resolveProviderReasoningResolution({
+      providerId: "openai",
+      modelSupportsNativeReasoning: true,
+      reasoningEffort: "high",
+    });
+    expect(providerFallback.mode).toBe("heuristic");
+    expect(providerFallback.reason).toBe("provider_not_supported");
+  });
+
+  it("provides deterministic provider adapter contract snapshots", () => {
+    const openAiSnapshot = getProviderAdapterContractSnapshot("openai");
+    expect(openAiSnapshot.providerId).toBe("openai");
+    expect(openAiSnapshot.requestProtocol).toBe("openai_compatible");
+    expect(openAiSnapshot.supportsToolCalling).toBe(true);
+    expect(openAiSnapshot.reasoningParamKind).toBe("none");
+
+    const openRouterSnapshot = getProviderAdapterContractSnapshot("openrouter");
+    expect(openRouterSnapshot.reasoningParamKind).toBe("openrouter_reasoning");
+  });
+
+  it("reports adapter contract mismatches", () => {
+    const issues = getProviderAdapterContractConformanceIssues({
+      providerId: "openai",
+      expected: {
+        providerId: "openai",
+        requestProtocol: "anthropic_messages",
+      },
+    });
+
+    expect(
+      issues.some((issue) => issue.includes("requestProtocol mismatch"))
+    ).toBe(true);
+  });
+
+  it("normalizes local connection contracts for privacy mode routing", () => {
+    const contract = normalizeLocalConnectionContract({
+      connectorId: "lm-studio",
+      baseUrl: "http://localhost:1234/v1/",
+      status: "connected",
+      modelIds: [" local/phi-4 ", "local/phi-4", "local/qwen2.5"],
+      capabilityLimits: {
+        tools: false,
+        vision: false,
+        audio_in: false,
+        audio_out: false,
+        json: true,
+      },
+    });
+
+    expect(contract.connectorId).toBe("lm_studio");
+    expect(contract.baseUrl).toBe("http://localhost:1234/v1");
+    expect(contract.modelIds).toEqual(["local/phi-4", "local/qwen2.5"]);
+    expect(contract.capabilityLimits.networkEgress).toBe("blocked");
+  });
+
+  it("enforces local-only privacy mode against cloud routes", () => {
+    const local = normalizeLocalConnectionContract({
+      connectorId: "ollama",
+      status: "connected",
+      modelIds: ["local/llama3.1"],
+    });
+    expect(normalizePrivacyMode("local-only")).toBe("local_only");
+
+    const blocked = resolvePrivacyModeProviderDecision({
+      privacyMode: "local_only",
+      providerId: "openrouter",
+      localConnection: local,
+      isLocalRoute: false,
+    });
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.blockReason).toBe("privacy_mode_requires_local_route");
+
+    const allowed = resolvePrivacyModeProviderDecision({
+      privacyMode: "local_only",
+      providerId: "openai_compatible",
+      localConnection: local,
+      isLocalRoute: true,
+    });
+    expect(allowed.allowed).toBe(true);
+    expect(allowed.capabilityLimits?.networkEgress).toBe("blocked");
   });
 });

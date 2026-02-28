@@ -1,0 +1,61 @@
+name: model-validation-live
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Optional specific model id (e.g. anthropic/claude-sonnet-4.5)."
+        required: false
+        default: ""
+      provider:
+        description: "Optional provider filter when model is not specified."
+        required: false
+        default: ""
+
+jobs:
+  live-model-validation:
+    if: ${{ secrets.NEXT_PUBLIC_CONVEX_URL != '' && secrets.CONVEX_DEPLOY_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      TEST_SESSION_ID: ${{ secrets.TEST_SESSION_ID }}
+      TEST_ORG_ID: ${{ secrets.TEST_ORG_ID }}
+      TEST_USER_ID: ${{ secrets.TEST_USER_ID }}
+      MODEL_VALIDATION_STRICT_MODEL: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run live model validation harness
+        shell: bash
+        env:
+          INPUT_MODEL: ${{ github.event.inputs.model }}
+          INPUT_PROVIDER: ${{ github.event.inputs.provider }}
+        run: |
+          args=(npm run test:model --)
+          if [[ -n "${INPUT_MODEL:-}" ]]; then
+            args+=(--model "${INPUT_MODEL}")
+          elif [[ -n "${INPUT_PROVIDER:-}" ]]; then
+            args+=(--provider "${INPUT_PROVIDER}")
+          else
+            args+=(--untested-only)
+          fi
+          printf 'Running: %q ' "${args[@]}"
+          echo
+          "${args[@]}"

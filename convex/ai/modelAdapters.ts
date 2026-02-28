@@ -23,6 +23,13 @@ const CANONICAL_PROVIDER_ALIAS: Record<string, AiProviderId> = {
   elevenlabs: "elevenlabs",
   openai_compatible: "openai_compatible",
   "openai-compatible": "openai_compatible",
+  local: "openai_compatible",
+  ollama: "openai_compatible",
+  lm_studio: "openai_compatible",
+  "lm-studio": "openai_compatible",
+  llama_cpp: "openai_compatible",
+  "llama-cpp": "openai_compatible",
+  llamacpp: "openai_compatible",
 };
 
 const PROVIDER_DEFAULT_BASE_URL: Record<AiProviderId, string> = {
@@ -35,6 +42,71 @@ const PROVIDER_DEFAULT_BASE_URL: Record<AiProviderId, string> = {
   kimi: "https://api.moonshot.ai/v1",
   elevenlabs: "https://api.elevenlabs.io/v1",
   openai_compatible: "https://api.openai.com/v1",
+};
+
+export const PRIVACY_MODE_VALUES = ["off", "prefer_local", "local_only"] as const;
+export type PrivacyMode = (typeof PRIVACY_MODE_VALUES)[number];
+
+export const LOCAL_MODEL_CONNECTOR_VALUES = [
+  "ollama",
+  "lm_studio",
+  "llama_cpp",
+] as const;
+export type LocalModelConnector = (typeof LOCAL_MODEL_CONNECTOR_VALUES)[number];
+
+export const LOCAL_CONNECTION_STATUS_VALUES = [
+  "connected",
+  "degraded",
+  "disconnected",
+] as const;
+export type LocalConnectionStatus = (typeof LOCAL_CONNECTION_STATUS_VALUES)[number];
+
+export interface LocalConnectionCapabilityLimits {
+  tools: boolean;
+  vision: boolean;
+  audio_in: boolean;
+  audio_out: boolean;
+  json: boolean;
+  networkEgress: "blocked";
+}
+
+export interface LocalConnectionContract {
+  connectorId: LocalModelConnector;
+  baseUrl: string;
+  status: LocalConnectionStatus;
+  modelIds: string[];
+  defaultModelId?: string;
+  capabilityLimits: LocalConnectionCapabilityLimits;
+  detectedAt?: number;
+}
+
+export type PrivacyModeProviderBlockReason =
+  | "privacy_mode_requires_local_connector"
+  | "privacy_mode_requires_local_route";
+
+export interface PrivacyModeProviderDecision {
+  allowed: boolean;
+  effectiveProviderId: AiProviderId;
+  privacyMode: PrivacyMode;
+  isLocalRoute: boolean;
+  blockReason?: PrivacyModeProviderBlockReason;
+  userVisibleGuardrail?: string;
+  capabilityLimits?: LocalConnectionCapabilityLimits;
+}
+
+const DEFAULT_LOCAL_CONNECTOR_BASE_URL: Record<LocalModelConnector, string> = {
+  ollama: "http://localhost:11434/v1",
+  lm_studio: "http://localhost:1234/v1",
+  llama_cpp: "http://localhost:8080/v1",
+};
+
+const DEFAULT_LOCAL_CAPABILITY_LIMITS: LocalConnectionCapabilityLimits = {
+  tools: false,
+  vision: false,
+  audio_in: false,
+  audio_out: false,
+  json: true,
+  networkEgress: "blocked",
 };
 
 export type ToolCallMessage = {
@@ -111,6 +183,230 @@ function normalizeString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") {
+      return true;
+    }
+    if (normalized === "false") {
+      return false;
+    }
+  }
+  return null;
+}
+
+function normalizeLocalConnector(value: unknown): LocalModelConnector {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (normalized === "lm_studio" || normalized === "lm-studio") {
+    return "lm_studio";
+  }
+  if (normalized === "llama_cpp" || normalized === "llama-cpp" || normalized === "llamacpp") {
+    return "llama_cpp";
+  }
+  return "ollama";
+}
+
+function normalizeLocalConnectionStatus(args: {
+  status: unknown;
+  hasModels: boolean;
+}): LocalConnectionStatus {
+  const normalized = normalizeString(args.status)?.toLowerCase();
+  if (normalized === "connected") {
+    return "connected";
+  }
+  if (normalized === "degraded") {
+    return "degraded";
+  }
+  if (normalized === "disconnected") {
+    return "disconnected";
+  }
+  return args.hasModels ? "connected" : "disconnected";
+}
+
+function normalizePrivacyModeToken(value: unknown): PrivacyMode {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (normalized === "local_only" || normalized === "local-only") {
+    return "local_only";
+  }
+  if (normalized === "prefer_local" || normalized === "prefer-local") {
+    return "prefer_local";
+  }
+  return "off";
+}
+
+function normalizeModelIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const deduped = new Set<string>();
+  for (const entry of value) {
+    const normalized = normalizeString(entry);
+    if (normalized) {
+      deduped.add(normalized);
+    }
+  }
+  return Array.from(deduped);
+}
+
+function normalizeLocalCapabilityLimits(
+  value: unknown
+): LocalConnectionCapabilityLimits {
+  const record = value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+  return {
+    tools: normalizeBoolean(record.tools) ?? DEFAULT_LOCAL_CAPABILITY_LIMITS.tools,
+    vision: normalizeBoolean(record.vision) ?? DEFAULT_LOCAL_CAPABILITY_LIMITS.vision,
+    audio_in:
+      normalizeBoolean(record.audio_in) ?? DEFAULT_LOCAL_CAPABILITY_LIMITS.audio_in,
+    audio_out:
+      normalizeBoolean(record.audio_out) ?? DEFAULT_LOCAL_CAPABILITY_LIMITS.audio_out,
+    json: normalizeBoolean(record.json) ?? DEFAULT_LOCAL_CAPABILITY_LIMITS.json,
+    networkEgress: "blocked",
+  };
+}
+
+export function normalizePrivacyMode(value: unknown): PrivacyMode {
+  return normalizePrivacyModeToken(value);
+}
+
+export function normalizeLocalConnectionContract(args: {
+  connectorId?: unknown;
+  baseUrl?: unknown;
+  status?: unknown;
+  modelIds?: unknown;
+  defaultModelId?: unknown;
+  capabilityLimits?: unknown;
+  detectedAt?: unknown;
+}): LocalConnectionContract {
+  const connectorId = normalizeLocalConnector(args.connectorId);
+  const baseUrl =
+    normalizeString(args.baseUrl)?.replace(/\/+$/, "") ??
+    DEFAULT_LOCAL_CONNECTOR_BASE_URL[connectorId];
+  const modelIds = normalizeModelIdList(args.modelIds);
+  const defaultModelIdCandidate = normalizeString(args.defaultModelId);
+  const defaultModelId =
+    defaultModelIdCandidate && modelIds.includes(defaultModelIdCandidate)
+      ? defaultModelIdCandidate
+      : modelIds[0];
+
+  return {
+    connectorId,
+    baseUrl,
+    status: normalizeLocalConnectionStatus({
+      status: args.status,
+      hasModels: modelIds.length > 0,
+    }),
+    modelIds,
+    defaultModelId,
+    capabilityLimits: normalizeLocalCapabilityLimits(args.capabilityLimits),
+    detectedAt:
+      typeof args.detectedAt === "number" && Number.isFinite(args.detectedAt)
+        ? Math.floor(args.detectedAt)
+        : undefined,
+  };
+}
+
+export function resolvePrivacyModeProviderDecision(args: {
+  privacyMode?: unknown;
+  providerId: string;
+  localConnection?: LocalConnectionContract | null;
+  isLocalRoute?: unknown;
+}): PrivacyModeProviderDecision {
+  const privacyMode = normalizePrivacyModeToken(args.privacyMode);
+  const effectiveProviderId = detectProvider(args.providerId);
+  const localConnection = args.localConnection ?? null;
+  const localRouteOverride = normalizeBoolean(args.isLocalRoute);
+  const isLocalRoute =
+    localRouteOverride ??
+    (effectiveProviderId === "openai_compatible" && localConnection !== null);
+  const isLocalConnectionReady =
+    localConnection !== null && localConnection.status !== "disconnected";
+  const capabilityLimits = localConnection?.capabilityLimits;
+
+  if (privacyMode === "off") {
+    return {
+      allowed: true,
+      effectiveProviderId,
+      privacyMode,
+      isLocalRoute,
+    };
+  }
+
+  if (privacyMode === "prefer_local") {
+    if (isLocalConnectionReady && isLocalRoute) {
+      return {
+        allowed: true,
+        effectiveProviderId,
+        privacyMode,
+        isLocalRoute: true,
+        capabilityLimits,
+      };
+    }
+
+    if (isLocalConnectionReady && !isLocalRoute) {
+      return {
+        allowed: true,
+        effectiveProviderId,
+        privacyMode,
+        isLocalRoute: false,
+        userVisibleGuardrail:
+          "Privacy mode is set to prefer local, but this route is cloud-backed. Sensitive mutations should stay approval-gated.",
+      };
+    }
+
+    return {
+      allowed: true,
+      effectiveProviderId,
+      privacyMode,
+      isLocalRoute: false,
+      userVisibleGuardrail:
+        "No local model connector is available. Falling back to cloud route under prefer-local policy.",
+    };
+  }
+
+  if (!isLocalConnectionReady) {
+    return {
+      allowed: false,
+      effectiveProviderId,
+      privacyMode,
+      isLocalRoute: false,
+      blockReason: "privacy_mode_requires_local_connector",
+      userVisibleGuardrail:
+        "Privacy mode requires a connected local model endpoint (Ollama, LM Studio, or llama.cpp).",
+    };
+  }
+
+  if (!isLocalRoute) {
+    return {
+      allowed: false,
+      effectiveProviderId,
+      privacyMode,
+      isLocalRoute: false,
+      capabilityLimits,
+      blockReason: "privacy_mode_requires_local_route",
+      userVisibleGuardrail:
+        "Privacy mode local-only blocks cloud model routes. Switch this session to a local connector-backed model.",
+    };
+  }
+
+  return {
+    allowed: true,
+    effectiveProviderId,
+    privacyMode,
+    isLocalRoute: true,
+    capabilityLimits,
+    userVisibleGuardrail:
+      localConnection?.status === "degraded"
+        ? "Local connector is degraded. Capability limits are enforced until connector health recovers."
+        : undefined,
+  };
 }
 
 function normalizeInteger(value: unknown): number {
@@ -256,6 +552,104 @@ export interface ProviderConfig {
   supportsStructuredOutput: boolean;
 }
 
+export type ReasoningEffortLevel =
+  | "low"
+  | "medium"
+  | "high"
+  | "extra_high";
+
+export type ProviderReasoningEffort = "low" | "medium" | "high";
+
+export type ProviderReasoningParamKind =
+  | "none"
+  | "openrouter_reasoning";
+
+export interface ProviderReasoningContract {
+  providerId: AiProviderId;
+  paramKind: ProviderReasoningParamKind;
+  supportsNativeReasoning: boolean;
+}
+
+export interface ProviderAdapterContractSnapshot {
+  providerId: AiProviderId;
+  requestProtocol: ProviderConfig["requestProtocol"];
+  supportsToolCalling: boolean;
+  supportsStructuredOutput: boolean;
+  requiresToolCallId: boolean;
+  toolResultField: ProviderConfig["toolResultField"];
+  reasoningParamKind: ProviderReasoningParamKind;
+}
+
+export interface ProviderReasoningResolution {
+  providerId: AiProviderId;
+  mode: "native" | "heuristic";
+  paramKind: ProviderReasoningParamKind;
+  effectiveEffort: ProviderReasoningEffort;
+  requestPatch?: Record<string, unknown>;
+  reason:
+    | "provider_not_supported"
+    | "model_not_supported"
+    | "model_capability_missing"
+    | "native_reasoning_applied";
+}
+
+const PROVIDER_REASONING_CONTRACTS: Record<AiProviderId, ProviderReasoningContract> = {
+  openrouter: {
+    providerId: "openrouter",
+    paramKind: "openrouter_reasoning",
+    supportsNativeReasoning: true,
+  },
+  openai: {
+    providerId: "openai",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  anthropic: {
+    providerId: "anthropic",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  gemini: {
+    providerId: "gemini",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  grok: {
+    providerId: "grok",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  mistral: {
+    providerId: "mistral",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  kimi: {
+    providerId: "kimi",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  elevenlabs: {
+    providerId: "elevenlabs",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+  openai_compatible: {
+    providerId: "openai_compatible",
+    paramKind: "none",
+    supportsNativeReasoning: false,
+  },
+};
+
+function toProviderReasoningEffort(
+  value: ReasoningEffortLevel
+): ProviderReasoningEffort {
+  if (value === "extra_high") {
+    return "high";
+  }
+  return value;
+}
+
 export function getProviderConfig(provider: string): ProviderConfig {
   const providerId = detectProvider(provider);
 
@@ -296,6 +690,163 @@ export function getProviderConfig(provider: string): ProviderConfig {
         supportsStructuredOutput: false,
       };
   }
+}
+
+export function resolveProviderReasoningContract(
+  providerId: string
+): ProviderReasoningContract {
+  const normalizedProviderId = detectProvider(providerId);
+  return PROVIDER_REASONING_CONTRACTS[normalizedProviderId];
+}
+
+export function getProviderAdapterContractSnapshot(
+  providerId: string
+): ProviderAdapterContractSnapshot {
+  const normalizedProviderId = detectProvider(providerId);
+  const config = getProviderConfig(normalizedProviderId);
+  const reasoningContract = resolveProviderReasoningContract(normalizedProviderId);
+
+  return {
+    providerId: normalizedProviderId,
+    requestProtocol: config.requestProtocol,
+    supportsToolCalling: config.supportsToolCalling,
+    supportsStructuredOutput: config.supportsStructuredOutput,
+    requiresToolCallId: config.requiresToolCallId,
+    toolResultField: config.toolResultField,
+    reasoningParamKind: reasoningContract.paramKind,
+  };
+}
+
+export function getProviderAdapterContractConformanceIssues(args: {
+  providerId: string;
+  expected: Partial<
+    Omit<ProviderAdapterContractSnapshot, "providerId"> & {
+      providerId: string;
+    }
+  >;
+}): string[] {
+  const issues: string[] = [];
+  const resolved = getProviderAdapterContractSnapshot(args.providerId);
+
+  if (typeof args.expected.providerId === "string") {
+    const expectedProviderId = detectProvider(args.expected.providerId);
+    if (expectedProviderId !== resolved.providerId) {
+      issues.push(
+        `providerId mismatch (expected "${expectedProviderId}", resolved "${resolved.providerId}")`
+      );
+    }
+  }
+
+  if (
+    args.expected.requestProtocol &&
+    args.expected.requestProtocol !== resolved.requestProtocol
+  ) {
+    issues.push(
+      `requestProtocol mismatch (expected "${args.expected.requestProtocol}", resolved "${resolved.requestProtocol}")`
+    );
+  }
+
+  if (
+    typeof args.expected.supportsToolCalling === "boolean" &&
+    args.expected.supportsToolCalling !== resolved.supportsToolCalling
+  ) {
+    issues.push(
+      `supportsToolCalling mismatch (expected ${args.expected.supportsToolCalling}, resolved ${resolved.supportsToolCalling})`
+    );
+  }
+
+  if (
+    typeof args.expected.supportsStructuredOutput === "boolean" &&
+    args.expected.supportsStructuredOutput !== resolved.supportsStructuredOutput
+  ) {
+    issues.push(
+      `supportsStructuredOutput mismatch (expected ${args.expected.supportsStructuredOutput}, resolved ${resolved.supportsStructuredOutput})`
+    );
+  }
+
+  if (
+    typeof args.expected.requiresToolCallId === "boolean" &&
+    args.expected.requiresToolCallId !== resolved.requiresToolCallId
+  ) {
+    issues.push(
+      `requiresToolCallId mismatch (expected ${args.expected.requiresToolCallId}, resolved ${resolved.requiresToolCallId})`
+    );
+  }
+
+  if (
+    args.expected.toolResultField &&
+    args.expected.toolResultField !== resolved.toolResultField
+  ) {
+    issues.push(
+      `toolResultField mismatch (expected "${args.expected.toolResultField}", resolved "${resolved.toolResultField}")`
+    );
+  }
+
+  if (
+    args.expected.reasoningParamKind &&
+    args.expected.reasoningParamKind !== resolved.reasoningParamKind
+  ) {
+    issues.push(
+      `reasoningParamKind mismatch (expected "${args.expected.reasoningParamKind}", resolved "${resolved.reasoningParamKind}")`
+    );
+  }
+
+  return issues;
+}
+
+export function resolveProviderReasoningResolution(args: {
+  providerId: string;
+  modelSupportsNativeReasoning?: boolean | null;
+  reasoningEffort: ReasoningEffortLevel;
+}): ProviderReasoningResolution {
+  const contract = resolveProviderReasoningContract(args.providerId);
+  const effectiveEffort = toProviderReasoningEffort(args.reasoningEffort);
+
+  if (!contract.supportsNativeReasoning || contract.paramKind === "none") {
+    return {
+      providerId: contract.providerId,
+      mode: "heuristic",
+      paramKind: contract.paramKind,
+      effectiveEffort,
+      reason: "provider_not_supported",
+    };
+  }
+
+  if (args.modelSupportsNativeReasoning !== true) {
+    return {
+      providerId: contract.providerId,
+      mode: "heuristic",
+      paramKind: contract.paramKind,
+      effectiveEffort,
+      reason:
+        args.modelSupportsNativeReasoning === false
+          ? "model_not_supported"
+          : "model_capability_missing",
+    };
+  }
+
+  if (contract.paramKind === "openrouter_reasoning") {
+    return {
+      providerId: contract.providerId,
+      mode: "native",
+      paramKind: contract.paramKind,
+      effectiveEffort,
+      requestPatch: {
+        reasoning: {
+          effort: effectiveEffort,
+        },
+      },
+      reason: "native_reasoning_applied",
+    };
+  }
+
+  return {
+    providerId: contract.providerId,
+    mode: "heuristic",
+    paramKind: contract.paramKind,
+    effectiveEffort,
+    reason: "provider_not_supported",
+  };
 }
 
 function normalizeToolArguments(rawArguments: unknown): string {

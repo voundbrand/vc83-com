@@ -4,6 +4,11 @@ import type {
   AiProviderId,
 } from "../channels/types";
 import { normalizeModelForProvider } from "./modelAdapters";
+import {
+  isOpenClawAuthorityContractSatisfied,
+  resolveOpenClawCompatibilityMode,
+  type OpenClawCompatibilityModeDecision,
+} from "./modelPolicy";
 
 export interface OpenClawAuthProfileImportInput {
   profileId: string;
@@ -59,6 +64,42 @@ export interface OpenClawBridgeImportPlan {
   warnings: string[];
 }
 
+export const OPENCLAW_COMPATIBILITY_ADAPTER_CONTRACT_VERSION =
+  "yai_openclaw_compatibility_adapter_v1" as const;
+
+export interface ResolveOpenClawCompatibilityAdapterArgs {
+  organizationFeatureFlags?: Record<string, unknown> | null;
+  adapterRequested?: boolean;
+  adapterFailed?: boolean;
+  adapterFailureDetail?: string | null;
+}
+
+export interface OpenClawCompatibilityAdapterDecision {
+  contractVersion: typeof OPENCLAW_COMPATIBILITY_ADAPTER_CONTRACT_VERSION;
+  enabled: boolean;
+  mode: OpenClawCompatibilityModeDecision["mode"];
+  featureFlagKey: OpenClawCompatibilityModeDecision["featureFlagKey"];
+  featureFlagEnabled: boolean;
+  fallbackToNative: boolean;
+  fallbackReason: OpenClawCompatibilityModeDecision["fallbackReason"];
+  warning: string | null;
+  nativePolicyPrecedence: OpenClawCompatibilityModeDecision["nativePolicyPrecedence"];
+  directMutationBypassAllowed: OpenClawCompatibilityModeDecision["directMutationBypassAllowed"];
+  trustApprovalRequiredForActionableIntent: OpenClawCompatibilityModeDecision["trustApprovalRequiredForActionableIntent"];
+}
+
+export type OpenClawCompatibilityAdapterViolation =
+  | "feature_flag_required_for_compatibility_mode"
+  | "fallback_contract_mismatch"
+  | "native_policy_precedence_mismatch"
+  | "direct_mutation_bypass_not_allowed"
+  | "trust_approval_required_for_actionable_intent";
+
+export interface OpenClawCompatibilityAdapterValidation {
+  valid: boolean;
+  violations: OpenClawCompatibilityAdapterViolation[];
+}
+
 const OPENCLAW_PROVIDER_ALIASES: Record<string, AiProviderId> = {
   openrouter: "openrouter",
   openai: "openai",
@@ -85,6 +126,35 @@ const OPENCLAW_IMPORT_PROVIDER_ALLOWLIST = new Set<AiProviderId>([
   "elevenlabs",
   "openai_compatible",
 ]);
+
+function buildCompatibilityWarning(args: {
+  decision: OpenClawCompatibilityModeDecision;
+  adapterFailureDetail?: string | null;
+}): string | null {
+  if (!args.decision.fallbackToNative) {
+    return null;
+  }
+
+  switch (args.decision.fallbackReason) {
+    case "adapter_not_requested":
+      return "OpenClaw compatibility adapter was not requested; using native vc83 runtime path.";
+    case "org_feature_flag_disabled":
+      return [
+        "OpenClaw compatibility adapter is disabled because org feature flag",
+        `${args.decision.featureFlagKey}=true`,
+        "was not provided; using native vc83 runtime path.",
+      ].join(" ");
+    case "adapter_failure":
+      return [
+        "OpenClaw compatibility adapter failed; using native vc83 runtime path.",
+        args.adapterFailureDetail ? `Failure: ${args.adapterFailureDetail}` : null,
+      ]
+        .filter((segment): segment is string => Boolean(segment))
+        .join(" ");
+    default:
+      return "OpenClaw compatibility adapter is unavailable; using native vc83 runtime path.";
+  }
+}
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -201,6 +271,83 @@ function dedupeImportedModels(
   return Array.from(byModelId.values());
 }
 
+export function resolveOpenClawCompatibilityAdapter(
+  args: ResolveOpenClawCompatibilityAdapterArgs
+): OpenClawCompatibilityAdapterDecision {
+  const decision = resolveOpenClawCompatibilityMode({
+    organizationFeatureFlags: args.organizationFeatureFlags,
+    adapterRequested: args.adapterRequested,
+    adapterFailed: args.adapterFailed,
+  });
+
+  return {
+    contractVersion: OPENCLAW_COMPATIBILITY_ADAPTER_CONTRACT_VERSION,
+    enabled: decision.enabled,
+    mode: decision.mode,
+    featureFlagKey: decision.featureFlagKey,
+    featureFlagEnabled: decision.featureFlagEnabled,
+    fallbackToNative: decision.fallbackToNative,
+    fallbackReason: decision.fallbackReason,
+    warning: buildCompatibilityWarning({
+      decision,
+      adapterFailureDetail: args.adapterFailureDetail,
+    }),
+    nativePolicyPrecedence: decision.nativePolicyPrecedence,
+    directMutationBypassAllowed: decision.directMutationBypassAllowed,
+    trustApprovalRequiredForActionableIntent:
+      decision.trustApprovalRequiredForActionableIntent,
+  };
+}
+
+export function validateOpenClawCompatibilityAdapterDecision(
+  decision: OpenClawCompatibilityAdapterDecision
+): OpenClawCompatibilityAdapterValidation {
+  const violations: OpenClawCompatibilityAdapterViolation[] = [];
+
+  if (decision.enabled && !decision.featureFlagEnabled) {
+    violations.push("feature_flag_required_for_compatibility_mode");
+  }
+
+  const fallbackContractSatisfied = decision.enabled
+    ? decision.mode === "openclaw_adapter" &&
+      decision.fallbackToNative === false &&
+      decision.fallbackReason === null
+    : decision.mode === "native" && decision.fallbackToNative === true;
+  if (!fallbackContractSatisfied) {
+    violations.push("fallback_contract_mismatch");
+  }
+
+  if (!isOpenClawAuthorityContractSatisfied(decision)) {
+    if (decision.nativePolicyPrecedence !== "vc83_runtime_policy") {
+      violations.push("native_policy_precedence_mismatch");
+    }
+    if (decision.directMutationBypassAllowed) {
+      violations.push("direct_mutation_bypass_not_allowed");
+    }
+    if (!decision.trustApprovalRequiredForActionableIntent) {
+      violations.push("trust_approval_required_for_actionable_intent");
+    }
+  }
+
+  return {
+    valid: violations.length === 0,
+    violations,
+  };
+}
+
+export function buildOpenClawNativeFallbackPlan(args: {
+  adapterDecision: OpenClawCompatibilityAdapterDecision;
+}): OpenClawBridgeImportPlan {
+  const warnings = args.adapterDecision.warning
+    ? [args.adapterDecision.warning]
+    : [];
+  return {
+    importedAuthProfiles: [],
+    importedPrivateModels: [],
+    warnings,
+  };
+}
+
 export function buildOpenClawBridgeImportPlan(
   input: OpenClawBridgeImportInput
 ): OpenClawBridgeImportPlan {
@@ -236,6 +383,11 @@ export function buildOpenClawBridgeImportPlan(
       priority: normalizePriority(profile.priority, index),
       metadata: {
         source: "openclaw_bridge_import",
+        compatibilityAdapterContract:
+          OPENCLAW_COMPATIBILITY_ADAPTER_CONTRACT_VERSION,
+        nativePolicyPrecedence: "vc83_runtime_policy",
+        directMutationBypassAllowed: false,
+        trustApprovalRequiredForActionableIntent: true,
         importedAt: now,
         ...(profile.defaultVoiceId
           ? { defaultVoiceId: profile.defaultVoiceId }

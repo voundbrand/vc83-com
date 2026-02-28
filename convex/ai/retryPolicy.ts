@@ -92,6 +92,15 @@ export const CHANNEL_RETRY_POLICIES: Record<string, RetryPolicy> = {
     jitter: 0.1,
     retryableStatuses: [429, 500, 502, 503],
   },
+  phone_call: {
+    maxAttempts: 2,
+    baseDelayMs: 1500,
+    maxDelayMs: 12000,
+    backoffMultiplier: 2,
+    jitter: 0.1,
+    retryableStatuses: [408, 409, 425, 429, 500, 502, 503, 504],
+    honorRetryAfter: true,
+  },
 };
 
 // ============================================================================

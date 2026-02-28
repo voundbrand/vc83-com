@@ -1,15 +1,9 @@
 /**
- * OPENROUTER MODEL DISCOVERY
+ * PROVIDER REGISTRY MODEL DISCOVERY
  *
- * Dynamically fetches available models from OpenRouter API.
- * This ensures our UI always shows accurate, up-to-date model options
- * based on what's actually available on OpenRouter.
- *
- * Why this approach:
- * - OpenRouter adds/removes models frequently
- * - Model pricing changes over time
- * - No webhooks available from OpenRouter
- * - Server-side caching prevents excessive API calls
+ * Dynamically fetches available models from control-plane discovery sources
+ * (OpenRouter catalog + provider-native catalogs) using deterministic
+ * fanout/fallback behavior.
  */
 
 import { action, internalMutation, query, internalQuery, internalAction } from "../_generated/server";
@@ -19,18 +13,19 @@ const generatedApi: any = require("../_generated/api");
 import {
   normalizeOpenRouterPricingToPerMillion,
 } from "./modelPricing";
-import { buildEnvApiKeysByProvider } from "./modelAdapters";
+import { buildEnvApiKeysByProvider, normalizeModelForProvider } from "./modelAdapters";
 import {
   getAllAiProviders,
-  resolveOrganizationProviderBindingForProvider,
   resolveOrganizationProviderBindings,
   stripApiKeyFromBinding,
+  type ResolvedAiProviderBinding,
 } from "./providerRegistry";
 import { aiProviderIdValidator } from "../schemas/coreSchemas";
 
 /**
- * OpenRouter Model Information
- * Based on OpenRouter's /api/v1/models endpoint
+ * Canonical discovery model envelope.
+ * Uses OpenRouter-compatible `/models` fields and is reused for
+ * provider-native discovery fanout ingestion.
  */
 export interface OpenRouterModel {
   id: string;                    // "anthropic/claude-3-5-sonnet"
@@ -52,6 +47,14 @@ export interface OpenRouterModel {
     tokenizer: string;           // "Claude", "GPT-4", etc.
     instruct_type?: string;      // "chat", "completion", etc.
   };
+  supported_parameters?: string[];
+  supportedParameters?: string[];
+  reasoning?: boolean | {
+    enabled?: boolean;
+    supported?: boolean;
+  };
+  supports_reasoning?: boolean;
+  supportsReasoning?: boolean;
 }
 
 type ProviderProbeStatus = "healthy" | "degraded" | "offline";
@@ -78,12 +81,160 @@ type ProviderTextProbeResult = {
   latencyMs?: number;
 };
 
+interface ProviderDiscoveryAttempt {
+  providerId: string;
+  discoverySource: "openrouter_catalog" | "provider_api" | "manual";
+  attempted: boolean;
+  success: boolean;
+  modelCount: number;
+  reason?: string;
+}
+
+export interface DiscoveryModelCandidate {
+  model: OpenRouterModel;
+  providerId: string;
+  providerOrder: number;
+}
+
+export function normalizeDiscoveredModelId(args: {
+  providerId: string;
+  modelId: string;
+}): string {
+  const normalizedInput = normalizeModelIdentifier(args.modelId) ?? args.modelId;
+  if (args.providerId === "openrouter") {
+    return normalizedInput;
+  }
+  const normalizedProviderModel = normalizeModelForProvider(
+    args.providerId,
+    normalizedInput
+  );
+  return `${args.providerId}/${normalizedProviderModel}`;
+}
+
+function buildSyntheticProviderCatalogModel(args: {
+  providerId: string;
+  modelId: string;
+  fetchedAt: number;
+}): OpenRouterModel | null {
+  const normalizedModelId = normalizeModelIdentifier(args.modelId);
+  if (!normalizedModelId) {
+    return null;
+  }
+
+  const canonicalModelId = normalizeDiscoveredModelId({
+    providerId: args.providerId,
+    modelId: normalizedModelId,
+  });
+  const modelName = canonicalModelId.split("/").slice(1).join("/") || canonicalModelId;
+
+  return {
+    id: canonicalModelId,
+    name: modelName,
+    created: Math.floor(args.fetchedAt / 1000),
+    context_length: 0,
+    pricing: {
+      prompt: "0",
+      completion: "0",
+    },
+    top_provider: {
+      context_length: 0,
+      is_moderated: false,
+    },
+  };
+}
+
+export function mergeDiscoveredModelCandidates(
+  candidates: DiscoveryModelCandidate[]
+): OpenRouterModel[] {
+  const byModelId = new Map<string, DiscoveryModelCandidate>();
+
+  for (const candidate of candidates) {
+    const existing = byModelId.get(candidate.model.id);
+    if (!existing) {
+      byModelId.set(candidate.model.id, candidate);
+      continue;
+    }
+
+    if (candidate.providerOrder < existing.providerOrder) {
+      byModelId.set(candidate.model.id, candidate);
+      continue;
+    }
+
+    if (
+      candidate.providerOrder === existing.providerOrder &&
+      candidate.providerId.localeCompare(existing.providerId) < 0
+    ) {
+      byModelId.set(candidate.model.id, candidate);
+    }
+  }
+
+  return Array.from(byModelId.values())
+    .map((entry) => entry.model)
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return null;
+}
+
+function resolveOpenRouterNativeReasoningSupport(
+  model: OpenRouterModel
+): boolean {
+  const explicitSupport =
+    normalizeBoolean(model.supports_reasoning) ??
+    normalizeBoolean(model.supportsReasoning);
+  if (explicitSupport !== null) {
+    return explicitSupport;
+  }
+
+  const reasoningPayload = model.reasoning;
+  if (typeof reasoningPayload === "boolean") {
+    return reasoningPayload;
+  }
+  if (reasoningPayload && typeof reasoningPayload === "object") {
+    const explicitReasoningFlag =
+      normalizeBoolean(reasoningPayload.enabled) ??
+      normalizeBoolean(reasoningPayload.supported);
+    if (explicitReasoningFlag !== null) {
+      return explicitReasoningFlag;
+    }
+  }
+
+  const supportedParameters = Array.isArray(model.supported_parameters)
+    ? model.supported_parameters
+    : Array.isArray(model.supportedParameters)
+      ? model.supportedParameters
+      : [];
+
+  if (supportedParameters.length === 0) {
+    return false;
+  }
+
+  const parameterSet = new Set(
+    supportedParameters
+      .map((param) => normalizeString(param)?.toLowerCase())
+      .filter((param): param is string => Boolean(param))
+  );
+
+  return (
+    parameterSet.has("reasoning") ||
+    parameterSet.has("reasoning.effort") ||
+    parameterSet.has("reasoning_effort") ||
+    parameterSet.has("thinking") ||
+    parameterSet.has("reasoning_tokens") ||
+    parameterSet.has("max_reasoning_tokens")
+  );
 }
 
 function parseJsonSafely(payload: string): unknown {
@@ -258,7 +409,7 @@ async function fetchProviderModelCatalog(args: {
 
     const payload = await response.json();
     const modelIds = extractModelIdsFromPayload(payload);
-    const sampleLimit = Math.max(1, Math.min(args.sampleLimit ?? 8, 25));
+    const sampleLimit = Math.max(1, Math.min(args.sampleLimit ?? 8, 500));
 
     return {
       success: true,
@@ -284,6 +435,85 @@ async function fetchProviderModelCatalog(args: {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function fetchOpenRouterDetailedCatalog(args: {
+  baseUrl: string;
+  apiKey: string;
+}): Promise<{
+  success: boolean;
+  status: ProviderProbeStatus;
+  reason?: string;
+  models: OpenRouterModel[];
+}> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const response = await fetch(`${args.baseUrl.replace(/\/+$/, "")}/models`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${args.apiKey}`,
+        "HTTP-Referer":
+          process.env.OPENROUTER_SITE_URL || "https://app.l4yercak3.com",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const payload = parseJsonSafely(await response.text());
+      return {
+        success: false,
+        status: mapHttpStatusToProbeStatus(response.status),
+        reason:
+          extractErrorReason(payload) ??
+          `openrouter_catalog_http_${response.status}`,
+        models: [],
+      };
+    }
+
+    const payload = await response.json();
+    const records: unknown[] =
+      payload && typeof payload === "object" && Array.isArray(payload.data)
+        ? payload.data
+        : [];
+
+    const models = records.filter(
+      (record): record is OpenRouterModel =>
+        Boolean(record && typeof record === "object")
+    );
+
+    return {
+      success: true,
+      status: "healthy",
+      models,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      status: "degraded",
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 180)
+          : "openrouter_catalog_failed",
+      models: [],
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function selectPrimaryBindingsByProvider(
+  bindings: ResolvedAiProviderBinding[]
+): Map<string, ResolvedAiProviderBinding> {
+  const byProvider = new Map<string, ResolvedAiProviderBinding>();
+  for (const binding of bindings) {
+    if (!byProvider.has(binding.providerId)) {
+      byProvider.set(binding.providerId, binding);
+    }
+  }
+  return byProvider;
 }
 
 function getDefaultTextProbeModel(providerId: string): string | null {
@@ -548,7 +778,7 @@ export const probeProviderTextGeneration = internalAction({
   },
 });
 
-export const getOpenRouterDiscoveryBinding = internalQuery({
+export const getSystemDiscoveryBindings = internalQuery({
   args: {},
   handler: async (ctx) => {
     const systemOrg = await ctx.db
@@ -567,9 +797,8 @@ export const getOpenRouterDiscoveryBinding = internalQuery({
       )
       .first();
 
-    return resolveOrganizationProviderBindingForProvider({
+    return resolveOrganizationProviderBindings({
       llmSettings: systemAiSettings?.llm ?? null,
-      providerId: "openrouter",
       defaultBillingSource: systemAiSettings?.billingSource,
       envApiKeysByProvider: buildEnvApiKeysByProvider(process.env),
       envOpenRouterApiKey: process.env.OPENROUTER_API_KEY,
@@ -578,13 +807,33 @@ export const getOpenRouterDiscoveryBinding = internalQuery({
   },
 });
 
+export const getOpenRouterDiscoveryBinding = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const bindings = await (ctx as any).runQuery(
+      generatedApi.internal.ai.modelDiscovery.getSystemDiscoveryBindings,
+      {}
+    );
+    if (!Array.isArray(bindings)) {
+      return null;
+    }
+    const openRouterBinding = bindings.find(
+      (binding) =>
+        binding &&
+        typeof binding === "object" &&
+        (binding as { providerId?: string }).providerId === "openrouter"
+    );
+    return (openRouterBinding as ResolvedAiProviderBinding | undefined) ?? null;
+  },
+});
+
 /**
- * FETCH AVAILABLE MODELS FROM OPENROUTER
+ * FETCH AVAILABLE MODELS FROM PROVIDER DISCOVERY FANOUT
  *
- * This is an action that calls the OpenRouter API to get the current list
- * of available models, their pricing, and capabilities.
- *
- * Rate limits: OpenRouter allows reasonable polling (once per hour is fine)
+ * Deterministic source order:
+ * 1) provider registry order (`getAllAiProviders`)
+ * 2) provider-scoped primary binding (lowest resolved priority)
+ * 3) stale cache fallback if no provider source returns models
  */
 export const fetchAvailableModels = internalAction({
   args: {},
@@ -592,54 +841,223 @@ export const fetchAvailableModels = internalAction({
     models: OpenRouterModel[];
     fetchedAt: number;
   }> => {
-    console.log("🔍 Fetching available models from OpenRouter...");
+    console.log("🔍 Fetching available models from provider fanout...");
+    const fetchedAt = Date.now();
 
-    const openRouterBinding = await (ctx as any).runQuery(
-      generatedApi.internal.ai.modelDiscovery.getOpenRouterDiscoveryBinding,
+    const providers = getAllAiProviders();
+    const bindings = await (ctx as any).runQuery(
+      generatedApi.internal.ai.modelDiscovery.getSystemDiscoveryBindings,
       {}
     );
+    const primaryBindings = selectPrimaryBindingsByProvider(
+      Array.isArray(bindings) ? (bindings as ResolvedAiProviderBinding[]) : []
+    );
 
-    if (!openRouterBinding) {
+    const attempts: ProviderDiscoveryAttempt[] = [];
+    const candidates: DiscoveryModelCandidate[] = [];
+
+    for (let providerOrder = 0; providerOrder < providers.length; providerOrder += 1) {
+      const provider = providers[providerOrder];
+      if (provider.discoverySource === "manual") {
+        attempts.push({
+          providerId: provider.id,
+          discoverySource: provider.discoverySource,
+          attempted: false,
+          success: false,
+          modelCount: 0,
+          reason: "manual_discovery_source",
+        });
+        continue;
+      }
+
+      if (provider.id === "elevenlabs") {
+        attempts.push({
+          providerId: provider.id,
+          discoverySource: provider.discoverySource,
+          attempted: false,
+          success: false,
+          modelCount: 0,
+          reason: "provider_does_not_expose_model_catalog",
+        });
+        continue;
+      }
+
+      const binding = primaryBindings.get(provider.id);
+      if (!binding) {
+        attempts.push({
+          providerId: provider.id,
+          discoverySource: provider.discoverySource,
+          attempted: false,
+          success: false,
+          modelCount: 0,
+          reason: "missing_discovery_binding",
+        });
+        continue;
+      }
+
+      if (provider.id === "openrouter") {
+        const detailed = await fetchOpenRouterDetailedCatalog({
+          baseUrl: binding.baseUrl,
+          apiKey: binding.apiKey,
+        });
+
+        if (detailed.success && detailed.models.length > 0) {
+          candidates.push(
+            ...detailed.models.map((model) => ({
+              model,
+              providerId: provider.id,
+              providerOrder,
+            }))
+          );
+          attempts.push({
+            providerId: provider.id,
+            discoverySource: provider.discoverySource,
+            attempted: true,
+            success: true,
+            modelCount: detailed.models.length,
+          });
+          continue;
+        }
+
+        const fallbackCatalog = await fetchProviderModelCatalog({
+          providerId: provider.id,
+          baseUrl: binding.baseUrl,
+          apiKey: binding.apiKey,
+          sampleLimit: 500,
+        });
+        const fallbackModels = fallbackCatalog.modelIds
+          .map((modelId) =>
+            buildSyntheticProviderCatalogModel({
+              providerId: provider.id,
+              modelId,
+              fetchedAt,
+            })
+          )
+          .filter((model): model is OpenRouterModel => model !== null);
+
+        if (fallbackCatalog.success && fallbackModels.length > 0) {
+          candidates.push(
+            ...fallbackModels.map((model) => ({
+              model,
+              providerId: provider.id,
+              providerOrder,
+            }))
+          );
+          attempts.push({
+            providerId: provider.id,
+            discoverySource: provider.discoverySource,
+            attempted: true,
+            success: true,
+            modelCount: fallbackModels.length,
+            reason: detailed.reason
+              ? `openrouter_detailed_failed:${detailed.reason}`
+              : "openrouter_catalog_fallback",
+          });
+          continue;
+        }
+
+        attempts.push({
+          providerId: provider.id,
+          discoverySource: provider.discoverySource,
+          attempted: true,
+          success: false,
+          modelCount: 0,
+          reason:
+            detailed.reason ??
+            fallbackCatalog.reason ??
+            "openrouter_discovery_failed",
+        });
+        continue;
+      }
+
+      const catalog = await fetchProviderModelCatalog({
+        providerId: provider.id,
+        baseUrl: binding.baseUrl,
+        apiKey: binding.apiKey,
+        sampleLimit: 500,
+      });
+      const discoveredModels = catalog.modelIds
+        .map((modelId) =>
+          buildSyntheticProviderCatalogModel({
+            providerId: provider.id,
+            modelId,
+            fetchedAt,
+          })
+        )
+        .filter((model): model is OpenRouterModel => model !== null);
+
+      if (catalog.success && discoveredModels.length > 0) {
+        candidates.push(
+          ...discoveredModels.map((model) => ({
+            model,
+            providerId: provider.id,
+            providerOrder,
+          }))
+        );
+        attempts.push({
+          providerId: provider.id,
+          discoverySource: provider.discoverySource,
+          attempted: true,
+          success: true,
+          modelCount: discoveredModels.length,
+        });
+        continue;
+      }
+
+      attempts.push({
+        providerId: provider.id,
+        discoverySource: provider.discoverySource,
+        attempted: true,
+        success: false,
+        modelCount: 0,
+        reason: catalog.reason ?? "provider_catalog_unavailable",
+      });
+    }
+
+    const mergedModels = mergeDiscoveredModelCandidates(candidates);
+    if (mergedModels.length === 0) {
+      const cached = await (ctx as any).runQuery(
+        generatedApi.internal.ai.modelDiscovery.getCachedModels,
+        {}
+      );
+      if (cached && Array.isArray(cached.models) && cached.models.length > 0) {
+        console.warn(
+          "[ModelDiscovery] Provider fanout returned zero models; using cached discovery payload"
+        );
+        return {
+          models: cached.models,
+          fetchedAt: cached.fetchedAt,
+        };
+      }
+
+      const reasonSummary = attempts
+        .map((attempt) => `${attempt.providerId}:${attempt.reason ?? "unknown"}`)
+        .join(", ");
       throw new Error(
-        "No OpenRouter provider binding configured for model discovery"
+        `No provider discovery source returned models (${reasonSummary})`
       );
     }
 
-    try {
-      // Fetch models from OpenRouter API
-      const response = await fetch(`${openRouterBinding.baseUrl}/models`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${openRouterBinding.apiKey}`,
-          "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://app.l4yercak3.com",
-          "X-Title": process.env.OPENROUTER_APP_NAME || "l4yercak3 Platform",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+    const hasHardFailures = attempts.some(
+      (attempt) => attempt.attempted && !attempt.success
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.modelDiscovery.cacheModels,
+      {
+        models: mergedModels,
+        fetchedAt,
+        allowDeprecation: !hasHardFailures,
       }
+    );
 
-      const data = await response.json();
-      const models = data.data as OpenRouterModel[];
+    console.log(
+      `✅ Provider fanout discovered ${mergedModels.length} models (hardFailures=${hasHardFailures})`
+    );
 
-      console.log(`✅ Fetched ${models.length} models from OpenRouter`);
-
-      // Cache the results in our database
-      const fetchedAt = Date.now();
-      await (ctx as any).runMutation(generatedApi.internal.ai.modelDiscovery.cacheModels, {
-        models,
-        fetchedAt,
-      });
-
-      return {
-        models,
-        fetchedAt,
-      };
-    } catch (error) {
-      console.error("❌ Failed to fetch models from OpenRouter:", error);
-      throw error;
-    }
+    return {
+      models: mergedModels,
+      fetchedAt,
+    };
   },
 });
 
@@ -652,10 +1070,12 @@ export const fetchAvailableModels = internalAction({
  */
 export const cacheModels = internalMutation({
   args: {
-    models: v.array(v.any()),  // OpenRouterModel[] (using v.any() to avoid complex schema)
+    models: v.array(v.any()),  // DiscoveryModelEnvelope[] (OpenRouterModel alias, kept as v.any())
     fetchedAt: v.number(),
+    allowDeprecation: v.optional(v.boolean()),
   },
-  handler: async (ctx, { models, fetchedAt }) => {
+  handler: async (ctx, { models, fetchedAt, allowDeprecation }) => {
+    const shouldAllowDeprecation = allowDeprecation !== false;
     // Get system organization
     const systemOrg = await ctx.db
       .query("organizations")
@@ -691,9 +1111,10 @@ export const cacheModels = internalMutation({
       await ctx.db.insert("objects", {
         organizationId: systemOrg._id,
         type: "ai_model_cache",
-        subtype: "openrouter",
-        name: "OpenRouter Available Models",
-        description: "Cached list of available models from OpenRouter API",
+        subtype: "provider_registry_fanout",
+        name: "Provider Discovery Models",
+        description:
+          "Cached model discovery payload from provider-registry fanout ingestion",
         status: "active",
         customProperties: {
           models,
@@ -717,38 +1138,53 @@ export const cacheModels = internalMutation({
     const fetchedModelIds = new Set<string>();
 
     for (const model of models as OpenRouterModel[]) {
-      fetchedModelIds.add(model.id);
+      const modelId = normalizeModelIdentifier(model.id);
+      if (!modelId) {
+        continue;
+      }
+      fetchedModelIds.add(modelId);
       // Extract provider from model ID (e.g., "anthropic/claude-3-5-sonnet" -> "anthropic")
-      const provider = model.id.split("/")[0];
+      const provider = modelId.split("/")[0] ?? "openrouter";
 
       // Check if model already exists
       const existing = await ctx.db
         .query("aiModels")
-        .withIndex("by_model_id", (q) => q.eq("modelId", model.id))
+        .withIndex("by_model_id", (q) => q.eq("modelId", modelId))
         .first();
 
       // Determine capabilities
       const isMultimodal = model.architecture?.modality === "multimodal" ||
                           model.architecture?.modality === "image" ||
-                          model.id.includes("vision") ||
-                          model.id.includes("multimodal");
+                          modelId.includes("vision") ||
+                          modelId.includes("multimodal");
 
       const hasVision = isMultimodal ||
-                       model.id.includes("vision") ||
-                       model.id.includes("gpt-4o") ||
-                       model.id.includes("gemini");
+                       modelId.includes("vision") ||
+                       modelId.includes("gpt-4o") ||
+                       modelId.includes("gemini");
 
       // Most modern models support tool calling, but some don't
-      const supportsToolCalling = !model.id.includes("instruct") &&
-                                  !model.id.includes("base") &&
-                                  !model.id.includes("embed");
+      const inferredToolCalling = !modelId.includes("instruct") &&
+                                  !modelId.includes("base") &&
+                                  !modelId.includes("embed");
+      const supportsNativeReasoning = resolveOpenRouterNativeReasoningSupport(model);
 
-      // Normalize OpenRouter pricing payload to dollars per million tokens.
+      // Normalize provider discovery pricing payload (OpenRouter-compatible shape) to dollars per million tokens.
       const normalizedPricing = normalizeOpenRouterPricingToPerMillion(
         model.pricing
       );
-      const promptPerMToken = normalizedPricing.promptPerMToken;
-      const completionPerMToken = normalizedPricing.completionPerMToken;
+      const promptPerMToken =
+        normalizedPricing.promptPerMToken > 0
+          ? normalizedPricing.promptPerMToken
+          : existing?.pricing?.promptPerMToken ?? 0;
+      const completionPerMToken =
+        normalizedPricing.completionPerMToken > 0
+          ? normalizedPricing.completionPerMToken
+          : existing?.pricing?.completionPerMToken ?? 0;
+      const contextLength =
+        model.context_length > 0
+          ? model.context_length
+          : existing?.contextLength ?? 0;
 
       if (existing) {
         // Update existing model
@@ -758,11 +1194,14 @@ export const cacheModels = internalMutation({
             promptPerMToken,
             completionPerMToken,
           },
-          contextLength: model.context_length,
+          contextLength,
           capabilities: {
-            toolCalling: supportsToolCalling,
+            toolCalling: inferredToolCalling,
             multimodal: isMultimodal,
             vision: hasVision,
+            nativeReasoning:
+              supportsNativeReasoning ||
+              existing.capabilities.nativeReasoning === true,
           },
           lastSeenAt: fetchedAt,
           isNew: model.created > sevenDaysAgo,
@@ -776,18 +1215,19 @@ export const cacheModels = internalMutation({
       } else {
         // Insert new model (disabled by default)
         await ctx.db.insert("aiModels", {
-          modelId: model.id,
+          modelId,
           name: model.name,
           provider,
           pricing: {
             promptPerMToken,
             completionPerMToken,
           },
-          contextLength: model.context_length,
+          contextLength,
           capabilities: {
-            toolCalling: supportsToolCalling,
+            toolCalling: inferredToolCalling,
             multimodal: isMultimodal,
             vision: hasVision,
+            nativeReasoning: supportsNativeReasoning,
           },
           discoveredAt: fetchedAt,
           lastSeenAt: fetchedAt,
@@ -799,29 +1239,31 @@ export const cacheModels = internalMutation({
       }
     }
 
-    const existingModels = await ctx.db.query("aiModels").collect();
-    for (const model of existingModels) {
-      if (fetchedModelIds.has(model.modelId)) {
-        continue;
-      }
-      if (model.lifecycleStatus === "retired") {
-        continue;
-      }
+    if (shouldAllowDeprecation) {
+      const existingModels = await ctx.db.query("aiModels").collect();
+      for (const model of existingModels) {
+        if (fetchedModelIds.has(model.modelId)) {
+          continue;
+        }
+        if (model.lifecycleStatus === "retired") {
+          continue;
+        }
 
-      await ctx.db.patch(model._id, {
-        lifecycleStatus: "deprecated",
-        deprecatedAt: model.deprecatedAt ?? fetchedAt,
-        isPlatformEnabled: false,
-        isSystemDefault: false,
-        retirementReason:
-          model.retirementReason
-          ?? "Model no longer present in discovery feed; auto-deprecated for safety",
-      });
-      deprecatedCount++;
+        await ctx.db.patch(model._id, {
+          lifecycleStatus: "deprecated",
+          deprecatedAt: model.deprecatedAt ?? fetchedAt,
+          isPlatformEnabled: false,
+          isSystemDefault: false,
+          retirementReason:
+            model.retirementReason
+            ?? "Model no longer present in discovery feed; auto-deprecated for safety",
+        });
+        deprecatedCount++;
+      }
     }
 
     console.log(
-      `✅ Updated model cache: ${newCount} new, ${updatedCount} updated, ${deprecatedCount} auto-deprecated`
+      `✅ Updated model cache: ${newCount} new, ${updatedCount} updated, ${deprecatedCount} auto-deprecated (allowDeprecation=${shouldAllowDeprecation})`
     );
   },
 });
@@ -1053,7 +1495,7 @@ export function formatModelForDisplay(model: OpenRouterModel): {
 /**
  * REFRESH MODELS (Frontend-Triggered)
  *
- * Allows frontend to explicitly request a fresh fetch from OpenRouter.
+ * Allows frontend to explicitly request a fresh fetch from provider discovery fanout.
  * This is useful when:
  * - User clicks "Refresh Models" button
  * - Cache is stale and user wants latest data
@@ -1062,7 +1504,120 @@ export function formatModelForDisplay(model: OpenRouterModel): {
 export const refreshModels = action({
   args: {},
   handler: async (ctx): Promise<{models: OpenRouterModel[]; fetchedAt: number}> => {
-    console.log("🔄 Manually refreshing models from OpenRouter...");
+    console.log("🔄 Manually refreshing models from provider discovery fanout...");
     return await (ctx as any).runAction(generatedApi.internal.ai.modelDiscovery.fetchAvailableModels, {});
+  },
+});
+
+/**
+ * BACKFILL NATIVE REASONING CAPABILITY FOR EXISTING aiModels RECORDS
+ *
+ * - Idempotent: only updates rows where capabilities.nativeReasoning is missing
+ * - Deterministic source order:
+ *   1) cached model payload in objects.ai_model_cache (if present)
+ *   2) fail-safe fallback false
+ */
+export const backfillNativeReasoningCapabilitiesInternal = internalMutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun === true;
+    const aiModels = await ctx.db.query("aiModels").collect();
+    const cachedNativeReasoningByModelId = new Map<string, boolean>();
+
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .filter((q) => q.eq(q.field("slug"), "system"))
+      .first();
+    if (systemOrg) {
+      const modelCache = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", systemOrg._id).eq("type", "ai_model_cache")
+        )
+        .first();
+      const cachedModels = Array.isArray(modelCache?.customProperties?.models)
+        ? (modelCache?.customProperties?.models as unknown[])
+        : [];
+      for (const cachedModel of cachedModels) {
+        if (!cachedModel || typeof cachedModel !== "object") {
+          continue;
+        }
+        const modelId = normalizeString((cachedModel as Record<string, unknown>).id);
+        if (!modelId) {
+          continue;
+        }
+        cachedNativeReasoningByModelId.set(
+          modelId,
+          resolveOpenRouterNativeReasoningSupport(cachedModel as OpenRouterModel)
+        );
+      }
+    }
+
+    let missingBefore = 0;
+    let updatedFromCache = 0;
+    let updatedFallbackFalse = 0;
+    let alreadySet = 0;
+
+    for (const model of aiModels) {
+      if (typeof model.capabilities.nativeReasoning === "boolean") {
+        alreadySet += 1;
+        continue;
+      }
+
+      missingBefore += 1;
+      const resolvedNativeReasoning =
+        cachedNativeReasoningByModelId.get(model.modelId) ?? false;
+
+      if (!dryRun) {
+        await ctx.db.patch(model._id, {
+          capabilities: {
+            ...model.capabilities,
+            nativeReasoning: resolvedNativeReasoning,
+          },
+        });
+      }
+
+      if (cachedNativeReasoningByModelId.has(model.modelId)) {
+        updatedFromCache += 1;
+      } else {
+        updatedFallbackFalse += 1;
+      }
+    }
+
+    return {
+      dryRun,
+      scanned: aiModels.length,
+      alreadySet,
+      missingBefore,
+      updatedFromCache,
+      updatedFallbackFalse,
+      updatedTotal: updatedFromCache + updatedFallbackFalse,
+      missingAfter: dryRun ? missingBefore : 0,
+    };
+  },
+});
+
+export const backfillNativeReasoningCapabilities = action({
+  args: {
+    // Legacy arg name kept for compatibility; true triggers a full provider-fanout refresh.
+    refreshFromOpenRouter: v.optional(v.boolean()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    if (args.refreshFromOpenRouter === true) {
+      await (ctx as any).runAction(
+        generatedApi.internal.ai.modelDiscovery.fetchAvailableModels,
+        {}
+      );
+    }
+
+    return await (ctx as any).runMutation(
+      generatedApi.internal.ai.modelDiscovery.backfillNativeReasoningCapabilitiesInternal,
+      {
+        dryRun: args.dryRun === true,
+      }
+    );
   },
 });

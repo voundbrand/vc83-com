@@ -14,6 +14,7 @@ describe("chat model resolution payload", () => {
     expect(payload.fallbackUsed).toBe(false);
     expect(payload.fallbackReason).toBeUndefined();
     expect(payload.selectedModel).toBe("openai/gpt-4o-mini");
+    expect(payload.usedModel).toBe("openai/gpt-4o-mini");
   });
 
   it("uses selectionSource taxonomy when model selection already fell back", () => {
@@ -39,6 +40,7 @@ describe("chat model resolution payload", () => {
     expect(payload.fallbackUsed).toBe(true);
     expect(payload.fallbackReason).toBe("auth_profile_rotation");
     expect(payload.selectedModel).toBe("anthropic/claude-sonnet-4.5");
+    expect(payload.usedModel).toBe("anthropic/claude-sonnet-4.5");
   });
 
   it("marks retry-chain reason when model failover occurs", () => {
@@ -52,6 +54,7 @@ describe("chat model resolution payload", () => {
 
     expect(payload.fallbackUsed).toBe(true);
     expect(payload.fallbackReason).toBe("retry_chain");
-    expect(payload.selectedModel).toBe("anthropic/claude-sonnet-4.5");
+    expect(payload.selectedModel).toBe("openai/gpt-4o-mini");
+    expect(payload.usedModel).toBe("anthropic/claude-sonnet-4.5");
   });
 });

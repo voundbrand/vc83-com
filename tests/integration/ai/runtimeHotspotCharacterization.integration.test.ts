@@ -39,7 +39,8 @@ describe("runtime hotspot characterization", () => {
 
     expect(payload.fallbackUsed).toBe(true);
     expect(payload.fallbackReason).toBe("retry_chain");
-    expect(payload.selectedModel).toBe("openai/gpt-4o-mini");
+    expect(payload.selectedModel).toBe("anthropic/claude-sonnet-4.5");
+    expect(payload.usedModel).toBe("openai/gpt-4o-mini");
   });
 
   it("treats dangerous approval mode as no-op when human loop is disabled", () => {

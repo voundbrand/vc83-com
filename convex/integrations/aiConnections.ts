@@ -6,11 +6,12 @@ import { getLicenseInternal } from "../licensing/helpers";
 import { resolveByokCommercialPolicyForTier } from "../stripe/byokCommercialPolicy";
 import { aiBillingSourceValidator, aiProviderIdValidator } from "../schemas/coreSchemas";
 import { getAllAiProviders, getAiProvider } from "../ai/providerRegistry";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
 
-const DEFAULT_REQUIRED_TIER = "Starter (€199/month)";
+const DEFAULT_REQUIRED_TIER = "Scale (€299/month)";
 const VERIFICATION_ACTIONS = [
   "test_auth",
   "list_models",
@@ -344,6 +345,14 @@ async function ensureAiSettingsRecord(
     settingsContractVersion: "provider_agnostic_v1",
     llm: {
       providerId: "openrouter",
+      enabledModels: [
+        {
+          modelId: ONBOARDING_DEFAULT_MODEL_ID,
+          isDefault: true,
+          enabledAt: now,
+        },
+      ],
+      defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
       temperature: 0.7,
       maxTokens: 4000,
       providerAuthProfiles: [],

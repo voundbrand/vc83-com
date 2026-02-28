@@ -41,6 +41,21 @@ interface ToolSchema {
   };
 }
 
+interface OpenAITextContentPart {
+  type: "text";
+  text: string;
+}
+
+interface OpenAIImageContentPart {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
+type OpenAIContentPart = OpenAITextContentPart | OpenAIImageContentPart;
+type ChatCompletionMessageContent = string | OpenAIContentPart[] | null;
+
 interface ProviderErrorEnvelope {
   error?: {
     message?: string;
@@ -57,6 +72,34 @@ interface ProviderClientOptions {
   providerId?: string;
   baseUrl?: string;
   customHeaders?: Record<string, string>;
+}
+
+const RESERVED_REQUEST_BODY_KEYS = new Set([
+  "model",
+  "messages",
+  "tools",
+  "temperature",
+  "max_tokens",
+  "stream",
+  "system",
+]);
+
+function sanitizeExtraRequestBody(
+  extraBody: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!extraBody || typeof extraBody !== "object") {
+    return undefined;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(extraBody)) {
+    if (RESERVED_REQUEST_BODY_KEYS.has(key)) {
+      continue;
+    }
+    sanitized[key] = value;
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
 /**
@@ -126,11 +169,105 @@ export class OpenRouterClient {
     return {};
   }
 
+  private normalizeContentParts(content: ChatCompletionMessageContent): OpenAIContentPart[] {
+    if (!Array.isArray(content)) {
+      return [];
+    }
+
+    const parts: OpenAIContentPart[] = [];
+    for (const rawPart of content) {
+      if (!rawPart || typeof rawPart !== "object") {
+        continue;
+      }
+      if ((rawPart as { type?: string }).type === "text") {
+        const text = (rawPart as { text?: string }).text;
+        if (typeof text === "string") {
+          parts.push({
+            type: "text",
+            text,
+          });
+        }
+        continue;
+      }
+      if ((rawPart as { type?: string }).type === "image_url") {
+        const url = (rawPart as { image_url?: { url?: string } }).image_url?.url;
+        if (typeof url === "string" && url.trim().length > 0) {
+          parts.push({
+            type: "image_url",
+            image_url: { url },
+          });
+        }
+      }
+    }
+
+    return parts;
+  }
+
+  private extractTextFromContent(content: ChatCompletionMessageContent): string {
+    if (typeof content === "string") {
+      return content;
+    }
+    const textParts = this.normalizeContentParts(content)
+      .filter((part): part is OpenAITextContentPart => part.type === "text")
+      .map((part) => part.text.trim())
+      .filter((part) => part.length > 0);
+    return textParts.join("\n");
+  }
+
+  private hasMessageContent(content: ChatCompletionMessageContent): boolean {
+    if (typeof content === "string") {
+      return content.trim().length > 0;
+    }
+    const parts = this.normalizeContentParts(content);
+    if (parts.length === 0) {
+      return false;
+    }
+    return parts.some((part) =>
+      part.type === "text"
+        ? part.text.trim().length > 0
+        : part.image_url.url.trim().length > 0
+    );
+  }
+
+  private buildAnthropicUserContent(
+    content: ChatCompletionMessageContent
+  ): Array<Record<string, unknown>> {
+    if (typeof content === "string") {
+      if (content.trim().length === 0) {
+        return [{ type: "text", text: "" }];
+      }
+      return [{ type: "text", text: content }];
+    }
+
+    const mapped = this.normalizeContentParts(content)
+      .map((part) => {
+        if (part.type === "text") {
+          return {
+            type: "text",
+            text: part.text,
+          } as Record<string, unknown>;
+        }
+        return {
+          type: "image",
+          source: {
+            type: "url",
+            url: part.image_url.url,
+          },
+        } as Record<string, unknown>;
+      })
+      .filter(Boolean);
+
+    if (mapped.length === 0) {
+      return [{ type: "text", text: "" }];
+    }
+    return mapped;
+  }
+
   private buildAnthropicRequestBody(params: {
     model: string;
     messages: Array<{
       role: "system" | "user" | "assistant" | "tool";
-      content: string | null;
+      content: ChatCompletionMessageContent;
       name?: string;
       tool_calls?: unknown;
       tool_call_id?: string;
@@ -150,8 +287,9 @@ export class OpenRouterClient {
       const message = params.messages[index];
 
       if (message.role === "system") {
-        if (typeof message.content === "string" && message.content.trim().length > 0) {
-          systemParts.push(message.content.trim());
+        const systemText = this.extractTextFromContent(message.content).trim();
+        if (systemText.length > 0) {
+          systemParts.push(systemText);
         }
         continue;
       }
@@ -163,7 +301,7 @@ export class OpenRouterClient {
             {
               type: "tool_result",
               tool_use_id: message.tool_call_id ?? `tool_result_${index + 1}`,
-              content: typeof message.content === "string" ? message.content : "",
+              content: this.extractTextFromContent(message.content),
             },
           ],
         });
@@ -172,10 +310,11 @@ export class OpenRouterClient {
 
       if (message.role === "assistant") {
         const contentParts: Array<Record<string, unknown>> = [];
-        if (typeof message.content === "string" && message.content.trim().length > 0) {
+        const assistantText = this.extractTextFromContent(message.content);
+        if (assistantText.trim().length > 0) {
           contentParts.push({
             type: "text",
-            text: message.content,
+            text: assistantText,
           });
         }
 
@@ -203,12 +342,7 @@ export class OpenRouterClient {
 
       anthropicMessages.push({
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: typeof message.content === "string" ? message.content : "",
-          },
-        ],
+        content: this.buildAnthropicUserContent(message.content),
       });
     }
 
@@ -236,7 +370,7 @@ export class OpenRouterClient {
     model: string;
     messages: Array<{
       role: "system" | "user" | "assistant" | "tool";
-      content: string | null;
+      content: ChatCompletionMessageContent;
       name?: string;
       tool_calls?: unknown;
       tool_call_id?: string;
@@ -245,6 +379,7 @@ export class OpenRouterClient {
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
+    extraBody?: Record<string, unknown>;
   }): Promise<any> {
     // Validate messages array
     if (!params.messages || params.messages.length === 0) {
@@ -253,12 +388,13 @@ export class OpenRouterClient {
 
     // Ensure all messages have content (except assistant messages with tool_calls or null content)
     for (const msg of params.messages) {
-      if (msg.role !== "assistant" && (!msg.content || (typeof msg.content === 'string' && msg.content.trim() === ""))) {
+      if (msg.role !== "assistant" && !this.hasMessageContent(msg.content)) {
         throw new Error(`Message with role '${msg.role}' must have non-empty content`);
       }
     }
 
     const providerConfig = getProviderConfig(this.providerId);
+    const extraBody = sanitizeExtraRequestBody(params.extraBody);
     const requestBody = providerConfig.requestProtocol === "anthropic_messages"
       ? this.buildAnthropicRequestBody(params)
       : {
@@ -268,6 +404,7 @@ export class OpenRouterClient {
           temperature: params.temperature ?? 0.7,
           max_tokens: params.max_tokens ?? 4000,
           stream: params.stream ?? false,
+          ...(extraBody ?? {}),
         };
     const endpointPath =
       providerConfig.requestProtocol === "anthropic_messages"

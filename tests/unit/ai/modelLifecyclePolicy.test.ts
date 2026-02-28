@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveValidationStatusFromRun,
   deriveLifecycleState,
   validateRetirementSafety,
 } from "../../../convex/ai/platformModelManagement";
+import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
 
 describe("model lifecycle policy", () => {
   it("derives lifecycle state for enable/default/deprecate/retire transitions", () => {
@@ -68,5 +70,65 @@ describe("model lifecycle policy", () => {
 
     expect(result.ok).toBe(true);
     expect(result.reasons).toEqual([]);
+  });
+
+  it("derives validated status only when all checks and conformance pass", () => {
+    const passingConformance = evaluateModelConformance({
+      samples: [
+        {
+          scenarioId: "pass_case",
+          toolCallParsed: true,
+          schemaFidelity: true,
+          refusalHandled: true,
+          latencyMs: 900,
+          totalTokens: 1200,
+          costUsd: 0.09,
+        },
+      ],
+    });
+
+    const failingConformance = evaluateModelConformance({
+      samples: [
+        {
+          scenarioId: "fail_case",
+          toolCallParsed: false,
+          schemaFidelity: false,
+          refusalHandled: false,
+          latencyMs: 20_000,
+          totalTokens: 1000,
+          costUsd: 1.1,
+        },
+      ],
+    });
+
+    const baseResults = {
+      basicChat: true,
+      toolCalling: true,
+      complexParams: true,
+      multiTurn: true,
+      edgeCases: true,
+      contractChecks: true,
+    };
+
+    expect(
+      deriveValidationStatusFromRun({
+        results: baseResults,
+        conformance: passingConformance,
+      })
+    ).toBe("validated");
+
+    expect(
+      deriveValidationStatusFromRun({
+        results: { ...baseResults, edgeCases: false },
+        conformance: passingConformance,
+      })
+    ).toBe("failed");
+
+    expect(
+      deriveValidationStatusFromRun({
+        results: baseResults,
+        conformance: failingConformance,
+      })
+    ).toBe("failed");
   });
 });

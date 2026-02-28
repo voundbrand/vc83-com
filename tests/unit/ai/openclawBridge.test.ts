@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildOpenClawBridgeImportPlan } from "../../../convex/ai/openclawBridge";
+import {
+  buildOpenClawBridgeImportPlan,
+  buildOpenClawNativeFallbackPlan,
+  resolveOpenClawCompatibilityAdapter,
+  validateOpenClawCompatibilityAdapterDecision,
+  type OpenClawCompatibilityAdapterDecision,
+} from "../../../convex/ai/openclawBridge";
+import { OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG } from "../../../convex/ai/modelPolicy";
 
 describe("openclaw bridge import plan", () => {
   it("maps allowed auth profiles and private model definitions", () => {
@@ -85,5 +92,125 @@ describe("openclaw bridge import plan", () => {
     );
     expect(plan.importedPrivateModels[0]?.isDefault).toBe(true);
     expect(plan.importedPrivateModels[0]?.customLabel).toBe("Primary");
+  });
+
+  it("falls back to native mode when compatibility feature flag is disabled", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {},
+      adapterRequested: true,
+    });
+    const fallbackPlan = buildOpenClawNativeFallbackPlan({ adapterDecision });
+
+    expect(adapterDecision.enabled).toBe(false);
+    expect(adapterDecision.mode).toBe("native");
+    expect(adapterDecision.fallbackReason).toBe("org_feature_flag_disabled");
+    expect(adapterDecision.directMutationBypassAllowed).toBe(false);
+    expect(adapterDecision.trustApprovalRequiredForActionableIntent).toBe(true);
+    expect(fallbackPlan.importedAuthProfiles).toHaveLength(0);
+    expect(fallbackPlan.importedPrivateModels).toHaveLength(0);
+    expect(fallbackPlan.warnings[0]).toContain("native vc83 runtime path");
+  });
+
+  it("enables compatibility adapter only with explicit org feature flag", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {
+        [OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG]: true,
+      },
+      adapterRequested: true,
+    });
+
+    expect(adapterDecision.enabled).toBe(true);
+    expect(adapterDecision.mode).toBe("openclaw_adapter");
+    expect(adapterDecision.fallbackToNative).toBe(false);
+    expect(adapterDecision.fallbackReason).toBeNull();
+    expect(adapterDecision.warning).toBeNull();
+  });
+
+  it("returns deterministic native fallback contract on adapter failure", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {
+        [OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG]: true,
+      },
+      adapterRequested: true,
+      adapterFailed: true,
+      adapterFailureDetail: "provider payload parse failed",
+    });
+    const fallbackPlan = buildOpenClawNativeFallbackPlan({ adapterDecision });
+
+    expect(adapterDecision.enabled).toBe(false);
+    expect(adapterDecision.fallbackReason).toBe("adapter_failure");
+    expect(fallbackPlan.warnings[0]).toContain("provider payload parse failed");
+    expect(adapterDecision.nativePolicyPrecedence).toBe("vc83_runtime_policy");
+  });
+
+  it("validates authority invariants for compatibility adapter decisions", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {
+        [OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG]: true,
+      },
+      adapterRequested: true,
+    });
+
+    expect(validateOpenClawCompatibilityAdapterDecision(adapterDecision)).toEqual({
+      valid: true,
+      violations: [],
+    });
+  });
+
+  it("flags direct mutation bypass as a validation failure", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {
+        [OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG]: true,
+      },
+      adapterRequested: true,
+    });
+    const invalidDecision = {
+      ...adapterDecision,
+      directMutationBypassAllowed: true,
+    } as unknown as OpenClawCompatibilityAdapterDecision;
+
+    const validation = validateOpenClawCompatibilityAdapterDecision(
+      invalidDecision
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.violations).toContain("direct_mutation_bypass_not_allowed");
+  });
+
+  it("requires explicit org feature flag when adapter mode is enabled", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {
+        [OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG]: true,
+      },
+      adapterRequested: true,
+    });
+    const invalidDecision = {
+      ...adapterDecision,
+      featureFlagEnabled: false,
+    } as unknown as OpenClawCompatibilityAdapterDecision;
+
+    const validation = validateOpenClawCompatibilityAdapterDecision(
+      invalidDecision
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.violations).toContain(
+      "feature_flag_required_for_compatibility_mode"
+    );
+  });
+
+  it("enforces deterministic fallback contract when adapter is disabled", () => {
+    const adapterDecision = resolveOpenClawCompatibilityAdapter({
+      organizationFeatureFlags: {},
+      adapterRequested: true,
+    });
+    const invalidDecision = {
+      ...adapterDecision,
+      fallbackToNative: false,
+    } as unknown as OpenClawCompatibilityAdapterDecision;
+
+    const validation = validateOpenClawCompatibilityAdapterDecision(
+      invalidDecision
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.violations).toContain("fallback_contract_mismatch");
   });
 });
