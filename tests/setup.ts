@@ -46,6 +46,7 @@ export const createMockContext = () => {
  */
 export function createTestHelper() {
   const convexUrl = process.env.CONVEX_URL;
+  const adminKey = process.env.CONVEX_DEPLOY_KEY;
 
   if (!convexUrl) {
     throw new Error(
@@ -55,5 +56,6 @@ export function createTestHelper() {
 
   return new ConvexTestingHelper({
     backendUrl: convexUrl,
+    adminKey: adminKey,
   });
 }

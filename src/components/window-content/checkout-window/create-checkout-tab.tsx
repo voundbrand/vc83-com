@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { ShoppingCart, ArrowLeft, Loader2, AlertCircle, Eye, FileText, Check, Palette, ChevronDown, ChevronUp, CreditCard, Building2, X } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -101,7 +103,15 @@ export function CreateCheckoutTab({
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const notification = useNotification();
-  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.checkout_window");
+  const { t } = useNamespaceTranslations("ui.checkout_window");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const { showFeatureLockedModal } = useUpgradeModal();
 
   // Step management
@@ -243,8 +253,8 @@ export function CreateCheckoutTab({
       // Load theme CODE from config, then find the database theme ID for UI display
       const savedThemeCode = (config.themeCode as string) || "";
       if (savedThemeCode && availableThemes) {
-        const themeObj = availableThemes.find(t =>
-          (t.customProperties as Record<string, unknown>)?.code === savedThemeCode
+        const themeObj = availableThemes.find((themeItem: any) =>
+          (themeItem.customProperties as Record<string, unknown>)?.code === savedThemeCode
         );
         if (themeObj) {
           setSelectedThemeId(themeObj._id);
@@ -325,7 +335,9 @@ export function CreateCheckoutTab({
     if (!sessionId || !currentOrg || !selectedTemplateCode) return;
 
     // Get theme CODE from selected theme ID
-    const selectedTheme = availableThemes?.find(t => t._id === selectedThemeId);
+    const selectedTheme = availableThemes?.find(
+      (themeItem: any) => themeItem._id === selectedThemeId
+    );
     const themeCode = (selectedTheme?.customProperties as Record<string, unknown>)?.code as string || "";
 
     // PRE-CHECK: Validate feature access BEFORE calling mutation
@@ -407,12 +419,24 @@ export function CreateCheckoutTab({
         });
       }
 
-      const successTitle = translationsLoading
-        ? (editingInstanceId ? "Checkout Updated" : "Checkout Created")
-        : t(editingInstanceId ? "ui.checkout_window.create.notifications.updated_title" : "ui.checkout_window.create.notifications.created_title");
-      const successMessage = translationsLoading
-        ? (editingInstanceId ? "Your changes have been saved successfully." : "Your new checkout has been created successfully.")
-        : t(editingInstanceId ? "ui.checkout_window.create.notifications.updated_message" : "ui.checkout_window.create.notifications.created_message");
+      const successTitle = editingInstanceId
+        ? tx(
+            "ui.checkout_window.create.notifications.updated_title",
+            "Checkout Updated"
+          )
+        : tx(
+            "ui.checkout_window.create.notifications.created_title",
+            "Checkout Created"
+          );
+      const successMessage = editingInstanceId
+        ? tx(
+            "ui.checkout_window.create.notifications.updated_message",
+            "Your changes have been saved successfully."
+          )
+        : tx(
+            "ui.checkout_window.create.notifications.created_message",
+            "Your new checkout has been created successfully."
+          );
       notification.success(successTitle, successMessage);
       onSaveComplete();
     } catch (error) {
@@ -432,8 +456,14 @@ export function CreateCheckoutTab({
       }
 
       // Generic error handling for non-tier errors
-      const errorTitle = translationsLoading ? "Save Failed" : t("ui.checkout_window.create.notifications.save_failed_title");
-      const errorMessage = translationsLoading ? "Could not save checkout. Please check your configuration and try again." : t("ui.checkout_window.create.notifications.save_failed_message");
+      const errorTitle = tx(
+        "ui.checkout_window.create.notifications.save_failed_title",
+        "Save Failed"
+      );
+      const errorMessage = tx(
+        "ui.checkout_window.create.notifications.save_failed_message",
+        "Could not save checkout. Please check your configuration and try again."
+      );
       notification.error(errorTitle, errorMessage);
     }
   };
@@ -443,7 +473,7 @@ export function CreateCheckoutTab({
     if (!products) return [];
     return selectedProducts
       .map((productId) => {
-        const product = products.find((p) => p._id === productId);
+        const product = products.find((candidateProduct: any) => candidateProduct._id === productId);
         if (!product) return null;
 
         const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
@@ -492,10 +522,16 @@ export function CreateCheckoutTab({
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
             <div>
               <h4 className="font-bold text-sm" style={{ color: 'var(--error)' }}>
-                {translationsLoading ? "Authentication Required" : t("ui.checkout_window.error.auth_required_title")}
+                {tx(
+                  "ui.checkout_window.error.auth_required_title",
+                  "Authentication Required"
+                )}
               </h4>
               <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
-                {translationsLoading ? "Please log in to create checkouts." : t("ui.checkout_window.create.error.auth_required")}
+                {tx(
+                  "ui.checkout_window.create.error.auth_required",
+                  "Please log in to create checkouts."
+                )}
               </p>
             </div>
           </div>
@@ -520,24 +556,38 @@ export function CreateCheckoutTab({
         <div className="mb-4">
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
             <ShoppingCart size={16} />
-            {translationsLoading ? "Select Checkout Template" : t("ui.checkout_window.create.select_template_title")}
+            {tx(
+              "ui.checkout_window.create.select_template_title",
+              "Select Checkout Template"
+            )}
           </h3>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            {translationsLoading ? "Choose a template to get started" : t("ui.checkout_window.create.select_template_description")}
+            {tx(
+              "ui.checkout_window.create.select_template_description",
+              "Choose a template to get started"
+            )}
           </p>
         </div>
 
         {/* Templates Grid */}
         {availableTemplates.length === 0 ? (
           <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface)' }}>
-            <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>No Templates Available</h4>
+            <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
+              {tx(
+                "ui.checkout_window.create.no_templates_title",
+                "No Templates Available"
+              )}
+            </h4>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Contact your administrator to enable checkout templates.
+              {tx(
+                "ui.checkout_window.create.no_templates_description",
+                "Contact your administrator to enable checkout templates."
+              )}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableTemplates.map((template) => {
+            {availableTemplates.map((template: any) => {
               const props = template.customProperties as Record<string, unknown>;
               const features = props.features as string[] || [];
               const complexity = props.complexity as string || "intermediate";
@@ -580,7 +630,10 @@ export function CreateCheckoutTab({
                             color: complexityColor.text,
                           }}
                         >
-                          {translationsLoading ? complexity : t(`ui.checkout_window.templates.complexity.${complexity}`)}
+                          {tx(
+                            `ui.checkout_window.templates.complexity.${complexity}`,
+                            complexity
+                          )}
                         </span>
                       </div>
 
@@ -594,10 +647,28 @@ export function CreateCheckoutTab({
                             color: supportsFormIntegration ? "var(--success)" : "var(--error)",
                             border: `1px solid ${supportsFormIntegration ? "var(--success)" : "var(--error)"}`,
                           }}
-                          title={translationsLoading ? (supportsFormIntegration ? "This template supports form integration during checkout" : "This template does not support form integration") : t(supportsFormIntegration ? "ui.checkout_window.templates.tooltip.form_supports" : "ui.checkout_window.templates.tooltip.form_not_supports")}
+                          title={
+                            supportsFormIntegration
+                              ? tx(
+                                  "ui.checkout_window.templates.tooltip.form_supports",
+                                  "This template supports form integration during checkout"
+                                )
+                              : tx(
+                                  "ui.checkout_window.templates.tooltip.form_not_supports",
+                                  "This template does not support form integration"
+                                )
+                          }
                         >
                           {supportsFormIntegration ? <Check size={12} /> : <X size={12} />}
-                          {translationsLoading ? (supportsFormIntegration ? "Form Compatible" : "Form Incompatible") : t(supportsFormIntegration ? "ui.checkout_window.templates.badge.form_compatible" : "ui.checkout_window.templates.badge.form_incompatible")}
+                          {supportsFormIntegration
+                            ? tx(
+                                "ui.checkout_window.templates.badge.form_compatible",
+                                "Form Compatible"
+                              )
+                            : tx(
+                                "ui.checkout_window.templates.badge.form_incompatible",
+                                "Form Incompatible"
+                              )}
                         </span>
 
                         {/* Coming Soon Badge */}
@@ -607,7 +678,10 @@ export function CreateCheckoutTab({
                             color: '#F59E0B',
                             borderColor: '#F59E0B'
                           }}>
-                            {translationsLoading ? "Coming Soon" : t("ui.checkout_window.templates.badge.coming_soon")}
+                            {tx(
+                              "ui.checkout_window.templates.badge.coming_soon",
+                              "Coming Soon"
+                            )}
                           </span>
                         )}
                       </div>
@@ -644,10 +718,15 @@ export function CreateCheckoutTab({
                       cursor: comingSoon ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {translationsLoading
-                      ? (comingSoon ? "Coming Soon" : "Use This Template")
-                      : (comingSoon ? t("ui.checkout_window.templates.badge.coming_soon") : t("ui.checkout_window.templates.actions.use_template"))
-                    }
+                    {comingSoon
+                      ? tx(
+                          "ui.checkout_window.templates.badge.coming_soon",
+                          "Coming Soon"
+                        )
+                      : tx(
+                          "ui.checkout_window.templates.actions.use_template",
+                          "Use This Template"
+                        )}
                   </button>
                 </div>
               );
@@ -669,20 +748,29 @@ export function CreateCheckoutTab({
               onClick={() => setStep("template")}
               className="p-1.5 transition-colors"
               style={{ background: 'transparent' }}
-              title="Back to templates"
+              title={tx(
+                "ui.checkout_window.create.back_to_templates",
+                "Back to templates"
+              )}
             >
               <ArrowLeft size={16} style={{ color: 'var(--shell-text)' }} />
             </button>
           )}
           <div>
             <h3 className="text-sm font-bold" style={{ color: 'var(--shell-text)' }}>
-              {translationsLoading
-                ? (editingInstanceId ? "Edit Checkout" : "Configure Checkout")
-                : (editingInstanceId ? t("ui.checkout_window.create.edit_title") : t("ui.checkout_window.create.configure_title"))
-              }
+              {editingInstanceId
+                ? tx("ui.checkout_window.create.edit_title", "Edit Checkout")
+                : tx(
+                    "ui.checkout_window.create.configure_title",
+                    "Configure Checkout"
+                  )}
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              {translationsLoading ? `Template: ${selectedTemplateCode || "None"}` : t("ui.checkout_window.create.template_label", { template: selectedTemplateCode || "None" })}
+              {tx(
+                "ui.checkout_window.create.template_label",
+                `Template: ${selectedTemplateCode || "None"}`,
+                { template: selectedTemplateCode || "None" }
+              )}
             </p>
           </div>
         </div>
@@ -696,7 +784,7 @@ export function CreateCheckoutTab({
               color: 'var(--shell-text)'
             }}
           >
-            {translationsLoading ? "Cancel" : t("ui.checkout_window.create.cancel_button")}
+            {tx("ui.checkout_window.create.cancel_button", "Cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -708,10 +796,9 @@ export function CreateCheckoutTab({
               color: 'var(--shell-titlebar-text)'
             }}
           >
-            {translationsLoading
-              ? (editingInstanceId ? "Save Changes" : "Create Checkout")
-              : (editingInstanceId ? t("ui.checkout_window.create.save_button") : t("ui.checkout_window.create.create_button"))
-            }
+            {editingInstanceId
+              ? tx("ui.checkout_window.create.save_button", "Save Changes")
+              : tx("ui.checkout_window.create.create_button", "Create Checkout")}
           </button>
         </div>
       </div>
@@ -722,19 +809,23 @@ export function CreateCheckoutTab({
         <div className="w-[40%] p-4 overflow-y-auto border-r-2" style={{ borderColor: 'var(--shell-border)' }}>
           <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
             <FileText size={16} />
-            {translationsLoading ? "Configuration" : t("ui.checkout_window.create.configuration_title")}
+            {tx("ui.checkout_window.create.configuration_title", "Configuration")}
           </h3>
 
           {/* Basic Info */}
           <div className="mb-4">
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
-              {translationsLoading ? "Checkout Name" : t("ui.checkout_window.create.name_label")} <span style={{ color: 'var(--error)' }}>*</span>
+              {tx("ui.checkout_window.create.name_label", "Checkout Name")}{" "}
+              <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               type="text"
               value={checkoutName}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="e.g., Event Ticket Sales"
+              placeholder={tx(
+                "ui.checkout_window.create.name_placeholder",
+                "e.g., Event Ticket Sales"
+              )}
               className="retro-input w-full px-2 py-1.5 text-sm"
               required
             />
@@ -742,12 +833,18 @@ export function CreateCheckoutTab({
 
           <div className="mb-4">
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
-              {translationsLoading ? "Description (Optional)" : t("ui.checkout_window.create.description_label")}
+              {tx(
+                "ui.checkout_window.create.description_label",
+                "Description (Optional)"
+              )}
             </label>
             <textarea
               value={checkoutDescription}
               onChange={(e) => setCheckoutDescription(e.target.value)}
-              placeholder={translationsLoading ? "Internal description for your team..." : t("ui.checkout_window.create.description_placeholder")}
+              placeholder={tx(
+                "ui.checkout_window.create.description_placeholder",
+                "Internal description for your team..."
+              )}
               rows={3}
               className="retro-input w-full px-2 py-1.5 text-sm resize-none"
             />
@@ -755,21 +852,38 @@ export function CreateCheckoutTab({
 
           <div className="mb-4">
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--shell-text)' }}>
-              {translationsLoading ? "Public URL Slug" : t("ui.checkout_window.create.slug_label")} <span style={{ color: 'var(--error)' }}>*</span>
+              {tx("ui.checkout_window.create.slug_label", "Public URL Slug")}{" "}
+              <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <input
               type="text"
               value={publicSlug}
               onChange={(e) => handleSlugChange(e.target.value)}
-              placeholder="e.g., vip-tickets-2024"
+              placeholder={tx(
+                "ui.checkout_window.create.slug_placeholder",
+                "e.g., vip-tickets-2024"
+              )}
               className="retro-input w-full px-2 py-1.5 text-sm"
               required
               pattern="[a-z0-9-]+"
-              title="Type any text - spaces and special chars will be auto-converted"
+              title={tx(
+                "ui.checkout_window.create.slug_help",
+                "Type any text - spaces and special chars will be auto-converted"
+              )}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              URL: {process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/
-              {currentOrg?.slug || "your-org"}/{publicSlug || "checkout-slug"}
+              {tx("ui.checkout_window.create.url_label", "URL:")}{" "}
+              {process.env.NEXT_PUBLIC_APP_URL ||
+                tx(
+                  "ui.checkout_window.create.url_default_app",
+                  "http://localhost:3000"
+                )}
+              {tx("ui.checkout_window.create.url_checkout_path", "/checkout/")}
+              {currentOrg?.slug ||
+                tx("ui.checkout_window.create.url_default_org", "your-org")}
+              /
+              {publicSlug ||
+                tx("ui.checkout_window.create.url_default_slug", "checkout-slug")}
             </p>
           </div>
 
@@ -786,16 +900,26 @@ export function CreateCheckoutTab({
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <Building2 size={14} style={{ color: 'var(--shell-text)' }} />
-                  <span className="text-xs font-bold" style={{ color: 'var(--shell-text)' }}>Require Organization Info (Force B2B)</span>
+                  <span className="text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
+                    {tx(
+                      "ui.checkout_window.create.force_b2b_label",
+                      "Require Organization Info (Force B2B)"
+                    )}
+                  </span>
                 </div>
                 <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  When enabled, customers must provide company/organization details (company name, VAT number, billing address).
-                  Use this for employer-invoiced events or B2B-only products.
+                  {tx(
+                    "ui.checkout_window.create.force_b2b_description",
+                    "When enabled, customers must provide company/organization details (company name, VAT number, billing address). Use this for employer-invoiced events or B2B-only products."
+                  )}
                 </p>
                 {forceB2B && (
                   <div className="mt-2 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                     <p className="text-xs font-bold" style={{ color: 'var(--shell-accent)' }}>
-                      Organization info will be required for all purchases
+                      {tx(
+                        "ui.checkout_window.create.force_b2b_notice",
+                        "Organization info will be required for all purchases"
+                      )}
                     </p>
                   </div>
                 )}
@@ -806,32 +930,59 @@ export function CreateCheckoutTab({
           {/* Default Language Selection */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <label className="block text-xs font-bold mb-2" style={{ color: 'var(--shell-text)' }}>
-              {translationsLoading ? "Default Language" : t("ui.checkout_window.create.language_label")}
+              {tx("ui.checkout_window.create.language_label", "Default Language")}
             </label>
             <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-              {translationsLoading ? "Set the default language for this checkout. Customers will see the checkout in this language initially." : t("ui.checkout_window.create.language_description")}
+              {tx(
+                "ui.checkout_window.create.language_description",
+                "Set the default language for this checkout. Customers will see the checkout in this language initially."
+              )}
             </p>
             <select
               value={defaultLanguage}
               onChange={(e) => setDefaultLanguage(e.target.value)}
               className="retro-input w-full px-2 py-1.5 text-sm"
             >
-              <option value="en">English</option>
-              <option value="de">German (Deutsch)</option>
-              <option value="pl">Polish (Polski)</option>
-              <option value="es">Spanish (Espanol)</option>
-              <option value="fr">French (Francais)</option>
-              <option value="ja">Japanese</option>
+              <option value="en">
+                {tx("ui.checkout_window.create.language.en", "English")}
+              </option>
+              <option value="de">
+                {tx("ui.checkout_window.create.language.de", "German (Deutsch)")}
+              </option>
+              <option value="pl">
+                {tx("ui.checkout_window.create.language.pl", "Polish (Polski)")}
+              </option>
+              <option value="es">
+                {tx(
+                  "ui.checkout_window.create.language.es",
+                  "Spanish (Espanol)"
+                )}
+              </option>
+              <option value="fr">
+                {tx(
+                  "ui.checkout_window.create.language.fr",
+                  "French (Francais)"
+                )}
+              </option>
+              <option value="ja">
+                {tx("ui.checkout_window.create.language.ja", "Japanese")}
+              </option>
             </select>
           </div>
 
           {/* Template Set Selection */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--shell-text)' }}>
-              Branding Templates
+              {tx(
+                "ui.checkout_window.create.branding_templates_title",
+                "Branding Templates"
+              )}
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
-              Choose a template set for consistent branding across tickets, invoices, and emails.
+              {tx(
+                "ui.checkout_window.create.branding_templates_description",
+                "Choose a template set for consistent branding across tickets, invoices, and emails."
+              )}
             </p>
 
             {/* Template Set Selector */}
@@ -839,20 +990,70 @@ export function CreateCheckoutTab({
               organizationId={currentOrg?.id as Id<"organizations">}
               value={templateSetId}
               onChange={(id) => setTemplateSetId(id || undefined)}
-              label="Template Set"
-              description="Bundles ticket, invoice, and email templates for consistent customer experience."
+              label={tx(
+                "ui.checkout_window.create.template_set_label",
+                "Template Set"
+              )}
+              description={tx(
+                "ui.checkout_window.create.template_set_description",
+                "Bundles ticket, invoice, and email templates for consistent customer experience."
+              )}
               required={false}
               allowNull={true}
-              nullLabel="Use organization default"
+              nullLabel={tx(
+                "ui.checkout_window.create.template_set_use_org_default",
+                "Use organization default"
+              )}
               showDetails={true}
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
-              <div className="font-bold mb-1">How Template Sets Work:</div>
+              <div className="font-bold mb-1">
+                {tx(
+                  "ui.checkout_window.create.template_set_how_it_works",
+                  "How Template Sets Work:"
+                )}
+              </div>
               <ul className="space-y-1 ml-4">
-                <li>• <strong>Unified Branding</strong>: One set = consistent look across all customer touchpoints</li>
-                <li>• <strong>Precedence</strong>: Product templates can override checkout-level settings</li>
-                <li>• <strong>Fallback</strong>: Uses organization default if not specified</li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.template_set_unified_branding",
+                      "Unified Branding"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.template_set_unified_branding_description",
+                    ": One set = consistent look across all customer touchpoints"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.template_set_precedence",
+                      "Precedence"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.template_set_precedence_description",
+                    ": Product templates can override checkout-level settings"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.template_set_fallback",
+                      "Fallback"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.template_set_fallback_description",
+                    ": Uses organization default if not specified"
+                  )}
+                </li>
               </ul>
             </div>
           </div>
@@ -860,10 +1061,16 @@ export function CreateCheckoutTab({
           {/* Email Template Selection - Internal Only */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--shell-text)' }}>
-              Internal Notifications
+              {tx(
+                "ui.checkout_window.create.internal_notifications_title",
+                "Internal Notifications"
+              )}
             </h4>
             <p className="text-xs mb-4" style={{ color: 'var(--neutral-gray)' }}>
-              Configure internal email notifications for your team (separate from customer emails).
+              {tx(
+                "ui.checkout_window.create.internal_notifications_description",
+                "Configure internal email notifications for your team (separate from customer emails)."
+              )}
             </p>
 
             {/* Internal Sales Notification Email */}
@@ -871,12 +1078,21 @@ export function CreateCheckoutTab({
               category="internal"
               value={salesNotificationEmailTemplateId}
               onChange={(id) => setSalesNotificationEmailTemplateId(id || undefined)}
-              label="Internal Sales Notification Template"
-              description="Email template for sales team notifications when a new order is placed."
+              label={tx(
+                "ui.checkout_window.create.internal_sales_notification_template_label",
+                "Internal Sales Notification Template"
+              )}
+              description={tx(
+                "ui.checkout_window.create.internal_sales_notification_template_description",
+                "Email template for sales team notifications when a new order is placed."
+              )}
               organizationId={currentOrg?.id as Id<"organizations">}
               required={false}
               allowNull={true}
-              nullLabel="Use system default (Sales Notification)"
+              nullLabel={tx(
+                "ui.checkout_window.create.internal_sales_notification_template_default",
+                "Use system default (Sales Notification)"
+              )}
             />
 
             {/* Sales Notification Recipient Email */}
@@ -885,18 +1101,65 @@ export function CreateCheckoutTab({
               onChange={(email) => setSalesNotificationRecipientEmail(email)}
               organizationId={currentOrg?.id as Id<"organizations">}
               sessionId={sessionId}
-              label="Sales Notification Recipient"
-              description="Email address to receive sales notifications. Select from your organization emails or enter a custom address."
+              label={tx(
+                "ui.checkout_window.create.sales_notification_recipient_label",
+                "Sales Notification Recipient"
+              )}
+              description={tx(
+                "ui.checkout_window.create.sales_notification_recipient_description",
+                "Email address to receive sales notifications. Select from your organization emails or enter a custom address."
+              )}
               required={false}
               defaultEmail="support@l4yercak3.com"
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
-              <div className="font-bold mb-1">Email Configuration:</div>
+              <div className="font-bold mb-1">
+                {tx(
+                  "ui.checkout_window.create.email_configuration_title",
+                  "Email Configuration:"
+                )}
+              </div>
               <ul className="space-y-1 ml-4">
-                <li>• <strong>Customer Templates</strong>: Choose Luxury/Minimal/VIP styles for order confirmations</li>
-                <li>• <strong>Sales Notifications</strong>: Internal alerts sent to your team</li>
-                <li>• <strong>Recipient Email</strong>: Defaults to support@l4yercak3.com if not configured</li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.email_configuration_customer_templates",
+                      "Customer Templates"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.email_configuration_customer_templates_description",
+                    ": Choose Luxury/Minimal/VIP styles for order confirmations"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.email_configuration_sales_notifications",
+                      "Sales Notifications"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.email_configuration_sales_notifications_description",
+                    ": Internal alerts sent to your team"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.checkout_window.create.email_configuration_recipient_email",
+                      "Recipient Email"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.checkout_window.create.email_configuration_recipient_email_description",
+                    ": Defaults to support@l4yercak3.com if not configured"
+                  )}
+                </li>
               </ul>
             </div>
           </div>
@@ -905,20 +1168,33 @@ export function CreateCheckoutTab({
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <label className="block text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
               <CreditCard size={14} />
-              {translationsLoading ? "Payment Providers" : t("ui.checkout_window.create.payment_providers_label")} <span style={{ color: 'var(--error)' }}>*</span>
+              {tx(
+                "ui.checkout_window.create.payment_providers_label",
+                "Payment Providers"
+              )}{" "}
+              <span style={{ color: 'var(--error)' }}>*</span>
             </label>
             <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-              {translationsLoading ? "Select payment providers to offer during checkout. Customers will choose their preferred method." : t("ui.checkout_window.create.payment_providers_description")}
+              {tx(
+                "ui.checkout_window.create.payment_providers_description",
+                "Select payment providers to offer during checkout. Customers will choose their preferred method."
+              )}
             </p>
 
             {/* Source of Truth Indicator */}
             {!editingInstanceId && orgPaymentSettings?.enabledPaymentProviders && orgPaymentSettings.enabledPaymentProviders.length > 0 && (
               <div className="mb-3 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                 <span className="font-bold" style={{ color: 'var(--success)' }}>
-                  Defaulting to organization settings
+                  {tx(
+                    "ui.checkout_window.create.defaulting_org_payment_settings",
+                    "Defaulting to organization settings"
+                  )}
                 </span>
                 <span className="ml-1" style={{ color: 'var(--neutral-gray)' }}>
-                  (configured in Payments → Providers)
+                  {tx(
+                    "ui.checkout_window.create.defaulting_org_payment_settings_details",
+                    "(configured in Payments → Providers)"
+                  )}
                 </span>
               </div>
             )}
@@ -929,13 +1205,22 @@ export function CreateCheckoutTab({
                   <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
                   <div>
                     <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--error)' }}>
-                      {translationsLoading ? "No Payment Providers Connected" : t("ui.checkout_window.create.no_payment_providers_title")}
+                      {tx(
+                        "ui.checkout_window.create.no_payment_providers_title",
+                        "No Payment Providers Connected"
+                      )}
                     </h4>
                     <p className="text-xs mb-2" style={{ color: 'var(--error)' }}>
-                      {translationsLoading ? "You need to connect a payment provider before creating checkouts." : t("ui.checkout_window.create.no_payment_providers_description")}
+                      {tx(
+                        "ui.checkout_window.create.no_payment_providers_description",
+                        "You need to connect a payment provider before creating checkouts."
+                      )}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--error)' }}>
-                      {translationsLoading ? "Go to Payments → Stripe Connect to connect a payment provider." : t("ui.checkout_window.create.no_payment_providers_help")}
+                      {tx(
+                        "ui.checkout_window.create.no_payment_providers_help",
+                        "Go to Payments → Stripe Connect to connect a payment provider."
+                      )}
                     </p>
                   </div>
                 </div>
@@ -980,9 +1265,15 @@ export function CreateCheckoutTab({
                             <div className="flex items-center gap-2 mb-1">
                               <div className="font-bold text-sm" style={{ color: 'var(--shell-text)' }}>
                                 {provider.providerCode === "stripe-connect"
-                                  ? "Stripe"
+                                  ? tx(
+                                      "ui.checkout_window.create.provider_name.stripe_connect",
+                                      "Stripe"
+                                    )
                                   : provider.providerCode === "invoice"
-                                  ? "Invoice (Pay Later)"
+                                  ? tx(
+                                      "ui.checkout_window.create.provider_name.invoice",
+                                      "Invoice (Pay Later)"
+                                    )
                                   : provider.providerCode.replace("-", " ")}
                               </div>
                               {provider.providerCode !== "invoice" && (
@@ -993,7 +1284,15 @@ export function CreateCheckoutTab({
                                     color: provider.isTestMode ? '#F59E0B' : 'var(--success)',
                                   }}
                                 >
-                                  {translationsLoading ? (provider.isTestMode ? "Test Mode" : "Live Mode") : t(provider.isTestMode ? "ui.checkout_window.create.payment_mode.test" : "ui.checkout_window.create.payment_mode.live")}
+                                  {provider.isTestMode
+                                    ? tx(
+                                        "ui.checkout_window.create.payment_mode.test",
+                                        "Test Mode"
+                                      )
+                                    : tx(
+                                        "ui.checkout_window.create.payment_mode.live",
+                                        "Live Mode"
+                                      )}
                                 </span>
                               )}
                               {provider.isDefault && (
@@ -1004,23 +1303,37 @@ export function CreateCheckoutTab({
                                     color: 'var(--shell-accent)',
                                   }}
                                 >
-                                  Default
+                                  {tx(
+                                    "ui.checkout_window.create.payment_mode.default",
+                                    "Default"
+                                  )}
                                 </span>
                               )}
                             </div>
                             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                              Status: <span className="font-semibold" style={{ color: isActive ? 'var(--success)' : 'var(--error)' }}>
+                              {tx(
+                                "ui.checkout_window.create.provider_status_label",
+                                "Status:"
+                              )}{" "}
+                              <span className="font-semibold" style={{ color: isActive ? 'var(--success)' : 'var(--error)' }}>
                                 {provider.status}
                               </span>
                             </p>
                             {provider.providerCode !== "invoice" && (
                               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                                Account: {provider.accountId.substring(0, 20)}...
+                                {tx(
+                                  "ui.checkout_window.create.provider_account_label",
+                                  "Account:"
+                                )}{" "}
+                                {provider.accountId.substring(0, 20)}...
                               </p>
                             )}
                             {provider.providerCode === "invoice" && (
                               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                                Customers can choose to receive an invoice and pay later
+                                {tx(
+                                  "ui.checkout_window.create.provider_invoice_description",
+                                  "Customers can choose to receive an invoice and pay later"
+                                )}
                               </p>
                             )}
                           </div>
@@ -1036,13 +1349,23 @@ export function CreateCheckoutTab({
                 {/* Selected Count Summary */}
                 {selectedPaymentProviders.length > 0 && (
                   <p className="text-xs font-bold mt-2" style={{ color: "var(--success)" }}>
-                    {selectedPaymentProviders.length} payment provider{selectedPaymentProviders.length !== 1 ? "s" : ""} selected
+                    {tx(
+                      "ui.checkout_window.create.payment_providers_selected_count",
+                      `${selectedPaymentProviders.length} payment provider${selectedPaymentProviders.length !== 1 ? "s" : ""} selected`,
+                      {
+                        count: selectedPaymentProviders.length,
+                        suffix: selectedPaymentProviders.length !== 1 ? "s" : "",
+                      }
+                    )}
                   </p>
                 )}
 
                 {selectedPaymentProviders.length > 1 && (
                   <p className="text-xs mt-1 p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
-                    Customers will choose their preferred payment method during checkout
+                    {tx(
+                      "ui.checkout_window.create.multiple_payment_methods_hint",
+                      "Customers will choose their preferred payment method during checkout"
+                    )}
                   </p>
                 )}
               </>
@@ -1065,14 +1388,18 @@ export function CreateCheckoutTab({
                 <div className="flex items-center gap-2">
                   <Palette size={16} />
                   <span className="text-sm font-bold">
-                    {translationsLoading ? "Select Theme" : t("ui.checkout_window.create.select_theme_label")} <span style={{ color: 'var(--error)' }}>*</span>
+                    {tx(
+                      "ui.checkout_window.create.select_theme_label",
+                      "Select Theme"
+                    )}{" "}
+                    <span style={{ color: 'var(--error)' }}>*</span>
                   </span>
                   {selectedThemeId && availableThemes && (
                     <span className="text-xs px-2 py-0.5 rounded" style={{
                       background: 'var(--shell-accent)',
                       color: 'var(--shell-titlebar-text)'
                     }}>
-                      {availableThemes.find(t => t._id === selectedThemeId)?.name}
+                      {availableThemes.find((themeItem: any) => themeItem._id === selectedThemeId)?.name}
                     </span>
                   )}
                 </div>
@@ -1082,7 +1409,7 @@ export function CreateCheckoutTab({
               {/* Accordion Content */}
               {themeAccordionOpen && availableThemes && (
                 <div className="p-3 space-y-2" style={{ background: 'var(--shell-surface-elevated)' }}>
-                  {availableThemes.map((theme) => (
+                  {availableThemes.map((theme: any) => (
                     <button
                       key={theme._id}
                       type="button"
@@ -1113,11 +1440,35 @@ export function CreateCheckoutTab({
                         <div
                           className="w-8 h-8 rounded border"
                           style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderColor: 'var(--shell-border)' }}
-                          title={translationsLoading ? "Primary Gradient" : t("ui.checkout_window.create.theme_preview.primary_gradient")}
+                          title={tx(
+                            "ui.checkout_window.create.theme_preview.primary_gradient",
+                            "Primary Gradient"
+                          )}
                         />
-                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--shell-surface-elevated)', borderColor: 'var(--shell-border)' }} title={translationsLoading ? "Background" : t("ui.checkout_window.create.theme_preview.background")} />
-                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--shell-text)', borderColor: 'var(--shell-border)' }} title={translationsLoading ? "Text" : t("ui.checkout_window.create.theme_preview.text")} />
-                        <div className="w-8 h-8 rounded border" style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }} title={translationsLoading ? "Secondary" : t("ui.checkout_window.create.theme_preview.secondary")} />
+                        <div
+                          className="w-8 h-8 rounded border"
+                          style={{ background: 'var(--shell-surface-elevated)', borderColor: 'var(--shell-border)' }}
+                          title={tx(
+                            "ui.checkout_window.create.theme_preview.background",
+                            "Background"
+                          )}
+                        />
+                        <div
+                          className="w-8 h-8 rounded border"
+                          style={{ background: 'var(--shell-text)', borderColor: 'var(--shell-border)' }}
+                          title={tx(
+                            "ui.checkout_window.create.theme_preview.text",
+                            "Text"
+                          )}
+                        />
+                        <div
+                          className="w-8 h-8 rounded border"
+                          style={{ background: 'var(--shell-surface)', borderColor: 'var(--shell-border)' }}
+                          title={tx(
+                            "ui.checkout_window.create.theme_preview.secondary",
+                            "Secondary"
+                          )}
+                        />
                       </div>
                     </button>
                   ))}
@@ -1130,35 +1481,65 @@ export function CreateCheckoutTab({
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <label className="block text-xs font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
               <ShoppingCart size={14} />
-              {translationsLoading ? "Linked Products" : t("ui.checkout_window.create.linked_products_label")}
+              {tx(
+                "ui.checkout_window.create.linked_products_label",
+                "Linked Products"
+              )}
             </label>
             <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-              {translationsLoading ? "Select products to include in this checkout." : t("ui.checkout_window.create.linked_products_description")}
+              {tx(
+                "ui.checkout_window.create.linked_products_description",
+                "Select products to include in this checkout."
+              )}
             </p>
 
             {products === undefined ? (
               <div className="text-xs flex items-center justify-center py-4" style={{ color: 'var(--neutral-gray)' }}>
                 <Loader2 size={14} className="animate-spin mr-2" />
-                Loading products...
+                {tx(
+                  "ui.checkout_window.create.loading_products",
+                  "Loading products..."
+                )}
               </div>
             ) : products.length === 0 ? (
               <div className="border-2 p-3" style={{ borderColor: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)' }}>
                 <div className="flex items-start gap-2">
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
                   <div>
-                    <h4 className="font-bold text-xs mb-1" style={{ color: '#F59E0B' }}>No Active Products</h4>
+                    <h4 className="font-bold text-xs mb-1" style={{ color: '#F59E0B' }}>
+                      {tx(
+                        "ui.checkout_window.create.no_active_products_title",
+                        "No Active Products"
+                      )}
+                    </h4>
                     <p className="text-xs mb-2" style={{ color: '#F59E0B' }}>
-                      Only <strong>active</strong> (published) products can be linked to checkouts.
+                      {tx(
+                        "ui.checkout_window.create.no_active_products_description",
+                        "Only "
+                      )}
+                      <strong>
+                        {tx(
+                          "ui.checkout_window.create.no_active_products_status",
+                          "active"
+                        )}
+                      </strong>
+                      {tx(
+                        "ui.checkout_window.create.no_active_products_description_suffix",
+                        " (published) products can be linked to checkouts."
+                      )}
                     </p>
                     <p className="text-xs" style={{ color: '#F59E0B' }}>
-                      Create products in the Products window and publish them to make them available here.
+                      {tx(
+                        "ui.checkout_window.create.no_active_products_help",
+                        "Create products in the Products window and publish them to make them available here."
+                      )}
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {products.map((product) => {
+                {products.map((product: any) => {
                   const isSelected = selectedProducts.includes(product._id);
                   const props = (product.customProperties || {}) as CheckoutProduct["customProperties"];
                   const price = props?.price || 0;
@@ -1170,8 +1551,8 @@ export function CreateCheckoutTab({
                   const formRequired = props?.formRequired ?? true;
 
                   // ✅ CHECK IF CHECKOUT TEMPLATE SUPPORTS FORMS (from database)
-                  const selectedTemplate = availableTemplates?.find(t =>
-                    (t.customProperties as Record<string, unknown>)?.code === selectedTemplateCode
+                  const selectedTemplate = availableTemplates?.find((template: any) =>
+                    (template.customProperties as Record<string, unknown>)?.code === selectedTemplateCode
                   );
                   const checkoutSupportsForms = (selectedTemplate?.customProperties as Record<string, unknown>)?.supportsFormIntegration as boolean || false;
 
@@ -1220,7 +1601,11 @@ export function CreateCheckoutTab({
                                         color: "#15803D",
                                         border: "1px solid #BBF7D0",
                                       }}
-                                      title={`Linked to event: ${eventName}`}
+                                      title={tx(
+                                        "ui.checkout_window.create.product_badge.linked_event_title",
+                                        `Linked to event: ${eventName}`,
+                                        { eventName }
+                                      )}
                                     >
                                       {eventName}
                                     </span>
@@ -1234,9 +1619,15 @@ export function CreateCheckoutTab({
                                         color: "#991B1B",
                                         border: "1px solid #FCA5A5",
                                       }}
-                                      title="This product is not linked to any event"
+                                      title={tx(
+                                        "ui.checkout_window.create.product_badge.no_event_title",
+                                        "This product is not linked to any event"
+                                      )}
                                     >
-                                      No Event
+                                      {tx(
+                                        "ui.checkout_window.create.product_badge.no_event",
+                                        "No Event"
+                                      )}
                                     </span>
                                   );
                                 }
@@ -1253,7 +1644,16 @@ export function CreateCheckoutTab({
                                       border: "1px solid #BFDBFE",
                                     }}
                                   >
-                                    Form {formRequired ? "Required" : "Optional"}
+                                    {tx("ui.checkout_window.create.product_badge.form", "Form")}{" "}
+                                    {formRequired
+                                      ? tx(
+                                          "ui.checkout_window.create.product_badge.form_required",
+                                          "Required"
+                                        )
+                                      : tx(
+                                          "ui.checkout_window.create.product_badge.form_optional",
+                                          "Optional"
+                                        )}
                                   </span>
                                   {formTiming === "duringCheckout" && (
                                     <span
@@ -1263,9 +1663,15 @@ export function CreateCheckoutTab({
                                         color: "#15803D",
                                         border: "1px solid #BBF7D0",
                                       }}
-                                      title={translationsLoading ? "Form will be collected during checkout" : t("ui.checkout_window.create.form_timing.in_checkout_tooltip")}
+                                      title={tx(
+                                        "ui.checkout_window.create.form_timing.in_checkout_tooltip",
+                                        "Form will be collected during checkout"
+                                      )}
                                     >
-                                      {translationsLoading ? "In Checkout" : t("ui.checkout_window.create.form_timing.in_checkout_badge")}
+                                      {tx(
+                                        "ui.checkout_window.create.form_timing.in_checkout_badge",
+                                        "In Checkout"
+                                      )}
                                     </span>
                                   )}
                                   {formTiming === "afterPurchase" && (
@@ -1276,9 +1682,15 @@ export function CreateCheckoutTab({
                                         color: "#92400E",
                                         border: "1px solid #FDE68A",
                                       }}
-                                      title={translationsLoading ? "Form link sent via email after purchase" : t("ui.checkout_window.create.form_timing.after_purchase_tooltip")}
+                                      title={tx(
+                                        "ui.checkout_window.create.form_timing.after_purchase_tooltip",
+                                        "Form link sent via email after purchase"
+                                      )}
                                     >
-                                      {translationsLoading ? "After Purchase" : t("ui.checkout_window.create.form_timing.after_purchase_badge")}
+                                      {tx(
+                                        "ui.checkout_window.create.form_timing.after_purchase_badge",
+                                        "After Purchase"
+                                      )}
                                     </span>
                                   )}
                                 </>
@@ -1290,18 +1702,44 @@ export function CreateCheckoutTab({
                               <div className="mt-2 p-2 border rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--error)' }}>
                                 <div className="text-xs font-bold flex items-start gap-1 mb-1" style={{ color: 'var(--error)' }}>
                                   <AlertCircle size={12} className="flex-shrink-0 mt-0.5" />
-                                  <span>Cannot link to this template</span>
+                                  <span>
+                                    {tx(
+                                      "ui.checkout_window.create.product_incompatible_title",
+                                      "Cannot link to this template"
+                                    )}
+                                  </span>
                                 </div>
                                 <div className="text-xs" style={{ color: 'var(--error)' }}>
-                                  This product requires a form during checkout, but the selected template doesn&apos;t support form integration.
+                                  {tx(
+                                    "ui.checkout_window.create.product_incompatible_description",
+                                    "This product requires a form during checkout, but the selected template doesn't support form integration."
+                                  )}
                                 </div>
                                 <div className="text-xs mt-1 font-semibold" style={{ color: 'var(--error)' }}>
-                                  Solutions:
+                                  {tx(
+                                    "ui.checkout_window.create.product_incompatible_solutions_title",
+                                    "Solutions:"
+                                  )}
                                 </div>
                                 <ul className="text-xs ml-4 mt-1 space-y-0.5" style={{ color: 'var(--error)' }}>
-                                  <li>• Choose a template with form support</li>
-                                  <li>• Change form timing to &quot;After Purchase&quot;</li>
-                                  <li>• Remove form requirement</li>
+                                  <li>
+                                    {tx(
+                                      "ui.checkout_window.create.product_incompatible_solution_one",
+                                      "• Choose a template with form support"
+                                    )}
+                                  </li>
+                                  <li>
+                                    {tx(
+                                      "ui.checkout_window.create.product_incompatible_solution_two",
+                                      "• Change form timing to \"After Purchase\""
+                                    )}
+                                  </li>
+                                  <li>
+                                    {tx(
+                                      "ui.checkout_window.create.product_incompatible_solution_three",
+                                      "• Remove form requirement"
+                                    )}
+                                  </li>
                                 </ul>
                               </div>
                             )}
@@ -1333,14 +1771,28 @@ export function CreateCheckoutTab({
                           cursor: isIncompatible && !isSelected ? 'not-allowed' : 'pointer',
                           opacity: isIncompatible && !isSelected ? 0.6 : 1,
                         }}
-                        title={isIncompatible && !isSelected ? "Cannot link: Product requires form support" : ""}
+                        title={
+                          isIncompatible && !isSelected
+                            ? tx(
+                                "ui.checkout_window.create.product_link_disabled_title",
+                                "Cannot link: Product requires form support"
+                              )
+                            : ""
+                        }
                       >
-                        {isIncompatible && !isSelected ? "Incompatible" : isSelected ? (
+                        {isIncompatible && !isSelected ? tx(
+                          "ui.checkout_window.create.product_link_state_incompatible",
+                          "Incompatible"
+                        ) : isSelected ? (
                           <span className="flex items-center gap-1">
-                            <Check size={12} /> Linked
+                            <Check size={12} />{" "}
+                            {tx(
+                              "ui.checkout_window.create.product_link_state_linked",
+                              "Linked"
+                            )}
                           </span>
                         ) : (
-                          "Link"
+                          tx("ui.checkout_window.create.product_link_state_link", "Link")
                         )}
                       </button>
                     </div>
@@ -1351,8 +1803,14 @@ export function CreateCheckoutTab({
 
             {selectedProducts.length > 0 && (
               <p className="text-xs font-bold mt-2" style={{ color: 'var(--success)' }}>
-                {selectedProducts.length} product{selectedProducts.length !== 1 ? "s" : ""}{" "}
-                linked
+                {tx(
+                  "ui.checkout_window.create.products_selected_count",
+                  `${selectedProducts.length} product${selectedProducts.length !== 1 ? "s" : ""} linked`,
+                  {
+                    count: selectedProducts.length,
+                    suffix: selectedProducts.length !== 1 ? "s" : "",
+                  }
+                )}
               </p>
             )}
           </div>
@@ -1364,14 +1822,24 @@ export function CreateCheckoutTab({
               return (
                 <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
                   <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--shell-text)' }}>
-                    {translationsLoading ? "Template Settings" : t("ui.checkout_window.create.template_settings_title")}
+                    {tx(
+                      "ui.checkout_window.create.template_settings_title",
+                      "Template Settings"
+                    )}
                   </h4>
                   <div className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                    {translationsLoading ? `Advanced settings for ${schema.name}` : t("ui.checkout_window.create.template_settings_description", { template: schema.name })}
+                    {tx(
+                      "ui.checkout_window.create.template_settings_description",
+                      `Advanced settings for ${schema.name}`,
+                      { template: schema.name }
+                    )}
                   </div>
                   {/* TODO: Add DynamicFormGenerator for checkout schema */}
                   <div className="border-2 p-3 text-xs" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface)', color: 'var(--neutral-gray)' }}>
-                    Dynamic form fields will be added here based on template schema
+                    {tx(
+                      "ui.checkout_window.create.template_settings_placeholder",
+                      "Dynamic form fields will be added here based on template schema"
+                    )}
                   </div>
                 </div>
               );
@@ -1384,7 +1852,7 @@ export function CreateCheckoutTab({
         <div className="w-[60%] p-4 overflow-y-auto" style={{ background: 'var(--shell-surface)' }}>
           <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--shell-text)' }}>
             <Eye size={16} />
-            {translationsLoading ? "Live Preview" : t("ui.checkout_window.create.preview_title")}
+            {tx("ui.checkout_window.create.preview_title", "Live Preview")}
           </h3>
 
           {selectedTemplateCode && selectedThemeId && currentOrg ? (
@@ -1394,7 +1862,7 @@ export function CreateCheckoutTab({
                 configuration={configuration}
                 linkedProducts={linkedProductsForPreview}
                 organizationId={currentOrg.id as Id<"organizations">}
-                theme={getTheme(availableThemes?.find(t => t._id === selectedThemeId)?.customProperties?.code as string)}
+                theme={getTheme(availableThemes?.find((themeItem: any) => themeItem._id === selectedThemeId)?.customProperties?.code as string)}
                 paymentProviders={selectedPaymentProviders}
                 forceB2B={forceB2B}
               />
@@ -1403,16 +1871,36 @@ export function CreateCheckoutTab({
             <div className="border-2 p-8 text-center" style={{ borderColor: 'var(--shell-border)', background: 'var(--shell-surface-elevated)' }}>
               <ShoppingCart size={64} className="mx-auto mb-4" style={{ color: 'var(--shell-border)' }} />
               <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--shell-text)' }}>
-                {translationsLoading
-                  ? (!selectedTemplateCode ? "No Template Selected" : !selectedThemeId ? "No Theme Selected" : "Preview Loading")
-                  : (!selectedTemplateCode ? t("ui.checkout_window.create.preview_no_template") : !selectedThemeId ? t("ui.checkout_window.create.preview_no_theme") : t("ui.checkout_window.create.preview_loading"))
-                }
+                {!selectedTemplateCode
+                  ? tx(
+                      "ui.checkout_window.create.preview_no_template",
+                      "No Template Selected"
+                    )
+                  : !selectedThemeId
+                  ? tx(
+                      "ui.checkout_window.create.preview_no_theme",
+                      "No Theme Selected"
+                    )
+                  : tx(
+                      "ui.checkout_window.create.preview_loading",
+                      "Preview Loading"
+                    )}
               </h4>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                {translationsLoading
-                  ? (!selectedTemplateCode ? "Select a template to see a live preview of your checkout." : !selectedThemeId ? "Select a theme to see a live preview with styling." : "Select products to preview the checkout.")
-                  : (!selectedTemplateCode ? t("ui.checkout_window.create.preview_no_template_description") : !selectedThemeId ? t("ui.checkout_window.create.preview_no_theme_description") : t("ui.checkout_window.create.preview_loading_description"))
-                }
+                {!selectedTemplateCode
+                  ? tx(
+                      "ui.checkout_window.create.preview_no_template_description",
+                      "Select a template to see a live preview of your checkout."
+                    )
+                  : !selectedThemeId
+                  ? tx(
+                      "ui.checkout_window.create.preview_no_theme_description",
+                      "Select a theme to see a live preview with styling."
+                    )
+                  : tx(
+                      "ui.checkout_window.create.preview_loading_description",
+                      "Select products to preview the checkout."
+                    )}
               </p>
             </div>
           )}

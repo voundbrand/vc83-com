@@ -81,6 +81,201 @@ export const addressValidator = v.object({
 export const addressesValidator = v.array(addressValidator);
 
 // ============================================================================
+// CONTACT OUTREACH PREFERENCES
+// ============================================================================
+
+const OUTREACH_PREFERRED_CHANNEL_VALUES = [
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+const OUTREACH_FALLBACK_METHOD_VALUES = [
+  "none",
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+type OutreachPreferredChannel = (typeof OUTREACH_PREFERRED_CHANNEL_VALUES)[number];
+type OutreachFallbackMethod = (typeof OUTREACH_FALLBACK_METHOD_VALUES)[number];
+
+type ContactOutreachPreferences = {
+  preferredChannel: OutreachPreferredChannel;
+  allowedHours: {
+    start: string;
+    end: string;
+    timezone?: string;
+  };
+  fallbackMethod: OutreachFallbackMethod;
+};
+
+const HOUR_24_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const DEFAULT_CONTACT_OUTREACH_PREFERENCES: ContactOutreachPreferences = {
+  preferredChannel: "sms",
+  allowedHours: {
+    start: "09:00",
+    end: "17:00",
+    timezone: "local",
+  },
+  fallbackMethod: "email",
+};
+
+const outreachPreferencesValidator = v.object({
+  preferredChannel: v.union(
+    v.literal("sms"),
+    v.literal("email"),
+    v.literal("telegram"),
+    v.literal("phone_call")
+  ),
+  allowedHours: v.object({
+    start: v.string(),
+    end: v.string(),
+    timezone: v.optional(v.string()),
+  }),
+  fallbackMethod: v.union(
+    v.literal("none"),
+    v.literal("sms"),
+    v.literal("email"),
+    v.literal("telegram"),
+    v.literal("phone_call")
+  ),
+});
+
+const outreachPreferencesPatchValidator = v.object({
+  preferredChannel: v.optional(v.union(
+    v.literal("sms"),
+    v.literal("email"),
+    v.literal("telegram"),
+    v.literal("phone_call")
+  )),
+  allowedHours: v.optional(v.object({
+    start: v.optional(v.string()),
+    end: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+  })),
+  fallbackMethod: v.optional(v.union(
+    v.literal("none"),
+    v.literal("sms"),
+    v.literal("email"),
+    v.literal("telegram"),
+    v.literal("phone_call")
+  )),
+});
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeHourValue(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.trim();
+  return HOUR_24_REGEX.test(normalized) ? normalized : fallback;
+}
+
+function normalizePreferredOutreachChannel(
+  value: unknown,
+  fallback: OutreachPreferredChannel
+): OutreachPreferredChannel {
+  if (
+    typeof value === "string" &&
+    OUTREACH_PREFERRED_CHANNEL_VALUES.includes(value as OutreachPreferredChannel)
+  ) {
+    return value as OutreachPreferredChannel;
+  }
+  return fallback;
+}
+
+function normalizeFallbackOutreachMethod(
+  value: unknown,
+  fallback: OutreachFallbackMethod
+): OutreachFallbackMethod {
+  if (
+    typeof value === "string" &&
+    OUTREACH_FALLBACK_METHOD_VALUES.includes(value as OutreachFallbackMethod)
+  ) {
+    return value as OutreachFallbackMethod;
+  }
+  return fallback;
+}
+
+function resolveContactOutreachPreferences(
+  baseRaw: unknown,
+  patchRaw?: unknown
+): ContactOutreachPreferences {
+  const base = asRecord(baseRaw);
+  const patch = asRecord(patchRaw);
+  const baseAllowedHours = asRecord(base.allowedHours);
+  const patchAllowedHours = asRecord(patch.allowedHours);
+
+  const baseTimezone =
+    typeof baseAllowedHours.timezone === "string" &&
+    baseAllowedHours.timezone.trim().length > 0
+      ? baseAllowedHours.timezone.trim()
+      : DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.timezone;
+  const patchTimezone =
+    typeof patchAllowedHours.timezone === "string" &&
+    patchAllowedHours.timezone.trim().length > 0
+      ? patchAllowedHours.timezone.trim()
+      : undefined;
+
+  return {
+    preferredChannel: normalizePreferredOutreachChannel(
+      patch.preferredChannel,
+      normalizePreferredOutreachChannel(
+        base.preferredChannel,
+        DEFAULT_CONTACT_OUTREACH_PREFERENCES.preferredChannel
+      )
+    ),
+    allowedHours: {
+      start: normalizeHourValue(
+        patchAllowedHours.start,
+        normalizeHourValue(
+          baseAllowedHours.start,
+          DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.start
+        )
+      ),
+      end: normalizeHourValue(
+        patchAllowedHours.end,
+        normalizeHourValue(
+          baseAllowedHours.end,
+          DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.end
+        )
+      ),
+      timezone: patchTimezone ?? baseTimezone,
+    },
+    fallbackMethod: normalizeFallbackOutreachMethod(
+      patch.fallbackMethod,
+      normalizeFallbackOutreachMethod(
+        base.fallbackMethod,
+        DEFAULT_CONTACT_OUTREACH_PREFERENCES.fallbackMethod
+      )
+    ),
+  };
+}
+
+function applyOutreachPreferencesDefaults<T extends {
+  customProperties?: Record<string, unknown>;
+}>(contact: T): T {
+  const customProperties = (contact.customProperties || {}) as Record<string, unknown>;
+  return {
+    ...contact,
+    customProperties: {
+      ...customProperties,
+      outreachPreferences: resolveContactOutreachPreferences(
+        customProperties.outreachPreferences
+      ),
+    },
+  };
+}
+
+// ============================================================================
 // CRM CONTACT OPERATIONS
 // ============================================================================
 
@@ -115,7 +310,7 @@ export const getContacts = query({
       contacts = contacts.filter((c) => c.status === args.status);
     }
 
-    return contacts;
+    return contacts.map((contact) => applyOutreachPreferencesDefaults(contact));
   },
 });
 
@@ -137,7 +332,7 @@ export const getContact = query({
       throw new Error("Contact not found");
     }
 
-    return contact;
+    return applyOutreachPreferencesDefaults(contact);
   },
 });
 
@@ -156,7 +351,7 @@ export const getContactInternal = internalQuery({
       return null;
     }
 
-    return contact;
+    return applyOutreachPreferencesDefaults(contact);
   },
 });
 
@@ -214,6 +409,7 @@ export const createContact = mutation({
     sourceRef: v.optional(v.string()), // Reference to source (checkout ID, event ID, etc.)
     tags: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    outreachPreferences: v.optional(outreachPreferencesValidator),
     customFields: v.optional(v.any()), // Additional custom fields
   },
   handler: async (ctx, args) => {
@@ -240,6 +436,11 @@ export const createContact = mutation({
       }];
     }
 
+    const outreachPreferences = resolveContactOutreachPreferences(
+      DEFAULT_CONTACT_OUTREACH_PREFERENCES,
+      args.outreachPreferences
+    );
+
     const contactId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "crm_contact",
@@ -262,6 +463,7 @@ export const createContact = mutation({
         sourceRef: args.sourceRef,
         tags: args.tags || [],
         notes: args.notes,
+        outreachPreferences,
         ...args.customFields,
       },
       createdBy: session.userId,
@@ -309,6 +511,7 @@ export const updateContact = mutation({
       subtype: v.optional(v.string()), // Lifecycle stage: "lead" | "prospect" | "customer" | "partner"
       tags: v.optional(v.array(v.string())),
       notes: v.optional(v.string()),
+      outreachPreferences: v.optional(outreachPreferencesPatchValidator),
       customFields: v.optional(v.any()),
     }),
   },
@@ -333,14 +536,31 @@ export const updateContact = mutation({
       newName = `${firstName} ${lastName}`;
     }
 
+    const existingCustomProperties = (contact.customProperties || {}) as Record<string, unknown>;
+    const existingOutreachPreferences = resolveContactOutreachPreferences(
+      existingCustomProperties.outreachPreferences
+    );
+
+    const customFields = args.updates.customFields;
+    const outreachPreferences = args.updates.outreachPreferences;
+    const directUpdates = { ...args.updates } as Record<string, unknown>;
+    delete directUpdates.customFields;
+    delete directUpdates.outreachPreferences;
+    delete directUpdates.status;
+    delete directUpdates.subtype;
+
     await ctx.db.patch(args.contactId, {
       name: newName,
       status: args.updates.status || contact.status,
       subtype: args.updates.subtype || contact.subtype, // Update lifecycle stage
       customProperties: {
-        ...contact.customProperties,
-        ...args.updates,
-        ...args.updates.customFields,
+        ...existingCustomProperties,
+        ...directUpdates,
+        outreachPreferences: resolveContactOutreachPreferences(
+          existingOutreachPreferences,
+          outreachPreferences
+        ),
+        ...(customFields || {}),
       },
       updatedAt: Date.now(),
     });
@@ -877,8 +1097,13 @@ export const getOrganizationContacts = query({
     const contacts = await Promise.all(
       worksAtLinks.map(async (link) => {
         const contact = await ctx.db.get(link.fromObjectId);
+        const normalizedContact = contact
+          ? contact.type === "crm_contact"
+            ? applyOutreachPreferencesDefaults(contact)
+            : contact
+          : {};
         return {
-          ...contact,
+          ...normalizedContact,
           relationship: link.properties,
           linkId: link._id,
         };

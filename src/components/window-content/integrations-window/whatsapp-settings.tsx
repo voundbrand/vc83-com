@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import {
   Loader2,
@@ -43,6 +44,11 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
   const { sessionId } = useAuth();
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   // UI state
   const [isConnecting, setIsConnecting] = useState(false);
@@ -83,11 +89,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
     if (!sessionId || !conn?.id) return;
 
     const confirmed = await confirmDialog.confirm({
-      title: "Disconnect WhatsApp",
-      message:
+      title: tx("ui.integrations.whatsapp.disconnect_title", "Disconnect WhatsApp"),
+      message: tx(
+        "ui.integrations.whatsapp.disconnect_message",
         "This will revoke the WhatsApp connection and stop all direct WhatsApp messaging for your organization. Continue?",
-      confirmText: "Disconnect",
-      cancelText: "Cancel",
+      ),
+      confirmText: tx("ui.integrations.whatsapp.disconnect_confirm", "Disconnect"),
+      cancelText: tx("ui.integrations.shared.cancel", "Cancel"),
       confirmVariant: "primary",
     });
 
@@ -124,11 +132,14 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
 
   const copyValue = (label: string, value: string) => {
     navigator.clipboard.writeText(value);
-    notification.success("Copied", `${label} copied to clipboard`);
+    notification.success(
+      tx("ui.integrations.shared.copied", "Copied"),
+      tx("ui.integrations.shared.copied_to_clipboard", "{label} copied to clipboard", { label }),
+    );
   };
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) return "Unknown";
+    if (!timestamp) return tx("ui.integrations.shared.unknown", "Unknown");
     return new Date(timestamp).toLocaleDateString("de-DE", {
       day: "2-digit",
       month: "2-digit",
@@ -155,16 +166,16 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
             style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <MessageCircle size={24} style={{ color: "#25D366" }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                WhatsApp Business
+                {tx("ui.integrations.whatsapp.title", "WhatsApp Business")}
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Direct Meta WhatsApp Cloud API
+                {tx("ui.integrations.whatsapp.subtitle", "Direct Meta WhatsApp Cloud API")}
               </p>
             </div>
           </div>
@@ -186,7 +197,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading...
+                {tx("ui.integrations.shared.loading", "Loading...")}
               </p>
             </div>
           ) : isConnected && conn ? (
@@ -203,7 +214,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Setup Mode
+                  {tx("ui.integrations.whatsapp.setup_mode", "Setup Mode")}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div
@@ -214,10 +225,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Platform-managed channel
+                      {tx("ui.integrations.whatsapp.mode_platform_managed", "Platform-managed channel")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Shared channel profile for quick launch and internal fallback handling.
+                      {tx(
+                        "ui.integrations.whatsapp.mode_platform_managed_desc",
+                        "Shared channel profile for quick launch and internal fallback handling.",
+                      )}
                     </p>
                   </div>
                   <div
@@ -228,10 +242,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Organization BYOA app
+                      {tx("ui.integrations.whatsapp.mode_byoa", "Organization BYOA app")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Meta OAuth app and WABA owned by your organization for full credential control.
+                      {tx(
+                        "ui.integrations.whatsapp.mode_byoa_desc",
+                        "Meta OAuth app and WABA owned by your organization for full credential control.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -245,7 +262,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  WhatsApp BYOA Setup Packet
+                  {tx("ui.integrations.whatsapp.byoa_setup_packet", "WhatsApp BYOA Setup Packet")}
                 </p>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center gap-2">
@@ -257,9 +274,15 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">OAuth callback:</span> {callbackUrl}
+                      <span className="font-bold">
+                        {tx("ui.integrations.whatsapp.oauth_callback_label", "OAuth callback:")}
+                      </span>{" "}
+                      {callbackUrl}
                     </div>
-                    <button onClick={() => copyValue("OAuth callback URL", callbackUrl)} title="Copy callback URL">
+                    <button
+                      onClick={() => copyValue(tx("ui.integrations.whatsapp.oauth_callback_url", "OAuth callback URL"), callbackUrl)}
+                      title={tx("ui.integrations.whatsapp.copy_callback_url", "Copy callback URL")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
@@ -272,16 +295,19 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                      <span className="font-bold">{tx("ui.integrations.whatsapp.webhook_url_label", "Webhook URL:")}</span> {webhookUrl}
                     </div>
-                    <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy webhook URL">
+                    <button
+                      onClick={() => copyValue(tx("ui.integrations.whatsapp.webhook_url", "Webhook URL"), webhookUrl)}
+                      title={tx("ui.integrations.whatsapp.copy_webhook_url", "Copy webhook URL")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                    Meta scopes
+                    {tx("ui.integrations.whatsapp.meta_scopes", "Meta scopes")}
                   </p>
                   {requiredScopes.map((scope) => (
                     <p key={scope} className="font-mono">{scope}</p>
@@ -289,12 +315,12 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 </div>
                 <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                    Agency handoff flow
+                    {tx("ui.integrations.whatsapp.agency_handoff_flow", "Agency handoff flow")}
                   </p>
                   <ol className="list-decimal list-inside space-y-1">
-                    <li>Owner approves Meta OAuth in client business manager.</li>
-                    <li>Confirm WABA and verified phone number are selected after redirect.</li>
-                    <li>Validate webhook challenge + inbound/outbound message in canary org before cutover.</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_1", "Owner approves Meta OAuth in client business manager.")}</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_2", "Confirm WABA and verified phone number are selected after redirect.")}</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_3", "Validate webhook challenge + inbound/outbound message in canary org before cutover.")}</li>
                   </ol>
                 </div>
               </div>
@@ -310,7 +336,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                   <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                    Connected
+                    {tx("ui.integrations.shared.connected", "Connected")}
                   </span>
                 </div>
 
@@ -321,7 +347,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         className="text-xs font-bold"
                         style={{ color: "var(--window-document-text)" }}
                       >
-                        Verified Name
+                        {tx("ui.integrations.whatsapp.verified_name", "Verified Name")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {conn.verifiedName}
@@ -334,7 +360,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         className="text-xs font-bold"
                         style={{ color: "var(--window-document-text)" }}
                       >
-                        Phone Number
+                        {tx("ui.integrations.whatsapp.phone_number", "Phone Number")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {conn.phoneNumber}
@@ -347,7 +373,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         className="text-xs font-bold"
                         style={{ color: "var(--window-document-text)" }}
                       >
-                        Business
+                        {tx("ui.integrations.whatsapp.business", "Business")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {conn.businessName}
@@ -360,7 +386,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         className="text-xs font-bold"
                         style={{ color: "var(--window-document-text)" }}
                       >
-                        Connected
+                        {tx("ui.integrations.shared.connected", "Connected")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {formatDate(conn.connectedAt)}
@@ -386,11 +412,14 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   />
                   <div>
                     <p className="text-xs font-bold" style={{ color: "#f59e0b" }}>
-                      Token expires in {daysUntilExpiry} days
+                      {tx("ui.integrations.whatsapp.token_expires_in", "Token expires in {days} days", { days: daysUntilExpiry })}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Reconnect your WhatsApp account to refresh the token before it
-                      expires on {formatDate(conn.tokenExpiresAt)}.
+                      {tx(
+                        "ui.integrations.whatsapp.token_expiry_warning",
+                        "Reconnect your WhatsApp account to refresh the token before it expires on {date}.",
+                        { date: formatDate(conn.tokenExpiresAt) },
+                      )}
                     </p>
                   </div>
                 </div>
@@ -408,11 +437,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Webhook URL
+                  {tx("ui.integrations.whatsapp.webhook_url", "Webhook URL")}
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                  Configure this URL in your Meta App Dashboard under WhatsApp &gt;
-                  Configuration &gt; Webhook URL.
+                  {tx(
+                    "ui.integrations.whatsapp.webhook_help",
+                    "Configure this URL in your Meta App Dashboard under WhatsApp > Configuration > Webhook URL.",
+                  )}
                 </p>
                 <div className="flex items-center gap-2">
                   <div
@@ -425,7 +456,10 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   >
                     {webhookUrl}
                   </div>
-                  <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy">
+                  <button
+                    onClick={() => copyValue(tx("ui.integrations.whatsapp.webhook_url", "Webhook URL"), webhookUrl)}
+                    title={tx("ui.integrations.shared.copy", "Copy")}
+                  >
                     <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                   </button>
                 </div>
@@ -439,7 +473,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
               >
                 <InteriorButton variant="secondary" className="w-full">
                   <ExternalLink size={14} className="mr-1" />
-                  Open Meta Business Settings
+                  {tx("ui.integrations.whatsapp.open_meta_business_settings", "Open Meta Business Settings")}
                 </InteriorButton>
               </a>
 
@@ -452,10 +486,10 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Reconnecting...
+                    {tx("ui.integrations.whatsapp.reconnecting", "Reconnecting...")}
                   </>
                 ) : (
-                  "Reconnect (Refresh Token)"
+                  tx("ui.integrations.whatsapp.reconnect_refresh_token", "Reconnect (Refresh Token)")
                 )}
               </InteriorButton>
 
@@ -464,7 +498,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 onClick={handleDisconnect}
                 className="w-full"
               >
-                Disconnect
+                {tx("ui.integrations.whatsapp.disconnect", "Disconnect")}
               </InteriorButton>
             </div>
           ) : (
@@ -481,7 +515,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Setup Mode
+                  {tx("ui.integrations.whatsapp.setup_mode", "Setup Mode")}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div
@@ -492,10 +526,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Platform-managed channel
+                      {tx("ui.integrations.whatsapp.mode_platform_managed", "Platform-managed channel")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Shared channel profile for quick launch and internal fallback handling.
+                      {tx(
+                        "ui.integrations.whatsapp.mode_platform_managed_desc",
+                        "Shared channel profile for quick launch and internal fallback handling.",
+                      )}
                     </p>
                   </div>
                   <div
@@ -506,10 +543,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Organization BYOA app
+                      {tx("ui.integrations.whatsapp.mode_byoa", "Organization BYOA app")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Meta OAuth app and WABA owned by your organization for full credential control.
+                      {tx(
+                        "ui.integrations.whatsapp.mode_byoa_desc",
+                        "Meta OAuth app and WABA owned by your organization for full credential control.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -523,7 +563,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  WhatsApp BYOA Setup Packet
+                  {tx("ui.integrations.whatsapp.byoa_setup_packet", "WhatsApp BYOA Setup Packet")}
                 </p>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center gap-2">
@@ -535,9 +575,15 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">OAuth callback:</span> {callbackUrl}
+                      <span className="font-bold">
+                        {tx("ui.integrations.whatsapp.oauth_callback_label", "OAuth callback:")}
+                      </span>{" "}
+                      {callbackUrl}
                     </div>
-                    <button onClick={() => copyValue("OAuth callback URL", callbackUrl)} title="Copy callback URL">
+                    <button
+                      onClick={() => copyValue(tx("ui.integrations.whatsapp.oauth_callback_url", "OAuth callback URL"), callbackUrl)}
+                      title={tx("ui.integrations.whatsapp.copy_callback_url", "Copy callback URL")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
@@ -550,16 +596,19 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                      <span className="font-bold">{tx("ui.integrations.whatsapp.webhook_url_label", "Webhook URL:")}</span> {webhookUrl}
                     </div>
-                    <button onClick={() => copyValue("Webhook URL", webhookUrl)} title="Copy webhook URL">
+                    <button
+                      onClick={() => copyValue(tx("ui.integrations.whatsapp.webhook_url", "Webhook URL"), webhookUrl)}
+                      title={tx("ui.integrations.whatsapp.copy_webhook_url", "Copy webhook URL")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                    Meta scopes
+                    {tx("ui.integrations.whatsapp.meta_scopes", "Meta scopes")}
                   </p>
                   {requiredScopes.map((scope) => (
                     <p key={scope} className="font-mono">{scope}</p>
@@ -567,12 +616,12 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 </div>
                 <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                    Agency handoff flow
+                    {tx("ui.integrations.whatsapp.agency_handoff_flow", "Agency handoff flow")}
                   </p>
                   <ol className="list-decimal list-inside space-y-1">
-                    <li>Owner approves Meta OAuth in client business manager.</li>
-                    <li>Confirm WABA and verified phone number are selected after redirect.</li>
-                    <li>Validate webhook challenge + inbound/outbound message in canary org before cutover.</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_1", "Owner approves Meta OAuth in client business manager.")}</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_2", "Confirm WABA and verified phone number are selected after redirect.")}</li>
+                    <li>{tx("ui.integrations.whatsapp.handoff_step_3", "Validate webhook challenge + inbound/outbound message in canary org before cutover.")}</li>
                   </ol>
                 </div>
               </div>
@@ -590,11 +639,13 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-sm font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Connect WhatsApp Business
+                  {tx("ui.integrations.whatsapp.connect_title", "Connect WhatsApp Business")}
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Connect your WhatsApp Business Account to let your AI agent handle
-                  customer conversations directly on WhatsApp.
+                  {tx(
+                    "ui.integrations.whatsapp.connect_description",
+                    "Connect your WhatsApp Business Account to let your AI agent handle customer conversations directly on WhatsApp.",
+                  )}
                 </p>
               </div>
 
@@ -610,7 +661,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  What you get
+                  {tx("ui.integrations.whatsapp.what_you_get", "What you get")}
                 </p>
                 <div
                   className="space-y-1 text-xs"
@@ -619,30 +670,30 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   <div className="flex items-start gap-2">
                     <span>&#10003;</span>
                     <span>
-                      AI agent responds to WhatsApp messages 24/7
+                      {tx("ui.integrations.whatsapp.benefit_1", "AI agent responds to WhatsApp messages 24/7")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#10003;</span>
                     <span>
-                      Direct Meta Cloud API — no middleman, lower latency
+                      {tx("ui.integrations.whatsapp.benefit_2", "Direct Meta Cloud API — no middleman, lower latency")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#10003;</span>
                     <span>
-                      Template messages for booking confirmations & reminders
+                      {tx("ui.integrations.whatsapp.benefit_3", "Template messages for booking confirmations & reminders")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#10003;</span>
                     <span>
-                      Your own verified business number & identity
+                      {tx("ui.integrations.whatsapp.benefit_4", "Your own verified business number & identity")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#10003;</span>
-                    <span>Per-org billing — Meta bills you directly</span>
+                    <span>{tx("ui.integrations.whatsapp.benefit_5", "Per-org billing — Meta bills you directly")}</span>
                   </div>
                 </div>
               </div>
@@ -659,7 +710,7 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Requirements
+                  {tx("ui.integrations.whatsapp.requirements", "Requirements")}
                 </p>
                 <div
                   className="space-y-1 text-xs"
@@ -667,16 +718,16 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 >
                   <div className="flex items-start gap-2">
                     <span>1.</span>
-                    <span>A Meta Business Account (Facebook Business)</span>
+                    <span>{tx("ui.integrations.whatsapp.requirement_1", "A Meta Business Account (Facebook Business)")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>2.</span>
-                    <span>A WhatsApp Business Account (WABA) with a verified phone number</span>
+                    <span>{tx("ui.integrations.whatsapp.requirement_2", "A WhatsApp Business Account (WABA) with a verified phone number")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>3.</span>
                     <span>
-                      Admin permissions on the Meta Business Account
+                      {tx("ui.integrations.whatsapp.requirement_3", "Admin permissions on the Meta Business Account")}
                     </span>
                   </div>
                 </div>
@@ -691,10 +742,10 @@ export function WhatsAppSettings({ onBack }: WhatsAppSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Redirecting to Meta...
+                    {tx("ui.integrations.whatsapp.redirecting_to_meta", "Redirecting to Meta...")}
                   </>
                 ) : (
-                  "Connect WhatsApp Business"
+                  tx("ui.integrations.whatsapp.connect_title", "Connect WhatsApp Business")
                 )}
               </InteriorButton>
             </div>

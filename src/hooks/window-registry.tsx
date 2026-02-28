@@ -282,7 +282,21 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "organizations": {
-    createComponent: () => <OrganizationsWindow />,
+    createComponent: (props) => {
+      const typedProps = (props || {}) as {
+        initialTab?: string;
+        initialPanel?: string;
+        deepLinkNonce?: string;
+      };
+      const deepLinkNonce = typeof typedProps.deepLinkNonce === "string" ? typedProps.deepLinkNonce : "default";
+      return (
+        <OrganizationsWindow
+          key={`organizations-${deepLinkNonce}`}
+          initialTab={typedProps.initialTab}
+          initialPanel={typedProps.initialPanel}
+        />
+      );
+    },
     defaultConfig: {
       title: "Organizations",
       titleKey: "ui.windows.organizations.title",
@@ -317,7 +331,16 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   "store": {
     createComponent: (props) => {
       const typedProps = (props || {}) as {
-        initialSection?: "plans" | "limits" | "addons" | "billing" | "trial" | "credits" | "calculator" | "faq";
+        initialSection?:
+          | "plans"
+          | "credits"
+          | "limits"
+          | "addons"
+          | "billing"
+          | "trial"
+          | "transparency"
+          | "calculator"
+          | "faq";
         deepLinkNonce?: string;
       }
       const deepLinkNonce = typeof typedProps.deepLinkNonce === "string" ? typedProps.deepLinkNonce : "default"
@@ -550,7 +573,7 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "integrations": {
-    createComponent: (props) => <IntegrationsWindow {...(props as { initialPanel?: "api-keys" | "microsoft" | null })} />,
+    createComponent: (props) => <IntegrationsWindow {...(props as { initialPanel?: "api-keys" | "microsoft" | "telegram" | null })} />,
     defaultConfig: {
       title: "Integrations & API",
       titleKey: "ui.windows.integrations.title",
@@ -694,7 +717,12 @@ export const WINDOW_REGISTRY: Record<string, WindowFactory> = {
   },
 
   "benefits": {
-    createComponent: () => <BenefitsWindow />,
+    createComponent: (props) => {
+      const typedProps = (props || {}) as {
+        initialView?: "benefits" | "commissions" | "my-claims" | "my-earnings" | "referrals";
+      };
+      return <BenefitsWindow initialView={typedProps.initialView} />;
+    },
     defaultConfig: {
       title: "Benefits",
       titleKey: "ui.windows.benefits.title",

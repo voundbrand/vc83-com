@@ -17,6 +17,13 @@ import { action, mutation, query, internalAction, internalMutation, internalQuer
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+import { getLicenseInternal } from "../licensing/helpers";
+import { resolveByokCommercialPolicyForTier } from "../stripe/byokCommercialPolicy";
+import type { AiBillingSource } from "../channels/types";
+import {
+  createNonChatAiUsageMeteringRunners,
+  meterNonChatAiUsage,
+} from "../ai/nonChatUsageMetering";
 
 const generatedApi: any = require("../_generated/api");
 
@@ -27,6 +34,23 @@ const V0_API_BASE = "https://api.v0.dev/v1";
 const POLL_INTERVAL_MS = 2000; // Check every 2 seconds
 const MAX_POLL_TIME_MS = 120000; // Max 2 minutes
 const MAX_RETRIES = 3;
+const V0_BYOK_REQUIRED_TIER = "Scale (€299/month)";
+
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(0, parsed);
+}
+
+const V0_PLATFORM_ACTION_COST_CENTS = parseNonNegativeInt(
+  process.env.V0_PLATFORM_ACTION_COST_CENTS,
+  25
+);
 
 // ============================================================================
 // TYPES
@@ -75,6 +99,18 @@ interface V0Error {
   };
 }
 
+type V0CredentialSource =
+  | "platform_env"
+  | "organization_byok"
+  | "organization_byok_unavailable";
+
+type V0ApiBinding = {
+  apiKey: string | null;
+  billingSource: AiBillingSource;
+  credentialMode: "managed" | "byok";
+  credentialSource: V0CredentialSource;
+};
+
 // ============================================================================
 // INTERNAL HELPERS
 // ============================================================================
@@ -94,6 +130,85 @@ function isV0ApiKeyEncrypted(
 ): boolean {
   const encryptedFields = customProperties?.encryptedFields as string[] | undefined;
   return Array.isArray(encryptedFields) && encryptedFields.includes("v0ApiKey");
+}
+
+function resolveByokEligibility(args: {
+  planTier?: string | null;
+  features?: Record<string, unknown> | null;
+}) {
+  const byokPolicy = resolveByokCommercialPolicyForTier(args.planTier ?? "free");
+  const aiByokEnabled = args.features?.aiByokEnabled === true;
+  return {
+    byokEligible: byokPolicy.byokEligible && aiByokEnabled,
+    byokPolicy,
+  };
+}
+
+async function recordV0PlatformUsage(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  userId?: Id<"users">;
+  action: "create_chat" | "followup_message" | "get_chat";
+  billingSource: AiBillingSource;
+  credentialSource: V0CredentialSource;
+  success: boolean;
+  errorMessage?: string;
+  chatId?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const actionCostInCents =
+    args.action === "get_chat" ? 0 : V0_PLATFORM_ACTION_COST_CENTS;
+  const creditLedgerAction =
+    args.action === "create_chat"
+      ? "v0_template_generation"
+      : args.action === "followup_message"
+        ? "v0_followup_generation"
+        : "v0_chat_fetch";
+
+  try {
+    const meteringRunners = createNonChatAiUsageMeteringRunners({
+      runMutation: args.ctx.runMutation,
+    });
+    await meterNonChatAiUsage({
+      runners: meteringRunners,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      requestType: "completion",
+      provider: "v0",
+      model: "v0-platform-api",
+      action: args.action,
+      requestCount: 1,
+      costInCents: actionCostInCents,
+      usage: {
+        nativeUsageUnit: "request",
+        nativeUsageQuantity: 1,
+        nativeTotalUnits: 1,
+        nativeCostInCents:
+          actionCostInCents > 0 ? actionCostInCents : undefined,
+        nativeCostCurrency: actionCostInCents > 0 ? "USD" : undefined,
+        nativeCostSource:
+          actionCostInCents > 0 ? "estimated_unit_pricing" : "not_available",
+        metadata: {
+          credentialSource: args.credentialSource,
+          ...(args.metadata ?? {}),
+        },
+      },
+      billingSource: args.billingSource,
+      requestSource: "llm",
+      ledgerMode: "credits_ledger",
+      creditLedgerAction,
+      relatedEntityType: "v0_chat",
+      relatedEntityId: args.chatId,
+      success: args.success,
+      errorMessage: args.errorMessage,
+    });
+  } catch (error) {
+    console.warn(
+      `[v0:metering] Failed to record usage (${args.action}):`,
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 }
 
 /**
@@ -282,6 +397,12 @@ export const getV0Settings = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const byok = resolveByokEligibility({
+      planTier: license.planTier,
+      features: license.features as Record<string, unknown>,
+    });
+
     const v0Settings = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q =>
@@ -291,9 +412,27 @@ export const getV0Settings = query({
       .filter(q => q.eq(q.field("subtype"), "v0"))
       .first();
 
+    const customProperties = v0Settings?.customProperties as
+      | Record<string, unknown>
+      | undefined;
+    const hasStoredByokKey = Boolean(readV0StoredApiKey(customProperties));
+    const managedApiKeyAvailable = Boolean(process.env.V0_API_KEY);
+    const rawEnabled = customProperties?.enabled;
+    const enabled =
+      typeof rawEnabled === "boolean"
+        ? rawEnabled
+        : managedApiKeyAvailable || hasStoredByokKey;
+    const hasApiKey = hasStoredByokKey && byok.byokEligible;
+    const credentialMode = hasApiKey ? "byok" : "managed";
+
     return {
-      enabled: v0Settings?.customProperties?.enabled ?? false,
-      hasApiKey: !!(v0Settings?.customProperties?.apiKey),
+      enabled,
+      hasApiKey,
+      credentialMode,
+      usingManagedProvider: credentialMode === "managed",
+      canConfigureByok: byok.byokEligible,
+      requiredTierForByok: V0_BYOK_REQUIRED_TIER,
+      planTier: license.planTier,
     };
   },
 });
@@ -316,6 +455,12 @@ export const saveV0Settings = mutation({
       throw new Error("Not authorized: Admin or owner role required");
     }
 
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const byok = resolveByokEligibility({
+      planTier: license.planTier,
+      features: license.features as Record<string, unknown>,
+    });
+
     const existing = await ctx.db
       .query("objects")
       .withIndex("by_org_type", q =>
@@ -330,6 +475,9 @@ export const saveV0Settings = mutation({
       enabled: args.enabled,
     };
 
+    let nextCredentialMode: "managed" | "byok" =
+      customProperties.credentialMode === "byok" ? "byok" : "managed";
+
     if (args.apiKey !== undefined) {
       const normalizedApiKey = args.apiKey.trim();
       if (!normalizedApiKey) {
@@ -337,7 +485,11 @@ export const saveV0Settings = mutation({
         delete customProperties.apiKeyPrefix;
         delete customProperties.credentialSource;
         delete customProperties.encryptedFields;
+        nextCredentialMode = "managed";
       } else {
+        if (!byok.byokEligible) {
+          throw new Error(`BYOK configuration requires ${V0_BYOK_REQUIRED_TIER} or higher.`);
+        }
         const encryptedApiKey = await (ctx as any).runAction(
           generatedApi.internal.oauth.encryption.encryptToken,
           { plaintext: normalizedApiKey }
@@ -345,10 +497,24 @@ export const saveV0Settings = mutation({
 
         customProperties.apiKey = encryptedApiKey;
         customProperties.apiKeyPrefix = normalizedApiKey.slice(0, 12);
-        customProperties.credentialSource = "object_settings";
+        customProperties.credentialSource = "organization_byok";
         customProperties.encryptedFields = ["v0ApiKey"];
+        nextCredentialMode = "byok";
       }
     }
+
+    if (!byok.byokEligible && nextCredentialMode === "byok") {
+      nextCredentialMode = "managed";
+    }
+
+    if (args.enabled && nextCredentialMode === "managed" && !process.env.V0_API_KEY) {
+      throw new Error(
+        "Platform-managed v0 provider is not configured for this workspace. Contact support or provide an eligible BYOK key."
+      );
+    }
+
+    customProperties.credentialMode = nextCredentialMode;
+    customProperties.requiredTierForByok = V0_BYOK_REQUIRED_TIER;
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -408,12 +574,15 @@ export const createChat = action({
     }
 
     // Get v0 API key
-    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiBinding = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
-    });
+    }) as V0ApiBinding;
+    const apiKey = apiBinding.apiKey;
 
     if (!apiKey) {
-      throw new Error("v0 API key not configured. Please add your v0 API key in integration settings.");
+      throw new Error(
+        "v0 is unavailable: no managed provider key is configured and no eligible BYOK key is active."
+      );
     }
 
     // Get organization name for minimal context
@@ -463,6 +632,22 @@ export const createChat = action({
           });
         }
 
+        await recordV0PlatformUsage({
+          ctx,
+          organizationId: args.organizationId,
+          userId: authResult.userId,
+          action: "create_chat",
+          billingSource: apiBinding.billingSource,
+          credentialSource: apiBinding.credentialSource,
+          success: true,
+          chatId: finalResponse.id,
+          metadata: {
+            chatId: finalResponse.id,
+            hasDemoUrl: Boolean(finalResponse.latestVersion?.demoUrl),
+            filesCount: finalResponse.latestVersion?.files?.length ?? 0,
+          },
+        });
+
         return {
           chatId: finalResponse.id,
           webUrl: finalResponse.webUrl,
@@ -480,6 +665,20 @@ export const createChat = action({
         }
       }
     }
+
+    await recordV0PlatformUsage({
+      ctx,
+      organizationId: args.organizationId,
+      userId: authResult.userId,
+      action: "create_chat",
+      billingSource: apiBinding.billingSource,
+      credentialSource: apiBinding.credentialSource,
+      success: false,
+      errorMessage: lastError?.message,
+      metadata: {
+        stage: "create_chat",
+      },
+    });
 
     throw lastError || new Error("Failed to create v0 chat after retries");
   },
@@ -510,33 +709,70 @@ export const sendMessage = action({
     }
 
     // Get v0 API key
-    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiBinding = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
-    });
+    }) as V0ApiBinding;
+    const apiKey = apiBinding.apiKey;
 
     if (!apiKey) {
-      throw new Error("v0 API key not configured");
+      throw new Error("v0 is unavailable: no managed provider key is configured and no eligible BYOK key is active.");
     }
 
-    // Send message
-    const response = await v0Request<V0ChatResponse>(`/chats/${args.chatId}/messages`, apiKey, {
-      method: "POST",
-      body: { message: args.message },
-    });
+    try {
+      // Send message
+      await v0Request<V0ChatResponse>(`/chats/${args.chatId}/messages`, apiKey, {
+        method: "POST",
+        body: { message: args.message },
+      });
 
-    // Poll for completion
-    const finalResponse = await pollForCompletion(args.chatId, apiKey);
+      // Poll for completion
+      const finalResponse = await pollForCompletion(args.chatId, apiKey);
 
-    // Extract assistant message
-    const assistantMessage = finalResponse.messages
-      ?.filter(m => m.role === "assistant")
-      .pop()?.content;
+      // Extract assistant message
+      const assistantMessage = finalResponse.messages
+        ?.filter(m => m.role === "assistant")
+        .pop()?.content;
 
-    return {
-      demoUrl: finalResponse.latestVersion?.demoUrl,
-      files: finalResponse.latestVersion?.files,
-      assistantMessage,
-    };
+      await recordV0PlatformUsage({
+        ctx,
+        organizationId: args.organizationId,
+        userId: authResult.userId,
+        action: "followup_message",
+        billingSource: apiBinding.billingSource,
+        credentialSource: apiBinding.credentialSource,
+        success: true,
+        chatId: args.chatId,
+        metadata: {
+          chatId: args.chatId,
+          hasDemoUrl: Boolean(finalResponse.latestVersion?.demoUrl),
+          filesCount: finalResponse.latestVersion?.files?.length ?? 0,
+        },
+      });
+
+      return {
+        demoUrl: finalResponse.latestVersion?.demoUrl,
+        files: finalResponse.latestVersion?.files,
+        assistantMessage,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await recordV0PlatformUsage({
+        ctx,
+        organizationId: args.organizationId,
+        userId: authResult.userId,
+        action: "followup_message",
+        billingSource: apiBinding.billingSource,
+        credentialSource: apiBinding.credentialSource,
+        success: false,
+        errorMessage: message,
+        chatId: args.chatId,
+        metadata: {
+          chatId: args.chatId,
+          stage: "send_message",
+        },
+      });
+      throw error;
+    }
   },
 });
 
@@ -563,22 +799,59 @@ export const getChat = action({
       throw new Error("Invalid or expired session");
     }
 
-    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiBinding = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
-    });
+    }) as V0ApiBinding;
+    const apiKey = apiBinding.apiKey;
 
     if (!apiKey) {
-      throw new Error("v0 API key not configured");
+      throw new Error("v0 is unavailable: no managed provider key is configured and no eligible BYOK key is active.");
     }
 
-    const response = await v0Request<V0ChatResponse>(`/chats/${args.chatId}`, apiKey);
+    try {
+      const response = await v0Request<V0ChatResponse>(`/chats/${args.chatId}`, apiKey);
 
-    return {
-      webUrl: response.webUrl,
-      demoUrl: response.latestVersion?.demoUrl,
-      files: response.latestVersion?.files,
-      messages: response.messages,
-    };
+      await recordV0PlatformUsage({
+        ctx,
+        organizationId: args.organizationId,
+        userId: authResult.userId,
+        action: "get_chat",
+        billingSource: apiBinding.billingSource,
+        credentialSource: apiBinding.credentialSource,
+        success: true,
+        chatId: args.chatId,
+        metadata: {
+          chatId: args.chatId,
+          hasDemoUrl: Boolean(response.latestVersion?.demoUrl),
+          filesCount: response.latestVersion?.files?.length ?? 0,
+        },
+      });
+
+      return {
+        webUrl: response.webUrl,
+        demoUrl: response.latestVersion?.demoUrl,
+        files: response.latestVersion?.files,
+        messages: response.messages,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await recordV0PlatformUsage({
+        ctx,
+        organizationId: args.organizationId,
+        userId: authResult.userId,
+        action: "get_chat",
+        billingSource: apiBinding.billingSource,
+        credentialSource: apiBinding.credentialSource,
+        success: false,
+        errorMessage: message,
+        chatId: args.chatId,
+        metadata: {
+          chatId: args.chatId,
+          stage: "get_chat",
+        },
+      });
+      throw error;
+    }
   },
 });
 
@@ -647,6 +920,8 @@ export const getApiKeyStoredInternal = internalQuery({
   handler: async (ctx, args): Promise<{
     apiKey: string | undefined;
     encryptedFields: string[] | undefined;
+    enabled: boolean | undefined;
+    credentialMode: "managed" | "byok" | undefined;
   } | null> => {
     const v0Settings = await ctx.db
       .query("objects")
@@ -667,6 +942,8 @@ export const getApiKeyStoredInternal = internalQuery({
     return {
       apiKey: readV0StoredApiKey(customProperties),
       encryptedFields: customProperties.encryptedFields as string[] | undefined,
+      enabled: customProperties.enabled as boolean | undefined,
+      credentialMode: customProperties.credentialMode as "managed" | "byok" | undefined,
     };
   },
 });
@@ -678,28 +955,67 @@ export const getApiKeyInternal = internalAction({
   args: {
     organizationId: v.id("organizations"),
   },
-  handler: async (ctx, args): Promise<string | null> => {
+  handler: async (ctx, args): Promise<V0ApiBinding> => {
     const stored = await (ctx as any).runQuery(
       generatedApi.internal.integrations.v0.getApiKeyStoredInternal,
       { organizationId: args.organizationId }
     );
 
-    if (stored?.apiKey) {
-      const shouldDecrypt =
-        Array.isArray(stored.encryptedFields) &&
-        stored.encryptedFields.includes("v0ApiKey");
+    if (stored && stored.enabled === false) {
+      return {
+        apiKey: null,
+        billingSource: "platform",
+        credentialMode: stored.credentialMode ?? "managed",
+        credentialSource: "platform_env",
+      };
+    }
+
+    const license = await (ctx as any).runQuery(
+      generatedApi.internal.licensing.helpers.getLicenseInternalQuery,
+      { organizationId: args.organizationId }
+    );
+    const byok = resolveByokEligibility({
+      planTier: (license?.planTier as string | undefined) ?? "free",
+      features: (license?.features as Record<string, unknown> | undefined) ?? {},
+    });
+
+    if (stored?.apiKey && byok.byokEligible) {
+      const shouldDecrypt = isV0ApiKeyEncrypted({
+        encryptedFields: stored.encryptedFields,
+      });
       if (!shouldDecrypt) {
-        return stored.apiKey as string;
+        return {
+          apiKey: stored.apiKey as string,
+          billingSource: "byok",
+          credentialMode: "byok",
+          credentialSource: "organization_byok",
+        };
       }
 
       const decryptedApiKey = await (ctx as any).runAction(
         generatedApi.internal.oauth.encryption.decryptToken,
         { encrypted: stored.apiKey }
       );
-      return typeof decryptedApiKey === "string" ? decryptedApiKey : null;
+      if (typeof decryptedApiKey === "string" && decryptedApiKey.trim().length > 0) {
+        return {
+          apiKey: decryptedApiKey,
+          billingSource: "byok",
+          credentialMode: "byok",
+          credentialSource: "organization_byok",
+        };
+      }
     }
 
-    return process.env.V0_API_KEY || null;
+    const platformApiKey = process.env.V0_API_KEY || null;
+    return {
+      apiKey: platformApiKey,
+      billingSource: "platform",
+      credentialMode: "managed",
+      credentialSource:
+        stored?.apiKey && !byok.byokEligible
+          ? "organization_byok_unavailable"
+          : "platform_env",
+    };
   },
 });
 
@@ -881,13 +1197,14 @@ export const builderChat = action({
     slug: string;
   }> => {
     // Get v0 API key
-    const apiKey = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
+    const apiBinding = await (ctx as any).runAction(generatedApi.internal.integrations.v0.getApiKeyInternal, {
       organizationId: args.organizationId,
-    });
+    }) as V0ApiBinding;
+    const apiKey = apiBinding.apiKey;
 
     if (!apiKey) {
       throw new Error(
-        "v0 API key not configured. Add your v0 API key in Settings > Integrations > v0."
+        "v0 is unavailable: no managed provider key is configured and no eligible BYOK key is active."
       );
     }
 
@@ -936,6 +1253,23 @@ export const builderChat = action({
           const files = response.latestVersion?.files || [];
           console.log(`[v0:followup] Returning ${files.length} files`);
 
+          await recordV0PlatformUsage({
+            ctx,
+            organizationId: args.organizationId,
+            userId: args.userId,
+            action: "followup_message",
+            billingSource: apiBinding.billingSource,
+            credentialSource: apiBinding.credentialSource,
+            success: true,
+            chatId: args.v0ChatId,
+            metadata: {
+              mode: "builder",
+              chatId: args.v0ChatId,
+              filesCount: files.length,
+              hasDemoUrl: Boolean(response.latestVersion?.demoUrl),
+            },
+          });
+
           return {
             v0ChatId: args.v0ChatId,
             webUrl: response.webUrl,
@@ -954,6 +1288,23 @@ export const builderChat = action({
           }
         }
       }
+
+      await recordV0PlatformUsage({
+        ctx,
+        organizationId: args.organizationId,
+        userId: args.userId,
+        action: "followup_message",
+        billingSource: apiBinding.billingSource,
+        credentialSource: apiBinding.credentialSource,
+        success: false,
+        errorMessage: lastError?.message,
+        chatId: args.v0ChatId,
+        metadata: {
+          mode: "builder",
+          chatId: args.v0ChatId,
+          stage: "followup_message",
+        },
+      });
 
       throw lastError || new Error("Failed to send v0 message after retries");
     }
@@ -1037,6 +1388,24 @@ export const builderChat = action({
           const files = withFiles.latestVersion?.files || [];
           console.log(`[v0:new] Immediate path returning ${files.length} files`);
 
+          await recordV0PlatformUsage({
+            ctx,
+            organizationId: args.organizationId,
+            userId: args.userId,
+            action: "create_chat",
+            billingSource: apiBinding.billingSource,
+            credentialSource: apiBinding.credentialSource,
+            success: true,
+            chatId: withFiles.id,
+            metadata: {
+              mode: "builder",
+              chatId: withFiles.id,
+              filesCount: files.length,
+              hasDemoUrl: Boolean(withFiles.latestVersion?.demoUrl || createResponse.latestVersion?.demoUrl),
+              responsePath: "immediate",
+            },
+          });
+
           return {
             v0ChatId: withFiles.id,
             webUrl: withFiles.webUrl,
@@ -1081,6 +1450,24 @@ export const builderChat = action({
         const files = response.latestVersion?.files || [];
         console.log(`[v0:new] Polled path returning ${files.length} files`);
 
+        await recordV0PlatformUsage({
+          ctx,
+          organizationId: args.organizationId,
+          userId: args.userId,
+          action: "create_chat",
+          billingSource: apiBinding.billingSource,
+          credentialSource: apiBinding.credentialSource,
+          success: true,
+          chatId: response.id,
+          metadata: {
+            mode: "builder",
+            chatId: response.id,
+            filesCount: files.length,
+            hasDemoUrl: Boolean(response.latestVersion?.demoUrl),
+            responsePath: "polled",
+          },
+        });
+
         return {
           v0ChatId: response.id,
           webUrl: response.webUrl,
@@ -1099,6 +1486,22 @@ export const builderChat = action({
         }
       }
     }
+
+    await recordV0PlatformUsage({
+      ctx,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      action: args.v0ChatId ? "followup_message" : "create_chat",
+      billingSource: apiBinding.billingSource,
+      credentialSource: apiBinding.credentialSource,
+      success: false,
+      errorMessage: lastError?.message,
+      chatId: args.v0ChatId,
+      metadata: {
+        mode: "builder",
+        chatId: args.v0ChatId,
+      },
+    });
 
     throw lastError || new Error("Failed to create v0 chat after retries");
   },

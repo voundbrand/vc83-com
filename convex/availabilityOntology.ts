@@ -1855,6 +1855,85 @@ export const getAvailableSlotsInternal = internalQuery({
   },
 });
 
+/**
+ * List booking overlaps for a date range, optionally scoped to resource IDs.
+ * Used by vacation-policy evaluation to reuse existing booking availability data.
+ */
+export const listBookingOverlapsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    startDateTime: v.number(),
+    endDateTime: v.number(),
+    resourceIds: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const bookings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "booking")
+      )
+      .collect();
+
+    const resourceFilter =
+      args.resourceIds && args.resourceIds.length > 0
+        ? new Set(args.resourceIds.map((resourceId) => String(resourceId)))
+        : null;
+
+    const overlaps: Array<{
+      bookingId: string;
+      startDateTime: number;
+      endDateTime: number;
+      source: "booking";
+      resourceIds: string[];
+    }> = [];
+
+    for (const booking of bookings) {
+      if (booking.status === "cancelled") continue;
+
+      const bookingProps = booking.customProperties as Record<string, unknown>;
+      const startDateTime =
+        typeof bookingProps.startDateTime === "number"
+          ? bookingProps.startDateTime
+          : undefined;
+      const endDateTime =
+        typeof bookingProps.endDateTime === "number"
+          ? bookingProps.endDateTime
+          : undefined;
+      if (!startDateTime || !endDateTime) continue;
+      if (
+        startDateTime >= args.endDateTime ||
+        endDateTime <= args.startDateTime
+      ) {
+        continue;
+      }
+
+      const links = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q: any) =>
+          q.eq("fromObjectId", booking._id).eq("linkType", "books_resource")
+        )
+        .collect();
+      const linkedResourceIds = links.map((link) => String(link.toObjectId));
+      if (
+        resourceFilter &&
+        !linkedResourceIds.some((resourceId) => resourceFilter.has(resourceId))
+      ) {
+        continue;
+      }
+
+      overlaps.push({
+        bookingId: String(booking._id),
+        startDateTime,
+        endDateTime,
+        source: "booking",
+        resourceIds: linkedResourceIds,
+      });
+    }
+
+    return overlaps;
+  },
+});
+
 // ============================================================================
 // ADDITIONAL INTERNAL QUERIES/MUTATIONS (for API endpoints)
 // ============================================================================

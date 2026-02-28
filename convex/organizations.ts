@@ -844,6 +844,18 @@ export const createOrganization = action({
       userId,
     });
 
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      { organizationId }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId,
+        channel: "desktop",
+      }
+    );
+
     // 12. Log success audit
     await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
       userId,
@@ -868,6 +880,151 @@ export const createOrganization = action({
       message: args.parentOrganizationId
         ? `Sub-organization "${args.businessName}" created successfully`
         : `Organization "${args.businessName}" created successfully`,
+    };
+  },
+});
+
+/**
+ * Create a business organization for the current user.
+ *
+ * Unlike `createOrganization` (system/super-admin path), this endpoint is for
+ * authenticated operators creating their own second workspace in multi-org mode.
+ */
+export const createBusinessOrganization = action({
+  args: {
+    sessionId: v.string(),
+    businessName: v.string(),
+    description: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    organizationId: Id<"organizations">;
+    slug: string;
+    message: string;
+  }> => {
+    const authResult = await (ctx as any).runQuery(
+      generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery,
+      {
+        sessionId: args.sessionId,
+      }
+    );
+    const userId: Id<"users"> = authResult.userId;
+
+    if (!args.businessName || args.businessName.trim().length === 0) {
+      throw new Error("Business name is required");
+    }
+
+    const slug = args.businessName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    const existingOrg = await (ctx as any).runQuery(
+      generatedApi.internal.organizations.getOrgBySlug,
+      {
+        slug,
+      }
+    );
+    if (existingOrg) {
+      throw new Error(
+        `An organization with the slug "${slug}" already exists. Please use a different business name.`
+      );
+    }
+
+    const organizationId: Id<"organizations"> = await (ctx as any).runMutation(
+      generatedApi.internal.organizations.createOrgRecord,
+      {
+        businessName: args.businessName,
+        name: args.businessName,
+        slug,
+        description: args.description,
+        createdBy: userId,
+      }
+    );
+
+    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
+      organizationId,
+      createdBy: userId,
+      timezone: args.timezone,
+      dateFormat: args.dateFormat,
+      language: args.language,
+    });
+
+    if (args.contactEmail || args.contactPhone) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizationOntology.createOrgContact,
+        {
+          organizationId,
+          createdBy: userId,
+          primaryEmail: args.contactEmail,
+          primaryPhone: args.contactPhone,
+        }
+      );
+    }
+
+    if (args.industry || args.description) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizationOntology.createOrgProfile,
+        {
+          organizationId,
+          createdBy: userId,
+          industry: args.industry,
+          bio: args.description,
+        }
+      );
+    }
+
+    await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
+      userId,
+      organizationId,
+    });
+
+    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
+      organizationId,
+      userId,
+    });
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      { organizationId }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId,
+        channel: "desktop",
+      }
+    );
+
+    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
+      userId,
+      organizationId,
+      action: "create_business_organization",
+      resource: "organizations",
+      resourceId: organizationId,
+      success: true,
+      metadata: {
+        businessName: args.businessName,
+        slug,
+        source: "organization_switcher",
+      },
+    });
+
+    return {
+      success: true,
+      organizationId,
+      slug,
+      message: `Organization "${args.businessName}" created successfully`,
     };
   },
 });
@@ -1014,6 +1171,18 @@ export const createSubOrganization = action({
       organizationId,
       userId,
     });
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      { organizationId }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId,
+        channel: "desktop",
+      }
+    );
 
     // 14. Log success audit
     await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {

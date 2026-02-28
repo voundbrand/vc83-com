@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../../convex/_generated/api";
 
 /**
  * ActiveCampaign Webhook Handler
@@ -22,6 +21,11 @@ import { api } from "../../../../../convex/_generated/api";
  */
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const activeCampaignWebhookFunctions = {
+  findOrganizationByAccount: "oauth/activecampaignWebhook:findOrganizationByAccount",
+  processWebhookEvent: "oauth/activecampaignWebhook:processWebhookEvent",
+  syncContactToPlatform: "oauth/activecampaignWebhook:syncContactToPlatform",
+} as const;
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,8 +34,12 @@ export async function POST(request: NextRequest) {
     let payload: ActiveCampaignWebhookPayload;
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await request.formData();
-      payload = Object.fromEntries(formData.entries()) as unknown as ActiveCampaignWebhookPayload;
+      const formData = new URLSearchParams(await request.text());
+      const parsedPayload: Record<string, string> = {};
+      formData.forEach((value, key) => {
+        parsedPayload[key] = value;
+      });
+      payload = parsedPayload as unknown as ActiveCampaignWebhookPayload;
     } else {
       payload = await request.json();
     }
@@ -189,7 +197,7 @@ async function resolveOrganization(accountName?: string): Promise<string | null>
   try {
     // Look up organization by ActiveCampaign account name
     // This is stored in the oauthConnection's providerAccountId
-    const result = await convex.query(api.oauth.activecampaignWebhook.findOrganizationByAccount, {
+    const result = await convex.query(activeCampaignWebhookFunctions.findOrganizationByAccount as any, {
       accountName,
     });
     return result?.organizationId || null;
@@ -209,7 +217,7 @@ async function forwardToWorkflow(payload: ActiveCampaignWebhookPayload, organiza
   if (!organizationId) return;
 
   try {
-    await convex.action(api.oauth.activecampaignWebhook.processWebhookEvent, {
+    await convex.action(activeCampaignWebhookFunctions.processWebhookEvent as any, {
       organizationId: organizationId as any, // Type assertion for Convex ID
       eventType: payload.type,
       eventData: {
@@ -240,7 +248,7 @@ async function handleSubscribe(payload: ActiveCampaignWebhookPayload, organizati
 
   if (organizationId && payload.contact?.email) {
     try {
-      await convex.action(api.oauth.activecampaignWebhook.syncContactToPlatform, {
+      await convex.action(activeCampaignWebhookFunctions.syncContactToPlatform as any, {
         organizationId: organizationId as any,
         email: payload.contact.email,
         firstName: payload.contact.first_name,
@@ -295,7 +303,7 @@ async function handleContactUpdate(payload: ActiveCampaignWebhookPayload, organi
 
   if (organizationId && payload.contact?.email) {
     try {
-      await convex.action(api.oauth.activecampaignWebhook.syncContactToPlatform, {
+      await convex.action(activeCampaignWebhookFunctions.syncContactToPlatform as any, {
         organizationId: organizationId as any,
         email: payload.contact.email,
         firstName: payload.contact.first_name,

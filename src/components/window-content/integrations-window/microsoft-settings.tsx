@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, FolderOpen, Loader2, Lock, Mail, RefreshCw } from "lucide-react";
@@ -16,6 +19,13 @@ interface MicrosoftSettingsProps {
 
 export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
   const { user, sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  // TS2589 workaround: avoid deep Convex generic expansion in this component.
+  const useQueryAny = useQuery as any;
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
@@ -23,30 +33,30 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
   const confirmDialog = useRetroConfirm();
 
   // Query Microsoft connection status
-  const connection: any = useQuery(
-    api.oauth.microsoft.getUserMicrosoftConnection as any,
+  const connection: any = useQueryAny(
+    apiAny.oauth.microsoft.getUserMicrosoftConnection,
     sessionId ? ({ sessionId } as any) : "skip"
   );
 
   // Query email sync status
-  const emailSyncStatus = useQuery(
-    api.emails.getEmailSyncStatus,
+  const emailSyncStatus = useQueryAny(
+    apiAny.emails.getEmailSyncStatus,
     connection?.id ? { connectionId: connection.id } : "skip"
   );
 
   // Query calendar sync status
-  const calendarSyncStatus = useQuery(
-    api.calendarSyncOntology.getSyncStatus,
+  const calendarSyncStatus = useQueryAny(
+    apiAny.calendarSyncOntology.getSyncStatus,
     sessionId && connection?.id
       ? { sessionId, connectionId: connection.id }
       : "skip"
   );
 
   // Mutations and actions
-  const initiateMicrosoftOAuth = useMutation(api.oauth.microsoft.initiateMicrosoftOAuth);
-  const disconnectMicrosoft = useMutation(api.oauth.microsoft.disconnectMicrosoft);
-  const updateSyncSettings = useMutation(api.emails.updateSyncSettings);
-  const syncEmails = useAction(api.emails.syncEmailsFromMicrosoft);
+  const initiateMicrosoftOAuth = useMutation(apiAny.oauth.microsoft.initiateMicrosoftOAuth);
+  const disconnectMicrosoft = useMutation(apiAny.oauth.microsoft.disconnectMicrosoft);
+  const updateSyncSettings = useMutation(apiAny.emails.updateSyncSettings);
+  const syncEmails = useAction(apiAny.emails.syncEmailsFromMicrosoft);
 
   // Track previous connection status to detect changes
   const [prevConnectionStatus, setPrevConnectionStatus] = useState<string | null>(null);
@@ -270,16 +280,16 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
             style={{ color: 'var(--tone-accent)' }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.microsoft.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <i className="fab fa-microsoft text-2xl" style={{ color: '#00a4ef' }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                Microsoft 365
+                {tx("ui.integrations.microsoft.title", "Microsoft 365")}
               </h2>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Email, Calendar, OneDrive integration
+                {tx("ui.integrations.microsoft.subtitle", "Email, Calendar, OneDrive integration")}
               </p>
             </div>
           </div>
@@ -297,7 +307,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
             >
               <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading connection status...
+                {tx("ui.integrations.microsoft.loading_connection_status", "Loading connection status...")}
               </p>
             </div>
           ) : hasConnection ? (
@@ -314,7 +324,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                     <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                      Connected
+                      {tx("ui.integrations.microsoft.connected", "Connected")}
                     </span>
                   </div>
                 )}
@@ -331,7 +341,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                     <AlertTriangle size={16} style={{ color: "#ef4444" }} />
                     <div className="flex-1">
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
-                        Connection Error
+                        {tx("ui.integrations.microsoft.connection_error", "Connection Error")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {connection.lastSyncError}
@@ -344,7 +354,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Connected Account
+                      {tx("ui.integrations.microsoft.connected_account", "Connected Account")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {connection.providerEmail}
@@ -354,7 +364,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                   {connection.lastSyncAt && (
                     <div>
                       <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                        Last Synced
+                        {tx("ui.integrations.microsoft.last_synced", "Last Synced")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {new Date(connection.lastSyncAt).toLocaleDateString("en-US", {
@@ -379,7 +389,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 }}
               >
                 <h3 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Permissions
+                  {tx("ui.integrations.microsoft.permissions", "Permissions")}
                 </h3>
                 <MicrosoftScopeSelector
                   selectedScopes={connection.scopes || []}
@@ -397,7 +407,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Sync Settings
+                  {tx("ui.integrations.microsoft.sync_settings", "Sync Settings")}
                 </p>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -406,10 +416,16 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       checked={emailSyncStatus?.syncEnabled || false}
                       onChange={(e) => handleEmailSyncToggle(e.target.checked)}
                     />
-                    <span style={{ color: "var(--window-document-text)" }}>Sync Emails</span>
+                    <span style={{ color: "var(--window-document-text)" }}>
+                      {tx("ui.integrations.microsoft.sync_emails", "Sync Emails")}
+                    </span>
                     {emailSyncStatus && (
                       <span className="text-xs ml-auto" style={{ color: "var(--neutral-gray)" }}>
-                        ({emailSyncStatus.totalEmails} synced, {emailSyncStatus.unreadEmails} unread)
+                        {tx(
+                          "ui.integrations.microsoft.email_sync_status",
+                          "({synced} synced, {unread} unread)",
+                          { synced: emailSyncStatus.totalEmails, unread: emailSyncStatus.unreadEmails }
+                        )}
                       </span>
                     )}
                   </label>
@@ -419,32 +435,44 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       checked={connection?.syncSettings?.calendar || false}
                       onChange={(e) => handleCalendarSyncToggle(e.target.checked)}
                     />
-                    <span style={{ color: "var(--window-document-text)" }}>Sync Calendar</span>
+                    <span style={{ color: "var(--window-document-text)" }}>
+                      {tx("ui.integrations.microsoft.sync_calendar", "Sync Calendar")}
+                    </span>
                   </label>
                   {calendarSyncStatus && connection?.syncSettings?.calendar && (
                     <div className="ml-5 space-y-1">
                       {calendarSyncStatus.lastSyncAt && (
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                          Last synced: {new Date(calendarSyncStatus.lastSyncAt).toLocaleString("en-US", {
+                          {tx("ui.integrations.microsoft.last_synced_lower", "Last synced:")}{" "}
+                          {new Date(calendarSyncStatus.lastSyncAt).toLocaleString("en-US", {
                             month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
                           })}
                         </p>
                       )}
                       {calendarSyncStatus.totalEventsSync > 0 && (
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                          {calendarSyncStatus.totalEventsSync} event{calendarSyncStatus.totalEventsSync !== 1 ? "s" : ""} synced
+                          {tx(
+                            "ui.integrations.microsoft.calendar_events_synced",
+                            "{count} event{suffix} synced",
+                            {
+                              count: calendarSyncStatus.totalEventsSync,
+                              suffix: calendarSyncStatus.totalEventsSync !== 1 ? "s" : "",
+                            }
+                          )}
                         </p>
                       )}
                       {calendarSyncStatus.lastSyncError && (
                         <p className="text-xs" style={{ color: "#ef4444" }}>
-                          Error: {calendarSyncStatus.lastSyncError}
+                          {tx("ui.integrations.microsoft.error_label", "Error:")} {calendarSyncStatus.lastSyncError}
                         </p>
                       )}
                     </div>
                   )}
                   <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
                     <input type="checkbox" disabled />
-                    <span style={{ color: "var(--neutral-gray)" }}>Access OneDrive (coming soon)</span>
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.integrations.microsoft.onedrive_coming_soon", "Access OneDrive (coming soon)")}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -458,7 +486,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
-                      Disconnect
+                      {tx("ui.integrations.microsoft.disconnect", "Disconnect")}
                     </InteriorButton>
                     <InteriorButton
                       variant="primary"
@@ -469,10 +497,10 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       {isConnecting ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Reconnecting...
+                          {tx("ui.integrations.microsoft.reconnecting", "Reconnecting...")}
                         </>
                       ) : (
-                        "Reconnect"
+                        tx("ui.integrations.microsoft.reconnect", "Reconnect")
                       )}
                     </InteriorButton>
                   </>
@@ -483,7 +511,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
-                      Disconnect
+                      {tx("ui.integrations.microsoft.disconnect", "Disconnect")}
                     </InteriorButton>
                     <InteriorButton
                       variant="secondary"
@@ -494,12 +522,12 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                       {isSyncing ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Syncing...
+                          {tx("ui.integrations.microsoft.syncing", "Syncing...")}
                         </>
                       ) : (
                         <>
                           <RefreshCw size={14} className="mr-1" />
-                          Sync Now
+                          {tx("ui.integrations.microsoft.sync_now", "Sync Now")}
                         </>
                       )}
                     </InteriorButton>
@@ -519,10 +547,13 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
               >
                 <i className="fab fa-microsoft text-5xl mb-4" style={{ color: '#00a4ef' }} />
                 <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Not Connected
+                  {tx("ui.integrations.microsoft.not_connected", "Not Connected")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Connect your Microsoft account to sync emails, calendar, and files.
+                  {tx(
+                    "ui.integrations.microsoft.connect_prompt",
+                    "Connect your Microsoft account to sync emails, calendar, and files."
+                  )}
                 </p>
               </div>
 
@@ -535,24 +566,24 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Features
+                  {tx("ui.integrations.microsoft.features", "Features")}
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-start gap-2">
                     <Mail size={12} />
-                    <span>Sync your emails automatically</span>
+                    <span>{tx("ui.integrations.microsoft.feature_sync_emails", "Sync your emails automatically")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CalendarDays size={12} />
-                    <span>Access your calendar events</span>
+                    <span>{tx("ui.integrations.microsoft.feature_calendar", "Access your calendar events")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <FolderOpen size={12} />
-                    <span>Browse OneDrive files</span>
+                    <span>{tx("ui.integrations.microsoft.feature_onedrive", "Browse OneDrive files")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <Lock size={12} />
-                    <span>Secure OAuth 2.0 authentication</span>
+                    <span>{tx("ui.integrations.microsoft.feature_oauth", "Secure OAuth 2.0 authentication")}</span>
                   </div>
                 </div>
               </div>
@@ -566,7 +597,7 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Select Permissions
+                  {tx("ui.integrations.microsoft.select_permissions", "Select Permissions")}
                 </p>
                 <MicrosoftScopeSelector
                   selectedScopes={selectedScopes}
@@ -583,19 +614,19 @@ export function MicrosoftSettings({ onBack }: MicrosoftSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Connecting...
+                    {tx("ui.integrations.microsoft.connecting", "Connecting...")}
                   </>
                 ) : (
                   <>
                     <i className="fab fa-microsoft mr-2" />
-                    Connect Microsoft Account
+                    {tx("ui.integrations.microsoft.connect_account", "Connect Microsoft Account")}
                   </>
                 )}
               </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                  Please sign in to connect your Microsoft account
+                  {tx("ui.integrations.microsoft.sign_in_prompt", "Please sign in to connect your Microsoft account")}
                 </p>
               )}
             </div>

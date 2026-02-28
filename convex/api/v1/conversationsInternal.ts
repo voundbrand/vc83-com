@@ -6,7 +6,9 @@
  */
 
 import { v } from "convex/values";
-import { internalQuery, internalMutation } from "../../_generated/server";
+import { internalQuery, internalMutation, query } from "../../_generated/server";
+import type { QueryCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
 import {
   AGENT_LIFECYCLE_CHECKPOINT_VALUES,
   resolveSessionLifecycleState,
@@ -15,6 +17,7 @@ import {
   TRUST_EVENT_TAXONOMY_VERSION,
   validateTrustEventPayload,
 } from "../../ai/trustEvents";
+import { requireAuthenticatedUser } from "../../rbacHelpers";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
@@ -34,6 +37,265 @@ function resolveLifecycleCheckpoint(checkpoint?: unknown): string {
     return checkpoint;
   }
   return "escalation_taken_over";
+}
+
+const TIMELINE_EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+const TIMELINE_PHONE_PATTERN = /\b\+?[\d\s\-().]{10,}\b/g;
+const DEFAULT_TIMELINE_LIMIT = 20;
+
+export interface OperatorTimelineCard {
+  id: string;
+  missionId: string;
+  attemptId: string;
+  bookingId?: string;
+  channel: string;
+  attemptIndex?: number;
+  reasonCode?: string;
+  status: string;
+  result?: string;
+  requestedAt?: number;
+  completedAt?: number;
+  failureReason?: string;
+  telephonyOutcome?: string;
+  telephonyDisposition?: string;
+  voicemailDetected?: boolean;
+  transcriptSnippet?: string;
+  redacted: true;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function redactTimelineText(value: string): string {
+  return value
+    .replace(TIMELINE_EMAIL_PATTERN, "[redacted-email]")
+    .replace(TIMELINE_PHONE_PATTERN, "[redacted-phone]")
+    .trim();
+}
+
+function buildTranscriptSnippet(value: unknown): string | undefined {
+  const transcript = normalizeOptionalString(value);
+  if (!transcript) {
+    return undefined;
+  }
+  const redacted = redactTimelineText(transcript);
+  if (redacted.length <= 180) {
+    return redacted;
+  }
+  return `${redacted.slice(0, 180)}...`;
+}
+
+function collectMissionIdsFromValue(
+  value: unknown,
+  missionIds: Set<string>,
+  depth = 0
+): void {
+  if (depth > 8 || value === null || value === undefined) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectMissionIdsFromValue(entry, missionIds, depth + 1);
+    }
+    return;
+  }
+  if (typeof value !== "object") {
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  const missionId = normalizeOptionalString(record.missionId);
+  if (missionId) {
+    missionIds.add(missionId);
+  }
+  for (const nested of Object.values(record)) {
+    collectMissionIdsFromValue(nested, missionIds, depth + 1);
+  }
+}
+
+function collectMissionIdsFromMessages(
+  messages: Array<{ toolCalls?: unknown }>
+): Set<string> {
+  const missionIds = new Set<string>();
+  for (const message of messages) {
+    if (!message || message.toolCalls === undefined) {
+      continue;
+    }
+    collectMissionIdsFromValue(message.toolCalls, missionIds);
+  }
+  return missionIds;
+}
+
+function resolveFailureReason(args: {
+  attemptStatus: string;
+  attemptResult?: string;
+  attemptResultReason?: string;
+  attemptError?: string;
+  telephonyOutcome?: string;
+  telephonyDisposition?: string;
+}): string | undefined {
+  if (args.attemptResultReason) {
+    return args.attemptResultReason;
+  }
+  if (args.attemptError) {
+    return args.attemptError;
+  }
+  if (args.attemptStatus === "failed") {
+    return args.telephonyOutcome || args.telephonyDisposition || "attempt_failed";
+  }
+  if (args.attemptResult === "failed") {
+    return args.telephonyOutcome || args.telephonyDisposition || "attempt_failed";
+  }
+  if (args.attemptResult === "skipped") {
+    return "attempt_skipped";
+  }
+  return undefined;
+}
+
+async function buildOperatorTimelineCards(args: {
+  ctx: QueryCtx;
+  organizationId: Id<"organizations">;
+  messages: Array<{ toolCalls?: unknown }>;
+  limit?: number;
+}): Promise<OperatorTimelineCard[]> {
+  const missionIds = collectMissionIdsFromMessages(args.messages);
+  if (missionIds.size === 0) {
+    return [];
+  }
+
+  const outreachAttempts = await args.ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "appointment_outreach_attempt")
+    )
+    .collect();
+
+  const filteredAttempts = outreachAttempts.filter((attempt) => {
+    const props = (attempt.customProperties || {}) as Record<string, unknown>;
+    const missionId = normalizeOptionalString(props.missionId);
+    return Boolean(missionId && missionIds.has(missionId));
+  });
+
+  if (filteredAttempts.length === 0) {
+    return [];
+  }
+
+  const attemptIdSet = new Set<string>(filteredAttempts.map((attempt) => String(attempt._id)));
+  const callRecords = await args.ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "telephony_call_record")
+    )
+    .collect();
+
+  const filteredCallRecords = callRecords
+    .filter((record) => {
+      const props = (record.customProperties || {}) as Record<string, unknown>;
+      const missionId = normalizeOptionalString(props.missionId);
+      const attemptId = normalizeOptionalString(props.attemptId);
+      return Boolean(
+        (missionId && missionIds.has(missionId))
+          || (attemptId && attemptIdSet.has(attemptId))
+      );
+    })
+    .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+
+  const callRecordByAttemptId = new Map<string, Record<string, unknown>>();
+  const callRecordByMissionId = new Map<string, Record<string, unknown>>();
+  for (const record of filteredCallRecords) {
+    const props = (record.customProperties || {}) as Record<string, unknown>;
+    const attemptId = normalizeOptionalString(props.attemptId);
+    const missionId = normalizeOptionalString(props.missionId);
+    if (attemptId && !callRecordByAttemptId.has(attemptId)) {
+      callRecordByAttemptId.set(attemptId, props);
+    }
+    if (missionId && !callRecordByMissionId.has(missionId)) {
+      callRecordByMissionId.set(missionId, props);
+    }
+  }
+
+  const timelineCards = filteredAttempts.map((attempt): OperatorTimelineCard => {
+    const attemptId = String(attempt._id);
+    const attemptProps = (attempt.customProperties || {}) as Record<string, unknown>;
+    const missionId = normalizeOptionalString(attemptProps.missionId) || "unknown";
+    const linkedCallProps =
+      callRecordByAttemptId.get(attemptId) || callRecordByMissionId.get(missionId);
+
+    const telephonyOutcome =
+      normalizeOptionalString(attemptProps.telephonyOutcome)
+      || normalizeOptionalString(linkedCallProps?.outcome);
+    const telephonyDisposition =
+      normalizeOptionalString(attemptProps.telephonyDisposition)
+      || normalizeOptionalString(linkedCallProps?.disposition);
+    const transcriptSnippet = buildTranscriptSnippet(
+      linkedCallProps?.transcriptText || attemptProps.transcriptText
+    );
+    const attemptStatus = normalizeOptionalString(attempt.status) || "unknown";
+    const attemptResult = normalizeOptionalString(attemptProps.result);
+    const attemptVoicemailDetected = normalizeOptionalBoolean(
+      attemptProps.voicemailDetected
+    );
+    const callVoicemailDetected = normalizeOptionalBoolean(
+      linkedCallProps?.voicemailDetected
+    );
+    const failureReason = resolveFailureReason({
+      attemptStatus,
+      attemptResult,
+      attemptResultReason: normalizeOptionalString(attemptProps.resultReason),
+      attemptError: normalizeOptionalString(attemptProps.error),
+      telephonyOutcome,
+      telephonyDisposition,
+    });
+
+    return {
+      id: `${missionId}:${attemptId}`,
+      missionId,
+      attemptId,
+      bookingId: normalizeOptionalString(attemptProps.bookingId),
+      channel:
+        normalizeOptionalString(attemptProps.channel)
+        || normalizeOptionalString(attempt.subtype)
+        || "unknown",
+      attemptIndex: normalizeOptionalNumber(attemptProps.attemptIndex),
+      reasonCode: normalizeOptionalString(attemptProps.reasonCode),
+      status: attemptStatus,
+      result: attemptResult,
+      requestedAt: normalizeOptionalNumber(attemptProps.requestedAt),
+      completedAt:
+        normalizeOptionalNumber(attemptProps.completedAt)
+        || normalizeOptionalNumber(linkedCallProps?.endedAt),
+      failureReason,
+      telephonyOutcome,
+      telephonyDisposition,
+      voicemailDetected:
+        attemptVoicemailDetected !== undefined
+          ? attemptVoicemailDetected
+          : callVoicemailDetected,
+      transcriptSnippet,
+      redacted: true,
+    };
+  });
+
+  timelineCards.sort((left, right) => {
+    const leftTime = left.requestedAt || left.completedAt || 0;
+    const rightTime = right.requestedAt || right.completedAt || 0;
+    return rightTime - leftTime;
+  });
+
+  const limit = Math.max(1, Math.min(args.limit || DEFAULT_TIMELINE_LIMIT, 100));
+  return timelineCards.slice(0, limit);
 }
 
 /**
@@ -150,6 +412,7 @@ export const getConversationInternal = internalQuery({
       costUsd: session.costUsd,
       startedAt: session.startedAt,
       lastMessageAt: session.lastMessageAt,
+      escalationState: session.escalationState,
     };
   },
 });
@@ -184,6 +447,12 @@ export const getConversationMessagesInternal = internalQuery({
     const offset = args.offset || 0;
     const limit = Math.min(args.limit || 100, 500);
     const paged = messages.slice(offset, offset + limit);
+    const operatorTimelineCards = await buildOperatorTimelineCards({
+      ctx,
+      organizationId: args.organizationId,
+      messages,
+      limit: DEFAULT_TIMELINE_LIMIT,
+    });
 
     return {
       messages: paged.map((m) => ({
@@ -193,9 +462,57 @@ export const getConversationMessagesInternal = internalQuery({
         toolCalls: m.toolCalls,
         timestamp: m.timestamp,
       })),
+      operatorTimelineCards,
+      operatorTimelineTotal: operatorTimelineCards.length,
       total: messages.length,
       limit,
       offset,
+    };
+  },
+});
+
+/**
+ * GET CONVERSATION TIMELINE CARDS (authenticated UI query)
+ *
+ * Returns outreach/call attempt cards with redacted transcript snippets.
+ */
+export const getConversationTimelineCardsAuth = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentSessionId: v.id("agentSessions"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    if (String(auth.organizationId) !== String(args.organizationId)) {
+      throw new Error("Unauthorized organization access");
+    }
+
+    const session = await ctx.db.get(args.agentSessionId);
+    if (!session || String(session.organizationId) !== String(args.organizationId)) {
+      return {
+        timelineCards: [] as OperatorTimelineCard[],
+        total: 0,
+      };
+    }
+
+    const messages = await ctx.db
+      .query("agentSessionMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.agentSessionId))
+      .collect();
+    messages.sort((a, b) => a.timestamp - b.timestamp);
+
+    const timelineCards = await buildOperatorTimelineCards({
+      ctx,
+      organizationId: args.organizationId,
+      messages,
+      limit: args.limit,
+    });
+
+    return {
+      timelineCards,
+      total: timelineCards.length,
     };
   },
 });

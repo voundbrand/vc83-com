@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useMutation, useQuery, useAction } from "convex/react"
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../convex/_generated/api") as { api: any }
 import { Id } from "../../convex/_generated/dataModel"
 import { useAuth } from "@/hooks/use-auth"
@@ -14,6 +14,7 @@ export interface Message {
   content: string
   timestamp: number
   toolCalls?: ToolCall[]
+  collaboration?: AIChatMessageCollaboration
 }
 
 export interface ToolCall {
@@ -36,9 +37,11 @@ export interface Conversation {
 
 export interface ConversationMessageRecord {
   _id: string
-  role: "user" | "assistant" | "system"
+  role: "user" | "assistant" | "system" | "tool"
   content: string
   createdAt: number
+  attachments?: AIChatConversationAttachment[]
+  collaboration?: AIChatMessageCollaboration
 }
 
 export interface ConversationRecord {
@@ -78,6 +81,113 @@ export interface NativeGuestChatConfig {
   organizationId: string
   agentId: string
   apiBaseUrl?: string
+}
+
+export interface NativeGuestImageAttachment {
+  type: "image"
+  url: string
+  mimeType: string
+  sizeBytes: number
+  name?: string
+  width?: number
+  height?: number
+}
+
+export type AIChatComposerMode = "auto" | "plan" | "plan_soft"
+export type AIChatReasoningEffort = "low" | "medium" | "high" | "extra_high"
+export type AIChatReferenceStatus = "loading" | "ready" | "error"
+
+export interface AIChatMessageCollaboration {
+  surface: "group" | "dm"
+  threadType: "group_thread" | "dm_thread"
+  threadId: string
+  groupThreadId: string
+  dmThreadId?: string
+  lineageId?: string
+  correlationId?: string
+  workflowKey?: string
+  authorityIntentType?: string
+  visibilityScope: "group" | "dm" | "operator_only" | "system"
+  specialistAgentId?: string
+  specialistLabel?: string
+}
+
+export interface AIChatCollaborationRoute {
+  surface: "group" | "dm"
+  dmThreadId?: string
+  specialistAgentId?: string
+  specialistLabel?: string
+}
+
+export interface AIChatMessageReference {
+  url: string
+  content?: string
+  status: AIChatReferenceStatus
+  error?: string
+}
+
+export interface AIChatSendAttachment {
+  attachmentId: string
+}
+
+export interface AIChatCameraRuntimeMetadata {
+  provider: string
+  liveSessionId?: string
+  sessionState?: "capturing" | "stopped" | "error" | "idle" | "unknown"
+  startedAt?: number
+  stoppedAt?: number
+  stopReason?: string
+  frameCaptureCount?: number
+  frameCadenceMs?: number
+  frameCadenceFps?: number
+  fallbackReason?: string | null
+  [key: string]: unknown
+}
+
+export interface AIChatVoiceRuntimeMetadata {
+  voiceSessionId: string
+  requestedProviderId?: string
+  providerId?: string
+  fallbackProviderId?: string | null
+  language?: string
+  transcribeStatus?: "success" | "failed"
+  fallbackReason?: string | null
+  liveSessionId?: string
+  sessionState?: string
+  [key: string]: unknown
+}
+
+export interface AIChatVoiceRuntimeSessionResolution {
+  conversationId: Id<"aiConversations">
+  agentSessionId: Id<"agentSessions">
+  externalContactIdentifier: string
+  routeKey: string
+  threadId: string
+  lineageId: string
+}
+
+export interface AIChatConversationAttachment {
+  _id: string
+  kind: "image"
+  storageId: string
+  fileName: string
+  mimeType: string
+  sizeBytes: number
+  width?: number
+  height?: number
+  url?: string
+}
+
+export interface AIChatSendOptions {
+  mode?: AIChatComposerMode
+  reasoningEffort?: AIChatReasoningEffort
+  privacyMode?: boolean
+  references?: AIChatMessageReference[]
+  attachments?: AIChatSendAttachment[]
+  collaboration?: AIChatCollaborationRoute
+  liveSessionId?: string
+  cameraRuntime?: AIChatCameraRuntimeMetadata
+  voiceRuntime?: AIChatVoiceRuntimeMetadata
 }
 
 interface CampaignAttribution {
@@ -236,6 +346,7 @@ export function buildAccountSignupUrl(args?: {
   claimToken?: string | null
   appBaseUrl?: string
   onboardingChannel?: "webchat" | "native_guest"
+  betaCode?: string
   attribution?: CampaignAttribution
 }): string {
   const provider = args?.provider || "google"
@@ -250,6 +361,11 @@ export function buildAccountSignupUrl(args?: {
     params.set("identityClaimToken", args.claimToken)
   }
 
+  const normalizedBetaCode = typeof args?.betaCode === "string" ? args.betaCode.trim() : ""
+  if (normalizedBetaCode.length > 0) {
+    params.set("betaCode", normalizedBetaCode)
+  }
+
   if (args?.attribution?.source) params.set("utm_source", args.attribution.source)
   if (args?.attribution?.medium) params.set("utm_medium", args.attribution.medium)
   if (args?.attribution?.campaign) params.set("utm_campaign", args.attribution.campaign)
@@ -259,6 +375,34 @@ export function buildAccountSignupUrl(args?: {
   if (args?.attribution?.landingPath) params.set("landingPath", args.attribution.landingPath)
 
   return `${appBaseUrl}/api/auth/oauth-signup?${params.toString()}`
+}
+
+export function buildEmailSignupHandoffUrl(args?: {
+  appBaseUrl?: string
+  betaCode?: string
+  openLoginSource?: string
+  attribution?: CampaignAttribution
+}): string {
+  const appBaseUrl = (args?.appBaseUrl || resolveAppBaseUrl()).replace(/\/+$/, "")
+  const params = new URLSearchParams({
+    openLogin: args?.openLoginSource || "aiAssistant",
+    authMode: "signup",
+  })
+
+  const normalizedBetaCode = typeof args?.betaCode === "string" ? args.betaCode.trim() : ""
+  if (normalizedBetaCode.length > 0) {
+    params.set("betaCode", normalizedBetaCode)
+  }
+
+  if (args?.attribution?.source) params.set("utm_source", args.attribution.source)
+  if (args?.attribution?.medium) params.set("utm_medium", args.attribution.medium)
+  if (args?.attribution?.campaign) params.set("utm_campaign", args.attribution.campaign)
+  if (args?.attribution?.content) params.set("utm_content", args.attribution.content)
+  if (args?.attribution?.term) params.set("utm_term", args.attribution.term)
+  if (args?.attribution?.referrer) params.set("referrer", args.attribution.referrer)
+  if (args?.attribution?.landingPath) params.set("landingPath", args.attribution.landingPath)
+
+  return `${appBaseUrl}/?${params.toString()}`
 }
 
 function normalizeActionUrl(candidate: string): string | null {
@@ -274,7 +418,13 @@ function normalizeActionUrl(candidate: string): string | null {
 }
 
 function classifyAction(url: URL): GuestConversionKind {
-  if (url.pathname === "/api/auth/oauth-signup") return "create_account"
+  if (
+    url.pathname === "/api/auth/oauth-signup" ||
+    url.searchParams.has("openLogin") ||
+    (url.searchParams.get("app") || "").toLowerCase() === "login"
+  ) {
+    return "create_account"
+  }
 
   if (url.pathname === "/chat" || url.searchParams.get("conversation")) {
     return "resume_chat"
@@ -397,9 +547,26 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
   }, [])
 
   const sendMessage = useCallback(
-    async (input: string) => {
+    async (
+      input: string,
+      options?: {
+        attachments?: NativeGuestImageAttachment[]
+      }
+    ) => {
       const trimmed = input.trim()
-      if (!trimmed || isSending) return
+      const normalizedAttachments = (options?.attachments || []).filter(
+        (attachment) =>
+          attachment &&
+          attachment.type === "image" &&
+          typeof attachment.url === "string" &&
+          attachment.url.length > 0 &&
+          typeof attachment.mimeType === "string" &&
+          attachment.mimeType.length > 0 &&
+          typeof attachment.sizeBytes === "number" &&
+          attachment.sizeBytes > 0
+      )
+
+      if ((!trimmed && normalizedAttachments.length === 0) || isSending) return
       if (!config?.organizationId || !config?.agentId) {
         throw new Error("Native guest chat is not configured")
       }
@@ -410,7 +577,9 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
       const userMessage: GuestChatMessage = {
         id: `guest_user_${Date.now()}`,
         role: "user",
-        content: trimmed,
+        content:
+          trimmed ||
+          `Please analyze the attached image${normalizedAttachments.length > 1 ? "s" : ""}.`,
         timestamp: Date.now(),
       }
       appendMessage(userMessage)
@@ -425,7 +594,10 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
             organizationId: config.organizationId,
             agentId: config.agentId,
             sessionToken,
-            message: trimmed,
+            message:
+              trimmed ||
+              `Please analyze the attached image${normalizedAttachments.length > 1 ? "s" : ""}.`,
+            attachments: normalizedAttachments,
             deviceFingerprint,
             attribution,
           }),
@@ -534,7 +706,6 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
 export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?: string) {
   const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const claimAttemptedForSession = useRef<string | null>(null)
 
@@ -573,7 +744,23 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
     organizationId: Id<"organizations">
     userId: Id<"users">
     selectedModel?: string
+    mode?: AIChatComposerMode
+    reasoningEffort?: AIChatReasoningEffort
+    privacyMode?: boolean
+    references?: AIChatMessageReference[]
+    attachments?: AIChatSendAttachment[]
+    collaboration?: AIChatCollaborationRoute
+    liveSessionId?: string
+    cameraRuntime?: AIChatCameraRuntimeMetadata
+    voiceRuntime?: AIChatVoiceRuntimeMetadata
   }) => Promise<{ conversationId?: Id<"aiConversations"> } & Record<string, unknown>>
+  const resolveVoiceRuntimeSessionAction = useActionUntyped(
+    apiUntyped.ai.chat.resolveVoiceRuntimeSession
+  ) as (args: {
+    organizationId: Id<"organizations">
+    userId: Id<"users">
+    conversationId?: Id<"aiConversations">
+  }) => Promise<AIChatVoiceRuntimeSessionResolution>
 
   const createConversationMutation = useMutationUntyped(apiUntyped.ai.conversations.createConversation) as (args: {
     organizationId: Id<"organizations">
@@ -598,12 +785,20 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
    * Send a message to the AI
    */
   const sendMessage = useCallback(
-    async (message: string, currentConversationId?: Id<"aiConversations">) => {
+    async (
+      message: string,
+      currentConversationId?: Id<"aiConversations">,
+      options?: AIChatSendOptions
+    ) => {
       if (!user || !organization) {
-        throw new Error("User not authenticated")
+        if (typeof window !== "undefined") {
+          const returnPath = window.location.pathname === "/chat" ? "/chat" : "/"
+          window.sessionStorage.setItem("auth_return_url", returnPath)
+          window.location.href = "/?openLogin=aiAssistant"
+        }
+        return {} as { conversationId?: Id<"aiConversations"> } & Record<string, unknown>
       }
 
-      setIsLoading(true)
       setError(null)
 
       try {
@@ -613,6 +808,15 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
           organizationId: organization.id as Id<"organizations">,
           userId: user.id as Id<"users">,
           selectedModel,
+          mode: options?.mode,
+          reasoningEffort: options?.reasoningEffort,
+          privacyMode: options?.privacyMode,
+          references: options?.references,
+          attachments: options?.attachments,
+          collaboration: options?.collaboration,
+          liveSessionId: options?.liveSessionId,
+          cameraRuntime: options?.cameraRuntime,
+          voiceRuntime: options?.voiceRuntime,
         })
 
         return result
@@ -620,11 +824,26 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
         const errorMessage = err instanceof Error ? err.message : "Failed to send message"
         setError(errorMessage)
         throw err
-      } finally {
-        setIsLoading(false)
       }
     },
     [user, organization, sendMessageAction, selectedModel]
+  )
+
+  const resolveVoiceRuntimeSession = useCallback(
+    async (
+      currentConversationId?: Id<"aiConversations">
+    ): Promise<AIChatVoiceRuntimeSessionResolution> => {
+      if (!user || !organization) {
+        throw new Error("Voice runtime requires authenticated user context.")
+      }
+
+      return await resolveVoiceRuntimeSessionAction({
+        organizationId: organization.id as Id<"organizations">,
+        userId: user.id as Id<"users">,
+        conversationId: currentConversationId,
+      })
+    },
+    [organization, resolveVoiceRuntimeSessionAction, user]
   )
 
   /**
@@ -706,6 +925,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
 
   const conversationRecord = (conversation || undefined) as ConversationRecord | undefined
   const conversationList = (conversations || []) as ConversationRecord[]
+  const isConversationLoading = Boolean(conversationId && conversation === undefined)
 
   return {
     // Data
@@ -715,13 +935,14 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
 
     // Actions
     sendMessage,
+    resolveVoiceRuntimeSession,
     createConversation,
     updateConversation,
     archiveConversation,
     clearMessages,
 
     // State
-    isLoading,
+    isLoading: isConversationLoading,
     error,
     clearError: () => setError(null),
   }

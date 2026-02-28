@@ -14,6 +14,63 @@ import { Id } from "../../../../../convex/_generated/dataModel"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const generatedApi: any = require("../../../../../convex/_generated/api")
 
+interface NativeGuestActiveAgentCandidate {
+  _id: string
+  customProperties?: Record<string, unknown>
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function isPrimaryAgent(candidate: NativeGuestActiveAgentCandidate): boolean {
+  return candidate.customProperties?.isPrimary === true
+}
+
+function hasEnabledChannelBinding(
+  candidate: NativeGuestActiveAgentCandidate,
+  channel: string
+): boolean {
+  const channelBindings = candidate.customProperties?.channelBindings
+  if (!Array.isArray(channelBindings)) {
+    return false
+  }
+  return channelBindings.some((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return false
+    }
+    const record = entry as Record<string, unknown>
+    const boundChannel = normalizeOptionalString(record.channel)
+    const enabled = record.enabled
+    return boundChannel === channel && enabled === true
+  })
+}
+
+export function resolvePrimaryAwareNativeGuestAgentId(
+  activeAgents: NativeGuestActiveAgentCandidate[],
+  channel: string = "native_guest"
+): string | null {
+  if (!Array.isArray(activeAgents) || activeAgents.length === 0) {
+    return null
+  }
+
+  const sortedPrimaryAgents = activeAgents
+    .filter(isPrimaryAgent)
+    .sort((a, b) => String(a._id).localeCompare(String(b._id)))
+  if (sortedPrimaryAgents.length === 0) {
+    return null
+  }
+
+  const channelPrimary =
+    sortedPrimaryAgents.find((agent) => hasEnabledChannelBinding(agent, channel))
+    || sortedPrimaryAgents[0]
+  return channelPrimary?._id || null
+}
+
 function getConvexClient() {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
   const adminToken = process.env.CONVEX_DEPLOY_KEY
@@ -62,10 +119,26 @@ export async function GET() {
     let agentId = configuredAgentId
 
     if (!agentId) {
-      const activeAgent = await convex.query(generatedApi.internal.agentOntology.getActiveAgentForOrg, {
-        organizationId: organizationId as Id<"organizations">,
-        channel: "native_guest",
-      })
+      const activeAgents = await convex.query(
+        generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
+        {
+          organizationId: organizationId as Id<"organizations">,
+        }
+      )
+      agentId = resolvePrimaryAwareNativeGuestAgentId(
+        activeAgents as NativeGuestActiveAgentCandidate[],
+        "native_guest"
+      )
+    }
+
+    if (!agentId) {
+      const activeAgent = await convex.query(
+        generatedApi.internal.agentOntology.getActiveAgentForOrg,
+        {
+          organizationId: organizationId as Id<"organizations">,
+          channel: "native_guest",
+        }
+      )
       agentId = activeAgent?._id || null
     }
 

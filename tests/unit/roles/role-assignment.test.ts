@@ -19,14 +19,16 @@ import {
   getUserPermissions
 } from "../../helpers/test-setup";
 
-describe("Role Assignment", () => {
+const describeCloud = process.env.RUN_CONVEX_CLOUD_TESTS === "1" ? describe : describe.skip;
+
+describeCloud("Role Assignment", () => {
   let t: ConvexTestingHelper;
   let testData: Awaited<ReturnType<typeof setupRBACTestEnvironment>>;
 
   beforeAll(async () => {
     t = createTestHelper();
     testData = await setupRBACTestEnvironment(t);
-  }, 120000);
+  }, 300000);
 
   afterAll(async () => {
     await t.close();

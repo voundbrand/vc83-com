@@ -18,6 +18,7 @@ import {
   users,
   organizations,
   organizationMembers,
+  contactMemoryRecords,
   userPasswords,
   frontendUserPasswords,
   sessions,
@@ -56,18 +57,28 @@ import { builderFiles } from "./schemas/builderFileSchemas";
 import {
   aiConversations,
   aiMessages,
+  aiMessageAttachments,
   aiToolExecutions,
   organizationAiSettings,
   aiSettingsMigrations,
   aiAgentTasks,
   aiAgentMemory,
+  operatorPinnedNotes,
   organizationKnowledgeChunks,
   aiModels,
   aiWorkItems,
   agentInboxReceipts,
   aiTrainingExamples,
   aiTrustEvents,
+  voiceTransportSessionState,
+  toolFoundryProposalBacklog,
 } from "./schemas/aiSchemas";
+import {
+  agentCatalogEntries,
+  agentCatalogToolRequirements,
+  agentCatalogSeedRegistry,
+  agentCatalogSyncRuns,
+} from "./schemas/agentProductizationSchemas";
 
 // 💳 AI BILLING SCHEMAS v3.1 (VAT-inclusive pricing, EUR only)
 import {
@@ -104,7 +115,13 @@ import { rateLimitSchemas } from "./schemas/rateLimitSchemas";
 import { securitySchemas } from "./schemas/securitySchemas";
 
 // 💳 CREDIT SYSTEM SCHEMAS (Unified credit currency for AI/agent/automation)
-import { creditBalances, creditTransactions, creditPurchases } from "./schemas/creditSchemas";
+import {
+  creditBalances,
+  creditTransactions,
+  creditPurchases,
+  creditRedemptionCodes,
+  creditCodeRedemptions,
+} from "./schemas/creditSchemas";
 
 // 🔀 LAYER EXECUTION SCHEMAS (Workflow run tracking)
 import { layerExecutions, layerNodeExecutions } from "./schemas/layerExecutionSchemas";
@@ -132,8 +149,16 @@ import {
   anonymousIdentityLedger,
   anonymousClaimTokens,
   webchatRateLimits,
+  onboardingAuditSessions,
   onboardingFunnelEvents,
+  onboardingNurtureJourneys,
+  onboardingSoulReports,
+  onboardingSpecialistPreviewContracts,
 } from "./schemas/webchatSchemas";
+import {
+  betaActivationCodes,
+  betaCodeRedemptions,
+} from "./schemas/betaOnboardingSchemas";
 
 // 📱 TELEGRAM SCHEMAS (Telegram chat_id → org mapping)
 import { telegramMappings } from "./schemas/telegramSchemas";
@@ -166,7 +191,10 @@ import {
   benefitClaims,
   commissionPayouts,
   memberWallets,
-  platformFees
+  platformFees,
+  referralProfiles,
+  referralAttributions,
+  referralRewardEvents,
 } from "./schemas/benefitsSchemas";
 
 // ✏️ PROJECT CONTENT: Uses ontology (objects table) with types:
@@ -200,6 +228,7 @@ export default defineSchema({
   users,
   organizations,
   organizationMembers,
+  contactMemoryRecords,
   userPasswords,
   frontendUserPasswords, // Customer passwords (for frontend_user objects with email/password)
   sessions,
@@ -259,6 +288,7 @@ export default defineSchema({
   // 🤖 AI INTEGRATION: General AI Assistant + Email AI Specialist
   aiConversations,        // Chat history for general AI assistant
   aiMessages,             // Individual messages in conversations
+  aiMessageAttachments,   // Persisted chat attachments (Convex storage metadata)
   aiToolExecutions,       // Audit trail of tool executions
   // NOTE: Tool drafts use objects table with status="draft" + AI metadata in customProperties
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
@@ -267,10 +297,17 @@ export default defineSchema({
   aiWorkItems,            // Work items for human-in-the-loop approval workflow
   agentInboxReceipts,     // Durable inbound receipts for agent runtime ingress
   aiTrustEvents,          // Deterministic trust telemetry taxonomy events
+  voiceTransportSessionState, // Keyed voice transport sequencing/replay checkpoint state
+  toolFoundryProposalBacklog, // Runtime ToolSpec proposal backlog with trace + rollback semantics
   aiAgentTasks,          // Email AI tasks with approval workflow
-  aiAgentMemory,         // Email templates and preferences with vector search
+  aiAgentMemory,         // Legacy table retained for backward compatibility; runtime contract is deprecated/fail-closed
+  operatorPinnedNotes,   // Operator-authored pinned notes (L3 memory layer)
   organizationKnowledgeChunks, // Indexed chunks for org knowledge semantic retrieval
   aiTrainingExamples,    // Training data collection for custom model fine-tuning
+  agentCatalogEntries,   // Agent productization catalog registry (System Org control center)
+  agentCatalogToolRequirements, // Per-agent tool requirement rows with implementation status
+  agentCatalogSeedRegistry, // Per-agent seed coverage and template mapping state
+  agentCatalogSyncRuns,  // Drift/audit/sync run history for catalog synchronization
 
   // 💳 AI BILLING v3.1: Three-tier system (€49 or €2,500-€12,000/mo, VAT incl.)
   aiUsage,               // Track AI API usage for billing and monitoring (with privacy audit)
@@ -290,6 +327,9 @@ export default defineSchema({
   // 📧 CONTACT SYNC & BULK EMAIL: AI-powered external contact integration
   contactSyncs,          // Audit trail for contact synchronization (Microsoft/Google → CRM)
   emailCampaigns,        // Bulk email campaigns to CRM contacts/organizations
+  // CRM contact outreach preferences remain migration-safe in objects.customProperties.outreachPreferences:
+  // { preferredChannel, allowedHours { start, end, timezone? }, fallbackMethod }.
+  // Contract is additive/optional for backward compatibility with existing crm_contact records.
 
   // 🔐 OAUTH 2.0: Third-party authentication and authorization
   oauthApplications,         // OAuth apps registered by organizations (Zapier, Make, etc.)
@@ -322,6 +362,9 @@ export default defineSchema({
   commissionPayouts,         // Commission payout workflow tracking
   memberWallets,             // Crypto wallet links for members
   platformFees,              // Platform fee tracking for billing
+  referralProfiles,          // Stable referral code profile per user
+  referralAttributions,      // Referral signup attribution and reward lifecycle
+  referralRewardEvents,      // Referral reward outcomes for cap enforcement
 
   // ✏️ PROJECT CONTENT: Uses ontology (objects table)
   // - type="project_content", subtype="block" for content blocks
@@ -341,9 +384,11 @@ export default defineSchema({
   builderFiles,              // Per-file storage replacing customProperties.generatedFiles[]
 
   // 💳 CREDIT SYSTEM: Unified credit currency for all usage
-  creditBalances,            // Per-org credit balance (daily/monthly/purchased pools)
+  creditBalances,            // Per-org credit balance (gifted/monthly/purchased + legacy daily compatibility)
   creditTransactions,        // Audit trail of all credit movements
   creditPurchases,           // Credit pack purchase records (Stripe-linked)
+  creditRedemptionCodes,     // Super-admin managed redeem codes with lifecycle + targeting policies
+  creditCodeRedemptions,     // Auditable per-code redemption events linked to ledger writes
 
   // 🔀 LAYER EXECUTION: Workflow run tracking
   layerExecutions,           // One record per workflow execution run
@@ -367,7 +412,15 @@ export default defineSchema({
   anonymousIdentityLedger,   // Durable anonymous identity mapping + claim status
   anonymousClaimTokens,      // Signed one-time claim token lifecycle
   webchatRateLimits,         // IP-based rate limiting for public endpoints
+  onboardingAuditSessions,   // Five-question audit mode state machine sessions
   onboardingFunnelEvents,    // Deterministic onboarding funnel telemetry
+  onboardingNurtureJourneys, // Day 0-3 nurture lifecycle + first-win SLA state
+  onboardingSoulReports,     // Day 3 data-backed soul report lifecycle
+  onboardingSpecialistPreviewContracts, // Day 5 specialist preview timer contracts
+
+  // 🎟️ BETA ONBOARDING: Access-code lifecycle and redemption audit trail
+  betaActivationCodes,       // Admin-created beta activation codes
+  betaCodeRedemptions,       // Per-redeem records linked to user + org creation
 
   // 📱 TELEGRAM: Chat_id → organization routing
   telegramMappings,          // Maps Telegram DM/group chat IDs to organizations

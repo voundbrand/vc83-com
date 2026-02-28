@@ -5,6 +5,7 @@
  */
 
 import { cronJobs } from "convex/server";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("./_generated/api");
 
 const crons = cronJobs();
@@ -191,6 +192,39 @@ crons.interval(
 );
 
 /**
+ * Process Pending Appointment Outreach Missions
+ *
+ * Runs every 10 minutes to advance deterministic outreach ladders for
+ * appointment-booking missions.
+ *
+ * What it does:
+ * 1. Selects active missions with due nextAttemptAt timestamps
+ * 2. Executes exactly one ladder step per mission run
+ * 3. Enforces bounded retries, business-hour guards, and call pacing
+ * 4. Leaves mission audit artifacts attached to each attempt
+ */
+crons.interval(
+  "Process pending appointment outreach missions",
+  { minutes: 10 },
+  generatedApi.internal.channels.router.processPendingAppointmentOutreachMissions
+);
+
+/**
+ * Cleanup expired AI chat attachments
+ *
+ * Runs hourly to enforce attachment retention policy for chat uploads:
+ * - uploaded > 1 hour
+ * - orphaned > 24 hours
+ * - linked > 30 days
+ */
+crons.interval(
+  "Cleanup expired AI chat attachments",
+  { minutes: 60 },
+  generatedApi.internal.ai.chatAttachments.cleanupExpiredAttachments,
+  {}
+);
+
+/**
  * Cleanup Old Credit Sharing Ledger Entries
  *
  * Runs daily at 3:30 AM UTC to remove ledger entries older than 90 days.
@@ -285,6 +319,56 @@ crons.interval(
   "Auto-resume timed out escalations",
   { minutes: 5 },
   generatedApi.internal.ai.escalation.autoResumeTimedOutEscalations
+);
+
+/**
+ * Audit Onboarding First-Win SLA Breaches
+ *
+ * Runs hourly to detect nurture journeys where Day 0 first-win
+ * was not delivered within 24 hours.
+ */
+crons.interval(
+  "Audit onboarding first-win SLA",
+  { minutes: 60 },
+  generatedApi.internal.onboarding.nurtureScheduler.auditFirstWinGuarantees,
+  { limit: 100 }
+);
+
+/**
+ * Agent Catalog Drift Audit (Phase 3)
+ *
+ * Runs daily to persist read-only drift telemetry for the Agent Control Center.
+ * This keeps CI and scheduled checks aligned with the same dataset snapshot.
+ */
+crons.daily(
+  "Agent catalog drift audit",
+  {
+    hourUTC: 7,
+    minuteUTC: 20,
+  },
+  generatedApi.internal.ai.agentCatalogSync.runScheduledDriftAudit,
+  {
+    datasetVersion: "agp_v1",
+  }
+);
+
+/**
+ * Agent Catalog Scheduled Sync Automation (Phase 3)
+ *
+ * Runs daily after the drift audit. Current rollout keeps sync-apply non-blocking
+ * and read-only-safe while optional docs snapshot export remains gated.
+ */
+crons.daily(
+  "Agent catalog scheduled sync automation",
+  {
+    hourUTC: 7,
+    minuteUTC: 40,
+  },
+  generatedApi.internal.ai.agentCatalogSync.runScheduledSyncApply,
+  {
+    datasetVersion: "agp_v1",
+    includeDocsSnapshotExport: true,
+  }
 );
 
 export default crons;

@@ -218,3 +218,97 @@ export const platformFees = defineTable({
   .index("by_fee_type", ["organizationId", "feeType"])
   .index("by_source", ["sourceType", "sourceId"])
   .index("by_created_at", ["createdAt"]);
+
+/**
+ * REFERRAL PROFILES
+ *
+ * One stable referral code per user, scoped to the platform referral program.
+ */
+export const referralProfiles = defineTable({
+  programOrganizationId: v.id("organizations"),
+  userId: v.id("users"),
+  referralCode: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_user", ["userId"])
+  .index("by_code", ["referralCode"])
+  .index("by_program_user", ["programOrganizationId", "userId"]);
+
+/**
+ * REFERRAL ATTRIBUTIONS
+ *
+ * Tracks which referrer code was used for a signup and reward lifecycle state.
+ */
+export const referralAttributions = defineTable({
+  programOrganizationId: v.id("organizations"),
+  referralCode: v.string(),
+  referrerUserId: v.id("users"),
+  referredUserId: v.id("users"),
+  referredOrganizationId: v.id("organizations"),
+
+  source: v.union(
+    v.literal("email_signup"),
+    v.literal("oauth_signup"),
+    v.literal("manual_track")
+  ),
+
+  signupRewardStatus: v.union(
+    v.literal("pending"),
+    v.literal("granted"),
+    v.literal("capped"),
+    v.literal("skipped")
+  ),
+  signupRewardProcessedAt: v.optional(v.number()),
+
+  subscriptionRewardStatus: v.union(
+    v.literal("pending_payment"),
+    v.literal("granted"),
+    v.literal("capped"),
+    v.literal("skipped")
+  ),
+  subscriptionRewardProcessedAt: v.optional(v.number()),
+  subscriptionRewardConfirmedAt: v.optional(v.number()),
+
+  stripeSubscriptionId: v.optional(v.string()),
+  stripeCustomerId: v.optional(v.string()),
+  blockedReason: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_referred_user", ["referredUserId"])
+  .index("by_referred_org", ["referredOrganizationId"])
+  .index("by_referrer_user_created", ["referrerUserId", "createdAt"])
+  .index("by_referral_code", ["referralCode"])
+  .index("by_subscription_id", ["stripeSubscriptionId"]);
+
+/**
+ * REFERRAL REWARD EVENTS
+ *
+ * Auditable reward outcomes for monthly-cap enforcement and payout analytics.
+ */
+export const referralRewardEvents = defineTable({
+  attributionId: v.id("referralAttributions"),
+  programOrganizationId: v.id("organizations"),
+  rewardType: v.union(v.literal("signup"), v.literal("subscription")),
+  referralRole: v.union(v.literal("referrer"), v.literal("referred")),
+  rewardedUserId: v.id("users"),
+  rewardedOrganizationId: v.id("organizations"),
+  counterpartyUserId: v.id("users"),
+  amount: v.number(),
+  monthKey: v.string(),
+  status: v.union(
+    v.literal("granted"),
+    v.literal("capped"),
+    v.literal("skipped")
+  ),
+  creditTransactionId: v.optional(v.id("creditTransactions")),
+  idempotencyKey: v.string(),
+  notes: v.optional(v.string()),
+  createdAt: v.number(),
+})
+  .index("by_attribution", ["attributionId"])
+  .index("by_rewarded_user_month", ["rewardedUserId", "monthKey"])
+  .index("by_rewarded_user_created", ["rewardedUserId", "createdAt"])
+  .index("by_idempotency", ["idempotencyKey"])
+  .index("by_program_created", ["programOrganizationId", "createdAt"]);

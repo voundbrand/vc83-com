@@ -10,6 +10,8 @@
 
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 // ============================================================================
 // MEMBER SYNC OPERATIONS
@@ -415,5 +417,129 @@ export const getMemberByExternalIdInternal = internalQuery({
         q.eq(q.field("customProperties.externalUserId"), args.externalUserId)
       )
       .first();
+  },
+});
+
+async function findMemberByPlatformUserId(
+  ctx: QueryCtx | MutationCtx,
+  organizationId: Id<"organizations">,
+  userId: Id<"users">
+) {
+  return await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "crm_contact")
+    )
+    .filter((q) =>
+      q.eq(q.field("customProperties.platformUserId"), userId)
+    )
+    .first();
+}
+
+export const getMemberByUserIdInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await findMemberByPlatformUserId(ctx, args.organizationId, args.userId);
+  },
+});
+
+export const ensureMemberForUserInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const existingByUser = await findMemberByPlatformUserId(
+      ctx,
+      args.organizationId,
+      args.userId
+    );
+    if (existingByUser) {
+      return {
+        memberId: existingByUser._id,
+        created: false,
+      };
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found for referral member sync");
+    }
+
+    const existingByEmail = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "crm_contact")
+      )
+      .filter((q) =>
+        q.eq(q.field("customProperties.email"), user.email)
+      )
+      .first();
+
+    const now = Date.now();
+    const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    const memberName = fullName || user.email;
+
+    if (existingByEmail) {
+      await ctx.db.patch(existingByEmail._id, {
+        name: existingByEmail.name || memberName,
+        status: "active",
+        customProperties: {
+          ...existingByEmail.customProperties,
+          platformUserId: args.userId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          source: "platform_referral_sync",
+          lastSyncedAt: now,
+        },
+        updatedAt: now,
+      });
+
+      return {
+        memberId: existingByEmail._id,
+        created: false,
+      };
+    }
+
+    const memberId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "crm_contact",
+      subtype: "member",
+      name: memberName,
+      description: "Platform referral member",
+      status: "active",
+      customProperties: {
+        platformUserId: args.userId,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        source: "platform_referral_sync",
+        lastSyncedAt: now,
+      },
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: memberId,
+      actionType: "referral_member_synced",
+      actionData: {
+        platformUserId: args.userId,
+        source: "platform_referral_sync",
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      memberId,
+      created: true,
+    };
   },
 });

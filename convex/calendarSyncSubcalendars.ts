@@ -132,6 +132,58 @@ export const getBlockingCalendarIdsForConnection = internalQuery({
   },
 });
 
+/**
+ * Return deterministic blocking-calendar scope for a connection.
+ * Falls back to `primary` when no explicit blocking selection exists.
+ */
+export const getConnectionBlockingCalendarSnapshot = internalQuery({
+  args: { connectionId: v.id("oauthConnections") },
+  handler: async (ctx, args) => {
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) {
+      return {
+        exists: false,
+        blockingCalendarIds: [] as string[],
+        explicitBlockingConfigured: false,
+      };
+    }
+
+    const links = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_org_link_type", (q) =>
+        q
+          .eq("organizationId", connection.organizationId)
+          .eq("linkType", "calendar_linked_to")
+      )
+      .collect();
+
+    const calendarIds = new Set<string>();
+    let explicitBlockingConfigured = false;
+    for (const link of links) {
+      const cp = (link.properties || {}) as Record<string, unknown>;
+      if (cp.connectionId !== args.connectionId) continue;
+      const blocking = (cp.blockingCalendarIds || []) as string[];
+      if (blocking.length > 0) {
+        explicitBlockingConfigured = true;
+      }
+      for (const id of blocking) {
+        const normalized = typeof id === "string" ? id.trim() : "";
+        if (normalized) {
+          calendarIds.add(normalized);
+        }
+      }
+    }
+
+    const blockingCalendarIds = Array.from(calendarIds);
+    return {
+      exists: true,
+      blockingCalendarIds:
+        blockingCalendarIds.length > 0 ? blockingCalendarIds : ["primary"],
+      explicitBlockingConfigured,
+    };
+  },
+});
+
 // ============================================================================
 // MUTATIONS
 // ============================================================================

@@ -8,6 +8,7 @@ const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import {
   Loader2,
@@ -33,6 +34,11 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
   const { sessionId } = useAuth();
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   // UI state
   const [botToken, setBotToken] = useState("");
@@ -185,16 +191,16 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
             style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <Send size={24} style={{ color: "#0088cc" }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                Telegram
+                {tx("ui.integrations.telegram.title", "Telegram")}
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Bot messaging &amp; team group chat
+                {tx("ui.integrations.telegram.subtitle", "Bot messaging & team group chat")}
               </p>
             </div>
           </div>
@@ -216,7 +222,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                 style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading...
+                {tx("ui.integrations.shared.loading", "Loading...")}
               </p>
             </div>
           ) : (
@@ -232,7 +238,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Setup Mode
+                  {tx("ui.integrations.telegram.setup_mode", "Setup Mode")}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div
@@ -243,10 +249,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Platform-managed bot
+                      {tx("ui.integrations.telegram.platform_managed_title", "Platform-managed bot")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Fast onboarding through the shared platform bot and deep-link connect flow.
+                      {tx(
+                        "ui.integrations.telegram.platform_managed_description",
+                        "Fast onboarding through the shared platform bot and deep-link connect flow.",
+                      )}
                     </p>
                   </div>
                   <div
@@ -257,10 +266,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     }}
                   >
                     <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Organization BYOA bot
+                      {tx("ui.integrations.telegram.byoa_title", "Organization BYOA bot")}
                     </p>
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Deploy your own @BotFather token for branded bot identity and isolated credentials.
+                      {tx(
+                        "ui.integrations.telegram.byoa_description",
+                        "Deploy your own @BotFather token for branded bot identity and isolated credentials.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -274,7 +286,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Telegram BYOA Setup Packet
+                  {tx("ui.integrations.telegram.setup_packet_title", "Telegram BYOA Setup Packet")}
                 </p>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center gap-2">
@@ -286,9 +298,15 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">Webhook URL:</span> {webhookUrl}
+                      <span className="font-bold">
+                        {tx("ui.integrations.telegram.webhook_url", "Webhook URL")}:
+                      </span>{" "}
+                      {webhookUrl}
                     </div>
-                    <button onClick={() => copyToClipboard(webhookUrl)} title="Copy webhook URL">
+                    <button
+                      onClick={() => copyToClipboard(webhookUrl)}
+                      title={tx("ui.integrations.telegram.copy_webhook_url", "Copy webhook URL")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
@@ -301,21 +319,42 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         color: "var(--window-document-text)",
                       }}
                     >
-                      <span className="font-bold">Secret header:</span> {webhookSecretHeader}
+                      <span className="font-bold">
+                        {tx("ui.integrations.telegram.secret_header", "Secret header")}:
+                      </span>{" "}
+                      {webhookSecretHeader}
                     </div>
-                    <button onClick={() => copyToClipboard(webhookSecretHeader)} title="Copy secret header">
+                    <button
+                      onClick={() => copyToClipboard(webhookSecretHeader)}
+                      title={tx("ui.integrations.telegram.copy_secret_header", "Copy secret header")}
+                    >
                       <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                     </button>
                   </div>
                 </div>
                 <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-                    Agency handoff flow
+                    {tx("ui.integrations.telegram.agency_handoff_flow", "Agency handoff flow")}
                   </p>
                   <ol className="list-decimal list-inside space-y-1">
-                    <li>Create client bot in @BotFather (`/newbot`) and paste token below.</li>
-                    <li>Verify Telegram webhook set to the URL above with secret header enabled.</li>
-                    <li>Run one customer DM and one team-group mirror test before cutover.</li>
+                    <li>
+                      {tx(
+                        "ui.integrations.telegram.handoff_step_create_bot",
+                        "Create client bot in @BotFather (`/newbot`) and paste token below.",
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.integrations.telegram.handoff_step_verify_webhook",
+                        "Verify Telegram webhook set to the URL above with secret header enabled.",
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.integrations.telegram.handoff_step_test_cutover",
+                        "Run one customer DM and one team-group mirror test before cutover.",
+                      )}
+                    </li>
                   </ol>
                 </div>
               </div>
@@ -332,7 +371,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Connection Status
+                  {tx("ui.integrations.telegram.connection_status", "Connection Status")}
                 </p>
 
                 {status?.platformBot?.status === "active" ? (
@@ -340,13 +379,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                       <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                        Connected via Platform Bot
+                        {tx("ui.integrations.telegram.connected_via_platform", "Connected via Platform Bot")}
                       </span>
                     </div>
                     {status.platformBot.chatId && (
                       <div>
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          Chat ID
+                          {tx("ui.integrations.telegram.chat_id", "Chat ID")}
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                           {status.platformBot.chatId}
@@ -356,7 +395,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     {status.platformBot.senderName && (
                       <div>
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          Sender
+                          {tx("ui.integrations.telegram.sender", "Sender")}
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                           {status.platformBot.senderName}
@@ -365,7 +404,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     )}
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Connected
+                        {tx("ui.integrations.telegram.connected", "Connected")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {formatDate(status.platformBot.connectedAt)}
@@ -373,7 +412,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     </div>
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Active Chats
+                        {tx("ui.integrations.telegram.active_chats", "Active Chats")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {status.activeChatCount ?? 0}
@@ -385,10 +424,13 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
                     <div>
                       <p className="text-xs font-bold" style={{ color: "#f59e0b" }}>
-                        Onboarding in Progress
+                        {tx("ui.integrations.telegram.onboarding_in_progress", "Onboarding in Progress")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Complete the setup interview to activate your Telegram connection.
+                        {tx(
+                          "ui.integrations.telegram.onboarding_description",
+                          "Complete the setup interview to activate your Telegram connection.",
+                        )}
                       </p>
                     </div>
                   </div>
@@ -403,15 +445,17 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       }}
                     >
                       <p>
-                        Connect your Telegram to this organization. Generate a one-time link below,
-                        then open it in Telegram to link your account.
+                        {tx(
+                          "ui.integrations.telegram.connect_description",
+                          "Connect your Telegram to this organization. Generate a one-time link below, then open it in Telegram to link your account.",
+                        )}
                       </p>
                     </div>
 
                     {telegramLink && !isLinkExpired ? (
                       <div className="space-y-2">
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          Your Connect Link
+                          {tx("ui.integrations.telegram.connect_link_title", "Your Connect Link")}
                         </p>
                         <div className="flex items-center gap-2">
                           <a
@@ -429,13 +473,16 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                           </a>
                           <button
                             onClick={() => copyToClipboard(telegramLink)}
-                            title="Copy link"
+                            title={tx("ui.integrations.telegram.copy_link", "Copy link")}
                           >
                             <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                           </button>
                         </div>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                          This link expires in 15 minutes and can only be used once.
+                          {tx(
+                            "ui.integrations.telegram.link_expiry_notice",
+                            "This link expires in 15 minutes and can only be used once.",
+                          )}
                         </p>
                       </div>
                     ) : (
@@ -447,12 +494,14 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         {isGeneratingLink ? (
                           <>
                             <Loader2 size={14} className="mr-1 animate-spin" />
-                            Generating...
+                            {tx("ui.integrations.telegram.generating", "Generating...")}
                           </>
                         ) : (
                           <>
                             <Link2 size={14} className="mr-1" />
-                            {isLinkExpired ? "Generate New Link" : "Connect Telegram"}
+                            {isLinkExpired
+                              ? tx("ui.integrations.telegram.generate_new_link", "Generate New Link")
+                              : tx("ui.integrations.telegram.connect_cta", "Connect Telegram")}
                           </>
                         )}
                       </InteriorButton>
@@ -473,7 +522,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                   className="text-xs font-bold mb-3 uppercase tracking-wide"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Custom Bot
+                  {tx("ui.integrations.telegram.custom_bot", "Custom Bot")}
                 </p>
 
                 {status?.customBot?.deployed ? (
@@ -484,14 +533,14 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         className="text-xs font-bold px-2 py-0.5 rounded"
                         style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981" }}
                       >
-                        Deployed
+                        {tx("ui.integrations.telegram.deployed", "Deployed")}
                       </span>
                     </div>
 
                     {status.customBot.botUsername && (
                       <div>
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          Bot Username
+                          {tx("ui.integrations.telegram.bot_username", "Bot Username")}
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                           @{status.customBot.botUsername}
@@ -502,7 +551,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     {status.customBot.webhookUrl && (
                       <div>
                         <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                          Webhook URL
+                          {tx("ui.integrations.telegram.webhook_url", "Webhook URL")}
                         </p>
                         <div className="flex items-center gap-2">
                           <div
@@ -517,7 +566,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                           </div>
                           <button
                             onClick={() => copyToClipboard(status.customBot.webhookUrl)}
-                            title="Copy"
+                            title={tx("ui.integrations.telegram.copy", "Copy")}
                           >
                             <Copy size={14} style={{ color: "var(--neutral-gray)" }} />
                           </button>
@@ -534,10 +583,10 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       {isDisconnecting ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Disconnecting...
+                          {tx("ui.integrations.telegram.disconnecting", "Disconnecting...")}
                         </>
                       ) : (
-                        "Disconnect Custom Bot"
+                        tx("ui.integrations.telegram.disconnect_custom_bot", "Disconnect Custom Bot")
                       )}
                     </InteriorButton>
                   </div>
@@ -550,22 +599,31 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     >
                       <div className="flex items-start gap-2">
                         <span>&#10003;</span>
-                        <span>Your own branded bot username</span>
+                        <span>
+                          {tx("ui.integrations.telegram.benefit_branded_username", "Your own branded bot username")}
+                        </span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span>&#10003;</span>
-                        <span>Custom webhook — full control over routing</span>
+                        <span>
+                          {tx("ui.integrations.telegram.benefit_custom_webhook", "Custom webhook - full control over routing")}
+                        </span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span>&#10003;</span>
-                        <span>Deep links redirect to your bot, not the platform bot</span>
+                        <span>
+                          {tx(
+                            "ui.integrations.telegram.benefit_deep_links",
+                            "Deep links redirect to your bot, not the platform bot",
+                          )}
+                        </span>
                       </div>
                     </div>
 
                     {/* Token input */}
                     <div>
                       <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                        Bot Token
+                        {tx("ui.integrations.telegram.bot_token", "Bot Token")}
                       </p>
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
@@ -573,7 +631,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                             type={showToken ? "text" : "password"}
                             value={botToken}
                             onChange={(e) => setBotToken(e.target.value)}
-                            placeholder="Paste token from @BotFather"
+                            placeholder={tx("ui.integrations.telegram.bot_token_placeholder", "Paste token from @BotFather")}
                             className="w-full p-2 pr-8 border-2 rounded text-xs font-mono"
                             style={{
                               borderColor: "var(--window-document-border)",
@@ -584,7 +642,11 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                           <button
                             onClick={() => setShowToken(!showToken)}
                             className="absolute right-2 top-1/2 -translate-y-1/2"
-                            title={showToken ? "Hide" : "Show"}
+                            title={
+                              showToken
+                                ? tx("ui.integrations.shared.hide", "Hide")
+                                : tx("ui.integrations.shared.show", "Show")
+                            }
                           >
                             {showToken ? (
                               <EyeOff size={14} style={{ color: "var(--neutral-gray)" }} />
@@ -595,7 +657,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         </div>
                       </div>
                       <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                        Get a token from{" "}
+                        {tx("ui.integrations.telegram.get_token_prefix", "Get a token from")}{" "}
                         <a
                           href="https://t.me/BotFather"
                           target="_blank"
@@ -603,9 +665,9 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                           className="underline"
                           style={{ color: "var(--tone-accent)" }}
                         >
-                          @BotFather
+                          {tx("ui.integrations.telegram.bot_father", "@BotFather")}
                         </a>{" "}
-                        on Telegram. Use /newbot to create one.
+                        {tx("ui.integrations.telegram.get_token_suffix", "on Telegram. Use /newbot to create one.")}
                       </p>
                     </div>
 
@@ -617,10 +679,10 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                       {isDeploying ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Deploying...
+                          {tx("ui.integrations.telegram.deploying", "Deploying...")}
                         </>
                       ) : (
-                        "Deploy Bot"
+                        tx("ui.integrations.telegram.deploy_bot", "Deploy Bot")
                       )}
                     </InteriorButton>
                   </div>
@@ -641,7 +703,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     className="text-xs font-bold uppercase tracking-wide"
                     style={{ color: "var(--window-document-text)" }}
                   >
-                    Team Group Chat
+                    {tx("ui.integrations.telegram.team_group_chat", "Team Group Chat")}
                   </p>
                 </div>
 
@@ -653,14 +715,14 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         className="text-xs font-bold px-2 py-0.5 rounded"
                         style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981" }}
                       >
-                        Group Linked
+                        {tx("ui.integrations.telegram.group_linked", "Group Linked")}
                       </span>
                     </div>
 
                     {status.teamGroup.groupChatId && (
                       <div>
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          Group Chat ID
+                          {tx("ui.integrations.telegram.group_chat_id", "Group Chat ID")}
                         </p>
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                           {status.teamGroup.groupChatId}
@@ -676,7 +738,7 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                         className="accent-[#10b981]"
                       />
                       <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
-                        Mirror conversations to team group
+                        {tx("ui.integrations.telegram.mirror_conversations", "Mirror conversations to team group")}
                       </span>
                     </label>
                   </div>
@@ -685,14 +747,17 @@ export function TelegramSettings({ onBack }: TelegramSettingsProps) {
                     className="space-y-2 text-xs"
                     style={{ color: "var(--neutral-gray)" }}
                   >
-                    <p>To link a team group:</p>
+                    <p>{tx("ui.integrations.telegram.link_team_group_intro", "To link a team group:")}</p>
                     <ol className="list-decimal list-inside space-y-1">
-                      <li>Create a Telegram group for your team</li>
-                      <li>Add your bot to the group</li>
-                      <li>The group will be auto-detected and linked</li>
+                      <li>{tx("ui.integrations.telegram.team_group_step_create", "Create a Telegram group for your team")}</li>
+                      <li>{tx("ui.integrations.telegram.team_group_step_add_bot", "Add your bot to the group")}</li>
+                      <li>{tx("ui.integrations.telegram.team_group_step_auto_detect", "The group will be auto-detected and linked")}</li>
                     </ol>
                     <p className="mt-2" style={{ color: "var(--window-document-text)" }}>
-                      The bot must be added by the same Telegram user who completed onboarding.
+                      {tx(
+                        "ui.integrations.telegram.team_group_requirement",
+                        "The bot must be added by the same Telegram user who completed onboarding.",
+                      )}
                     </p>
                   </div>
                 )}

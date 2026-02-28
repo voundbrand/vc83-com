@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInterviewPromptContext,
   buildPhaseCoverageSummary,
+  resolveInterviewWorkspaceContext,
   shouldAdvancePhaseEarly,
 } from "../../../convex/ai/interviewRunner";
 import { customerAgentIdentityBlueprintTemplate } from "../../../convex/seeds/interviewTemplates";
@@ -107,5 +108,42 @@ describe("adaptive interview helpers", () => {
     expect(prompt).toContain("Progressive focus: Capture required trust details next.");
     expect(prompt).toContain("Active consent checkpoint: cp1_summary_review");
     expect(prompt).toContain("Source attribution policy: At every checkpoint, source attribution shows phase, question ID, and original prompt before save options.");
+  });
+
+  it("adapts interview prompt guidance based on workspace type", () => {
+    const personalContext = resolveInterviewWorkspaceContext({
+      organizationName: "Alex",
+      isPersonalWorkspace: true,
+    });
+
+    const prompt = buildInterviewPromptContext({
+      interviewerPersonality: "Calm and grounded.",
+      organizationContext: personalContext,
+      followUpDepth: 2,
+      silenceHandling: "Offer one concrete example.",
+      currentPhaseIndex: 0,
+      totalPhases: 4,
+      currentQuestionIndex: 0,
+      totalQuestionsInPhase: 3,
+      phase: {
+        phaseId: "business_context",
+        phaseName: "Business Context",
+        completionPrompt: "Continue to communication style.",
+      },
+      question: {
+        questionId: "q1_customer_profile",
+        promptText: "Who are you helping most right now?",
+        expectedDataType: "text",
+        extractionField: "customerProfile",
+      },
+      currentFollowUpCount: 0,
+      pendingFollowUp: false,
+      extractedData: {},
+    });
+
+    expect(prompt).toContain("Workspace context: personal workspace (Alex)");
+    expect(prompt).toContain(
+      "Workspace guidance: Prioritize personal intent, values, and boundary cues before business process assumptions."
+    );
   });
 });

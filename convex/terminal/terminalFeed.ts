@@ -9,14 +9,18 @@
  */
 
 import { query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
-import { requireAuthenticatedUser } from "../rbacHelpers";
+import { getUserContext, requireAuthenticatedUser } from "../rbacHelpers";
+import {
+  buildTrustTimelineCorrelationId,
+  resolveTrustTimelineSurfaceFromWorkflow,
+} from "../ai/trustEvents";
 import {
   getOrgIdsForScope,
   hasSubOrganizations,
   LAYER_NAMES,
-  type Scope,
-  type ScopedOrg,
+  resolveScopedOrgTarget,
 } from "../lib/layerScope";
 
 export interface TerminalLogEntry {
@@ -40,6 +44,17 @@ export interface TerminalLogEntry {
     costUsd?: number;
     tokensUsed?: number;
     errorMessage?: string;
+    pipelineStage?: "ingress" | "routing" | "execution" | "delivery";
+    workflowKey?: string;
+    threadId?: string;
+    lineageId?: string;
+    correlationId?: string;
+    eventOrdinal?: number;
+    visibilityScope?: "org_owner" | "super_admin";
+    webhookOutcome?: string;
+    webhookEventName?: string;
+    webhookEndpoint?: string;
+    providerEventId?: string;
     // Layer scope metadata
     orgName?: string;
     orgSlug?: string;
@@ -54,24 +69,89 @@ interface LayerBreakdown {
   eventCount: number;
 }
 
+type TerminalVisibilityScope = "org_owner" | "super_admin";
+
+function normalizeTerminalTraceString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function roleScopedTerminalMetadata(args: {
+  visibilityScope: TerminalVisibilityScope;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  base: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  superAdminDebug?: Record<string, any>;
+}): Record<string, unknown> {
+  if (args.visibilityScope === "super_admin" && args.superAdminDebug) {
+    return {
+      ...args.base,
+      debug: args.superAdminDebug,
+    };
+  }
+  return args.base;
+}
+
+function resolvePipelineFromReceiptStatus(status: string): "ingress" | "routing" | "execution" | "delivery" {
+  if (status === "accepted") {
+    return "ingress";
+  }
+  if (status === "processing" || status === "duplicate") {
+    return "routing";
+  }
+  if (status === "completed") {
+    return "delivery";
+  }
+  return "execution";
+}
+
+function resolvePipelineFromTransition(
+  transition: string
+): "ingress" | "routing" | "execution" | "delivery" {
+  if (transition === "inbound_received") {
+    return "ingress";
+  }
+  if (transition === "turn_enqueued") {
+    return "routing";
+  }
+  if (transition === "terminal_deliverable_recorded" || transition === "turn_completed") {
+    return "delivery";
+  }
+  return "execution";
+}
+
 export const getTerminalFeed = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     limit: v.optional(v.number()),
     scope: v.optional(v.union(v.literal("org"), v.literal("layer"))),
+    scopeOrganizationId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, args.organizationId);
+    const visibilityScope: TerminalVisibilityScope =
+      userContext.isGlobal && userContext.roleName === "super_admin"
+        ? "super_admin"
+        : "org_owner";
+    const { scope, scopeOrganizationId } = resolveScopedOrgTarget({
+      viewerOrganizationId: args.organizationId,
+      requestedScope: args.scope,
+      requestedScopeOrganizationId: args.scopeOrganizationId,
+      allowCrossOrg: visibilityScope === "super_admin",
+    });
 
     const limit = Math.min(args.limit ?? 100, 500);
     const cutoffTime = Date.now() - 24 * 60 * 60 * 1000; // last 24h
-    const scope: Scope = args.scope ?? "org";
 
     // Resolve orgs for scope
     const scopedOrgs = await getOrgIdsForScope(
       ctx.db,
-      args.organizationId,
+      scopeOrganizationId,
       scope
     );
 
@@ -109,6 +189,7 @@ export const getTerminalFeed = query({
           metadata: {
             sessionId: session._id,
             channel: session.channel,
+            visibilityScope,
             ...(isLayerMode && {
               orgName: scopedOrg.orgName,
               orgSlug: scopedOrg.orgSlug,
@@ -141,6 +222,7 @@ export const getTerminalFeed = query({
               metadata: {
                 sessionId: session._id,
                 channel: session.channel,
+                visibilityScope,
                 ...(isLayerMode && {
                   orgName: scopedOrg.orgName,
                   orgSlug: scopedOrg.orgSlug,
@@ -159,6 +241,7 @@ export const getTerminalFeed = query({
                 sessionId: session._id,
                 agentName: msg.agentName || undefined,
                 channel: session.channel,
+                visibilityScope,
                 ...(isLayerMode && {
                   orgName: scopedOrg.orgName,
                   orgSlug: scopedOrg.orgSlug,
@@ -196,6 +279,7 @@ export const getTerminalFeed = query({
               toolsUsed: data?.toolsUsed as string[] | undefined,
               tokensUsed: data?.tokensUsed as number | undefined,
               costUsd: data?.costUsd as number | undefined,
+              visibilityScope,
               ...(isLayerMode && {
                 orgName: scopedOrg.orgName,
                 orgSlug: scopedOrg.orgSlug,
@@ -214,6 +298,7 @@ export const getTerminalFeed = query({
               sessionId: data?.sessionId as string | undefined,
               tokensUsed: data?.tokensUsed as number | undefined,
               costUsd: data?.costUsd as number | undefined,
+              visibilityScope,
               ...(isLayerMode && {
                 orgName: scopedOrg.orgName,
                 orgSlug: scopedOrg.orgSlug,
@@ -224,7 +309,174 @@ export const getTerminalFeed = query({
         }
       }
 
-      // 4. Webhook events
+      // 4. Receipt + runtime evidence (ingress/routing/execution/delivery)
+      const receipts = await ctx.db
+        .query("agentInboxReceipts")
+        .withIndex("by_org_time", (q) => q.eq("organizationId", scopedOrg.orgId))
+        .order("desc")
+        .take(fetchLimit);
+
+      for (const receipt of receipts) {
+        const receiptTimestamp = receipt.updatedAt || receipt.lastSeenAt || receipt.createdAt || 0;
+        if (receiptTimestamp < cutoffTime) continue;
+
+        const queueContract = (receipt.queueContract || {}) as Record<string, unknown>;
+        const idempotencyContract =
+          (receipt.idempotencyContract || {}) as Record<string, unknown>;
+        const workflowKey =
+          normalizeTerminalTraceString(queueContract.workflowKey)?.toLowerCase()
+          || normalizeTerminalTraceString(idempotencyContract.intentType)?.toLowerCase();
+        const pipelineStage = resolvePipelineFromReceiptStatus(receipt.status);
+        const lineageId = normalizeTerminalTraceString(queueContract.lineageId);
+        const threadId =
+          normalizeTerminalTraceString(queueContract.threadId)
+          || String(receipt.sessionId);
+        const correlationId = buildTrustTimelineCorrelationId({
+          lineageId,
+          threadId,
+          fallbackThreadId: String(receipt.sessionId),
+          surface: resolveTrustTimelineSurfaceFromWorkflow(workflowKey),
+          sourceId: String(receipt._id),
+        });
+        const baseMetadata = roleScopedTerminalMetadata({
+          visibilityScope,
+          base: {
+            sessionId: String(receipt.sessionId),
+            channel: receipt.channel,
+            pipelineStage,
+            workflowKey,
+            threadId,
+            lineageId,
+            correlationId,
+            visibilityScope,
+          },
+          superAdminDebug: {
+            receiptId: String(receipt._id),
+            queueContract: receipt.queueContract,
+            idempotencyContract: receipt.idempotencyContract,
+            failureReason: receipt.failureReason,
+            duplicateCount: receipt.duplicateCount,
+          },
+        });
+
+        entries.push({
+          id: `receipt-${String(receipt._id)}`,
+          timestamp: receiptTimestamp,
+          type: "tool_execution",
+          severity:
+            receipt.status === "failed"
+              ? "error"
+              : receipt.status === "duplicate"
+                ? "warning"
+                : receipt.status === "completed"
+                  ? "success"
+                  : "info",
+          message: `[${pipelineStage.toUpperCase()}] Receipt ${receipt.status} (${receipt.channel}:${receipt.externalContactIdentifier})`,
+          metadata: {
+            ...baseMetadata,
+            ...(isLayerMode && {
+              orgName: scopedOrg.orgName,
+              orgSlug: scopedOrg.orgSlug,
+              layer: scopedOrg.layer,
+            }),
+          },
+        });
+      }
+
+      const executionEdges = await ctx.db
+        .query("executionEdges")
+        .withIndex("by_org_time", (q) => q.eq("organizationId", scopedOrg.orgId))
+        .order("desc")
+        .take(fetchLimit);
+
+      const edgeTurnIds = new Set<string>();
+      for (const edge of executionEdges) {
+        edgeTurnIds.add(String(edge.turnId));
+      }
+      const edgeTurnMap = new Map<string, Record<string, unknown>>();
+      await Promise.all(
+        Array.from(edgeTurnIds).map(async (turnId) => {
+          const turn = await ctx.db.get(turnId as Id<"agentTurns">);
+          if (turn) {
+            edgeTurnMap.set(turnId, turn as unknown as Record<string, unknown>);
+          }
+        })
+      );
+
+      for (const edge of executionEdges) {
+        if (edge.occurredAt < cutoffTime) continue;
+        const transition = normalizeTerminalTraceString(edge.transition) || "unknown";
+        const pipelineStage = resolvePipelineFromTransition(transition);
+        const edgeMetadata = (edge.metadata || {}) as Record<string, unknown>;
+        const turnRecord = edgeTurnMap.get(String(edge.turnId));
+        const queueContract =
+          (turnRecord?.queueContract as Record<string, unknown> | undefined)
+          || (edgeMetadata.queueContract as Record<string, unknown> | undefined);
+        const idempotencyContract =
+          (turnRecord?.idempotencyContract as Record<string, unknown> | undefined)
+          || (edgeMetadata.idempotencyContract as Record<string, unknown> | undefined);
+        const workflowKey =
+          normalizeTerminalTraceString(queueContract?.workflowKey)?.toLowerCase()
+          || normalizeTerminalTraceString(idempotencyContract?.intentType)?.toLowerCase();
+        const lineageId = normalizeTerminalTraceString(queueContract?.lineageId);
+        const threadId =
+          normalizeTerminalTraceString(queueContract?.threadId)
+          || String(edge.sessionId);
+        const correlationId = buildTrustTimelineCorrelationId({
+          lineageId,
+          threadId,
+          fallbackThreadId: String(edge.sessionId),
+          surface: resolveTrustTimelineSurfaceFromWorkflow(workflowKey),
+          sourceId: `${String(edge.turnId)}:${String(edge.edgeOrdinal)}`,
+        });
+        const baseMetadata = roleScopedTerminalMetadata({
+          visibilityScope,
+          base: {
+            sessionId: String(edge.sessionId),
+            pipelineStage,
+            workflowKey,
+            threadId,
+            lineageId,
+            correlationId,
+            eventOrdinal: edge.edgeOrdinal,
+            visibilityScope,
+          },
+          superAdminDebug: {
+            edgeId: String(edge._id),
+            turnId: String(edge.turnId),
+            fromState: edge.fromState,
+            toState: edge.toState,
+            transitionPolicyVersion: edge.transitionPolicyVersion,
+            replayInvariantStatus: edge.replayInvariantStatus,
+            edgeMetadata,
+          },
+        });
+
+        entries.push({
+          id: `edge-${String(edge._id)}`,
+          timestamp: edge.occurredAt,
+          type: "tool_execution",
+          severity:
+            transition.includes("failed")
+            || transition.includes("cancelled")
+            || transition.includes("error")
+              ? "error"
+              : pipelineStage === "delivery"
+                ? "success"
+                : "info",
+          message: `[${pipelineStage.toUpperCase()}] ${transition.replace(/_/g, " ")} (#${edge.edgeOrdinal})`,
+          metadata: {
+            ...baseMetadata,
+            ...(isLayerMode && {
+              orgName: scopedOrg.orgName,
+              orgSlug: scopedOrg.orgSlug,
+              layer: scopedOrg.layer,
+            }),
+          },
+        });
+      }
+
+      // 5. Webhook events
       const webhooks = await ctx.db
         .query("objects")
         .withIndex("by_org_type", (q) =>
@@ -241,15 +493,43 @@ export const getTerminalFeed = query({
         const processedAt = (props?.processedAt as number) || webhook.createdAt || webhook._creationTime || 0;
         if (processedAt < cutoffTime) continue;
 
-        const whStatus = (props?.eventStatus as string) || "unknown";
+        const provider = normalizeTerminalTraceString(props?.provider) || "unknown";
+        const eventStatus =
+          normalizeTerminalTraceString(props?.eventStatus)?.toLowerCase() || "unknown";
+        const outcome = normalizeTerminalTraceString(props?.outcome) || undefined;
+        const eventName =
+          normalizeTerminalTraceString(props?.eventName)
+          || normalizeTerminalTraceString(webhook.name)
+          || undefined;
+        const endpoint = normalizeTerminalTraceString(props?.endpoint) || undefined;
+        const providerEventId =
+          normalizeTerminalTraceString(props?.providerEventId) || undefined;
+        const outcomeLabel = outcome || eventStatus;
+        const severity =
+          eventStatus === "error"
+            ? "error"
+            : eventStatus === "warning" || eventStatus === "skipped"
+              ? "warning"
+              : eventStatus === "success"
+                ? "success"
+                : "info";
+
         entries.push({
           id: webhook._id,
           timestamp: processedAt,
           type: "webhook",
-          severity: whStatus === "error" ? "error" : whStatus === "skipped" ? "warning" : "info",
-          message: `[Webhook] ${props?.provider || "unknown"} → ${whStatus}${props?.errorMessage ? `: ${props.errorMessage}` : ""}`,
+          severity,
+          message: `[Webhook] ${provider} → ${outcomeLabel}${eventName ? ` (${eventName})` : ""}${props?.errorMessage ? `: ${props.errorMessage}` : ""}`,
           metadata: {
+            sessionId: normalizeTerminalTraceString(props?.sessionId),
+            channel: normalizeTerminalTraceString(props?.channel),
             errorMessage: props?.errorMessage as string | undefined,
+            pipelineStage: "ingress",
+            webhookOutcome: outcome,
+            webhookEventName: eventName,
+            webhookEndpoint: endpoint,
+            providerEventId,
+            visibilityScope,
             ...(isLayerMode && {
               orgName: scopedOrg.orgName,
               orgSlug: scopedOrg.orgSlug,
@@ -260,8 +540,20 @@ export const getTerminalFeed = query({
       }
     }
 
-    // Sort by timestamp ascending (oldest first → newest at bottom)
-    entries.sort((a, b) => a.timestamp - b.timestamp);
+    // Sort by timestamp ascending with deterministic tie-breakers.
+    entries.sort((a, b) => {
+      if (a.timestamp !== b.timestamp) {
+        return a.timestamp - b.timestamp;
+      }
+      const aOrdinal =
+        typeof a.metadata?.eventOrdinal === "number" ? a.metadata.eventOrdinal : 0;
+      const bOrdinal =
+        typeof b.metadata?.eventOrdinal === "number" ? b.metadata.eventOrdinal : 0;
+      if (aOrdinal !== bOrdinal) {
+        return aOrdinal - bOrdinal;
+      }
+      return a.id.localeCompare(b.id);
+    });
 
     // Trim to limit
     const trimmed = entries.slice(-limit);
@@ -317,10 +609,25 @@ export const checkLayerScopeAvailable = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
+    scopeOrganizationId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
-    const available = await hasSubOrganizations(ctx.db, args.organizationId);
-    return { available };
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, args.organizationId);
+    const isSuperAdmin =
+      userContext.isGlobal && userContext.roleName === "super_admin";
+    const { scopeOrganizationId } = resolveScopedOrgTarget({
+      viewerOrganizationId: args.organizationId,
+      requestedScopeOrganizationId: args.scopeOrganizationId,
+      allowCrossOrg: isSuperAdmin,
+    });
+    const available = isSuperAdmin
+      ? await hasSubOrganizations(ctx.db, scopeOrganizationId)
+      : false;
+    return {
+      available,
+      scopeOrganizationId,
+      visibilityScope: isSuperAdmin ? "super_admin" : "org_owner",
+    };
   },
 });

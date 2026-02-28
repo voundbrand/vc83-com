@@ -8,6 +8,7 @@ const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import {
   Loader2,
@@ -26,6 +27,11 @@ interface ManyChatSettingsProps {
 
 export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
   const { user, sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -249,7 +255,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
             style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <MessageSquare size={24} style={{ color: "#0084FF" }} />
@@ -258,10 +264,10 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 className="font-bold text-sm"
                 style={{ color: "var(--window-document-text)" }}
               >
-                ManyChat
+                {tx("ui.integrations.manychat.title", "ManyChat")}
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Multi-channel messaging automation
+                {tx("ui.integrations.manychat.subtitle", "Multi-channel messaging automation")}
               </p>
             </div>
           </div>
@@ -283,7 +289,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 style={{ color: "var(--window-document-text)" }}
               />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading connection status...
+                {tx("ui.integrations.manychat.loading_connection_status", "Loading connection status...")}
               </p>
             </div>
           ) : isConfigured && isEnabled ? (
@@ -303,7 +309,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                     className="text-xs font-bold"
                     style={{ color: "#10b981" }}
                   >
-                    Connected
+                    {tx("ui.integrations.shared.connected", "Connected")}
                   </span>
                 </div>
 
@@ -313,13 +319,15 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      API Key
+                      {tx("ui.integrations.shared.api_key", "API Key")}
                     </p>
                     <p
                       className="text-xs"
                       style={{ color: "var(--neutral-gray)" }}
                     >
-                      {settings?.hasApiKey ? "Configured (hidden)" : "Not set"}
+                      {settings?.hasApiKey
+                        ? tx("ui.integrations.manychat.configured_hidden", "Configured (hidden)")
+                        : tx("ui.integrations.shared.not_set", "Not set")}
                     </p>
                   </div>
                   <div>
@@ -327,13 +335,15 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Contact Sync
+                      {tx("ui.integrations.manychat.contact_sync", "Contact Sync")}
                     </p>
                     <p
                       className="text-xs"
                       style={{ color: "var(--neutral-gray)" }}
                     >
-                      {settings?.syncContacts ? "Enabled" : "Disabled"}
+                      {settings?.syncContacts
+                        ? tx("ui.integrations.shared.enabled", "Enabled")
+                        : tx("ui.integrations.shared.disabled", "Disabled")}
                     </p>
                   </div>
                 </div>
@@ -367,7 +377,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Available Features
+                  {tx("ui.integrations.manychat.available_features", "Available Features")}
                 </p>
                 <div
                   className="space-y-1 text-xs"
@@ -375,31 +385,31 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 >
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Facebook Messenger automation</span>
+                    <span>{tx("ui.integrations.manychat.feature_facebook_messenger", "Facebook Messenger automation")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Instagram Direct messaging</span>
+                    <span>{tx("ui.integrations.manychat.feature_instagram_direct", "Instagram Direct messaging")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>WhatsApp messaging (via ManyChat)</span>
+                    <span>{tx("ui.integrations.manychat.feature_whatsapp", "WhatsApp messaging (via ManyChat)")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>SMS messaging</span>
+                    <span>{tx("ui.integrations.manychat.feature_sms", "SMS messaging")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Subscriber management & tagging</span>
+                    <span>{tx("ui.integrations.manychat.feature_subscriber_management", "Subscriber management & tagging")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Flow triggering from platform events</span>
+                    <span>{tx("ui.integrations.manychat.feature_flow_triggering", "Flow triggering from platform events")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Contact sync (CRM to ManyChat)</span>
+                    <span>{tx("ui.integrations.manychat.feature_contact_sync", "Contact sync (CRM to ManyChat)")}</span>
                   </div>
                 </div>
               </div>
@@ -416,13 +426,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Webhook URL
+                  {tx("ui.integrations.shared.webhook_url", "Webhook URL")}
                 </p>
                 <p
                   className="text-xs mb-2"
                   style={{ color: "var(--neutral-gray)" }}
                 >
-                  Add this URL in your ManyChat Flow actions to receive events:
+                  {tx("ui.integrations.manychat.webhook_help", "Add this URL in your ManyChat Flow actions to receive events:")}
                 </p>
                 <div className="flex items-center gap-2">
                   <div
@@ -439,7 +449,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                     onClick={handleCopyWebhookUrl}
                     className="p-2 border-2 rounded hover:bg-gray-100"
                     style={{ borderColor: "var(--window-document-border)" }}
-                    title="Copy webhook URL"
+                    title={tx("ui.integrations.manychat.copy_webhook_url", "Copy webhook URL")}
                   >
                     <Copy size={14} style={{ color: "var(--window-document-text)" }} />
                   </button>
@@ -458,14 +468,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Default Flow Mappings
+                  {tx("ui.integrations.manychat.default_flow_mappings", "Default Flow Mappings")}
                 </p>
                 <p
                   className="text-xs mb-3"
                   style={{ color: "var(--neutral-gray)" }}
                 >
-                  Map platform events to ManyChat flows. Enter the flow
-                  namespace from ManyChat.
+                  {tx(
+                    "ui.integrations.manychat.default_flow_mappings_help",
+                    "Map platform events to ManyChat flows. Enter the flow namespace from ManyChat.",
+                  )}
                 </p>
 
                 <div className="space-y-3">
@@ -474,13 +486,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Order Confirmation Flow
+                      {tx("ui.integrations.manychat.order_confirmation_flow", "Order Confirmation Flow")}
                     </label>
                     <input
                       type="text"
                       value={orderConfirmationFlow}
                       onChange={(e) => setOrderConfirmationFlow(e.target.value)}
-                      placeholder="e.g. content20250101000001_000000"
+                      placeholder={tx("ui.integrations.manychat.flow_namespace_example", "e.g. content20250101000001_000000")}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -494,13 +506,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Event Reminder Flow
+                      {tx("ui.integrations.manychat.event_reminder_flow", "Event Reminder Flow")}
                     </label>
                     <input
                       type="text"
                       value={eventReminderFlow}
                       onChange={(e) => setEventReminderFlow(e.target.value)}
-                      placeholder="Flow namespace"
+                      placeholder={tx("ui.integrations.manychat.flow_namespace", "Flow namespace")}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -514,13 +526,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Welcome Sequence Flow
+                      {tx("ui.integrations.manychat.welcome_sequence_flow", "Welcome Sequence Flow")}
                     </label>
                     <input
                       type="text"
                       value={welcomeSequenceFlow}
                       onChange={(e) => setWelcomeSequenceFlow(e.target.value)}
-                      placeholder="Flow namespace"
+                      placeholder={tx("ui.integrations.manychat.flow_namespace", "Flow namespace")}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -534,13 +546,13 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Abandoned Cart Flow
+                      {tx("ui.integrations.manychat.abandoned_cart_flow", "Abandoned Cart Flow")}
                     </label>
                     <input
                       type="text"
                       value={abandonedCartFlow}
                       onChange={(e) => setAbandonedCartFlow(e.target.value)}
-                      placeholder="Flow namespace"
+                      placeholder={tx("ui.integrations.manychat.flow_namespace", "Flow namespace")}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -560,10 +572,10 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                     {isConnecting ? (
                       <>
                         <Loader2 size={14} className="mr-1 animate-spin" />
-                        Saving...
+                        {tx("ui.integrations.shared.saving", "Saving...")}
                       </>
                     ) : (
-                      "Save Flow Mappings"
+                      tx("ui.integrations.manychat.save_flow_mappings", "Save Flow Mappings")
                     )}
                   </InteriorButton>
                 </div>
@@ -580,10 +592,10 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   {isTesting ? (
                     <>
                       <Loader2 size={14} className="mr-1 animate-spin" />
-                      Testing...
+                      {tx("ui.integrations.manychat.testing", "Testing...")}
                     </>
                   ) : (
-                    "Test Connection"
+                    tx("ui.integrations.manychat.test_connection", "Test Connection")
                   )}
                 </InteriorButton>
                 <InteriorButton
@@ -591,7 +603,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   onClick={handleDisconnect}
                   className="flex-1"
                 >
-                  Disconnect
+                  {tx("ui.integrations.shared.disconnect", "Disconnect")}
                 </InteriorButton>
               </div>
             </div>
@@ -610,14 +622,16 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-sm font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Not Connected
+                  {tx("ui.integrations.shared.not_connected", "Not Connected")}
                 </p>
                 <p
                   className="text-xs mb-4"
                   style={{ color: "var(--neutral-gray)" }}
                 >
-                  Connect your ManyChat account to automate messaging across
-                  Facebook Messenger, Instagram, WhatsApp, and SMS.
+                  {tx(
+                    "ui.integrations.manychat.not_connected_description",
+                    "Connect your ManyChat account to automate messaging across Facebook Messenger, Instagram, WhatsApp, and SMS.",
+                  )}
                 </p>
               </div>
 
@@ -633,7 +647,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs font-bold mb-2"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Features
+                  {tx("ui.integrations.shared.features", "Features")}
                 </p>
                 <div
                   className="space-y-1 text-xs"
@@ -642,26 +656,26 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   <div className="flex items-start gap-2">
                     <span>&#128172;</span>
                     <span>
-                      Facebook Messenger, Instagram, WhatsApp, SMS
+                      {tx("ui.integrations.manychat.feature_channel_list", "Facebook Messenger, Instagram, WhatsApp, SMS")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128101;</span>
-                    <span>Subscriber management and segmentation</span>
+                    <span>{tx("ui.integrations.manychat.feature_subscriber_segmentation", "Subscriber management and segmentation")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#9889;</span>
                     <span>
-                      Trigger automation flows from platform events
+                      {tx("ui.integrations.manychat.feature_trigger_automation", "Trigger automation flows from platform events")}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128260;</span>
-                    <span>Sync CRM contacts to ManyChat subscribers</span>
+                    <span>{tx("ui.integrations.manychat.feature_sync_crm_contacts", "Sync CRM contacts to ManyChat subscribers")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128274;</span>
-                    <span>Secure API key authentication</span>
+                    <span>{tx("ui.integrations.manychat.feature_secure_auth", "Secure API key authentication")}</span>
                   </div>
                 </div>
               </div>
@@ -678,7 +692,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs font-bold mb-3"
                   style={{ color: "var(--window-document-text)" }}
                 >
-                  Enter your ManyChat API key
+                  {tx("ui.integrations.manychat.enter_api_key", "Enter your ManyChat API key")}
                 </p>
 
                 {validationError && (
@@ -700,7 +714,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      API Key
+                      {tx("ui.integrations.shared.api_key", "API Key")}
                     </label>
                     <div className="relative">
                       <input
@@ -710,7 +724,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                           setApiKey(e.target.value);
                           setValidationError(null);
                         }}
-                        placeholder="Your ManyChat API key"
+                        placeholder={tx("ui.integrations.manychat.api_key_placeholder", "Your ManyChat API key")}
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
                           borderColor: "var(--window-document-border)",
@@ -735,7 +749,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                       className="text-xs mt-1"
                       style={{ color: "var(--neutral-gray)" }}
                     >
-                      Found in ManyChat Settings &gt; API &gt; Token
+                      {tx("ui.integrations.manychat.api_key_help", "Found in ManyChat Settings > API > Token")}
                     </p>
                   </div>
 
@@ -752,7 +766,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                         className="text-xs"
                         style={{ color: "var(--window-document-text)" }}
                       >
-                        Enable contact sync (CRM to ManyChat)
+                        {tx("ui.integrations.manychat.enable_contact_sync", "Enable contact sync (CRM to ManyChat)")}
                       </span>
                     </label>
                   </div>
@@ -768,7 +782,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
-                How to find your ManyChat API key
+                {tx("ui.integrations.manychat.how_to_find_api_key", "How to find your ManyChat API key")}
               </a>
 
               {/* Connect Button */}
@@ -780,12 +794,12 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Connecting...
+                    {tx("ui.integrations.shared.connecting", "Connecting...")}
                   </>
                 ) : (
                   <>
                     <MessageSquare size={16} className="mr-2 inline" />
-                    Connect ManyChat
+                    {tx("ui.integrations.manychat.connect", "Connect ManyChat")}
                   </>
                 )}
               </InteriorButton>
@@ -795,7 +809,7 @@ export function ManyChatSettings({ onBack }: ManyChatSettingsProps) {
                   className="text-xs text-center italic"
                   style={{ color: "var(--neutral-gray)" }}
                 >
-                  Please sign in to connect your ManyChat account
+                  {tx("ui.integrations.manychat.sign_in_required", "Please sign in to connect your ManyChat account")}
                 </p>
               )}
             </div>

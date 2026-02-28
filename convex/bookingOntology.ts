@@ -26,7 +26,13 @@
  * - Conflict detection with buffer time
  */
 
-import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+  internalAction,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
@@ -123,6 +129,88 @@ export interface BookingDetail extends BookingListItem {
     resourceName: string;
     resourceType: string;
   }>;
+}
+
+export type PharmacistVacationVerdict =
+  | "approved"
+  | "conflict"
+  | "denied"
+  | "blocked";
+
+export interface PharmacistVacationDecisionInput {
+  blockedReasons: string[];
+  blockedPeriodMatchIds: string[];
+  violatesRequestWindow: boolean;
+  hasCalendarOverlap: boolean;
+  concurrentAwayCount: number;
+  maxConcurrentAway: number;
+  minOnDutyTotalViolation: boolean;
+  minOnDutyRoleViolations: string[];
+}
+
+export interface PharmacistVacationDecisionResult {
+  verdict: PharmacistVacationVerdict;
+  reasonCodes: string[];
+  failClosed: boolean;
+}
+
+export function evaluatePharmacistVacationDecision(
+  input: PharmacistVacationDecisionInput
+): PharmacistVacationDecisionResult {
+  const dedupe = (values: string[]) =>
+    Array.from(new Set(values.filter((value) => value.trim().length > 0)));
+  const blockedReasons = dedupe(input.blockedReasons);
+  if (blockedReasons.length > 0) {
+    return {
+      verdict: "blocked",
+      reasonCodes: blockedReasons,
+      failClosed: true,
+    };
+  }
+
+  if (input.blockedPeriodMatchIds.length > 0) {
+    return {
+      verdict: "denied",
+      reasonCodes: ["blocked_period"],
+      failClosed: false,
+    };
+  }
+
+  if (input.violatesRequestWindow) {
+    return {
+      verdict: "denied",
+      reasonCodes: ["request_window_violation"],
+      failClosed: false,
+    };
+  }
+
+  const conflictReasons: string[] = [];
+  if (input.hasCalendarOverlap) {
+    conflictReasons.push("calendar_overlap");
+  }
+  if (input.concurrentAwayCount >= input.maxConcurrentAway) {
+    conflictReasons.push("max_concurrent_away");
+  }
+  if (input.minOnDutyTotalViolation) {
+    conflictReasons.push("min_on_duty_total_violation");
+  }
+  if (input.minOnDutyRoleViolations.length > 0) {
+    conflictReasons.push("min_on_duty_role_violation");
+  }
+
+  if (conflictReasons.length > 0) {
+    return {
+      verdict: "conflict",
+      reasonCodes: dedupe(conflictReasons),
+      failClosed: false,
+    };
+  }
+
+  return {
+    verdict: "approved",
+    reasonCodes: [],
+    failClosed: false,
+  };
 }
 
 // ============================================================================
@@ -1488,6 +1576,570 @@ export const listBookingsInternal = internalQuery({
     return {
       bookings: bookings.slice(offset, offset + limit),
       total: bookings.length,
+    };
+  },
+});
+
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter((value) => value.trim().length > 0)));
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value;
+}
+
+function parseIsoDateToUtcDayStart(value: string): number | undefined {
+  const match = ISO_DATE_PATTERN.exec(value);
+  if (!match) return undefined;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const valid =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+  if (!valid) return undefined;
+  return Date.UTC(year, month - 1, day);
+}
+
+function getUtcDayStartNow(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
+function rangesOverlap(startA: number, endAExclusive: number, startB: number, endBExclusive: number) {
+  return startA < endBExclusive && endAExclusive > startB;
+}
+
+function normalizeRoleFloors(value: unknown): Array<{ roleTag: string; minOnDuty: number }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const floors: Array<{ roleTag: string; minOnDuty: number }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const roleTag = normalizeOptionalString(row.roleTag);
+    const minOnDuty = asFiniteNumber(row.minOnDuty);
+    if (!roleTag || minOnDuty === undefined || minOnDuty < 0) continue;
+    floors.push({ roleTag, minOnDuty: Math.floor(minOnDuty) });
+  }
+  return floors;
+}
+
+function normalizeBlockedPeriods(value: unknown): Array<{
+  id: string;
+  startDate: string;
+  endDate: string;
+  recurrence: "none" | "yearly";
+}> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const periods: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    recurrence: "none" | "yearly";
+  }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const id = normalizeOptionalString(row.id);
+    const startDate = normalizeOptionalString(row.startDate);
+    const endDate = normalizeOptionalString(row.endDate);
+    const recurrence = row.recurrence === "yearly" ? "yearly" : "none";
+    if (!id || !startDate || !endDate) continue;
+    if (
+      parseIsoDateToUtcDayStart(startDate) === undefined ||
+      parseIsoDateToUtcDayStart(endDate) === undefined
+    ) {
+      continue;
+    }
+    periods.push({ id, startDate, endDate, recurrence });
+  }
+  return periods;
+}
+
+function normalizeRoleAssignments(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const assignments: Record<string, string[]> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const userKey = normalizeOptionalString(key);
+    if (!userKey) continue;
+    const roleTags = normalizeStringArray(raw);
+    if (roleTags.length > 0) {
+      assignments[userKey] = roleTags;
+    }
+  }
+  return assignments;
+}
+
+function normalizeRoleBaseline(value: unknown): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!Array.isArray(value)) {
+    return map;
+  }
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const roleTag = normalizeOptionalString(row.roleTag);
+    const count =
+      asFiniteNumber(row.count) ??
+      asFiniteNumber(row.totalOnDuty) ??
+      asFiniteNumber(row.totalStaff);
+    if (!roleTag || count === undefined || count < 0) continue;
+    map.set(roleTag, Math.floor(count));
+  }
+  return map;
+}
+
+function collectVacationRequestRoleTags(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const props = value as Record<string, unknown>;
+  const requester = props.requester as Record<string, unknown> | undefined;
+  const requesterRoleTags = normalizeStringArray(requester?.roleTags);
+  if (requesterRoleTags.length > 0) {
+    return requesterRoleTags;
+  }
+  return normalizeStringArray(props.requestedShiftTags);
+}
+
+function resolveBlockedPeriodMatches(args: {
+  blockedPeriods: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    recurrence: "none" | "yearly";
+  }>;
+  requestStartDate: string;
+  requestEndDate: string;
+}): string[] {
+  const requestStartMs = parseIsoDateToUtcDayStart(args.requestStartDate);
+  const requestEndStartMs = parseIsoDateToUtcDayStart(args.requestEndDate);
+  if (requestStartMs === undefined || requestEndStartMs === undefined) {
+    return [];
+  }
+  const requestEndExclusiveMs = requestEndStartMs + DAY_MS;
+  const requestStartYear = new Date(requestStartMs).getUTCFullYear();
+  const requestEndYear = new Date(requestEndStartMs).getUTCFullYear();
+
+  const matches: string[] = [];
+  for (const period of args.blockedPeriods) {
+    const blockedStartMs = parseIsoDateToUtcDayStart(period.startDate);
+    const blockedEndStartMs = parseIsoDateToUtcDayStart(period.endDate);
+    if (blockedStartMs === undefined || blockedEndStartMs === undefined) continue;
+
+    if (period.recurrence === "none") {
+      if (rangesOverlap(requestStartMs, requestEndExclusiveMs, blockedStartMs, blockedEndStartMs + DAY_MS)) {
+        matches.push(period.id);
+      }
+      continue;
+    }
+
+    const blockedStartDate = new Date(blockedStartMs);
+    const blockedEndDate = new Date(blockedEndStartMs);
+    for (let year = requestStartYear - 1; year <= requestEndYear + 1; year++) {
+      const recurringStart = Date.UTC(
+        year,
+        blockedStartDate.getUTCMonth(),
+        blockedStartDate.getUTCDate()
+      );
+      const recurringEnd = Date.UTC(
+        year,
+        blockedEndDate.getUTCMonth(),
+        blockedEndDate.getUTCDate()
+      );
+      const recurringEndExclusive =
+        recurringEnd >= recurringStart ? recurringEnd + DAY_MS : recurringEnd + 366 * DAY_MS;
+      if (rangesOverlap(requestStartMs, requestEndExclusiveMs, recurringStart, recurringEndExclusive)) {
+        matches.push(period.id);
+        break;
+      }
+    }
+  }
+  return dedupeStrings(matches);
+}
+
+export const getVacationPolicyInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    policyObjectId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const policy = (await ctx.db.get(args.policyObjectId)) as
+      | {
+          organizationId?: unknown;
+          type?: unknown;
+        }
+      | null;
+    if (!policy || policy.organizationId !== args.organizationId) {
+      return null;
+    }
+    if (policy.type !== "vacation_policy") {
+      return null;
+    }
+    return policy;
+  },
+});
+
+export const listVacationRequestsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "vacation_request")
+      )
+      .collect();
+  },
+});
+
+/**
+ * Evaluate pharmacist vacation policy using persisted vacation request + policy envelopes.
+ */
+export const evaluatePharmacistVacationRequestInternal = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    policyObjectId: v.id("objects"),
+    requestObjectId: v.optional(v.id("objects")),
+    requestedStartDate: v.string(),
+    requestedEndDate: v.string(),
+    requesterSlackUserId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const blockedReasons: string[] = [];
+    const requestStartMs = parseIsoDateToUtcDayStart(args.requestedStartDate);
+    const requestEndStartMs = parseIsoDateToUtcDayStart(args.requestedEndDate);
+    if (requestStartMs === undefined || requestEndStartMs === undefined) {
+      blockedReasons.push("invalid_requested_date_range");
+    }
+    if (
+      requestStartMs !== undefined &&
+      requestEndStartMs !== undefined &&
+      requestEndStartMs < requestStartMs
+    ) {
+      blockedReasons.push("requested_date_range_out_of_order");
+    }
+    const requestEndExclusiveMs =
+      requestEndStartMs !== undefined ? requestEndStartMs + DAY_MS : 0;
+
+    const policy = (await ctx.runQuery(
+      getInternal().bookingOntology.getVacationPolicyInternal,
+      {
+        organizationId: args.organizationId,
+        policyObjectId: args.policyObjectId,
+      }
+    )) as
+      | {
+          status?: string;
+          customProperties?: unknown;
+        }
+      | null;
+    if (!policy) {
+      blockedReasons.push("missing_vacation_policy");
+    }
+    if (policy && policy.status !== "active") {
+      blockedReasons.push("vacation_policy_inactive");
+    }
+
+    const policyProps = (policy?.customProperties || {}) as Record<string, unknown>;
+    const policyVersion = asFiniteNumber(policyProps.policyVersion) || 1;
+    const maxConcurrentAway = asFiniteNumber(policyProps.maxConcurrentAway);
+    if (maxConcurrentAway === undefined || maxConcurrentAway < 0) {
+      blockedReasons.push("missing_policy_max_concurrent_away");
+    }
+
+    const minOnDutyTotal = asFiniteNumber(policyProps.minOnDutyTotal);
+    if (minOnDutyTotal === undefined || minOnDutyTotal < 0) {
+      blockedReasons.push("missing_policy_min_on_duty_total");
+    }
+
+    const requestWindow = (policyProps.requestWindow || {}) as Record<string, unknown>;
+    const minLeadDays = asFiniteNumber(requestWindow.minLeadDays);
+    const maxFutureDays = asFiniteNumber(requestWindow.maxFutureDays);
+    if (
+      minLeadDays === undefined ||
+      maxFutureDays === undefined ||
+      minLeadDays < 0 ||
+      maxFutureDays < 0
+    ) {
+      blockedReasons.push("missing_policy_request_window");
+    }
+
+    const blockedPeriods = normalizeBlockedPeriods(policyProps.blockedPeriods);
+    const roleFloors = normalizeRoleFloors(policyProps.minOnDutyByRole);
+
+    const integrations = (policyProps.integrations || {}) as Record<string, unknown>;
+    const googleIntegration = (integrations.googleCalendar || {}) as
+      | Record<string, unknown>
+      | undefined;
+    const googleProviderConnectionId = normalizeOptionalString(
+      googleIntegration?.providerConnectionId
+    );
+    if (!googleProviderConnectionId) {
+      blockedReasons.push("missing_google_calendar_provider_connection_id");
+    }
+
+    const policyBlockingCalendarIds = normalizeStringArray(
+      googleIntegration?.blockingCalendarIds
+    );
+    let effectiveBlockingCalendarIds = policyBlockingCalendarIds;
+    if (googleProviderConnectionId) {
+      const blockingSnapshot = await ctx.runQuery(
+        getInternal().calendarSyncSubcalendars.getConnectionBlockingCalendarSnapshot,
+        {
+          connectionId: googleProviderConnectionId as Id<"oauthConnections">,
+        }
+      );
+      if (!blockingSnapshot?.exists) {
+        blockedReasons.push("missing_google_calendar_connection");
+      } else if (effectiveBlockingCalendarIds.length === 0) {
+        effectiveBlockingCalendarIds = normalizeStringArray(
+          blockingSnapshot.blockingCalendarIds
+        );
+      }
+    }
+    if (effectiveBlockingCalendarIds.length === 0) {
+      blockedReasons.push("missing_google_blocking_calendar_ids");
+    }
+
+    const coverage = (policyProps.coverage || {}) as Record<string, unknown>;
+    const coverageResourceIds = normalizeStringArray(coverage.resourceIds);
+
+    let calendarConflicts: Array<{
+      eventId: string;
+      calendarId: string;
+      startDateTime: number;
+      endDateTime: number;
+      source: "external_calendar";
+    }> = [];
+    if (
+      blockedReasons.length === 0 &&
+      googleProviderConnectionId &&
+      requestStartMs !== undefined &&
+      requestEndStartMs !== undefined
+    ) {
+      const calendarSnapshot = await ctx.runQuery(
+        getInternal().calendarSyncOntology.getGoogleCalendarConflictSnapshotInternal,
+        {
+          organizationId: args.organizationId,
+          connectionId: googleProviderConnectionId as Id<"oauthConnections">,
+          startDateTime: requestStartMs,
+          endDateTime: requestEndExclusiveMs,
+          blockingCalendarIds: effectiveBlockingCalendarIds,
+        }
+      );
+      if (calendarSnapshot.status !== "resolved") {
+        blockedReasons.push(...normalizeStringArray(calendarSnapshot.blockedReasons));
+      } else {
+        calendarConflicts = calendarSnapshot.conflicts as Array<{
+          eventId: string;
+          calendarId: string;
+          startDateTime: number;
+          endDateTime: number;
+          source: "external_calendar";
+        }>;
+      }
+    }
+
+    let bookingConflicts: Array<{
+      bookingId: string;
+      startDateTime: number;
+      endDateTime: number;
+      source: "booking";
+      resourceIds: string[];
+    }> = [];
+    if (
+      blockedReasons.length === 0 &&
+      requestStartMs !== undefined &&
+      requestEndStartMs !== undefined
+    ) {
+      bookingConflicts = (await ctx.runQuery(
+        getInternal().availabilityOntology.listBookingOverlapsInternal,
+        {
+          organizationId: args.organizationId,
+          startDateTime: requestStartMs,
+          endDateTime: requestEndExclusiveMs,
+          resourceIds:
+            coverageResourceIds.length > 0 ? coverageResourceIds : undefined,
+        }
+      )) as Array<{
+        bookingId: string;
+        startDateTime: number;
+        endDateTime: number;
+        source: "booking";
+        resourceIds: string[];
+      }>;
+    }
+
+    const blockedPeriodMatchIds = resolveBlockedPeriodMatches({
+      blockedPeriods,
+      requestStartDate: args.requestedStartDate,
+      requestEndDate: args.requestedEndDate,
+    });
+
+    const todayDayStart = getUtcDayStartNow();
+    const requestLeadDays =
+      requestStartMs !== undefined
+        ? Math.floor((requestStartMs - todayDayStart) / DAY_MS)
+        : 0;
+    const requestFutureDays =
+      requestEndStartMs !== undefined
+        ? Math.floor((requestEndStartMs - todayDayStart) / DAY_MS)
+        : 0;
+    const violatesRequestWindow =
+      minLeadDays !== undefined &&
+      maxFutureDays !== undefined &&
+      (requestLeadDays < minLeadDays || requestFutureDays > maxFutureDays);
+
+    const overlappingVacationRequests = (await ctx.runQuery(
+      getInternal().bookingOntology.listVacationRequestsInternal,
+      {
+        organizationId: args.organizationId,
+      }
+    )) as Array<{
+      _id: Id<"objects">;
+      status?: string;
+      customProperties?: unknown;
+    }>;
+
+    let concurrentAwayCount = 0;
+    const awayCountsByRole = new Map<string, number>();
+    for (const request of overlappingVacationRequests) {
+      if (args.requestObjectId && request._id === args.requestObjectId) continue;
+      if (request.status === "cancelled" || request.status === "denied") continue;
+
+      const requestProps = (request.customProperties || {}) as Record<string, unknown>;
+      const startDate = normalizeOptionalString(requestProps.requestedStartDate);
+      const endDate = normalizeOptionalString(requestProps.requestedEndDate);
+      if (!startDate || !endDate) continue;
+      const startMs = parseIsoDateToUtcDayStart(startDate);
+      const endStartMs = parseIsoDateToUtcDayStart(endDate);
+      if (startMs === undefined || endStartMs === undefined) continue;
+      if (
+        requestStartMs === undefined ||
+        requestEndStartMs === undefined ||
+        !rangesOverlap(requestStartMs, requestEndExclusiveMs, startMs, endStartMs + DAY_MS)
+      ) {
+        continue;
+      }
+
+      concurrentAwayCount += 1;
+      for (const roleTag of collectVacationRequestRoleTags(requestProps)) {
+        awayCountsByRole.set(roleTag, (awayCountsByRole.get(roleTag) || 0) + 1);
+      }
+    }
+
+    const staffingBaseline = (policyProps.staffingBaseline || policyProps.staffing || {}) as Record<
+      string,
+      unknown
+    >;
+    const totalStaffCount =
+      asFiniteNumber(staffingBaseline.totalStaffCount) ??
+      asFiniteNumber(staffingBaseline.totalOnDuty);
+    const roleBaseline = normalizeRoleBaseline(staffingBaseline.byRole);
+    const roleAssignments = normalizeRoleAssignments(
+      staffingBaseline.roleAssignmentsBySlackUserId ||
+        policyProps.roleAssignmentsBySlackUserId
+    );
+    const requesterRoleTags = args.requesterSlackUserId
+      ? roleAssignments[args.requesterSlackUserId] || []
+      : [];
+    if (roleFloors.length > 0 && requesterRoleTags.length === 0) {
+      blockedReasons.push("missing_requester_role_tags");
+    }
+
+    let minOnDutyTotalAfterDecision: number | null = null;
+    let minOnDutyTotalViolation = false;
+    if (minOnDutyTotal !== undefined) {
+      if (minOnDutyTotal > 0 && totalStaffCount === undefined) {
+        blockedReasons.push("missing_staffing_baseline_total");
+      } else if (totalStaffCount !== undefined) {
+        minOnDutyTotalAfterDecision = totalStaffCount - (concurrentAwayCount + 1);
+        minOnDutyTotalViolation = minOnDutyTotalAfterDecision < minOnDutyTotal;
+      }
+    }
+
+    const minOnDutyByRoleAfterDecision: Array<{
+      roleTag: string;
+      remainingOnDuty: number;
+    }> = [];
+    const minOnDutyRoleViolations: string[] = [];
+    for (const roleFloor of roleFloors) {
+      const baseline = roleBaseline.get(roleFloor.roleTag);
+      if (baseline === undefined) {
+        blockedReasons.push(`missing_staffing_baseline_role_${roleFloor.roleTag}`);
+        continue;
+      }
+      const currentlyAway = awayCountsByRole.get(roleFloor.roleTag) || 0;
+      const requesterInRole = requesterRoleTags.includes(roleFloor.roleTag) ? 1 : 0;
+      const remainingOnDuty = baseline - currentlyAway - requesterInRole;
+      minOnDutyByRoleAfterDecision.push({
+        roleTag: roleFloor.roleTag,
+        remainingOnDuty,
+      });
+      if (remainingOnDuty < roleFloor.minOnDuty) {
+        minOnDutyRoleViolations.push(roleFloor.roleTag);
+      }
+    }
+
+    const decision = evaluatePharmacistVacationDecision({
+      blockedReasons: dedupeStrings(blockedReasons),
+      blockedPeriodMatchIds,
+      violatesRequestWindow,
+      hasCalendarOverlap: calendarConflicts.length + bookingConflicts.length > 0,
+      concurrentAwayCount,
+      maxConcurrentAway: maxConcurrentAway ?? 0,
+      minOnDutyTotalViolation,
+      minOnDutyRoleViolations,
+    });
+
+    return {
+      verdict: decision.verdict,
+      reasonCodes: decision.reasonCodes,
+      failClosed: decision.failClosed,
+      blockedReasons: dedupeStrings(blockedReasons),
+      evaluationSnapshot: {
+        policyVersion,
+        concurrentAwayCount,
+        minOnDutyTotalAfterDecision,
+        minOnDutyByRoleAfterDecision,
+        blockedPeriodMatchIds,
+        calendarConflicts: [
+          ...calendarConflicts,
+          ...bookingConflicts.map((conflict) => ({
+            startDateTime: conflict.startDateTime,
+            endDateTime: conflict.endDateTime,
+            source: "booking" as const,
+          })),
+        ],
+      },
+      blockingCalendarIds: effectiveBlockingCalendarIds,
+      requesterRoleTags,
+      minOnDutyRoleViolations,
     };
   },
 });

@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation with large integration modules
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import {
   Loader2,
@@ -85,6 +86,11 @@ const PRIORITY_OPTIONS = [
 
 export function PushoverSettings({ onBack }: PushoverSettingsProps) {
   const { user, sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [apiToken, setApiToken] = useState("");
@@ -270,16 +276,16 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
             style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.pushover.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <Bell size={24} style={{ color: "#249df0" }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                Pushover
+                {tx("ui.integrations.pushover.title", "Pushover")}
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Real-time push notifications
+                {tx("ui.integrations.pushover.subtitle", "Real-time push notifications")}
               </p>
             </div>
           </div>
@@ -294,7 +300,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
             >
               <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading connection status...
+                {tx("ui.integrations.pushover.loading_status", "Loading connection status...")}
               </p>
             </div>
           ) : isConfigured && isEnabled ? (
@@ -308,24 +314,28 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                   <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                    Connected
+                    {tx("ui.integrations.pushover.connected", "Connected")}
                   </span>
                 </div>
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      API Token
+                      {tx("ui.integrations.pushover.api_token", "API Token")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {settings?.hasApiToken ? "Configured (hidden)" : "Not set"}
+                      {settings?.hasApiToken
+                        ? tx("ui.integrations.pushover.configured_hidden", "Configured (hidden)")
+                        : tx("ui.integrations.pushover.not_set", "Not set")}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      User Key
+                      {tx("ui.integrations.pushover.user_key", "User Key")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {settings?.hasUserKey ? "Configured (hidden)" : "Not set"}
+                      {settings?.hasUserKey
+                        ? tx("ui.integrations.pushover.configured_hidden", "Configured (hidden)")
+                        : tx("ui.integrations.pushover.not_set", "Not set")}
                     </p>
                   </div>
                 </div>
@@ -353,7 +363,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Notify On
+                  {tx("ui.integrations.pushover.notify_on", "Notify On")}
                 </p>
                 <div className="space-y-2">
                   {(Object.keys(NOTIFY_LABELS) as Array<keyof NotifyOnConfig>).map((key) => (
@@ -378,7 +388,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Defaults
+                  {tx("ui.integrations.pushover.defaults", "Defaults")}
                 </p>
                 <div className="space-y-3">
                   <div>
@@ -386,7 +396,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Sound
+                      {tx("ui.integrations.pushover.sound", "Sound")}
                     </label>
                     <select
                       value={defaultSound}
@@ -410,7 +420,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      Priority
+                      {tx("ui.integrations.pushover.priority", "Priority")}
                     </label>
                     <select
                       value={defaultPriority}
@@ -440,10 +450,10 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                     {isConnecting ? (
                       <>
                         <Loader2 size={14} className="mr-1 animate-spin" />
-                        Saving...
+                        {tx("ui.integrations.pushover.saving", "Saving...")}
                       </>
                     ) : (
-                      "Save Settings"
+                      tx("ui.integrations.pushover.save_settings", "Save Settings")
                     )}
                   </InteriorButton>
                 </div>
@@ -460,14 +470,14 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                   {isTesting ? (
                     <>
                       <Loader2 size={14} className="mr-1 animate-spin" />
-                      Sending...
+                      {tx("ui.integrations.pushover.sending", "Sending...")}
                     </>
                   ) : (
-                    "Send Test"
+                    tx("ui.integrations.pushover.send_test", "Send Test")
                   )}
                 </InteriorButton>
                 <InteriorButton variant="secondary" onClick={handleDisconnect} className="flex-1">
-                  Disconnect
+                  {tx("ui.integrations.pushover.disconnect", "Disconnect")}
                 </InteriorButton>
               </div>
             </div>
@@ -480,11 +490,13 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
               >
                 <Bell size={48} className="mx-auto mb-4" style={{ color: "#249df0" }} />
                 <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Not Connected
+                  {tx("ui.integrations.pushover.not_connected", "Not Connected")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Connect Pushover to receive instant push notifications for bookings, payments,
-                  messages, and system alerts.
+                  {tx(
+                    "ui.integrations.pushover.connect_prompt",
+                    "Connect Pushover to receive instant push notifications for bookings, payments, messages, and system alerts."
+                  )}
                 </p>
               </div>
 
@@ -494,24 +506,24 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Features
+                  {tx("ui.integrations.pushover.features", "Features")}
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-start gap-2">
                     <span>&#128276;</span>
-                    <span>Real-time push notifications to your devices</span>
+                    <span>{tx("ui.integrations.pushover.feature_realtime", "Real-time push notifications to your devices")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#9889;</span>
-                    <span>Configurable event triggers</span>
+                    <span>{tx("ui.integrations.pushover.feature_triggers", "Configurable event triggers")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128266;</span>
-                    <span>Custom sounds and priority levels</span>
+                    <span>{tx("ui.integrations.pushover.feature_sounds", "Custom sounds and priority levels")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128241;</span>
-                    <span>iOS, Android, and desktop support</span>
+                    <span>{tx("ui.integrations.pushover.feature_platforms", "iOS, Android, and desktop support")}</span>
                   </div>
                 </div>
               </div>
@@ -522,7 +534,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Enter your Pushover credentials
+                  {tx("ui.integrations.pushover.enter_credentials", "Enter your Pushover credentials")}
                 </p>
 
                 {validationError && (
@@ -544,7 +556,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      API Token (Application Token)
+                      {tx("ui.integrations.pushover.api_token_application", "API Token (Application Token)")}
                     </label>
                     <div className="relative">
                       <input
@@ -554,7 +566,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                           setApiToken(e.target.value);
                           setValidationError(null);
                         }}
-                        placeholder="Your Pushover API token"
+                        placeholder={tx("ui.integrations.pushover.api_token_placeholder", "Your Pushover API token")}
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
                           borderColor: "var(--window-document-border)",
@@ -572,7 +584,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       </button>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Create an application at pushover.net/apps/build
+                      {tx("ui.integrations.pushover.create_application_hint", "Create an application at pushover.net/apps/build")}
                     </p>
                   </div>
 
@@ -581,7 +593,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       className="text-xs font-bold block mb-1"
                       style={{ color: "var(--window-document-text)" }}
                     >
-                      User Key
+                      {tx("ui.integrations.pushover.user_key", "User Key")}
                     </label>
                     <div className="relative">
                       <input
@@ -591,7 +603,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                           setUserKey(e.target.value);
                           setValidationError(null);
                         }}
-                        placeholder="Your Pushover user key"
+                        placeholder={tx("ui.integrations.pushover.user_key_placeholder", "Your Pushover user key")}
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
                           borderColor: "var(--window-document-border)",
@@ -609,7 +621,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                       </button>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Found on your Pushover dashboard
+                      {tx("ui.integrations.pushover.user_key_hint", "Found on your Pushover dashboard")}
                     </p>
                   </div>
                 </div>
@@ -624,7 +636,7 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
-                Pushover API documentation
+                {tx("ui.integrations.pushover.api_docs", "Pushover API documentation")}
               </a>
 
               {/* Connect Button */}
@@ -636,16 +648,16 @@ export function PushoverSettings({ onBack }: PushoverSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Connecting...
+                    {tx("ui.integrations.pushover.connecting", "Connecting...")}
                   </>
                 ) : (
-                  "Connect Pushover"
+                  tx("ui.integrations.pushover.connect", "Connect Pushover")
                 )}
               </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                  Please sign in to connect your Pushover account
+                  {tx("ui.integrations.pushover.sign_in_prompt", "Please sign in to connect your Pushover account")}
                 </p>
               )}
             </div>

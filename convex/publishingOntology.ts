@@ -201,6 +201,17 @@ export const createPublishedPage = mutation({
         customJs: "",
         headerHtml: "",
         footerHtml: "",
+        // Deployment defaults
+        deployment: {
+          mode: "managed",
+          platform: "managed",
+          status: "not_deployed",
+          deployedUrl: null,
+          githubRepo: null,
+          vercelDeployButton: null,
+          deploymentAttempts: 0,
+          deploymentErrors: [],
+        },
       },
       createdBy: userId,
       createdAt: Date.now(),
@@ -754,6 +765,7 @@ export const updateDeploymentInfo = mutation({
   args: {
     sessionId: v.string(),
     pageId: v.id("objects"),
+    deploymentMode: v.optional(v.union(v.literal("managed"), v.literal("external"))),
     githubRepo: v.optional(v.string()),
     vercelDeployButton: v.optional(v.string()),
     deployedUrl: v.optional(v.string()),
@@ -789,16 +801,22 @@ export const updateDeploymentInfo = mutation({
       throw new Error("Cannot edit published page for another organization");
     }
 
-    // Validate GitHub repo URL format
-    if (args.githubRepo !== undefined && args.githubRepo !== "") {
-      if (!args.githubRepo.startsWith('https://github.com/')) {
+    const currentDeployment = (page.customProperties?.deployment as any) || {};
+    const deploymentMode =
+      args.deploymentMode ||
+      currentDeployment.mode ||
+      "managed";
+    const isExternalMode = deploymentMode === "external";
+
+    // External mode validations
+    if (isExternalMode && args.githubRepo !== undefined && args.githubRepo !== "") {
+      if (!args.githubRepo.startsWith("https://github.com/")) {
         throw new Error("GitHub repository URL must start with 'https://github.com/'");
       }
     }
 
-    // Validate Vercel deploy button URL format
-    if (args.vercelDeployButton !== undefined && args.vercelDeployButton !== "") {
-      if (!args.vercelDeployButton.startsWith('https://vercel.com/new/clone')) {
+    if (isExternalMode && args.vercelDeployButton !== undefined && args.vercelDeployButton !== "") {
+      if (!args.vercelDeployButton.startsWith("https://vercel.com/new/clone")) {
         throw new Error("Vercel deploy button URL must start with 'https://vercel.com/new/clone'");
       }
     }
@@ -811,16 +829,17 @@ export const updateDeploymentInfo = mutation({
         throw new Error("Deployed URL must be a valid URL");
       }
     }
-
-    // Get current deployment data
-    const currentDeployment = (page.customProperties?.deployment as any) || {};
     const deploymentAttempts = currentDeployment.deploymentAttempts || 0;
     const deploymentErrors = currentDeployment.deploymentErrors || [];
 
     // Build updated deployment object
     const updatedDeployment: Record<string, any> = {
       ...currentDeployment,
-      platform: currentDeployment.platform || "vercel",
+      mode: deploymentMode,
+      platform:
+        deploymentMode === "managed"
+          ? "managed"
+          : (currentDeployment.platform || "vercel"),
     };
 
     // Update fields if provided
@@ -939,6 +958,8 @@ export const autoGenerateVercelDeployUrl = mutation({
     // Update deployment info
     const updatedDeployment = {
       ...deployment,
+      mode: "external",
+      platform: "vercel",
       githubRepo: args.githubRepo,
       vercelDeployButton,
       lastUpdated: Date.now(),

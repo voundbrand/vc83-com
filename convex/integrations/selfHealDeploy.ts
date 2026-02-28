@@ -15,7 +15,13 @@
 
 import { action, mutation, query } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { OpenRouterClient } from "../ai/openrouter";
+import type { AiBillingSource } from "../channels/types";
+import {
+  createNonChatAiUsageMeteringRunners,
+  meterNonChatAiUsage,
+} from "../ai/nonChatUsageMetering";
 
 // Lazy-load to avoid TS2589
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +33,141 @@ function getApi(): any {
     _apiCache = require("../_generated/api");
   }
   return _apiCache;
+}
+
+function normalizeNonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toUsageErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    const normalized = error.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  return undefined;
+}
+
+function convertUsdToCents(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round(value * 100));
+}
+
+function extractCompletionUsage(response: unknown): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  providerRequestId?: string;
+} {
+  const usage = (response as { usage?: Record<string, unknown> } | null)?.usage ?? null;
+  const inputTokens = normalizeNonNegativeInt(usage?.prompt_tokens);
+  const outputTokens = normalizeNonNegativeInt(usage?.completion_tokens);
+  const totalTokens = Math.max(
+    normalizeNonNegativeInt(usage?.total_tokens),
+    inputTokens + outputTokens
+  );
+  const providerRequestId = normalizeOptionalString(
+    (response as { id?: unknown } | null)?.id
+  );
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    providerRequestId,
+  };
+}
+
+async function meterSelfHealAnalyzeUsage(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  appId: Id<"objects">;
+  deploymentId: string;
+  client: OpenRouterClient;
+  model: string;
+  billingSource: AiBillingSource;
+  response: unknown;
+  providerError: unknown;
+  startedAt: number;
+}) {
+  const usage = extractCompletionUsage(args.response);
+  const costInCents = convertUsdToCents(
+    args.client.calculateCost(
+      {
+        prompt_tokens: usage.inputTokens,
+        completion_tokens: usage.outputTokens,
+      },
+      args.model
+    )
+  );
+  const meteringRunners = createNonChatAiUsageMeteringRunners({
+    runMutation: args.ctx.runMutation,
+  });
+
+  try {
+    await meterNonChatAiUsage({
+      runners: meteringRunners,
+      organizationId: args.organizationId,
+      requestType: "completion",
+      provider: "openrouter",
+      model: args.model,
+      action: "self_heal_analyze_build_error",
+      requestCount: 1,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      costInCents,
+      usage: {
+        nativeUsageUnit: "tokens",
+        nativeInputUnits: usage.inputTokens,
+        nativeOutputUnits: usage.outputTokens,
+        nativeTotalUnits: usage.totalTokens,
+        nativeUsageQuantity: usage.totalTokens,
+        nativeCostInCents: costInCents,
+        nativeCostCurrency: costInCents > 0 ? "USD" : undefined,
+        nativeCostSource:
+          costInCents > 0 ? "estimated_model_pricing" : "not_available",
+        providerRequestId: usage.providerRequestId,
+        metadata: {
+          appId: args.appId,
+          deploymentId: args.deploymentId,
+          flow: "self_heal_analyze_build_error",
+        },
+      },
+      billingSource: args.billingSource,
+      requestSource: "llm",
+      ledgerMode: "credits_ledger",
+      creditLedgerAction: "self_heal_analyze_build_error",
+      relatedEntityType: "builder_app",
+      relatedEntityId: `${args.appId}`,
+      success: args.providerError === null,
+      errorMessage:
+        args.providerError === null
+          ? undefined
+          : toUsageErrorMessage(args.providerError),
+      requestDurationMs: Date.now() - args.startedAt,
+    });
+  } catch (meteringError) {
+    console.warn(
+      "[SelfHeal] Failed to record non-chat usage:",
+      toUsageErrorMessage(meteringError) ?? String(meteringError)
+    );
+  }
 }
 
 // ============================================================================
@@ -177,12 +318,12 @@ export const analyzeBuildError = action({
       });
 
     // 2. Get OpenRouter API key
-    const aiSettings = await ctx.runQuery(
+    const openRouterBinding = await ctx.runQuery(
       internal.integrations.selfHealDeploy.getOpenRouterKey,
       { organizationId: args.organizationId }
     );
 
-    if (!aiSettings) {
+    if (!openRouterBinding?.apiKey) {
       throw new Error("OpenRouter API key not configured. Self-healing requires an AI provider.");
     }
 
@@ -234,20 +375,44 @@ ${fileList}
 ## Source Code
 ${fileSources.substring(0, 12000)}
 
-Produce the fixes as JSON. Fix ALL build errors you can identify.`;
+    Produce the fixes as JSON. Fix ALL build errors you can identify.`;
 
     // 4. Call OpenRouter
-    const client = new OpenRouterClient(aiSettings);
+    const client = new OpenRouterClient(openRouterBinding.apiKey);
+    const model = HEAL_MODEL;
+    const requestStartedAt = Date.now();
+    let response: any = null;
+    let providerError: unknown = null;
+    try {
+      response = await client.chatCompletion({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1, // Low temperature for precise code fixes
+        max_tokens: MAX_FIX_TOKENS,
+      });
+    } catch (error) {
+      providerError = error;
+    }
 
-    const response = await client.chatCompletion({
-      model: HEAL_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1, // Low temperature for precise code fixes
-      max_tokens: MAX_FIX_TOKENS,
+    await meterSelfHealAnalyzeUsage({
+      ctx,
+      organizationId: args.organizationId,
+      appId: args.appId,
+      deploymentId: args.deploymentId,
+      client,
+      model,
+      billingSource: openRouterBinding.billingSource,
+      response,
+      providerError,
+      startedAt: requestStartedAt,
     });
+
+    if (providerError !== null) {
+      throw providerError;
+    }
 
     // 5. Parse response
     const content = response.choices?.[0]?.message?.content || "";
@@ -638,7 +803,10 @@ export const getOpenRouterKey = query({
   args: {
     organizationId: v.id("organizations"),
   },
-  handler: async (ctx, args): Promise<string | null> => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ apiKey: string | null; billingSource: AiBillingSource }> => {
     // Check org AI settings for custom key
     const aiSettings = await ctx.db
       .query("objects")
@@ -650,9 +818,17 @@ export const getOpenRouterKey = query({
     const customKey = (aiSettings?.customProperties as { llm?: { openrouterApiKey?: string } })
       ?.llm?.openrouterApiKey;
 
-    if (customKey) return customKey;
+    if (customKey) {
+      return {
+        apiKey: customKey,
+        billingSource: "byok",
+      };
+    }
 
     // Fall back to platform key
-    return process.env.OPENROUTER_API_KEY || null;
+    return {
+      apiKey: process.env.OPENROUTER_API_KEY || null,
+      billingSource: "platform",
+    };
   },
 });

@@ -78,7 +78,7 @@ export const seedSystemDomainConfig = internalMutation({
           systemEmail: "system@mail.l4yercak3.com",
           salesEmail: "sales@mail.l4yercak3.com",
           replyToEmail: "support@l4yercak3.com",
-          defaultTemplateCode: "modern-minimal",
+          defaultTemplateCode: "event-confirmation-v2",
         },
         // Branding defaults
         branding: {

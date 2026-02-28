@@ -18,10 +18,14 @@ import { TelegramSettings } from "./telegram-settings";
 import { GoogleSettings } from "./google-settings";
 import { SlackSettings } from "./slack-settings";
 import { WhatsAppSettings } from "./whatsapp-settings";
+import { InfobipSettings } from "./infobip-settings";
 import { AIConnectionsSettings } from "./ai-connections-settings";
+import { ElevenLabsSettings } from "./elevenlabs-settings";
+import { PersonalOperatorSetup } from "./personal-operator-setup";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useAppearance } from "@/contexts/appearance-context";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -61,6 +65,16 @@ interface BuiltInIntegrationDefinition {
 }
 
 const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
+  {
+    id: "personal-operator-setup",
+    name: "Personal Operator Setup",
+    description: "First-run setup for calendar, outreach defaults, and deployment handoff",
+    icon: "fas fa-user-check",
+    iconColor: "var(--tone-accent)",
+    status: "available",
+    type: "special",
+    accessCheck: { type: "feature", key: "apiKeysEnabled" },
+  },
   {
     id: "github",
     name: "GitHub",
@@ -203,6 +217,26 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
     accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
   },
   {
+    id: "infobip",
+    name: "Infobip",
+    description: "SMS + voice bridge orchestration (BYOK or platform fallback)",
+    icon: "fas fa-phone-volume",
+    iconColor: "#FF6B00",
+    status: "available",
+    type: "builtin",
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "elevenlabs",
+    name: "ElevenLabs",
+    description: "Voice runtime provider, key source, and default voice catalog",
+    icon: "fas fa-wave-square",
+    iconColor: "var(--tone-accent)",
+    status: "available",
+    type: "special",
+    accessCheck: { type: "feature", key: "aiEnabled" },
+  },
+  {
     id: "ai-connections",
     name: "AI Connections",
     description:
@@ -253,6 +287,11 @@ interface UpgradeModalProps {
  */
 function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeModalProps) {
   const { openWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const handleUpgradeClick = () => {
     import("@/components/window-content/store-window").then(({ StoreWindow }) => {
@@ -291,7 +330,7 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
         >
           <span className="text-sm font-bold flex items-center gap-2">
             <Sparkles size={16} />
-            Upgrade to Unlock
+            {tx("ui.integrations.modals.upgrade.title", "Upgrade to Unlock")}
           </span>
           <button
             onClick={onClose}
@@ -329,10 +368,14 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
             }}
           >
             <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
-              This feature requires <strong>{requiredTier}</strong> or higher.
+              {tx("ui.integrations.modals.upgrade.requires_prefix", "This feature requires")} <strong>{requiredTier}</strong>{" "}
+              {tx("ui.integrations.modals.upgrade.requires_suffix", "or higher.")}
             </p>
             <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
-              Upgrade now to connect with third-party automation platforms and unlock advanced integrations.
+              {tx(
+                "ui.integrations.modals.upgrade.body",
+                "Upgrade now to connect with third-party automation platforms and unlock advanced integrations.",
+              )}
             </p>
           </div>
 
@@ -341,19 +384,22 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Connect up to 5 platform integrations (Microsoft, Google, Slack, Zapier, Make)
+                {tx(
+                  "ui.integrations.modals.upgrade.benefit_1",
+                  "Connect up to 5 platform integrations (Microsoft, Google, Slack, Zapier, Make)",
+                )}
               </span>
             </div>
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Sync email, calendar, and automate workflows
+                {tx("ui.integrations.modals.upgrade.benefit_2", "Sync email, calendar, and automate workflows")}
               </span>
             </div>
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Create up to 2 custom OAuth apps for external services
+                {tx("ui.integrations.modals.upgrade.benefit_3", "Create up to 2 custom OAuth apps for external services")}
               </span>
             </div>
           </div>
@@ -365,7 +411,7 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
               className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold flex items-center justify-center gap-2"
             >
               <ShoppingBag size={16} />
-              View Plans
+              {tx("ui.integrations.shared.view_plans", "View Plans")}
             </button>
             <button
               onClick={onClose}
@@ -375,7 +421,7 @@ function UpgradeModal({ feature, requiredTier, description, onClose }: UpgradeMo
                 color: 'var(--window-document-text)',
               }}
             >
-              Maybe Later
+              {tx("ui.integrations.modals.upgrade.maybe_later", "Maybe Later")}
             </button>
           </div>
         </div>
@@ -405,6 +451,11 @@ interface SignInRequiredModalProps {
 
 function SignInRequiredModal({ feature, description, onClose }: SignInRequiredModalProps) {
   const { openWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string): string => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
 
   const handleSignInClick = () => {
     import("@/components/window-content/login-window").then(({ LoginWindow }) => {
@@ -443,7 +494,7 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
         >
           <span className="text-sm font-bold flex items-center gap-2">
             <LogIn size={16} />
-            Sign In to Continue
+            {tx("ui.integrations.modals.sign_in.title", "Sign In to Continue")}
           </span>
           <button
             onClick={onClose}
@@ -475,24 +526,24 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
           {/* Benefits */}
           <div className="mb-4 space-y-2">
             <p className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
-              Create a free account to:
+              {tx("ui.integrations.modals.sign_in.create_account_to", "Create a free account to:")}
             </p>
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Generate API keys for direct integrations
+                {tx("ui.integrations.modals.sign_in.benefit_1", "Generate API keys for direct integrations")}
               </span>
             </div>
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Create 1 custom OAuth app for external services
+                {tx("ui.integrations.modals.sign_in.benefit_2", "Create 1 custom OAuth app for external services")}
               </span>
             </div>
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="mt-0.5" style={{ color: 'var(--tone-accent)' }} />
               <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                Upgrade to Starter for Microsoft, Google, Slack, Zapier & Make
+                {tx("ui.integrations.modals.sign_in.benefit_3", "Upgrade to Starter for Microsoft, Google, Slack, Zapier & Make")}
               </span>
             </div>
           </div>
@@ -504,7 +555,7 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
               className="desktop-interior-button-primary flex-1 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"
             >
               <LogIn size={16} />
-              Sign In / Sign Up
+              {tx("ui.integrations.modals.sign_in.cta", "Sign In / Sign Up")}
             </button>
             <button
               onClick={onClose}
@@ -514,7 +565,7 @@ function SignInRequiredModal({ feature, description, onClose }: SignInRequiredMo
                 color: 'var(--window-document-text)',
               }}
             >
-              Just Browsing
+              {tx("ui.integrations.modals.sign_in.just_browsing", "Just Browsing")}
             </button>
           </div>
         </div>
@@ -533,6 +584,11 @@ interface CreateOrgRequiredModalProps {
 
 function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProps) {
   const { openWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const handleCreateOrgClick = () => {
     // Open the organizations window or a create org flow
@@ -572,7 +628,7 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
         >
           <span className="text-sm font-bold flex items-center gap-2">
             <Building size={16} />
-            Organization Required
+            {tx("ui.integrations.modals.create_org.title", "Organization Required")}
           </span>
           <button
             onClick={onClose}
@@ -592,10 +648,12 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
               <Building size={32} style={{ color: 'var(--tone-accent)' }} />
             </div>
             <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
-              Create an Organization
+              {tx("ui.integrations.modals.create_org.heading", "Create an Organization")}
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              To use {feature}, you need to create or join an organization first.
+              {tx("ui.integrations.modals.create_org.body", "To use {feature}, you need to create or join an organization first.", {
+                feature,
+              })}
             </p>
           </div>
 
@@ -607,7 +665,10 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
             }}
           >
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Organizations let you manage integrations, API keys, team members, and billing all in one place.
+              {tx(
+                "ui.integrations.modals.create_org.benefit",
+                "Organizations let you manage integrations, API keys, team members, and billing all in one place.",
+              )}
             </p>
           </div>
 
@@ -621,7 +682,7 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
               }}
             >
               <Building size={16} />
-              Create Organization
+              {tx("ui.integrations.modals.create_org.cta", "Create Organization")}
             </button>
             <button
               onClick={onClose}
@@ -631,7 +692,7 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
                 color: 'var(--window-document-text)',
               }}
             >
-              Close
+              {tx("ui.integrations.shared.close", "Close")}
             </button>
           </div>
         </div>
@@ -642,6 +703,11 @@ function CreateOrgRequiredModal({ feature, onClose }: CreateOrgRequiredModalProp
 
 function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReachedModalProps) {
   const { openWindow } = useWindowManager();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const handleUpgradeClick = () => {
     import("@/components/window-content/store-window").then(({ StoreWindow }) => {
@@ -680,7 +746,7 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
         >
           <span className="text-sm font-bold flex items-center gap-2">
             <Lock size={16} />
-            Limit Reached
+            {tx("ui.integrations.modals.limit_reached.title", "Limit Reached")}
           </span>
           <button
             onClick={onClose}
@@ -700,10 +766,13 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
               <Lock size={32} style={{ color: 'var(--warning)' }} />
             </div>
             <h3 className="font-bold text-lg mb-1" style={{ color: 'var(--window-document-text)' }}>
-              Custom Integration Limit Reached
+              {tx("ui.integrations.modals.limit_reached.heading", "Custom Integration Limit Reached")}
             </h3>
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              You've used {currentCount} of {limit} custom integrations.
+              {tx("ui.integrations.modals.limit_reached.body", "You've used {currentCount} of {limit} custom integrations.", {
+                currentCount,
+                limit,
+              })}
             </p>
           </div>
 
@@ -715,7 +784,8 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
             }}
           >
             <p className="text-sm" style={{ color: 'var(--window-document-text)' }}>
-              Upgrade to <strong>{nextTier}</strong> to create more custom OAuth integrations and unlock additional features.
+              {tx("ui.integrations.modals.limit_reached.upgrade_prefix", "Upgrade to")} <strong>{nextTier}</strong>{" "}
+              {tx("ui.integrations.modals.limit_reached.upgrade_suffix", "to create more custom OAuth integrations and unlock additional features.")}
             </p>
           </div>
 
@@ -729,7 +799,7 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
               }}
             >
               <ShoppingBag size={16} />
-              View Plans
+              {tx("ui.integrations.shared.view_plans", "View Plans")}
             </button>
             <button
               onClick={onClose}
@@ -739,7 +809,7 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
                 color: 'var(--window-document-text)',
               }}
             >
-              Close
+              {tx("ui.integrations.shared.close", "Close")}
             </button>
           </div>
         </div>
@@ -749,7 +819,14 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
 }
 
 interface IntegrationsWindowProps {
-  initialPanel?: "api-keys" | "microsoft" | null;
+  initialPanel?:
+    | "api-keys"
+    | "microsoft"
+    | "telegram"
+    | "infobip"
+    | "elevenlabs"
+    | "personal-operator-setup"
+    | null;
   /** When true, shows back-to-desktop navigation (for /integrations route) */
   fullScreen?: boolean;
 }
@@ -765,17 +842,34 @@ type IntegrationLicenseSnapshot = {
 
 type AIConnectionsCatalogSnapshot = {
   providers?: Array<{
+    providerId?: string;
     isConnected?: boolean;
   }>;
+};
+
+type ElevenLabsIntegrationSnapshot = {
+  enabled?: boolean;
+  hasApiKey?: boolean;
+  hasPlatformApiKey?: boolean;
+  billingSource?: "platform" | "byok" | "private";
 };
 
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
   const { mode } = useAppearance();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const currentOrg = useCurrentOrganization();
   const [selectedIntegration, setSelectedIntegration] = useState<SelectedIntegration | null>(
     initialPanel === "api-keys" ? { type: "special", id: "api-keys" } :
     initialPanel === "microsoft" ? { type: "builtin", id: "microsoft" } :
+    initialPanel === "telegram" ? { type: "builtin", id: "telegram" } :
+    initialPanel === "infobip" ? { type: "builtin", id: "infobip" } :
+    initialPanel === "elevenlabs" ? { type: "special", id: "elevenlabs" } :
+    initialPanel === "personal-operator-setup" ? { type: "special", id: "personal-operator-setup" } :
     null
   );
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -823,6 +917,14 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     api.oauth.microsoft.getUserMicrosoftConnection,
     isSignedIn ? {} : "skip"
   );
+  const googleConnection = useQuery(
+    api.oauth.google.getGoogleConnectionStatus,
+    isSignedIn && sessionId ? { sessionId } : "skip"
+  ) as {
+    personal?: {
+      status?: string;
+    } | null;
+  } | undefined;
 
   // Query Telegram integration status
   const telegramStatus = useQuery(
@@ -839,6 +941,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     api.oauth.whatsapp.getWhatsAppConnectionStatus,
     isSignedIn && sessionId ? { sessionId } : "skip"
   );
+  const infobipSettings = useQuery(
+    api.integrations.infobip.getInfobipSettings,
+    isSignedIn && sessionId ? { sessionId } : "skip"
+  ) as {
+    configured?: boolean;
+    enabled?: boolean;
+  } | undefined;
   const aiConnectionsCatalog = useQuery(
     apiUntyped.integrations.aiConnections.getAIConnectionCatalog,
     isSignedIn && sessionId && currentOrg?.id
@@ -848,6 +957,15 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         }
       : "skip"
   ) as AIConnectionsCatalogSnapshot | undefined;
+  const elevenLabsSettings = useQuery(
+    apiUntyped.integrations.elevenlabs.getElevenLabsSettings,
+    isSignedIn && sessionId && currentOrg?.id
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  ) as ElevenLabsIntegrationSnapshot | undefined;
 
   // Loading state only when we have an org and are waiting for data
   const isLoading = currentOrg?.id && (customApps === undefined || license === undefined);
@@ -903,7 +1021,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       maxCustomOAuthApps: "Free", // 1 available on free tier
       // Features
       aiEnabled: "Starter (€199/month)",
-      aiByokEnabled: "Starter (€199/month)",
+      aiByokEnabled: "Scale (€299/month)",
       apiKeysEnabled: "Free", // Always available
       apiWebhooksEnabled: "Starter (€199/month)",
       contactSyncEnabled: "Professional (€399/month)", // For syncing contacts
@@ -970,8 +1088,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     // Not signed in - show sign in modal
     if (!isSignedIn) {
       setSignInModal({
-        feature: "Custom Integration",
-        description: "Create OAuth applications for external services",
+        feature: tx("ui.integrations.custom_integration", "Custom Integration"),
+        description: tx("ui.integrations.custom_integration_description", "Create OAuth applications for external services"),
       });
       return;
     }
@@ -979,7 +1097,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     // Signed in but no org - show create org modal
     if (!currentOrg) {
       setCreateOrgModal({
-        feature: "Custom Integrations",
+        feature: tx("ui.integrations.custom_integrations", "Custom Integrations"),
       });
       return;
     }
@@ -1008,10 +1126,10 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         <div className="text-center space-y-4">
           <i className="fas fa-lock text-4xl" style={{ color: 'var(--window-document-text)' }} />
           <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
-            Sign In Required
+            {tx("ui.integrations.sign_in_required", "Sign In Required")}
           </h3>
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Please sign in to manage integrations and API keys.
+            {tx("ui.integrations.sign_in_required_body", "Please sign in to manage integrations and API keys.")}
           </p>
         </div>
       </div>
@@ -1076,6 +1194,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         </div>
       );
     }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "infobip") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <InfobipSettings onBack={handleBack} />
+        </div>
+      );
+    }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "api-keys") {
       return (
         <div className="integration-ui-scope h-full">
@@ -1083,10 +1208,29 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         </div>
       );
     }
+    if (selectedIntegration.type === "special" && selectedIntegration.id === "personal-operator-setup") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <PersonalOperatorSetup
+            onBack={handleBack}
+            onOpenIntegration={(integrationId) =>
+              setSelectedIntegration({ type: "builtin", id: integrationId })
+            }
+          />
+        </div>
+      );
+    }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "ai-connections") {
       return (
         <div className="integration-ui-scope h-full">
           <AIConnectionsSettings onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "special" && selectedIntegration.id === "elevenlabs") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <ElevenLabsSettings onBack={handleBack} />
         </div>
       );
     }
@@ -1109,10 +1253,11 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--window-document-border)' }}>
             <button
               onClick={handleBack}
-              className="text-sm hover:underline"
+              className="text-sm hover:underline flex items-center gap-1"
               style={{ color: 'var(--tone-accent)' }}
             >
-              &larr; Back
+              <ArrowLeft size={12} />
+              {tx("ui.integrations.shared.back", "Back")}
             </button>
             <span className="font-bold" style={{ color: 'var(--window-document-text)' }}>
               {integration?.name}
@@ -1124,7 +1269,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 {integration && getIntegrationLogoSrc(integration) ? (
                   <img
                     src={getIntegrationLogoSrc(integration)}
-                    alt={`${integration.name} logo`}
+                    alt={tx("ui.integrations.integration_logo_alt", "{name} logo", { name: integration.name })}
                     draggable={false}
                     className="h-16 w-16 object-contain pointer-events-none select-none"
                   />
@@ -1133,10 +1278,14 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 )}
               </div>
               <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
-                {integration?.name} Integration
+                {tx("ui.integrations.integration_title", "{name} Integration", { name: integration?.name ?? "" })}
               </h3>
               <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-                To connect with {integration?.name}, create a custom OAuth application and use the provided credentials in your {integration?.name} workflow.
+                {tx(
+                  "ui.integrations.integration_connect_body",
+                  "To connect with {name}, create a custom OAuth application and use the provided credentials in your {name} workflow.",
+                  { name: integration?.name ?? "" },
+                )}
               </p>
               <div
                 className="p-4 border-2 rounded text-left"
@@ -1146,13 +1295,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Steps to connect:
+                  {tx("ui.integrations.steps_to_connect", "Steps to connect:")}
                 </p>
                 <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: 'var(--neutral-gray)' }}>
-                  <li>Create a Custom Integration below</li>
-                  <li>Copy the Client ID and Secret</li>
-                  <li>Add them to your {integration?.name} workflow</li>
-                  <li>Configure the OAuth scopes as needed</li>
+                  <li>{tx("ui.integrations.step_create_custom", "Create a Custom Integration below")}</li>
+                  <li>{tx("ui.integrations.step_copy_client", "Copy the Client ID and Secret")}</li>
+                  <li>{tx("ui.integrations.step_add_workflow", "Add them to your {name} workflow", { name: integration?.name ?? "" })}</li>
+                  <li>{tx("ui.integrations.step_configure_scopes", "Configure the OAuth scopes as needed")}</li>
                 </ol>
               </div>
               <button
@@ -1166,7 +1315,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 }}
               >
                 <Plus size={16} />
-                Create Integration for {integration?.name}
+                {tx("ui.integrations.create_integration_for", "Create Integration for {name}", { name: integration?.name ?? "" })}
               </button>
             </div>
           </div>
@@ -1179,15 +1328,16 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         <div className="px-4 py-3 border-b-2 flex items-center gap-2" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
             onClick={handleBack}
-            className="text-sm hover:underline"
+            className="text-sm hover:underline flex items-center gap-1"
             style={{ color: 'var(--tone-accent)' }}
           >
-            &larr; Back
+            <ArrowLeft size={12} />
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-            Coming soon...
+            {tx("ui.integrations.coming_soon", "Coming soon...")}
           </p>
         </div>
       </div>
@@ -1209,17 +1359,17 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 background: "var(--window-document-bg)",
                 color: "var(--window-document-text)",
               }}
-              title="Back to Desktop"
+              title={tx("ui.integrations.back_to_desktop", "Back to Desktop")}
             >
               <ArrowLeft size={14} />
             </Link>
           )}
           <div>
             <h2 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
-              Integrations & API
+              {tx("ui.integrations.header_title", "Integrations & API")}
             </h2>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Connect third-party services and manage API access
+              {tx("ui.integrations.header_subtitle", "Connect third-party services and manage API access")}
             </p>
           </div>
           {/* Tier badge */}
@@ -1232,7 +1382,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 border: isFreeTier ? '1px solid var(--window-document-border)' : 'none',
               }}
             >
-              {license.name || planTier.charAt(0).toUpperCase() + planTier.slice(1)} Plan
+              {license.name || planTier.charAt(0).toUpperCase() + planTier.slice(1)} {tx("ui.integrations.plan", "Plan")}
             </div>
           )}
 
@@ -1246,7 +1396,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 background: "var(--window-document-bg)",
                 color: "var(--window-document-text)",
               }}
-              title="Open Full Screen"
+              title={tx("ui.integrations.open_full_screen", "Open Full Screen")}
             >
               <Maximize2 size={14} />
             </Link>
@@ -1260,7 +1410,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
           <div className="flex flex-col items-center gap-3">
             <Loader2 size={32} className="animate-spin" style={{ color: 'var(--tone-accent)' }} />
             <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>
-              Loading integrations...
+              {tx("ui.integrations.loading_integrations", "Loading integrations...")}
             </p>
           </div>
         </div>
@@ -1271,12 +1421,19 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             {/* Built-in Integrations Section */}
             <div className="mb-6">
               <h3 className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--window-document-text)' }}>
-                Platform Integrations
+                {tx("ui.integrations.platform_integrations", "Platform Integrations")}
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {BUILT_IN_INTEGRATIONS.map((integration) => {
                   // Check access using license data (single source of truth)
                   const isLocked = isIntegrationLocked(integration);
+                  const elevenLabsConnected =
+                    Boolean(elevenLabsSettings?.enabled) &&
+                    (
+                      elevenLabsSettings?.billingSource === "platform"
+                        ? Boolean(elevenLabsSettings?.hasPlatformApiKey)
+                        : Boolean(elevenLabsSettings?.hasApiKey)
+                    );
 
                   return (
                     <IntegrationCard
@@ -1290,12 +1447,17 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                       status={
                         isLocked
                           ? "locked"
+                          : integration.id === "personal-operator-setup" &&
+                            googleConnection?.personal?.status === "active"
+                          ? "connected"
                           : integration.id === "ai-connections" &&
                             Boolean(
                               aiConnectionsCatalog?.providers?.some(
                                 (provider) => provider.isConnected
                               )
                             )
+                          ? "connected"
+                          : integration.id === "elevenlabs" && elevenLabsConnected
                           ? "connected"
                           : integration.id === "microsoft" && microsoftConnection?.status === "active"
                           ? "connected"
@@ -1304,6 +1466,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                           : integration.id === "telegram" && (telegramStatus?.platformBot?.connected || telegramStatus?.customBot?.deployed)
                           ? "connected"
                           : integration.id === "whatsapp" && whatsappConnection?.connected
+                          ? "connected"
+                          : integration.id === "infobip" && infobipSettings?.configured && infobipSettings?.enabled
                           ? "connected"
                           : integration.status
                       }
@@ -1319,11 +1483,11 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--window-document-text)' }}>
-                  Custom Integrations
+                  {tx("ui.integrations.custom_integrations", "Custom Integrations")}
                 </h3>
                 {/* Usage indicator */}
                 <span className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  {currentCustomAppsCount} / {maxCustomOAuthApps === -1 ? '∞' : maxCustomOAuthApps} used
+                  {currentCustomAppsCount} / {maxCustomOAuthApps === -1 ? '∞' : maxCustomOAuthApps} {tx("ui.integrations.used", "used")}
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -1332,7 +1496,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                   <IntegrationCard
                     key={app.id}
                     name={app.name}
-                    description={app.description || "Custom OAuth application"}
+                    description={app.description || tx("ui.integrations.custom_oauth_application", "Custom OAuth application")}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     icon={(app as any).icon || "fas fa-globe"}
                     iconColor="var(--tone-accent-strong)"
@@ -1368,14 +1532,14 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                     <>
                       <Lock size={28} style={{ color: 'var(--warning)' }} className="group-hover:scale-110 transition-transform" />
                       <span className="text-xs font-semibold" style={{ color: 'var(--warning)' }}>
-                        Limit Reached
+                        {tx("ui.integrations.limit_reached", "Limit Reached")}
                       </span>
                     </>
                   ) : (
                     <>
                       <Plus size={32} style={{ color: 'var(--neutral-gray)' }} className="group-hover:scale-110 transition-transform" />
                       <span className="text-xs font-semibold" style={{ color: 'var(--neutral-gray)' }}>
-                        Add New
+                        {tx("ui.integrations.add_new", "Add New")}
                       </span>
                     </>
                   )}
@@ -1396,23 +1560,26 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                   <Sparkles size={24} className="flex-shrink-0" style={{ color: 'var(--tone-accent)' }} />
                   <div>
                     <h4 className="font-bold text-sm mb-1" style={{ color: 'var(--window-document-text)' }}>
-                      Unlock Platform Integrations
+                      {tx("ui.integrations.unlock_platform_integrations", "Unlock Platform Integrations")}
                     </h4>
                     <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                      Upgrade to Starter to connect up to 5 platform integrations—Microsoft 365, Google Workspace, Slack, WhatsApp, Zapier, or Make—and get 2 custom OAuth apps.
+                      {tx(
+                        "ui.integrations.unlock_platform_integrations_body",
+                        "Upgrade to Starter to connect up to 5 platform integrations—Microsoft 365, Google Workspace, Slack, WhatsApp, Zapier, or Make—and get 2 custom OAuth apps.",
+                      )}
                     </p>
                     <button
                       onClick={() => setUpgradeModal({
-                        feature: "Platform Integrations",
-                        requiredTier: "Starter (€199/month)",
-                        description: "Connect Microsoft 365, Google, Slack, WhatsApp, Zapier, Make, and more",
+                        feature: tx("ui.integrations.platform_integrations", "Platform Integrations"),
+                        requiredTier: tx("ui.integrations.starter_tier", "Starter (€199/month)"),
+                        description: tx("ui.integrations.platform_integrations_description", "Connect Microsoft 365, Google, Slack, WhatsApp, Zapier, Make, and more"),
                       })}
                       className="desktop-interior-button px-3 py-1 text-xs font-bold text-white"
                       style={{
                         background: 'var(--tone-accent)',
                       }}
                     >
-                      View Plans
+                      {tx("ui.integrations.shared.view_plans", "View Plans")}
                     </button>
                   </div>
                 </div>
@@ -1428,7 +1595,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
               color: 'var(--neutral-gray)'
             }}
           >
-            Click an integration to configure it
+            {tx("ui.integrations.footer_hint", "Click an integration to configure it")}
           </div>
         </>
       )}

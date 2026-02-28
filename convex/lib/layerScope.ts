@@ -26,6 +26,18 @@ export interface ScopedOrg {
 
 const MAX_CHILD_ORGS = 20;
 
+export interface ScopedOrgTargetInput {
+  viewerOrganizationId: Id<"organizations">;
+  requestedScope?: Scope;
+  requestedScopeOrganizationId?: Id<"organizations">;
+  allowCrossOrg: boolean;
+}
+
+export interface ScopedOrgTarget {
+  scope: Scope;
+  scopeOrganizationId: Id<"organizations">;
+}
+
 /**
  * Determine layer from org record.
  * No parent = L2 (Agency), has parent = L3 (Client).
@@ -96,6 +108,27 @@ export async function hasSubOrganizations(
     .withIndex("by_parent", (q) => q.eq("parentOrganizationId", orgId))
     .first();
   return first !== null;
+}
+
+export function resolveScopedOrgTarget(
+  args: ScopedOrgTargetInput
+): ScopedOrgTarget {
+  const scopeOrganizationId =
+    args.requestedScopeOrganizationId ?? args.viewerOrganizationId;
+
+  if (
+    !args.allowCrossOrg
+    && scopeOrganizationId !== args.viewerOrganizationId
+  ) {
+    throw new Error(
+      "Unauthorized: cross-org scope requires a super-admin session."
+    );
+  }
+
+  return {
+    scope: args.allowCrossOrg ? args.requestedScope ?? "org" : "org",
+    scopeOrganizationId,
+  };
 }
 
 // Re-export LAYER_NAMES for convenience

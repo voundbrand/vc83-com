@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { Check, ChevronDown, ClipboardList, CreditCard, Eye, Info } from "lucide-react";
 import { MultiStepCheckout } from "@/components/checkout/multi-step-checkout";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { CheckoutProduct } from "@/templates/checkout/types";
 import type { Theme } from "@/templates/types";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -22,6 +23,12 @@ interface MultiStepPreviewProps {
   forceB2B?: boolean;
 }
 
+type TranslateWithFallback = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
+
 export function MultiStepPreview({
   linkedProducts,
   organizationId,
@@ -30,15 +37,24 @@ export function MultiStepPreview({
   forceB2B = false,
 }: MultiStepPreviewProps) {
   const [previewMode, setPreviewMode] = useState<"live" | "static">("static");
+  const { t } = useNamespaceTranslations("ui.checkout.multi_step_preview");
+  const tx: TranslateWithFallback = (key, fallback, params) => {
+    const fullKey = `ui.checkout.multi_step_preview.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
 
   // No products linked yet
   if (linkedProducts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-gray-500">
         <Eye size={48} className="mb-4 text-gray-300" />
-        <p className="text-sm font-bold mb-2">No Products Linked</p>
+        <p className="text-sm font-bold mb-2">{tx("empty.no_products_title", "No Products Linked")}</p>
         <p className="text-xs">
-          Link products from the configuration panel to preview the checkout flow.
+          {tx(
+            "empty.no_products_body",
+            "Link products from the configuration panel to preview the checkout flow."
+          )}
         </p>
       </div>
     );
@@ -49,9 +65,12 @@ export function MultiStepPreview({
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-gray-500">
         <Eye size={48} className="mb-4 text-gray-300" />
-        <p className="text-sm font-bold mb-2">No Payment Providers</p>
+        <p className="text-sm font-bold mb-2">{tx("empty.no_payment_providers_title", "No Payment Providers")}</p>
         <p className="text-xs">
-          Configure payment providers in your organization settings to preview checkout.
+          {tx(
+            "empty.no_payment_providers_body",
+            "Configure payment providers in your organization settings to preview checkout."
+          )}
         </p>
       </div>
     );
@@ -127,7 +146,7 @@ export function MultiStepPreview({
         <div className="flex items-center gap-3">
           <Eye size={16} style={{ color: "var(--shell-text)" }} />
           <span className="text-xs font-bold" style={{ color: "var(--shell-text)" }}>
-            Multi-Step Checkout Preview
+            {tx("controls.title", "Multi-Step Checkout Preview")}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -140,7 +159,7 @@ export function MultiStepPreview({
             }}
             onClick={() => setPreviewMode("static")}
           >
-            Static View
+            {tx("controls.static_view", "Static View")}
           </button>
           <button
             className="px-3 py-1 text-xs font-bold border-2 transition-colors"
@@ -151,7 +170,7 @@ export function MultiStepPreview({
             }}
             onClick={() => setPreviewMode("live")}
           >
-            Interactive
+            {tx("controls.interactive", "Interactive")}
           </button>
         </div>
       </div>
@@ -174,9 +193,10 @@ export function MultiStepPreview({
               linkedProducts={linkedProducts}
               paymentProviders={paymentProviders}
               forceB2B={forceB2B}
+              tx={tx}
             />
           ) : (
-            <StaticStepPreview linkedProducts={linkedProducts} theme={theme} />
+            <StaticStepPreview linkedProducts={linkedProducts} theme={theme} tx={tx} />
           )}
         </div>
       </div>
@@ -193,11 +213,13 @@ function LiveCheckoutPreview({
   linkedProducts,
   paymentProviders,
   forceB2B = false,
+  tx,
 }: {
   organizationId: Id<"organizations">;
   linkedProducts: CheckoutProduct[];
   paymentProviders: string[];
   forceB2B?: boolean;
+  tx: TranslateWithFallback;
 }) {
   // Auto-select first product for preview (quantity 1)
   const initialSelectedProducts = linkedProducts.slice(0, 1).map((product) => {
@@ -221,7 +243,7 @@ function LiveCheckoutPreview({
       forceB2B={forceB2B}
       onComplete={(result) => {
         console.log("[Preview] Checkout completed:", result);
-        alert("Preview mode: Checkout flow completed!");
+        alert(tx("alerts.completed", "Preview mode: Checkout flow completed!"));
       }}
       // Pre-populate with selected products to trigger form flow
       initialStepData={{
@@ -238,9 +260,11 @@ function LiveCheckoutPreview({
 function StaticStepPreview({
   linkedProducts,
   theme,
+  tx,
 }: {
   linkedProducts: CheckoutProduct[];
   theme?: Theme;
+  tx: TranslateWithFallback;
 }) {
   // Check if any product has a form linked
   const hasProductsWithForms = linkedProducts.some((p) => p.customProperties?.formId);
@@ -255,12 +279,12 @@ function StaticStepPreview({
 
   const steps = [
     {
-      title: "Step 1: Product Selection",
-      description: "Customer selects products and quantities",
+      title: tx("steps.product_selection.title", "Step 1: Product Selection"),
+      description: tx("steps.product_selection.description", "Customer selects products and quantities"),
       preview: (
         <div className="p-6 border-2 rounded" style={{ borderColor: theme?.colors.border }}>
           <h3 className="text-lg font-bold mb-4" style={{ color: theme?.colors.textDark }}>
-            Select Products
+            {tx("steps.product_selection.preview_title", "Select Products")}
           </h3>
           <div className="space-y-3">
             {linkedProducts.slice(0, 3).map((product) => (
@@ -281,7 +305,7 @@ function StaticStepPreview({
                     {product.customProperties?.formId && (
                       <span className="ml-2 text-xs font-bold inline-flex items-center gap-1" style={{ color: theme?.colors.primary }}>
                         <ClipboardList size={12} />
-                        Form Required
+                        {tx("steps.product_selection.form_required", "Form Required")}
                       </span>
                     )}
                   </p>
@@ -317,12 +341,15 @@ function StaticStepPreview({
     ...(hasProductsWithForms
       ? [
           {
-            title: "Step 2: Registration Forms",
-            description: "Complete required forms for selected products (one per ticket, includes contact info)",
+            title: tx("steps.registration_forms.title", "Step 2: Registration Forms"),
+            description: tx(
+              "steps.registration_forms.description",
+              "Complete required forms for selected products (one per ticket, includes contact info)"
+            ),
             preview: (
               <div className="p-6 border-2 rounded" style={{ borderColor: theme?.colors.border }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: theme?.colors.textDark }}>
-                  Registration Information
+                  {tx("steps.registration_forms.preview_title", "Registration Information")}
                 </h3>
                 <div
                   className="p-4 border-2 rounded-lg mb-4"
@@ -334,24 +361,30 @@ function StaticStepPreview({
                   <p className="text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
                     <span className="inline-flex items-center gap-1">
                       <ClipboardList size={14} />
-                      Multi-Ticket Form Flow
+                      {tx("steps.registration_forms.multi_ticket_title", "Multi-Ticket Form Flow")}
                     </span>
                   </p>
                   <p className="text-xs mb-2" style={{ color: theme?.colors.textLight }}>
-                    For products requiring registration, you&apos;ll fill out a form for each ticket purchased.
+                    {tx(
+                      "steps.registration_forms.multi_ticket_body",
+                      "For products requiring registration, you'll fill out a form for each ticket purchased."
+                    )}
                   </p>
                   <p className="text-xs font-bold" style={{ color: theme?.colors.primary }}>
-                    Example: 3 tickets = 3 forms (with &quot;Copy from Previous&quot; option)
+                    {tx(
+                      "steps.registration_forms.multi_ticket_example",
+                      "Example: 3 tickets = 3 forms (with \"Copy from Previous\" option)"
+                    )}
                   </p>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                      Email Address *
+                      {tx("form.email_label", "Email Address *")}
                     </label>
                     <input
                       type="email"
-                      placeholder="your.email@example.com"
+                      placeholder={tx("form.email_placeholder", "your.email@example.com")}
                       className="w-full px-4 py-2 border rounded"
                       style={{
                         borderColor: theme?.colors.border,
@@ -362,11 +395,11 @@ function StaticStepPreview({
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                      Full Name *
+                      {tx("form.full_name_label", "Full Name *")}
                     </label>
                     <input
                       type="text"
-                      placeholder="John Doe"
+                      placeholder={tx("form.full_name_placeholder", "John Doe")}
                       className="w-full px-4 py-2 border rounded"
                       style={{
                         borderColor: theme?.colors.border,
@@ -377,10 +410,10 @@ function StaticStepPreview({
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                      Dietary Restrictions
+                      {tx("form.dietary_restrictions_label", "Dietary Restrictions")}
                     </label>
                     <textarea
-                      placeholder="None"
+                      placeholder={tx("form.dietary_restrictions_placeholder", "None")}
                       className="w-full px-4 py-2 border rounded"
                       rows={3}
                       style={{
@@ -391,7 +424,10 @@ function StaticStepPreview({
                     />
                   </div>
                   <p className="text-xs text-center" style={{ color: theme?.colors.textLight }}>
-                    ... additional form fields based on product requirements ...
+                    {tx(
+                      "steps.registration_forms.additional_fields",
+                      "... additional form fields based on product requirements ..."
+                    )}
                   </p>
                 </div>
                 <div
@@ -404,11 +440,16 @@ function StaticStepPreview({
                   <p className="text-xs font-bold mb-1" style={{ color: theme?.colors.textDark }}>
                     <span className="inline-flex items-center gap-1">
                       <Info size={12} />
-                      Static Preview - Example Only
+                      {tx("steps.registration_forms.static_preview_title", "Static Preview - Example Only")}
                     </span>
                   </p>
                   <p className="text-xs" style={{ color: theme?.colors.textLight }}>
-                    This shows example form fields. Switch to <strong>Interactive</strong> mode to see the actual form configured for your products.
+                    {tx("steps.registration_forms.static_preview_body_prefix", "This shows example form fields. Switch to")}{" "}
+                    <strong>{tx("controls.interactive", "Interactive")}</strong>{" "}
+                    {tx(
+                      "steps.registration_forms.static_preview_body_suffix",
+                      "mode to see the actual form configured for your products."
+                    )}
                   </p>
                 </div>
               </div>
@@ -417,21 +458,21 @@ function StaticStepPreview({
         ]
       : [
           {
-            title: "Step 2: Customer Information",
-            description: "Customer provides contact details",
+            title: tx("steps.customer_information.title", "Step 2: Customer Information"),
+            description: tx("steps.customer_information.description", "Customer provides contact details"),
             preview: (
               <div className="p-6 border-2 rounded" style={{ borderColor: theme?.colors.border }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: theme?.colors.textDark }}>
-                  Your Information
+                  {tx("steps.customer_information.preview_title", "Your Information")}
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                      Email Address *
+                      {tx("form.email_label", "Email Address *")}
                     </label>
                     <input
                       type="email"
-                      placeholder="your.email@example.com"
+                      placeholder={tx("form.email_placeholder", "your.email@example.com")}
                       className="w-full px-4 py-2 border rounded"
                       style={{
                         borderColor: theme?.colors.border,
@@ -442,11 +483,11 @@ function StaticStepPreview({
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-                      Full Name *
+                      {tx("form.full_name_label", "Full Name *")}
                     </label>
                     <input
                       type="text"
-                      placeholder="John Doe"
+                      placeholder={tx("form.full_name_placeholder", "John Doe")}
                       className="w-full px-4 py-2 border rounded"
                       style={{
                         borderColor: theme?.colors.border,
@@ -461,12 +502,12 @@ function StaticStepPreview({
           },
         ]),
     {
-      title: `Step 3: Payment`,
-      description: "Secure payment processing",
+      title: tx("steps.payment.title", "Step 3: Payment"),
+      description: tx("steps.payment.description", "Secure payment processing"),
       preview: (
         <div className="p-6 border-2 rounded" style={{ borderColor: theme?.colors.border }}>
           <h3 className="text-lg font-bold mb-4" style={{ color: theme?.colors.textDark }}>
-            Payment Information
+            {tx("steps.payment.preview_title", "Payment Information")}
           </h3>
           <div className="space-y-4">
             <div
@@ -479,16 +520,19 @@ function StaticStepPreview({
               <p className="font-bold text-sm mb-1" style={{ color: theme?.colors.textDark }}>
                 <span className="inline-flex items-center gap-1">
                   <CreditCard size={14} />
-                  Credit/Debit Card
+                  {tx("steps.payment.card_label", "Credit/Debit Card")}
                 </span>
               </p>
               <p className="text-xs" style={{ color: theme?.colors.textLight }}>
-                Pay securely with Visa, Mastercard, or American Express
+                {tx(
+                  "steps.payment.card_description",
+                  "Pay securely with Visa, Mastercard, or American Express"
+                )}
               </p>
             </div>
             <div className="text-center py-4">
               <p className="text-xs" style={{ color: theme?.colors.textLight }}>
-                Payment form will be displayed here
+                {tx("steps.payment.form_placeholder", "Payment form will be displayed here")}
               </p>
             </div>
           </div>
@@ -496,8 +540,8 @@ function StaticStepPreview({
       ),
     },
     {
-      title: `Step 4: Confirmation`,
-      description: "Order confirmation and receipt",
+      title: tx("steps.confirmation.title", "Step 4: Confirmation"),
+      description: tx("steps.confirmation.description", "Order confirmation and receipt"),
       preview: (
         <div className="p-6 border-2 rounded" style={{ borderColor: theme?.colors.border }}>
           <div className="text-center mb-6">
@@ -508,18 +552,18 @@ function StaticStepPreview({
               <Check size={28} style={{ color: theme?.colors.success }} />
             </div>
             <h3 className="text-2xl font-bold mb-2" style={{ color: theme?.colors.success }}>
-              Payment Successful!
+              {tx("steps.confirmation.success_title", "Payment Successful!")}
             </h3>
             <p className="text-sm" style={{ color: theme?.colors.textLight }}>
-              Your order has been confirmed
+              {tx("steps.confirmation.success_body", "Your order has been confirmed")}
             </p>
           </div>
           <div className="p-4 border rounded" style={{ borderColor: theme?.colors.border }}>
             <p className="text-sm font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-              Order Summary
+              {tx("steps.confirmation.summary_title", "Order Summary")}
             </p>
             <p className="text-xs" style={{ color: theme?.colors.textLight }}>
-              Receipt details will be displayed here
+              {tx("steps.confirmation.summary_body", "Receipt details will be displayed here")}
             </p>
           </div>
         </div>
@@ -531,10 +575,12 @@ function StaticStepPreview({
     <div className="p-6">
       <div className="mb-6 text-center">
         <h2 className="text-xl font-bold mb-2" style={{ color: theme?.colors.textDark }}>
-          Checkout Flow Preview
+          {tx("summary.title", "Checkout Flow Preview")}
         </h2>
         <p className="text-sm" style={{ color: theme?.colors.textLight }}>
-          This shows all steps customers will go through. Switch to Interactive mode to test the actual flow.
+          {tx("summary.body_prefix", "This shows all steps customers will go through. Switch to")}{" "}
+          {tx("controls.interactive", "Interactive")}{" "}
+          {tx("summary.body_suffix", "mode to test the actual flow.")}
         </p>
       </div>
       <div className="space-y-6 max-w-3xl mx-auto">

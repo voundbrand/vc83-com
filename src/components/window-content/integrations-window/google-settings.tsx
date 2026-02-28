@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { Loader2, CheckCircle2, RefreshCw, ArrowLeft } from "lucide-react";
@@ -20,32 +23,39 @@ interface GoogleSettingsProps {
 
 export function GoogleSettings({ onBack }: GoogleSettingsProps) {
   const { user, sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  // TS2589 workaround: avoid deep Convex generic expansion in this component.
+  const useQueryAny = useQuery as any;
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
 
   // Query Google connection status
-  const connection = useQuery(
-    api.oauth.google.getGoogleConnectionStatus,
-    sessionId ? { sessionId } : "skip"
+  const connection: any = useQueryAny(
+    apiAny.oauth.google.getGoogleConnectionStatus,
+    sessionId ? ({ sessionId } as any) : "skip"
   );
 
   // The active connection is the personal one
   const activeConnection = connection?.personal ?? null;
 
   // Query sync status
-  const syncStatus = useQuery(
-    api.calendarSyncOntology.getSyncStatus,
+  const syncStatus: any = useQueryAny(
+    apiAny.calendarSyncOntology.getSyncStatus,
     sessionId && activeConnection?.id
       ? { sessionId, connectionId: activeConnection.id }
       : "skip"
   );
 
   // Mutations
-  const initiateGoogleOAuth = useMutation(api.oauth.google.initiateGoogleOAuth);
-  const disconnectGoogle = useMutation(api.oauth.google.disconnectGoogle);
-  const updateSyncSettings = useMutation(api.oauth.google.updateGoogleSyncSettings);
+  const initiateGoogleOAuth = useMutation(apiAny.oauth.google.initiateGoogleOAuth);
+  const disconnectGoogle = useMutation(apiAny.oauth.google.disconnectGoogle);
+  const updateSyncSettings = useMutation(apiAny.oauth.google.updateGoogleSyncSettings);
 
   // Track previous connection status to detect changes
   const [prevConnectionStatus, setPrevConnectionStatus] = useState<string | null>(null);
@@ -223,16 +233,16 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
             style={{ color: 'var(--tone-accent)' }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.google_settings.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <i className="fab fa-google text-2xl" style={{ color: '#4285f4' }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                Google Workspace
+                {tx("ui.integrations.google_settings.title", "Google Workspace")}
               </h2>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Gmail, Calendar, Drive integration
+                {tx("ui.integrations.google_settings.subtitle", "Gmail, Calendar, Drive integration")}
               </p>
             </div>
           </div>
@@ -250,7 +260,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
             >
               <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading connection status...
+                {tx("ui.integrations.google_settings.loading.connection_status", "Loading connection status...")}
               </p>
             </div>
           ) : hasConnection ? (
@@ -267,7 +277,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                     <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                      Connected
+                      {tx("ui.integrations.google_settings.status.connected", "Connected")}
                     </span>
                   </div>
                 )}
@@ -284,10 +294,13 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                     <span className="text-base">&#9888;</span>
                     <div className="flex-1">
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
-                        Connection Error
+                        {tx("ui.integrations.google_settings.status.connection_error", "Connection Error")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
-                        Your Google connection has expired or encountered an error. Please reconnect.
+                        {tx(
+                          "ui.integrations.google_settings.status.connection_error_description",
+                          "Your Google connection has expired or encountered an error. Please reconnect."
+                        )}
                       </p>
                     </div>
                   </div>
@@ -297,7 +310,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Connected Account
+                      {tx("ui.integrations.google_settings.connected_account", "Connected Account")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {activeConnection.email}
@@ -307,7 +320,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                   {activeConnection.connectedAt && (
                     <div>
                       <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                        Connected Since
+                        {tx("ui.integrations.google_settings.connected_since", "Connected Since")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {new Date(activeConnection.connectedAt).toLocaleDateString("en-US", {
@@ -332,7 +345,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 }}
               >
                 <h3 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Permissions
+                  {tx("ui.integrations.google_settings.permissions.title", "Permissions")}
                 </h3>
                 <div className="space-y-1">
                   {CALENDAR_SCOPES.map((scope) => (
@@ -353,7 +366,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Sync Settings
+                  {tx("ui.integrations.google_settings.sync.title", "Sync Settings")}
                 </p>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -362,32 +375,46 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                       checked={calendarSyncEnabled}
                       onChange={(e) => handleCalendarSyncToggle(e.target.checked)}
                     />
-                    <span style={{ color: "var(--window-document-text)" }}>Sync Calendar</span>
+                    <span style={{ color: "var(--window-document-text)" }}>
+                      {tx("ui.integrations.google_settings.sync.calendar_label", "Sync Calendar")}
+                    </span>
                   </label>
                   {syncStatus && calendarSyncEnabled && (
                     <div className="ml-5 space-y-1">
                       {syncStatus.lastSyncAt && (
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                          Last synced: {new Date(syncStatus.lastSyncAt).toLocaleString("en-US", {
-                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                          {tx("ui.integrations.google_settings.sync.last_synced", "Last synced: {time}", {
+                            time: new Date(syncStatus.lastSyncAt).toLocaleString("en-US", {
+                              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                            }),
                           })}
                         </p>
                       )}
                       {syncStatus.totalEventsSync > 0 && (
                         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                          {syncStatus.totalEventsSync} event{syncStatus.totalEventsSync !== 1 ? "s" : ""} synced
+                          {syncStatus.totalEventsSync === 1
+                            ? tx("ui.integrations.google_settings.sync.events_synced_single", "{count} event synced", {
+                                count: syncStatus.totalEventsSync,
+                              })
+                            : tx("ui.integrations.google_settings.sync.events_synced_plural", "{count} events synced", {
+                                count: syncStatus.totalEventsSync,
+                              })}
                         </p>
                       )}
                       {syncStatus.lastSyncError && (
                         <p className="text-xs" style={{ color: "#ef4444" }}>
-                          Error: {syncStatus.lastSyncError}
+                          {tx("ui.integrations.google_settings.sync.error", "Error: {message}", {
+                            message: syncStatus.lastSyncError,
+                          })}
                         </p>
                       )}
                     </div>
                   )}
                   <label className="flex items-center gap-2 text-xs cursor-not-allowed opacity-50">
                     <input type="checkbox" disabled />
-                    <span style={{ color: "var(--neutral-gray)" }}>Access Drive (coming soon)</span>
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.integrations.google_settings.sync.drive_coming_soon", "Access Drive (coming soon)")}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -401,7 +428,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
-                      Disconnect
+                      {tx("ui.integrations.google_settings.actions.disconnect", "Disconnect")}
                     </InteriorButton>
                     <InteriorButton
                       variant="primary"
@@ -412,10 +439,10 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                       {isConnecting ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Reconnecting...
+                          {tx("ui.integrations.google_settings.actions.reconnecting", "Reconnecting...")}
                         </>
                       ) : (
-                        "Reconnect"
+                        tx("ui.integrations.google_settings.actions.reconnect", "Reconnect")
                       )}
                     </InteriorButton>
                   </>
@@ -426,7 +453,7 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                       onClick={handleDisconnect}
                       className="flex-1"
                     >
-                      Disconnect
+                      {tx("ui.integrations.google_settings.actions.disconnect", "Disconnect")}
                     </InteriorButton>
                     <InteriorButton
                       variant="secondary"
@@ -437,12 +464,12 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                       {isSyncing ? (
                         <>
                           <Loader2 size={14} className="mr-1 animate-spin" />
-                          Syncing...
+                          {tx("ui.integrations.google_settings.actions.syncing", "Syncing...")}
                         </>
                       ) : (
                         <>
                           <RefreshCw size={14} className="mr-1" />
-                          Sync Now
+                          {tx("ui.integrations.google_settings.actions.sync_now", "Sync Now")}
                         </>
                       )}
                     </InteriorButton>
@@ -462,10 +489,13 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
               >
                 <i className="fab fa-google text-5xl mb-4" style={{ color: '#4285f4' }} />
                 <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Not Connected
+                  {tx("ui.integrations.google_settings.status.not_connected", "Not Connected")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Connect your Google account to sync calendar, access files, and more.
+                  {tx(
+                    "ui.integrations.google_settings.status.not_connected_description",
+                    "Connect your Google account to sync calendar, access files, and more."
+                  )}
                 </p>
               </div>
 
@@ -478,24 +508,24 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Features
+                  {tx("ui.integrations.google_settings.features.title", "Features")}
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-start gap-2">
                     <span>&#128197;</span>
-                    <span>Sync your calendar events</span>
+                    <span>{tx("ui.integrations.google_settings.features.calendar", "Sync your calendar events")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128193;</span>
-                    <span>Browse Google Drive files</span>
+                    <span>{tx("ui.integrations.google_settings.features.drive", "Browse Google Drive files")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128101;</span>
-                    <span>Access Google Contacts</span>
+                    <span>{tx("ui.integrations.google_settings.features.contacts", "Access Google Contacts")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128274;</span>
-                    <span>Secure OAuth 2.0 authentication</span>
+                    <span>{tx("ui.integrations.google_settings.features.oauth_security", "Secure OAuth 2.0 authentication")}</span>
                   </div>
                 </div>
               </div>
@@ -509,10 +539,13 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Requested Permissions
+                  {tx("ui.integrations.google_settings.permissions.requested_title", "Requested Permissions")}
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                  The following Calendar scopes will be requested:
+                  {tx(
+                    "ui.integrations.google_settings.permissions.requested_calendar_scopes",
+                    "The following Calendar scopes will be requested:"
+                  )}
                 </p>
                 <div className="space-y-1">
                   {CALENDAR_SCOPES.map((scope) => (
@@ -533,19 +566,19 @@ export function GoogleSettings({ onBack }: GoogleSettingsProps) {
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Connecting...
+                    {tx("ui.integrations.google_settings.actions.connecting", "Connecting...")}
                   </>
                 ) : (
                   <>
                     <i className="fab fa-google mr-2" />
-                    Connect Google Account
+                    {tx("ui.integrations.google_settings.actions.connect_account", "Connect Google Account")}
                   </>
                 )}
               </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                  Please sign in to connect your Google account
+                  {tx("ui.integrations.google_settings.sign_in_required", "Please sign in to connect your Google account")}
                 </p>
               )}
             </div>

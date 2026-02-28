@@ -13,6 +13,7 @@
  */
 
 import { query, mutation, internalMutation, action, internalQuery } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 const generatedApi: any = require("./_generated/api");
 import { v } from "convex/values";
 import { requireAuthenticatedUser, requirePermission, checkPermission } from "./rbacHelpers";
@@ -24,6 +25,133 @@ import { Id, Doc } from "./_generated/dataModel";
 
 const INVITATION_EXPIRY_DAYS = 7;
 const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+const PERSONAL_WORKSPACE_SUFFIX = "Personal Workspace";
+
+function normalizeSlugSegment(value: string): string {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 50);
+  return normalized || "workspace";
+}
+
+async function generateUniqueOrganizationSlug(
+  ctx: MutationCtx,
+  baseSlug: string
+): Promise<string> {
+  const normalizedBase = normalizeSlugSegment(baseSlug);
+  let slugCandidate = normalizedBase;
+  let suffix = 2;
+
+  while (suffix < 1000) {
+    const existing = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", slugCandidate))
+      .first();
+    if (!existing) {
+      return slugCandidate;
+    }
+    slugCandidate = `${normalizedBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return `${normalizedBase}-${Math.floor(Math.random() * 100000)}`;
+}
+
+async function ensurePersonalWorkspaceForUser(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    preserveDefaultOrgId?: Id<"organizations">;
+  }
+): Promise<{ organizationId: Id<"organizations">; created: boolean }> {
+  const activeMemberships = await ctx.db
+    .query("organizationMembers")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .collect();
+
+  for (const membership of activeMemberships) {
+    const organization = await ctx.db.get(membership.organizationId);
+    if (organization && organization.isActive && organization.isPersonalWorkspace) {
+      return { organizationId: organization._id, created: false };
+    }
+  }
+
+  const trimmedFirstName = args.firstName?.trim();
+  const trimmedLastName = args.lastName?.trim();
+  const fullName =
+    [trimmedFirstName, trimmedLastName].filter(Boolean).join(" ").trim() || undefined;
+  const emailPrefix = args.email.split("@")[0] || "personal";
+  const ownerLabel = fullName || emailPrefix;
+  const workspaceName = `${ownerLabel}'s ${PERSONAL_WORKSPACE_SUFFIX}`;
+  const workspaceSlug = await generateUniqueOrganizationSlug(
+    ctx,
+    `${ownerLabel}-personal`
+  );
+
+  const now = Date.now();
+  const organizationId = await ctx.db.insert("organizations", {
+    name: workspaceName,
+    slug: workspaceSlug,
+    businessName: workspaceName,
+    isPersonalWorkspace: true,
+    isActive: true,
+    email: args.email,
+    createdBy: args.userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const orgOwnerRole = await ctx.db
+    .query("roles")
+    .withIndex("by_name", (q) => q.eq("name", "org_owner"))
+    .first();
+  if (!orgOwnerRole) {
+    throw new Error("org_owner role not found. Please run RBAC seeding.");
+  }
+
+  await ctx.db.insert("organizationMembers", {
+    userId: args.userId,
+    organizationId,
+    role: orgOwnerRole._id,
+    isActive: true,
+    joinedAt: now,
+    invitedBy: args.userId,
+    invitedAt: now,
+    acceptedAt: now,
+  });
+
+  await ctx.db.insert("objects", {
+    organizationId,
+    type: "organization_settings",
+    subtype: "main",
+    name: "Organization Settings",
+    status: "active",
+    customProperties: {
+      timezone: "America/New_York",
+      dateFormat: "MM/DD/YYYY",
+      language: "en",
+    },
+    createdBy: args.userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  if (!args.preserveDefaultOrgId) {
+    await ctx.db.patch(args.userId, {
+      defaultOrgId: organizationId,
+      updatedAt: now,
+    });
+  }
+
+  return { organizationId, created: true };
+}
 
 // ============================================================================
 // QUERIES
@@ -560,6 +688,9 @@ export const internalAcceptInvitation = internalMutation({
 
     let userId: Id<"users">;
     let isNewUser = false;
+    let preserveDefaultOrgId: Id<"organizations"> | undefined;
+    let resolvedFirstName: string | undefined;
+    let resolvedLastName: string | undefined;
 
     if (existingUser) {
       // Existing user - verify not already a member
@@ -576,6 +707,9 @@ export const internalAcceptInvitation = internalMutation({
       }
 
       userId = existingUser._id;
+      preserveDefaultOrgId = existingUser.defaultOrgId;
+      resolvedFirstName = existingUser.firstName;
+      resolvedLastName = existingUser.lastName;
     } else {
       // New user - password required
       if (!args.passwordHash) {
@@ -583,10 +717,14 @@ export const internalAcceptInvitation = internalMutation({
       }
 
       // Create new user
+      resolvedFirstName =
+        args.firstName || (invitation.customProperties?.firstName as string | undefined);
+      resolvedLastName =
+        args.lastName || (invitation.customProperties?.lastName as string | undefined);
       userId = await ctx.db.insert("users", {
         email,
-        firstName: args.firstName || invitation.customProperties?.firstName as string | undefined,
-        lastName: args.lastName || invitation.customProperties?.lastName as string | undefined,
+        firstName: resolvedFirstName,
+        lastName: resolvedLastName,
         isPasswordSet: true,
         defaultOrgId: invitation.organizationId,
         invitedBy: invitation.customProperties?.invitedBy as Id<"users">,
@@ -604,6 +742,7 @@ export const internalAcceptInvitation = internalMutation({
       });
 
       isNewUser = true;
+      preserveDefaultOrgId = invitation.organizationId;
     }
 
     // CHECK USER LIMIT: Enforce maxUsers limit for organization's tier
@@ -652,6 +791,14 @@ export const internalAcceptInvitation = internalMutation({
       acceptedAt: now, // Track when user accepted the invitation
     });
 
+    const personalWorkspace = await ensurePersonalWorkspaceForUser(ctx, {
+      userId,
+      email,
+      firstName: resolvedFirstName,
+      lastName: resolvedLastName,
+      preserveDefaultOrgId,
+    });
+
     // Update invitation status to accepted
     await ctx.db.patch(invitation._id, {
       status: "accepted",
@@ -673,6 +820,8 @@ export const internalAcceptInvitation = internalMutation({
       actionData: {
         isNewUser,
         acceptedAt: now,
+        personalWorkspaceCreated: personalWorkspace.created,
+        personalWorkspaceId: personalWorkspace.organizationId,
       },
     });
 
@@ -686,6 +835,8 @@ export const internalAcceptInvitation = internalMutation({
       metadata: {
         invitationId: invitation._id,
         isNewUser,
+        personalWorkspaceCreated: personalWorkspace.created,
+        personalWorkspaceId: personalWorkspace.organizationId,
       },
       createdAt: now,
     });
@@ -695,6 +846,7 @@ export const internalAcceptInvitation = internalMutation({
       userId,
       isNewUser,
       organizationId: invitation.organizationId,
+      personalWorkspaceId: personalWorkspace.organizationId,
     };
   },
 });

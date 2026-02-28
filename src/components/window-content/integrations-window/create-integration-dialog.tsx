@@ -2,12 +2,15 @@
 
 import React, { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { X, ArrowRight, ArrowLeft, Check, Copy, AlertTriangle } from "lucide-react";
 import { FAIconPicker } from "./fa-icon-picker";
 import { ScopeSelector } from "@/components/api-keys/scope-selector";
 import type { Id } from "../../../../convex/_generated/dataModel";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const apiAny = require("../../../../convex/_generated/api").api as any;
 
 interface CreateIntegrationDialogProps {
   onClose: () => void;
@@ -16,8 +19,20 @@ interface CreateIntegrationDialogProps {
 
 type Step = "info" | "uris" | "scopes" | "type" | "success";
 
+type TranslateWithFallback = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
+
 export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegrationDialogProps) {
   const currentOrg = useCurrentOrganization();
+  const { t } = useNamespaceTranslations("ui.integrations.create_integration_dialog");
+  const tx: TranslateWithFallback = (key, fallback, params) => {
+    const fullKey = `ui.integrations.create_integration_dialog.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const organizationId = currentOrg?.id as Id<"organizations">;
 
   const [currentStep, setCurrentStep] = useState<Step>("info");
@@ -38,7 +53,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
   } | null>(null);
   const [copied, setCopied] = useState<"id" | "secret" | null>(null);
 
-  const createOAuthApp = useMutation(api.oauth.applications.createOAuthApplication);
+  const createOAuthApp = useMutation(apiAny.oauth.applications.createOAuthApplication);
 
   // Step validation
   const isInfoValid = name.trim().length >= 3;
@@ -97,7 +112,14 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
       setCurrentStep("success");
     } catch (error) {
       console.error("Failed to create OAuth app:", error);
-      alert(`Failed to create integration: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const message = error instanceof Error ? error.message : tx("errors.unknown_error", "Unknown error");
+      alert(
+        tx(
+          "errors.failed_to_create_integration",
+          `Failed to create integration: ${message}`,
+          { message }
+        )
+      );
     } finally {
       setIsCreating(false);
     }
@@ -168,7 +190,9 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
         >
           <span className="font-bold text-sm flex items-center gap-2">
             <i className="fas fa-plus-circle" />
-            {currentStep === "success" ? "Integration Created!" : "Create Custom Integration"}
+            {currentStep === "success"
+              ? tx("header.created", "Integration Created!")
+              : tx("header.create_custom_integration", "Create Custom Integration")}
           </span>
           {currentStep !== "success" && (
             <button onClick={onClose} className="hover:bg-white/20 px-2 py-1 transition-colors">
@@ -181,10 +205,10 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
         {currentStep !== "success" && (
           <div className="flex border-b-2 shrink-0" style={{ borderColor: 'var(--window-document-border)' }}>
             {[
-              { key: "info", label: "1. Info" },
-              { key: "uris", label: "2. Redirect URIs" },
-              { key: "scopes", label: "3. Scopes" },
-              { key: "type", label: "4. Type" },
+              { key: "info", label: tx("steps.info", "1. Info") },
+              { key: "uris", label: tx("steps.redirect_uris", "2. Redirect URIs") },
+              { key: "scopes", label: tx("steps.scopes", "3. Scopes") },
+              { key: "type", label: tx("steps.type", "4. Type") },
             ].map((step) => (
               <div
                 key={step.key}
@@ -208,13 +232,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Integration Name *
+                  {tx("info.integration_name_label", "Integration Name *")}
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., My Website, Mobile App"
+                  placeholder={tx("info.integration_name_placeholder", "e.g., My Website, Mobile App")}
                   className="w-full px-3 py-2 text-sm border-2"
                   style={{
                     borderColor: 'var(--window-document-border)',
@@ -223,18 +247,18 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                   }}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  At least 3 characters
+                  {tx("info.integration_name_hint", "At least 3 characters")}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Description (optional)
+                  {tx("info.description_label", "Description (optional)")}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What will this integration be used for?"
+                  placeholder={tx("info.description_placeholder", "What will this integration be used for?")}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border-2 resize-none"
                   style={{
@@ -247,7 +271,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
 
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Icon
+                  {tx("info.icon_label", "Icon")}
                 </label>
                 <FAIconPicker selectedIcon={icon} onSelect={setIcon} />
               </div>
@@ -259,10 +283,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Redirect URIs *
+                  {tx("uris.redirect_uris_label", "Redirect URIs *")}
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                  Enter the URLs where users will be redirected after authorization. HTTPS is required (except localhost for development).
+                  {tx(
+                    "uris.redirect_uris_help",
+                    "Enter the URLs where users will be redirected after authorization. HTTPS is required (except localhost for development)."
+                  )}
                 </p>
 
                 <div className="space-y-2">
@@ -272,7 +299,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                         type="url"
                         value={uri}
                         onChange={(e) => handleUriChange(index, e.target.value)}
-                        placeholder="https://yoursite.com/callback"
+                        placeholder={tx("uris.redirect_uri_placeholder", "https://yoursite.com/callback")}
                         className="flex-1 px-3 py-2 text-sm border-2"
                         style={{
                           borderColor: 'var(--window-document-border)',
@@ -301,7 +328,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                   className="mt-2 text-xs font-bold"
                   style={{ color: 'var(--tone-accent)' }}
                 >
-                  + Add another URI
+                  {tx("uris.add_another_uri", "+ Add another URI")}
                 </button>
               </div>
 
@@ -313,12 +340,18 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 }}
               >
                 <p className="font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                  💡 Tips:
+                  {tx("uris.tips_title", "💡 Tips:")}
                 </p>
                 <ul style={{ color: 'var(--neutral-gray)' }} className="space-y-1">
-                  <li>• For local development: <code>http://localhost:3000/callback</code></li>
-                  <li>• For production: <code>https://yourapp.com/oauth/callback</code></li>
-                  <li>• The URI must exactly match what your app sends</li>
+                  <li>
+                    {tx("uris.tip_local_prefix", "• For local development:")}{" "}
+                    <code>{tx("uris.tip_local_url", "http://localhost:3000/callback")}</code>
+                  </li>
+                  <li>
+                    {tx("uris.tip_production_prefix", "• For production:")}{" "}
+                    <code>{tx("uris.tip_production_url", "https://yourapp.com/oauth/callback")}</code>
+                  </li>
+                  <li>{tx("uris.tip_exact_match", "• The URI must exactly match what your app sends")}</li>
                 </ul>
               </div>
             </div>
@@ -329,10 +362,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Permissions (Scopes)
+                  {tx("scopes.permissions_label", "Permissions (Scopes)")}
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                  Select the permissions this integration will request. Users will see these when authorizing.
+                  {tx(
+                    "scopes.permissions_help",
+                    "Select the permissions this integration will request. Users will see these when authorizing."
+                  )}
                 </p>
                 <ScopeSelector
                   selectedScopes={selectedScopes}
@@ -347,10 +383,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Application Type
+                  {tx("type.application_type_label", "Application Type")}
                 </label>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                  Choose based on whether your app can securely store a client secret.
+                  {tx(
+                    "type.application_type_help",
+                    "Choose based on whether your app can securely store a client secret."
+                  )}
                 </p>
 
                 <div className="space-y-2">
@@ -374,10 +413,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                     </div>
                     <div>
                       <div className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                        Confidential (Server-side)
+                        {tx("type.confidential_title", "Confidential (Server-side)")}
                       </div>
                       <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                        For backend applications that can securely store secrets. Uses authorization code flow with client secret.
+                        {tx(
+                          "type.confidential_description",
+                          "For backend applications that can securely store secrets. Uses authorization code flow with client secret."
+                        )}
                       </div>
                     </div>
                   </button>
@@ -402,10 +444,13 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                     </div>
                     <div>
                       <div className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                        Public (Client-side)
+                        {tx("type.public_title", "Public (Client-side)")}
                       </div>
                       <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                        For mobile apps, SPAs, or native apps that cannot store secrets. Uses PKCE flow.
+                        {tx(
+                          "type.public_description",
+                          "For mobile apps, SPAs, or native apps that cannot store secrets. Uses PKCE flow."
+                        )}
                       </div>
                     </div>
                   </button>
@@ -423,10 +468,10 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 </div>
                 <div>
                   <h3 className="font-bold text-lg" style={{ color: 'var(--window-document-text)' }}>
-                    Integration Created!
+                    {tx("success.title", "Integration Created!")}
                   </h3>
                   <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                    Save these credentials - the secret won't be shown again
+                    {tx("success.subtitle", "Save these credentials - the secret won't be shown again")}
                   </p>
                 </div>
               </div>
@@ -441,7 +486,11 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               >
                 <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: '#92400e' }} />
                 <div className="text-xs" style={{ color: '#92400e' }}>
-                  <strong>Important:</strong> Copy and save your client secret now. It will only be shown once for security reasons.
+                  <strong>{tx("success.warning_label", "Important:")}</strong>{" "}
+                  {tx(
+                    "success.warning_body",
+                    "Copy and save your client secret now. It will only be shown once for security reasons."
+                  )}
                 </div>
               </div>
 
@@ -449,7 +498,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Client ID
+                    {tx("success.client_id_label", "Client ID")}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -478,7 +527,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
 
                 <div>
                   <label className="block text-xs font-bold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Client Secret
+                    {tx("success.client_secret_label", "Client Secret")}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -525,10 +574,10 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 }}
               >
                 {currentStep === "info" ? (
-                  "Cancel"
+                  tx("footer.cancel", "Cancel")
                 ) : (
                   <>
-                    <ArrowLeft size={12} /> Back
+                    <ArrowLeft size={12} /> {tx("footer.back", "Back")}
                   </>
                 )}
               </button>
@@ -541,14 +590,14 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 }}
               >
                 {isCreating ? (
-                  "Creating..."
+                  tx("footer.creating", "Creating...")
                 ) : currentStep === "type" ? (
                   <>
-                    Create <Check size={12} />
+                    {tx("footer.create", "Create")} <Check size={12} />
                   </>
                 ) : (
                   <>
-                    Next <ArrowRight size={12} />
+                    {tx("footer.next", "Next")} <ArrowRight size={12} />
                   </>
                 )}
               </button>
@@ -561,7 +610,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
                 backgroundColor: 'var(--tone-accent)',
               }}
             >
-              Done - I've Saved My Credentials
+              {tx("footer.done_saved_credentials", "Done - I've Saved My Credentials")}
             </button>
           )}
         </div>

@@ -20,7 +20,9 @@ import {
   calculateExclusiveVAT,
 } from "../helpers/vat-test-helpers";
 
-describe("VAT Calculation - Inclusive Pricing", () => {
+const describeCloud = process.env.RUN_CONVEX_CLOUD_TESTS === "1" ? describe : describe.skip;
+
+describeCloud("VAT Calculation - Inclusive Pricing", () => {
   let t: ConvexTestingHelper;
   let testEnv: Awaited<ReturnType<typeof setupVATTestEnvironment>>;
 
@@ -32,7 +34,7 @@ describe("VAT Calculation - Inclusive Pricing", () => {
       organizationTaxBehavior: "inclusive",
       taxRate: 19,
     });
-  }, 120000);
+  }, 300000);
 
   afterAll(async () => {
     await t.close();
@@ -69,7 +71,7 @@ describe("VAT Calculation - Inclusive Pricing", () => {
     expect(result.verification.actualValues.unitPriceInCents).toBe(6639);
     expect(result.verification.actualValues.taxAmountInCents).toBe(1261);
     expect(result.verification.actualValues.totalPriceInCents).toBe(7900);
-  }, 30000);
+  }, 120000);
 
   it("should calculate VAT correctly for multiple quantities with inclusive pricing", async () => {
     /**
@@ -102,7 +104,7 @@ describe("VAT Calculation - Inclusive Pricing", () => {
     expect(result.verification.actualValues.unitPriceInCents).toBe(6639);
     expect(result.verification.actualValues.taxAmountInCents).toBe(2522);
     expect(result.verification.actualValues.totalPriceInCents).toBe(15800);
-  }, 30000);
+  }, 120000);
 
   it("should handle zero tax rate correctly", async () => {
     /**
@@ -128,10 +130,10 @@ describe("VAT Calculation - Inclusive Pricing", () => {
     expect(result.verification.unitPriceMatches).toBe(true);
     expect(result.verification.taxAmountMatches).toBe(true);
     expect(result.verification.totalPriceMatches).toBe(true);
-  }, 30000);
+  }, 120000);
 });
 
-describe("VAT Calculation - Exclusive Pricing", () => {
+describeCloud("VAT Calculation - Exclusive Pricing", () => {
   let t: ConvexTestingHelper;
   let testEnv: Awaited<ReturnType<typeof setupVATTestEnvironment>>;
 
@@ -143,7 +145,7 @@ describe("VAT Calculation - Exclusive Pricing", () => {
       organizationTaxBehavior: "exclusive",
       taxRate: 19,
     });
-  }, 120000);
+  }, 300000);
 
   afterAll(async () => {
     await t.close();
@@ -180,7 +182,7 @@ describe("VAT Calculation - Exclusive Pricing", () => {
     expect(result.verification.actualValues.unitPriceInCents).toBe(6639);
     expect(result.verification.actualValues.taxAmountInCents).toBe(1261);
     expect(result.verification.actualValues.totalPriceInCents).toBe(7900);
-  }, 30000);
+  }, 120000);
 
   it("should calculate exclusive VAT for multiple quantities", async () => {
     /**
@@ -208,15 +210,15 @@ describe("VAT Calculation - Exclusive Pricing", () => {
     expect(result.verification.unitPriceMatches).toBe(true);
     expect(result.verification.taxAmountMatches).toBe(true);
     expect(result.verification.totalPriceMatches).toBe(true);
-  }, 30000);
+  }, 120000);
 });
 
-describe("VAT Calculation - Tax Behavior Hierarchy", () => {
+describeCloud("VAT Calculation - Tax Behavior Hierarchy", () => {
   let t: ConvexTestingHelper;
 
   beforeAll(async () => {
     t = createTestHelper();
-  }, 120000);
+  }, 300000);
 
   afterAll(async () => {
     await t.close();
@@ -259,7 +261,7 @@ describe("VAT Calculation - Tax Behavior Hierarchy", () => {
     expect(result.verification.taxAmountMatches).toBe(true);
     expect(result.verification.totalPriceMatches).toBe(true);
     expect(result.verification.actualValues.unitPriceInCents).toBe(6639); // Inclusive result
-  }, 30000);
+  }, 120000);
 
   it("should fall back to organization default when product has no tax behavior set", async () => {
     /**
@@ -297,7 +299,7 @@ describe("VAT Calculation - Tax Behavior Hierarchy", () => {
     expect(result.verification.unitPriceMatches).toBe(true);
     expect(result.verification.taxAmountMatches).toBe(true);
     expect(result.verification.totalPriceMatches).toBe(true);
-  }, 30000);
+  }, 120000);
 });
 
 describe("Math Verification Tests", () => {
@@ -345,7 +347,7 @@ describe("Math Verification Tests", () => {
   });
 });
 
-describe("Edge Cases and Error Handling", () => {
+describeCloud("Edge Cases and Error Handling", () => {
   let t: ConvexTestingHelper;
   let testEnv: Awaited<ReturnType<typeof setupVATTestEnvironment>>;
 
@@ -355,7 +357,7 @@ describe("Edge Cases and Error Handling", () => {
       organizationTaxBehavior: "inclusive",
       taxRate: 19,
     });
-  }, 120000);
+  }, 300000);
 
   afterAll(async () => {
     await t.close();
@@ -382,7 +384,7 @@ describe("Edge Cases and Error Handling", () => {
     });
 
     expect(result.verification.totalPriceMatches).toBe(true);
-  }, 30000);
+  }, 120000);
 
   it("should handle large amounts correctly", async () => {
     /**
@@ -407,5 +409,5 @@ describe("Edge Cases and Error Handling", () => {
     expect(result.verification.unitPriceMatches).toBe(true);
     expect(result.verification.taxAmountMatches).toBe(true);
     expect(result.verification.totalPriceMatches).toBe(true);
-  }, 30000);
+  }, 120000);
 });

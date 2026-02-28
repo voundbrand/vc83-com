@@ -34,9 +34,11 @@
  * - earns_commission: member → commission (who earned it)
  */
 
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuthenticatedUser } from "./rbacHelpers";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
 
 // ============================================================================
 // BENEFIT VALIDATORS
@@ -47,6 +49,64 @@ export const benefitSubtypes = ["discount", "service", "product", "event"] as co
 export const commissionSubtypes = ["sales", "consulting", "referral", "partnership"] as const;
 
 export const benefitStatuses = ["draft", "active", "paused", "expired", "archived"] as const;
+
+export const PLATFORM_REFERRAL_PROGRAM_SETTING_KEY = "platform_referral_program" as const;
+
+export type PlatformReferralProgramConfig = {
+  enabled: boolean;
+  targetOrganizationId: Id<"organizations">;
+  signupRewardCredits: number;
+  subscriptionRewardCredits: number;
+  monthlyRewardCapCredits: number;
+  sharePathPrefix: string;
+};
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeSharePathPrefix(value: unknown): string {
+  if (typeof value !== "string") {
+    return "/ref";
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "/ref";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function normalizeReferralProgramConfig(
+  value: unknown
+): PlatformReferralProgramConfig | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const rawTargetOrganizationId = candidate.targetOrganizationId;
+  if (typeof rawTargetOrganizationId !== "string" || rawTargetOrganizationId.length === 0) {
+    return null;
+  }
+
+  return {
+    enabled: candidate.enabled === false ? false : true,
+    targetOrganizationId: rawTargetOrganizationId as Id<"organizations">,
+    signupRewardCredits: normalizePositiveInteger(candidate.signupRewardCredits, 5),
+    subscriptionRewardCredits: normalizePositiveInteger(
+      candidate.subscriptionRewardCredits,
+      20
+    ),
+    monthlyRewardCapCredits: Math.max(
+      1,
+      normalizePositiveInteger(candidate.monthlyRewardCapCredits, 200)
+    ),
+    sharePathPrefix: normalizeSharePathPrefix(candidate.sharePathPrefix),
+  };
+}
 
 // ============================================================================
 // BENEFIT OPERATIONS
@@ -909,5 +969,202 @@ export const getBenefitInternal = internalQuery({
       return null;
     }
     return benefit;
+  },
+});
+
+// ============================================================================
+// PLATFORM REFERRAL CONFIGURATION
+// ============================================================================
+
+async function resolvePlatformReferralProgramConfig(
+  ctx: QueryCtx | MutationCtx,
+  args?: { requireEnabled?: boolean }
+): Promise<PlatformReferralProgramConfig | null> {
+  const setting = await ctx.db
+    .query("platformSettings")
+    .withIndex("by_key", (q) => q.eq("key", PLATFORM_REFERRAL_PROGRAM_SETTING_KEY))
+    .first();
+
+  if (!setting) {
+    return null;
+  }
+
+  const config = normalizeReferralProgramConfig(setting.value);
+  if (!config) {
+    return null;
+  }
+
+  if (args?.requireEnabled && !config.enabled) {
+    return null;
+  }
+
+  const targetOrg = await ctx.db.get(config.targetOrganizationId);
+  if (!targetOrg || !targetOrg.isActive) {
+    return null;
+  }
+
+  return config;
+}
+
+export const getPlatformReferralProgramConfigInternal = internalQuery({
+  args: {
+    requireEnabled: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    return await resolvePlatformReferralProgramConfig(ctx, {
+      requireEnabled: args.requireEnabled,
+    });
+  },
+});
+
+export const requirePlatformReferralProgramConfigInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const config = await resolvePlatformReferralProgramConfig(ctx, {
+      requireEnabled: true,
+    });
+
+    if (!config) {
+      throw new Error(
+        "Platform referral program is not configured or target organization is invalid."
+      );
+    }
+
+    return config;
+  },
+});
+
+export const getPlatformReferralProgramConfig = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+    return await resolvePlatformReferralProgramConfig(ctx, { requireEnabled: false });
+  },
+});
+
+export const upsertPlatformReferralProgramConfig = mutation({
+  args: {
+    sessionId: v.string(),
+    enabled: v.boolean(),
+    targetOrganizationId: v.id("organizations"),
+    signupRewardCredits: v.number(),
+    subscriptionRewardCredits: v.number(),
+    monthlyRewardCapCredits: v.number(),
+    sharePathPrefix: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    await requirePermission(ctx, userId, "manage_platform_settings");
+
+    const targetOrg = await ctx.db.get(args.targetOrganizationId);
+    if (!targetOrg || !targetOrg.isActive) {
+      throw new Error("Target organization is missing or inactive.");
+    }
+
+    const normalizedConfig: PlatformReferralProgramConfig = {
+      enabled: args.enabled,
+      targetOrganizationId: args.targetOrganizationId,
+      signupRewardCredits: Math.max(0, Math.floor(args.signupRewardCredits)),
+      subscriptionRewardCredits: Math.max(
+        0,
+        Math.floor(args.subscriptionRewardCredits)
+      ),
+      monthlyRewardCapCredits: Math.max(1, Math.floor(args.monthlyRewardCapCredits)),
+      sharePathPrefix: normalizeSharePathPrefix(args.sharePathPrefix),
+    };
+
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("platformSettings")
+      .withIndex("by_key", (q) => q.eq("key", PLATFORM_REFERRAL_PROGRAM_SETTING_KEY))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: normalizedConfig,
+        description:
+          "Platform-level referral program configuration for rewards and routing.",
+        updatedBy: userId,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("platformSettings", {
+        key: PLATFORM_REFERRAL_PROGRAM_SETTING_KEY,
+        value: normalizedConfig,
+        description:
+          "Platform-level referral program configuration for rewards and routing.",
+        updatedBy: userId,
+        updatedAt: now,
+        createdAt: now,
+      });
+    }
+
+    return {
+      success: true,
+      config: normalizedConfig,
+    };
+  },
+});
+
+export const setPlatformReferralProgramConfigInternal = internalMutation({
+  args: {
+    enabled: v.boolean(),
+    targetOrganizationId: v.id("organizations"),
+    signupRewardCredits: v.number(),
+    subscriptionRewardCredits: v.number(),
+    monthlyRewardCapCredits: v.number(),
+    sharePathPrefix: v.optional(v.string()),
+    updatedBy: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const targetOrg = await ctx.db.get(args.targetOrganizationId);
+    if (!targetOrg || !targetOrg.isActive) {
+      throw new Error("Target organization is missing or inactive.");
+    }
+
+    const now = Date.now();
+    const normalizedConfig: PlatformReferralProgramConfig = {
+      enabled: args.enabled,
+      targetOrganizationId: args.targetOrganizationId,
+      signupRewardCredits: Math.max(0, Math.floor(args.signupRewardCredits)),
+      subscriptionRewardCredits: Math.max(
+        0,
+        Math.floor(args.subscriptionRewardCredits)
+      ),
+      monthlyRewardCapCredits: Math.max(1, Math.floor(args.monthlyRewardCapCredits)),
+      sharePathPrefix: normalizeSharePathPrefix(args.sharePathPrefix),
+    };
+
+    const existing = await ctx.db
+      .query("platformSettings")
+      .withIndex("by_key", (q) => q.eq("key", PLATFORM_REFERRAL_PROGRAM_SETTING_KEY))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: normalizedConfig,
+        description:
+          "Platform-level referral program configuration for rewards and routing.",
+        ...(args.updatedBy ? { updatedBy: args.updatedBy } : {}),
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("platformSettings", {
+        key: PLATFORM_REFERRAL_PROGRAM_SETTING_KEY,
+        value: normalizedConfig,
+        description:
+          "Platform-level referral program configuration for rewards and routing.",
+        ...(args.updatedBy ? { updatedBy: args.updatedBy } : {}),
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      success: true,
+      config: normalizedConfig,
+    };
   },
 });

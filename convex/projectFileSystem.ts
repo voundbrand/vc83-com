@@ -16,7 +16,7 @@
  * Soft-delete: files go to trash, auto-purged after 30 days.
  */
 
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
@@ -127,6 +127,17 @@ async function checkFileAccess(
 
 function canWrite(access: string): boolean {
   return access === "owner" || access === "editor" || access === "admin";
+}
+
+function appendTimestampToFileName(name: string, timestamp: number): string {
+  const dotIndex = name.lastIndexOf(".");
+  const suffix = `-${new Date(timestamp).toISOString().replace(/[:.]/g, "-")}`;
+  if (dotIndex <= 0 || dotIndex === name.length - 1) {
+    return `${name}${suffix}`;
+  }
+  const base = name.slice(0, dotIndex);
+  const ext = name.slice(dotIndex);
+  return `${base}${suffix}${ext}`;
 }
 
 /**
@@ -572,6 +583,129 @@ export const createVirtualFile = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * UPSERT virtual file (internal runtime).
+ * Used by AI tools that need deterministic file persistence without session token context.
+ */
+export const upsertVirtualFileInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    projectId: v.optional(v.id("objects")),
+    parentPath: v.string(),
+    name: v.string(),
+    content: v.string(),
+    mimeType: v.optional(v.string()),
+    language: v.optional(v.string()),
+    overwrite: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const hasWritePermission = await checkPermission(
+      ctx,
+      args.userId,
+      "media_library.upload",
+      args.organizationId
+    );
+    if (!hasWritePermission) {
+      throw new Error("Permission denied");
+    }
+
+    if (args.projectId) {
+      const project = await ctx.db.get(args.projectId);
+      if (!project || project.organizationId !== args.organizationId) {
+        throw new Error("Project not found in organization");
+      }
+    }
+
+    const now = Date.now();
+    const parentPath = normalizePath(args.parentPath);
+    let name = normalizeVirtualFileName(args.name);
+    let path = normalizePath(`${parentPath}/${name}`);
+    const virtualFileMetadata = deriveVirtualFileMetadata(
+      {
+        name,
+        mimeType: args.mimeType,
+        language: args.language,
+      },
+      { preferLegacyMarkdownDefault: true }
+    );
+
+    let existing = await queryFileByPath(
+      ctx,
+      args.organizationId,
+      args.projectId,
+      path
+    );
+
+    if (existing && !existing.isDeleted && !args.overwrite) {
+      name = appendTimestampToFileName(name, now);
+      path = normalizePath(`${parentPath}/${name}`);
+      existing = await queryFileByPath(
+        ctx,
+        args.organizationId,
+        args.projectId,
+        path
+      );
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        name,
+        path,
+        parentPath,
+        fileKind: "virtual",
+        content: args.content,
+        contentHash: simpleHash(args.content),
+        mimeType: virtualFileMetadata.mimeType,
+        sizeBytes: new TextEncoder().encode(args.content).length,
+        language: virtualFileMetadata.language,
+        isDeleted: false,
+        deletedAt: undefined,
+        deletedBy: undefined,
+        originalPath: undefined,
+        source: "ai_generated",
+        updatedAt: now,
+      });
+
+      return {
+        fileId: existing._id,
+        path,
+        parentPath,
+        name,
+        overwritten: !existing.isDeleted,
+        created: false,
+      };
+    }
+
+    const fileId = await ctx.db.insert("projectFiles", {
+      organizationId: args.organizationId,
+      projectId: args.projectId,
+      name,
+      path,
+      parentPath,
+      fileKind: "virtual",
+      content: args.content,
+      contentHash: simpleHash(args.content),
+      mimeType: virtualFileMetadata.mimeType,
+      sizeBytes: new TextEncoder().encode(args.content).length,
+      language: virtualFileMetadata.language,
+      source: "ai_generated",
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      fileId,
+      path,
+      parentPath,
+      name,
+      overwritten: false,
+      created: true,
+    };
   },
 });
 

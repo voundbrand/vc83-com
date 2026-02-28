@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 419.25 595.5" font-family="'Playfair Display', Georgia, 'Times New Roman', serif">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,800;1,400;1,700&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="419.25" height="595.5" fill="#ffffff"/>
+
+  <!-- Top bar / branding -->
+  <!-- Zigzag logo mark -->
+  <g transform="translate(30, 28)">
+    <path d="M0 0 L8 0 L16 10 L24 0 L32 0 L32 4 L24 14 L16 4 L8 14 L0 4 Z" fill="#1a1a1a" opacity="0.85"/>
+  </g>
+  <text x="72" y="38" fill="#1a1a1a" font-size="13" font-weight="400" font-style="italic">sevenlayers.io</text>
+  <text x="389" y="38" text-anchor="end" fill="#999" font-size="8.5" font-weight="400">trust</text>
+
+  <!-- Headline -->
+  <text x="209.6" y="76" text-anchor="middle" fill="#1a1a1a" font-size="21" font-weight="800" letter-spacing="-0.5">7 Schichten Vertrauen.</text>
+  <text x="209.6" y="98" text-anchor="middle" fill="#1a1a1a" font-size="21" font-weight="800" letter-spacing="-0.5">In Code gebaut.</text>
+
+  <!-- Subtitle -->
+  <text x="209.6" y="120" text-anchor="middle" fill="#777" font-size="8">Jede einzelne Schicht kann ein Problem stoppen — ganz allein.</text>
+
+  <!-- Layer items -->
+  <!-- Layer 1 -->
+  <g transform="translate(30, 140)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">1</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">Unveränderbare Identität</text>
+    <text x="38" y="23" fill="#666" font-size="7">Persönlichkeit, Regeln und Grenzen — fest im Code verankert.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Kann sie durchdrehen?" — Nein. Sie kann sich selbst nicht umschreiben.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="181" x2="389" y2="181" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 2 -->
+  <g transform="translate(30, 190)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">2</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">Kontrollierte Weiterentwicklung</text>
+    <text x="38" y="23" fill="#666" font-size="7">Max. 3 Vorschläge pro Tag. Du genehmigst jede Änderung.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Kann sie sich ohne mein Okay verändern?" — Nein. 6 Sicherheitstore.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="231" x2="389" y2="231" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 3 -->
+  <g transform="translate(30, 240)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">3</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">4D-Drift-Erkennung</text>
+    <text x="38" y="23" fill="#666" font-size="7">Identität, Fokus, Grenzen, Leistung — jede Runde gemessen.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Woher weiß ich, dass sie auf Kurs bleibt?" — Automatische Korrektur.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="281" x2="389" y2="281" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 4 -->
+  <g transform="translate(30, 290)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">Dreifach-Tor Eskalation</text>
+    <text x="38" y="23" fill="#666" font-size="7">Vor der KI. Nach der KI. Bei Tool-Fehlern. Du übernimmst per Telegram.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Was, wenn sie Mist erzählt?" — 3 unabhängige Sicherheitsebenen.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="331" x2="389" y2="331" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 5 -->
+  <g transform="translate(30, 340)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">5</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">4-Schicht Tool-Zugriff</text>
+    <text x="38" y="23" fill="#666" font-size="7">Plattform → Org → Agent → Session. Jeder Filter kann nur entfernen.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Kann sie auf Dinge zugreifen, die sie nicht soll?" — Unmöglich.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="381" x2="389" y2="381" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 6 -->
+  <g transform="translate(30, 390)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">6</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">Einverständnis-Tracking</text>
+    <text x="38" y="23" fill="#666" font-size="7">Deine KI speichert nichts ohne Erlaubnis. Unter 40%? Auto-Rollback.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Speichert sie heimlich Kundendaten?" — Nein. Alles nur mit Zustimmung.</text>
+  </g>
+
+  <!-- Divider -->
+  <line x1="44" y1="431" x2="389" y2="431" stroke="#eee" stroke-width="0.5"/>
+
+  <!-- Layer 7 -->
+  <g transform="translate(30, 440)">
+    <circle cx="14" cy="14" r="14" fill="#1a1a1a"/>
+    <text x="14" y="18.5" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">7</text>
+    <text x="38" y="11" fill="#1a1a1a" font-size="10" font-weight="700">Plattform-Sicherheit</text>
+    <text x="38" y="23" fill="#666" font-size="7">Step-up Auth, zeitgebundene Rechte, Dual-Approval für kritische Aktionen.</text>
+    <text x="38" y="33" fill="#aaa" font-size="6.2" font-style="italic">„Wer hat Zugriff auf die Plattform?" — Enterprise-IAM mit Audit-Trail.</text>
+  </g>
+
+  <!-- Bottom section -->
+  <line x1="30" y1="490" x2="389" y2="490" stroke="#ddd" stroke-width="0.5"/>
+
+  <!-- Key stats -->
+  <text x="209.6" y="510" text-anchor="middle" fill="#1a1a1a" font-size="8.5" font-weight="700">80+ Trust-Events · 13 Kategorien · Unveränderliches Audit-Log</text>
+  <text x="209.6" y="524" text-anchor="middle" fill="#888" font-size="7">Jede Aktion, jede Eskalation, jede Entscheidung — lückenlos dokumentiert.</text>
+
+  <!-- Tagline -->
+  <text x="209.6" y="552" text-anchor="middle" fill="#1a1a1a" font-size="9.5" font-weight="700" font-style="italic">Nicht ein Sicherheitsnetz. Sieben.</text>
+  <text x="209.6" y="566" text-anchor="middle" fill="#888" font-size="7">KI-Agenten, die wie Mitarbeiter geführt werden — nicht wie Chatbots deployed.</text>
+
+  <!-- Footer -->
+  <text x="209.6" y="586" text-anchor="middle" fill="#bbb" font-size="5.5">hello@sevenlayers.io · www.sevenlayers.io · +49 151 404 27 103</text>
+
+</svg>

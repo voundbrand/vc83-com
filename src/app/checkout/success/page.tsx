@@ -8,8 +8,8 @@
 
 export default function CheckoutSuccessPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-[var(--color-surface)] flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-8 text-center">
         <div className="mb-6">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -37,7 +37,7 @@ export default function CheckoutSuccessPage() {
         <div className="space-y-3">
           <button
             onClick={() => window.close()}
-            className="w-full py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
+            className="w-full py-3 px-6 desktop-interior-button desktop-interior-button-primary font-semibold rounded-lg transition-colors"
           >
             Close Window
           </button>

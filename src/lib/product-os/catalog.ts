@@ -43,6 +43,12 @@ export const PRODUCT_OS_POPULAR_CODES = [
 
 export const PRODUCT_OS_NEW_CODES = ["crm", "projects", "events", "payments", "benefits"] as const;
 
+/**
+ * Apps hidden from primary shell discovery surfaces (Product menu, mobile launcher, All Apps).
+ * Keep route/deep-link compatibility by preserving action/registry wiring elsewhere.
+ */
+export const PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES = ["brain-voice"] as const;
+
 const popularCodeSet = new Set<string>(PRODUCT_OS_POPULAR_CODES);
 const newCodeSet = new Set<string>(PRODUCT_OS_NEW_CODES);
 

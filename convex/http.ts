@@ -18,6 +18,7 @@ import type { Id } from "./_generated/dataModel";
 import type Stripe from "stripe";
 import { SLACK_INTEGRATION_CONFIG } from "./oauth/config";
 import { normalizeClaimTokenForResponse } from "./onboarding/claimTokenResponse";
+import { decodeAndVerifyBetaAutoApproveToken } from "./lib/betaAutoApproveToken";
 import { verifySlackRequestSignature } from "./channels/providers/slackProvider";
 import { verifyWhatsAppWebhookSignature } from "./channels/providers/whatsappSignature";
 import { addRateLimitHeaders, checkRateLimit } from "./middleware/rateLimit";
@@ -52,6 +53,7 @@ function asNonEmptyString(value: unknown): string | undefined {
 }
 
 type SlackVerificationContext = {
+  organizationId?: Id<"organizations">;
   teamId?: string;
   providerConnectionId?: string;
   providerAccountId?: string;
@@ -102,6 +104,9 @@ async function resolveSlackVerificationContext(
     : [];
 
   return {
+    organizationId: asNonEmptyString(
+      (context as { organizationId?: unknown }).organizationId
+    ) as Id<"organizations"> | undefined,
     teamId: asNonEmptyString((context as { teamId?: unknown }).teamId),
     providerConnectionId: asNonEmptyString(
       (context as { providerConnectionId?: unknown }).providerConnectionId
@@ -125,6 +130,72 @@ async function resolveSlackVerificationContext(
     routeKey: asNonEmptyString((context as { routeKey?: unknown }).routeKey),
     signingSecrets,
   };
+}
+
+type WebhookIngressStatus = "success" | "warning" | "error" | "skipped";
+type WebhookIngressOutcome = "accepted" | "warning" | "error" | "skipped";
+
+function normalizeWebhookIngressStatus(value: unknown): WebhookIngressStatus {
+  if (value === "warning" || value === "error" || value === "skipped") {
+    return value;
+  }
+  return "success";
+}
+
+function resolveWebhookIngressOutcome(status: WebhookIngressStatus): WebhookIngressOutcome {
+  if (status === "error") return "error";
+  if (status === "skipped") return "skipped";
+  if (status === "warning") return "warning";
+  return "accepted";
+}
+
+async function recordIngressWebhookEvent(args: {
+  ctx: unknown;
+  organizationId?: Id<"organizations"> | null;
+  provider: string;
+  endpoint: string;
+  action: string;
+  status: unknown;
+  message?: string;
+  errorMessage?: string;
+  providerEventId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  routeKey?: string;
+  channel?: string;
+  metadata?: Record<string, unknown>;
+  processedAt?: number;
+}): Promise<void> {
+  if (!args.organizationId) {
+    return;
+  }
+
+  const eventStatus = normalizeWebhookIngressStatus(args.status);
+
+  try {
+    await (args.ctx as any).runMutation(
+      generatedApi.internal.channels.webhooks.recordWebhookEvent,
+      {
+        organizationId: args.organizationId,
+        provider: args.provider,
+        endpoint: args.endpoint,
+        eventName: `ingress.${args.action}.${eventStatus}`,
+        eventStatus,
+        outcome: resolveWebhookIngressOutcome(eventStatus),
+        message: args.message,
+        errorMessage: args.errorMessage,
+        providerEventId: args.providerEventId,
+        providerConnectionId: args.providerConnectionId,
+        providerAccountId: args.providerAccountId,
+        routeKey: args.routeKey,
+        channel: args.channel,
+        metadata: args.metadata,
+        processedAt: args.processedAt ?? Date.now(),
+      }
+    );
+  } catch (error) {
+    console.warn("[Webhook] Failed to persist ingress event from HTTP boundary:", error);
+  }
 }
 
 type TelegramWebhookAuthContext =
@@ -885,6 +956,11 @@ import {
   sendMessage as aiChatSendMessage,
   getSettings as aiChatGetSettings,
   getModels as aiChatGetModels,
+  resolveVoiceSession as aiChatResolveVoiceSession,
+  openVoiceSession as aiChatOpenVoiceSession,
+  closeVoiceSession as aiChatCloseVoiceSession,
+  transcribeVoice as aiChatTranscribeVoice,
+  synthesizeVoice as aiChatSynthesizeVoice,
   handleToolAction as aiChatHandleToolAction,
   getPendingTools as aiChatGetPendingTools,
   updateConversation as aiChatUpdateConversation,
@@ -901,6 +977,12 @@ import {
   sendConversationMessage as agentSendConversationMessage,
   updateConversation as agentUpdateConversation,
 } from "./api/v1/conversations";
+import {
+  handleOptions as supportHandleOptions,
+  postSupportChat,
+  getSupportChatSession,
+  postSupportEscalate,
+} from "./api/v1/support";
 
 // Sub-Organizations API (parent-child org hierarchy for agency model)
 import {
@@ -909,10 +991,103 @@ import {
   getChildOrganization,
   updateChildOrganization,
 } from "./api/v1/subOrganizations";
+import {
+  handleOptions as creditsHandleOptions,
+  getCreditsBalance,
+  getCreditsHistory,
+  redeemCreditsCode,
+  getReferralProgramDashboard,
+  ensureReferralProfile,
+  trackReferralSignup,
+} from "./api/credits";
 
 /**
  * Layer 1: READ APIs (Before Checkout)
  */
+
+// OPTIONS /api/credits/balance (CORS preflight)
+http.route({
+  path: "/api/credits/balance",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// GET /api/credits/balance
+http.route({
+  path: "/api/credits/balance",
+  method: "GET",
+  handler: getCreditsBalance,
+});
+
+// OPTIONS /api/credits/history (CORS preflight)
+http.route({
+  path: "/api/credits/history",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// GET /api/credits/history
+http.route({
+  path: "/api/credits/history",
+  method: "GET",
+  handler: getCreditsHistory,
+});
+
+// OPTIONS /api/credits/redeem (CORS preflight)
+http.route({
+  path: "/api/credits/redeem",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// POST /api/credits/redeem
+http.route({
+  path: "/api/credits/redeem",
+  method: "POST",
+  handler: redeemCreditsCode,
+});
+
+// OPTIONS /api/credits/referral (CORS preflight)
+http.route({
+  path: "/api/credits/referral",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// GET /api/credits/referral
+http.route({
+  path: "/api/credits/referral",
+  method: "GET",
+  handler: getReferralProgramDashboard,
+});
+
+// OPTIONS /api/credits/referral/profile (CORS preflight)
+http.route({
+  path: "/api/credits/referral/profile",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// POST /api/credits/referral/profile
+http.route({
+  path: "/api/credits/referral/profile",
+  method: "POST",
+  handler: ensureReferralProfile,
+});
+
+// OPTIONS /api/credits/referral/track-signup (CORS preflight)
+http.route({
+  path: "/api/credits/referral/track-signup",
+  method: "OPTIONS",
+  handler: creditsHandleOptions,
+});
+
+// POST /api/credits/referral/track-signup
+http.route({
+  path: "/api/credits/referral/track-signup",
+  method: "POST",
+  handler: trackReferralSignup,
+});
 
 // OPTIONS /api/v1/events (CORS preflight)
 http.route({
@@ -2269,6 +2444,127 @@ http.route({
 });
 
 /**
+ * BETA CODE VALIDATION ENDPOINT
+ *
+ * Public endpoint used by chat/native/web clients to validate beta codes
+ * before attempting signup activation.
+ */
+http.route({
+  path: "/api/beta/validate",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const body = await request.json();
+      const code = asNonEmptyString(body?.code);
+
+      if (!code) {
+        return new Response(
+          JSON.stringify({
+            error: "Missing required field: code",
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+              ...getCorsHeaders(request.headers.get("origin")),
+            },
+          }
+        );
+      }
+
+      const result = await (ctx as any).runQuery(generatedApi.api.betaCodes.validateBetaCodePublic, {
+        code,
+      });
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...getCorsHeaders(request.headers.get("origin")),
+        },
+      });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || "Failed to validate beta code";
+      return new Response(
+        JSON.stringify({
+          error: errorMessage,
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...getCorsHeaders(request.headers.get("origin")),
+          },
+        }
+      );
+    }
+  }),
+});
+
+// OPTIONS /api/beta/validate - CORS preflight
+http.route({
+  path: "/api/beta/validate",
+  method: "OPTIONS",
+  handler: httpAction(async (ctx, request) => {
+    const origin = request.headers.get("origin");
+    return handleOptionsRequest(origin);
+  }),
+});
+
+/**
+ * ONE-CLICK BETA APPROVAL (Super Admin Email Link)
+ *
+ * Accepts a signed token from the admin notification email and auto-approves
+ * the pending beta user.
+ */
+http.route({
+  path: "/api/beta/auto-approve",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
+    const dashboardUrl = `${appBaseUrl.replace(/\/+$/, "")}/?openWindow=organizations&panel=beta-access`;
+    const token = asNonEmptyString(new URL(request.url).searchParams.get("token"));
+
+    if (!token) {
+      return new Response(
+        `<html><body><h1>Invalid approval link</h1><p>Missing token.</p><p><a href="${dashboardUrl}">Open Beta Access Dashboard</a></p></body></html>`,
+        { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+
+    const decoded = await decodeAndVerifyBetaAutoApproveToken(token);
+    if (!decoded) {
+      return new Response(
+        `<html><body><h1>Approval link expired or invalid</h1><p>Please review the request in the dashboard.</p><p><a href="${dashboardUrl}">Open Beta Access Dashboard</a></p></body></html>`,
+        { status: 401, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+
+    const result = await (ctx as any).runMutation(
+      generatedApi.internal.betaAccess.approveBetaAccessFromEmailLink,
+      {
+        userId: decoded.payload.userId as Id<"users">,
+      }
+    );
+
+    if (!result?.success) {
+      return new Response(
+        `<html><body><h1>Approval failed</h1><p>User could not be approved from this link.</p><p><a href="${dashboardUrl}">Open Beta Access Dashboard</a></p></body></html>`,
+        { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+
+    const statusText = result.alreadyApproved
+      ? "This beta user was already approved."
+      : "Beta user approved successfully.";
+    return new Response(
+      `<html><body><h1>Success</h1><p>${statusText}</p><p><a href="${dashboardUrl}">Open Beta Access Dashboard</a></p></body></html>`,
+      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+    );
+  }),
+});
+
+/**
  * SELF-SERVICE SIGNUP ENDPOINT
  *
  * Allows users to create free accounts with auto-organization creation.
@@ -2281,7 +2577,14 @@ http.route({
     try {
       // Parse request body
       const body = await request.json();
-      const { email, password, firstName, lastName, organizationName } = body;
+      const { email, password, firstName, lastName, organizationName, refcode } = body;
+      const referralCode = asNonEmptyString(refcode);
+      const betaCode = asNonEmptyString(body?.betaCode)
+        || asNonEmptyString(body?.beta_code)
+        || asNonEmptyString(body?.inviteCode);
+      const identityClaimToken = asNonEmptyString(body?.identityClaimToken)
+        || asNonEmptyString(body?.identity_claim_token)
+        || asNonEmptyString(body?.claimToken);
 
       // Validate required fields
       if (!email || !password || !firstName || !lastName) {
@@ -2306,7 +2609,25 @@ http.route({
         firstName,
         lastName,
         organizationName,
+        betaCode,
+        identityClaimToken,
       });
+
+      if (referralCode) {
+        try {
+          await (ctx as any).runMutation(
+            generatedApi.internal.credits.index.trackReferralSignupConversionInternal,
+            {
+              referralCode,
+              referredUserId: result.user.id,
+              referredOrganizationId: result.organization.id,
+              source: "email_signup",
+            }
+          );
+        } catch (referralError) {
+          console.error("Signup referral attribution failed (non-blocking):", referralError);
+        }
+      }
 
       // Return success with session and API key
       return new Response(
@@ -2332,6 +2653,14 @@ http.route({
         ? "Invalid email format"
         : errorCode === "DISPOSABLE_EMAIL"
         ? "Please use a permanent email address"
+        : errorCode === "INVALID_BETA_CODE"
+        ? "Beta code is invalid."
+        : errorCode === "BETA_CODE_EXPIRED"
+        ? "Beta code has expired."
+        : errorCode === "BETA_CODE_EXHAUSTED"
+        ? "Beta code has already been redeemed."
+        : errorCode === "BETA_CODE_DEACTIVATED"
+        ? "Beta code has been deactivated."
         : getErrorMessage(error) || "Signup failed";
 
       return new Response(
@@ -2456,6 +2785,7 @@ import {
   signUpHandler,
   signInHandler,
   signOutHandler,
+  getCurrentAuthUserHandler,
   emailAuthOptionsHandler,
 } from "./api/v1/emailAuth";
 
@@ -2556,6 +2886,20 @@ http.route({
   path: "/api/v1/auth/sign-out",
   method: "POST",
   handler: signOutHandler,
+});
+
+// OPTIONS /api/v1/auth/me - CORS preflight
+http.route({
+  path: "/api/v1/auth/me",
+  method: "OPTIONS",
+  handler: emailAuthOptionsHandler,
+});
+
+// GET /api/v1/auth/me - Get current authenticated mobile user profile
+http.route({
+  path: "/api/v1/auth/me",
+  method: "GET",
+  handler: getCurrentAuthUserHandler,
 });
 
 /**
@@ -3125,6 +3469,48 @@ http.route({
   handler: aiChatGetModels,
 });
 
+// OPTIONS /api/v1/ai/voice/* - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/ai/voice/",
+  method: "OPTIONS",
+  handler: aiChatHandleOptions,
+});
+
+// POST /api/v1/ai/voice/session/resolve - Resolve conversation + interview session
+http.route({
+  path: "/api/v1/ai/voice/session/resolve",
+  method: "POST",
+  handler: aiChatResolveVoiceSession,
+});
+
+// POST /api/v1/ai/voice/session/open - Open voice runtime session
+http.route({
+  path: "/api/v1/ai/voice/session/open",
+  method: "POST",
+  handler: aiChatOpenVoiceSession,
+});
+
+// POST /api/v1/ai/voice/session/close - Close voice runtime session
+http.route({
+  path: "/api/v1/ai/voice/session/close",
+  method: "POST",
+  handler: aiChatCloseVoiceSession,
+});
+
+// POST /api/v1/ai/voice/transcribe - Transcribe audio bytes via voice runtime
+http.route({
+  path: "/api/v1/ai/voice/transcribe",
+  method: "POST",
+  handler: aiChatTranscribeVoice,
+});
+
+// POST /api/v1/ai/voice/synthesize - Synthesize provider-backed assistant audio
+http.route({
+  path: "/api/v1/ai/voice/synthesize",
+  method: "POST",
+  handler: aiChatSynthesizeVoice,
+});
+
 // OPTIONS /api/v1/ai/tools/:id/* - CORS preflight
 http.route({
   pathPrefix: "/api/v1/ai/tools/",
@@ -3366,6 +3752,56 @@ http.route({
 });
 
 // ============================================================================
+// SUPPORT CHAT API
+// ============================================================================
+//
+// Authenticated support-first API with deterministic escalation and ticket references.
+// Scopes: conversations:read, conversations:write
+// ============================================================================
+
+// OPTIONS /api/support/chat - CORS preflight
+http.route({
+  path: "/api/support/chat",
+  method: "OPTIONS",
+  handler: supportHandleOptions,
+});
+
+// POST /api/support/chat - Send support message through agent runtime
+http.route({
+  path: "/api/support/chat",
+  method: "POST",
+  handler: postSupportChat,
+});
+
+// OPTIONS /api/support/chat/:sessionId - CORS preflight
+http.route({
+  pathPrefix: "/api/support/chat/",
+  method: "OPTIONS",
+  handler: supportHandleOptions,
+});
+
+// GET /api/support/chat/:sessionId - Fetch support session with escalation state
+http.route({
+  pathPrefix: "/api/support/chat/",
+  method: "GET",
+  handler: getSupportChatSession,
+});
+
+// OPTIONS /api/support/escalate - CORS preflight
+http.route({
+  path: "/api/support/escalate",
+  method: "OPTIONS",
+  handler: supportHandleOptions,
+});
+
+// POST /api/support/escalate - Deterministic escalation + ticket creation
+http.route({
+  path: "/api/support/escalate",
+  method: "POST",
+  handler: postSupportEscalate,
+});
+
+// ============================================================================
 // SUB-ORGANIZATIONS API
 // ============================================================================
 //
@@ -3475,6 +3911,7 @@ http.route({
         agentId,
         sessionToken,
         message,
+        attachments,
         visitorInfo,
         deviceFingerprint,
         challengeToken,
@@ -3484,6 +3921,7 @@ http.route({
         agentId?: string;
         sessionToken?: string;
         message: string;
+        attachments?: Array<Record<string, unknown>>;
         visitorInfo?: { name?: string; email?: string; phone?: string };
         deviceFingerprint?: string;
         challengeToken?: string;
@@ -3521,6 +3959,11 @@ http.route({
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
         attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedAttachments = Array.isArray(attachments)
+        ? attachments
+            .filter((entry) => entry && typeof entry === "object")
+            .slice(0, 4)
+        : undefined;
       const normalizedOrganizationId =
         typeof organizationId === "string" && organizationId.trim().length > 0
           ? (organizationId as Id<"organizations">)
@@ -3537,6 +3980,7 @@ http.route({
           agentId: normalizedAgentId,
           channel: "webchat",
           sessionToken: normalizedSessionToken,
+          deploymentMode: normalizedSessionToken ? "platform_entry" : "direct_agent_entry",
         }
       );
 
@@ -3686,6 +4130,7 @@ http.route({
         channel: "webchat",
         sessionToken: normalizedSessionToken,
         message,
+        attachments: normalizedAttachments,
         visitorInfo,
         attribution: normalizedAttribution,
       });
@@ -3859,6 +4304,7 @@ http.route({
         agentId,
         sessionToken,
         message,
+        attachments,
         visitorInfo,
         deviceFingerprint,
         challengeToken,
@@ -3868,6 +4314,7 @@ http.route({
         agentId?: string;
         sessionToken?: string;
         message: string;
+        attachments?: Array<Record<string, unknown>>;
         visitorInfo?: { name?: string; email?: string; phone?: string };
         deviceFingerprint?: string;
         challengeToken?: string;
@@ -3903,6 +4350,11 @@ http.route({
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
         attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedAttachments = Array.isArray(attachments)
+        ? attachments
+            .filter((entry) => entry && typeof entry === "object")
+            .slice(0, 4)
+        : undefined;
       const normalizedOrganizationId =
         typeof organizationId === "string" && organizationId.trim().length > 0
           ? (organizationId as Id<"organizations">)
@@ -3919,6 +4371,7 @@ http.route({
           agentId: normalizedAgentId,
           channel: "native_guest",
           sessionToken: normalizedSessionToken,
+          deploymentMode: normalizedSessionToken ? "platform_entry" : "direct_agent_entry",
         }
       );
 
@@ -4066,6 +4519,7 @@ http.route({
         channel: "native_guest",
         sessionToken: normalizedSessionToken,
         message,
+        attachments: normalizedAttachments,
         visitorInfo,
         attribution: normalizedAttribution,
       });
@@ -4248,319 +4702,569 @@ http.route({
 // SLACK EVENTS API WEBHOOK
 // ============================================================================
 
-http.route({
-  path: "/slack/events",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    if (!SLACK_INTEGRATION_CONFIG.enabled) {
-      return new Response("Slack integration disabled", { status: 404 });
-    }
+const slackEventsWebhookHandler = httpAction(async (ctx, request) => {
+  if (!SLACK_INTEGRATION_CONFIG.enabled) {
+    return new Response("Slack integration disabled", { status: 404 });
+  }
 
-    const requestIp =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const rateLimitResult = await checkRateLimit(
-      ctx as any,
-      `slack_webhook:${requestIp}`,
-      "ip",
-      "free"
+  const requestIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const rateLimitResult = await checkRateLimit(
+    ctx as any,
+    `slack_webhook:${requestIp}`,
+    "ip",
+    "free"
+  );
+  if (!rateLimitResult.allowed) {
+    return addRateLimitHeaders(
+      new Response(
+        JSON.stringify({
+          error: "Rate limit exceeded",
+          retryAfter: rateLimitResult.retryAfter,
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+      rateLimitResult
     );
-    if (!rateLimitResult.allowed) {
+  }
+
+  let logOrganizationId: Id<"organizations"> | null = null;
+  let logProviderConnectionId: string | undefined;
+  let logProviderAccountId: string | undefined;
+  let logRouteKey: string | undefined;
+  let logEventId: string | undefined;
+
+  try {
+    const body = await request.text();
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch {
       return addRateLimitHeaders(
-        new Response(
-          JSON.stringify({
-            error: "Rate limit exceeded",
-            retryAfter: rateLimitResult.retryAfter,
-          }),
-          {
-            status: 429,
-            headers: { "Content-Type": "application/json" },
-          }
-        ),
+        new Response("Invalid JSON payload", { status: 400 }),
+        rateLimitResult
+      );
+    }
+    logEventId =
+      typeof payload.event_id === "string" ? payload.event_id : undefined;
+
+    // Allow Slack URL verification before installation-specific context exists.
+    // Slack sends this handshake during app setup, before we may have an active
+    // oauthConnection to resolve signing-secret candidates from.
+    if (payload.type === "url_verification") {
+      const challenge = typeof payload.challenge === "string" ? payload.challenge : "";
+      return addRateLimitHeaders(
+        new Response(challenge, {
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+        }),
         rateLimitResult
       );
     }
 
-    try {
-      const body = await request.text();
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(body) as Record<string, unknown>;
-      } catch {
-        return addRateLimitHeaders(
-          new Response("Invalid JSON payload", { status: 400 }),
-          rateLimitResult
-        );
-      }
+    const routingHints = extractSlackEventRoutingHints(payload);
+    const verificationContext = await resolveSlackVerificationContext(ctx, {
+      teamId: routingHints.teamId,
+      appId: routingHints.appId,
+    });
+    logOrganizationId = verificationContext?.organizationId ?? null;
+    logProviderConnectionId = verificationContext?.providerConnectionId;
+    logProviderAccountId =
+      verificationContext?.providerAccountId || routingHints.teamId || undefined;
+    logRouteKey = verificationContext?.routeKey;
 
-      const routingHints = extractSlackEventRoutingHints(payload);
-      const verificationContext = await resolveSlackVerificationContext(ctx, {
+    if (!verificationContext || verificationContext.signingSecrets.length === 0) {
+      const fallbackOrganizationId = routingHints.teamId
+        ? ((await (ctx as any).runQuery(
+            generatedApi.internal.channels.webhooks.resolveOrgFromSlackTeamId,
+            { teamId: routingHints.teamId }
+          )) as Id<"organizations"> | null)
+        : null;
+      await recordIngressWebhookEvent({
+        ctx,
+        organizationId: logOrganizationId || fallbackOrganizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "verified",
+        status: "error",
+        message: "Missing signing secret for resolved Slack installation",
+        providerEventId: logEventId,
+        providerConnectionId: logProviderConnectionId,
+        providerAccountId: logProviderAccountId,
+        routeKey: logRouteKey,
+        metadata: {
+          requestIp,
+          teamId: routingHints.teamId,
+          appId: routingHints.appId,
+        },
+      });
+      console.error("[Slack Webhook] Missing signing secret for resolved installation:", {
+        requestIp,
         teamId: routingHints.teamId,
         appId: routingHints.appId,
       });
-
-      if (!verificationContext || verificationContext.signingSecrets.length === 0) {
-        console.error("[Slack Webhook] Missing signing secret for resolved installation:", {
-          requestIp,
-          teamId: routingHints.teamId,
-          appId: routingHints.appId,
-        });
-        return addRateLimitHeaders(
-          new Response("Invalid signature", { status: 401 }),
-          rateLimitResult
-        );
-      }
-
-      const signatureResult = await verifySlackRequestSignature({
-        body,
-        signatureHeader: request.headers.get("x-slack-signature"),
-        timestampHeader: request.headers.get("x-slack-request-timestamp"),
-        signingSecrets: verificationContext.signingSecrets,
-      });
-
-      if (!signatureResult.valid) {
-        console.error("[Slack Webhook] Signature verification failed:", {
-          reason: signatureResult.reason,
-          requestIp,
-          teamId: routingHints.teamId,
-          appId: routingHints.appId,
-        });
-        return addRateLimitHeaders(
-          new Response("Invalid signature", { status: 401 }),
-          rateLimitResult
-        );
-      }
-
-      if (payload.type === "url_verification") {
-        const challenge = typeof payload.challenge === "string" ? payload.challenge : "";
-        return addRateLimitHeaders(
-          new Response(challenge, {
-            status: 200,
-            headers: { "Content-Type": "text/plain" },
-          }),
-          rateLimitResult
-        );
-      }
-
-      if (payload.type !== "event_callback") {
-        return addRateLimitHeaders(
-          new Response(JSON.stringify({ ok: true, ignored: true }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
-          rateLimitResult
-        );
-      }
-
-      const retryNumHeader = request.headers.get("x-slack-retry-num");
-      const parsedRetryNum = retryNumHeader
-        ? Number.parseInt(retryNumHeader, 10)
-        : Number.NaN;
-      const retryNum = Number.isFinite(parsedRetryNum)
-        ? parsedRetryNum
-        : undefined;
-
-      await (ctx as any).scheduler.runAfter(
-        0,
-        generatedApi.internal.channels.webhooks.processSlackEvent,
-        {
-          payload: body,
-          eventId: typeof payload.event_id === "string" ? payload.event_id : undefined,
-          teamId:
-            routingHints.teamId ||
-            verificationContext.teamId ||
-            undefined,
-          providerConnectionId: verificationContext.providerConnectionId,
-          providerAccountId:
-            verificationContext.providerAccountId ||
-            routingHints.teamId ||
-            verificationContext.teamId ||
-            undefined,
-          providerInstallationId: verificationContext.providerInstallationId,
-          providerProfileId: verificationContext.providerProfileId,
-          providerProfileType: verificationContext.providerProfileType,
-          routeKey: verificationContext.routeKey,
-          retryNum,
-          retryReason: request.headers.get("x-slack-retry-reason") || undefined,
-          signatureTimestamp: signatureResult.timestampSeconds,
-          receivedAt: Date.now(),
-        }
-      );
-
       return addRateLimitHeaders(
-        new Response(JSON.stringify({ ok: true }), {
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    const signatureResult = await verifySlackRequestSignature({
+      body,
+      signatureHeader: request.headers.get("x-slack-signature"),
+      timestampHeader: request.headers.get("x-slack-request-timestamp"),
+      signingSecrets: verificationContext.signingSecrets,
+    });
+
+    if (!signatureResult.valid) {
+      await recordIngressWebhookEvent({
+        ctx,
+        organizationId: logOrganizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "verified",
+        status: "error",
+        message: "Slack signature verification failed",
+        errorMessage: signatureResult.reason,
+        providerEventId: logEventId,
+        providerConnectionId: logProviderConnectionId,
+        providerAccountId: logProviderAccountId,
+        routeKey: logRouteKey,
+        metadata: {
+          requestIp,
+          teamId: routingHints.teamId,
+          appId: routingHints.appId,
+        },
+      });
+      console.error("[Slack Webhook] Signature verification failed:", {
+        reason: signatureResult.reason,
+        requestIp,
+        teamId: routingHints.teamId,
+        appId: routingHints.appId,
+      });
+      return addRateLimitHeaders(
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    if (payload.type !== "event_callback") {
+      await recordIngressWebhookEvent({
+        ctx,
+        organizationId: logOrganizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "received",
+        status: "skipped",
+        message: "Unsupported Slack payload type",
+        providerEventId: logEventId,
+        providerConnectionId: logProviderConnectionId,
+        providerAccountId: logProviderAccountId,
+        routeKey: logRouteKey,
+        metadata: {
+          payloadType: payload.type,
+        },
+      });
+      return addRateLimitHeaders(
+        new Response(JSON.stringify({ ok: true, ignored: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
         rateLimitResult
       );
-    } catch (error) {
-      console.error("[Slack Webhook] Error:", error);
-      return addRateLimitHeaders(
-        new Response("Internal server error", { status: 500 }),
-        rateLimitResult
-      );
     }
-  }),
+
+    const retryNumHeader = request.headers.get("x-slack-retry-num");
+    const parsedRetryNum = retryNumHeader
+      ? Number.parseInt(retryNumHeader, 10)
+      : Number.NaN;
+    const retryNum = Number.isFinite(parsedRetryNum)
+      ? parsedRetryNum
+      : undefined;
+    const receivedAt = Date.now();
+
+    await recordIngressWebhookEvent({
+      ctx,
+      organizationId: logOrganizationId,
+      provider: "slack",
+      endpoint: "integrations/slack/events",
+      action: "received",
+      status: "success",
+      message: "Slack event accepted for async processing",
+      providerEventId: logEventId,
+      providerConnectionId: logProviderConnectionId,
+      providerAccountId: logProviderAccountId,
+      routeKey: logRouteKey,
+      metadata: {
+        retryNum,
+        retryReason: request.headers.get("x-slack-retry-reason") || undefined,
+      },
+      processedAt: receivedAt,
+    });
+
+    await (ctx as any).scheduler.runAfter(
+      0,
+      generatedApi.internal.channels.webhooks.processSlackEvent,
+      {
+        payload: body,
+        eventId: logEventId,
+        teamId:
+          routingHints.teamId ||
+          verificationContext.teamId ||
+          undefined,
+        providerConnectionId: verificationContext.providerConnectionId,
+        providerAccountId:
+          verificationContext.providerAccountId ||
+          routingHints.teamId ||
+          verificationContext.teamId ||
+          undefined,
+        providerInstallationId: verificationContext.providerInstallationId,
+        providerProfileId: verificationContext.providerProfileId,
+        providerProfileType: verificationContext.providerProfileType,
+        routeKey: verificationContext.routeKey,
+        retryNum,
+        retryReason: request.headers.get("x-slack-retry-reason") || undefined,
+        signatureTimestamp: signatureResult.timestampSeconds,
+        receivedAt,
+      }
+    );
+
+    return addRateLimitHeaders(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+      rateLimitResult
+    );
+  } catch (error) {
+    await recordIngressWebhookEvent({
+      ctx,
+      organizationId: logOrganizationId,
+      provider: "slack",
+      endpoint: "integrations/slack/events",
+      action: "received",
+      status: "error",
+      message: "Slack webhook handler error",
+      errorMessage: getErrorMessage(error),
+      providerEventId: logEventId,
+      providerConnectionId: logProviderConnectionId,
+      providerAccountId: logProviderAccountId,
+      routeKey: logRouteKey,
+    });
+    console.error("[Slack Webhook] Error:", error);
+    return addRateLimitHeaders(
+      new Response("Internal server error", { status: 500 }),
+      rateLimitResult
+    );
+  }
+});
+
+http.route({
+  path: "/integrations/slack/events",
+  method: "POST",
+  handler: slackEventsWebhookHandler,
+});
+
+http.route({
+  path: "/slack/events",
+  method: "POST",
+  handler: slackEventsWebhookHandler,
 });
 
 // ============================================================================
 // SLACK SLASH COMMAND WEBHOOK
 // ============================================================================
 
-http.route({
-  path: "/slack/commands",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    if (!SLACK_INTEGRATION_CONFIG.enabled) {
-      return new Response("Slack integration disabled", { status: 404 });
-    }
+const slackSlashCommandWebhookHandler = httpAction(async (ctx, request) => {
+  if (!SLACK_INTEGRATION_CONFIG.enabled) {
+    return new Response("Slack integration disabled", { status: 404 });
+  }
 
-    if (!SLACK_INTEGRATION_CONFIG.slashCommandsEnabled) {
-      return new Response(
+  if (!SLACK_INTEGRATION_CONFIG.slashCommandsEnabled) {
+    return new Response(
+      JSON.stringify({
+        response_type: "ephemeral",
+        text: "Slash commands are not enabled for this environment.",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const requestIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const rateLimitResult = await checkRateLimit(
+    ctx as any,
+    `slack_command:${requestIp}`,
+    "ip",
+    "free"
+  );
+  if (!rateLimitResult.allowed) {
+    return addRateLimitHeaders(
+      new Response(
         JSON.stringify({
           response_type: "ephemeral",
-          text: "Slash commands are not enabled for this environment.",
+          text: "Rate limit exceeded. Please try again shortly.",
+          retryAfter: rateLimitResult.retryAfter,
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+      rateLimitResult
+    );
+  }
+
+  try {
+    const body = await request.text();
+    const payload = new URLSearchParams(body);
+    const teamId = payload.get("team_id")?.trim() || "";
+    const channelId = payload.get("channel_id")?.trim() || "";
+    const userId = payload.get("user_id")?.trim() || "";
+    const command = payload.get("command")?.trim() || "";
+
+    if (!teamId || !channelId || !userId || !command) {
+      return addRateLimitHeaders(
+        new Response("Missing slash command fields", { status: 400 }),
+        rateLimitResult
+      );
+    }
+
+    const verificationContext = await resolveSlackVerificationContext(ctx, {
+      teamId,
+      appId: payload.get("api_app_id")?.trim() || undefined,
+    });
+    if (!verificationContext || verificationContext.signingSecrets.length === 0) {
+      console.error("[Slack Command] Missing signing secret for resolved installation:", {
+        requestIp,
+        teamId,
+        appId: payload.get("api_app_id")?.trim() || undefined,
+      });
+      return addRateLimitHeaders(
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    const signatureResult = await verifySlackRequestSignature({
+      body,
+      signatureHeader: request.headers.get("x-slack-signature"),
+      timestampHeader: request.headers.get("x-slack-request-timestamp"),
+      signingSecrets: verificationContext.signingSecrets,
+    });
+
+    if (!signatureResult.valid) {
+      console.error("[Slack Command] Signature verification failed:", {
+        reason: signatureResult.reason,
+        requestIp,
+        teamId,
+      });
+      return addRateLimitHeaders(
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    const retryNumHeader = request.headers.get("x-slack-retry-num");
+    const parsedRetryNum = retryNumHeader
+      ? Number.parseInt(retryNumHeader, 10)
+      : Number.NaN;
+    const retryNum = Number.isFinite(parsedRetryNum)
+      ? parsedRetryNum
+      : undefined;
+
+    await (ctx as any).scheduler.runAfter(
+      0,
+      generatedApi.internal.channels.webhooks.processSlackSlashCommand,
+      {
+        teamId,
+        channelId,
+        userId,
+        userName: payload.get("user_name") || undefined,
+        command,
+        text: payload.get("text") || undefined,
+        triggerId: payload.get("trigger_id") || undefined,
+        responseUrl: payload.get("response_url") || undefined,
+        providerConnectionId: verificationContext.providerConnectionId,
+        providerAccountId: verificationContext.providerAccountId || teamId,
+        providerInstallationId: verificationContext.providerInstallationId,
+        providerProfileId: verificationContext.providerProfileId,
+        providerProfileType: verificationContext.providerProfileType,
+        routeKey: verificationContext.routeKey,
+        retryNum,
+        retryReason: request.headers.get("x-slack-retry-reason") || undefined,
+        signatureTimestamp: signatureResult.timestampSeconds,
+        receivedAt: Date.now(),
+      }
+    );
+
+    return addRateLimitHeaders(
+      new Response(
+        JSON.stringify({
+          response_type: "ephemeral",
+          text: "Processing command...",
         }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      );
-    }
-
-    const requestIp =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const rateLimitResult = await checkRateLimit(
-      ctx as any,
-      `slack_command:${requestIp}`,
-      "ip",
-      "free"
+      ),
+      rateLimitResult
     );
-    if (!rateLimitResult.allowed) {
-      return addRateLimitHeaders(
-        new Response(
-          JSON.stringify({
-            response_type: "ephemeral",
-            text: "Rate limit exceeded. Please try again shortly.",
-            retryAfter: rateLimitResult.retryAfter,
-          }),
-          {
-            status: 429,
-            headers: { "Content-Type": "application/json" },
-          }
-        ),
-        rateLimitResult
-      );
-    }
+  } catch (error) {
+    console.error("[Slack Command] Error:", error);
+    return addRateLimitHeaders(
+      new Response("Internal server error", { status: 500 }),
+      rateLimitResult
+    );
+  }
+});
 
-    try {
-      const body = await request.text();
-      const payload = new URLSearchParams(body);
-      const teamId = payload.get("team_id")?.trim() || "";
-      const channelId = payload.get("channel_id")?.trim() || "";
-      const userId = payload.get("user_id")?.trim() || "";
-      const command = payload.get("command")?.trim() || "";
+http.route({
+  path: "/integrations/slack/commands",
+  method: "POST",
+  handler: slackSlashCommandWebhookHandler,
+});
 
-      if (!teamId || !channelId || !userId || !command) {
-        return addRateLimitHeaders(
-          new Response("Missing slash command fields", { status: 400 }),
-          rateLimitResult
-        );
-      }
+http.route({
+  path: "/slack/commands",
+  method: "POST",
+  handler: slackSlashCommandWebhookHandler,
+});
 
-      const verificationContext = await resolveSlackVerificationContext(ctx, {
-        teamId,
-        appId: payload.get("api_app_id")?.trim() || undefined,
-      });
-      if (!verificationContext || verificationContext.signingSecrets.length === 0) {
-        console.error("[Slack Command] Missing signing secret for resolved installation:", {
-          requestIp,
-          teamId,
-          appId: payload.get("api_app_id")?.trim() || undefined,
-        });
-        return addRateLimitHeaders(
-          new Response("Invalid signature", { status: 401 }),
-          rateLimitResult
-        );
-      }
+// ============================================================================
+// SLACK INTERACTIVITY WEBHOOK
+// ============================================================================
 
-      const signatureResult = await verifySlackRequestSignature({
-        body,
-        signatureHeader: request.headers.get("x-slack-signature"),
-        timestampHeader: request.headers.get("x-slack-request-timestamp"),
-        signingSecrets: verificationContext.signingSecrets,
-      });
+const slackInteractivityWebhookHandler = httpAction(async (ctx, request) => {
+  if (!SLACK_INTEGRATION_CONFIG.enabled) {
+    return new Response("Slack integration disabled", { status: 404 });
+  }
 
-      if (!signatureResult.valid) {
-        console.error("[Slack Command] Signature verification failed:", {
-          reason: signatureResult.reason,
-          requestIp,
-          teamId,
-        });
-        return addRateLimitHeaders(
-          new Response("Invalid signature", { status: 401 }),
-          rateLimitResult
-        );
-      }
-
-      const retryNumHeader = request.headers.get("x-slack-retry-num");
-      const parsedRetryNum = retryNumHeader
-        ? Number.parseInt(retryNumHeader, 10)
-        : Number.NaN;
-      const retryNum = Number.isFinite(parsedRetryNum)
-        ? parsedRetryNum
-        : undefined;
-
-      await (ctx as any).scheduler.runAfter(
-        0,
-        generatedApi.internal.channels.webhooks.processSlackSlashCommand,
+  const requestIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const rateLimitResult = await checkRateLimit(
+    ctx as any,
+    `slack_interactivity:${requestIp}`,
+    "ip",
+    "free"
+  );
+  if (!rateLimitResult.allowed) {
+    return addRateLimitHeaders(
+      new Response(
+        JSON.stringify({
+          response_type: "ephemeral",
+          text: "Rate limit exceeded. Please try again shortly.",
+          retryAfter: rateLimitResult.retryAfter,
+        }),
         {
-          teamId,
-          channelId,
-          userId,
-          userName: payload.get("user_name") || undefined,
-          command,
-          text: payload.get("text") || undefined,
-          triggerId: payload.get("trigger_id") || undefined,
-          responseUrl: payload.get("response_url") || undefined,
-          providerConnectionId: verificationContext.providerConnectionId,
-          providerAccountId: verificationContext.providerAccountId || teamId,
-          providerInstallationId: verificationContext.providerInstallationId,
-          providerProfileId: verificationContext.providerProfileId,
-          providerProfileType: verificationContext.providerProfileType,
-          routeKey: verificationContext.routeKey,
-          retryNum,
-          retryReason: request.headers.get("x-slack-retry-reason") || undefined,
-          signatureTimestamp: signatureResult.timestampSeconds,
-          receivedAt: Date.now(),
+          status: 429,
+          headers: { "Content-Type": "application/json" },
         }
-      );
+      ),
+      rateLimitResult
+    );
+  }
 
+  try {
+    const body = await request.text();
+    const formPayload = new URLSearchParams(body);
+    const interactionPayloadRaw = formPayload.get("payload");
+    const interactionPayload = interactionPayloadRaw
+      ? (JSON.parse(interactionPayloadRaw) as Record<string, unknown>)
+      : null;
+    const teamId =
+      formPayload.get("team_id")?.trim() ||
+      asNonEmptyString(
+        ((interactionPayload?.team as Record<string, unknown> | undefined)?.id as unknown)
+      ) ||
+      "";
+    const appId =
+      formPayload.get("api_app_id")?.trim() ||
+      asNonEmptyString(interactionPayload?.api_app_id) ||
+      undefined;
+
+    if (!teamId) {
       return addRateLimitHeaders(
-        new Response(
-          JSON.stringify({
-            response_type: "ephemeral",
-            text: "Processing command...",
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        ),
-        rateLimitResult
-      );
-    } catch (error) {
-      console.error("[Slack Command] Error:", error);
-      return addRateLimitHeaders(
-        new Response("Internal server error", { status: 500 }),
+        new Response("Missing Slack team ID", { status: 400 }),
         rateLimitResult
       );
     }
-  }),
+
+    const verificationContext = await resolveSlackVerificationContext(ctx, {
+      teamId,
+      appId,
+    });
+    if (!verificationContext || verificationContext.signingSecrets.length === 0) {
+      console.error("[Slack Interactivity] Missing signing secret for resolved installation:", {
+        requestIp,
+        teamId,
+        appId,
+      });
+      return addRateLimitHeaders(
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    const signatureResult = await verifySlackRequestSignature({
+      body,
+      signatureHeader: request.headers.get("x-slack-signature"),
+      timestampHeader: request.headers.get("x-slack-request-timestamp"),
+      signingSecrets: verificationContext.signingSecrets,
+    });
+
+    if (!signatureResult.valid) {
+      console.error("[Slack Interactivity] Signature verification failed:", {
+        reason: signatureResult.reason,
+        requestIp,
+        teamId,
+        appId,
+      });
+      return addRateLimitHeaders(
+        new Response("Invalid signature", { status: 401 }),
+        rateLimitResult
+      );
+    }
+
+    return addRateLimitHeaders(
+      new Response(
+        JSON.stringify({
+          response_type: "ephemeral",
+          text: "Interactivity endpoint acknowledged.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+      rateLimitResult
+    );
+  } catch (error) {
+    console.error("[Slack Interactivity] Error:", error);
+    return addRateLimitHeaders(
+      new Response("Internal server error", { status: 500 }),
+      rateLimitResult
+    );
+  }
+});
+
+http.route({
+  path: "/integrations/slack/interactivity",
+  method: "POST",
+  handler: slackInteractivityWebhookHandler,
 });
 
 // ============================================================================
@@ -4677,6 +5381,96 @@ http.route({
   path: "/whatsapp-webhook",
   method: "POST",
   handler: whatsappWebhookPostHandler,
+});
+
+// ============================================================================
+// DIRECT TELEPHONY WEBHOOK
+// ============================================================================
+
+const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
+  try {
+    const expectedSecret = asNonEmptyString(process.env.DIRECT_CALL_WEBHOOK_SECRET);
+    const presentedSecret =
+      asNonEmptyString(request.headers.get("x-direct-call-secret")) ||
+      asNonEmptyString(request.headers.get("x-telephony-webhook-secret")) ||
+      asNonEmptyString(request.headers.get("authorization"))?.replace(
+        /^Bearer\s+/i,
+        ""
+      );
+
+    if (expectedSecret && presentedSecret !== expectedSecret) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const payload = (await request.json()) as Record<string, unknown>;
+    const organizationId = asNonEmptyString(payload.organizationId);
+    const providerCallId =
+      asNonEmptyString(payload.providerCallId) ||
+      asNonEmptyString(payload.callId) ||
+      asNonEmptyString(payload.id);
+
+    if (!organizationId || !providerCallId) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "organizationId and providerCallId are required",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.channels.router.recordTelephonyWebhookOutcome,
+      {
+        organizationId: organizationId as Id<"organizations">,
+        providerCallId,
+        providerId: asNonEmptyString(payload.providerId),
+        outcome:
+          asNonEmptyString(payload.outcome) ||
+          asNonEmptyString(payload.status),
+        disposition: asNonEmptyString(payload.disposition),
+        transcriptText:
+          asNonEmptyString(payload.transcriptText) ||
+          asNonEmptyString(payload.transcript),
+        transcriptSegments: Array.isArray(payload.transcriptSegments)
+          ? payload.transcriptSegments
+          : undefined,
+        durationSeconds:
+          typeof payload.durationSeconds === "number"
+            ? payload.durationSeconds
+            : undefined,
+        endedAt:
+          typeof payload.endedAt === "number" ? payload.endedAt : undefined,
+        voicemailDetected: payload.voicemailDetected === true,
+        errorMessage:
+          asNonEmptyString(payload.errorMessage) ||
+          asNonEmptyString(payload.error),
+      }
+    );
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("[Direct Telephony Webhook] Error:", error);
+    return new Response("Internal server error", { status: 500 });
+  }
+});
+
+http.route({
+  path: "/webhooks/telephony/direct",
+  method: "POST",
+  handler: directTelephonyWebhookHandler,
+});
+
+http.route({
+  path: "/telephony-webhook/direct",
+  method: "POST",
+  handler: directTelephonyWebhookHandler,
 });
 
 // ============================================================================

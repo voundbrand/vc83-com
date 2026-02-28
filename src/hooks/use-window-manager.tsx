@@ -248,17 +248,39 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       const existing = prev.find((w) => w.id === id)
       if (existing) {
         const shouldRefreshExistingWindow = Boolean(props && Object.keys(props).length > 0)
+        const isReopeningClosedWindow = !existing.isOpen
+        const shouldResetAIAssistantGeometry = id === "ai-assistant" && isReopeningClosedWindow
         // Focus existing window, update titleKey/icon if provided (heals stale session data)
         clearCloseTimer(id)
-        return prev.map((w) => (w.id === id ? {
-          ...w,
-          isOpen: true,
-          isClosing: false,
-          zIndex: currentZIndex,
-          ...(shouldRefreshExistingWindow ? { component, props } : {}),
-          ...(titleKey && { titleKey }),
-          ...(icon && { icon }),
-        } : w))
+        return prev.map((w) => {
+          if (w.id !== id) {
+            return w
+          }
+
+          const baseWindow = {
+            ...w,
+            isOpen: true,
+            isClosing: false,
+            isMinimized: false,
+            zIndex: currentZIndex,
+            ...(shouldRefreshExistingWindow ? { component, props } : {}),
+            ...(titleKey && { titleKey }),
+            ...(icon && { icon }),
+          }
+
+          if (!shouldResetAIAssistantGeometry) {
+            return baseWindow
+          }
+
+          return {
+            ...baseWindow,
+            isMaximized: false,
+            position: position || w.position,
+            size: size || w.size,
+            savedPosition: position || w.savedPosition,
+            savedSize: size || w.savedSize,
+          }
+        })
       }
 
       // Calculate position with cascade effect

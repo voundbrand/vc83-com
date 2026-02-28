@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
 import { Loader2, CheckCircle2, ArrowLeft, Eye, EyeOff, ExternalLink, RefreshCw, Settings, Clock, ArrowRightLeft } from "lucide-react";
 
@@ -42,6 +43,11 @@ interface SyncConfig {
 
 export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) {
   const { user, sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isConnecting, setIsConnecting] = useState(false);
   const [apiUrl, setApiUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -260,6 +266,12 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
     { value: "bidirectional", label: "Bidirectional", description: "Sync contacts both ways (coming soon)" },
   ];
 
+  const webhookPath = tx("ui.integrations.activecampaign.webhook_path", "/api/webhooks/activecampaign");
+  const webhookUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${webhookPath}`
+      : webhookPath;
+
   return (
     <>
       <confirmDialog.Dialog />
@@ -272,16 +284,16 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
             style={{ color: 'var(--tone-accent)' }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <i className="fas fa-envelope-open-text text-2xl" style={{ color: '#356ae6' }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-                ActiveCampaign
+                {tx("ui.integrations.activecampaign.title", "ActiveCampaign")}
               </h2>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Email marketing & CRM automation
+                {tx("ui.integrations.activecampaign.subtitle", "Email marketing & CRM automation")}
               </p>
             </div>
           </div>
@@ -300,7 +312,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 fontWeight: activeTab === "connection" ? 'bold' : 'normal',
               }}
             >
-              Connection
+              {tx("ui.integrations.activecampaign.connection", "Connection")}
             </button>
             <button
               onClick={() => setActiveTab("sync")}
@@ -313,7 +325,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               }}
             >
               <Settings size={12} className="inline mr-1" />
-              Sync Settings
+              {tx("ui.integrations.activecampaign.sync_settings", "Sync Settings")}
             </button>
           </div>
         )}
@@ -330,7 +342,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
             >
               <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Loading connection status...
+                {tx("ui.integrations.activecampaign.loading_connection_status", "Loading connection status...")}
               </p>
             </div>
           ) : hasConnection && activeTab === "connection" ? (
@@ -347,7 +359,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   <div className="flex items-center gap-2 mb-3">
                     <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                     <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                      Connected
+                      {tx("ui.integrations.activecampaign.connected", "Connected")}
                     </span>
                   </div>
                 )}
@@ -364,7 +376,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     <span className="text-base">&#9888;&#65039;</span>
                     <div className="flex-1">
                       <p className="text-xs font-bold mb-1" style={{ color: "#ef4444" }}>
-                        Connection Error
+                        {tx("ui.integrations.activecampaign.connection_error", "Connection Error")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
                         {connection.lastSyncError}
@@ -377,7 +389,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Account
+                      {tx("ui.integrations.activecampaign.account", "Account")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {connection.providerAccountId}
@@ -386,7 +398,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
 
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Email
+                      {tx("ui.integrations.activecampaign.email", "Email")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {connection.providerEmail}
@@ -396,7 +408,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   {connection.apiUrl && (
                     <div>
                       <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                        API URL
+                        {tx("ui.integrations.activecampaign.api_url", "API URL")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {connection.apiUrl}
@@ -407,7 +419,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   {connection.connectedAt && (
                     <div>
                       <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                        Connected
+                        {tx("ui.integrations.activecampaign.connected", "Connected")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {new Date(connection.connectedAt).toLocaleDateString("en-US", {
@@ -432,28 +444,28 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Available Features
+                  {tx("ui.integrations.activecampaign.available_features", "Available Features")}
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Sync contacts to/from ActiveCampaign</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_sync_contacts", "Sync contacts to/from ActiveCampaign")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Manage lists and tags</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_manage_lists_tags", "Manage lists and tags")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Trigger automations</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_trigger_automations", "Trigger automations")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Track deals and pipelines</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_track_deals", "Track deals and pipelines")}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Receive webhook events</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_webhook_events", "Receive webhook events")}</span>
                   </div>
                 </div>
               </div>
@@ -465,7 +477,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   onClick={handleDisconnect}
                   className="flex-1"
                 >
-                  Disconnect
+                  {tx("ui.integrations.shared.disconnect", "Disconnect")}
                 </InteriorButton>
                 <a
                   href={connection.apiUrl ? `${connection.apiUrl.replace('.api-us1.com', '.activehosted.com')}/admin` : "#"}
@@ -478,7 +490,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     className="w-full"
                   >
                     <ExternalLink size={14} className="mr-1" />
-                    Open Dashboard
+                    {tx("ui.integrations.activecampaign.open_dashboard", "Open Dashboard")}
                   </InteriorButton>
                 </a>
               </div>
@@ -497,7 +509,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
                     <Clock size={12} className="inline mr-1" />
-                    Sync Status
+                    {tx("ui.integrations.activecampaign.sync_status", "Sync Status")}
                   </p>
                   <div
                     className="px-2 py-0.5 rounded text-xs"
@@ -506,20 +518,22 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       color: syncEnabled ? "#10b981" : "var(--neutral-gray)",
                     }}
                   >
-                    {syncEnabled ? "Enabled" : "Disabled"}
+                    {syncEnabled
+                      ? tx("ui.integrations.shared.enabled", "Enabled")
+                      : tx("ui.integrations.shared.disabled", "Disabled")}
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   {syncConfig?.lastSyncAt && (
                     <div className="flex justify-between">
-                      <span>Last sync:</span>
+                      <span>{tx("ui.integrations.activecampaign.last_sync", "Last sync:")}</span>
                       <span>{new Date(syncConfig.lastSyncAt).toLocaleString()}</span>
                     </div>
                   )}
                   {syncConfig?.nextSyncAt && syncEnabled && syncInterval > 0 && (
                     <div className="flex justify-between">
-                      <span>Next sync:</span>
+                      <span>{tx("ui.integrations.activecampaign.next_sync", "Next sync:")}</span>
                       <span>{new Date(syncConfig.nextSyncAt).toLocaleString()}</span>
                     </div>
                   )}
@@ -536,12 +550,12 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     {isSyncing ? (
                       <>
                         <Loader2 size={14} className="mr-1 animate-spin" />
-                        Syncing...
+                        {tx("ui.integrations.activecampaign.syncing", "Syncing...")}
                       </>
                     ) : (
                       <>
                         <RefreshCw size={14} className="mr-1" />
-                        Sync Now
+                        {tx("ui.integrations.activecampaign.sync_now", "Sync Now")}
                       </>
                     )}
                   </InteriorButton>
@@ -558,7 +572,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
                   <Settings size={12} className="inline mr-1" />
-                  Sync Configuration
+                  {tx("ui.integrations.activecampaign.sync_configuration", "Sync Configuration")}
                 </p>
 
                 {/* Enable/Disable Toggle */}
@@ -571,7 +585,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       className="w-4 h-4"
                     />
                     <span className="text-xs" style={{ color: "var(--window-document-text)" }}>
-                      Enable automatic sync
+                      {tx("ui.integrations.activecampaign.enable_automatic_sync", "Enable automatic sync")}
                     </span>
                   </label>
                 </div>
@@ -580,7 +594,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div className="mb-4">
                   <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
                     <ArrowRightLeft size={12} className="inline mr-1" />
-                    Sync Direction
+                    {tx("ui.integrations.activecampaign.sync_direction", "Sync Direction")}
                   </label>
                   <div className="space-y-2">
                     {directionOptions.map((option) => (
@@ -606,7 +620,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                             {option.label}
                             {option.value === "bidirectional" && (
                               <span className="ml-1 text-xs font-normal" style={{ color: "var(--neutral-gray)" }}>
-                                (Coming soon)
+                                {tx("ui.integrations.shared.coming_soon", "(Coming soon)")}
                               </span>
                             )}
                           </span>
@@ -623,7 +637,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div className="mb-4">
                   <label className="text-xs font-bold block mb-2" style={{ color: "var(--window-document-text)" }}>
                     <Clock size={12} className="inline mr-1" />
-                    Sync Interval
+                    {tx("ui.integrations.activecampaign.sync_interval", "Sync Interval")}
                   </label>
                   <select
                     value={syncInterval}
@@ -644,7 +658,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     ))}
                   </select>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    How often to automatically sync contacts
+                    {tx("ui.integrations.activecampaign.sync_interval_help", "How often to automatically sync contacts")}
                   </p>
                 </div>
 
@@ -657,10 +671,10 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                   {isSavingConfig ? (
                     <>
                       <Loader2 size={14} className="mr-1 animate-spin" />
-                      Saving...
+                      {tx("ui.integrations.shared.saving", "Saving...")}
                     </>
                   ) : (
-                    "Save Sync Settings"
+                    tx("ui.integrations.activecampaign.save_sync_settings", "Save Sync Settings")
                   )}
                 </InteriorButton>
               </div>
@@ -674,10 +688,13 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Webhook Integration
+                  {tx("ui.integrations.activecampaign.webhook_integration", "Webhook Integration")}
                 </p>
                 <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-                  To receive real-time events from ActiveCampaign, configure a webhook in your ActiveCampaign account:
+                  {tx(
+                    "ui.integrations.activecampaign.webhook_instructions",
+                    "To receive real-time events from ActiveCampaign, configure a webhook in your ActiveCampaign account:",
+                  )}
                 </p>
                 <div
                   className="p-2 border rounded font-mono text-xs break-all"
@@ -687,10 +704,13 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                     color: "var(--window-document-text)",
                   }}
                 >
-                  {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/activecampaign` : '/api/webhooks/activecampaign'}
+                  {webhookUrl}
                 </div>
                 <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-                  Events like contact updates, tag changes, and list subscriptions will trigger workflows automatically.
+                  {tx(
+                    "ui.integrations.activecampaign.webhook_events_note",
+                    "Events like contact updates, tag changes, and list subscriptions will trigger workflows automatically.",
+                  )}
                 </p>
               </div>
             </div>
@@ -706,10 +726,13 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
               >
                 <i className="fas fa-envelope-open-text text-5xl mb-4" style={{ color: '#356ae6' }} />
                 <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Not Connected
+                  {tx("ui.integrations.shared.not_connected", "Not Connected")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Connect your ActiveCampaign account to sync contacts, manage campaigns, and automate workflows.
+                  {tx(
+                    "ui.integrations.activecampaign.not_connected_description",
+                    "Connect your ActiveCampaign account to sync contacts, manage campaigns, and automate workflows.",
+                  )}
                 </p>
               </div>
 
@@ -722,28 +745,28 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 }}
               >
                 <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Features
+                  {tx("ui.integrations.shared.features", "Features")}
                 </p>
                 <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
                   <div className="flex items-start gap-2">
                     <span>&#128231;</span>
-                    <span>Sync contacts bidirectionally</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_sync_bidirectional", "Sync contacts bidirectionally")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#127991;</span>
-                    <span>Manage lists and tags</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_manage_lists_tags", "Manage lists and tags")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#9889;</span>
-                    <span>Trigger automations from your app</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_trigger_from_app", "Trigger automations from your app")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128200;</span>
-                    <span>Track deals and pipelines</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_track_deals", "Track deals and pipelines")}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span>&#128274;</span>
-                    <span>Secure API key authentication</span>
+                    <span>{tx("ui.integrations.activecampaign.feature_secure_auth", "Secure API key authentication")}</span>
                   </div>
                 </div>
               </div>
@@ -757,7 +780,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 }}
               >
                 <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Enter your ActiveCampaign credentials
+                  {tx("ui.integrations.activecampaign.enter_credentials", "Enter your ActiveCampaign credentials")}
                 </p>
 
                 {validationError && (
@@ -776,7 +799,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      API URL
+                      {tx("ui.integrations.activecampaign.api_url", "API URL")}
                     </label>
                     <input
                       type="text"
@@ -785,7 +808,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                         setApiUrl(e.target.value);
                         setValidationError(null);
                       }}
-                      placeholder="https://youraccountname.api-us1.com"
+                      placeholder={tx("ui.integrations.activecampaign.api_url_placeholder", "https://youraccountname.api-us1.com")}
                       className="w-full px-2 py-1 border-2 text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -794,13 +817,13 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       }}
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Found in Settings &gt; Developer &gt; API Access
+                      {tx("ui.integrations.activecampaign.api_url_help", "Found in Settings > Developer > API Access")}
                     </p>
                   </div>
 
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      API Key
+                      {tx("ui.integrations.shared.api_key", "API Key")}
                     </label>
                     <div className="relative">
                       <input
@@ -810,7 +833,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                           setApiKey(e.target.value);
                           setValidationError(null);
                         }}
-                        placeholder="Your API key"
+                        placeholder={tx("ui.integrations.activecampaign.api_key_placeholder", "Your API key")}
                         className="w-full px-2 py-1 border-2 text-xs pr-8"
                         style={{
                           borderColor: "var(--window-document-border)",
@@ -828,7 +851,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                       </button>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Keep this secret - never share it publicly
+                      {tx("ui.integrations.shared.api_key_security", "Keep this secret - never share it publicly")}
                     </p>
                   </div>
                 </div>
@@ -843,7 +866,7 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
-                How to find your API credentials
+                {tx("ui.integrations.activecampaign.how_to_find_credentials", "How to find your API credentials")}
               </a>
 
               {/* Connect Button */}
@@ -855,19 +878,19 @@ export function ActiveCampaignSettings({ onBack }: ActiveCampaignSettingsProps) 
                 {isConnecting ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Connecting...
+                    {tx("ui.integrations.shared.connecting", "Connecting...")}
                   </>
                 ) : (
                   <>
                     <i className="fas fa-envelope-open-text mr-2" />
-                    Connect ActiveCampaign
+                    {tx("ui.integrations.activecampaign.connect", "Connect ActiveCampaign")}
                   </>
                 )}
               </InteriorButton>
 
               {!user && (
                 <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                  Please sign in to connect your ActiveCampaign account
+                  {tx("ui.integrations.activecampaign.sign_in_required", "Please sign in to connect your ActiveCampaign account")}
                 </p>
               )}
             </div>

@@ -125,6 +125,88 @@ export interface ContentDNAField {
 }
 
 // ============================================================================
+// BIRTHING CONTRACT METADATA
+// ============================================================================
+
+export const MIDWIFE_INTERVIEW_BLOCK_IDS = [
+  "business_context",
+  "communication_style",
+  "values_identity",
+  "knowledge_inspiration",
+  "boundaries_guardrails",
+] as const;
+
+export type MidwifeInterviewBlockId = (typeof MIDWIFE_INTERVIEW_BLOCK_IDS)[number];
+
+export interface MidwifeInterviewBlockSummary {
+  blockId: MidwifeInterviewBlockId;
+  label: string;
+  description: string;
+  capturedFieldIds: string[];
+  missingSignalHints: string[];
+  isComplete: boolean;
+}
+
+export interface MidwifeFiveBlockShapeContract {
+  contractVersion: "midwife_5_block_shape.v1";
+  blockCount: 5;
+  completedBlockCount: number;
+  blocks: MidwifeInterviewBlockSummary[];
+}
+
+export interface InterviewIdentityOriginMetadata {
+  contractVersion: "interview_identity_origin.v1";
+  immutableOrigin: "interview";
+  interviewSessionId: string;
+  interviewTemplateId: string;
+  interviewTemplateName: string;
+  anchoredAt: number;
+  immutableAnchorFieldIds: string[];
+  midwifeFiveBlockShape: MidwifeFiveBlockShapeContract;
+}
+
+export interface FirstWordsHandshakeContract {
+  contractVersion: "first_words_handshake.v1";
+  handshakeId: string;
+  status: "ready_for_confirmation";
+  generatedAt: number;
+  includesDreamTeamMention: true;
+  confirmationPrompt: string;
+  preview: string;
+}
+
+export type MidwifeCompositionInputType =
+  | "interview_identity_anchor"
+  | "catalog_profile"
+  | "tool_profile"
+  | "soul_profile"
+  | "generated_fallback_overlay";
+
+export interface MidwifeHybridCompositionInputProvenance {
+  inputType: MidwifeCompositionInputType;
+  sourceId: string;
+  sourceLabel: string;
+  selected: boolean;
+  rank?: number;
+  rankScore?: number;
+  seedCoverage?: "full" | "skeleton" | "missing";
+  signals: string[];
+}
+
+export interface MidwifeHybridCompositionProvenanceContract {
+  contractVersion: "midwife_hybrid_composition.v1";
+  strategy: "interview_core_seed_overlay";
+  composedAt: number;
+  fallbackApplied: boolean;
+  immutableAnchorFieldIds: string[];
+  selectedCatalogAgentNumbers: number[];
+  missingCoverageAreas: string[];
+  inputCount: number;
+  selectedInputCount: number;
+  inputs: MidwifeHybridCompositionInputProvenance[];
+}
+
+// ============================================================================
 // INTERVIEW SESSION STATE (stored in agentSessions table)
 // ============================================================================
 
@@ -184,6 +266,15 @@ export interface InterviewState {
     updatedAt: number;
     updatedBy: "system" | "user";
   };
+
+  // Birthing identity contract captured from interview-origin source material.
+  identityOrigin?: InterviewIdentityOriginMetadata;
+
+  // First-words handshake draft for post-birthing confirmation.
+  firstWordsHandshake?: FirstWordsHandshakeContract;
+
+  // Hybrid composition provenance for seeded catalog/tool/soul overlays.
+  hybridCompositionProvenance?: MidwifeHybridCompositionProvenanceContract;
 }
 
 // ============================================================================
@@ -233,6 +324,74 @@ export const interviewStateValidator = v.object({
     ),
     updatedAt: v.number(),
     updatedBy: v.union(v.literal("system"), v.literal("user")),
+  })),
+  identityOrigin: v.optional(v.object({
+    contractVersion: v.literal("interview_identity_origin.v1"),
+    immutableOrigin: v.literal("interview"),
+    interviewSessionId: v.string(),
+    interviewTemplateId: v.string(),
+    interviewTemplateName: v.string(),
+    anchoredAt: v.number(),
+    immutableAnchorFieldIds: v.array(v.string()),
+    midwifeFiveBlockShape: v.object({
+      contractVersion: v.literal("midwife_5_block_shape.v1"),
+      blockCount: v.literal(5),
+      completedBlockCount: v.number(),
+      blocks: v.array(v.object({
+        blockId: v.union(
+          v.literal("business_context"),
+          v.literal("communication_style"),
+          v.literal("values_identity"),
+          v.literal("knowledge_inspiration"),
+          v.literal("boundaries_guardrails"),
+        ),
+        label: v.string(),
+        description: v.string(),
+        capturedFieldIds: v.array(v.string()),
+        missingSignalHints: v.array(v.string()),
+        isComplete: v.boolean(),
+      })),
+    }),
+  })),
+  firstWordsHandshake: v.optional(v.object({
+    contractVersion: v.literal("first_words_handshake.v1"),
+    handshakeId: v.string(),
+    status: v.literal("ready_for_confirmation"),
+    generatedAt: v.number(),
+    includesDreamTeamMention: v.literal(true),
+    confirmationPrompt: v.string(),
+    preview: v.string(),
+  })),
+  hybridCompositionProvenance: v.optional(v.object({
+    contractVersion: v.literal("midwife_hybrid_composition.v1"),
+    strategy: v.literal("interview_core_seed_overlay"),
+    composedAt: v.number(),
+    fallbackApplied: v.boolean(),
+    immutableAnchorFieldIds: v.array(v.string()),
+    selectedCatalogAgentNumbers: v.array(v.number()),
+    missingCoverageAreas: v.array(v.string()),
+    inputCount: v.number(),
+    selectedInputCount: v.number(),
+    inputs: v.array(v.object({
+      inputType: v.union(
+        v.literal("interview_identity_anchor"),
+        v.literal("catalog_profile"),
+        v.literal("tool_profile"),
+        v.literal("soul_profile"),
+        v.literal("generated_fallback_overlay"),
+      ),
+      sourceId: v.string(),
+      sourceLabel: v.string(),
+      selected: v.boolean(),
+      rank: v.optional(v.number()),
+      rankScore: v.optional(v.number()),
+      seedCoverage: v.optional(v.union(
+        v.literal("full"),
+        v.literal("skeleton"),
+        v.literal("missing"),
+      )),
+      signals: v.array(v.string()),
+    })),
   })),
 });
 

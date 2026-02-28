@@ -1,9 +1,25 @@
 "use client"
 
-import { createContext, useContext, useState, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react"
 import { Id } from "../../convex/_generated/dataModel"
-import { useAIChat } from "@/hooks/use-ai-chat"
+import {
+  useAIChat,
+  type AIChatComposerMode,
+  type AIChatReasoningEffort,
+} from "@/hooks/use-ai-chat"
 import { useAuth } from "@/hooks/use-auth"
+
+const CHAT_COMPOSER_MODE_STORAGE_KEY = "ai_chat_composer_mode"
+const CHAT_REASONING_EFFORT_STORAGE_KEY = "ai_chat_reasoning_effort"
+const CHAT_PRIVATE_MODE_STORAGE_KEY = "ai_chat_private_mode"
+
+function isComposerMode(value: string): value is AIChatComposerMode {
+  return value === "auto" || value === "plan" || value === "plan_soft"
+}
+
+function isReasoningEffort(value: string): value is AIChatReasoningEffort {
+  return value === "low" || value === "medium" || value === "high" || value === "extra_high"
+}
 
 interface AIChatContextType {
   chatMode: "authenticated"
@@ -26,9 +42,21 @@ interface AIChatContextType {
   selectedModel: string | undefined
   setSelectedModel: (model: string | undefined) => void
 
+  // Composer Mode
+  composerMode: AIChatComposerMode
+  setComposerMode: (mode: AIChatComposerMode) => void
+
+  // Composer Reasoning Effort
+  reasoningEffort: AIChatReasoningEffort
+  setReasoningEffort: (effort: AIChatReasoningEffort) => void
+
   // Human-in-the-Loop Mode
   humanInLoopEnabled: boolean
   setHumanInLoopEnabled: (enabled: boolean) => void
+
+  // Privacy Mode
+  privateModeEnabled: boolean
+  setPrivateModeEnabled: (enabled: boolean) => void
 
   // Abort control
   abortController: React.MutableRefObject<AbortController | null>
@@ -43,7 +71,10 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   >(undefined)
   const [isSending, setIsSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
+  const [composerMode, setComposerMode] = useState<AIChatComposerMode>("auto")
+  const [reasoningEffort, setReasoningEffort] = useState<AIChatReasoningEffort>("medium")
   const [humanInLoopEnabled, setHumanInLoopEnabled] = useState(false)
+  const [privateModeEnabled, setPrivateModeEnabled] = useState(false)
 
   // Abort controller for cancelling in-flight requests
   const abortController = useRef<AbortController | null>(null)
@@ -53,6 +84,48 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   // Get current user's organization ID
   const { user } = useAuth()
   const organizationId = user?.currentOrganization?.id as Id<"organizations"> | undefined
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const storedMode = window.localStorage.getItem(CHAT_COMPOSER_MODE_STORAGE_KEY)
+    if (storedMode && isComposerMode(storedMode)) {
+      setComposerMode(storedMode)
+    }
+
+    const storedReasoning = window.localStorage.getItem(CHAT_REASONING_EFFORT_STORAGE_KEY)
+    if (storedReasoning && isReasoningEffort(storedReasoning)) {
+      setReasoningEffort(storedReasoning)
+    }
+
+    const storedPrivateMode = window.localStorage.getItem(CHAT_PRIVATE_MODE_STORAGE_KEY)
+    if (storedPrivateMode === "1") {
+      setPrivateModeEnabled(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+    window.localStorage.setItem(CHAT_COMPOSER_MODE_STORAGE_KEY, composerMode)
+  }, [composerMode])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+    window.localStorage.setItem(CHAT_REASONING_EFFORT_STORAGE_KEY, reasoningEffort)
+  }, [reasoningEffort])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+    window.localStorage.setItem(CHAT_PRIVATE_MODE_STORAGE_KEY, privateModeEnabled ? "1" : "0")
+  }, [privateModeEnabled])
 
   const stopCurrentRequest = () => {
     if (abortController.current) {
@@ -75,8 +148,14 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
         setIsSending,
         selectedModel,
         setSelectedModel,
+        composerMode,
+        setComposerMode,
+        reasoningEffort,
+        setReasoningEffort,
         humanInLoopEnabled,
         setHumanInLoopEnabled,
+        privateModeEnabled,
+        setPrivateModeEnabled,
         abortController,
         stopCurrentRequest,
       }}

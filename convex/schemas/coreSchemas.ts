@@ -245,6 +245,77 @@ export const organizationMembers = defineTable({
   .index("by_user_and_org", ["userId", "organizationId"])
   .index("by_org_and_role", ["organizationId", "role"]);
 
+export const contactMemoryRecords = defineTable({
+  organizationId: v.id("organizations"),
+  channel: v.string(),
+  externalContactIdentifier: v.string(),
+  sessionRoutingKey: v.string(),
+
+  contractVersion: v.literal("session_contact_memory_v1"),
+  sourcePolicy: v.literal("explicit_user_verified_tool_v1"),
+  field: v.union(
+    v.literal("preferred_name"),
+    v.literal("email"),
+    v.literal("phone"),
+    v.literal("timezone"),
+    v.literal("communication_preference"),
+  ),
+  value: v.string(),
+  normalizedValue: v.string(),
+  dedupeKey: v.string(),
+
+  status: v.union(v.literal("active"), v.literal("superseded")),
+  supersedesMemoryId: v.optional(v.id("contactMemoryRecords")),
+  supersededByMemoryId: v.optional(v.id("contactMemoryRecords")),
+  revertedFromMemoryId: v.optional(v.id("contactMemoryRecords")),
+
+  provenance: v.object({
+    contractVersion: v.literal("contact_memory_provenance_v1"),
+    sourceKind: v.union(v.literal("user_message"), v.literal("verified_tool_result")),
+    sourceSessionId: v.string(),
+    sourceTurnId: v.string(),
+    sourceMessageRole: v.optional(v.literal("user")),
+    sourceToolName: v.optional(v.string()),
+    sourceExcerpt: v.string(),
+    sourceTimestamp: v.number(),
+    actor: v.literal("agent_execution_pipeline"),
+    trustEventName: v.literal("trust.memory.consent_decided.v1"),
+    trustEventId: v.string(),
+  }),
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_scope", [
+    "organizationId",
+    "channel",
+    "externalContactIdentifier",
+    "sessionRoutingKey",
+  ])
+  .index("by_scope_field_status", [
+    "organizationId",
+    "channel",
+    "externalContactIdentifier",
+    "sessionRoutingKey",
+    "field",
+    "status",
+  ])
+  .index("by_scope_dedupe_status", [
+    "organizationId",
+    "channel",
+    "externalContactIdentifier",
+    "sessionRoutingKey",
+    "dedupeKey",
+    "status",
+  ])
+  .index("by_scope_updated_at", [
+    "organizationId",
+    "channel",
+    "externalContactIdentifier",
+    "sessionRoutingKey",
+    "updatedAt",
+  ]);
+
 // Simple auth tables for demo
 export const userPasswords = defineTable({
   userId: v.id("users"),
@@ -658,8 +729,10 @@ export const oauthSignupStates = defineTable({
   callbackUrl: v.string(),                     // Where to redirect after OAuth
   provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
   organizationName: v.optional(v.string()),    // Optional organization name for new accounts
+  betaCode: v.optional(v.string()),            // Optional beta code to apply during OAuth signup
   identityClaimToken: v.optional(v.string()),  // Optional anonymous/Telegram claim token
   onboardingChannel: v.optional(v.string()),   // Optional source channel attribution
+  onboardingDeviceType: v.optional(v.string()), // Optional device attribution (mobile/desktop/cli/etc)
   onboardingCampaign: v.optional(v.any()),     // Optional campaign attribution payload
   cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
   cliState: v.optional(v.string()),            // CLI's original state for CSRF protection (returned in callback)

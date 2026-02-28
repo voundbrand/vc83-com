@@ -8,6 +8,7 @@
  * - anonymousIdentityLedger: Cross-channel identity ledger for anonymous sessions
  * - anonymousClaimTokens: Signed one-time claim token registry
  * - webchatRateLimits: IP-based rate limiting for public endpoints
+ * - onboardingAuditSessions: Deterministic five-question audit session state
  *
  * Integration with Comms Platform:
  * - Webchat operates at Layer 4 (End User ↔ AI Agent)
@@ -34,12 +35,57 @@ const anonymousChannelValidator = v.union(
   v.literal("telegram")
 );
 
-const onboardingChannelValidator = v.union(
+export const onboardingChannelValidator = v.union(
   v.literal("webchat"),
   v.literal("native_guest"),
   v.literal("telegram"),
+  v.literal("whatsapp"),
+  v.literal("slack"),
+  v.literal("sms"),
   v.literal("platform_web"),
   v.literal("unknown")
+);
+
+export const onboardingAuditQuestionIdValidator = v.union(
+  v.literal("business_revenue"),
+  v.literal("team_size"),
+  v.literal("monday_priority"),
+  v.literal("delegation_gap"),
+  v.literal("reclaimed_time")
+);
+
+export const ONBOARDING_AUDIT_QUESTION_ORDER = [
+  "business_revenue",
+  "team_size",
+  "monday_priority",
+  "delegation_gap",
+  "reclaimed_time",
+] as const;
+
+const onboardingAuditQuestionStateValidator = v.object({
+  status: v.union(v.literal("pending"), v.literal("asked"), v.literal("answered")),
+  askedAt: v.optional(v.number()),
+  answeredAt: v.optional(v.number()),
+  answer: v.optional(v.string()),
+  answerEventKey: v.optional(v.string()),
+});
+
+const onboardingAuditQuestionStateMapValidator = v.object({
+  business_revenue: onboardingAuditQuestionStateValidator,
+  team_size: onboardingAuditQuestionStateValidator,
+  monday_priority: onboardingAuditQuestionStateValidator,
+  delegation_gap: onboardingAuditQuestionStateValidator,
+  reclaimed_time: onboardingAuditQuestionStateValidator,
+});
+
+const onboardingAuditSessionStatusValidator = v.union(
+  v.literal("started"),
+  v.literal("in_progress"),
+  v.literal("workflow_delivered"),
+  v.literal("completed"),
+  v.literal("deliverable_generated"),
+  v.literal("handoff_opened"),
+  v.literal("abandoned")
 );
 
 /**
@@ -89,6 +135,60 @@ export const webchatSessions = defineTable({
   .index("by_session_token", ["sessionToken"])
   .index("by_org_agent", ["organizationId", "agentId"])
   .index("by_agent_session", ["agentSessionId"]);
+
+/**
+ * ONBOARDING AUDIT SESSIONS
+ *
+ * Deterministic five-question audit-mode state machine for cold-traffic intake.
+ * Tracks question progression, lifecycle timestamps, and handoff metadata.
+ */
+export const onboardingAuditSessions = defineTable({
+  // Stable deterministic session key for idempotent replay handling.
+  auditSessionKey: v.string(),
+
+  // Routing context shared with webchat/native_guest session lineage.
+  channel: onboardingChannelValidator,
+  organizationId: v.id("organizations"),
+  agentId: v.id("objects"),
+  sessionToken: v.optional(v.string()),
+  telegramChatId: v.optional(v.string()),
+  agentSessionId: v.optional(v.id("agentSessions")),
+  sourceIdentityKey: v.optional(v.string()),
+  claimTokenId: v.optional(v.string()),
+
+  // Five-question progression contract.
+  questionSetVersion: v.string(),
+  status: onboardingAuditSessionStatusValidator,
+  currentQuestionId: v.optional(onboardingAuditQuestionIdValidator),
+  answeredQuestionCount: v.number(),
+  questionState: onboardingAuditQuestionStateMapValidator,
+
+  // Value-first lifecycle milestones.
+  workflowRecommendation: v.optional(v.string()),
+  workflowDeliveredAt: v.optional(v.number()),
+  emailCaptureRequestedAt: v.optional(v.number()),
+  capturedEmail: v.optional(v.string()),
+  capturedName: v.optional(v.string()),
+  completedAt: v.optional(v.number()),
+  deliverableGeneratedAt: v.optional(v.number()),
+  handoffOpenedAt: v.optional(v.number()),
+  lastLifecycleEventKey: v.optional(v.string()),
+
+  // Diagnostics/attribution context for downstream orchestration.
+  metadata: v.optional(v.any()),
+
+  // Timing fields.
+  startedAt: v.number(),
+  lastActivityAt: v.number(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_audit_session_key", ["auditSessionKey"])
+  .index("by_session_token", ["sessionToken"])
+  .index("by_telegram_chat", ["telegramChatId"])
+  .index("by_agent_session", ["agentSessionId"])
+  .index("by_org_status_time", ["organizationId", "status", "updatedAt"])
+  .index("by_channel_status_time", ["channel", "status", "updatedAt"]);
 
 /**
  * ANONYMOUS IDENTITY LEDGER
@@ -230,7 +330,13 @@ export const onboardingFunnelEvents = defineTable({
     v.literal("onboarding.funnel.signup"),
     v.literal("onboarding.funnel.claim"),
     v.literal("onboarding.funnel.upgrade"),
-    v.literal("onboarding.funnel.credit_purchase")
+    v.literal("onboarding.funnel.credit_purchase"),
+    v.literal("onboarding.funnel.channel_first_message_latency"),
+    v.literal("onboarding.funnel.audit_started"),
+    v.literal("onboarding.funnel.audit_question_answered"),
+    v.literal("onboarding.funnel.audit_completed"),
+    v.literal("onboarding.funnel.audit_deliverable_generated"),
+    v.literal("onboarding.funnel.audit_handoff_opened")
   ),
   channel: onboardingChannelValidator,
   organizationId: v.optional(v.id("organizations")),
@@ -238,6 +344,9 @@ export const onboardingFunnelEvents = defineTable({
   sessionToken: v.optional(v.string()),
   telegramChatId: v.optional(v.string()),
   claimTokenId: v.optional(v.string()),
+  auditSessionKey: v.optional(v.string()),
+  auditQuestionId: v.optional(onboardingAuditQuestionIdValidator),
+  auditStepOrdinal: v.optional(v.number()),
   campaign: v.optional(
     v.object({
       source: v.optional(v.string()),
@@ -255,4 +364,153 @@ export const onboardingFunnelEvents = defineTable({
   .index("by_event_key", ["eventKey"])
   .index("by_event_name_and_time", ["eventName", "createdAt"])
   .index("by_channel_and_time", ["channel", "createdAt"])
-  .index("by_org_and_time", ["organizationId", "createdAt"]);
+  .index("by_org_and_time", ["organizationId", "createdAt"])
+  .index("by_audit_session_and_time", ["auditSessionKey", "createdAt"]);
+
+const onboardingNurtureStepStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("sent"),
+  v.literal("failed")
+);
+
+const onboardingNurtureStepStateValidator = v.object({
+  status: onboardingNurtureStepStatusValidator,
+  scheduledFor: v.number(),
+  processedAt: v.optional(v.number()),
+  deliveryChannel: v.optional(onboardingChannelValidator),
+  recipientIdentifier: v.optional(v.string()),
+  error: v.optional(v.string()),
+});
+
+const onboardingNurtureStepMapValidator = v.object({
+  day0_first_win: onboardingNurtureStepStateValidator,
+  day1_activation: onboardingNurtureStepStateValidator,
+  day2_value_capture: onboardingNurtureStepStateValidator,
+  day3_momentum: onboardingNurtureStepStateValidator,
+});
+
+/**
+ * ONBOARDING NURTURE JOURNEYS
+ *
+ * Per-user Day 0-3 nurture lifecycle tracking.
+ * Stores deterministic schedule state and first-win SLA timing.
+ */
+export const onboardingNurtureJourneys = defineTable({
+  journeyKey: v.string(),
+  organizationId: v.id("organizations"),
+  userId: v.id("users"),
+  sourceChannel: onboardingChannelValidator,
+  preferredChannel: v.optional(onboardingChannelValidator),
+  recipientIdentifier: v.optional(v.string()),
+  status: v.union(
+    v.literal("active"),
+    v.literal("completed"),
+    v.literal("cancelled")
+  ),
+  firstWinDueAt: v.number(),
+  firstWinDeliveredAt: v.optional(v.number()),
+  firstWinBreachedAt: v.optional(v.number()),
+  stepState: onboardingNurtureStepMapValidator,
+  metadata: v.optional(v.any()),
+  startedAt: v.number(),
+  completedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_journey_key", ["journeyKey"])
+  .index("by_user_and_time", ["userId", "updatedAt"])
+  .index("by_status_and_first_win_due", ["status", "firstWinDueAt"]);
+
+const onboardingSoulReportStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("insufficient_data"),
+  v.literal("delivered"),
+  v.literal("failed")
+);
+
+const onboardingSoulReportFirstWinStateValidator = v.union(
+  v.literal("met"),
+  v.literal("pending"),
+  v.literal("breached")
+);
+
+const onboardingSpecialistAccessModeValidator = v.union(
+  v.literal("invisible"),
+  v.literal("direct"),
+  v.literal("meeting")
+);
+
+const onboardingSpecialistPreviewStatusValidator = v.union(
+  v.literal("scheduled"),
+  v.literal("ready"),
+  v.literal("sent"),
+  v.literal("blocked"),
+  v.literal("expired")
+);
+
+/**
+ * ONBOARDING SOUL REPORTS
+ *
+ * Day 3 data-backed summary for the onboarding journey.
+ */
+export const onboardingSoulReports = defineTable({
+  reportKey: v.string(),
+  journeyId: v.id("onboardingNurtureJourneys"),
+  journeyKey: v.string(),
+  organizationId: v.id("organizations"),
+  userId: v.id("users"),
+  status: onboardingSoulReportStatusValidator,
+  reportVersion: v.string(),
+  summary: v.string(),
+  highlights: v.array(v.string()),
+  evidence: v.object({
+    completedNurtureSteps: v.number(),
+    funnelEventCount: v.number(),
+    firstWinSlaState: onboardingSoulReportFirstWinStateValidator,
+    firstMessageLatencyChannelCount: v.number(),
+  }),
+  qualityGates: v.object({
+    dataBacked: v.boolean(),
+    channelSafe: v.boolean(),
+  }),
+  generatedAt: v.optional(v.number()),
+  deliveredAt: v.optional(v.number()),
+  deliveryChannel: v.optional(onboardingChannelValidator),
+  recipientIdentifier: v.optional(v.string()),
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_report_key", ["reportKey"])
+  .index("by_journey", ["journeyId"])
+  .index("by_status_and_time", ["status", "updatedAt"]);
+
+/**
+ * ONBOARDING SPECIALIST PREVIEW CONTRACTS
+ *
+ * Day 5 timer contract for specialist preview delivery.
+ */
+export const onboardingSpecialistPreviewContracts = defineTable({
+  contractKey: v.string(),
+  journeyId: v.id("onboardingNurtureJourneys"),
+  journeyKey: v.string(),
+  organizationId: v.id("organizations"),
+  userId: v.id("users"),
+  status: onboardingSpecialistPreviewStatusValidator,
+  teamAccessMode: onboardingSpecialistAccessModeValidator,
+  availableAt: v.number(),
+  readyAt: v.optional(v.number()),
+  deliveredAt: v.optional(v.number()),
+  sourceSoulReportId: v.optional(v.id("onboardingSoulReports")),
+  previewMessage: v.string(),
+  deliveryChannel: v.optional(onboardingChannelValidator),
+  recipientIdentifier: v.optional(v.string()),
+  qualityGateStatus: v.union(v.literal("pass"), v.literal("blocked")),
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_contract_key", ["contractKey"])
+  .index("by_status_and_available", ["status", "availableAt"])
+  .index("by_user_and_time", ["userId", "updatedAt"]);

@@ -145,7 +145,8 @@ export function useAIConfig() {
   const settings = useQueryAny(
     apiAny.ai.settings.getAISettings,
     organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
-  ) as AISettings | undefined
+  ) as AISettings | null | undefined
+  const normalizedSettings = settings ?? undefined
 
   const billing = useQueryAny(
     apiAny.ai.billing.getSubscriptionStatus,
@@ -187,7 +188,7 @@ export function useAIConfig() {
 
     return await upsertSettingsMutation({
       organizationId: organization.id as Id<"organizations">,
-      enabled: updates.enabled ?? settings.enabled,
+      enabled: true,
       billingMode: updates.billingMode ?? settings.billingMode,
       tier: updates.tier ?? settings.tier,
       llm: updates.llm ?? settings.llm,
@@ -299,10 +300,16 @@ export function useAIConfig() {
   /**
    * Helper: Check if AI is fully configured and ready to use
    */
-  const isAIReady = Boolean(
-    settings?.enabled &&
+  const hasConfiguredModels = Boolean(
     settings?.llm.enabledModels &&
     settings.llm.enabledModels.length > 0
+  )
+  const hasImplicitOnboardingDefault = Boolean(
+    settings === null ||
+    (settings && (!settings.llm.enabledModels || settings.llm.enabledModels.length === 0))
+  )
+  const isAIReady = Boolean(
+    hasConfiguredModels || hasImplicitOnboardingDefault
   )
 
   const hasCredits = Boolean(
@@ -322,7 +329,7 @@ export function useAIConfig() {
 
   return {
     // Data
-    settings,
+    settings: normalizedSettings,
     billing,
     credits,
     license,
@@ -344,7 +351,7 @@ export function useAIConfig() {
     refreshModels,
 
     // Status flags
-    isLoading: !settings || !models || credits === undefined,
+    isLoading: settings === undefined || !models || credits === undefined,
     hasSubscription: billing?.hasSubscription ?? false,
     isActive: billing?.status === "active" || billing?.status === "trialing",
   }

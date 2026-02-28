@@ -9,6 +9,7 @@ import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   Loader2,
   CheckCircle2,
@@ -42,6 +43,16 @@ interface VlnOffer {
 
 export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
   const { sessionId, user } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations.platform_sms");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const fullKey = `ui.integrations.platform_sms.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
 
@@ -226,16 +237,19 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             style={{ color: "var(--tone-accent)" }}
           >
             <ArrowLeft size={16} />
-            Back
+            {tx("header.back", "Back")}
           </button>
           <div className="flex items-center gap-2">
             <MessageCircle size={24} style={{ color: "#7c3aed" }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                L4YERCAK3 SMS
+                {tx("header.title", "L4YERCAK3 SMS")}
               </h2>
               <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
-                🍰 <span style={{ fontFamily: "var(--font-brand, inherit)" }}>l4yercak3</span>
+                🍰{" "}
+                <span style={{ fontFamily: "var(--font-brand, inherit)" }}>
+                  {tx("header.brand_wordmark", "l4yercak3")}
+                </span>
               </p>
             </div>
           </div>
@@ -252,7 +266,9 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               }}
             >
               <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
-              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Loading...</p>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("loading", "Loading...")}
+              </p>
             </div>
           ) : isConfigured && smsConfig?.senderType === "alphanumeric" ? (
             /* ======== ALPHANUMERIC ACTIVE ======== */
@@ -264,20 +280,23 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                   <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                    Alphanumeric Sender Active
+                    {tx("active.alphanumeric_title", "Alphanumeric Sender Active")}
                   </span>
                 </div>
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Sender Name
+                      {tx("active.sender_name", "Sender Name")}
                     </p>
                     <p className="text-sm font-mono" style={{ color: "var(--window-document-text)" }}>
                       {smsConfig.alphanumericSender}
                     </p>
                   </div>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Outbound SMS will show this name as the sender. Recipients cannot reply to alphanumeric senders.
+                    {tx(
+                      "active.alphanumeric_description",
+                      "Outbound SMS will show this name as the sender. Recipients cannot reply to alphanumeric senders."
+                    )}
                   </p>
                 </div>
               </div>
@@ -288,15 +307,17 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               >
                 <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Per-message cost: <strong>2 credits</strong> per outbound SMS
+                  {tx("pricing.per_message_prefix", "Per-message cost:")}{" "}
+                  <strong>{tx("pricing.two_credits", "2 credits")}</strong>{" "}
+                  {tx("pricing.per_outbound_sms", "per outbound SMS")}
                 </p>
               </div>
 
               <InteriorButton variant="secondary" onClick={() => setStep("choose")} className="w-full">
-                Change Sender
+                {tx("actions.change_sender", "Change Sender")}
               </InteriorButton>
               <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
-                Disconnect
+                {tx("actions.disconnect", "Disconnect")}
               </InteriorButton>
             </div>
           ) : isConfigured && smsConfig?.senderType === "vln" ? (
@@ -311,7 +332,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                     <>
                       <CheckCircle2 size={16} style={{ color: "#10b981" }} />
                       <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                        Dedicated Number Active
+                        {tx("active.vln_title", "Dedicated Number Active")}
                       </span>
                     </>
                   ) : (
@@ -319,10 +340,10 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       <Loader2 size={16} className="animate-spin" style={{ color: "#f59e0b" }} />
                       <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>
                         {smsConfig.vlnStatus === "pending_payment"
-                          ? "Awaiting Payment"
+                          ? tx("active.vln_status.pending_payment", "Awaiting Payment")
                           : smsConfig.vlnStatus === "pending_provisioning"
-                            ? "Provisioning (~30 days)"
-                            : smsConfig.vlnStatus || "Processing"}
+                            ? tx("active.vln_status.pending_provisioning", "Provisioning (~30 days)")
+                            : smsConfig.vlnStatus || tx("active.vln_status.processing", "Processing")}
                       </span>
                     </>
                   )}
@@ -331,7 +352,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   {smsConfig.vlnNumber && (
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Number
+                        {tx("active.vln_number_label", "Number")}
                       </p>
                       <p className="text-sm font-mono" style={{ color: "var(--window-document-text)" }}>
                         {smsConfig.vlnNumber}
@@ -341,7 +362,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   {smsConfig.vlnCountry && (
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Country
+                        {tx("active.vln_country_label", "Country")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {smsConfig.vlnCountry}
@@ -351,10 +372,11 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   {smsConfig.vlnOurMonthlyFee && (
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Monthly Fee
+                        {tx("active.vln_monthly_fee_label", "Monthly Fee")}
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        EUR {smsConfig.vlnOurMonthlyFee.toFixed(2)}/mo
+                        {tx("common.currency_eur", "EUR")} {smsConfig.vlnOurMonthlyFee.toFixed(2)}
+                        {tx("common.per_month_suffix", "/mo")}
                       </p>
                     </div>
                   )}
@@ -367,12 +389,17 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               >
                 <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Per-message cost: <strong>2 credits</strong> per outbound SMS (in addition to number subscription)
+                  {tx("pricing.per_message_prefix", "Per-message cost:")}{" "}
+                  <strong>{tx("pricing.two_credits", "2 credits")}</strong>{" "}
+                  {tx(
+                    "pricing.per_outbound_sms_vln",
+                    "per outbound SMS (in addition to number subscription)"
+                  )}
                 </p>
               </div>
 
               <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
-                Cancel Number
+                {tx("actions.cancel_number", "Cancel Number")}
               </InteriorButton>
             </div>
           ) : step === "choose" ? (
@@ -389,10 +416,13 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   style={{ color: "#7c3aed" }}
                 />
                 <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Set Up SMS Sender
+                  {tx("choose.hero_title", "Set Up SMS Sender")}
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Customize how your outbound SMS appears to recipients.
+                  {tx(
+                    "choose.hero_description",
+                    "Customize how your outbound SMS appears to recipients."
+                  )}
                 </p>
               </div>
 
@@ -409,17 +439,20 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Alphanumeric Sender
+                        {tx("choose.alphanumeric_title", "Alphanumeric Sender")}
                       </p>
                       <span
                         className="text-xs px-2 py-0.5 rounded"
                         style={{ background: "#10b981", color: "white" }}
                       >
-                        Free
+                        {tx("choose.free_badge", "Free")}
                       </span>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Send SMS as your brand name (e.g., &quot;MyAgency&quot;). Outbound only — recipients cannot reply.
+                      {tx(
+                        "choose.alphanumeric_description",
+                        'Send SMS as your brand name (e.g., "MyAgency"). Outbound only — recipients cannot reply.'
+                      )}
                     </p>
                   </div>
                 </div>
@@ -430,7 +463,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       type="text"
                       value={senderName}
                       onChange={(e) => handleSenderNameChange(e.target.value)}
-                      placeholder="BrandName"
+                      placeholder={tx("choose.alphanumeric_placeholder", "BrandName")}
                       maxLength={11}
                       className="flex-1 p-2 border-2 rounded text-xs"
                       style={{
@@ -449,12 +482,15 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       {isSaving ? (
                         <Loader2 size={14} className="animate-spin" />
                       ) : (
-                        "Activate"
+                        tx("actions.activate", "Activate")
                       )}
                     </InteriorButton>
                   </div>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    Max 11 characters, alphanumeric only. Instant activation.
+                    {tx(
+                      "choose.alphanumeric_hint",
+                      "Max 11 characters, alphanumeric only. Instant activation."
+                    )}
                   </p>
                 </div>
               </div>
@@ -473,20 +509,23 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-                        Dedicated Number
+                        {tx("choose.vln_title", "Dedicated Number")}
                       </p>
                       <span
                         className="text-xs px-2 py-0.5 rounded"
                         style={{ background: "#f59e0b", color: "white" }}
                       >
-                        Paid
+                        {tx("choose.paid_badge", "Paid")}
                       </span>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Get a real phone number for two-way SMS. Recipients can reply. Separate monthly subscription.
+                      {tx(
+                        "choose.vln_description",
+                        "Get a real phone number for two-way SMS. Recipients can reply. Separate monthly subscription."
+                      )}
                     </p>
                     <div className="flex items-center gap-1 mt-2" style={{ color: "var(--tone-accent)" }}>
-                      <span className="text-xs font-bold">Browse Numbers</span>
+                      <span className="text-xs font-bold">{tx("actions.browse_numbers", "Browse Numbers")}</span>
                       <ChevronRight size={14} />
                     </div>
                   </div>
@@ -500,7 +539,9 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               >
                 <AlertCircle size={14} style={{ color: "var(--tone-accent)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Both options charge <strong>2 credits per outbound SMS</strong> for message delivery.
+                  {tx("pricing.both_options_prefix", "Both options charge")}{" "}
+                  <strong>{tx("pricing.two_credits_outbound", "2 credits per outbound SMS")}</strong>{" "}
+                  {tx("pricing.both_options_suffix", "for message delivery.")}
                 </p>
               </div>
             </div>
@@ -512,13 +553,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Step 1 of 4
+                  {tx("wizard.step_1", "Step 1 of 4")}
                 </p>
                 <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Select Country
+                  {tx("wizard.country_title", "Select Country")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Choose the country for your dedicated SMS number.
+                  {tx(
+                    "wizard.country_description",
+                    "Choose the country for your dedicated SMS number."
+                  )}
                 </p>
 
                 <div className="space-y-2">
@@ -548,7 +592,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
               </div>
 
               <InteriorButton onClick={handleBrowseNumbers} className="w-full">
-                Browse Available Numbers
+                {tx("actions.browse_available_numbers", "Browse Available Numbers")}
               </InteriorButton>
             </div>
           ) : step === "offers" ? (
@@ -559,23 +603,24 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Step 2 of 4
+                  {tx("wizard.step_2", "Step 2 of 4")}
                 </p>
                 <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Available Numbers
+                  {tx("wizard.offers_title", "Available Numbers")}
                 </p>
 
                 {isLoadingNumbers ? (
                   <div className="flex flex-col items-center gap-2 py-8">
                     <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Loading offers from Infobip...
+                      {tx("wizard.offers_loading", "Loading offers from Infobip...")}
                     </p>
                   </div>
                 ) : availableOffers.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      No numbers available for {selectedCountry}. Try a different country.
+                      {tx("wizard.offers_none_prefix", "No numbers available for")} {selectedCountry}
+                      {tx("wizard.offers_none_suffix", ". Try a different country.")}
                     </p>
                   </div>
                 ) : (
@@ -596,20 +641,22 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                               {offer.number}
                             </p>
                             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                              {offer.type} &middot; {offer.capabilities?.join(", ")}
+                              {offer.type} {tx("wizard.offers_dot", "·")} {offer.capabilities?.join(", ")}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                              {offer.currency} {offer.ourSetupPrice?.toFixed(2)} setup
+                              {offer.currency} {offer.ourSetupPrice?.toFixed(2)}{" "}
+                              {tx("wizard.offers_setup_suffix", "setup")}
                             </p>
                             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                              {offer.currency} {offer.ourMonthlyPrice?.toFixed(2)}/mo
+                              {offer.currency} {offer.ourMonthlyPrice?.toFixed(2)}
+                              {tx("common.per_month_suffix", "/mo")}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 mt-1" style={{ color: "var(--tone-accent)" }}>
-                          <span className="text-xs">Select</span>
+                          <span className="text-xs">{tx("actions.select", "Select")}</span>
                           <ChevronRight size={12} />
                         </div>
                       </button>
@@ -626,13 +673,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Step 3 of 4
+                  {tx("wizard.step_3", "Step 3 of 4")}
                 </p>
                 <p className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Registration Details
+                  {tx("wizard.details_title", "Registration Details")}
                 </p>
                 <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Required for number registration. Provisioning takes approximately 30 days.
+                  {tx(
+                    "wizard.details_description",
+                    "Required for number registration. Provisioning takes approximately 30 days."
+                  )}
                 </p>
 
                 {selectedOffer && (
@@ -644,7 +694,10 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       {selectedOffer.number}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      {selectedOffer.currency} {selectedOffer.ourSetupPrice?.toFixed(2)} setup + {selectedOffer.currency} {selectedOffer.ourMonthlyPrice?.toFixed(2)}/mo
+                      {selectedOffer.currency} {selectedOffer.ourSetupPrice?.toFixed(2)}{" "}
+                      {tx("wizard.offers_setup_suffix", "setup")} + {selectedOffer.currency}{" "}
+                      {selectedOffer.ourMonthlyPrice?.toFixed(2)}
+                      {tx("common.per_month_suffix", "/mo")}
                     </p>
                   </div>
                 )}
@@ -652,13 +705,13 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Company Name *
+                      {tx("wizard.details.company_name", "Company Name *")}
                     </label>
                     <input
                       type="text"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Your company name"
+                      placeholder={tx("wizard.details.company_name_placeholder", "Your company name")}
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -669,13 +722,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   </div>
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Use Case *
+                      {tx("wizard.details.use_case", "Use Case *")}
                     </label>
                     <input
                       type="text"
                       value={useCase}
                       onChange={(e) => setUseCase(e.target.value)}
-                      placeholder="e.g., Appointment reminders, marketing campaigns"
+                      placeholder={tx(
+                        "wizard.details.use_case_placeholder",
+                        "e.g., Appointment reminders, marketing campaigns"
+                      )}
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -686,13 +742,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   </div>
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Opt-In Flow *
+                      {tx("wizard.details.opt_in", "Opt-In Flow *")}
                     </label>
                     <input
                       type="text"
                       value={optInFlow}
                       onChange={(e) => setOptInFlow(e.target.value)}
-                      placeholder="How do users opt in to receive SMS?"
+                      placeholder={tx(
+                        "wizard.details.opt_in_placeholder",
+                        "How do users opt in to receive SMS?"
+                      )}
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -703,13 +762,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   </div>
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Opt-Out Flow *
+                      {tx("wizard.details.opt_out", "Opt-Out Flow *")}
                     </label>
                     <input
                       type="text"
                       value={optOutFlow}
                       onChange={(e) => setOptOutFlow(e.target.value)}
-                      placeholder="How can users unsubscribe?"
+                      placeholder={tx(
+                        "wizard.details.opt_out_placeholder",
+                        "How can users unsubscribe?"
+                      )}
                       className="w-full p-2 border-2 rounded text-xs"
                       style={{
                         borderColor: "var(--window-document-border)",
@@ -720,12 +782,15 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                   </div>
                   <div>
                     <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Example Message *
+                      {tx("wizard.details.example_message", "Example Message *")}
                     </label>
                     <textarea
                       value={messageExample}
                       onChange={(e) => setMessageExample(e.target.value)}
-                      placeholder="Example of a typical SMS you would send"
+                      placeholder={tx(
+                        "wizard.details.example_message_placeholder",
+                        "Example of a typical SMS you would send"
+                      )}
                       rows={3}
                       className="w-full p-2 border-2 rounded text-xs resize-none"
                       style={{
@@ -746,10 +811,10 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 {isSubmittingOrder ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Saving...
+                    {tx("wizard.details.saving", "Saving...")}
                   </>
                 ) : (
-                  "Continue to Summary"
+                  tx("wizard.details.continue_to_summary", "Continue to Summary")
                 )}
               </InteriorButton>
             </div>
@@ -761,20 +826,20 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Step 4 of 4
+                  {tx("wizard.step_4", "Step 4 of 4")}
                 </p>
                 <p className="text-sm font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Order Summary
+                  {tx("wizard.checkout_title", "Order Summary")}
                 </p>
 
                 {selectedOffer && (
                   <div className="space-y-3">
                     <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
-                      <span>Number</span>
+                      <span>{tx("wizard.checkout.number_label", "Number")}</span>
                       <span className="font-mono font-bold">{selectedOffer.number}</span>
                     </div>
                     <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
-                      <span>Country</span>
+                      <span>{tx("wizard.checkout.country_label", "Country")}</span>
                       <span>{selectedCountry}</span>
                     </div>
                     <div
@@ -782,15 +847,16 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       style={{ borderColor: "var(--window-document-border)" }}
                     >
                       <div className="flex justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
-                        <span>One-time setup fee</span>
+                        <span>{tx("wizard.checkout.setup_fee_label", "One-time setup fee")}</span>
                         <span className="font-bold">
                           {selectedOffer.currency} {selectedOffer.ourSetupPrice?.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
-                        <span>Monthly subscription</span>
+                        <span>{tx("wizard.checkout.monthly_subscription_label", "Monthly subscription")}</span>
                         <span className="font-bold">
-                          {selectedOffer.currency} {selectedOffer.ourMonthlyPrice?.toFixed(2)}/mo
+                          {selectedOffer.currency} {selectedOffer.ourMonthlyPrice?.toFixed(2)}
+                          {tx("common.per_month_suffix", "/mo")}
                         </span>
                       </div>
                     </div>
@@ -799,7 +865,10 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                       style={{ borderColor: "var(--window-document-border)" }}
                     >
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        + 2 credits per outbound SMS (message delivery cost)
+                        {tx(
+                          "wizard.checkout.per_message_cost_note",
+                          "+ 2 credits per outbound SMS (message delivery cost)"
+                        )}
                       </p>
                     </div>
                   </div>
@@ -811,9 +880,11 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 style={{ borderColor: "#f59e0b", background: "var(--window-document-bg-elevated)" }}
               >
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <strong>Note:</strong> Number registration takes approximately 30 days.
-                  You will be charged after completing Stripe checkout.
-                  The subscription can be cancelled at any time.
+                  <strong>{tx("wizard.checkout.note_label", "Note:")}</strong>{" "}
+                  {tx(
+                    "wizard.checkout.note_body",
+                    "Number registration takes approximately 30 days. You will be charged after completing Stripe checkout. The subscription can be cancelled at any time."
+                  )}
                 </p>
               </div>
 
@@ -854,12 +925,12 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
                 {isSubmittingCheckout ? (
                   <>
                     <Loader2 size={14} className="mr-1 animate-spin" />
-                    Redirecting to Stripe...
+                    {tx("wizard.checkout.redirecting", "Redirecting to Stripe...")}
                   </>
                 ) : (
                   <>
                     <Globe size={14} className="mr-1" />
-                    Subscribe &amp; Purchase
+                    {tx("wizard.checkout.subscribe_purchase", "Subscribe & Purchase")}
                   </>
                 )}
               </InteriorButton>

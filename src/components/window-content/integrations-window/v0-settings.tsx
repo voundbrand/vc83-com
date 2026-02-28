@@ -1,118 +1,135 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-// Dynamic require to avoid TS2589 deep type instantiation with large integration modules
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
-const { api } = require("../../../../convex/_generated/api") as { api: any };
-import { InteriorButton } from "@/components/ui/interior-button";
-import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { useNotification } from "@/hooks/use-notification";
-import { useRetroConfirm } from "@/components/retro-confirm-dialog";
+import { useMutation, useQuery } from "convex/react";
 import {
-  Loader2,
-  CheckCircle2,
   ArrowLeft,
+  CheckCircle2,
   Eye,
   EyeOff,
-  ExternalLink,
+  Loader2,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { InteriorButton } from "@/components/ui/interior-button";
+import { useRetroConfirm } from "@/components/retro-confirm-dialog";
+import { useNotification } from "@/hooks/use-notification";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+
+// Dynamic require to avoid deep type-instantiation with the generated API object.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface V0SettingsProps {
   onBack: () => void;
 }
 
+interface V0SettingsResponse {
+  enabled: boolean;
+  hasApiKey: boolean;
+  credentialMode?: "managed" | "byok";
+  usingManagedProvider?: boolean;
+  canConfigureByok?: boolean;
+  requiredTierForByok?: string;
+  planTier?: string;
+}
+
 export function V0Settings({ onBack }: V0SettingsProps) {
-  const { user, sessionId } = useAuth();
+  const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
 
-  const organizationId = currentOrg?.id;
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Query v0 settings (requires both sessionId and organizationId)
+  const organizationId = currentOrg?.id;
   const settings = useQuery(
     api.integrations.v0.getV0Settings,
     sessionId && organizationId ? { sessionId, organizationId } : "skip"
-  ) as { enabled: boolean; hasApiKey: boolean } | null | undefined;
-
+  ) as V0SettingsResponse | null | undefined;
   const saveSettings = useMutation(api.integrations.v0.saveV0Settings);
 
   const isLoading = settings === undefined;
   const isEnabled = settings?.enabled === true;
-  const hasApiKey = settings?.hasApiKey === true;
+  const hasByokKey = settings?.hasApiKey === true;
+  const credentialMode = settings?.credentialMode || (hasByokKey ? "byok" : "managed");
+  const usingManagedProvider =
+    settings?.usingManagedProvider ?? credentialMode !== "byok";
+  const canConfigureByok = settings?.canConfigureByok === true;
+  const requiredTierForByok =
+    settings?.requiredTierForByok || "Scale (€299/month)";
 
-  const handleConnect = async () => {
-    if (!sessionId || !organizationId) {
-      notification.error("Sign In Required", "You must be signed in to configure v0");
-      return;
-    }
-    if (!apiKey.trim()) {
-      setValidationError("Please enter your v0 API key");
-      return;
-    }
-
+  const handleEnableManaged = async () => {
+    if (!sessionId || !organizationId) return;
     setIsSaving(true);
     setValidationError(null);
-
     try {
       await saveSettings({
         sessionId,
         organizationId,
-        apiKey: apiKey.trim(),
+        apiKey: "",
         enabled: true,
       });
-      notification.success("Connected!", "v0 integration enabled");
-      setApiKey("");
+      notification.success("Managed Mode Enabled", "Platform-managed v0 credits are active.");
     } catch (error) {
-      console.error("Failed to save v0 settings:", error);
       notification.error(
-        "Connection Error",
-        error instanceof Error ? error.message : "Failed to save v0 settings"
+        "Enable Failed",
+        error instanceof Error ? error.message : "Failed to enable managed mode"
       );
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleDisable = async () => {
     if (!sessionId || !organizationId) return;
-
     const confirmed = await confirmDialog.confirm({
       title: "Disable v0 Integration",
       message:
-        "Are you sure? Your org will fall back to the platform default v0 API key (if configured). Existing v0 chats will still be accessible.",
+        "Disable generation for this organization? You can re-enable managed mode at any time.",
       confirmText: "Disable",
       cancelText: "Cancel",
       confirmVariant: "primary",
     });
     if (!confirmed) return;
 
+    setIsSaving(true);
     try {
       await saveSettings({
         sessionId,
         organizationId,
         enabled: false,
       });
-      notification.success("Disabled", "v0 integration disabled for this org");
+      notification.success("Disabled", "v0 integration is disabled for this organization.");
     } catch (error) {
-      console.error("Failed to disable v0:", error);
       notification.error(
-        "Error",
-        error instanceof Error ? error.message : "Failed to disable v0"
+        "Disable Failed",
+        error instanceof Error ? error.message : "Failed to disable v0 integration"
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleUpdateKey = async () => {
-    if (!sessionId || !organizationId || !apiKey.trim()) return;
+  const handleSaveByok = async () => {
+    if (!sessionId || !organizationId) return;
+    if (!canConfigureByok) {
+      notification.error(
+        "Upgrade Required",
+        `BYOK requires ${requiredTierForByok} or higher.`
+      );
+      return;
+    }
+    if (!apiKey.trim()) {
+      setValidationError("Enter a valid v0 API key.");
+      return;
+    }
 
     setIsSaving(true);
+    setValidationError(null);
     try {
       await saveSettings({
         sessionId,
@@ -120,13 +137,34 @@ export function V0Settings({ onBack }: V0SettingsProps) {
         apiKey: apiKey.trim(),
         enabled: true,
       });
-      notification.success("Updated", "v0 API key updated");
       setApiKey("");
+      notification.success("BYOK Enabled", "Your organization v0 key is now active.");
     } catch (error) {
-      console.error("Failed to update v0 key:", error);
       notification.error(
-        "Update Failed",
-        error instanceof Error ? error.message : "Failed to update API key"
+        "Save Failed",
+        error instanceof Error ? error.message : "Failed to save BYOK key"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSwitchToManaged = async () => {
+    if (!sessionId || !organizationId) return;
+    setIsSaving(true);
+    try {
+      await saveSettings({
+        sessionId,
+        organizationId,
+        apiKey: "",
+        enabled: true,
+      });
+      setApiKey("");
+      notification.success("Managed Mode Enabled", "Switched back to platform-managed credits.");
+    } catch (error) {
+      notification.error(
+        "Switch Failed",
+        error instanceof Error ? error.message : "Failed to switch to managed mode"
       );
     } finally {
       setIsSaving(false);
@@ -136,10 +174,9 @@ export function V0Settings({ onBack }: V0SettingsProps) {
   return (
     <>
       <confirmDialog.Dialog />
-      <div className="flex flex-col h-full" style={{ background: "var(--window-document-bg)" }}>
-        {/* Header */}
+      <div className="flex h-full flex-col" style={{ background: "var(--window-document-bg)" }}>
         <div
-          className="px-4 py-3 border-b-2 flex items-center gap-3"
+          className="flex items-center gap-3 border-b-2 px-4 py-3"
           style={{ borderColor: "var(--window-document-border)" }}
         >
           <button
@@ -151,277 +188,205 @@ export function V0Settings({ onBack }: V0SettingsProps) {
             Back
           </button>
           <div className="flex items-center gap-2">
-            <Sparkles size={24} style={{ color: "#000000" }} />
+            <Sparkles size={22} style={{ color: "#000000" }} />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
+              <h2 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
                 v0 by Vercel
               </h2>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                AI-powered UI generation
+                Managed credits by default, BYOK for Scale+
               </p>
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {isLoading ? (
             <div
-              className="p-6 border-2 rounded flex flex-col items-center justify-center gap-2"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
+              className="flex flex-col items-center justify-center gap-2 rounded border-2 p-6"
+              style={{
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-bg-elevated)",
+              }}
             >
-              <Loader2 size={24} className="animate-spin" style={{ color: "var(--window-document-text)" }} />
+              <Loader2 size={24} className="animate-spin" />
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Loading settings...
               </p>
             </div>
-          ) : isEnabled && hasApiKey ? (
-            /* Connected State — org has its own key configured */
-            <div className="space-y-4">
-              {/* Status */}
+          ) : (
+            <>
               <div
-                className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
+                className="rounded border-2 p-4"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 size={16} style={{ color: "#10b981" }} />
-                  <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                    Enabled
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                    API Key
-                  </p>
-                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Custom org key configured
-                  </p>
-                </div>
-              </div>
-
-              {/* Available Features */}
-              <div
-                className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-              >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Available Features
-                </p>
-                <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>AI-generated UI components</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Builder app scaffolding</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Iterative chat refinement</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={12} style={{ color: "#10b981" }} />
-                    <span>Live preview with demo URLs</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Update API Key */}
-              <div
-                className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-              >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Update API Key
-                </p>
-                <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
-                  Replace the existing API key with a new one.
-                </p>
-                <div className="relative mb-3">
-                  <input
-                    type={showApiKey ? "text" : "password"}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="New v0 API key"
-                    className="w-full px-2 py-1 border-2 text-xs pr-8"
+                <div className="mb-2 flex items-center gap-2">
+                  <CheckCircle2
+                    size={16}
                     style={{
-                      borderColor: "var(--window-document-border)",
-                      background: "var(--window-document-bg)",
-                      color: "var(--window-document-text)",
+                      color: isEnabled ? "#10b981" : "var(--neutral-gray)",
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2"
-                    style={{ color: "var(--neutral-gray)" }}
+                  <span
+                    className="text-xs font-bold"
+                    style={{
+                      color: isEnabled ? "#10b981" : "var(--neutral-gray)",
+                    }}
                   >
-                    {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
+                    {isEnabled ? "Enabled" : "Disabled"}
+                  </span>
                 </div>
-                <InteriorButton
-                  onClick={handleUpdateKey}
-                  disabled={isSaving || !apiKey.trim()}
-                  className="w-full"
-                >
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {!isEnabled
+                    ? "v0 generation is disabled for this organization."
+                    : usingManagedProvider
+                    ? "Managed mode is active. Generation uses platform-managed credits."
+                    : "BYOK mode is active for this organization."}
+                </p>
+              </div>
+
+              {!isEnabled && (
+                <InteriorButton onClick={handleEnableManaged} disabled={isSaving} className="w-full">
                   {isSaving ? (
                     <>
                       <Loader2 size={14} className="mr-1 animate-spin" />
-                      Updating...
+                      Enabling...
                     </>
                   ) : (
-                    "Update Key"
+                    "Enable Managed Mode"
                   )}
                 </InteriorButton>
-              </div>
+              )}
 
-              {/* Actions */}
-              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
-                Disable v0 Integration
-              </InteriorButton>
-            </div>
-          ) : (
-            /* Not Connected State */
-            <div className="space-y-4">
-              <div
-                className="p-6 border-2 rounded text-center"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-              >
-                <Sparkles size={48} className="mx-auto mb-4" style={{ color: "#000000" }} />
-                <p className="text-sm font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Not Configured
-                </p>
-                <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Add your v0 API key to use AI-powered UI generation in the Builder.
-                </p>
-              </div>
-
-              {/* Features */}
-              <div
-                className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-              >
-                <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                  Features
-                </p>
-                <div className="space-y-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  <div className="flex items-start gap-2">
-                    <span>&#10024;</span>
-                    <span>Generate React UI from natural language</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span>&#128736;</span>
-                    <span>Scaffold full builder apps with AI</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span>&#128488;</span>
-                    <span>Iterate on designs through chat</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span>&#127760;</span>
-                    <span>Live preview and demo URLs</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Connection Form */}
-              <div
-                className="p-4 border-2 rounded"
-                style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
-              >
-                <p className="text-xs font-bold mb-3" style={{ color: "var(--window-document-text)" }}>
-                  Enter your v0 API key
-                </p>
-
-                {validationError && (
+              {isEnabled && (
+                <div className="space-y-3">
                   <div
-                    className="p-2 mb-3 border rounded text-xs"
+                    className="rounded border-2 p-4"
                     style={{
-                      borderColor: "#ef4444",
-                      background: "rgba(239, 68, 68, 0.1)",
-                      color: "#ef4444",
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
                     }}
                   >
-                    {validationError}
+                    <div className="mb-2 flex items-center gap-2">
+                      <ShieldCheck size={14} />
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                        Mode
+                      </p>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {usingManagedProvider
+                        ? "Managed (recommended for Starter/Pro/Professional)."
+                        : "BYOK (Scale/Enterprise entitlement required)."}
+                    </p>
+                    {!usingManagedProvider && (
+                      <div className="mt-3">
+                        <InteriorButton
+                          variant="secondary"
+                          onClick={handleSwitchToManaged}
+                          disabled={isSaving}
+                          className="w-full"
+                        >
+                          Switch to Managed
+                        </InteriorButton>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                <div>
-                  <label
-                    className="text-xs font-bold block mb-1"
-                    style={{ color: "var(--window-document-text)" }}
+                  <div
+                    className="rounded border-2 p-4"
+                    style={{
+                      borderColor: canConfigureByok ? "var(--window-document-border)" : "#f59e0b",
+                      background: canConfigureByok
+                        ? "var(--window-document-bg-elevated)"
+                        : "#fef3c7",
+                    }}
                   >
-                    API Key
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showApiKey ? "text" : "password"}
-                      value={apiKey}
-                      onChange={(e) => {
-                        setApiKey(e.target.value);
-                        setValidationError(null);
-                      }}
-                      placeholder="v0_..."
-                      className="w-full px-2 py-1 border-2 text-xs pr-8"
-                      style={{
-                        borderColor: "var(--window-document-border)",
-                        background: "var(--window-document-bg)",
-                        color: "var(--window-document-text)",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      style={{ color: "var(--neutral-gray)" }}
-                    >
-                      {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
+                    <p className="mb-2 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                      Bring Your Own v0 Key (Optional)
+                    </p>
+                    {!canConfigureByok ? (
+                      <p className="text-xs" style={{ color: "#92400E" }}>
+                        Upgrade to {requiredTierForByok} or higher to enable BYOK.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="mb-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          Save your organization key to use BYOK mode.
+                        </p>
+                        {validationError && (
+                          <div
+                            className="mb-3 rounded border p-2 text-xs"
+                            style={{
+                              borderColor: "#ef4444",
+                              background: "rgba(239, 68, 68, 0.1)",
+                              color: "#ef4444",
+                            }}
+                          >
+                            {validationError}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <input
+                            type={showApiKey ? "text" : "password"}
+                            value={apiKey}
+                            onChange={(event) => {
+                              setApiKey(event.target.value);
+                              setValidationError(null);
+                            }}
+                            placeholder="v0_..."
+                            className="w-full border-2 px-2 py-1 pr-8 text-xs"
+                            style={{
+                              borderColor: "var(--window-document-border)",
+                              background: "var(--window-document-bg)",
+                              color: "var(--window-document-text)",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowApiKey((current) => !current)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
+                            style={{ color: "var(--neutral-gray)" }}
+                          >
+                            {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          Paste a v0 key from your v0 account settings.
+                        </p>
+                        <div className="mt-3">
+                          <InteriorButton
+                            onClick={handleSaveByok}
+                            disabled={isSaving || !apiKey.trim()}
+                            className="w-full"
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 size={14} className="mr-1 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              "Save BYOK Key"
+                            )}
+                          </InteriorButton>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    Generate a key at v0.dev/chat/settings
-                  </p>
+
+                  <InteriorButton
+                    variant="secondary"
+                    onClick={handleDisable}
+                    disabled={isSaving}
+                    className="w-full"
+                  >
+                    Disable v0 Integration
+                  </InteriorButton>
                 </div>
-              </div>
-
-              {/* Help Link */}
-              <a
-                href="https://v0.dev/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs flex items-center gap-1 hover:underline"
-                style={{ color: "var(--tone-accent)" }}
-              >
-                <ExternalLink size={12} />
-                v0 documentation
-              </a>
-
-              {/* Connect Button */}
-              <InteriorButton
-                onClick={handleConnect}
-                disabled={isSaving || !user}
-                className="w-full"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={14} className="mr-1 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} className="mr-1" />
-                    Enable v0 Integration
-                  </>
-                )}
-              </InteriorButton>
-
-              {!user && (
-                <p className="text-xs text-center italic" style={{ color: "var(--neutral-gray)" }}>
-                  Please sign in to configure v0
-                </p>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

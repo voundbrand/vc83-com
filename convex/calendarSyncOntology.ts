@@ -31,6 +31,30 @@ function getApi(): any { return getApiModule().api; }
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
+const MICROSOFT_CALENDAR_READ_SCOPES = [
+  "Calendars.Read",
+  "Calendars.ReadWrite",
+  "Calendars.Read.Shared",
+  "Calendars.ReadWrite.Shared",
+];
+
+const MICROSOFT_CALENDAR_WRITE_SCOPES = [
+  "Calendars.ReadWrite",
+  "Calendars.ReadWrite.Shared",
+];
+
+const GOOGLE_CALENDAR_READ_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+];
+
+const GOOGLE_CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+];
+
 /**
  * Calculate exponential backoff delay with jitter.
  */
@@ -61,6 +85,45 @@ function isRetryableError(error: unknown): boolean {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hasAnyScope(
+  scopes: string[] | undefined,
+  requiredScopes: readonly string[]
+): boolean {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return false;
+  }
+  return scopes.some((scope) => requiredScopes.includes(scope));
+}
+
+function getCalendarScopeReadiness(provider: string, scopes: string[] | undefined) {
+  if (provider === "microsoft") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_READ_SCOPES),
+      canWriteCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_WRITE_SCOPES),
+    };
+  }
+
+  if (provider === "google") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_READ_SCOPES),
+      canWriteCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_WRITE_SCOPES),
+    };
+  }
+
+  return {
+    canAccessCalendar: false,
+    canWriteCalendar: false,
+  };
+}
+
+function normalizeCalendarId(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 // ============================================================================
@@ -207,6 +270,117 @@ export const getCalendarResourceLinks = query({
   },
 });
 
+/**
+ * Planner-facing calendar readiness for OAuth-backed write operations.
+ * Exposes mode-aware readiness (work/private) without changing OAuth/token contracts.
+ */
+export const getPlannerCalendarWriteReadiness = query({
+  args: {
+    sessionId: v.string(),
+    provider: v.optional(v.union(v.literal("google"), v.literal("microsoft"))),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) return null;
+
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.defaultOrgId) return null;
+
+    const providers: Array<"google" | "microsoft"> = args.provider
+      ? [args.provider]
+      : ["google", "microsoft"];
+    const readiness: Record<string, unknown> = {};
+
+    for (const provider of providers) {
+      const providerConnections = await ctx.db
+        .query("oauthConnections")
+        .withIndex("by_org_and_provider", (q) =>
+          q.eq("organizationId", user.defaultOrgId as Id<"organizations">).eq("provider", provider)
+        )
+        .filter((q) => q.neq(q.field("status"), "revoked"))
+        .collect();
+
+      const personal = providerConnections.find(
+        (conn) => conn.connectionType === "personal" && conn.userId === user._id
+      );
+      const organizational = providerConnections.find(
+        (conn) => conn.connectionType === "organizational"
+      );
+
+      const workConnection = organizational || personal || null;
+      const privateConnection = personal || organizational || null;
+
+      const buildModeReadiness = (connection: typeof personal | null) => {
+        if (!connection) {
+          return {
+            hasConnection: false,
+            connectionId: null,
+            connectionType: null,
+            email: null,
+            status: null,
+            syncEnabled: false,
+            scopes: [],
+            canAccessCalendar: false,
+            canWriteCalendar: false,
+            calendarWriteReady: false,
+            lastSyncAt: null,
+            lastSyncError: null,
+          };
+        }
+
+        const scopeReadiness = getCalendarScopeReadiness(
+          provider,
+          connection.scopes
+        );
+        const syncEnabled =
+          ((connection.syncSettings || {}) as Record<string, unknown>).calendar ===
+          true;
+        const isActive = connection.status === "active";
+
+        return {
+          hasConnection: true,
+          connectionId: connection._id,
+          connectionType: connection.connectionType,
+          email: connection.providerEmail,
+          status: connection.status,
+          syncEnabled,
+          scopes: connection.scopes,
+          canAccessCalendar: scopeReadiness.canAccessCalendar,
+          canWriteCalendar: scopeReadiness.canWriteCalendar,
+          calendarWriteReady:
+            isActive && syncEnabled && scopeReadiness.canWriteCalendar,
+          lastSyncAt: connection.lastSyncAt || null,
+          lastSyncError: connection.lastSyncError || null,
+        };
+      };
+
+      readiness[provider] = {
+        provider,
+        hasPersonalConnection: Boolean(personal),
+        hasOrganizationalConnection: Boolean(organizational),
+        recommendedWorkConnectionType: organizational
+          ? "organizational"
+          : personal
+            ? "personal"
+            : "none",
+        recommendedPrivateConnectionType: personal
+          ? "personal"
+          : organizational
+            ? "organizational"
+            : "none",
+        work: buildModeReadiness(workConnection),
+        private: buildModeReadiness(privateConnection),
+      };
+    }
+
+    return {
+      generatedAt: Date.now(),
+      providerFilter: args.provider || "all",
+      readiness,
+    };
+  },
+});
+
 // ============================================================================
 // INTERNAL QUERY
 // ============================================================================
@@ -230,6 +404,307 @@ export const getActiveSyncConnections = internalQuery({
   },
 });
 
+/**
+ * Resolve Google calendar readiness and busy-event overlaps for a date range.
+ * Used by pharmacist vacation policy evaluation.
+ */
+export const getGoogleCalendarConflictSnapshotInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    connectionId: v.id("oauthConnections"),
+    startDateTime: v.number(),
+    endDateTime: v.number(),
+    blockingCalendarIds: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const blockedReasons: string[] = [];
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) {
+      blockedReasons.push("missing_google_calendar_connection");
+      return {
+        status: "blocked" as const,
+        blockedReasons,
+        conflicts: [] as Array<{
+          eventId: string;
+          calendarId: string;
+          startDateTime: number;
+          endDateTime: number;
+          source: "external_calendar";
+        }>,
+      };
+    }
+
+    if (connection.organizationId !== args.organizationId) {
+      blockedReasons.push("google_calendar_connection_org_mismatch");
+    }
+    if (connection.provider !== "google") {
+      blockedReasons.push("google_calendar_provider_mismatch");
+    }
+    if (connection.status !== "active") {
+      blockedReasons.push("google_calendar_connection_inactive");
+    }
+
+    const syncSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+    if (syncSettings.calendar !== true) {
+      blockedReasons.push("google_calendar_sync_disabled");
+    }
+
+    const scopeReadiness = getCalendarScopeReadiness("google", connection.scopes);
+    if (!scopeReadiness.canAccessCalendar) {
+      blockedReasons.push("missing_google_calendar_read_scope");
+    }
+
+    const requestedBlockingCalendarIds = Array.from(
+      new Set(
+        (args.blockingCalendarIds || [])
+          .map((calendarId) => normalizeCalendarId(calendarId))
+          .filter((calendarId): calendarId is string => Boolean(calendarId))
+      )
+    );
+    const blockingCalendarIds =
+      requestedBlockingCalendarIds.length > 0
+        ? requestedBlockingCalendarIds
+        : ["primary"];
+
+    if (blockedReasons.length > 0) {
+      return {
+        status: "blocked" as const,
+        blockedReasons,
+        conflicts: [] as Array<{
+          eventId: string;
+          calendarId: string;
+          startDateTime: number;
+          endDateTime: number;
+          source: "external_calendar";
+        }>,
+      };
+    }
+
+    const events = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "calendar_event"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("subtype"), "external_google"),
+          q.neq(q.field("status"), "deleted")
+        )
+      )
+      .collect();
+
+    const conflicts: Array<{
+      eventId: string;
+      calendarId: string;
+      startDateTime: number;
+      endDateTime: number;
+      source: "external_calendar";
+    }> = [];
+
+    for (const event of events) {
+      const cp = (event.customProperties || {}) as Record<string, unknown>;
+      if (String(cp.connectionId || "") !== String(args.connectionId)) {
+        continue;
+      }
+      if (cp.isBusy === false) {
+        continue;
+      }
+
+      const startDateTime =
+        typeof cp.startDateTime === "number" ? cp.startDateTime : undefined;
+      const endDateTime =
+        typeof cp.endDateTime === "number" ? cp.endDateTime : undefined;
+      if (!startDateTime || !endDateTime) {
+        continue;
+      }
+      if (startDateTime >= args.endDateTime || endDateTime <= args.startDateTime) {
+        continue;
+      }
+
+      const sourceCalendarId = normalizeCalendarId(cp.sourceCalendarId) || "primary";
+      if (!blockingCalendarIds.includes(sourceCalendarId)) {
+        continue;
+      }
+
+      conflicts.push({
+        eventId: String(event._id),
+        calendarId: sourceCalendarId,
+        startDateTime,
+        endDateTime,
+        source: "external_calendar",
+      });
+    }
+
+    return {
+      status: "resolved" as const,
+      blockedReasons: [] as string[],
+      conflicts,
+      blockingCalendarIds,
+      scopeReadiness,
+    };
+  },
+});
+
+/**
+ * Resolve busy windows for a single OAuth calendar connection across providers.
+ * Supports Google + Microsoft synced calendar_event mirrors for overlap checks.
+ */
+export const getConnectionBusyWindowsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    connectionId: v.id("oauthConnections"),
+    startDateTime: v.number(),
+    endDateTime: v.number(),
+    blockingCalendarIds: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const blockedReasons: string[] = [];
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) {
+      blockedReasons.push("missing_calendar_connection");
+      return {
+        status: "blocked" as const,
+        blockedReasons,
+        busyWindows: [] as Array<{
+          eventId: string;
+          startDateTime: number;
+          endDateTime: number;
+          provider: "google" | "microsoft";
+          sourceCalendarId?: string;
+        }>,
+      };
+    }
+
+    if (connection.organizationId !== args.organizationId) {
+      blockedReasons.push("calendar_connection_org_mismatch");
+    }
+    const provider =
+      connection.provider === "google" || connection.provider === "microsoft"
+        ? connection.provider
+        : null;
+    if (!provider) {
+      blockedReasons.push("calendar_provider_not_supported");
+    }
+    if (connection.status !== "active") {
+      blockedReasons.push("calendar_connection_inactive");
+    }
+
+    const syncSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+    if (syncSettings.calendar !== true) {
+      blockedReasons.push("calendar_sync_disabled");
+    }
+
+    const scopeReadiness = getCalendarScopeReadiness(
+      provider || "",
+      connection.scopes
+    );
+    if (!scopeReadiness.canAccessCalendar) {
+      blockedReasons.push("missing_calendar_read_scope");
+    }
+
+    const requestedBlockingCalendarIds = Array.from(
+      new Set(
+        (args.blockingCalendarIds || [])
+          .map((calendarId) => normalizeCalendarId(calendarId))
+          .filter((calendarId): calendarId is string => Boolean(calendarId))
+      )
+    );
+    const blockingCalendarIds =
+      provider === "google"
+        ? requestedBlockingCalendarIds.length > 0
+          ? requestedBlockingCalendarIds
+          : ["primary"]
+        : [];
+
+    if (blockedReasons.length > 0) {
+      return {
+        status: "blocked" as const,
+        blockedReasons,
+        busyWindows: [] as Array<{
+          eventId: string;
+          startDateTime: number;
+          endDateTime: number;
+          provider: "google" | "microsoft";
+          sourceCalendarId?: string;
+        }>,
+      };
+    }
+
+    const resolvedProvider = provider as "google" | "microsoft";
+
+    const subtype = resolvedProvider === "google"
+      ? "external_google"
+      : "external_microsoft";
+
+    const events = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "calendar_event"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("subtype"), subtype),
+          q.neq(q.field("status"), "deleted")
+        )
+      )
+      .collect();
+
+    const busyWindows: Array<{
+      eventId: string;
+      startDateTime: number;
+      endDateTime: number;
+      provider: "google" | "microsoft";
+      sourceCalendarId?: string;
+    }> = [];
+
+    for (const event of events) {
+      const cp = (event.customProperties || {}) as Record<string, unknown>;
+      if (String(cp.connectionId || "") !== String(args.connectionId)) {
+        continue;
+      }
+      if (cp.isBusy === false) {
+        continue;
+      }
+
+      const startDateTime =
+        typeof cp.startDateTime === "number" ? cp.startDateTime : undefined;
+      const endDateTime =
+        typeof cp.endDateTime === "number" ? cp.endDateTime : undefined;
+      if (!startDateTime || !endDateTime) {
+        continue;
+      }
+      if (startDateTime >= args.endDateTime || endDateTime <= args.startDateTime) {
+        continue;
+      }
+
+      const sourceCalendarId = normalizeCalendarId(cp.sourceCalendarId) || "primary";
+      if (
+        resolvedProvider === "google" &&
+        blockingCalendarIds.length > 0 &&
+        !blockingCalendarIds.includes(sourceCalendarId)
+      ) {
+        continue;
+      }
+
+      busyWindows.push({
+        eventId: String(event._id),
+        startDateTime,
+        endDateTime,
+        provider: resolvedProvider,
+        sourceCalendarId: resolvedProvider === "google" ? sourceCalendarId : undefined,
+      });
+    }
+
+    return {
+      status: "resolved" as const,
+      blockedReasons: [] as string[],
+      provider: resolvedProvider,
+      busyWindows,
+      blockingCalendarIds:
+        resolvedProvider === "google" ? blockingCalendarIds : undefined,
+      scopeReadiness,
+    };
+  },
+});
+
 // ============================================================================
 // MUTATIONS
 // ============================================================================
@@ -243,6 +718,7 @@ export const upsertExternalEvent = internalMutation({
     organizationId: v.id("organizations"),
     connectionId: v.id("oauthConnections"),
     externalEventId: v.string(),
+    sourceCalendarId: v.optional(v.string()),
     provider: v.union(
       v.literal("external_google"),
       v.literal("external_microsoft")
@@ -270,15 +746,19 @@ export const upsertExternalEvent = internalMutation({
 
     const match = existing.find((e) => {
       const cp = (e.customProperties || {}) as Record<string, unknown>;
+      const existingCalendarId = normalizeCalendarId(cp.sourceCalendarId) || "primary";
+      const requestedCalendarId = normalizeCalendarId(args.sourceCalendarId) || "primary";
       return (
         cp.externalEventId === args.externalEventId &&
-        cp.connectionId === args.connectionId
+        cp.connectionId === args.connectionId &&
+        existingCalendarId === requestedCalendarId
       );
     });
 
     const customProperties = {
       externalEventId: args.externalEventId,
       connectionId: args.connectionId,
+      sourceCalendarId: normalizeCalendarId(args.sourceCalendarId) || "primary",
       startDateTime: args.startDateTime,
       endDateTime: args.endDateTime,
       isAllDay: args.isAllDay || false,
@@ -326,6 +806,7 @@ export const deleteStaleEvents = internalMutation({
       v.literal("external_microsoft")
     ),
     activeExternalEventIds: v.array(v.string()),
+    sourceCalendarId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const events = await ctx.db
@@ -344,6 +825,15 @@ export const deleteStaleEvents = internalMutation({
     for (const event of events) {
       const cp = (event.customProperties || {}) as Record<string, unknown>;
       if (cp.connectionId !== args.connectionId) continue;
+      const eventSourceCalendarId = normalizeCalendarId(cp.sourceCalendarId) || "primary";
+      const requestedSourceCalendarId =
+        normalizeCalendarId(args.sourceCalendarId) || undefined;
+      if (
+        requestedSourceCalendarId &&
+        eventSourceCalendarId !== requestedSourceCalendarId
+      ) {
+        continue;
+      }
 
       const externalId = cp.externalEventId as string;
       if (!args.activeExternalEventIds.includes(externalId)) {
@@ -485,113 +975,134 @@ export const syncFromGoogle = internalAction({
         now.getTime() + 23 * 24 * 60 * 60 * 1000
       ).toISOString();
 
-      let result: Record<string, unknown> | null = null;
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          result = await ctx.runAction(
-            getApi().oauth.googleClient.getCalendarEvents,
-            {
+      const blockingSnapshot = await ctx.runQuery(
+        getInternal().calendarSyncSubcalendars.getConnectionBlockingCalendarSnapshot,
+        { connectionId: args.connectionId }
+      );
+      const calendarIdsToSync = Array.from(
+        new Set(
+          ((blockingSnapshot?.blockingCalendarIds as string[] | undefined) || [
+            "primary",
+          ])
+            .map((calendarId) => normalizeCalendarId(calendarId))
+            .filter((calendarId): calendarId is string => Boolean(calendarId))
+        )
+      );
+      if (calendarIdsToSync.length === 0) {
+        calendarIdsToSync.push("primary");
+      }
+
+      let syncedCount = 0;
+      for (const calendarId of calendarIdsToSync) {
+        let result: Record<string, unknown> | null = null;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            result = (await ctx.runAction(getApi().oauth.googleClient.getCalendarEvents, {
               connectionId: args.connectionId,
+              calendarId,
               timeMin,
               timeMax,
               maxResults: 250,
+            })) as Record<string, unknown> | null;
+            break;
+          } catch (apiError) {
+            if (attempt < MAX_RETRIES && isRetryableError(apiError)) {
+              await sleep(getRetryDelay(attempt));
+              continue;
             }
-          ) as Record<string, unknown> | null;
-          break; // Success, exit retry loop
-        } catch (apiError) {
-          if (attempt < MAX_RETRIES && isRetryableError(apiError)) {
-            await sleep(getRetryDelay(attempt));
+            throw apiError;
+          }
+        }
+
+        if (!result) {
+          await ctx.runMutation(
+            getInternal().calendarSyncOntology.updateSyncTimestamp,
+            {
+              connectionId: args.connectionId,
+              error: `No response from Google Calendar API for ${calendarId}`,
+            }
+          );
+          return { success: false, error: "No response" };
+        }
+
+        const items =
+          ((result as Record<string, unknown>).items as Array<
+            Record<string, unknown>
+          >) || [];
+        const activeIds: string[] = [];
+
+        for (const item of items) {
+          const eventId = item.id as string;
+          if (!eventId) continue;
+
+          activeIds.push(eventId);
+
+          const start = item.start as Record<string, unknown> | undefined;
+          const end = item.end as Record<string, unknown> | undefined;
+
+          let startDateTime: number;
+          let endDateTime: number;
+          let isAllDay = false;
+
+          if (start?.dateTime) {
+            startDateTime = new Date(start.dateTime as string).getTime();
+            endDateTime = new Date(
+              (end?.dateTime || start.dateTime) as string
+            ).getTime();
+          } else if (start?.date) {
+            startDateTime = new Date(start.date as string).getTime();
+            endDateTime = new Date(
+              (end?.date || start.date) as string
+            ).getTime();
+            isAllDay = true;
+          } else {
             continue;
           }
-          throw apiError; // Non-retryable or max retries exceeded
-        }
-      }
 
-      if (!result) {
-        await ctx.runMutation(
-          getInternal().calendarSyncOntology.updateSyncTimestamp,
-          {
-            connectionId: args.connectionId,
-            error: "No response from Google Calendar API",
-          }
-        );
-        return { success: false, error: "No response" };
-      }
+          const transparency = item.transparency as string;
+          const isBusy = transparency !== "transparent";
 
-      const items =
-        ((result as Record<string, unknown>).items as Array<
-          Record<string, unknown>
-        >) || [];
-      const activeIds: string[] = [];
-
-      for (const item of items) {
-        const eventId = item.id as string;
-        if (!eventId) continue;
-
-        activeIds.push(eventId);
-
-        const start = item.start as Record<string, unknown> | undefined;
-        const end = item.end as Record<string, unknown> | undefined;
-
-        let startDateTime: number;
-        let endDateTime: number;
-        let isAllDay = false;
-
-        if (start?.dateTime) {
-          startDateTime = new Date(start.dateTime as string).getTime();
-          endDateTime = new Date(
-            (end?.dateTime || start.dateTime) as string
-          ).getTime();
-        } else if (start?.date) {
-          startDateTime = new Date(start.date as string).getTime();
-          endDateTime = new Date(
-            (end?.date || start.date) as string
-          ).getTime();
-          isAllDay = true;
-        } else {
-          continue;
+          await ctx.runMutation(
+            getInternal().calendarSyncOntology.upsertExternalEvent,
+            {
+              organizationId: connection.organizationId,
+              connectionId: args.connectionId,
+              externalEventId: eventId,
+              sourceCalendarId: calendarId,
+              provider: "external_google",
+              name: (item.summary as string) || "Untitled Event",
+              startDateTime,
+              endDateTime,
+              isAllDay,
+              isBusy,
+              organizer: (item.organizer as Record<string, unknown>)?.email as
+                | string
+                | undefined,
+              location: item.location as string | undefined,
+              providerUpdatedAt: item.updated as string | undefined,
+            }
+          );
         }
 
-        const transparency = item.transparency as string;
-        const isBusy = transparency !== "transparent";
-
         await ctx.runMutation(
-          getInternal().calendarSyncOntology.upsertExternalEvent,
+          getInternal().calendarSyncOntology.deleteStaleEvents,
           {
             organizationId: connection.organizationId,
             connectionId: args.connectionId,
-            externalEventId: eventId,
             provider: "external_google",
-            name: (item.summary as string) || "Untitled Event",
-            startDateTime,
-            endDateTime,
-            isAllDay,
-            isBusy,
-            organizer: (item.organizer as Record<string, unknown>)?.email as
-              | string
-              | undefined,
-            location: item.location as string | undefined,
-            providerUpdatedAt: item.updated as string | undefined,
+            activeExternalEventIds: activeIds,
+            sourceCalendarId: calendarId,
           }
         );
+        syncedCount += items.length;
       }
-
-      await ctx.runMutation(
-        getInternal().calendarSyncOntology.deleteStaleEvents,
-        {
-          organizationId: connection.organizationId,
-          connectionId: args.connectionId,
-          provider: "external_google",
-          activeExternalEventIds: activeIds,
-        }
-      );
 
       await ctx.runMutation(
         getInternal().calendarSyncOntology.updateSyncTimestamp,
         { connectionId: args.connectionId }
       );
 
-      return { success: true, syncedCount: items.length };
+      return { success: true, syncedCount };
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : "Unknown sync error";

@@ -25,6 +25,13 @@ import type { Id } from "../../_generated/dataModel";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
 
+const PROVIDER_ALIASES: Record<string, string> = {
+  google: "gemini",
+  "google-ai-studio": "gemini",
+  xai: "grok",
+  "openai-compatible": "openai_compatible",
+};
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -125,6 +132,112 @@ function successResponse(
       },
     }
   );
+}
+
+function parseOptionalRuntimeObject(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseConversationId(value: unknown): Id<"aiConversations"> | undefined {
+  const parsed = parseOptionalString(value);
+  return parsed as Id<"aiConversations"> | undefined;
+}
+
+function parseRequestedVoiceProviderId(
+  value: unknown
+): "browser" | "elevenlabs" | undefined {
+  if (value !== "browser" && value !== "elevenlabs") {
+    return undefined;
+  }
+  return value;
+}
+
+async function resolveVoiceRuntimeSessionContext(
+  ctx: Parameters<Parameters<typeof httpAction>[0]>[0],
+  auth: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+  },
+  conversationId?: Id<"aiConversations">
+) {
+  const resolved = await (ctx as any).runAction(
+    generatedApi.api.ai.chat.resolveVoiceRuntimeSession,
+    {
+      organizationId: auth.organizationId,
+      userId: auth.userId,
+      conversationId,
+    }
+  ) as {
+    conversationId: Id<"aiConversations">;
+    agentSessionId: Id<"agentSessions">;
+  };
+
+  return {
+    conversationId: resolved.conversationId,
+    interviewSessionId: resolved.agentSessionId,
+  };
+}
+
+function parseMobileAttachments(
+  value: unknown
+): Array<Record<string, unknown>> | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value
+    .filter((item) => item && typeof item === "object")
+    .map((item) => item as Record<string, unknown>)
+    .slice(0, 8);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function isNoActiveAgentError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.toLowerCase().includes("no active agent found for this organization");
+}
+
+function normalizeModelId(modelId: string | undefined): string | null {
+  if (!modelId) {
+    return null;
+  }
+
+  const normalized = modelId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeProviderId(provider: string | undefined): string {
+  if (!provider) {
+    return "other";
+  }
+
+  const normalized = provider.trim().toLowerCase();
+  return PROVIDER_ALIASES[normalized] || normalized;
+}
+
+function inferProviderIdFromModelId(modelId: string): string {
+  const [providerToken] = modelId.split("/");
+  return normalizeProviderId(providerToken);
+}
+
+function formatModelDisplayName(modelId: string): string {
+  const parts = modelId.split("/");
+  const rawName = parts[1] || modelId;
+  return rawName.replace(/[-_]/g, " ");
 }
 
 // ============================================================================
@@ -283,7 +396,12 @@ export const getConversation = httpAction(async (ctx, request) => {
       return errorResponse("Access denied", 403, origin);
     }
 
-    return successResponse({ conversation }, origin);
+    const pendingTools = await (ctx as any).runQuery(
+      generatedApi.api.ai.conversations.getPendingToolExecutions,
+      { conversationId }
+    );
+
+    return successResponse({ conversation, pendingTools }, origin);
   } catch (error) {
     console.error("[AI Chat API] Get conversation error:", error);
     return errorResponse(
@@ -326,24 +444,108 @@ export const sendMessage = httpAction(async (ctx, request) => {
   try {
     // Parse request body
     const body = await request.json();
-    const { conversationId, message, selectedModel } = body as {
+    const {
+      conversationId,
+      message,
+      selectedModel,
+      privacyMode,
+      liveSessionId,
+      cameraRuntime,
+      voiceRuntime,
+      commandPolicy,
+      transportRuntime,
+      avObservability,
+      geminiLive,
+      attachments,
+    } = body as {
       conversationId?: string;
       message: string;
       selectedModel?: string;
+      privacyMode?: boolean;
+      liveSessionId?: string;
+      cameraRuntime?: Record<string, unknown>;
+      voiceRuntime?: Record<string, unknown>;
+      commandPolicy?: Record<string, unknown>;
+      transportRuntime?: Record<string, unknown>;
+      avObservability?: Record<string, unknown>;
+      geminiLive?: Record<string, unknown>;
+      attachments?: Array<Record<string, unknown>>;
     };
 
     if (!message || typeof message !== "string" || message.trim() === "") {
       return errorResponse("Message is required", 400, origin);
     }
 
-    // Call the AI chat action
-    const result = await (ctx as any).runAction(generatedApi.api.ai.chat.sendMessage, {
-      conversationId: conversationId as Id<"aiConversations"> | undefined,
-      message: message.trim(),
-      organizationId: auth.organizationId,
-      userId: auth.userId,
-      selectedModel,
-    });
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: auth.organizationId,
+      }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: auth.organizationId,
+        channel: "desktop",
+      }
+    );
+
+    const inboundConversationId = conversationId as Id<"aiConversations"> | undefined;
+    const normalizedMessage = message.trim();
+    const parsedLiveSessionId = parseOptionalString(liveSessionId);
+    const parsedCameraRuntime = parseOptionalRuntimeObject(cameraRuntime);
+    const parsedVoiceRuntime = parseOptionalRuntimeObject(voiceRuntime);
+    const parsedCommandPolicy = parseOptionalRuntimeObject(commandPolicy);
+    const parsedTransportRuntime = parseOptionalRuntimeObject(transportRuntime);
+    const parsedAvObservability = parseOptionalRuntimeObject(avObservability);
+    const parsedGeminiLive = parseOptionalRuntimeObject(geminiLive);
+    const parsedAttachments = parseMobileAttachments(attachments);
+
+    const runChatSend = async () =>
+      await (ctx as any).runAction(generatedApi.api.ai.chat.sendMessage, {
+        conversationId: inboundConversationId,
+        message: normalizedMessage,
+        organizationId: auth.organizationId,
+        userId: auth.userId,
+        selectedModel,
+        privacyMode: privacyMode === true,
+        liveSessionId: parsedLiveSessionId,
+        cameraRuntime: parsedCameraRuntime,
+        voiceRuntime: parsedVoiceRuntime,
+        commandPolicy: parsedCommandPolicy,
+        transportRuntime: parsedTransportRuntime,
+        avObservability: parsedAvObservability,
+        geminiLive: parsedGeminiLive,
+        attachments: parsedAttachments,
+      });
+
+    let result;
+    try {
+      result = await runChatSend();
+    } catch (error) {
+      if (!isNoActiveAgentError(error)) {
+        throw error;
+      }
+
+      const routeSelectors = inboundConversationId
+        ? {
+            channel: "desktop",
+            peer: `desktop:${auth.userId}:${inboundConversationId}`,
+            channelRef: String(inboundConversationId),
+          }
+        : {
+            channel: "desktop",
+          };
+      await (ctx as any).runMutation(
+        generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+        {
+          organizationId: auth.organizationId,
+          channel: "desktop",
+          routeSelectors,
+        }
+      );
+      result = await runChatSend();
+    }
 
     return successResponse({
       conversationId: result.conversationId,
@@ -388,6 +590,13 @@ export const getSettings = httpAction(async (ctx, request) => {
   }
 
   try {
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: auth.organizationId,
+      }
+    );
+
     // Get AI settings
     const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
       organizationId: auth.organizationId,
@@ -399,7 +608,7 @@ export const getSettings = httpAction(async (ctx, request) => {
 
     // Remove sensitive data (API keys) from response
     const safeSettings = {
-      enabled: settings.enabled,
+      enabled: true,
       billingMode: settings.billingMode,
       tier: settings.tier,
       llm: {
@@ -453,39 +662,483 @@ export const getModels = httpAction(async (ctx, request) => {
   }
 
   try {
-    // Get AI settings to find enabled models
-    const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
-      organizationId: auth.organizationId,
-    });
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: auth.organizationId,
+      }
+    );
 
-    if (!settings) {
-      return errorResponse("AI settings not configured", 404, origin);
+    type ConfiguredModelRow = {
+      modelId: string;
+      customLabel?: string;
+    };
+
+    type OfferedChatModel = {
+      id: string;
+      name: string;
+      providerId: string;
+      customLabel?: string;
+    };
+
+    const settings = await (ctx as any).runQuery(
+      generatedApi.api.ai.settings.getAISettings,
+      {
+        organizationId: auth.organizationId,
+      }
+    ) as {
+      llm?: {
+        enabledModels?: Array<{
+          modelId?: string;
+          isDefault?: boolean;
+          customLabel?: string;
+        }>;
+        defaultModelId?: string;
+      };
+    } | null;
+
+    const platformModelsByProvider = await (ctx as any).runQuery(
+      generatedApi.api.ai.platformModels.getEnabledModelsByProvider,
+      {}
+    ) as Record<string, Array<{
+      modelId?: string;
+      name?: string;
+      provider?: string;
+    }>> | null;
+
+    const connectionCatalog = await (ctx as any).runQuery(
+      generatedApi.api.integrations.aiConnections.getAIConnectionCatalog,
+      {
+        sessionId: auth.sessionId,
+        organizationId: auth.organizationId,
+      }
+    ) as {
+      byokEnabled?: boolean;
+      providers?: Array<{
+        providerId?: string;
+        isConnected?: boolean;
+        enabled?: boolean;
+      }>;
+    } | null;
+
+    const configuredModelRows: ConfiguredModelRow[] = [];
+    const seenConfiguredModelIds = new Set<string>();
+    let firstConfiguredDefaultModelId: string | undefined;
+    const enabledModels = Array.isArray(settings?.llm?.enabledModels)
+      ? settings.llm.enabledModels
+      : [];
+    for (const configuredModel of enabledModels) {
+      const normalizedModelId = normalizeModelId(configuredModel.modelId);
+      if (!normalizedModelId || seenConfiguredModelIds.has(normalizedModelId)) {
+        continue;
+      }
+      seenConfiguredModelIds.add(normalizedModelId);
+      if (!firstConfiguredDefaultModelId && configuredModel.isDefault === true) {
+        firstConfiguredDefaultModelId = normalizedModelId;
+      }
+      configuredModelRows.push({
+        modelId: normalizedModelId,
+        customLabel:
+          typeof configuredModel.customLabel === "string"
+            ? configuredModel.customLabel
+            : undefined,
+      });
     }
 
-    // Get model details from platform models
-    const enabledModels = settings.llm.enabledModels || [];
+    const canUseByok = connectionCatalog?.byokEnabled === true;
+    const connectedProviderIds = new Set<string>();
+    for (const provider of connectionCatalog?.providers || []) {
+      if (provider.isConnected === true && provider.enabled === true) {
+        connectedProviderIds.add(normalizeProviderId(provider.providerId));
+      }
+    }
 
-    // If org has enabled models, use those; otherwise return default
-    const models = enabledModels.length > 0
-      ? enabledModels.map((m: { modelId: string; isDefault: boolean; customLabel?: string }) => ({
-          modelId: m.modelId,
-          name: m.customLabel || m.modelId.split("/")[1] || m.modelId,
-          provider: m.modelId.split("/")[0] || "unknown",
-          isDefault: m.isDefault,
-          customLabel: m.customLabel,
-        }))
-      : [{
-          modelId: settings.llm.model || "anthropic/claude-3-5-sonnet",
-          name: "Claude 3.5 Sonnet",
-          provider: "anthropic",
-          isDefault: true,
-        }];
+    const platformModelIndex = new Map<string, { id: string; name: string; providerId: string }>();
+    for (const [providerKey, providerModels] of Object.entries(platformModelsByProvider || {})) {
+      const normalizedProviderId = normalizeProviderId(providerKey);
+      for (const platformModel of providerModels || []) {
+        const normalizedModelId = normalizeModelId(platformModel.modelId);
+        if (!normalizedModelId || platformModelIndex.has(normalizedModelId)) {
+          continue;
+        }
+
+        platformModelIndex.set(normalizedModelId, {
+          id: normalizedModelId,
+          name:
+            typeof platformModel.name === "string" && platformModel.name.trim().length > 0
+              ? platformModel.name.trim()
+              : formatModelDisplayName(normalizedModelId),
+          providerId: normalizeProviderId(platformModel.provider || normalizedProviderId),
+        });
+      }
+    }
+
+    const offerings = new Map<string, OfferedChatModel>();
+    const addModel = (model: OfferedChatModel) => {
+      if (offerings.has(model.id)) {
+        return;
+      }
+      offerings.set(model.id, model);
+    };
+
+    if (configuredModelRows.length > 0) {
+      for (const configuredModel of configuredModelRows) {
+        const platformMatch = platformModelIndex.get(configuredModel.modelId);
+        if (platformMatch) {
+          addModel({
+            ...platformMatch,
+            name: configuredModel.customLabel || platformMatch.name,
+            customLabel: configuredModel.customLabel,
+          });
+          continue;
+        }
+
+        const inferredProviderId = inferProviderIdFromModelId(configuredModel.modelId);
+        const isByokEligible = canUseByok && connectedProviderIds.has(inferredProviderId);
+        if (!isByokEligible) {
+          continue;
+        }
+
+        addModel({
+          id: configuredModel.modelId,
+          name: configuredModel.customLabel || formatModelDisplayName(configuredModel.modelId),
+          providerId: inferredProviderId,
+          customLabel: configuredModel.customLabel,
+        });
+      }
+    } else {
+      for (const platformModel of platformModelIndex.values()) {
+        addModel(platformModel);
+      }
+    }
+
+    const offeredModels = Array.from(offerings.values()).sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+    const offeredModelIds = new Set(offeredModels.map((model) => model.id));
+    const configuredDefaultModelId =
+      normalizeModelId(
+        (typeof settings?.llm?.defaultModelId === "string"
+          ? settings.llm.defaultModelId
+          : undefined) ||
+          firstConfiguredDefaultModelId ||
+          configuredModelRows[0]?.modelId
+      ) || undefined;
+    const defaultModelId =
+      configuredDefaultModelId && offeredModelIds.has(configuredDefaultModelId)
+        ? configuredDefaultModelId
+        : offeredModels[0]?.id;
+
+    const models = offeredModels.map((model) => ({
+      modelId: model.id,
+      name: model.name,
+      provider: model.providerId,
+      isDefault: model.id === defaultModelId,
+      customLabel: model.customLabel,
+    }));
 
     return successResponse({ models }, origin);
   } catch (error) {
     console.error("[AI Chat API] Get models error:", error);
     return errorResponse(
       error instanceof Error ? error.message : "Failed to get models",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/session/resolve
+ */
+export const resolveVoiceSession = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      voiceSessionId?: unknown;
+    };
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
+    const resolved = await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+    const state = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.resolveVoiceSessionState,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        voiceSessionId,
+      }
+    );
+    return successResponse(
+      {
+        ...resolved,
+        voiceSession: state.voiceSession ?? null,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Resolve voice session error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to resolve voice session",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/session/open
+ */
+export const openVoiceSession = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      requestedProviderId?: unknown;
+      requestedVoiceId?: unknown;
+      voiceSessionId?: unknown;
+    };
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId: conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.openVoiceSession,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
+        requestedVoiceId: parseOptionalString(parsedBody.requestedVoiceId),
+        voiceSessionId: parseOptionalString(parsedBody.voiceSessionId),
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Open voice session error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to open voice session",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/session/close
+ */
+export const closeVoiceSession = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      voiceSessionId?: unknown;
+      activeProviderId?: unknown;
+      reason?: unknown;
+    };
+    const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
+    if (!voiceSessionId) {
+      return errorResponse("voiceSessionId is required", 400, origin);
+    }
+
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId: conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.closeVoiceSession,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        voiceSessionId,
+        activeProviderId: parseRequestedVoiceProviderId(parsedBody.activeProviderId),
+        reason: parseOptionalString(parsedBody.reason),
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Close voice session error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to close voice session",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/transcribe
+ */
+export const transcribeVoice = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      voiceSessionId?: unknown;
+      audioBase64?: unknown;
+      mimeType?: unknown;
+      requestedProviderId?: unknown;
+      requestedVoiceId?: unknown;
+      language?: unknown;
+    };
+    const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
+    const audioBase64 = parseOptionalString(parsedBody.audioBase64);
+    if (!voiceSessionId || !audioBase64) {
+      return errorResponse("voiceSessionId and audioBase64 are required", 400, origin);
+    }
+
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId: conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.transcribeVoiceAudio,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        voiceSessionId,
+        audioBase64,
+        mimeType: parseOptionalString(parsedBody.mimeType),
+        requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
+        requestedVoiceId: parseOptionalString(parsedBody.requestedVoiceId),
+        language: parseOptionalString(parsedBody.language),
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Transcribe voice error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to transcribe voice audio",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/synthesize
+ */
+export const synthesizeVoice = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      voiceSessionId?: unknown;
+      text?: unknown;
+      requestedProviderId?: unknown;
+      requestedVoiceId?: unknown;
+    };
+    const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
+    const text = parseOptionalString(parsedBody.text);
+    if (!voiceSessionId || !text) {
+      return errorResponse("voiceSessionId and text are required", 400, origin);
+    }
+
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId: conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.synthesizeVoicePreview,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        voiceSessionId,
+        text,
+        requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
+        requestedVoiceId: parseOptionalString(parsedBody.requestedVoiceId),
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Synthesize voice error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to synthesize voice preview",
       500,
       origin
     );
@@ -927,6 +1580,20 @@ export const switchOrganization = httpAction(async (ctx, request) => {
       sessionId: auth.sessionId,
       organizationId: organizationId as Id<"organizations">,
     });
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: organizationId as Id<"organizations">,
+      }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: organizationId as Id<"organizations">,
+        channel: "desktop",
+      }
+    );
 
     // Get the organization details to return
     const org = await (ctx as any).runQuery(generatedApi.internal.api.v1.aiChatInternal.getOrganization, {

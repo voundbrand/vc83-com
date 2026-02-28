@@ -244,6 +244,10 @@ async function getConversationMessagesInternal(ctx: HttpActionCtx, request: Requ
  * Query Parameters:
  * - limit: Number of messages (default: 100, max: 500)
  * - offset: Pagination offset
+ *
+ * Response includes:
+ * - operatorTimelineCards: outreach/call attempt timeline cards
+ *   with transcript snippets redacted by default.
  */
 export const getConversationMessages = httpAction(async (ctx, request) => {
   return getConversationMessagesInternal(ctx, request);

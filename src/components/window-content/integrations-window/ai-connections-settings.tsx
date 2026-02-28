@@ -1,9 +1,10 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, PlugZap, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, KeyRound, Loader2, Lock, PlugZap, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { StoreWindow } from "../store-window";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -62,6 +63,11 @@ interface AIConnectionsSettingsProps {
 
 export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
   const { sessionId, user } = useAuth();
+  const { t } = useNamespaceTranslations("ui.integrations");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const { openWindow } = useWindowManager();
   const organizationId = user?.currentOrganization?.id as Id<"organizations"> | undefined;
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
@@ -241,7 +247,11 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
       return;
     }
     const confirmed = window.confirm(
-      `Revoke ${provider.providerLabel} connection? This removes the stored key and disables provider use.`
+      tx(
+        "ui.integrations.ai_connections.revoke_confirmation",
+        "Revoke {providerLabel} connection? This removes the stored key and disables provider use.",
+        { providerLabel: provider.providerLabel },
+      )
     );
     if (!confirmed) {
       return;
@@ -364,7 +374,7 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
         <div className="flex flex-col items-center gap-2">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--tone-accent)" }} />
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Loading AI connections...
+            {tx("ui.integrations.ai_connections.loading", "Loading AI connections...")}
           </p>
         </div>
       </div>
@@ -377,22 +387,27 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-sm hover:underline"
+            className="text-sm hover:underline inline-flex items-center gap-1"
             style={{ color: "var(--tone-accent)" }}
           >
-            &larr; Back
+            <ArrowLeft size={14} />
+            {tx("ui.integrations.shared.back", "Back")}
           </button>
           <div>
             <h3 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-              AI Connections
+              {tx("ui.integrations.ai_connections.title", "AI Connections")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              {connectedCount} provider connection{connectedCount === 1 ? "" : "s"} configured
+              {tx(
+                "ui.integrations.ai_connections.connected_count",
+                "{count} provider connection{suffix} configured",
+                { count: connectedCount, suffix: connectedCount === 1 ? "" : "s" },
+              )}
             </p>
           </div>
         </div>
         <span className="text-xs px-2 py-1 rounded border" style={{ borderColor: "var(--window-document-border)", color: "var(--neutral-gray)" }}>
-          Tier: {catalog.currentTier}
+          {tx("ui.integrations.ai_connections.tier", "Tier:")} {catalog.currentTier}
         </span>
       </div>
 
@@ -408,17 +423,21 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
             <Lock size={16} style={{ color: "var(--warning)" }} />
             <div className="space-y-1">
               <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                BYOK connections are locked on this tier
+                {tx("ui.integrations.ai_connections.byok_locked_title", "BYOK connections are locked on this tier")}
               </p>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Upgrade to {catalog.requiredTierForByok} or higher to connect provider API keys.
+                {tx(
+                  "ui.integrations.ai_connections.byok_locked_description",
+                  "Upgrade to {requiredTier} or higher to connect provider API keys.",
+                  { requiredTier: catalog.requiredTierForByok },
+                )}
               </p>
               <button
                 onClick={openStore}
                 className="desktop-interior-button px-3 py-1 text-xs font-bold"
                 style={{ background: "var(--tone-accent)", color: "#0f0f0f" }}
               >
-                View Plans
+                {tx("ui.integrations.ai_connections.view_plans", "View Plans")}
               </button>
             </div>
           </div>
@@ -462,8 +481,14 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                   </p>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                     {provider.providerId === "openai_compatible"
-                      ? "Custom OpenAI-compatible/private endpoint connector."
-                      : "Provider API key connection for AI runtime routing."}
+                      ? tx(
+                          "ui.integrations.ai_connections.openai_compatible_description",
+                          "Custom OpenAI-compatible/private endpoint connector.",
+                        )
+                      : tx(
+                          "ui.integrations.ai_connections.provider_connection_description",
+                          "Provider API key connection for AI runtime routing.",
+                        )}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -474,7 +499,9 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                       color: provider.isConnected ? "white" : "var(--neutral-gray)",
                     }}
                   >
-                    {provider.isConnected ? "Connected" : "Not connected"}
+                    {provider.isConnected
+                      ? tx("ui.integrations.shared.connected", "Connected")
+                      : tx("ui.integrations.shared.not_connected", "Not connected")}
                   </span>
                   {provider.hasApiKey && (
                     <span className="text-[11px] px-2 py-1 border font-mono" style={{ borderColor: "var(--window-document-border)", color: "var(--neutral-gray)" }}>
@@ -494,11 +521,11 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                       updateDraft(provider.providerId, { enabled: event.target.checked })
                     }
                   />
-                  Enable connection
+                  {tx("ui.integrations.ai_connections.enable_connection", "Enable connection")}
                 </label>
 
                 <label className="text-xs flex flex-col gap-1" style={{ color: "var(--window-document-text)" }}>
-                  Billing source
+                  {tx("ui.integrations.ai_connections.billing_source", "Billing source")}
                   <select
                     className="p-2 text-xs border-2"
                     style={{
@@ -514,13 +541,13 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                       })
                     }
                   >
-                    <option value="byok">BYOK</option>
-                    <option value="private">Private</option>
+                    <option value="byok">{tx("ui.integrations.ai_connections.billing_byok", "BYOK")}</option>
+                    <option value="private">{tx("ui.integrations.ai_connections.billing_private", "Private")}</option>
                   </select>
                 </label>
 
                 <label className="text-xs flex flex-col gap-1" style={{ color: "var(--window-document-text)" }}>
-                  Verification action
+                  {tx("ui.integrations.ai_connections.verification_action", "Verification action")}
                   <select
                     className="p-2 text-xs border-2"
                     style={{
@@ -546,7 +573,7 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                 </label>
 
                 <label className="text-xs flex flex-col gap-1 lg:col-span-2" style={{ color: "var(--window-document-text)" }}>
-                  API key
+                  {tx("ui.integrations.shared.api_key", "API key")}
                   <input
                     type="password"
                     className="p-2 text-xs border-2 font-mono"
@@ -562,18 +589,21 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                     }
                     placeholder={
                       provider.hasApiKey
-                        ? "Stored key present. Enter a new key to rotate."
-                        : "Enter provider API key"
+                        ? tx("ui.integrations.ai_connections.api_key_rotate_placeholder", "Stored key present. Enter a new key to rotate.")
+                        : tx("ui.integrations.ai_connections.api_key_placeholder", "Enter provider API key")
                     }
                   />
                   <span style={{ color: "var(--neutral-gray)" }}>
-                    Keys remain redacted in UI and are never echoed after save.
+                    {tx(
+                      "ui.integrations.ai_connections.api_key_redaction_note",
+                      "Keys remain redacted in UI and are never echoed after save.",
+                    )}
                   </span>
                 </label>
 
                 {provider.supportsCustomBaseUrl && (
                   <label className="text-xs flex flex-col gap-1 lg:col-span-2" style={{ color: "var(--window-document-text)" }}>
-                    Base URL
+                    {tx("ui.integrations.ai_connections.base_url", "Base URL")}
                     <input
                       type="text"
                       className="p-2 text-xs border-2 font-mono"
@@ -617,15 +647,23 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                   }}
                 >
                   <p>
-                    Last health: {provider.healthStatus}
+                    {tx("ui.integrations.ai_connections.last_health", "Last health: {status}", {
+                      status: provider.healthStatus,
+                    })}
                     {provider.healthLastAction
-                      ? ` via ${formatVerificationAction(provider.healthLastAction)}`
+                      ? ` ${tx("ui.integrations.ai_connections.via", "via {action}", {
+                          action: formatVerificationAction(provider.healthLastAction),
+                        })}`
                       : ""}
-                    {lastCatalogCheckedAt ? ` at ${lastCatalogCheckedAt}` : ""}
+                    {lastCatalogCheckedAt
+                      ? ` ${tx("ui.integrations.ai_connections.at", "at {time}", {
+                          time: lastCatalogCheckedAt,
+                        })}`
+                      : ""}
                   </p>
                   {provider.healthReason && (
                     <p style={{ color: "var(--neutral-gray)" }}>
-                      Reason: {provider.healthReason}
+                      {tx("ui.integrations.ai_connections.reason", "Reason:")} {provider.healthReason}
                     </p>
                   )}
                   {(typeof provider.healthModelCount === "number" ||
@@ -633,13 +671,19 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                     typeof provider.healthLatencyMs === "number") && (
                     <p style={{ color: "var(--neutral-gray)" }}>
                       {typeof provider.healthModelCount === "number"
-                        ? `models=${provider.healthModelCount} `
+                        ? `${tx("ui.integrations.ai_connections.models_count", "models={count}", {
+                            count: provider.healthModelCount,
+                          })} `
                         : ""}
                       {typeof provider.healthVoiceCount === "number"
-                        ? `voices=${provider.healthVoiceCount} `
+                        ? `${tx("ui.integrations.ai_connections.voices_count", "voices={count}", {
+                            count: provider.healthVoiceCount,
+                          })} `
                         : ""}
                       {typeof provider.healthLatencyMs === "number"
-                        ? `latency=${provider.healthLatencyMs}ms`
+                        ? tx("ui.integrations.ai_connections.latency_ms", "latency={latency}ms", {
+                            latency: provider.healthLatencyMs,
+                          })
                         : ""}
                     </p>
                   )}
@@ -654,10 +698,24 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                     {(result.action || resultCheckedAt || typeof result.latencyMs === "number") && (
                       <p style={{ color: "var(--neutral-gray)" }}>
                         {result.action ? `${formatVerificationAction(result.action)} ` : ""}
-                        {resultCheckedAt ? `at ${resultCheckedAt} ` : ""}
-                        {typeof result.latencyMs === "number" ? `latency=${result.latencyMs}ms ` : ""}
-                        {typeof result.modelCount === "number" ? `models=${result.modelCount} ` : ""}
-                        {typeof result.voiceCount === "number" ? `voices=${result.voiceCount}` : ""}
+                        {resultCheckedAt
+                          ? `${tx("ui.integrations.ai_connections.at", "at {time}", { time: resultCheckedAt })} `
+                          : ""}
+                        {typeof result.latencyMs === "number"
+                          ? `${tx("ui.integrations.ai_connections.latency_ms", "latency={latency}ms", {
+                              latency: result.latencyMs,
+                            })} `
+                          : ""}
+                        {typeof result.modelCount === "number"
+                          ? `${tx("ui.integrations.ai_connections.models_count", "models={count}", {
+                              count: result.modelCount,
+                            })} `
+                          : ""}
+                        {typeof result.voiceCount === "number"
+                          ? tx("ui.integrations.ai_connections.voices_count", "voices={count}", {
+                              count: result.voiceCount,
+                            })
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -671,7 +729,7 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                   className="desktop-interior-button py-1.5 px-3 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
                   {isBusy ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-                  Test
+                  {tx("ui.integrations.shared.test", "Test")}
                 </button>
                 <button
                   onClick={() => handleSave(provider)}
@@ -679,7 +737,9 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                   className="desktop-interior-button py-1.5 px-3 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
                   {isBusy ? <Loader2 size={13} className="animate-spin" /> : provider.hasApiKey ? <RefreshCw size={13} /> : <KeyRound size={13} />}
-                  {provider.hasApiKey ? "Rotate / Save" : "Connect"}
+                  {provider.hasApiKey
+                    ? tx("ui.integrations.ai_connections.rotate_save", "Rotate / Save")
+                    : tx("ui.integrations.shared.connect", "Connect")}
                 </button>
                 <button
                   onClick={() => handleRevoke(provider)}
@@ -687,7 +747,7 @@ export function AIConnectionsSettings({ onBack }: AIConnectionsSettingsProps) {
                   className="desktop-interior-button py-1.5 px-3 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                 >
                   <Trash2 size={13} />
-                  Revoke
+                  {tx("ui.integrations.ai_connections.revoke", "Revoke")}
                 </button>
               </div>
             </div>

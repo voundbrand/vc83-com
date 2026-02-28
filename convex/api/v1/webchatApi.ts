@@ -20,6 +20,11 @@ import { internalAction, internalQuery, internalMutation } from "../../_generate
 import type { Id } from "../../_generated/dataModel";
 import { normalizeClaimTokenForResponse } from "../../onboarding/claimTokenResponse";
 import {
+  UNIVERSAL_ONBOARDING_POLICY_VERSION,
+  normalizePublicEntryChannel,
+  shouldOfferOnboardingWarmup,
+} from "../../onboarding/universalOnboardingPolicy";
+import {
   WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
   normalizeWebchatCustomizationContract,
   type PublicInboundChannel,
@@ -61,6 +66,14 @@ const challengeMetadataValidator = v.object({
   landingPath: v.optional(v.string()),
 });
 
+const auditQuestionIdValidator = v.union(
+  v.literal("business_revenue"),
+  v.literal("team_size"),
+  v.literal("monday_priority"),
+  v.literal("delegation_gap"),
+  v.literal("reclaimed_time")
+);
+
 const rateLimitChannelValidator = v.union(
   v.literal("webchat"),
   v.literal("native_guest"),
@@ -71,9 +84,26 @@ const SESSION_TOKEN_PREFIX: Record<PublicInboundChannel, string> = {
   webchat: "wc",
   native_guest: "ng",
 };
+const PUBLIC_OPERATOR_NAME_FALLBACK = "Operator";
+const INTERNAL_OPERATOR_NAME_PATTERN = /\b(midwife|quin|quinn|worker\s*\d+)\b/i;
+const GENERIC_AGENT_LABEL_PATTERN = /^(the\s+)?(ai\s+)?agent$/i;
 
 function normalizePublicChannel(channel?: PublicInboundChannel): PublicInboundChannel {
-  return channel === "native_guest" ? "native_guest" : "webchat";
+  return normalizePublicEntryChannel(channel);
+}
+
+function normalizePublicOperatorName(name?: string): string {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  if (INTERNAL_OPERATOR_NAME_PATTERN.test(trimmed)) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  if (GENERIC_AGENT_LABEL_PATTERN.test(trimmed)) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  return trimmed;
 }
 
 function resolveChannelCandidates(channel: PublicInboundChannel): PublicInboundChannel[] {
@@ -193,11 +223,14 @@ export type ResolvedPublicMessageContext = {
   organizationIdStatus: "resolved" | "matched_legacy" | "overrode_legacy";
 };
 
+export type PublicMessageDeploymentMode = "platform_entry" | "direct_agent_entry";
+
 type PublicMessageContextResolutionArgs = {
   organizationId?: Id<"organizations">;
   agentId?: Id<"objects">;
   channel?: PublicInboundChannel;
   sessionToken?: string;
+  deploymentMode?: PublicMessageDeploymentMode;
 };
 
 type PublicMessageContextResolutionSessionRecord = {
@@ -235,14 +268,25 @@ function resolveLegacyOrganizationStatus(
   return providedOrganizationId === canonicalOrganizationId ? "matched_legacy" : "overrode_legacy";
 }
 
+function normalizePublicMessageDeploymentMode(
+  mode?: PublicMessageDeploymentMode
+): PublicMessageDeploymentMode {
+  return mode === "direct_agent_entry" ? "direct_agent_entry" : "platform_entry";
+}
+
 export async function resolvePublicMessageContextFromDb(
   db: PublicMessageContextResolutionDb,
   args: PublicMessageContextResolutionArgs
 ): Promise<ResolvedPublicMessageContext | null> {
   const channel = normalizePublicChannel(args.channel);
   const normalizedSessionToken = args.sessionToken?.trim();
+  const deploymentMode = normalizePublicMessageDeploymentMode(args.deploymentMode);
 
-  if (normalizedSessionToken && isChannelSessionToken(normalizedSessionToken, channel)) {
+  if (
+    deploymentMode === "platform_entry"
+    && normalizedSessionToken
+    && isChannelSessionToken(normalizedSessionToken, channel)
+  ) {
     const session = await db
       .query("webchatSessions")
       .withIndex("by_session_token", (q) => q.eq("sessionToken", normalizedSessionToken))
@@ -299,6 +343,7 @@ export const resolvePublicMessageContext = internalQuery({
     agentId: v.optional(v.id("objects")),
     channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
     sessionToken: v.optional(v.string()),
+    deploymentMode: v.optional(v.union(v.literal("platform_entry"), v.literal("direct_agent_entry"))),
   },
   handler: async (ctx, args): Promise<ResolvedPublicMessageContext | null> =>
     resolvePublicMessageContextFromDb(ctx.db as PublicMessageContextResolutionDb, args),
@@ -457,6 +502,147 @@ export const updateSessionActivity = internalMutation({
   },
 });
 
+/**
+ * Rebind an existing webchat/native_guest session to a new org+agent context.
+ * Used when onboarding handoff promotes a guest session from the platform bot
+ * to the user's newly provisioned workspace.
+ */
+export const rebindSessionContext = internalMutation({
+  args: {
+    sessionToken: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.id("objects"),
+    agentSessionId: v.optional(v.id("agentSessions")),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("webchatSessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+
+    if (!session) return { success: false as const, reason: "session_not_found" as const };
+
+    await ctx.db.patch(session._id, {
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      agentSessionId: args.agentSessionId ?? session.agentSessionId,
+      lastActivityAt: Date.now(),
+    });
+
+    return { success: true as const };
+  },
+});
+
+async function ensureAuditChannelSession(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId: Id<"objects">;
+  channel: PublicInboundChannel;
+  sessionToken?: string;
+  visitorInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+}) {
+  const normalizedSessionToken = args.sessionToken?.trim();
+  let existingSession = null as any;
+  let sessionToken = normalizedSessionToken;
+  let createdNewSession = false;
+
+  if (sessionToken && isChannelSessionToken(sessionToken, args.channel)) {
+    existingSession = await args.ctx.runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+      sessionToken,
+    });
+  }
+
+  if (existingSession) {
+    if (existingSession.channel && existingSession.channel !== args.channel) {
+      throw new Error("Session token channel mismatch");
+    }
+    if (
+      existingSession.organizationId !== args.organizationId
+      || existingSession.agentId !== args.agentId
+    ) {
+      throw new Error("Session context mismatch");
+    }
+  }
+
+  if (!existingSession) {
+    const result = await args.ctx.runMutation(generatedApi.internal.api.v1.webchatApi.createWebchatSession, {
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      channel: args.channel,
+      visitorInfo: args.visitorInfo,
+    });
+    sessionToken = result.sessionToken;
+    createdNewSession = true;
+    existingSession = await args.ctx.runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+      sessionToken,
+    });
+  } else {
+    await args.ctx.runMutation(generatedApi.internal.api.v1.webchatApi.updateSessionActivity, {
+      sessionToken,
+      visitorInfo: args.visitorInfo,
+    });
+  }
+
+  if (!existingSession || !sessionToken) {
+    throw new Error("Unable to initialize session");
+  }
+
+  return {
+    sessionToken,
+    session: existingSession,
+    createdNewSession,
+  };
+}
+
+async function issueGuestClaimTokenForSession(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId: Id<"objects">;
+  channel: PublicInboundChannel;
+  sessionToken: string;
+  visitorInfo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  attribution?: CampaignAttribution;
+  agentSessionId?: Id<"agentSessions">;
+}): Promise<string | null> {
+  try {
+    await args.ctx.runMutation(generatedApi.internal.onboarding.identityClaims.syncGuestSessionLedger, {
+      sessionToken: args.sessionToken,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      channel: args.channel,
+      visitorInfo: args.visitorInfo,
+      agentSessionId: args.agentSessionId,
+    });
+
+    const tokenResult = await args.ctx.runMutation(
+      generatedApi.internal.onboarding.identityClaims.issueGuestSessionClaimToken,
+      {
+        sessionToken: args.sessionToken,
+        organizationId: args.organizationId,
+        agentId: args.agentId,
+        channel: args.channel,
+        visitorInfo: args.visitorInfo,
+        attribution: args.attribution,
+      }
+    );
+
+    return normalizeClaimTokenForResponse(tokenResult?.claimToken);
+  } catch (claimError) {
+    console.error("[Webchat] Claim token issuance failed (non-blocking):", claimError);
+    return null;
+  }
+}
+
 // ============================================================================
 // AGENT CONFIG
 // ============================================================================
@@ -505,11 +691,12 @@ export const getWebchatConfig = internalQuery({
 
     return {
       agentId: args.agentId,
-      agentName:
+      agentName: normalizePublicOperatorName(
         (config?.displayName as string) ||
         (config?.name as string) ||
         agent.name ||
-        "AI Assistant",
+        PUBLIC_OPERATOR_NAME_FALLBACK
+      ),
       avatar: (config?.avatar as string) || undefined,
       ...customization,
     };
@@ -528,6 +715,7 @@ export const getPublicWebchatBootstrap = internalQuery({
       {
         agentId: args.agentId,
         channel,
+        deploymentMode: "direct_agent_entry",
       }
     );
 
@@ -582,6 +770,7 @@ export const handleWebchatMessage = internalAction({
     channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
     sessionToken: v.optional(v.string()),
     message: v.string(),
+    attachments: v.optional(v.array(v.any())),
     attribution: v.optional(challengeMetadataValidator),
     visitorInfo: v.optional(
       v.object({
@@ -608,6 +797,7 @@ export const handleWebchatMessage = internalAction({
       let sessionToken = args.sessionToken;
       let existingSession = null;
       let createdNewSession = false;
+      const onboardingWarmupOffered = shouldOfferOnboardingWarmup(channel);
 
       // Try to get existing session
       if (sessionToken && isChannelSessionToken(sessionToken, channel)) {
@@ -683,9 +873,21 @@ export const handleWebchatMessage = internalAction({
         metadata: {
           agentId: args.agentId,
           visitorInfo: args.visitorInfo,
+          attachments: args.attachments,
+          imageAttachmentCount: Array.isArray(args.attachments) ? args.attachments.length : 0,
+          onboardingPolicyVersion: UNIVERSAL_ONBOARDING_POLICY_VERSION,
+          onboardingWarmupOffered,
           ...(skipOutbound ? { skipOutbound: true, transport: "native_guest_http" } : {}),
         },
       });
+
+      const nativeGuestCriticalLeadFailure = channel === "native_guest"
+        ? (result.toolResults || []).find(
+            (toolResult: { tool?: string; status?: string; error?: string }) =>
+              toolResult?.tool === "generate_audit_workflow_deliverable"
+              && toolResult?.status !== "success"
+          )
+        : undefined;
 
       // Update session with agent session ID if created
       if (result.sessionId) {
@@ -767,12 +969,14 @@ export const handleWebchatMessage = internalAction({
       }
 
       return {
-        success: result.status === "success",
+        success: result.status === "success" && !nativeGuestCriticalLeadFailure,
         sessionToken: sessionToken!,
         claimToken,
         response: runtimeResponse,
         agentName: agentConfig.agentName,
-        error: result.status !== "success" ? (runtimeResponse || "Unable to process message") : undefined,
+        error:
+          nativeGuestCriticalLeadFailure?.error
+          || (result.status !== "success" ? (runtimeResponse || "Unable to process message") : undefined),
       };
     } catch (error) {
       console.error("[Webchat] Error handling message:", error);
@@ -781,6 +985,356 @@ export const handleWebchatMessage = internalAction({
         sessionToken: args.sessionToken || "",
         claimToken: null,
         error: error instanceof Error ? error.message : "An error occurred",
+      };
+    }
+  },
+});
+
+/**
+ * Start deterministic audit-mode intake for webchat/native_guest.
+ */
+export const startAuditModeSession = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    agentId: v.id("objects"),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    sessionToken: v.optional(v.string()),
+    attribution: v.optional(challengeMetadataValidator),
+    visitorInfo: v.optional(
+      v.object({
+        name: v.optional(v.string()),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const channel = normalizePublicChannel(args.channel);
+      const attribution = normalizeAttribution(args.attribution);
+
+      const agentConfig = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatConfig, {
+        agentId: args.agentId,
+        channel,
+      });
+
+      if (!agentConfig) {
+        return {
+          success: false,
+          error: "Agent not found or webchat not enabled",
+          claimToken: null,
+          sessionToken: args.sessionToken || "",
+        };
+      }
+
+      const sessionResult = await ensureAuditChannelSession({
+        ctx,
+        organizationId: args.organizationId,
+        agentId: args.agentId,
+        channel,
+        sessionToken: args.sessionToken,
+        visitorInfo: args.visitorInfo,
+      });
+
+      const claimToken = await issueGuestClaimTokenForSession({
+        ctx,
+        organizationId: args.organizationId,
+        agentId: args.agentId,
+        channel,
+        sessionToken: sessionResult.sessionToken,
+        visitorInfo: args.visitorInfo,
+        attribution,
+        agentSessionId: sessionResult.session.agentSessionId as Id<"agentSessions"> | undefined,
+      });
+
+      const auditResult = await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.auditMode.startAuditModeSession,
+        {
+          organizationId: args.organizationId,
+          agentId: args.agentId,
+          channel,
+          sessionToken: sessionResult.sessionToken,
+          agentSessionId: sessionResult.session.agentSessionId as Id<"agentSessions"> | undefined,
+          sourceIdentityKey: `${channel}:${sessionResult.sessionToken}`,
+          campaign: attribution,
+          metadata: {
+            createdNewWebchatSession: sessionResult.createdNewSession,
+          },
+        }
+      );
+
+      return {
+        success: Boolean(auditResult?.success),
+        sessionToken: sessionResult.sessionToken,
+        claimToken,
+        agentName: agentConfig.agentName,
+        audit: auditResult,
+      };
+    } catch (error) {
+      console.error("[Webchat] Error starting audit mode:", error);
+      return {
+        success: false,
+        sessionToken: args.sessionToken || "",
+        claimToken: null,
+        error: error instanceof Error ? error.message : "Unable to start audit mode",
+      };
+    }
+  },
+});
+
+/**
+ * Answer the current audit-mode question with strict ordering guarantees.
+ */
+export const answerAuditModeSession = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    sessionToken: v.string(),
+    questionId: auditQuestionIdValidator,
+    answer: v.string(),
+    attribution: v.optional(challengeMetadataValidator),
+    visitorInfo: v.optional(
+      v.object({
+        name: v.optional(v.string()),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const channel = normalizePublicChannel(args.channel);
+      const attribution = normalizeAttribution(args.attribution);
+      const sessionToken = args.sessionToken.trim();
+
+      const session = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+        sessionToken,
+      });
+
+      if (!session || String(session.organizationId) !== String(args.organizationId)) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken: null,
+          error: "Session not found",
+        };
+      }
+
+      if (session.channel && session.channel !== channel) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken: null,
+          error: "Session token channel mismatch",
+        };
+      }
+
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.updateSessionActivity, {
+        sessionToken,
+        visitorInfo: args.visitorInfo,
+      });
+
+      const claimToken = await issueGuestClaimTokenForSession({
+        ctx,
+        organizationId: args.organizationId,
+        agentId: session.agentId,
+        channel,
+        sessionToken,
+        visitorInfo: args.visitorInfo,
+        attribution,
+        agentSessionId: session.agentSessionId as Id<"agentSessions"> | undefined,
+      });
+
+      const auditResult = await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.auditMode.answerAuditModeQuestion,
+        {
+          organizationId: args.organizationId,
+          channel,
+          sessionToken,
+          questionId: args.questionId,
+          answer: args.answer,
+          campaign: attribution,
+          metadata: {
+            source: "api.v1.webchatApi.answerAuditModeSession",
+          },
+        }
+      );
+
+      if (!auditResult?.success) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken,
+          error: auditResult?.errorCode || "Unable to record audit answer",
+          audit: auditResult?.session,
+        };
+      }
+
+      return {
+        success: true,
+        sessionToken,
+        claimToken,
+        audit: auditResult.session,
+      };
+    } catch (error) {
+      console.error("[Webchat] Error answering audit mode session:", error);
+      return {
+        success: false,
+        sessionToken: args.sessionToken,
+        claimToken: null,
+        error: error instanceof Error ? error.message : "Unable to answer audit session",
+      };
+    }
+  },
+});
+
+/**
+ * Resume audit-mode state for an existing webchat/native_guest session.
+ */
+export const resumeAuditModeSession = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const channel = normalizePublicChannel(args.channel);
+    const sessionToken = args.sessionToken.trim();
+    const session = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+      sessionToken,
+    });
+
+    if (!session || String(session.organizationId) !== String(args.organizationId)) {
+      return null;
+    }
+
+    if (session.channel && session.channel !== channel) {
+      return null;
+    }
+
+    return await (ctx as any).runQuery(
+      generatedApi.internal.onboarding.auditMode.resumeAuditModeSession,
+      {
+        organizationId: args.organizationId,
+        channel,
+        sessionToken,
+      }
+    );
+  },
+});
+
+/**
+ * Complete audit-mode by storing the workflow recommendation summary.
+ */
+export const completeAuditModeSession = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    sessionToken: v.string(),
+    workflowRecommendation: v.string(),
+    attribution: v.optional(challengeMetadataValidator),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const channel = normalizePublicChannel(args.channel);
+      const attribution = normalizeAttribution(args.attribution);
+      const sessionToken = args.sessionToken.trim();
+      const session = await (ctx as any).runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+        sessionToken,
+      });
+
+      if (!session || String(session.organizationId) !== String(args.organizationId)) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken: null,
+          error: "Session not found",
+        };
+      }
+
+      if (session.channel && session.channel !== channel) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken: null,
+          error: "Session token channel mismatch",
+        };
+      }
+
+      await (ctx as any).runMutation(generatedApi.internal.api.v1.webchatApi.updateSessionActivity, {
+        sessionToken,
+      });
+
+      const claimToken = await issueGuestClaimTokenForSession({
+        ctx,
+        organizationId: args.organizationId,
+        agentId: session.agentId,
+        channel,
+        sessionToken,
+        attribution,
+        agentSessionId: session.agentSessionId as Id<"agentSessions"> | undefined,
+      });
+
+      const auditResult = await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.auditMode.completeAuditModeSession,
+        {
+          organizationId: args.organizationId,
+          channel,
+          sessionToken,
+          workflowRecommendation: args.workflowRecommendation,
+          campaign: attribution,
+          metadata: {
+            source: "api.v1.webchatApi.completeAuditModeSession",
+          },
+        }
+      );
+
+      if (!auditResult?.success) {
+        return {
+          success: false,
+          sessionToken,
+          claimToken,
+          error: auditResult?.errorCode || "Unable to complete audit session",
+          audit: auditResult?.session,
+        };
+      }
+
+      let auditSessionSnapshot = auditResult.session;
+      try {
+        const handoffResult = await (ctx as any).runMutation(
+          generatedApi.internal.onboarding.auditMode.openAuditModeHandoff,
+          {
+            organizationId: args.organizationId,
+            channel,
+            sessionToken,
+            campaign: attribution,
+            metadata: {
+              source: "api.v1.webchatApi.completeAuditModeSession",
+              trigger: "workflow_completion",
+            },
+          }
+        );
+
+        if (handoffResult?.success && handoffResult.session) {
+          auditSessionSnapshot = handoffResult.session;
+        }
+      } catch (handoffError) {
+        console.error("[Webchat] Audit handoff telemetry emission failed (non-blocking):", handoffError);
+      }
+
+      return {
+        success: true,
+        sessionToken,
+        claimToken,
+        audit: auditSessionSnapshot,
+      };
+    } catch (error) {
+      console.error("[Webchat] Error completing audit mode session:", error);
+      return {
+        success: false,
+        sessionToken: args.sessionToken,
+        claimToken: null,
+        error: error instanceof Error ? error.message : "Unable to complete audit session",
       };
     }
   },

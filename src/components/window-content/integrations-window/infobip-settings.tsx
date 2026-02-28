@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
@@ -24,6 +24,10 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [senderId, setSenderId] = useState("");
+  const [voiceBridgeEndpoint, setVoiceBridgeEndpoint] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [billingSource, setBillingSource] = useState<"platform" | "byok" | "private">("byok");
+  const [credentialPolicy, setCredentialPolicy] = useState<"byok_only" | "byok_or_platform_fallback">("byok_or_platform_fallback");
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
 
@@ -38,8 +42,43 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
 
   const isLoading = infobipSettings === undefined;
   const isConnected = infobipSettings?.configured && infobipSettings?.enabled;
+  const canUsePlatformManaged = infobipSettings?.canUsePlatformManaged === true;
 
   const WEBHOOK_URL = "https://agreeable-lion-828.convex.site/webhooks/infobip";
+
+  useEffect(() => {
+    if (!infobipSettings) return;
+    if (typeof infobipSettings.baseUrl === "string") setBaseUrl(infobipSettings.baseUrl);
+    if (typeof infobipSettings.senderId === "string") setSenderId(infobipSettings.senderId);
+    if (typeof infobipSettings.voiceBridgeEndpoint === "string") {
+      setVoiceBridgeEndpoint(infobipSettings.voiceBridgeEndpoint);
+    }
+    if (typeof infobipSettings.ownerPhone === "string") {
+      setOwnerPhone(infobipSettings.ownerPhone);
+    }
+    if (
+      infobipSettings.billingSource === "platform" ||
+      infobipSettings.billingSource === "byok" ||
+      infobipSettings.billingSource === "private"
+    ) {
+      setBillingSource(infobipSettings.billingSource);
+    }
+    if (
+      infobipSettings.credentialPolicy === "byok_only" ||
+      infobipSettings.credentialPolicy === "byok_or_platform_fallback"
+    ) {
+      if (infobipSettings.credentialPolicy === "byok_or_platform_fallback" && !canUsePlatformManaged) {
+        setCredentialPolicy("byok_only");
+      } else {
+        setCredentialPolicy(infobipSettings.credentialPolicy);
+      }
+    } else if (!canUsePlatformManaged) {
+      setCredentialPolicy("byok_only");
+    }
+    if (infobipSettings.billingSource === "platform" && !canUsePlatformManaged) {
+      setBillingSource("byok");
+    }
+  }, [infobipSettings, canUsePlatformManaged]);
 
   const handleCopyWebhook = () => {
     navigator.clipboard.writeText(WEBHOOK_URL);
@@ -48,39 +87,52 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
 
   const handleTestAndSave = async () => {
     if (!sessionId) return;
-    if (!apiKey.trim() || !baseUrl.trim() || !senderId.trim()) {
-      notification.error("Missing Fields", "Please fill in all fields.");
+    if (
+      billingSource !== "platform" &&
+      (!apiKey.trim() || !baseUrl.trim() || !senderId.trim())
+    ) {
+      notification.error(
+        "Missing Fields",
+        "API key, base URL, and sender ID are required for BYOK/private mode."
+      );
       return;
     }
 
     setIsSaving(true);
     try {
       // Test connection first
-      const testResult = await testConnection({
-        sessionId,
-        apiKey: apiKey.trim(),
-        baseUrl: baseUrl.trim(),
-        senderId: senderId.trim(),
-      });
+      if (billingSource !== "platform") {
+        const testResult = await testConnection({
+          infobipApiKey: apiKey.trim(),
+          infobipBaseUrl: baseUrl.trim(),
+        });
 
-      if (!testResult.success) {
-        notification.error("Connection Failed", testResult.error || "Could not connect to Infobip.");
-        setIsSaving(false);
-        return;
+        if (!testResult.success) {
+          notification.error("Connection Failed", testResult.error || "Could not connect to Infobip.");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Save settings
       await saveSettings({
         sessionId,
-        apiKey: apiKey.trim(),
-        baseUrl: baseUrl.trim(),
-        senderId: senderId.trim(),
+        infobipApiKey: apiKey.trim() || undefined,
+        infobipBaseUrl: baseUrl.trim() || undefined,
+        infobipSmsSenderId: senderId.trim() || undefined,
+        infobipVoiceBridgeEndpoint: voiceBridgeEndpoint.trim() || undefined,
+        infobipOwnerPhone: ownerPhone.trim() || undefined,
+        billingSource,
+        credentialPolicy,
+        enabled: true,
       });
 
       notification.success("Connected", "Infobip SMS has been connected successfully.");
       setApiKey("");
-      setBaseUrl("");
-      setSenderId("");
+      if (billingSource !== "platform") {
+        setBaseUrl("");
+        setSenderId("");
+      }
     } catch (error) {
       notification.error(
         "Error",
@@ -93,9 +145,16 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
 
   const handleTestConnection = async () => {
     if (!sessionId) return;
+    if (!apiKey.trim() || !baseUrl.trim()) {
+      notification.error("Missing Fields", "Enter API key and base URL to run a connection test.");
+      return;
+    }
     setIsTesting(true);
     try {
-      const result = await testConnection({ sessionId });
+      const result = await testConnection({
+        infobipApiKey: apiKey.trim(),
+        infobipBaseUrl: baseUrl.trim(),
+      });
       if (result.success) {
         notification.success("Success", "Infobip connection is working.");
       } else {
@@ -197,6 +256,19 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <span className="text-xs font-bold" style={{ color: "#10b981" }}>Connected</span>
                 </div>
                 <div className="space-y-2">
+                  {!canUsePlatformManaged && infobipSettings?.billingSource === "platform" ? (
+                    <div
+                      className="p-2 border-2 rounded"
+                      style={{
+                        borderColor: "#d97706",
+                        background: "rgba(217, 119, 6, 0.08)",
+                      }}
+                    >
+                      <p className="text-xs font-bold" style={{ color: "#d97706" }}>
+                        Platform setup is super-admin managed.
+                      </p>
+                    </div>
+                  ) : null}
                   {infobipSettings?.baseUrl && (
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
@@ -214,6 +286,16 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                       </p>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                         {infobipSettings.senderId}
+                      </p>
+                    </div>
+                  )}
+                  {infobipSettings?.voiceBridgeEndpoint && (
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                        Voice Bridge Endpoint
+                      </p>
+                      <p className="text-xs break-all" style={{ color: "var(--neutral-gray)" }}>
+                        {infobipSettings.voiceBridgeEndpoint}
                       </p>
                     </div>
                   )}
@@ -253,22 +335,6 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   </button>
                 </div>
               </div>
-
-              <InteriorButton
-                variant="secondary"
-                onClick={handleTestConnection}
-                disabled={isTesting}
-                className="w-full"
-              >
-                {isTesting ? (
-                  <>
-                    <Loader2 size={14} className="mr-1 animate-spin" />
-                    Testing...
-                  </>
-                ) : (
-                  "Test Connection"
-                )}
-              </InteriorButton>
 
               <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
                 Disconnect
@@ -326,13 +392,62 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
               >
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+                    Billing Source
+                  </label>
+                  <select
+                    value={billingSource}
+                    onChange={(e) => setBillingSource(e.target.value as "platform" | "byok" | "private")}
+                    className="w-full p-2 border-2 rounded text-xs"
+                    disabled={!canUsePlatformManaged && billingSource === "platform"}
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
+                    }}
+                  >
+                    <option value="byok">BYOK (organization key)</option>
+                    {canUsePlatformManaged ? (
+                      <option value="platform">Platform fallback billing</option>
+                    ) : null}
+                    <option value="private">Private (no platform fallback)</option>
+                  </select>
+                  {!canUsePlatformManaged ? (
+                    <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                      Platform-managed Infobip mode is super-admin only.
+                    </p>
+                  ) : null}
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+                    Credential Policy
+                  </label>
+                  <select
+                    value={credentialPolicy}
+                    onChange={(e) =>
+                      setCredentialPolicy(e.target.value as "byok_only" | "byok_or_platform_fallback")
+                    }
+                    className="w-full p-2 border-2 rounded text-xs"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
+                    }}
+                  >
+                    {canUsePlatformManaged ? (
+                      <option value="byok_or_platform_fallback">BYOK or platform fallback</option>
+                    ) : null}
+                    <option value="byok_only">BYOK only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
                     API Key
                   </label>
                   <input
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Your Infobip API key"
+                    placeholder={billingSource === "platform" ? "Optional in platform mode" : "Your Infobip API key"}
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
                       borderColor: "var(--window-document-border)",
@@ -349,7 +464,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                     type="text"
                     value={baseUrl}
                     onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://xxxxx.api.infobip.com"
+                    placeholder={billingSource === "platform" ? "Optional in platform mode" : "https://xxxxx.api.infobip.com"}
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
                       borderColor: "var(--window-document-border)",
@@ -366,7 +481,7 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                     type="text"
                     value={senderId}
                     onChange={(e) => handleSenderIdChange(e.target.value)}
-                    placeholder="L4YERCAK3"
+                    placeholder={billingSource === "platform" ? "Optional override sender ID" : "L4YERCAK3"}
                     maxLength={16}
                     className="w-full p-2 border-2 rounded text-xs"
                     style={{
@@ -378,6 +493,40 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
                     Alphanumeric (max 11) or phone number (+49...)
                   </p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+                    Voice Bridge Endpoint (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={voiceBridgeEndpoint}
+                    onChange={(e) => setVoiceBridgeEndpoint(e.target.value)}
+                    placeholder="https://api.infobip.com/voice/bridge"
+                    className="w-full p-2 border-2 rounded text-xs"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: "var(--window-document-text)" }}>
+                    Owner Phone for Founder Bridge (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    placeholder="+49..."
+                    className="w-full p-2 border-2 rounded text-xs"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg)",
+                      color: "var(--window-document-text)",
+                    }}
+                  />
                 </div>
               </div>
 
@@ -416,17 +565,33 @@ export function InfobipSettings({ onBack }: InfobipSettingsProps) {
                 </div>
               </div>
 
-              {/* Save Button */}
-              <InteriorButton onClick={handleTestAndSave} disabled={isSaving} className="w-full">
-                {isSaving ? (
-                  <>
-                    <Loader2 size={14} className="mr-1 animate-spin" />
-                    Testing &amp; Saving...
-                  </>
-                ) : (
-                  "Test & Save"
-                )}
-              </InteriorButton>
+              <div className="flex gap-2">
+                <InteriorButton
+                  variant="secondary"
+                  onClick={handleTestConnection}
+                  disabled={isTesting || billingSource === "platform"}
+                  className="flex-1"
+                >
+                  {isTesting ? (
+                    <>
+                      <Loader2 size={14} className="mr-1 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    "Test"
+                  )}
+                </InteriorButton>
+                <InteriorButton onClick={handleTestAndSave} disabled={isSaving} className="flex-1">
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={14} className="mr-1 animate-spin" />
+                      Testing &amp; Saving...
+                    </>
+                  ) : (
+                    "Test & Save"
+                  )}
+                </InteriorButton>
+              </div>
             </div>
           )}
         </div>
