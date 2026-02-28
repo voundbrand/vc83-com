@@ -27,6 +27,11 @@ import type {
   InterviewState,
   InterviewProgress,
   SkipCondition,
+  FirstWordsHandshakeContract,
+  InterviewIdentityOriginMetadata,
+  MidwifeHybridCompositionProvenanceContract,
+  MidwifeFiveBlockShapeContract,
+  MidwifeInterviewBlockId,
 } from "../schemas/interviewSchemas";
 import {
   TRUST_EVENT_TAXONOMY_VERSION,
@@ -34,6 +39,19 @@ import {
   type TrustEventName,
   type TrustEventPayload,
 } from "./trustEvents";
+import {
+  composeMidwifeHybridProfile,
+  loadMidwifeSeededProfileCandidatesFromDb,
+} from "./midwifeCatalogComposer";
+import {
+  createNonChatAiUsageMeteringRunners,
+  meterNonChatAiUsage,
+} from "./nonChatUsageMetering";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import {
+  UNIVERSAL_WORKSPACE_CONTEXT_QUESTION_FIELDS,
+  resolveWorkspaceProfileFromExtractedData,
+} from "../onboarding/universalOnboardingPolicy";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,12 +69,110 @@ function getInternal(): any {
   return getApi().internal;
 }
 
+function normalizeNonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+interface InterviewWorkspaceContext {
+  workspaceType: "personal" | "business";
+  workspaceLabel: string;
+  guidance: string;
+}
+
+export function resolveInterviewWorkspaceContext(args: {
+  organizationName?: string;
+  isPersonalWorkspace?: boolean;
+  parentOrganizationId?: string;
+}): InterviewWorkspaceContext {
+  if (args.isPersonalWorkspace === true) {
+    return {
+      workspaceType: "personal",
+      workspaceLabel: `personal workspace (${args.organizationName || "personal"})`,
+      guidance:
+        "Prioritize personal intent, values, and boundary cues before business process assumptions.",
+    };
+  }
+
+  if (args.parentOrganizationId) {
+    return {
+      workspaceType: "business",
+      workspaceLabel: `business sub-organization (${args.organizationName || "sub-org"})`,
+      guidance:
+        "Bias toward business operating context while preserving strict tenant isolation from other organizations.",
+    };
+  }
+
+  return {
+    workspaceType: "business",
+    workspaceLabel: `business organization (${args.organizationName || "business"})`,
+    guidance:
+      "Bias toward customer, team, and operational context while keeping personal-workspace assumptions out of scope.",
+  };
+}
+
+function extractCompletionUsage(response: unknown): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  providerRequestId?: string;
+} {
+  const usage = (response as { usage?: Record<string, unknown> } | null)?.usage ?? null;
+  const inputTokens = normalizeNonNegativeInt(usage?.prompt_tokens);
+  const outputTokens = normalizeNonNegativeInt(usage?.completion_tokens);
+  const totalTokens = Math.max(
+    normalizeNonNegativeInt(usage?.total_tokens),
+    inputTokens + outputTokens
+  );
+  const providerRequestId = normalizeOptionalString(
+    (response as { id?: unknown } | null)?.id
+  );
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    providerRequestId,
+  };
+}
+
+function toUsageErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    const normalized = error.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  return undefined;
+}
+
+function convertUsdToCents(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round(value * 100));
+}
+
 const INTERVIEW_MEMORY_CONSENT_SCOPE = "content_dna_profile";
 const INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION = "interview-memory-consent-v1";
 const INTERVIEW_TRUST_CHANNEL = "interview";
 const INTERVIEW_TRUST_ARTIFACTS_VERSION = "trust-artifacts.v1";
 const ADAPTIVE_MICRO_SESSION_QUESTION_TARGET = 2;
 const ADAPTIVE_EARLY_ADVANCE_CONFIDENCE = 0.78;
+const MIDWIFE_FIVE_BLOCK_CONTRACT_VERSION = "midwife_5_block_shape.v1";
+const INTERVIEW_IDENTITY_ORIGIN_CONTRACT_VERSION = "interview_identity_origin.v1";
+const FIRST_WORDS_HANDSHAKE_CONTRACT_VERSION = "first_words_handshake.v1";
+const FIRST_WORDS_CONFIRMATION_PROMPT = "Does this feel right? What would you adjust?";
 
 type ConsentCheckpointId =
   | "cp0_capture_notice"
@@ -204,6 +320,381 @@ interface AdaptiveSessionSummary {
   activeCheckpointId: ConsentCheckpointId;
 }
 
+interface SoulBindingTrainingMode {
+  cadence: "first_run" | "ongoing";
+  coachingTrack: "one_on_one" | "team";
+}
+
+interface MidwifeInterviewBlockDefinition {
+  blockId: MidwifeInterviewBlockId;
+  label: string;
+  description: string;
+  signalHints: string[];
+  keywords: string[];
+}
+
+const MIDWIFE_INTERVIEW_BLOCK_DEFINITIONS: readonly MidwifeInterviewBlockDefinition[] = [
+  {
+    blockId: "business_context",
+    label: "Business Context",
+    description: "Business reality, customer profile, and operating domain.",
+    signalHints: [
+      "Describe your business context and customer profile.",
+      "Capture what customers come for and where value is created.",
+    ],
+    keywords: [
+      "business",
+      "customer",
+      "audience",
+      "industry",
+      "market",
+      "service",
+      "revenue",
+      "north star",
+      "mandate",
+      "promise",
+    ],
+  },
+  {
+    blockId: "communication_style",
+    label: "Communication Style",
+    description: "Voice signature, tone boundaries, and communication patterns.",
+    signalHints: [
+      "Capture tone/style expectations and voice signature.",
+      "Record how the agent should sound when stakes are high.",
+    ],
+    keywords: [
+      "voice",
+      "tone",
+      "style",
+      "communication",
+      "formal",
+      "casual",
+      "emoji",
+      "sound",
+      "phrase",
+    ],
+  },
+  {
+    blockId: "values_identity",
+    label: "Values and Identity",
+    description: "Identity anchors, values, and the trust promise under pressure.",
+    signalHints: [
+      "Capture identity anchors and values that must remain stable.",
+      "Capture at least one value/principle the agent should never compromise.",
+    ],
+    keywords: [
+      "identity",
+      "anchor",
+      "value",
+      "mission",
+      "purpose",
+      "promise",
+      "persona",
+      "proud",
+      "learned",
+    ],
+  },
+  {
+    blockId: "knowledge_inspiration",
+    label: "Knowledge and Inspiration",
+    description: "Framework sources, specialist inspirations, and strategic references.",
+    signalHints: [
+      "Capture inspiring experts, frameworks, or specialist references.",
+      "Capture the operating playbooks the agent should lean on.",
+    ],
+    keywords: [
+      "knowledge",
+      "framework",
+      "inspiration",
+      "admire",
+      "book",
+      "podcast",
+      "specialist",
+      "strategy",
+      "playbook",
+      "drift",
+      "review cadence",
+    ],
+  },
+  {
+    blockId: "boundaries_guardrails",
+    label: "Boundaries and Guardrails",
+    description: "Non-negotiable boundaries, escalation triggers, and approval gates.",
+    signalHints: [
+      "Capture non-negotiable guardrails and blocked actions.",
+      "Capture approval boundaries and escalation triggers.",
+    ],
+    keywords: [
+      "guardrail",
+      "boundary",
+      "approval",
+      "escalation",
+      "sensitive",
+      "prohibited",
+      "blocked",
+      "policy",
+      "override",
+      "handoff",
+      "never",
+    ],
+  },
+] as const;
+
+function scoreMidwifeBlockCandidate(text: string, keywords: string[]): number {
+  let score = 0;
+  for (const keyword of keywords) {
+    if (text.includes(keyword)) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+function resolveMidwifeBlockForCandidate(
+  candidate: MemoryCandidate,
+): MidwifeInterviewBlockId {
+  const searchable = [
+    candidate.fieldId,
+    candidate.label,
+    candidate.questionPrompt,
+    candidate.phaseId,
+    candidate.phaseName,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  let bestBlock: MidwifeInterviewBlockId = "business_context";
+  let bestScore = -1;
+
+  for (const block of MIDWIFE_INTERVIEW_BLOCK_DEFINITIONS) {
+    const score = scoreMidwifeBlockCandidate(searchable, block.keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      bestBlock = block.blockId;
+    }
+  }
+
+  return bestBlock;
+}
+
+function dedupeStringList(items: string[]): string[] {
+  return Array.from(new Set(items.filter((item) => item.trim().length > 0)));
+}
+
+export function buildMidwifeFiveBlockShape(
+  memoryCandidates: MemoryCandidate[],
+): MidwifeFiveBlockShapeContract {
+  const fieldsByBlock = new Map<MidwifeInterviewBlockId, string[]>();
+  for (const block of MIDWIFE_INTERVIEW_BLOCK_DEFINITIONS) {
+    fieldsByBlock.set(block.blockId, []);
+  }
+
+  for (const candidate of memoryCandidates) {
+    const blockId = resolveMidwifeBlockForCandidate(candidate);
+    fieldsByBlock.get(blockId)?.push(candidate.fieldId);
+  }
+
+  const blocks = MIDWIFE_INTERVIEW_BLOCK_DEFINITIONS.map((block) => {
+    const capturedFieldIds = dedupeStringList(fieldsByBlock.get(block.blockId) ?? []);
+    return {
+      blockId: block.blockId,
+      label: block.label,
+      description: block.description,
+      capturedFieldIds,
+      missingSignalHints: capturedFieldIds.length > 0 ? [] : [...block.signalHints],
+      isComplete: capturedFieldIds.length > 0,
+    };
+  });
+
+  const completedBlockCount = blocks.filter((block) => block.isComplete).length;
+
+  return {
+    contractVersion: MIDWIFE_FIVE_BLOCK_CONTRACT_VERSION,
+    blockCount: 5,
+    completedBlockCount,
+    blocks,
+  };
+}
+
+function buildImmutableAnchorFieldIds(
+  shape: MidwifeFiveBlockShapeContract,
+): string[] {
+  const anchorBlockIds = new Set<MidwifeInterviewBlockId>([
+    "values_identity",
+    "communication_style",
+    "boundaries_guardrails",
+  ]);
+  const anchorFieldIds: string[] = [];
+  for (const block of shape.blocks) {
+    if (!anchorBlockIds.has(block.blockId)) {
+      continue;
+    }
+    anchorFieldIds.push(...block.capturedFieldIds);
+  }
+  return dedupeStringList(anchorFieldIds);
+}
+
+function normalizeInterviewValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0);
+    if (normalized.length > 0) {
+      return normalized.join(", ");
+    }
+  }
+  return null;
+}
+
+function pickInterviewValue(
+  extractedData: Record<string, unknown>,
+  fieldIds: string[],
+): string | null {
+  for (const fieldId of fieldIds) {
+    const value = normalizeInterviewValue(extractedData[fieldId]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function buildBirthingBusinessContextLine(extractedData: Record<string, unknown>): string {
+  const workspaceProfile = resolveWorkspaceProfileFromExtractedData(extractedData);
+  const workspaceName = workspaceProfile.workspaceName;
+  const workspaceContext = workspaceProfile.workspaceContext || null;
+  const targetAudience = pickInterviewValue(extractedData, ["targetAudience", "target_audience"]);
+  const parts: string[] = [];
+
+  if (workspaceName) {
+    parts.push(`Workspace: ${workspaceName}`);
+  }
+  if (workspaceContext) {
+    parts.push(`Context: ${workspaceContext}`);
+  }
+  if (targetAudience) {
+    parts.push(`Audience: ${targetAudience}`);
+  }
+
+  if (parts.length === 0) {
+    return "Workspace context captured and ready to refine in follow-up sessions.";
+  }
+
+  return parts.join(" | ");
+}
+
+function buildBirthingMissionLine(extractedData: Record<string, unknown>): string {
+  const mission = pickInterviewValue(extractedData, [
+    "primaryUseCase",
+    "customerPromise",
+    "platformMandate",
+  ]);
+  const tone = pickInterviewValue(extractedData, [
+    "tonePreference",
+    "voiceSignature",
+    "operatorPersona",
+    "communicationStyle",
+  ]);
+
+  if (mission && tone) {
+    return `${mission} with a ${tone} tone.`;
+  }
+  if (mission) {
+    return mission;
+  }
+  if (tone) {
+    return `Operate with a ${tone} tone.`;
+  }
+
+  return "Deliver reliable outcomes in the user's highest-priority workflow.";
+}
+
+export function buildFirstWordsHandshake(args: {
+  sessionId: Id<"agentSessions">;
+  extractedData: Record<string, unknown>;
+  generatedAt: number;
+}): FirstWordsHandshakeContract {
+  const businessContextLine = buildBirthingBusinessContextLine(args.extractedData);
+  const missionLine = buildBirthingMissionLine(args.extractedData);
+  const identityLine =
+    pickInterviewValue(args.extractedData, [
+      "identityNorthStar",
+      "teamNorthStar",
+      "platformMandate",
+      "coreMemoryIdentityAnchor",
+    ])
+    ?? "I hold your core identity anchors and trust promise.";
+  const voiceLine =
+    pickInterviewValue(args.extractedData, [
+      "voiceSignature",
+      "operatorPersona",
+      "communicationStyle",
+    ])
+    ?? "I communicate with your preferred tone, pace, and emotional context.";
+  const guardrailLine =
+    pickInterviewValue(args.extractedData, [
+      "nonNegotiableGuardrails",
+      "immutablePolicies",
+      "prohibitedActions",
+      "coreMemoryBoundaryAnchor",
+    ])
+    ?? "I respect your non-negotiable boundaries and safety constraints.";
+  const escalationLine =
+    pickInterviewValue(args.extractedData, [
+      "handoffSignals",
+      "approvalRequiredActions",
+      "platformHandoffBoundaries",
+      "escalationTriggers",
+    ])
+    ?? "I escalate when risk, ambiguity, or approvals require your decision.";
+
+  const preview = [
+    "Based on your onboarding compilation, here's what I'll launch with:",
+    `- Business Context: ${businessContextLine}`,
+    `- Agent Mission: ${missionLine}`,
+    `- Identity: ${identityLine}`,
+    `- Voice: ${voiceLine}`,
+    `- Guardrails: ${guardrailLine}`,
+    `- Escalation: ${escalationLine}`,
+    "- Private Context (teaser): We can layer deeper personal preferences later without blocking launch.",
+    "- Dream Team (under the hood): I keep one continuous voice for you while using specialized capabilities in the background only when helpful.",
+  ].join("\n");
+
+  return {
+    contractVersion: FIRST_WORDS_HANDSHAKE_CONTRACT_VERSION,
+    handshakeId: `first_words:${String(args.sessionId)}:${args.generatedAt}`,
+    status: "ready_for_confirmation",
+    generatedAt: args.generatedAt,
+    includesDreamTeamMention: true,
+    confirmationPrompt: FIRST_WORDS_CONFIRMATION_PROMPT,
+    preview,
+  };
+}
+
+function buildInterviewIdentityOriginMetadata(args: {
+  sessionId: Id<"agentSessions">;
+  templateId: Id<"objects">;
+  templateName: string;
+  anchoredAt: number;
+  midwifeFiveBlockShape: MidwifeFiveBlockShapeContract;
+}): InterviewIdentityOriginMetadata {
+  return {
+    contractVersion: INTERVIEW_IDENTITY_ORIGIN_CONTRACT_VERSION,
+    immutableOrigin: "interview",
+    interviewSessionId: String(args.sessionId),
+    interviewTemplateId: String(args.templateId),
+    interviewTemplateName: args.templateName,
+    anchoredAt: args.anchoredAt,
+    immutableAnchorFieldIds: buildImmutableAnchorFieldIds(args.midwifeFiveBlockShape),
+    midwifeFiveBlockShape: args.midwifeFiveBlockShape,
+  };
+}
+
 // ============================================================================
 // PUBLIC QUERIES
 // ============================================================================
@@ -292,6 +783,9 @@ export const getCurrentContext = query({
     const currentQuestion = currentPhase?.questions[state.currentQuestionIndex];
     const phaseSummaries = buildPhaseSummaries(props, state.extractedData);
     const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
+    const trainingMode = parseSoulBindingTrainingMode(
+      session.externalContactIdentifier,
+    );
     const adaptiveSession = currentPhase
       ? buildAdaptiveSessionSummary(props, state, currentPhase)
       : null;
@@ -331,8 +825,12 @@ export const getCurrentContext = query({
       contentDNAId: state.contentDNAId,
       memoryConsent: state.memoryConsent || null,
       sessionLifecycle: state.sessionLifecycle || null,
+      identityOrigin: state.identityOrigin || null,
+      firstWordsHandshake: state.firstWordsHandshake || null,
+      hybridCompositionProvenance: state.hybridCompositionProvenance || null,
       phaseSummaries,
       memoryCandidateIds: buildMemoryCandidateIds(memoryCandidates),
+      trainingMode,
       adaptiveSession,
       activeConsentCheckpointId,
       voiceConsentSummary,
@@ -443,6 +941,21 @@ export const startInterview = mutation({
         lastMessageAt: now,
       });
     }
+
+    const seededIdentityOrigin = buildInterviewIdentityOriginMetadata({
+      sessionId,
+      templateId: args.templateId,
+      templateName: props.templateName,
+      anchoredAt: now,
+      midwifeFiveBlockShape: buildMidwifeFiveBlockShape([]),
+    });
+    const seededState: InterviewState = {
+      ...initialState,
+      identityOrigin: seededIdentityOrigin,
+    };
+    await ctx.db.patch(sessionId, {
+      interviewState: seededState,
+    });
 
     // Increment template usage count
     await ctx.scheduler.runAfter(0, getInternal().interviewTemplateOntology.incrementUsageCount, {
@@ -776,6 +1289,7 @@ export const decideMemoryConsent = mutation({
       const completion = await persistContentDNAFromInterview(ctx, {
         sessionId: args.sessionId,
         session: {
+          agentId: session.agentId,
           organizationId: session.organizationId,
           interviewTemplateId: session.interviewTemplateId,
           interviewState: acceptedState,
@@ -856,6 +1370,14 @@ export const getInterviewContextInternal = internalQuery({
 
     const props = template.customProperties as InterviewTemplate;
     const state = session.interviewState;
+    const organization = await ctx.db.get(session.organizationId);
+    const workspaceContext = resolveInterviewWorkspaceContext({
+      organizationName: normalizeOptionalString(organization?.name),
+      isPersonalWorkspace: organization?.isPersonalWorkspace === true,
+      parentOrganizationId: normalizeOptionalString(
+        organization?.parentOrganizationId ? String(organization.parentOrganizationId) : undefined
+      ),
+    });
 
     if (!state || state.isComplete) return null;
 
@@ -873,6 +1395,7 @@ export const getInterviewContextInternal = internalQuery({
     return {
       // Template config
       interviewerPersonality: props.interviewerPersonality,
+      organizationContext: workspaceContext,
       followUpDepth: props.followUpDepth,
       silenceHandling: props.silenceHandling,
 
@@ -1062,6 +1585,19 @@ export const advanceInterview = internalMutation({
       state.completedAt = now;
       const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
       const memoryCandidateIds = buildMemoryCandidateIds(memoryCandidates);
+      const midwifeFiveBlockShape = buildMidwifeFiveBlockShape(memoryCandidates);
+      state.identityOrigin = buildInterviewIdentityOriginMetadata({
+        sessionId: args.sessionId,
+        templateId: session.interviewTemplateId,
+        templateName: props.templateName,
+        anchoredAt: now,
+        midwifeFiveBlockShape,
+      });
+      state.firstWordsHandshake = buildFirstWordsHandshake({
+        sessionId: args.sessionId,
+        extractedData: state.extractedData,
+        generatedAt: now,
+      });
       state.memoryConsent = {
         status: "pending",
         consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
@@ -1148,6 +1684,7 @@ export const completeInterview = internalMutation({
     return await persistContentDNAFromInterview(ctx, {
       sessionId: args.sessionId,
       session: {
+        agentId: session.agentId,
         organizationId: session.organizationId,
         interviewTemplateId: session.interviewTemplateId,
         interviewState: state,
@@ -1209,9 +1746,23 @@ export const skipPhase = internalMutation({
         const now = Date.now();
         state.isComplete = true;
         state.completedAt = now;
+        const memoryCandidates = buildMemoryCandidates(props, state.extractedData);
         const memoryCandidateIds = buildMemoryCandidateIds(
-          buildMemoryCandidates(props, state.extractedData),
+          memoryCandidates,
         );
+        const midwifeFiveBlockShape = buildMidwifeFiveBlockShape(memoryCandidates);
+        state.identityOrigin = buildInterviewIdentityOriginMetadata({
+          sessionId: args.sessionId,
+          templateId: session.interviewTemplateId,
+          templateName: props.templateName,
+          anchoredAt: now,
+          midwifeFiveBlockShape,
+        });
+        state.firstWordsHandshake = buildFirstWordsHandshake({
+          sessionId: args.sessionId,
+          extractedData: state.extractedData,
+          generatedAt: now,
+        });
         state.memoryConsent = {
           status: "pending",
           consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
@@ -1352,6 +1903,29 @@ function buildSessionLifecycle(args: {
     checkpointId: args.checkpointId,
     updatedAt: args.updatedAt,
     updatedBy: args.updatedBy,
+  };
+}
+
+function parseSoulBindingTrainingMode(
+  externalContactIdentifier: string | undefined,
+): SoulBindingTrainingMode {
+  const defaultMode: SoulBindingTrainingMode = {
+    cadence: "first_run",
+    coachingTrack: "one_on_one",
+  };
+
+  if (!externalContactIdentifier) {
+    return defaultMode;
+  }
+
+  const segments = externalContactIdentifier.split(":");
+  if (segments.length < 3 || segments[0] !== "training") {
+    return defaultMode;
+  }
+
+  return {
+    cadence: segments[1] === "ongoing" ? "ongoing" : "first_run",
+    coachingTrack: segments[2] === "team" ? "team" : "one_on_one",
   };
 }
 
@@ -2042,6 +2616,7 @@ async function persistContentDNAFromInterview(
   args: {
     sessionId: Id<"agentSessions">;
     session: {
+      agentId: Id<"objects">;
       organizationId: Id<"organizations">;
       interviewTemplateId: Id<"objects">;
       interviewState: InterviewState;
@@ -2075,6 +2650,43 @@ async function persistContentDNAFromInterview(
     state.extractedData,
     now
   );
+  const midwifeFiveBlockShape = buildMidwifeFiveBlockShape(memoryCandidates);
+  const identityOrigin = buildInterviewIdentityOriginMetadata({
+    sessionId,
+    templateId: session.interviewTemplateId,
+    templateName: template.templateName,
+    anchoredAt: now,
+    midwifeFiveBlockShape,
+  });
+  const firstWordsHandshake = buildFirstWordsHandshake({
+    sessionId,
+    extractedData: state.extractedData,
+    generatedAt: now,
+  });
+  const seededCandidates = await loadMidwifeSeededProfileCandidatesFromDb({
+    db: ctx.db,
+  });
+  const activeAgent = await ctx.db.get(session.agentId);
+  const agentSubtype =
+    typeof activeAgent?.subtype === "string"
+      ? activeAgent.subtype.toLowerCase()
+      : undefined;
+  const eligibleSeededCandidates = agentSubtype
+    ? seededCandidates.filter((candidate) => {
+      const candidateSubtype = candidate.subtype?.toLowerCase();
+      return !candidateSubtype
+        || candidateSubtype === "general"
+        || candidateSubtype === agentSubtype;
+    })
+    : seededCandidates;
+  const hybridComposition = composeMidwifeHybridProfile({
+    interviewExtractedData: state.extractedData,
+    immutableAnchorFieldIds: identityOrigin.immutableAnchorFieldIds,
+    candidates: eligibleSeededCandidates,
+    composedAt: now,
+  });
+  const hybridCompositionProvenance: MidwifeHybridCompositionProvenanceContract =
+    hybridComposition.provenance;
   const trustArtifactTypes = ["soul_card", "guardrails_card", "team_charter", "memory_ledger"] as const;
 
   const contentDNAId = await ctx.db.insert("objects", {
@@ -2098,6 +2710,17 @@ async function persistContentDNAFromInterview(
         promptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
       },
       voiceConsentSummary,
+      identityOrigin,
+      firstWordsHandshake,
+      hybridCompositionOverlay: hybridComposition.boundedOverlay,
+      hybridCompositionProvenance,
+      soulIdentityContract: {
+        immutableOrigin: "interview",
+        interviewSessionId: identityOrigin.interviewSessionId,
+        interviewTemplateId: identityOrigin.interviewTemplateId,
+        firstWordsHandshakeId: firstWordsHandshake.handshakeId,
+        hybridCompositionContractVersion: hybridCompositionProvenance.contractVersion,
+      },
       coreMemoryDistillation,
       trustArtifacts,
       sourceAttribution: memoryCandidates.map((candidate) => ({
@@ -2123,6 +2746,9 @@ async function persistContentDNAFromInterview(
   const updatedState: InterviewState = {
     ...state,
     contentDNAId,
+    identityOrigin,
+    firstWordsHandshake,
+    hybridCompositionProvenance,
     sessionLifecycle: state.sessionLifecycle || buildSessionLifecycle({
       state: "saved",
       checkpointId: "cp3_post_save_revoke",
@@ -2149,6 +2775,12 @@ async function persistContentDNAFromInterview(
       consentScope: INTERVIEW_MEMORY_CONSENT_SCOPE,
       consentPromptVersion: INTERVIEW_MEMORY_CONSENT_PROMPT_VERSION,
       trustArtifactTypes,
+      identityOriginContractVersion: identityOrigin.contractVersion,
+      firstWordsHandshakeId: firstWordsHandshake.handshakeId,
+      hybridCompositionContractVersion: hybridCompositionProvenance.contractVersion,
+      hybridCompositionFallbackApplied: hybridCompositionProvenance.fallbackApplied,
+      hybridCompositionInputCount: hybridCompositionProvenance.inputCount,
+      hybridCompositionSelectedInputCount: hybridCompositionProvenance.selectedInputCount,
     },
     performedAt: now,
   });
@@ -2166,7 +2798,14 @@ async function persistContentDNAFromInterview(
     content_profile_id: contentDNAId,
     content_profile_version: String(template.version),
     source_object_ids: [sessionId, session.interviewTemplateId],
-    artifact_types: ["content_profile", ...trustArtifactTypes, "memory_consent_snapshot"],
+    artifact_types: [
+      "content_profile",
+      ...trustArtifactTypes,
+      "memory_consent_snapshot",
+      "identity_origin",
+      "first_words_handshake",
+      "hybrid_composition_provenance",
+    ],
   });
 
   await insertTrustEvent(ctx, "trust.brain.content_dna.source_linked.v1", {
@@ -2333,14 +2972,91 @@ export const submitInterviewAnswer = action({
     const { OpenRouterClient } = await import("./openrouter");
     const client = new OpenRouterClient(apiKey);
 
-    const model = "anthropic/claude-sonnet-4-20250514";
-
-    const response = await client.chatCompletion({
-      model,
-      messages,
-      temperature: 0.7,
-      max_tokens: 2048,
+    const model = ONBOARDING_DEFAULT_MODEL_ID;
+    const meteringRunners = createNonChatAiUsageMeteringRunners({
+      runMutation: ctx.runMutation as any,
     });
+    const requestStartedAt = Date.now();
+    let response: any = null;
+    let providerError: unknown = null;
+    try {
+      response = await client.chatCompletion({
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2048,
+      });
+    } catch (error) {
+      providerError = error;
+    }
+
+    const usage = extractCompletionUsage(response);
+    const costInCents = convertUsdToCents(
+      client.calculateCost(
+        {
+          prompt_tokens: usage.inputTokens,
+          completion_tokens: usage.outputTokens,
+        },
+        model
+      )
+    );
+
+    try {
+      await meterNonChatAiUsage({
+        runners: meteringRunners,
+        organizationId: session.organizationId,
+        requestType: "completion",
+        provider: "openrouter",
+        model,
+        action: "interview_submit_answer",
+        requestCount: 1,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+        costInCents,
+        usage: {
+          nativeUsageUnit: "tokens",
+          nativeInputUnits: usage.inputTokens,
+          nativeOutputUnits: usage.outputTokens,
+          nativeTotalUnits: usage.totalTokens,
+          nativeUsageQuantity: usage.totalTokens,
+          nativeCostInCents: costInCents,
+          nativeCostCurrency: costInCents > 0 ? "USD" : undefined,
+          nativeCostSource:
+            costInCents > 0 ? "estimated_model_pricing" : "not_available",
+          providerRequestId: usage.providerRequestId,
+          metadata: {
+            interviewSessionId: `${args.sessionId}`,
+            questionId: interviewContext.question.questionId,
+            phaseId: interviewContext.phase.phaseId,
+          },
+        },
+        billingSource: "platform",
+        requestSource: "llm",
+        ledgerMode: "credits_ledger",
+        creditLedgerAction: "interview_submit_answer",
+        relatedEntityType: "agent_session",
+        relatedEntityId: `${args.sessionId}`,
+        success: providerError === null,
+        errorMessage:
+          providerError === null ? undefined : toUsageErrorMessage(providerError),
+        requestDurationMs: Date.now() - requestStartedAt,
+      });
+    } catch (meteringError) {
+      console.warn(
+        "[InterviewRunner] Failed to record usage telemetry:",
+        toUsageErrorMessage(meteringError) ?? String(meteringError)
+      );
+    }
+
+    if (providerError !== null) {
+      return {
+        success: false,
+        error:
+          toUsageErrorMessage(providerError) ??
+          "Failed to process interview response",
+      };
+    }
 
     const choice = response.choices?.[0];
     if (!choice) {
@@ -2452,6 +3168,11 @@ export const getSessionForAnswer = internalQuery({
 
 export function buildInterviewPromptContext(context: {
   interviewerPersonality: string;
+  organizationContext?: {
+    workspaceType: "personal" | "business";
+    workspaceLabel: string;
+    guidance: string;
+  };
   followUpDepth: number;
   silenceHandling: string;
   currentPhaseIndex: number;
@@ -2486,6 +3207,10 @@ export function buildInterviewPromptContext(context: {
 
   parts.push("=== INTERVIEW MODE ===");
   parts.push(`You are conducting a structured interview. ${context.interviewerPersonality}`);
+  if (context.organizationContext) {
+    parts.push(`Workspace context: ${context.organizationContext.workspaceLabel}`);
+    parts.push(`Workspace guidance: ${context.organizationContext.guidance}`);
+  }
   parts.push("");
 
   // Progress
@@ -2524,6 +3249,31 @@ export function buildInterviewPromptContext(context: {
   parts.push("- Ask exactly one question in the user-facing text.");
   parts.push("- Do not bundle multiple questions together.");
   parts.push("- If a CTA/link is provided, include at most one follow-up question.");
+
+  const isWorkspaceContextBirthingQuestion =
+    (context.phase.phaseId === "business_context" || context.phase.phaseId === "workspace_context")
+    && [...UNIVERSAL_WORKSPACE_CONTEXT_QUESTION_FIELDS, "primaryUseCase"].includes(
+      context.question.extractionField
+    );
+  if (isWorkspaceContextBirthingQuestion) {
+    parts.push("");
+    parts.push("Workspace-context birthing contract:");
+    parts.push("- Keep this question grounded in workspace context and operating reality.");
+    parts.push("- Do not ask private/personal-history questions in this phase.");
+    parts.push("- Keep narrative continuous; avoid checklist or form-like phrasing.");
+  }
+
+  const isCompilationRevealQuestion =
+    context.phase.phaseId === "confirmation"
+    && context.question.extractionField === "confirmed";
+  if (isCompilationRevealQuestion) {
+    parts.push("");
+    parts.push("Compilation reveal contract:");
+    parts.push("- Reveal a concise compiled snapshot before asking for confirmation.");
+    parts.push("- Present workspace context first, then mission/voice/guardrails.");
+    parts.push("- Add a short teaser that deeper private context can be layered later.");
+    parts.push("- End with one explicit confirmation question.");
+  }
 
   // Follow-up handling
   if (context.pendingFollowUp && context.question.followUpPrompts?.length) {

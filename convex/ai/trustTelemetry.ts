@@ -366,6 +366,299 @@ export function evaluateTrustRolloutGuardrails(
   };
 }
 
+export const TRUST_RELEASE_GATE_EVIDENCE_VERSION =
+  "tcg_release_gate_evidence_v1";
+
+export type TrustReleaseGateMetricStatus = "observed" | "missing";
+export type TrustReleaseGateOwner = "runtime_oncall" | "ops_owner" | "platform_admin";
+
+export interface TrustReleaseGateMetricEvidence {
+  metric: TrustKpiMetricKey;
+  status: TrustReleaseGateMetricStatus;
+  observedValue: number | null;
+  severity: TrustKpiSeverity;
+  thresholdValue: number | null;
+}
+
+export interface TrustReleaseGateIncidentAction {
+  metric: TrustKpiMetricKey;
+  severity: TrustKpiSeverity;
+  owner: TrustReleaseGateOwner;
+  action: string;
+}
+
+export interface TrustReleaseGateEvidence {
+  contractVersion: typeof TRUST_RELEASE_GATE_EVIDENCE_VERSION;
+  generatedAt: number;
+  decision: TrustRolloutGuardrailDecision["status"];
+  requiredMetrics: TrustKpiMetricKey[];
+  metrics: TrustReleaseGateMetricEvidence[];
+  missingMetrics: TrustKpiMetricKey[];
+  warningMetrics: TrustKpiMetricKey[];
+  criticalMetrics: TrustKpiMetricKey[];
+  incidentActions: TrustReleaseGateIncidentAction[];
+}
+
+const TRUST_RELEASE_GATE_ACTIONS: Record<
+  TrustKpiMetricKey,
+  {
+    owner: TrustReleaseGateOwner;
+    warningAction: string;
+    criticalAction: string;
+    missingAction: string;
+  }
+> = {
+  voice_session_start_rate: {
+    owner: "runtime_oncall",
+    warningAction:
+      "Review ingress-to-capture transition logs and validate queue/routing latency before enabling broader rollout.",
+    criticalAction:
+      "Pause rollout and investigate capture bootstrap failures across ingress and runtime transition checkpoints.",
+    missingAction:
+      "Hold rollout and backfill start-rate telemetry for the current gate window before reassessing.",
+  },
+  voice_session_completion_rate: {
+    owner: "runtime_oncall",
+    warningAction:
+      "Inspect lifecycle transitions for stalled sessions and verify completion checkpoint integrity.",
+    criticalAction:
+      "Trigger rollback path and investigate completion/drop-off regressions in live runtime flows.",
+    missingAction:
+      "Hold rollout and recover completion-rate telemetry snapshots for the full gate window.",
+  },
+  voice_cancel_without_save_rate: {
+    owner: "ops_owner",
+    warningAction:
+      "Audit cancellation checkpoints and operator interventions to reduce pre-save abandonment.",
+    criticalAction:
+      "Pause rollout and execute cancellation incident playbook before any expansion.",
+    missingAction:
+      "Hold rollout and capture cancel-without-save metrics before approving any gate transition.",
+  },
+  voice_memory_consent_accept_rate: {
+    owner: "ops_owner",
+    warningAction:
+      "Review memory consent prompts and operator guidance to improve consent acceptance quality.",
+    criticalAction:
+      "Freeze rollout and remediate consent experience regressions prior to further exposure.",
+    missingAction:
+      "Hold rollout and backfill consent acceptance telemetry for deterministic gate evidence.",
+  },
+  voice_runtime_failure_rate: {
+    owner: "runtime_oncall",
+    warningAction:
+      "Increase runtime watch, review provider failover traces, and prepare rollback if failure pressure rises.",
+    criticalAction:
+      "Execute rollback immediately and open runtime incident response with provider health diagnostics.",
+    missingAction:
+      "Hold rollout and restore runtime failure-rate telemetry before making release decisions.",
+  },
+  agent_creation_handoff_success_rate: {
+    owner: "platform_admin",
+    warningAction:
+      "Inspect handoff lifecycle traces for context loss and proposal-to-commit continuity gaps.",
+    criticalAction:
+      "Pause rollout and remediate handoff reliability before accepting new traffic.",
+    missingAction:
+      "Hold rollout and restore handoff success telemetry for the required audit window.",
+  },
+};
+
+function buildTrustReleaseGateIncidentActions(args: {
+  requiredMetrics: readonly TrustKpiMetricKey[];
+  missingMetrics: readonly TrustKpiMetricKey[];
+  warningMetrics: readonly TrustKpiMetricKey[];
+  criticalMetrics: readonly TrustKpiMetricKey[];
+}): TrustReleaseGateIncidentAction[] {
+  const missingSet = new Set(args.missingMetrics);
+  const warningSet = new Set(args.warningMetrics);
+  const criticalSet = new Set(args.criticalMetrics);
+  return args.requiredMetrics
+    .filter(
+      (metric) =>
+        missingSet.has(metric) || warningSet.has(metric) || criticalSet.has(metric)
+    )
+    .map((metric) => {
+      const actionConfig = TRUST_RELEASE_GATE_ACTIONS[metric];
+      if (criticalSet.has(metric)) {
+        return {
+          metric,
+          severity: "critical" as const,
+          owner: actionConfig.owner,
+          action: actionConfig.criticalAction,
+        };
+      }
+      if (warningSet.has(metric)) {
+        return {
+          metric,
+          severity: "warning" as const,
+          owner: actionConfig.owner,
+          action: actionConfig.warningAction,
+        };
+      }
+      return {
+        metric,
+        severity: "critical" as const,
+        owner: actionConfig.owner,
+        action: actionConfig.missingAction,
+      };
+    });
+}
+
+export function buildTrustReleaseGateEvidence(args: {
+  observations: Partial<Record<TrustKpiMetricKey, number>>;
+  requiredMetrics?: readonly TrustKpiMetricKey[];
+  generatedAt?: number;
+}): TrustReleaseGateEvidence {
+  const requiredMetrics = [...(args.requiredMetrics ?? TRUST_ROLLOUT_REQUIRED_METRICS)];
+  const guardrail = evaluateTrustRolloutGuardrails(args.observations, requiredMetrics);
+
+  const metrics: TrustReleaseGateMetricEvidence[] = requiredMetrics.map((metric) => {
+    const observedValue = args.observations[metric];
+    if (!isFiniteNumber(observedValue)) {
+      return {
+        metric,
+        status: "missing",
+        observedValue: null,
+        severity: "critical",
+        thresholdValue: null,
+      };
+    }
+    const evaluation = evaluateTrustKpiMetric(metric, observedValue);
+    return {
+      metric,
+      status: "observed",
+      observedValue,
+      severity: evaluation.severity,
+      thresholdValue: evaluation.thresholdValue,
+    };
+  });
+
+  return {
+    contractVersion: TRUST_RELEASE_GATE_EVIDENCE_VERSION,
+    generatedAt: args.generatedAt ?? Date.now(),
+    decision: guardrail.status,
+    requiredMetrics,
+    metrics,
+    missingMetrics: [...guardrail.missingMetrics],
+    warningMetrics: [...guardrail.warningMetrics],
+    criticalMetrics: [...guardrail.criticalMetrics],
+    incidentActions: buildTrustReleaseGateIncidentActions({
+      requiredMetrics,
+      missingMetrics: guardrail.missingMetrics,
+      warningMetrics: guardrail.warningMetrics,
+      criticalMetrics: guardrail.criticalMetrics,
+    }),
+  };
+}
+
+export type AgentOpsAlertMetricKey =
+  | "fallback_spike"
+  | "tool_failure_spike"
+  | "ingress_failure_spike";
+
+export type AgentOpsAlertSeverity = "ok" | "warning" | "critical";
+
+export interface AgentOpsAlertThresholdDefinition {
+  ruleId: string;
+  displayName: string;
+  description: string;
+  warningThreshold: number;
+  criticalThreshold: number;
+  windowHours: number;
+  rollbackCriteria: string;
+  escalationOwner: TrustReleaseGateOwner;
+}
+
+export interface AgentOpsAlertEvaluation {
+  metric: AgentOpsAlertMetricKey;
+  observedValue: number;
+  severity: AgentOpsAlertSeverity;
+  thresholdValue: number | null;
+}
+
+export const AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS: Record<
+  AgentOpsAlertMetricKey,
+  AgentOpsAlertThresholdDefinition
+> = {
+  fallback_spike: {
+    ruleId: "agent_ops.fallback_spike.v1",
+    displayName: "Fallback spike",
+    description:
+      "Share of message_processed actions that required model fallback in the scoped window.",
+    warningThreshold: 0.25,
+    criticalThreshold: 0.4,
+    windowHours: 24,
+    rollbackCriteria:
+      "Rollback if fallback rate stays above critical threshold for two consecutive evaluations.",
+    escalationOwner: "runtime_oncall",
+  },
+  tool_failure_spike: {
+    ruleId: "agent_ops.tool_failure_spike.v1",
+    displayName: "Tool failure spike",
+    description:
+      "Share of tool outcomes marked failed/error/disabled in the scoped window.",
+    warningThreshold: 0.18,
+    criticalThreshold: 0.3,
+    windowHours: 24,
+    rollbackCriteria:
+      "Rollback if tool failure rate exceeds the critical threshold after mitigation replay checks.",
+    escalationOwner: "runtime_oncall",
+  },
+  ingress_failure_spike: {
+    ruleId: "agent_ops.ingress_failure_spike.v1",
+    displayName: "Ingress failure spike",
+    description:
+      "Share of webhook ingress events marked error in the scoped window.",
+    warningThreshold: 0.03,
+    criticalThreshold: 0.08,
+    windowHours: 24,
+    rollbackCriteria:
+      "Rollback ingress rollout if error-rate critical threshold is hit with unresolved provider incident.",
+    escalationOwner: "ops_owner",
+  },
+};
+
+export function evaluateAgentOpsAlertThreshold(
+  metric: AgentOpsAlertMetricKey,
+  observedValue: number
+): AgentOpsAlertEvaluation {
+  const definition = AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS[metric];
+  if (!Number.isFinite(observedValue)) {
+    return {
+      metric,
+      observedValue: Number.NaN,
+      severity: "critical",
+      thresholdValue: null,
+    };
+  }
+
+  if (observedValue >= definition.criticalThreshold) {
+    return {
+      metric,
+      observedValue,
+      severity: "critical",
+      thresholdValue: definition.criticalThreshold,
+    };
+  }
+
+  if (observedValue >= definition.warningThreshold) {
+    return {
+      metric,
+      observedValue,
+      severity: "warning",
+      thresholdValue: definition.warningThreshold,
+    };
+  }
+
+  return {
+    metric,
+    observedValue,
+    severity: "ok",
+    thresholdValue: null,
+  };
+}
+
 export interface BuildTrustKpiCheckpointPayloadArgs {
   orgId: Id<"organizations">;
   mode: TrustEventMode;

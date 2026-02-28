@@ -14,6 +14,14 @@ import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { OpenRouterClient } from "./openrouter";
 import type { Id } from "../_generated/dataModel";
+import {
+  applyBoundedMidwifeOverlay,
+  type MidwifeHybridCompositionProvenanceContract,
+} from "./midwifeCatalogComposer";
+import {
+  createNonChatAiUsageMeteringRunners,
+  meterNonChatAiUsage,
+} from "./nonChatUsageMetering";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -24,6 +32,139 @@ function getInternal(): any {
     _apiCache = require("../_generated/api").internal;
   }
   return _apiCache;
+}
+
+function normalizeNonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toUsageErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    const normalized = error.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  return undefined;
+}
+
+function convertUsdToCents(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round(value * 100));
+}
+
+function extractCompletionUsage(response: unknown): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  providerRequestId?: string;
+} {
+  const usage = (response as { usage?: Record<string, unknown> } | null)?.usage ?? null;
+  const inputTokens = normalizeNonNegativeInt(usage?.prompt_tokens);
+  const outputTokens = normalizeNonNegativeInt(usage?.completion_tokens);
+  const totalTokens = Math.max(
+    normalizeNonNegativeInt(usage?.total_tokens),
+    inputTokens + outputTokens
+  );
+  const providerRequestId = normalizeOptionalString(
+    (response as { id?: unknown } | null)?.id
+  );
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    providerRequestId,
+  };
+}
+
+async function meterSoulGenerationUsage(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId: Id<"objects">;
+  client: OpenRouterClient;
+  model: string;
+  action: "soul_generate" | "soul_generate_internal";
+  response: unknown;
+  providerError: unknown;
+  startedAt: number;
+}) {
+  const usage = extractCompletionUsage(args.response);
+  const costInCents = convertUsdToCents(
+    args.client.calculateCost(
+      {
+        prompt_tokens: usage.inputTokens,
+        completion_tokens: usage.outputTokens,
+      },
+      args.model
+    )
+  );
+  const meteringRunners = createNonChatAiUsageMeteringRunners({
+    runMutation: args.ctx.runMutation,
+  });
+
+  try {
+    await meterNonChatAiUsage({
+      runners: meteringRunners,
+      organizationId: args.organizationId,
+      requestType: "completion",
+      provider: "openrouter",
+      model: args.model,
+      action: args.action,
+      requestCount: 1,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      costInCents,
+      usage: {
+        nativeUsageUnit: "tokens",
+        nativeInputUnits: usage.inputTokens,
+        nativeOutputUnits: usage.outputTokens,
+        nativeTotalUnits: usage.totalTokens,
+        nativeUsageQuantity: usage.totalTokens,
+        nativeCostInCents: costInCents,
+        nativeCostCurrency: costInCents > 0 ? "USD" : undefined,
+        nativeCostSource:
+          costInCents > 0 ? "estimated_model_pricing" : "not_available",
+        providerRequestId: usage.providerRequestId,
+        metadata: {
+          agentId: `${args.agentId}`,
+          flow: args.action,
+        },
+      },
+      billingSource: "platform",
+      requestSource: "llm",
+      ledgerMode: "credits_ledger",
+      creditLedgerAction: args.action,
+      relatedEntityType: "agent",
+      relatedEntityId: `${args.agentId}`,
+      success: args.providerError === null,
+      errorMessage:
+        args.providerError === null
+          ? undefined
+          : toUsageErrorMessage(args.providerError),
+      requestDurationMs: Date.now() - args.startedAt,
+    });
+  } catch (meteringError) {
+    console.warn(
+      "[SoulGenerator] Failed to record non-chat usage:",
+      toUsageErrorMessage(meteringError) ?? String(meteringError)
+    );
+  }
 }
 
 function toNonEmptyString(value: unknown): string | undefined {
@@ -43,43 +184,95 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   return Array.from(new Set(normalized));
 }
 
-function attachSoulV2Overlay(
-  soul: Record<string, unknown>,
-  generatedAt: number,
-): Record<string, unknown> {
+export const SOUL_IDENTITY_IMMUTABLE_ORIGIN_VALUES = [
+  "interview",
+  "generated",
+  "manual",
+] as const;
+
+export type SoulIdentityImmutableOrigin =
+  (typeof SOUL_IDENTITY_IMMUTABLE_ORIGIN_VALUES)[number];
+
+export interface SoulIdentityOriginMetadata {
+  immutableOrigin: SoulIdentityImmutableOrigin;
+  interviewSessionId?: string;
+  interviewTemplateId?: string;
+  firstWordsHandshakeId?: string;
+}
+
+function normalizeSoulIdentityOrigin(
+  value: SoulIdentityOriginMetadata | undefined,
+): SoulIdentityOriginMetadata {
+  const immutableOrigin =
+    value?.immutableOrigin === "interview"
+    || value?.immutableOrigin === "manual"
+      ? value.immutableOrigin
+      : "generated";
+
+  return {
+    immutableOrigin,
+    interviewSessionId: toNonEmptyString(value?.interviewSessionId),
+    interviewTemplateId: toNonEmptyString(value?.interviewTemplateId),
+    firstWordsHandshakeId: toNonEmptyString(value?.firstWordsHandshakeId),
+  };
+}
+
+export function attachSoulV2Overlay(args: {
+  soul: Record<string, unknown>;
+  generatedAt: number;
+  identityOrigin?: SoulIdentityOriginMetadata;
+  hybridComposition?: {
+    overlay?: Record<string, unknown>;
+    provenance?: MidwifeHybridCompositionProvenanceContract;
+  };
+}): Record<string, unknown> {
+  const identityOrigin = normalizeSoulIdentityOrigin(args.identityOrigin);
+  const composedSoul = applyBoundedMidwifeOverlay({
+    soul: args.soul,
+    overlay: args.hybridComposition?.overlay,
+    preserveIdentityAnchors: identityOrigin.immutableOrigin === "interview",
+  });
+
   const identityAnchors = {
-    name: toNonEmptyString(soul.name),
-    tagline: toNonEmptyString(soul.tagline),
-    traits: normalizeStringArray(soul.traits),
-    coreValues: normalizeStringArray(soul.coreValues),
-    neverDo: normalizeStringArray(soul.neverDo),
-    escalationTriggers: normalizeStringArray(soul.escalationTriggers),
-    coreMemories: Array.isArray(soul.coreMemories) ? soul.coreMemories : [],
+    name: toNonEmptyString(composedSoul.name),
+    tagline: toNonEmptyString(composedSoul.tagline),
+    traits: normalizeStringArray(composedSoul.traits),
+    coreValues: normalizeStringArray(composedSoul.coreValues),
+    neverDo: normalizeStringArray(composedSoul.neverDo),
+    escalationTriggers: normalizeStringArray(composedSoul.escalationTriggers),
+    coreMemories: Array.isArray(composedSoul.coreMemories)
+      ? composedSoul.coreMemories
+      : [],
+    immutableOrigin: identityOrigin.immutableOrigin,
+    interviewSessionId: identityOrigin.interviewSessionId,
+    interviewTemplateId: identityOrigin.interviewTemplateId,
+    firstWordsHandshakeId: identityOrigin.firstWordsHandshakeId,
   };
 
   const executionPreferences = {
-    alwaysDo: normalizeStringArray(soul.alwaysDo),
-    communicationStyle: toNonEmptyString(soul.communicationStyle),
-    toneGuidelines: toNonEmptyString(soul.toneGuidelines),
-    greetingStyle: toNonEmptyString(soul.greetingStyle),
-    closingStyle: toNonEmptyString(soul.closingStyle),
-    emojiUsage: toNonEmptyString(soul.emojiUsage),
+    alwaysDo: normalizeStringArray(composedSoul.alwaysDo),
+    communicationStyle: toNonEmptyString(composedSoul.communicationStyle),
+    toneGuidelines: toNonEmptyString(composedSoul.toneGuidelines),
+    greetingStyle: toNonEmptyString(composedSoul.greetingStyle),
+    closingStyle: toNonEmptyString(composedSoul.closingStyle),
+    emojiUsage: toNonEmptyString(composedSoul.emojiUsage),
   };
 
   const existingVersion =
-    typeof soul.version === "number" && Number.isFinite(soul.version)
-      ? soul.version
+    typeof composedSoul.version === "number" && Number.isFinite(composedSoul.version)
+      ? composedSoul.version
       : 1;
 
   return {
-    ...soul,
-    version: Math.max(2, existingVersion),
-    lastUpdatedAt: generatedAt,
+    ...composedSoul,
+    version: Math.max(3, existingVersion),
+    lastUpdatedAt: args.generatedAt,
     generatedBy: "agent_self",
     soulV2: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       identityAnchors,
       executionPreferences,
+      hybridCompositionProvenance: args.hybridComposition?.provenance,
       requireOwnerApprovalForMutations: true,
     },
   };
@@ -203,18 +396,42 @@ IMPORTANT:
 - Keep the soulMarkdown under 500 words
 - Output ONLY valid JSON, no markdown code blocks`;
 
-    const response = await client.chatCompletion({
-      model: "anthropic/claude-sonnet-4.5",
-      messages: [
-        {
-          role: "system",
-          content: "You are a soul architect. You create authentic, specific agent personalities. Output only valid JSON.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.8, // Higher temp for creative personality generation
-      max_tokens: 2000,
+    const model = "anthropic/claude-sonnet-4.5";
+    const requestStartedAt = Date.now();
+    let response: any = null;
+    let providerError: unknown = null;
+    try {
+      response = await client.chatCompletion({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: "You are a soul architect. You create authentic, specific agent personalities. Output only valid JSON.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8, // Higher temp for creative personality generation
+        max_tokens: 2000,
+      });
+    } catch (error) {
+      providerError = error;
+    }
+
+    await meterSoulGenerationUsage({
+      ctx,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      client,
+      model,
+      action: "soul_generate",
+      response,
+      providerError,
+      startedAt: requestStartedAt,
     });
+
+    if (providerError !== null) {
+      throw providerError;
+    }
 
     const content = response.choices?.[0]?.message?.content || "{}";
 
@@ -224,7 +441,10 @@ IMPORTANT:
       const jsonText = jsonMatch ? jsonMatch[1] : content;
 
       const generatedAt = Date.now();
-      const soul = attachSoulV2Overlay(JSON.parse(jsonText), generatedAt);
+      const soul = attachSoulV2Overlay({
+        soul: JSON.parse(jsonText),
+        generatedAt,
+      });
 
       return {
         status: "success",
@@ -425,15 +645,39 @@ Generate a JSON response with this exact structure:
 
 Output ONLY valid JSON, no markdown code blocks.`;
 
-  const response = await client.chatCompletion({
-    model: "anthropic/claude-sonnet-4.5",
-    messages: [
-      { role: "system", content: "You are a soul architect. Create authentic agent personalities. Output only valid JSON." },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.8,
-    max_tokens: 2000,
+  const model = "anthropic/claude-sonnet-4.5";
+  const requestStartedAt = Date.now();
+  let response: any = null;
+  let providerError: unknown = null;
+  try {
+    response = await client.chatCompletion({
+      model,
+      messages: [
+        { role: "system", content: "You are a soul architect. Create authentic agent personalities. Output only valid JSON." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+      max_tokens: 2000,
+    });
+  } catch (error) {
+    providerError = error;
+  }
+
+  await meterSoulGenerationUsage({
+    ctx,
+    organizationId: args.organizationId,
+    agentId: args.agentId,
+    client,
+    model,
+    action: "soul_generate_internal",
+    response,
+    providerError,
+    startedAt: requestStartedAt,
   });
+
+  if (providerError !== null) {
+    throw providerError;
+  }
 
   const content = response.choices?.[0]?.message?.content || "{}";
 
@@ -441,7 +685,10 @@ Output ONLY valid JSON, no markdown code blocks.`;
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
     const jsonText = jsonMatch ? jsonMatch[1] : content;
     const generatedAt = Date.now();
-    const soul = attachSoulV2Overlay(JSON.parse(jsonText), generatedAt);
+    const soul = attachSoulV2Overlay({
+      soul: JSON.parse(jsonText),
+      generatedAt,
+    });
     return { status: "success", soul };
   } catch {
     return { status: "error", message: "Failed to parse soul JSON" };

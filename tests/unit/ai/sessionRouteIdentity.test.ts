@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   LEGACY_SESSION_ROUTING_KEY,
+  SESSION_ROUTING_METADATA_CONTRACT_VERSION,
   buildSessionRoutingKey,
+  normalizeSessionRoutingMetadata,
+  resolveSessionRoutingMetadataConsistencyError,
   selectActiveSessionForRoute,
 } from "../../../convex/ai/agentSessions";
 import {
@@ -144,5 +147,47 @@ describe("session route identity", () => {
       peer: "U555",
       channelRef: "C555",
     });
+  });
+
+  it("normalizes operator routing metadata contract with canonical workflow key casing", () => {
+    const normalized = normalizeSessionRoutingMetadata({
+      contractVersion: SESSION_ROUTING_METADATA_CONTRACT_VERSION,
+      tenantId: "org_123",
+      lineageId: "lineage:desktop:1",
+      threadId: "group_thread:1",
+      workflowKey: "COMMIT",
+      updatedAt: 1700000000000,
+      updatedBy: "desktop_chat:user_1",
+    });
+
+    expect(normalized).toEqual({
+      contractVersion: SESSION_ROUTING_METADATA_CONTRACT_VERSION,
+      tenantId: "org_123",
+      lineageId: "lineage:desktop:1",
+      threadId: "group_thread:1",
+      workflowKey: "commit",
+      updatedAt: 1700000000000,
+      updatedBy: "desktop_chat:user_1",
+    });
+  });
+
+  it("fails closed when routing metadata and collaboration kernel identities mismatch", () => {
+    const consistencyError = resolveSessionRoutingMetadataConsistencyError({
+      routingMetadata: {
+        contractVersion: SESSION_ROUTING_METADATA_CONTRACT_VERSION,
+        tenantId: "org_123",
+        lineageId: "lineage:desktop:1",
+        threadId: "group_thread:1",
+        workflowKey: "message_ingress",
+        updatedAt: 1700000000000,
+      },
+      expectedTenantId: "org_123",
+      collaborationKernel: {
+        lineageId: "lineage:desktop:1",
+        threadId: "group_thread:2",
+      },
+    });
+
+    expect(consistencyError).toBe("collaboration_routing_identity_mismatch");
   });
 });

@@ -18,8 +18,15 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  COLLABORATION_CONTRACT_VERSION,
+  agentExecutionBundleContractValidator,
+  agentTurnRunAttemptContractValidator,
   agentTurnStateValidator,
   agentTurnTransitionValidator,
+  collaborationAuthorityContractValidator,
+  collaborationKernelContractValidator,
+  runtimeIdempotencyContractValidator,
+  turnQueueContractValidator,
 } from "./aiSchemas";
 
 export const teamHandoffPayloadValidator = v.object({
@@ -52,6 +59,16 @@ const sessionChannelRouteIdentityValidator = v.object({
   routeKey: v.optional(v.string()),
 });
 
+const sessionRoutingMetadataValidator = v.object({
+  contractVersion: v.literal("occ_operator_routing_v1"),
+  tenantId: v.string(),
+  lineageId: v.string(),
+  threadId: v.string(),
+  workflowKey: v.string(),
+  updatedAt: v.number(),
+  updatedBy: v.optional(v.string()),
+});
+
 /**
  * AGENT SESSIONS
  *
@@ -71,6 +88,7 @@ export const agentSessions = defineTable({
   externalContactIdentifier: v.string(),
   channelRouteIdentity: v.optional(sessionChannelRouteIdentityValidator),
   sessionRoutingKey: v.optional(v.string()),
+  routingMetadata: v.optional(sessionRoutingMetadataValidator),
 
   status: v.union(
     v.literal("active"),
@@ -141,6 +159,74 @@ export const agentSessions = defineTable({
       updatedAt: v.number(),
       updatedBy: v.union(v.literal("system"), v.literal("user")),
     })),
+    identityOrigin: v.optional(v.object({
+      contractVersion: v.literal("interview_identity_origin.v1"),
+      immutableOrigin: v.literal("interview"),
+      interviewSessionId: v.string(),
+      interviewTemplateId: v.string(),
+      interviewTemplateName: v.string(),
+      anchoredAt: v.number(),
+      immutableAnchorFieldIds: v.array(v.string()),
+      midwifeFiveBlockShape: v.object({
+        contractVersion: v.literal("midwife_5_block_shape.v1"),
+        blockCount: v.literal(5),
+        completedBlockCount: v.number(),
+        blocks: v.array(v.object({
+          blockId: v.union(
+            v.literal("business_context"),
+            v.literal("communication_style"),
+            v.literal("values_identity"),
+            v.literal("knowledge_inspiration"),
+            v.literal("boundaries_guardrails"),
+          ),
+          label: v.string(),
+          description: v.string(),
+          capturedFieldIds: v.array(v.string()),
+          missingSignalHints: v.array(v.string()),
+          isComplete: v.boolean(),
+        })),
+      }),
+    })),
+    firstWordsHandshake: v.optional(v.object({
+      contractVersion: v.literal("first_words_handshake.v1"),
+      handshakeId: v.string(),
+      status: v.literal("ready_for_confirmation"),
+      generatedAt: v.number(),
+      includesDreamTeamMention: v.literal(true),
+      confirmationPrompt: v.string(),
+      preview: v.string(),
+    })),
+    hybridCompositionProvenance: v.optional(v.object({
+      contractVersion: v.literal("midwife_hybrid_composition.v1"),
+      strategy: v.literal("interview_core_seed_overlay"),
+      composedAt: v.number(),
+      fallbackApplied: v.boolean(),
+      immutableAnchorFieldIds: v.array(v.string()),
+      selectedCatalogAgentNumbers: v.array(v.number()),
+      missingCoverageAreas: v.array(v.string()),
+      inputCount: v.number(),
+      selectedInputCount: v.number(),
+      inputs: v.array(v.object({
+        inputType: v.union(
+          v.literal("interview_identity_anchor"),
+          v.literal("catalog_profile"),
+          v.literal("tool_profile"),
+          v.literal("soul_profile"),
+          v.literal("generated_fallback_overlay"),
+        ),
+        sourceId: v.string(),
+        sourceLabel: v.string(),
+        selected: v.boolean(),
+        rank: v.optional(v.number()),
+        rankScore: v.optional(v.number()),
+        seedCoverage: v.optional(v.union(
+          v.literal("full"),
+          v.literal("skeleton"),
+          v.literal("missing"),
+        )),
+        signals: v.array(v.string()),
+      })),
+    })),
   })),
 
   // ========== END GUIDED SESSION FIELDS ==========
@@ -157,6 +243,36 @@ export const agentSessions = defineTable({
     sharedContext: v.optional(v.string()),
     conversationGoal: v.optional(v.string()),
     handoffNotes: v.optional(teamHandoffPayloadValidator),
+  })),
+
+  collaboration: v.optional(v.object({
+    contractVersion: v.literal(COLLABORATION_CONTRACT_VERSION),
+    kernel: collaborationKernelContractValidator,
+    authority: collaborationAuthorityContractValidator,
+    syncCheckpoint: v.optional(v.object({
+      contractVersion: v.literal("tcg_dm_group_sync_v1"),
+      tokenId: v.string(),
+      token: v.string(),
+      status: v.union(
+        v.literal("issued"),
+        v.literal("resumed"),
+        v.literal("aborted"),
+        v.literal("expired"),
+      ),
+      lineageId: v.string(),
+      dmThreadId: v.string(),
+      groupThreadId: v.string(),
+      issuedForEventId: v.string(),
+      issuedAt: v.number(),
+      expiresAt: v.number(),
+      resumeTurnId: v.optional(v.id("agentTurns")),
+      resumedAt: v.optional(v.number()),
+      abortedAt: v.optional(v.number()),
+      abortReason: v.optional(v.string()),
+      lastValidatedAt: v.optional(v.number()),
+    })),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.string()),
   })),
 
   // Legacy: kept for backward compat, superseded by teamSession.participatingAgentIds
@@ -232,6 +348,42 @@ export const agentSessions = defineTable({
   previousSessionId: v.optional(v.id("agentSessions")),
   previousSessionSummary: v.optional(v.string()),
 
+  // Rolling session memory (L2) extracted from user messages + verified tool outputs.
+  rollingSummaryMemory: v.optional(v.object({
+    contractVersion: v.literal("session_rolling_summary_v1"),
+    sourcePolicy: v.literal("user_verified_tool_only_v1"),
+    summary: v.string(),
+    sourceMessageCount: v.number(),
+    userMessageCount: v.number(),
+    verifiedToolResultCount: v.number(),
+    updatedAt: v.number(),
+  })),
+
+  // Reactivation memory (L5) cached on deterministic inactivity reopen.
+  reactivationMemory: v.optional(v.object({
+    contractVersion: v.literal("session_reactivation_memory_v1"),
+    sourcePolicy: v.literal("rolling_summary_close_summary_v1"),
+    trigger: v.literal("inactivity_reactivation_v1"),
+    cachedContext: v.string(),
+    generatedAt: v.number(),
+    cacheExpiresAt: v.number(),
+    inactivityGapMs: v.number(),
+    source: v.object({
+      sessionId: v.string(),
+      organizationId: v.string(),
+      channel: v.string(),
+      externalContactIdentifier: v.string(),
+      sessionRoutingKey: v.string(),
+      closeReason: v.union(v.literal("idle_timeout"), v.literal("expired")),
+      closedAt: v.number(),
+      lastMessageAt: v.number(),
+    }),
+    provenance: v.object({
+      derivedFromRollingSummary: v.boolean(),
+      derivedFromSessionSummary: v.boolean(),
+    }),
+  })),
+
   // Per-session credit budget tracking
   sessionBudgetUsed: v.optional(v.number()),
 
@@ -268,8 +420,34 @@ export const agentSessions = defineTable({
     respondedBy: v.optional(v.id("users")),
     humanMessages: v.optional(v.array(v.string())),
     resolutionSummary: v.optional(v.string()),
+    supportTicketId: v.optional(v.id("objects")),
+    supportTicketNumber: v.optional(v.string()),
+    supportTicketCreatedAt: v.optional(v.number()),
     telegramMessageId: v.optional(v.number()),
     telegramChatId: v.optional(v.string()),
+    hitlWaitpoint: v.optional(v.object({
+      contractVersion: v.literal("tcg_hitl_waitpoint_v1"),
+      tokenId: v.string(),
+      token: v.string(),
+      checkpoint: v.union(
+        v.literal("session_pending"),
+        v.literal("session_taken_over"),
+      ),
+      status: v.union(
+        v.literal("issued"),
+        v.literal("resumed"),
+        v.literal("aborted"),
+        v.literal("expired"),
+      ),
+      issuedAt: v.number(),
+      expiresAt: v.number(),
+      issuedForTurnId: v.id("agentTurns"),
+      resumeTurnId: v.optional(v.id("agentTurns")),
+      resumedAt: v.optional(v.number()),
+      abortedAt: v.optional(v.number()),
+      abortReason: v.optional(v.string()),
+      lastValidatedAt: v.optional(v.number()),
+    })),
   })),
 
   // ========== END SESSION LIFECYCLE ==========
@@ -316,7 +494,8 @@ export const agentSessionMessages = defineTable({
   agentName: v.optional(v.string()),
   timestamp: v.number(),
 })
-  .index("by_session", ["sessionId"]);
+  .index("by_session", ["sessionId"])
+  .index("by_session_timestamp", ["sessionId", "timestamp"]);
 
 /**
  * AGENT TURNS
@@ -340,7 +519,19 @@ export const agentTurns = defineTable({
 
   // Replay/idempotency hooks
   idempotencyKey: v.optional(v.string()),
+  idempotencyScopeKey: v.optional(v.string()),
+  idempotencyExpiresAt: v.optional(v.number()),
+  idempotencyContract: v.optional(runtimeIdempotencyContractValidator),
   inboundMessageHash: v.optional(v.string()),
+
+  // Deterministic queue/concurrency contract
+  queueContract: v.optional(turnQueueContractValidator),
+  queueConcurrencyKey: v.optional(v.string()),
+  queueOrderingKey: v.optional(v.string()),
+
+  // Retry/run-attempt and bundle pinning contracts
+  runAttempt: v.optional(agentTurnRunAttemptContractValidator),
+  executionBundle: v.optional(agentExecutionBundleContractValidator),
 
   // Terminal delivery pointer (Plan 15 contract target)
   terminalDeliverable: v.optional(v.object({
@@ -368,6 +559,8 @@ export const agentTurns = defineTable({
   .index("by_session_created", ["sessionId", "createdAt"])
   .index("by_org_state", ["organizationId", "state"])
   .index("by_org_idempotency_key", ["organizationId", "idempotencyKey"])
+  .index("by_org_idempotency_scope_key", ["organizationId", "idempotencyScopeKey"])
+  .index("by_org_queue_concurrency_state", ["organizationId", "queueConcurrencyKey", "state"])
   .index("by_state_lease_expiry", ["state", "leaseExpiresAt"]);
 
 /**
@@ -388,6 +581,11 @@ export const executionEdges = defineTable({
   edgeOrdinal: v.number(),
   idempotencyKey: v.optional(v.string()),
   payloadHash: v.optional(v.string()),
+  transitionPolicyVersion: v.optional(v.number()),
+  replayInvariantStatus: v.optional(v.union(
+    v.literal("validated"),
+    v.literal("legacy_compatible")
+  )),
   metadata: v.optional(v.any()),
 
   occurredAt: v.number(),

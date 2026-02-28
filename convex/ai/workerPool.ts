@@ -19,6 +19,8 @@ const WORKER_IDLE_TIMEOUT_MS = DURATION_MS.ONE_HOUR; // 60 minutes
 const WORKER_BUSY_THRESHOLD_MS = 30_000; // 30 seconds — worker is "busy" if active within this window
 
 const USE_CASE_CLONE_LIFECYCLE = "managed_use_case_clone_v1";
+const PRIMARY_AGENT_INELIGIBLE_STATUSES = new Set(["archived", "deleted", "template"]);
+const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
 const DEFAULT_CLONE_LIMITS = {
   maxClonesPerOrg: 12,
   maxClonesPerTemplatePerOrg: 4,
@@ -34,6 +36,7 @@ type AgentLikeRecord = {
   description?: string;
   status: string;
   customProperties?: unknown;
+  createdBy?: unknown;
   createdAt: number;
   updatedAt: number;
 };
@@ -184,6 +187,45 @@ function isManagedUseCaseClone(agent: AgentLikeRecord): boolean {
   return (
     readTemplateAgentId(props) !== null &&
     normalizeOptionalString(props.cloneLifecycle) === USE_CASE_CLONE_LIFECYCLE
+  );
+}
+
+function resolveOperatorContextId(agent: AgentLikeRecord): string {
+  const props = asRecord(agent.customProperties);
+  return (
+    normalizeOptionalString(props.operatorId)
+    || normalizeOptionalString(props.ownerUserId)
+    || normalizeOptionalString(agent.createdBy)
+    || DEFAULT_OPERATOR_CONTEXT_ID
+  );
+}
+
+function isPrimaryFlagged(agent: AgentLikeRecord): boolean {
+  const props = asRecord(agent.customProperties);
+  return props.isPrimary === true;
+}
+
+function isViablePrimaryCandidate(agent: AgentLikeRecord): boolean {
+  if (agent.type !== "org_agent") {
+    return false;
+  }
+
+  const normalizedStatus = normalizeOptionalString(agent.status)?.toLowerCase();
+  if (!normalizedStatus) {
+    return true;
+  }
+
+  return !PRIMARY_AGENT_INELIGIBLE_STATUSES.has(normalizedStatus);
+}
+
+export function hasPrimaryForOperator(
+  agents: AgentLikeRecord[],
+  operatorId: string
+): boolean {
+  return agents.some((agent) =>
+    isViablePrimaryCandidate(agent)
+    && resolveOperatorContextId(agent) === operatorId
+    && isPrimaryFlagged(agent)
   );
 }
 
@@ -375,6 +417,7 @@ export const spawnUseCaseAgent = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const ownerOperatorId = String(args.ownerUserId);
 
     const template = await ctx.db.get(args.templateAgentId) as AgentLikeRecord | null;
     if (!template || template.type !== "org_agent") {
@@ -425,6 +468,10 @@ export const spawnUseCaseAgent = internalMutation({
         q.eq("organizationId", args.organizationId).eq("type", "org_agent")
       )
       .collect() as AgentLikeRecord[];
+    const ownerHadPrimaryBeforeSpawn = hasPrimaryForOperator(
+      allOrgAgents,
+      ownerOperatorId
+    );
 
     const templateClonesForOrg = allOrgAgents.filter((agent) => {
       if (!isManagedUseCaseClone(agent)) {
@@ -446,6 +493,18 @@ export const spawnUseCaseAgent = internalMutation({
 
     const reuseExisting = args.reuseExisting !== false;
     if (reuseExisting && matchingClone) {
+      if (!ownerHadPrimaryBeforeSpawn) {
+        const matchingCloneProps = asRecord(matchingClone.customProperties);
+        await ctx.db.patch(matchingClone._id, {
+          customProperties: {
+            ...matchingCloneProps,
+            operatorId: ownerOperatorId,
+            isPrimary: true,
+          },
+          updatedAt: now,
+        });
+      }
+
       await ctx.db.insert("objectActions", {
         organizationId: args.organizationId,
         objectId: matchingClone._id,
@@ -458,6 +517,8 @@ export const spawnUseCaseAgent = internalMutation({
           useCaseKey,
           spawnReason: normalizeOptionalString(args.spawnReason) || "spawn_use_case_agent",
           playbook: normalizedPlaybook ?? normalizeOptionalString(templateProps.templatePlaybook),
+          operatorId: ownerOperatorId,
+          promotedToPrimary: !ownerHadPrimaryBeforeSpawn,
         },
         performedBy: requestedByUserId,
         performedAt: now,
@@ -533,6 +594,7 @@ export const spawnUseCaseAgent = internalMutation({
         templateSourceOrgId: template.organizationId,
         cloneLifecycle: USE_CASE_CLONE_LIFECYCLE,
         ownerUserId: args.ownerUserId,
+        operatorId: ownerOperatorId,
         requestedByUserId,
         spawnReason: normalizeOptionalString(args.spawnReason) || "spawn_use_case_agent",
         useCase: useCaseLabel,
@@ -543,6 +605,7 @@ export const spawnUseCaseAgent = internalMutation({
         lastActiveSessionAt: now,
         totalMessages: 0,
         totalCostUsd: 0,
+        isPrimary: !ownerHadPrimaryBeforeSpawn,
         clonePolicy: {
           ...asRecord(templateProps.clonePolicy),
           spawnEnabled: clonePolicy.spawnEnabled,
@@ -569,6 +632,8 @@ export const spawnUseCaseAgent = internalMutation({
       playbook: clonePlaybook,
       spawnReason: normalizeOptionalString(args.spawnReason) || "spawn_use_case_agent",
       lifecycle: USE_CASE_CLONE_LIFECYCLE,
+      operatorId: ownerOperatorId,
+      isPrimaryAssigned: !ownerHadPrimaryBeforeSpawn,
     };
 
     await ctx.db.insert("objectActions", {

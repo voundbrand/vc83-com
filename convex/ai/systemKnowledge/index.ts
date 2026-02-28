@@ -22,6 +22,7 @@
  */
 
 import { KNOWLEDGE_CONTENT } from "./_content";
+import { SUPPORT_KNOWLEDGE_CONTENT } from "./supportKnowledge";
 
 // ============================================================
 // Types
@@ -132,6 +133,62 @@ export const KNOWLEDGE_REGISTRY: KnowledgeRegistryEntry[] = [
     ],
     priority: 8,
     filePath: "follow-up-sequences.md",
+  },
+  {
+    id: "support-troubleshooting-playbook",
+    name: "Support Troubleshooting Playbook",
+    category: "core",
+    usage: "TRIGGER_ONLY",
+    triggers: [
+      "support_runtime",
+      "support_intake",
+      "support_troubleshooting",
+      "escalation_needed",
+    ],
+    priority: 9,
+    filePath: "support/troubleshooting-playbook.md",
+  },
+  {
+    id: "support-pricing-billing-reference",
+    name: "Support Pricing and Billing Reference",
+    category: "core",
+    usage: "TRIGGER_ONLY",
+    triggers: [
+      "support_runtime",
+      "support_intake",
+      "support_pricing",
+      "support_billing",
+      "pricing_strategy",
+    ],
+    priority: 10,
+    filePath: "support/pricing-billing-reference.md",
+  },
+  {
+    id: "support-case-escalation-contract",
+    name: "Support Case Escalation Contract",
+    category: "core",
+    usage: "TRIGGER_ONLY",
+    triggers: [
+      "support_runtime",
+      "support_intake",
+      "escalation_needed",
+      "support_escalation",
+    ],
+    priority: 11,
+    filePath: "support/case-escalation-contract.md",
+  },
+  {
+    id: "support-agent-selection-recommender",
+    name: "Agent Selection Recommender Playbook",
+    category: "core",
+    usage: "TRIGGER_ONLY",
+    triggers: [
+      "agent_selection",
+      "agent_recommendation",
+      "integration_gap_analysis",
+    ],
+    priority: 12,
+    filePath: "support/agent-selection-recommender.md",
   },
 
   // ---- Adapted Frameworks ----
@@ -558,7 +615,7 @@ export function composeKnowledgeContract(
   const documents = entries
     .map((entry) => ({
       ...entry,
-      content: KNOWLEDGE_CONTENT[entry.id] || "",
+      content: resolveKnowledgeDocumentContent(entry.id),
     }))
     .filter((entry) => entry.content.length > 0);
 
@@ -650,6 +707,8 @@ export function detectSkillTriggers(message: string): string[] {
     triggers.push("onboarding");
   if (/donat|fundrais|nonprofit|charity|crowdfund/i.test(lower))
     triggers.push("fundraising");
+  if (/which agent|need now|recommend.+agent|agent.+outcome|integration.+gap/i.test(lower))
+    triggers.push("agent_selection");
 
   return triggers;
 }
@@ -678,5 +737,9 @@ export function getKnowledgeContent(
  * Get a single knowledge document's content by ID.
  */
 export function getKnowledgeContentById(id: string): string | undefined {
-  return KNOWLEDGE_CONTENT[id];
+  return resolveKnowledgeDocumentContent(id);
+}
+
+function resolveKnowledgeDocumentContent(id: string): string {
+  return KNOWLEDGE_CONTENT[id] || SUPPORT_KNOWLEDGE_CONTENT[id] || "";
 }

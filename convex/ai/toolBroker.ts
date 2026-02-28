@@ -168,7 +168,7 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
   ],
   content: [
     /page/i, /blog/i, /post/i, /image/i, /photo/i, /media/i, /upload/i,
-    /publish/i, /form/i,
+    /publish/i, /form/i, /youtube/i, /transcrib/i, /transcript/i, /caption/i,
   ],
   workflow: [
     /workflow/i, /automat/i, /sequence/i, /trigger/i, /behavior/i,
@@ -179,6 +179,9 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
   ],
   team: [
     /team/i, /specialist/i, /hand.?off/i, /tag.?in/i, /colleague/i,
+  ],
+  market: [
+    /polymarket/i, /prediction market/i, /market odds/i, /trade/i, /position/i,
   ],
 };
 
@@ -216,7 +219,7 @@ const INTENT_TOOL_MAPPING: Record<string, string[]> = {
   content: [
     "create_page", "publish_page", "create_form", "list_forms",
     "publish_form", "get_form_responses", "manage_forms",
-    "upload_media", "search_media", "publish_all",
+    "upload_media", "search_media", "transcribe_youtube_video", "publish_all",
   ],
   workflow: [
     "create_workflow", "enable_workflow", "list_workflows",
@@ -228,6 +231,9 @@ const INTENT_TOOL_MAPPING: Record<string, string[]> = {
   ],
   team: [
     "tag_in_specialist", "list_team_agents", "escalate_to_human",
+  ],
+  market: [
+    "manage_polymarket", "execute_polymarket_live",
   ],
 };
 

@@ -31,6 +31,7 @@ import {
   normalizeHarnessContextEnvelope,
   type HarnessContextEnvelope,
 } from "./harnessContextEnvelope";
+import { validateTrustEventPayload } from "./trustEvents";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -94,6 +95,267 @@ function readApprovalHarnessContext(value: unknown): HarnessContextEnvelope | un
   return normalizeHarnessContextEnvelope(value) || undefined;
 }
 
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getPrivilegedEvidenceError(args: {
+  actionType: unknown;
+  actionPayload: unknown;
+}): string | null {
+  if (args.actionType !== "platform_soul_admin") {
+    return null;
+  }
+
+  if (!args.actionPayload || typeof args.actionPayload !== "object") {
+    return "platform_soul_admin approvals require structured action payload.";
+  }
+
+  const payload = args.actionPayload as Record<string, unknown>;
+  const action = normalizeNonEmptyString(payload.action);
+  if (!action) {
+    return "platform_soul_admin approvals require action in payload.";
+  }
+
+  if (action === "view") {
+    return null;
+  }
+
+  if (
+    action === "propose"
+    || action === "approve_apply"
+    || action === "rollback"
+  ) {
+    const reasonCode = normalizeNonEmptyString(payload.reasonCode);
+    const ticketId = normalizeNonEmptyString(payload.ticketId);
+    const elevationId = normalizeNonEmptyString(payload.elevationId);
+    if (!reasonCode || !ticketId || !elevationId) {
+      return "platform_soul_admin privileged writes require reasonCode, ticketId, and elevationId.";
+    }
+    return null;
+  }
+
+  return `Unsupported platform_soul_admin action "${action}" in approval payload.`;
+}
+
+const APPOINTMENT_CALL_TOOL_NAME = "manage_bookings";
+const APPOINTMENT_CALL_ACTION = "execute_appointment_outreach";
+const APPOINTMENT_CALL_POLICY_TYPE = "appointment_call_hitl";
+const APPOINTMENT_CALL_POLICY_VERSION = "plo-appointment-call.v1";
+const APPOINTMENT_CALL_CONSENT_SCOPE = "appointment_outbound_call";
+const APPOINTMENT_CALL_MEDICAL_POLICY = "minimum_necessary";
+const APPOINTMENT_CALL_PHI_HANDLING_MODE = "minimum_necessary";
+
+type AppointmentCallTrustEventName =
+  | "trust.guardrail.appointment_call_approval_requested.v1"
+  | "trust.guardrail.appointment_call_approval_resolved.v1"
+  | "trust.guardrail.appointment_call_approval_blocked.v1";
+
+type AppointmentCallConsentDecision =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "blocked";
+
+interface AppointmentCallFlowEvaluation {
+  isCallFlow: boolean;
+  payload: Record<string, unknown> | null;
+  consentDisclosure: string | null;
+  promotionReason: string | null;
+  validationErrors: string[];
+  recordingDisclosureStatus: "provided" | "missing";
+}
+
+function normalizeLowerToken(value: unknown): string | null {
+  const normalized = normalizeNonEmptyString(value);
+  return normalized ? normalized.toLowerCase() : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function evaluateAppointmentCallFlow(args: {
+  actionType: unknown;
+  actionPayload: unknown;
+}): AppointmentCallFlowEvaluation {
+  if (args.actionType !== APPOINTMENT_CALL_TOOL_NAME) {
+    return {
+      isCallFlow: false,
+      payload: null,
+      consentDisclosure: null,
+      promotionReason: null,
+      validationErrors: [],
+      recordingDisclosureStatus: "missing",
+    };
+  }
+
+  const payload = readRecord(args.actionPayload);
+  if (!payload) {
+    return {
+      isCallFlow: false,
+      payload: null,
+      consentDisclosure: null,
+      promotionReason: null,
+      validationErrors: [],
+      recordingDisclosureStatus: "missing",
+    };
+  }
+
+  const action = normalizeLowerToken(payload.action);
+  if (action !== APPOINTMENT_CALL_ACTION) {
+    return {
+      isCallFlow: false,
+      payload,
+      consentDisclosure: null,
+      promotionReason: null,
+      validationErrors: [],
+      recordingDisclosureStatus: "missing",
+    };
+  }
+
+  const preferredChannel = normalizeLowerToken(payload.preferredOutreachChannel);
+  const fallbackMethod = normalizeLowerToken(payload.outreachFallbackMethod);
+  const requestedDomain = normalizeLowerToken(payload.autonomyDomainLevel);
+  const callFallbackApproved = payload.callFallbackApproved === true;
+
+  const isCallFlow =
+    preferredChannel === "phone_call" ||
+    fallbackMethod === "phone_call" ||
+    requestedDomain === "live" ||
+    callFallbackApproved;
+
+  const consentDisclosure = normalizeNonEmptyString(payload.callConsentDisclosure);
+  const promotionReason = normalizeNonEmptyString(payload.autonomyPromotionReason);
+  const validationErrors: string[] = [];
+
+  if (isCallFlow) {
+    if (!callFallbackApproved) {
+      validationErrors.push(
+        "callFallbackApproved must be true before approving outbound appointment calls."
+      );
+    }
+    if (!consentDisclosure) {
+      validationErrors.push(
+        "callConsentDisclosure is required before approving outbound appointment calls."
+      );
+    }
+    if (!promotionReason) {
+      validationErrors.push(
+        "autonomyPromotionReason is required before approving outbound appointment calls."
+      );
+    }
+  }
+
+  return {
+    isCallFlow,
+    payload,
+    consentDisclosure,
+    promotionReason,
+    validationErrors,
+    recordingDisclosureStatus: consentDisclosure ? "provided" : "missing",
+  };
+}
+
+function buildAppointmentCallComplianceMetadata(args: {
+  decision: AppointmentCallConsentDecision;
+  disclosure: string | null;
+  promotionReason: string | null;
+  validationErrors: string[];
+  now: number;
+  actorId: string;
+}): Record<string, unknown> {
+  return {
+    policyType: APPOINTMENT_CALL_POLICY_TYPE,
+    policyVersion: APPOINTMENT_CALL_POLICY_VERSION,
+    consentScope: APPOINTMENT_CALL_CONSENT_SCOPE,
+    consentDecision: args.decision,
+    consentDisclosure: args.disclosure,
+    recordingDisclosureStatus: args.disclosure ? "provided" : "missing",
+    medicalDataPolicy: APPOINTMENT_CALL_MEDICAL_POLICY,
+    phiHandlingMode: APPOINTMENT_CALL_PHI_HANDLING_MODE,
+    autonomyPromotionReason: args.promotionReason,
+    validationErrors: args.validationErrors,
+    recordedAt: args.now,
+    recordedBy: args.actorId,
+  };
+}
+
+function enforceAppointmentCallPayload(args: {
+  approvalId: Id<"objects">;
+  payload: Record<string, unknown>;
+  disclosure: string;
+  promotionReason: string;
+}): Record<string, unknown> {
+  return {
+    ...args.payload,
+    action: APPOINTMENT_CALL_ACTION,
+    callFallbackApproved: true,
+    callConsentDisclosure: args.disclosure,
+    autonomyDomainLevel: "live",
+    autonomyPromotionApprovalId: String(args.approvalId),
+    autonomyPromotionReason: args.promotionReason,
+  };
+}
+
+async function recordAppointmentCallTrustEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    eventName: AppointmentCallTrustEventName;
+    organizationId: Id<"organizations">;
+    sessionId: Id<"agentSessions">;
+    actorType: "agent" | "user" | "system";
+    actorId: string;
+    approvalId: Id<"objects">;
+    decision: AppointmentCallConsentDecision;
+    enforcementDecision: string;
+    recordingDisclosureStatus: "provided" | "missing";
+    failureReason?: string;
+    now: number;
+  }
+): Promise<void> {
+  const session = await ctx.db.get(args.sessionId);
+  const payload = {
+    event_id: `trust:${args.eventName}:${String(args.approvalId)}:${args.now}`,
+    event_version: "v1",
+    occurred_at: args.now,
+    org_id: args.organizationId,
+    mode: "runtime" as const,
+    channel: session?.channel || "runtime",
+    session_id: String(args.sessionId),
+    actor_type: args.actorType,
+    actor_id: args.actorId,
+    policy_type: APPOINTMENT_CALL_POLICY_TYPE,
+    policy_id: APPOINTMENT_CALL_POLICY_VERSION,
+    tool_name: APPOINTMENT_CALL_TOOL_NAME,
+    enforcement_decision: args.enforcementDecision,
+    consent_scope: APPOINTMENT_CALL_CONSENT_SCOPE,
+    consent_decision: args.decision,
+    consent_prompt_version: APPOINTMENT_CALL_POLICY_VERSION,
+    recording_disclosure_status: args.recordingDisclosureStatus,
+    medical_data_policy: APPOINTMENT_CALL_MEDICAL_POLICY,
+    phi_handling_mode: APPOINTMENT_CALL_PHI_HANDLING_MODE,
+    approval_id: String(args.approvalId),
+    failure_reason: args.failureReason,
+  };
+  const validation = validateTrustEventPayload(args.eventName, payload);
+  await ctx.db.insert("aiTrustEvents", {
+    event_name: args.eventName,
+    payload,
+    schema_validation_status: validation.ok ? "passed" : "failed",
+    schema_errors: validation.ok ? undefined : validation.errors,
+    created_at: args.now,
+  });
+}
+
 // ============================================================================
 // CREATE APPROVAL (Internal — called by execution pipeline)
 // ============================================================================
@@ -111,12 +373,26 @@ export const createApprovalRequest = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const appointmentCallEvaluation = evaluateAppointmentCallFlow({
+      actionType: args.actionType,
+      actionPayload: args.actionPayload,
+    });
     const harnessContext = await buildApprovalHarnessContext(ctx, {
       agentId: args.agentId,
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       actionType: args.actionType,
     });
+    const appointmentCallCompliance = appointmentCallEvaluation.isCallFlow
+      ? buildAppointmentCallComplianceMetadata({
+        decision: "pending",
+        disclosure: appointmentCallEvaluation.consentDisclosure,
+        promotionReason: appointmentCallEvaluation.promotionReason,
+        validationErrors: appointmentCallEvaluation.validationErrors,
+        now,
+        actorId: String(args.agentId),
+      })
+      : null;
 
     const approvalId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -133,6 +409,9 @@ export const createApprovalRequest = internalMutation({
         harnessContext,
         requestedAt: now,
         expiresAt: now + 24 * 60 * 60 * 1000, // 24h expiry
+        ...(appointmentCallCompliance
+          ? { appointmentCallCompliance }
+          : {}),
       },
       createdAt: now,
       updatedAt: now,
@@ -166,10 +445,37 @@ export const createApprovalRequest = internalMutation({
         tool: args.actionType,
         sessionId: args.sessionId,
         harnessContext,
+        ...(appointmentCallCompliance
+          ? {
+            appointmentCallCompliance,
+            appointmentCallValidationErrors:
+              appointmentCallEvaluation.validationErrors,
+          }
+          : {}),
       },
       performedBy: args.agentId,
       performedAt: now,
     });
+
+    if (appointmentCallEvaluation.isCallFlow) {
+      await recordAppointmentCallTrustEvent(ctx, {
+        eventName: "trust.guardrail.appointment_call_approval_requested.v1",
+        organizationId: args.organizationId,
+        sessionId: args.sessionId,
+        actorType: "agent",
+        actorId: String(args.agentId),
+        approvalId,
+        decision: "pending",
+        enforcementDecision: "approval_requested",
+        recordingDisclosureStatus:
+          appointmentCallEvaluation.recordingDisclosureStatus,
+        failureReason:
+          appointmentCallEvaluation.validationErrors.length > 0
+            ? appointmentCallEvaluation.validationErrors.join(" ")
+            : undefined,
+        now,
+      });
+    }
 
     return approvalId;
   },
@@ -292,7 +598,49 @@ export const approveAction = mutation({
     );
     const approvalCustomProperties = (approval.customProperties || {}) as Record<string, unknown>;
     const harnessContext = readApprovalHarnessContext(approvalCustomProperties.harnessContext);
+    const privilegedEvidenceError = getPrivilegedEvidenceError({
+      actionType: approvalCustomProperties.actionType,
+      actionPayload: approvalCustomProperties.actionPayload,
+    });
+    if (privilegedEvidenceError) {
+      throw new Error(`Approval blocked: ${privilegedEvidenceError}`);
+    }
     const now = Date.now();
+    const appointmentCallEvaluation = evaluateAppointmentCallFlow({
+      actionType: approvalCustomProperties.actionType,
+      actionPayload: approvalCustomProperties.actionPayload,
+    });
+    if (
+      appointmentCallEvaluation.isCallFlow &&
+      appointmentCallEvaluation.validationErrors.length > 0
+    ) {
+      throw new Error(
+        `Approval blocked: ${appointmentCallEvaluation.validationErrors.join(" ")}`
+      );
+    }
+    const approvedActionPayload = (
+      appointmentCallEvaluation.isCallFlow &&
+      appointmentCallEvaluation.payload &&
+      appointmentCallEvaluation.consentDisclosure &&
+      appointmentCallEvaluation.promotionReason
+    )
+      ? enforceAppointmentCallPayload({
+        approvalId: args.approvalId,
+        payload: appointmentCallEvaluation.payload,
+        disclosure: appointmentCallEvaluation.consentDisclosure,
+        promotionReason: appointmentCallEvaluation.promotionReason,
+      })
+      : approvalCustomProperties.actionPayload;
+    const appointmentCallCompliance = appointmentCallEvaluation.isCallFlow
+      ? buildAppointmentCallComplianceMetadata({
+        decision: "approved",
+        disclosure: appointmentCallEvaluation.consentDisclosure,
+        promotionReason: appointmentCallEvaluation.promotionReason,
+        validationErrors: appointmentCallEvaluation.validationErrors,
+        now,
+        actorId: String(session.userId),
+      })
+      : null;
 
     // Mark as approved
     await ctx.db.patch(args.approvalId, {
@@ -300,9 +648,13 @@ export const approveAction = mutation({
       customProperties: {
         ...approval.customProperties,
         ...(harnessContext ? { harnessContext } : {}),
+        actionPayload: approvedActionPayload,
         resolvedAt: now,
         resolvedBy: session.userId,
         ...(interventionTemplate ? { interventionTemplate } : {}),
+        ...(appointmentCallCompliance
+          ? { appointmentCallCompliance }
+          : {}),
       },
       updatedAt: now,
     });
@@ -347,10 +699,29 @@ export const approveAction = mutation({
         interventionTemplateId: interventionTemplate?.templateId,
         ...(harnessContext ? { harnessContext } : {}),
         ...(interventionTemplate ? { interventionTemplate } : {}),
+        ...(appointmentCallCompliance
+          ? { appointmentCallCompliance }
+          : {}),
       },
       performedBy: session.userId,
       performedAt: now,
     });
+
+    if (appointmentCallCompliance && approvalSessionId) {
+      await recordAppointmentCallTrustEvent(ctx, {
+        eventName: "trust.guardrail.appointment_call_approval_resolved.v1",
+        organizationId: approval.organizationId,
+        sessionId: approvalSessionId,
+        actorType: "user",
+        actorId: String(session.userId),
+        approvalId: args.approvalId,
+        decision: "approved",
+        enforcementDecision: "approval_granted",
+        recordingDisclosureStatus:
+          appointmentCallEvaluation.recordingDisclosureStatus,
+        now,
+      });
+    }
   },
 });
 
@@ -383,6 +754,20 @@ export const rejectAction = mutation({
     const approvalCustomProperties = (approval.customProperties || {}) as Record<string, unknown>;
     const harnessContext = readApprovalHarnessContext(approvalCustomProperties.harnessContext);
     const now = Date.now();
+    const appointmentCallEvaluation = evaluateAppointmentCallFlow({
+      actionType: approvalCustomProperties.actionType,
+      actionPayload: approvalCustomProperties.actionPayload,
+    });
+    const appointmentCallCompliance = appointmentCallEvaluation.isCallFlow
+      ? buildAppointmentCallComplianceMetadata({
+        decision: "rejected",
+        disclosure: appointmentCallEvaluation.consentDisclosure,
+        promotionReason: appointmentCallEvaluation.promotionReason,
+        validationErrors: appointmentCallEvaluation.validationErrors,
+        now,
+        actorId: String(session.userId),
+      })
+      : null;
 
     await ctx.db.patch(args.approvalId, {
       status: "rejected",
@@ -393,6 +778,9 @@ export const rejectAction = mutation({
         resolvedBy: session.userId,
         rejectionReason: args.reason,
         ...(interventionTemplate ? { interventionTemplate } : {}),
+        ...(appointmentCallCompliance
+          ? { appointmentCallCompliance }
+          : {}),
       },
       updatedAt: now,
     });
@@ -433,10 +821,30 @@ export const rejectAction = mutation({
         interventionTemplateId: interventionTemplate?.templateId,
         ...(harnessContext ? { harnessContext } : {}),
         ...(interventionTemplate ? { interventionTemplate } : {}),
+        ...(appointmentCallCompliance
+          ? { appointmentCallCompliance }
+          : {}),
       },
       performedBy: session.userId,
       performedAt: now,
     });
+
+    if (appointmentCallCompliance && approvalSessionId) {
+      await recordAppointmentCallTrustEvent(ctx, {
+        eventName: "trust.guardrail.appointment_call_approval_resolved.v1",
+        organizationId: approval.organizationId,
+        sessionId: approvalSessionId,
+        actorType: "user",
+        actorId: String(session.userId),
+        approvalId: args.approvalId,
+        decision: "rejected",
+        enforcementDecision: "approval_rejected",
+        recordingDisclosureStatus:
+          appointmentCallEvaluation.recordingDisclosureStatus,
+        failureReason: normalizeNonEmptyString(args.reason) || undefined,
+        now,
+      });
+    }
   },
 });
 
@@ -465,6 +873,97 @@ export const executeApprovedAction = internalAction({
     const toolArgs = props.actionPayload;
     const agentId = props.agentId as Id<"objects">;
     const agentSessionId = props.sessionId as Id<"agentSessions">;
+
+    const privilegedEvidenceError = getPrivilegedEvidenceError({
+      actionType: toolName,
+      actionPayload: toolArgs,
+    });
+    if (privilegedEvidenceError) {
+      await (ctx as any).runMutation(generatedApi.internal.ai.agentApprovals.markExecuted, {
+        approvalId: args.approvalId,
+        success: false,
+        result: `PRIVILEGED_EVIDENCE_MISSING: ${privilegedEvidenceError}`,
+      });
+      return { status: "error", message: privilegedEvidenceError };
+    }
+    const appointmentCallEvaluation = evaluateAppointmentCallFlow({
+      actionType: toolName,
+      actionPayload: toolArgs,
+    });
+    let executionToolArgs = toolArgs;
+    if (appointmentCallEvaluation.isCallFlow) {
+      const approvalCompliance = readRecord(props.appointmentCallCompliance);
+      const complianceDecision = normalizeLowerToken(
+        approvalCompliance?.consentDecision
+      );
+      const complianceDisclosure = normalizeNonEmptyString(
+        approvalCompliance?.consentDisclosure
+      );
+      const compliancePromotionReason = normalizeNonEmptyString(
+        approvalCompliance?.autonomyPromotionReason
+      );
+      const complianceErrors: string[] = [
+        ...appointmentCallEvaluation.validationErrors,
+      ];
+      if (complianceDecision !== "approved") {
+        complianceErrors.push(
+          "appointment call compliance decision must be approved before execution."
+        );
+      }
+      if (!appointmentCallEvaluation.payload) {
+        complianceErrors.push(
+          "appointment call approval is missing structured manage_bookings payload."
+        );
+      }
+      const effectiveDisclosure =
+        appointmentCallEvaluation.consentDisclosure || complianceDisclosure;
+      if (!effectiveDisclosure) {
+        complianceErrors.push(
+          "appointment call approval is missing consent disclosure text."
+        );
+      }
+      const effectivePromotionReason =
+        appointmentCallEvaluation.promotionReason || compliancePromotionReason;
+      if (!effectivePromotionReason) {
+        complianceErrors.push(
+          "appointment call approval is missing autonomy promotion reason."
+        );
+      }
+
+      if (complianceErrors.length > 0) {
+        const blockedReason = complianceErrors.join(" ");
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.agentApprovals.markExecuted,
+          {
+            approvalId: args.approvalId,
+            success: false,
+            result: `APPOINTMENT_CALL_COMPLIANCE_BLOCKED: ${blockedReason}`,
+          }
+        );
+        await recordAppointmentCallTrustEvent(ctx, {
+          eventName: "trust.guardrail.appointment_call_approval_blocked.v1",
+          organizationId: approval.organizationId,
+          sessionId: agentSessionId,
+          actorType: "system",
+          actorId: "agent_approval_runtime",
+          approvalId: args.approvalId,
+          decision: "blocked",
+          enforcementDecision: "execution_blocked",
+          recordingDisclosureStatus:
+            appointmentCallEvaluation.recordingDisclosureStatus,
+          failureReason: blockedReason,
+          now: Date.now(),
+        });
+        return { status: "error", message: blockedReason };
+      }
+
+      executionToolArgs = enforceAppointmentCallPayload({
+        approvalId: args.approvalId,
+        payload: appointmentCallEvaluation.payload as Record<string, unknown>,
+        disclosure: effectiveDisclosure as string,
+        promotionReason: effectivePromotionReason as string,
+      });
+    }
 
     const tool = TOOL_REGISTRY[toolName];
     if (!tool) {
@@ -500,9 +999,18 @@ export const executeApprovedAction = internalAction({
         userId: agentId as unknown as Id<"users">, // Agent acts as the user
         sessionId: undefined,
         conversationId: undefined,
+        runtimePolicy: {
+          codeExecution: {
+            autonomyLevel: "supervised",
+            approvalRequired: true,
+            approvalGranted: true,
+            approvalId: String(args.approvalId),
+            policySource: "agent_approval_execution",
+          },
+        },
       };
 
-      const result = await tool.execute(toolCtx, toolArgs);
+      const result = await tool.execute(toolCtx, executionToolArgs);
 
       // Deduct credits for successful execution
       try {

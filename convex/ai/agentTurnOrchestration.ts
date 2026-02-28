@@ -13,6 +13,9 @@ export interface TurnLeaseMutationResult {
   transitionVersion?: number;
   leaseToken?: string;
   leaseExpiresAt?: number;
+  conflictingTurnId?: Id<"agentTurns">;
+  conflictLabel?: string;
+  queueConcurrencyKey?: string;
 }
 
 export interface TurnLeaseReleaseArgs {

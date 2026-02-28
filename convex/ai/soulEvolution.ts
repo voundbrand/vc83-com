@@ -8,7 +8,7 @@
 import { action, mutation, query, internalMutation, internalQuery, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
-import { requireAuthenticatedUser } from "../rbacHelpers";
+import { getUserContext, requireAuthenticatedUser } from "../rbacHelpers";
 import {
   CORE_MEMORY_SOURCE_VALUES,
   CORE_MEMORY_TYPE_VALUES,
@@ -21,8 +21,150 @@ import {
   type TrustEventName,
   type TrustEventPayload,
 } from "./trustEvents";
+import { resolvePlatformSoulScope } from "./platformSoulScope";
+import {
+  createNonChatAiUsageMeteringRunners,
+  meterNonChatAiUsage,
+} from "./nonChatUsageMetering";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+
+function normalizeNonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toUsageErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    const normalized = error.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  return undefined;
+}
+
+function convertUsdToCents(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round(value * 100));
+}
+
+function extractCompletionUsage(response: unknown): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  providerRequestId?: string;
+} {
+  const usage = (response as { usage?: Record<string, unknown> } | null)?.usage ?? null;
+  const inputTokens = normalizeNonNegativeInt(usage?.prompt_tokens);
+  const outputTokens = normalizeNonNegativeInt(usage?.completion_tokens);
+  const totalTokens = Math.max(
+    normalizeNonNegativeInt(usage?.total_tokens),
+    inputTokens + outputTokens
+  );
+  const providerRequestId = normalizeOptionalString(
+    (response as { id?: unknown } | null)?.id
+  );
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    providerRequestId,
+  };
+}
+
+async function meterSoulReflectionUsage(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId: Id<"objects">;
+  client: {
+    calculateCost: (
+      usage: { prompt_tokens: number; completion_tokens: number },
+      model: string
+    ) => number;
+  };
+  model: string;
+  response: unknown;
+  providerError: unknown;
+  startedAt: number;
+}) {
+  const usage = extractCompletionUsage(args.response);
+  const costInCents = convertUsdToCents(
+    args.client.calculateCost(
+      {
+        prompt_tokens: usage.inputTokens,
+        completion_tokens: usage.outputTokens,
+      },
+      args.model
+    )
+  );
+  const meteringRunners = createNonChatAiUsageMeteringRunners({
+    runMutation: args.ctx.runMutation,
+  });
+
+  try {
+    await meterNonChatAiUsage({
+      runners: meteringRunners,
+      organizationId: args.organizationId,
+      requestType: "completion",
+      provider: "openrouter",
+      model: args.model,
+      action: "soul_reflection",
+      requestCount: 1,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      costInCents,
+      usage: {
+        nativeUsageUnit: "tokens",
+        nativeInputUnits: usage.inputTokens,
+        nativeOutputUnits: usage.outputTokens,
+        nativeTotalUnits: usage.totalTokens,
+        nativeUsageQuantity: usage.totalTokens,
+        nativeCostInCents: costInCents,
+        nativeCostCurrency: costInCents > 0 ? "USD" : undefined,
+        nativeCostSource:
+          costInCents > 0 ? "estimated_model_pricing" : "not_available",
+        providerRequestId: usage.providerRequestId,
+        metadata: {
+          agentId: `${args.agentId}`,
+          flow: "soul_reflection",
+        },
+      },
+      billingSource: "platform",
+      requestSource: "llm",
+      ledgerMode: "credits_ledger",
+      creditLedgerAction: "soul_reflection",
+      relatedEntityType: "agent",
+      relatedEntityId: `${args.agentId}`,
+      success: args.providerError === null,
+      errorMessage:
+        args.providerError === null
+          ? undefined
+          : toUsageErrorMessage(args.providerError),
+      requestDurationMs: Date.now() - args.startedAt,
+    });
+  } catch (meteringError) {
+    console.warn(
+      "[SoulEvolution] Failed to record self-reflection usage:",
+      toUsageErrorMessage(meteringError) ?? String(meteringError)
+    );
+  }
+}
 
 type CoreMemoryType = (typeof CORE_MEMORY_TYPE_VALUES)[number];
 type CoreMemorySource = (typeof CORE_MEMORY_SOURCE_VALUES)[number];
@@ -54,7 +196,7 @@ export interface CoreMemoryPolicy {
   requiredMemoryTypes: CoreMemoryType[];
 }
 
-export const SOUL_V2_OVERLAY_VERSION = 2;
+export const SOUL_V2_OVERLAY_VERSION = 3;
 
 export const SOUL_V2_IDENTITY_ANCHOR_FIELDS = [
   "name",
@@ -64,6 +206,10 @@ export const SOUL_V2_IDENTITY_ANCHOR_FIELDS = [
   "neverDo",
   "escalationTriggers",
   "coreMemories",
+  "immutableOrigin",
+  "interviewSessionId",
+  "interviewTemplateId",
+  "firstWordsHandshakeId",
 ] as const;
 
 export const SOUL_V2_EXECUTION_PREFERENCE_FIELDS = [
@@ -88,6 +234,10 @@ export interface SoulIdentityAnchors {
   neverDo?: string[];
   escalationTriggers?: string[];
   coreMemories: CoreMemory[];
+  immutableOrigin: "interview" | "generated" | "manual";
+  interviewSessionId?: string;
+  interviewTemplateId?: string;
+  firstWordsHandshakeId?: string;
 }
 
 export interface SoulExecutionPreferences {
@@ -165,6 +315,64 @@ const CORE_MEMORY_SOURCE_SET = new Set<string>(CORE_MEMORY_SOURCE_VALUES);
 const SOUL_V2_IDENTITY_FIELD_SET = new Set<string>(SOUL_V2_IDENTITY_ANCHOR_FIELDS);
 const SOUL_V2_EXECUTION_FIELD_SET = new Set<string>(SOUL_V2_EXECUTION_PREFERENCE_FIELDS);
 
+function assertStandardSoulAccess(config: Record<string, unknown>) {
+  const scope = resolvePlatformSoulScope(config);
+  if (scope.isPlatformL2) {
+    throw new Error(
+      "This agent uses platform-managed L2 soul scope. Use platform_soul_admin (view/propose/approve_apply/rollback)."
+    );
+  }
+}
+
+const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
+
+function readSoulAgentOperatorId(config: Record<string, unknown>): string | null {
+  const operatorId = config.operatorId;
+  if (typeof operatorId !== "string") {
+    return null;
+  }
+  const normalized = operatorId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function enforceSoulOwnerOrSuperAdminAccess(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  agent: {
+    organizationId: Id<"organizations">;
+    customProperties?: unknown;
+  };
+}) {
+  const auth = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  const userContext = await getUserContext(
+    args.ctx,
+    auth.userId,
+    args.agent.organizationId
+  );
+  const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  if (isSuperAdmin) {
+    return { auth, isSuperAdmin };
+  }
+
+  const config =
+    (args.agent.customProperties as Record<string, unknown> | undefined) ?? {};
+  const operatorId = readSoulAgentOperatorId(config);
+  const userId = String(auth.userId);
+  const ownsAgent =
+    operatorId === userId
+    || (
+      operatorId === DEFAULT_OPERATOR_CONTEXT_ID
+      && userContext.roleName === "org_owner"
+    );
+  if (!ownsAgent || config.isPrimary !== true) {
+    throw new Error(
+      "ONE_OF_ONE_AGENT_ACCESS_DENIED: only super_admin can manage non-owner or non-primary soul flows."
+    );
+  }
+  return { auth, isSuperAdmin };
+}
+
 export const DEFAULT_CORE_MEMORY_POLICY: CoreMemoryPolicy = {
   immutableByDefault: true,
   requireOwnerApprovalForMutations: true,
@@ -217,6 +425,16 @@ function normalizeStringArray(value: unknown): string[] | undefined {
     return undefined;
   }
   return Array.from(new Set(normalized));
+}
+
+function normalizeSoulIdentityImmutableOrigin(
+  value: unknown,
+): "interview" | "generated" | "manual" {
+  const normalized = toNonEmptyString(value)?.toLowerCase();
+  if (normalized === "interview" || normalized === "manual") {
+    return normalized;
+  }
+  return "generated";
 }
 
 function normalizeCoreMemories(value: unknown): CoreMemory[] {
@@ -349,6 +567,12 @@ export function normalizeSoulModel(value: unknown): SoulModel {
         rawIdentityAnchors.escalationTriggers ?? soulRecord.escalationTriggers,
       ),
       coreMemories: normalizedCoreMemories,
+      immutableOrigin: normalizeSoulIdentityImmutableOrigin(
+        rawIdentityAnchors.immutableOrigin,
+      ),
+      interviewSessionId: toNonEmptyString(rawIdentityAnchors.interviewSessionId) ?? undefined,
+      interviewTemplateId: toNonEmptyString(rawIdentityAnchors.interviewTemplateId) ?? undefined,
+      firstWordsHandshakeId: toNonEmptyString(rawIdentityAnchors.firstWordsHandshakeId) ?? undefined,
     },
     executionPreferences: {
       alwaysDo: normalizeStringArray(rawExecutionPreferences.alwaysDo ?? soulRecord.alwaysDo),
@@ -723,6 +947,81 @@ function formatDriftSummary(scores: SoulDriftScores): string {
     `performance=${scores.performance.toFixed(2)}`,
     `overall=${scores.overall.toFixed(2)}`,
   ].join(", ");
+}
+
+export interface ModelSwitchDriftSample {
+  responseId?: string;
+  driftScores: SoulDriftScores;
+}
+
+export interface ModelSwitchDriftEvaluation {
+  sampleCount: number;
+  minimumSamples: number;
+  threshold: number;
+  averageOverallDrift: number;
+  maxOverallDrift: number;
+  exceedsThreshold: boolean;
+  userVisibleWarning?: string;
+}
+
+function clampModelSwitchDriftScore(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(1, Math.max(0, value));
+}
+
+export function evaluateModelSwitchDrift(args: {
+  samples?: ModelSwitchDriftSample[] | null;
+  threshold?: number;
+  minimumSamples?: number;
+}): ModelSwitchDriftEvaluation {
+  const minimumSamples =
+    typeof args.minimumSamples === "number" && Number.isFinite(args.minimumSamples)
+      ? Math.max(1, Math.floor(args.minimumSamples))
+      : 3;
+  const threshold =
+    typeof args.threshold === "number" && Number.isFinite(args.threshold)
+      ? clampModelSwitchDriftScore(args.threshold)
+      : 0.35;
+  const samples = Array.isArray(args.samples) ? args.samples : [];
+  const validOverallScores = samples
+    .map((sample) => sample?.driftScores?.overall)
+    .filter((score): score is number => typeof score === "number")
+    .map((score) => clampModelSwitchDriftScore(score));
+
+  if (validOverallScores.length === 0) {
+    return {
+      sampleCount: 0,
+      minimumSamples,
+      threshold,
+      averageOverallDrift: 0,
+      maxOverallDrift: 0,
+      exceedsThreshold: false,
+    };
+  }
+
+  const averageOverallDrift =
+    validOverallScores.reduce((sum, score) => sum + score, 0)
+    / validOverallScores.length;
+  const maxOverallDrift = validOverallScores.reduce(
+    (max, score) => (score > max ? score : max),
+    0
+  );
+  const exceedsThreshold =
+    validOverallScores.length >= minimumSamples && averageOverallDrift >= threshold;
+
+  return {
+    sampleCount: validOverallScores.length,
+    minimumSamples,
+    threshold,
+    averageOverallDrift,
+    maxOverallDrift,
+    exceedsThreshold,
+    userVisibleWarning: exceedsThreshold
+      ? "Model switch may reduce soul fidelity. Consider restoring the previous model or using a higher-quality tier."
+      : undefined,
+  };
 }
 
 function normalizeSoulProposalTargetField(targetField: string): string {
@@ -1312,6 +1611,7 @@ export const approveProposal = internalMutation({
     const agent = await ctx.db.get(proposal.agentId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent?.customProperties || {}) as Record<string, any>;
+    assertStandardSoulAccess(config);
     const soul = normalizeSoulModel(config.soul);
     const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
     const reviewPayload = buildOperatorReviewPayload({
@@ -1378,6 +1678,7 @@ export const rejectProposal = internalMutation({
     const agent = await ctx.db.get(proposal.agentId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent?.customProperties || {}) as Record<string, any>;
+    assertStandardSoulAccess(config);
     const soul = normalizeSoulModel(config.soul);
     const coreMemoryPolicy = soul.coreMemoryPolicy ?? DEFAULT_CORE_MEMORY_POLICY;
     const reviewPayload = buildOperatorReviewPayload({
@@ -1477,16 +1778,18 @@ export const applyProposal = internalMutation({
       return { error: soulV2Guard.reason ?? "Soul v2 proposal blocked by policy." };
     }
 
-    if (!soul.soulV2) {
-      soul.soulV2 = {
-        schemaVersion: SOUL_V2_OVERLAY_VERSION,
-        identityAnchors: { coreMemories: soul.coreMemories ?? [] },
-        executionPreferences: {},
-        requireOwnerApprovalForMutations: true,
-      };
-    }
-    const executionPreferences = soul.soulV2.executionPreferences;
-    const identityAnchors = soul.soulV2.identityAnchors;
+    const soulV2Overlay = soul.soulV2 ?? {
+      schemaVersion: SOUL_V2_OVERLAY_VERSION,
+      identityAnchors: {
+        coreMemories: soul.coreMemories ?? [],
+        immutableOrigin: "generated" as const,
+      },
+      executionPreferences: {},
+      requireOwnerApprovalForMutations: true,
+    };
+    soul.soulV2 = soulV2Overlay;
+    const executionPreferences = soulV2Overlay.executionPreferences;
+    const identityAnchors = soulV2Overlay.identityAnchors;
     const reviewedBy = toNonEmptyString(proposal.reviewedBy) ?? "owner";
     const approvedAt = normalizeOptionalNumber(proposal.reviewedAt) ?? Date.now();
 
@@ -2042,15 +2345,38 @@ Rules:
 - Be conservative — fewer high-quality proposals beat many low-quality ones
 - Output ONLY valid JSON`;
 
-    const response = await client.chatCompletion({
-      model: "anthropic/claude-sonnet-4.5",
-      messages: [
-        { role: "system", content: "You are a self-reflective AI agent. Analyze your own behavior and suggest improvements. Output only valid JSON." },
-        { role: "user", content: reflectionPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 1500,
+    const model = "anthropic/claude-sonnet-4.5";
+    const requestStartedAt = Date.now();
+    let response: any = null;
+    let providerError: unknown = null;
+    try {
+      response = await client.chatCompletion({
+        model,
+        messages: [
+          { role: "system", content: "You are a self-reflective AI agent. Analyze your own behavior and suggest improvements. Output only valid JSON." },
+          { role: "user", content: reflectionPrompt },
+        ],
+        temperature: 0.4,
+        max_tokens: 1500,
+      });
+    } catch (error) {
+      providerError = error;
+    }
+
+    await meterSoulReflectionUsage({
+      ctx,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      client,
+      model,
+      response,
+      providerError,
+      startedAt: requestStartedAt,
     });
+
+    if (providerError !== null) {
+      throw providerError;
+    }
 
     const content = response.choices?.[0]?.message?.content || "{}";
 
@@ -2111,9 +2437,21 @@ export const getSoulProposals = query({
     status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
 
     if (args.agentId && args.status) {
+      const targetAgent = await ctx.db.get(args.agentId);
+      if (!targetAgent) {
+        throw new Error("Agent not found");
+      }
+      await enforceSoulOwnerOrSuperAdminAccess({
+        ctx,
+        sessionId: args.sessionId,
+        agent: targetAgent,
+      });
+      const targetConfig =
+        (targetAgent?.customProperties as Record<string, unknown> | undefined) ?? {};
+      assertStandardSoulAccess(targetConfig);
       return await ctx.db
         .query("soulProposals")
         .withIndex("by_agent_status", (q) =>
@@ -2123,6 +2461,18 @@ export const getSoulProposals = query({
     }
 
     if (args.agentId) {
+      const targetAgent = await ctx.db.get(args.agentId);
+      if (!targetAgent) {
+        throw new Error("Agent not found");
+      }
+      await enforceSoulOwnerOrSuperAdminAccess({
+        ctx,
+        sessionId: args.sessionId,
+        agent: targetAgent,
+      });
+      const targetConfig =
+        (targetAgent?.customProperties as Record<string, unknown> | undefined) ?? {};
+      assertStandardSoulAccess(targetConfig);
       // All statuses for this agent
       return await ctx.db
         .query("soulProposals")
@@ -2132,6 +2482,13 @@ export const getSoulProposals = query({
     }
 
     // All proposals for the org
+    const userContext = await getUserContext(ctx, auth.userId, args.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+    if (!isSuperAdmin) {
+      throw new Error(
+        "ONE_OF_ONE_AGENT_ACCESS_DENIED: non-super-admin users must scope proposal queries to their own primary agent."
+      );
+    }
     return await ctx.db
       .query("soulProposals")
       .withIndex("by_org_status", (q) =>
@@ -2158,6 +2515,14 @@ export const approveSoulProposalAuth = mutation({
       throw new Error("Proposal not found or already processed");
     }
     const agent = await ctx.db.get(proposal.agentId);
+    if (!agent) {
+      throw new Error("Agent not found");
+    }
+    await enforceSoulOwnerOrSuperAdminAccess({
+      ctx,
+      sessionId: args.sessionId,
+      agent,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent?.customProperties || {}) as Record<string, any>;
     const soul = normalizeSoulModel(config.soul);
@@ -2232,6 +2597,14 @@ export const rejectSoulProposalAuth = mutation({
     }
 
     const agent = await ctx.db.get(proposal.agentId);
+    if (!agent) {
+      throw new Error("Agent not found");
+    }
+    await enforceSoulOwnerOrSuperAdminAccess({
+      ctx,
+      sessionId: args.sessionId,
+      agent,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent?.customProperties || {}) as Record<string, any>;
     const soul = normalizeSoulModel(config.soul);
@@ -2408,6 +2781,18 @@ export const getSoulVersionHistoryAuth = query({
   },
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
+    const targetAgent = await ctx.db.get(args.agentId);
+    if (!targetAgent) {
+      throw new Error("Agent not found");
+    }
+    await enforceSoulOwnerOrSuperAdminAccess({
+      ctx,
+      sessionId: args.sessionId,
+      agent: targetAgent,
+    });
+    const targetConfig =
+      (targetAgent?.customProperties as Record<string, unknown> | undefined) ?? {};
+    assertStandardSoulAccess(targetConfig);
 
     return await ctx.db
       .query("soulVersionHistory")
@@ -2431,9 +2816,15 @@ export const rollbackSoulAuth = mutation({
 
     const agent = await ctx.db.get(args.agentId);
     if (!agent) throw new Error("Agent not found");
+    await enforceSoulOwnerOrSuperAdminAccess({
+      ctx,
+      sessionId: args.sessionId,
+      agent,
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const config = (agent.customProperties || {}) as Record<string, any>;
+    assertStandardSoulAccess(config);
     if (config.protected) {
       throw new Error("Cannot modify protected system agent");
     }

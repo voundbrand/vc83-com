@@ -440,6 +440,16 @@ export const executeApprovedTool = action({
           organizationId: execution.organizationId,
           userId: execution.userId,
           conversationId: execution.conversationId,
+          runtimePolicy: {
+            codeExecution: {
+              autonomyLevel: "supervised",
+              requireApprovalFor: [execution.toolName],
+              approvalRequired: true,
+              approvalGranted: true,
+              approvalId: String(args.executionId),
+              policySource: "approved_tool_execution",
+            },
+          },
         },
         execution.toolName,
         execution.parameters

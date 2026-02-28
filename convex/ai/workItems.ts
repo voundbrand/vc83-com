@@ -5,8 +5,9 @@
  * Powers the three-pane UI work item display
  */
 
-import { query, mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { query, mutation, type QueryCtx, type MutationCtx } from "../_generated/server";
+import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 
 interface OutcomeAggregation {
@@ -28,12 +29,288 @@ export interface ToolSuccessFailureAggregation {
   combined: OutcomeAggregation;
 }
 
+const NEGATIVE_SUPPORT_SENTIMENT_PHRASES = [
+  "not working",
+  "still broken",
+  "does not work",
+  "doesn't work",
+  "refund",
+  "chargeback",
+  "dispute",
+  "frustrated",
+  "angry",
+  "furious",
+  "terrible",
+  "awful",
+  "horrible",
+  "unacceptable",
+  "cannot access",
+  "can't access",
+  "locked out",
+];
+
+const POSITIVE_SUPPORT_SENTIMENT_PHRASES = [
+  "thank you",
+  "thanks",
+  "works now",
+  "resolved",
+  "fixed",
+  "great",
+  "awesome",
+  "perfect",
+  "appreciate",
+  "all good",
+];
+
+const SUPPORT_ESCALATION_OUTCOME_VALUES = [
+  "pending",
+  "taken_over",
+  "resolved",
+  "dismissed",
+  "timed_out",
+] as const;
+
+const HUMAN_ESCALATION_OUTCOME_SET = new Set<SupportEscalationOutcome>([
+  "pending",
+  "taken_over",
+  "resolved",
+]);
+
+const AI_RESOLVED_ESCALATION_OUTCOME_SET = new Set<SupportEscalationOutcome>([
+  "dismissed",
+  "timed_out",
+]);
+
+const AGENT_SESSION_STATUS_VALUES = [
+  "active",
+  "closed",
+  "expired",
+  "handed_off",
+] as const;
+
+export type SupportSentimentOutcome = "positive" | "neutral" | "negative";
+export type SupportEscalationOutcome = (typeof SUPPORT_ESCALATION_OUTCOME_VALUES)[number];
+
+export interface SupportQualitySessionRecord {
+  sessionId: string;
+  messageCount: number;
+  startedAt: number;
+  lastMessageAt: number;
+  finalUserSentiment: SupportSentimentOutcome;
+  hasEscalation: boolean;
+  escalationStatus?: SupportEscalationOutcome;
+}
+
+export interface SupportSentimentTrendPoint {
+  date: string;
+  positive: number;
+  neutral: number;
+  negative: number;
+  total: number;
+}
+
+export interface SupportQualityAggregation {
+  windowHours: number;
+  since: number;
+  totalSessions: number;
+  aiResolvedSessions: number;
+  humanEscalatedSessions: number;
+  unresolvedSessions: number;
+  resolutionRate: number;
+  escalationRate: number;
+  averageConversationMessages: number;
+  averageConversationDurationMinutes: number;
+  sentimentOutcomes: Record<SupportSentimentOutcome, number>;
+  escalationOutcomes: Record<SupportEscalationOutcome, number>;
+  sentimentTrend: SupportSentimentTrendPoint[];
+}
+
 function normalizeStatus(statusRaw: unknown): string | null {
   if (typeof statusRaw !== "string") {
     return null;
   }
   const normalized = statusRaw.trim().toLowerCase();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeSupportEscalationOutcome(
+  value: unknown
+): SupportEscalationOutcome | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return SUPPORT_ESCALATION_OUTCOME_VALUES.includes(
+    normalized as SupportEscalationOutcome
+  )
+    ? (normalized as SupportEscalationOutcome)
+    : null;
+}
+
+async function requireSuperAdminSession(
+  ctx: QueryCtx | MutationCtx,
+  sessionId: string
+): Promise<{ userId: Id<"users"> }> {
+  const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+  const user = await ctx.db.get(userId);
+  if (!user || !user.global_role_id) {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "Only super admins can access support quality metrics.",
+    });
+  }
+  const role = await ctx.db.get(user.global_role_id);
+  if (!role || role.name !== "super_admin") {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "Only super admins can access support quality metrics.",
+    });
+  }
+  return { userId };
+}
+
+export function classifySupportSentiment(
+  value: string | null | undefined
+): SupportSentimentOutcome {
+  if (typeof value !== "string") {
+    return "neutral";
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return "neutral";
+  }
+
+  let negativeSignals = 0;
+  for (const phrase of NEGATIVE_SUPPORT_SENTIMENT_PHRASES) {
+    if (normalized.includes(phrase)) {
+      negativeSignals += 1;
+    }
+  }
+
+  let positiveSignals = 0;
+  for (const phrase of POSITIVE_SUPPORT_SENTIMENT_PHRASES) {
+    if (normalized.includes(phrase)) {
+      positiveSignals += 1;
+    }
+  }
+
+  if (negativeSignals > positiveSignals && negativeSignals > 0) {
+    return "negative";
+  }
+  if (positiveSignals > negativeSignals && positiveSignals > 0) {
+    return "positive";
+  }
+  return "neutral";
+}
+
+export function aggregateSupportQualityMetrics(
+  records: SupportQualitySessionRecord[],
+  options: { windowHours: number; since: number }
+): SupportQualityAggregation {
+  const sentimentOutcomes: Record<SupportSentimentOutcome, number> = {
+    positive: 0,
+    neutral: 0,
+    negative: 0,
+  };
+  const escalationOutcomes: Record<SupportEscalationOutcome, number> = {
+    pending: 0,
+    taken_over: 0,
+    resolved: 0,
+    dismissed: 0,
+    timed_out: 0,
+  };
+
+  let aiResolvedSessions = 0;
+  let humanEscalatedSessions = 0;
+  let unresolvedSessions = 0;
+  let totalMessageCount = 0;
+  let totalDurationMs = 0;
+
+  const sentimentTrendMap = new Map<string, SupportSentimentTrendPoint>();
+
+  for (const record of records) {
+    const sentiment = record.finalUserSentiment;
+    sentimentOutcomes[sentiment] += 1;
+
+    const dayKey = new Date(Math.max(0, record.lastMessageAt))
+      .toISOString()
+      .slice(0, 10);
+    const dayBucket = sentimentTrendMap.get(dayKey) ?? {
+      date: dayKey,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      total: 0,
+    };
+    dayBucket[sentiment] += 1;
+    dayBucket.total += 1;
+    sentimentTrendMap.set(dayKey, dayBucket);
+
+    totalMessageCount += Math.max(0, record.messageCount);
+    totalDurationMs += Math.max(0, record.lastMessageAt - record.startedAt);
+
+    const escalationOutcome = normalizeSupportEscalationOutcome(record.escalationStatus);
+    if (record.hasEscalation && escalationOutcome) {
+      escalationOutcomes[escalationOutcome] += 1;
+    }
+
+    if (
+      !record.hasEscalation
+      || (escalationOutcome !== null
+        && AI_RESOLVED_ESCALATION_OUTCOME_SET.has(escalationOutcome))
+    ) {
+      aiResolvedSessions += 1;
+      continue;
+    }
+
+    if (
+      escalationOutcome !== null
+      && HUMAN_ESCALATION_OUTCOME_SET.has(escalationOutcome)
+    ) {
+      humanEscalatedSessions += 1;
+      continue;
+    }
+
+    unresolvedSessions += 1;
+  }
+
+  const totalSessions = records.length;
+  const resolutionRate =
+    totalSessions > 0
+      ? Number((aiResolvedSessions / totalSessions).toFixed(4))
+      : 0;
+  const escalationRate =
+    totalSessions > 0
+      ? Number((humanEscalatedSessions / totalSessions).toFixed(4))
+      : 0;
+  const averageConversationMessages =
+    totalSessions > 0
+      ? Number((totalMessageCount / totalSessions).toFixed(2))
+      : 0;
+  const averageConversationDurationMinutes =
+    totalSessions > 0
+      ? Number((totalDurationMs / totalSessions / (1000 * 60)).toFixed(2))
+      : 0;
+
+  const sentimentTrend = Array.from(sentimentTrendMap.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    totalSessions,
+    aiResolvedSessions,
+    humanEscalatedSessions,
+    unresolvedSessions,
+    resolutionRate,
+    escalationRate,
+    averageConversationMessages,
+    averageConversationDurationMinutes,
+    sentimentOutcomes,
+    escalationOutcomes,
+    sentimentTrend,
+  };
 }
 
 function aggregateOutcomeStatuses(statuses: Array<string | null | undefined>): OutcomeAggregation {
@@ -517,6 +794,111 @@ export const getReceiptOperationsDashboard = query({
       aging,
       duplicates,
       stuck,
+    };
+  },
+});
+
+/**
+ * Support quality dashboard for super-admin support operations.
+ * Tracks AI-resolved vs escalated outcomes with sentiment and escalation trends.
+ */
+export const getSupportAgentQualityMetrics = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24 * 7), 1), 24 * 30);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 150), 500));
+
+    const sessionGroups = await Promise.all(
+      AGENT_SESSION_STATUS_VALUES.map((status) =>
+        ctx.db
+          .query("agentSessions")
+          .withIndex("by_org_status", (q) =>
+            q.eq("organizationId", args.organizationId).eq("status", status)
+          )
+          .collect()
+      )
+    );
+
+    const supportSessions = sessionGroups
+      .flat()
+      .filter((session) => {
+        if (session.lastMessageAt < since) {
+          return false;
+        }
+        const isSupportSession = session.externalContactIdentifier.startsWith("support:");
+        return isSupportSession || Boolean(session.escalationState);
+      })
+      .sort((a, b) => b.lastMessageAt - a.lastMessageAt)
+      .slice(0, limit);
+
+    const records = await Promise.all(
+      supportSessions.map(async (session) => {
+        const recentMessages = await ctx.db
+          .query("agentSessionMessages")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .order("desc")
+          .take(20);
+        const latestUserMessage = recentMessages.find((message) => message.role === "user");
+        const escalationStatus = normalizeSupportEscalationOutcome(
+          session.escalationState?.status
+        );
+        const hasEscalation =
+          Boolean(session.escalationState)
+          || Boolean(session.escalationState?.supportTicketId)
+          || Boolean(session.escalationState?.supportTicketNumber);
+
+        return {
+          sessionId: String(session._id),
+          messageCount: session.messageCount,
+          startedAt: session.startedAt,
+          lastMessageAt: session.lastMessageAt,
+          finalUserSentiment: classifySupportSentiment(latestUserMessage?.content),
+          hasEscalation,
+          escalationStatus: escalationStatus ?? undefined,
+        } satisfies SupportQualitySessionRecord;
+      })
+    );
+
+    const summary = aggregateSupportQualityMetrics(records, {
+      windowHours: clampedHours,
+      since,
+    });
+
+    const recentEscalations = supportSessions
+      .filter((session) => Boolean(session.escalationState))
+      .sort((a, b) => {
+        const aEscalatedAt = a.escalationState?.escalatedAt ?? 0;
+        const bEscalatedAt = b.escalationState?.escalatedAt ?? 0;
+        return bEscalatedAt - aEscalatedAt;
+      })
+      .slice(0, 25)
+      .map((session) => ({
+        sessionId: session._id,
+        status: session.escalationState?.status ?? "pending",
+        urgency: session.escalationState?.urgency ?? "normal",
+        triggerType: session.escalationState?.triggerType ?? "unknown",
+        ticketNumber: session.escalationState?.supportTicketNumber ?? null,
+        ticketId: session.escalationState?.supportTicketId ?? null,
+        escalatedAt: session.escalationState?.escalatedAt ?? null,
+        respondedAt: session.escalationState?.respondedAt ?? null,
+        lastMessageAt: session.lastMessageAt,
+        messageCount: session.messageCount,
+      }));
+
+    return {
+      success: true,
+      organizationId: args.organizationId,
+      source: "support_agent_sessions",
+      ...summary,
+      recentEscalations,
     };
   },
 });

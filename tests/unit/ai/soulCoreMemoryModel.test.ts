@@ -77,6 +77,7 @@ describe("soul core memory model", () => {
     expect(soul.coreMemoryPolicy).toEqual(DEFAULT_CORE_MEMORY_POLICY);
     expect(soul.soulV2?.schemaVersion).toBe(SOUL_V2_OVERLAY_VERSION);
     expect(soul.soulV2?.identityAnchors.name).toBe("Agent Quinn");
+    expect(soul.soulV2?.identityAnchors.immutableOrigin).toBe("generated");
     expect(soul.soulV2?.executionPreferences.communicationStyle).toBe("Concise and direct");
     expect(soul.soulV2?.executionPreferences.alwaysDo).toEqual(["Confirm next steps"]);
   });

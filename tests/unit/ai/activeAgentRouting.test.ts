@@ -97,6 +97,28 @@ describe("resolveActiveAgentForOrgCandidates", () => {
     expect(selected?._id).toBe("general_1");
   });
 
+  it("prefers the primary active agent during fallback selection", () => {
+    const selected = resolveActiveAgentForOrgCandidates<Candidate>(
+      [
+        {
+          _id: "general_1",
+          status: "active",
+          subtype: "general",
+          customProperties: { isPrimary: false },
+        },
+        {
+          _id: "pm_1",
+          status: "active",
+          subtype: "pm",
+          customProperties: { isPrimary: true },
+        },
+      ],
+      {}
+    );
+
+    expect(selected?._id).toBe("pm_1");
+  });
+
   it("allows native_guest routing to reuse webchat bindings", () => {
     const selected = resolveActiveAgentForOrgCandidates<Candidate>(
       [

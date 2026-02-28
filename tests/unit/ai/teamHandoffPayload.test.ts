@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTeamHandoffPayload } from "../../../convex/ai/tools/teamTools";
+import {
+  normalizeDmSummarySyncPayload,
+  normalizeTeamHandoffPayload,
+} from "../../../convex/ai/tools/teamTools";
 
 describe("normalizeTeamHandoffPayload", () => {
   it("accepts explicit reason, summary, and goal", () => {
@@ -38,5 +41,51 @@ describe("normalizeTeamHandoffPayload", () => {
 
     expect(normalized.payload).toBeUndefined();
     expect(normalized.error).toBe("tag_in_specialist requires handoff.goal.");
+  });
+});
+
+describe("normalizeDmSummarySyncPayload", () => {
+  it("accepts explicit summary bridge payload", () => {
+    const normalized = normalizeDmSummarySyncPayload({
+      summary: "Specialist validated invoice corrections and refund timeline.",
+      dmThreadId: "dm:billing:42",
+      syncCheckpointToken: "sync-token-123",
+      syncAttemptId: "sync-attempt-1",
+    });
+
+    expect(normalized.error).toBeUndefined();
+    expect(normalized.payload).toEqual({
+      summary: "Specialist validated invoice corrections and refund timeline.",
+      dmThreadId: "dm:billing:42",
+      syncCheckpointToken: "sync-token-123",
+      syncAttemptId: "sync-attempt-1",
+    });
+  });
+
+  it("falls back to legacy aliases for token and thread fields", () => {
+    const normalized = normalizeDmSummarySyncPayload({
+      dmSummary: "Specialist proposed approved contract terms.",
+      proposalThreadId: "dm:legal:7",
+      collaborationSyncToken: "legacy-token",
+      eventId: "legacy-event-id",
+    });
+
+    expect(normalized.error).toBeUndefined();
+    expect(normalized.payload).toEqual({
+      summary: "Specialist proposed approved contract terms.",
+      dmThreadId: "dm:legal:7",
+      syncCheckpointToken: "legacy-token",
+      syncAttemptId: "legacy-event-id",
+    });
+  });
+
+  it("returns an error when dmThreadId is missing", () => {
+    const normalized = normalizeDmSummarySyncPayload({
+      summary: "Ready to sync summary",
+      syncCheckpointToken: "sync-token",
+    });
+
+    expect(normalized.payload).toBeUndefined();
+    expect(normalized.error).toBe("sync_dm_summary_to_group requires dmThreadId.");
   });
 });

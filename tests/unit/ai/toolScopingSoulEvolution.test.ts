@@ -30,7 +30,28 @@ describe("tool scoping for soul evolution tools", () => {
     expect(names).toContain("view_pending_proposals");
   });
 
-  it("keeps read-only soul tools and removes proposal mutation in draft-only mode", () => {
+  it("keeps read-only soul tools and removes proposal mutation in sandbox mode", () => {
+    const active = resolveActiveTools({
+      allTools: ALL_TOOLS,
+      platformBlocked: [],
+      orgEnabled: [],
+      orgDisabled: [],
+      connectedIntegrations: [],
+      agentProfile: "general",
+      agentEnabled: [],
+      agentDisabled: [],
+      autonomyLevel: "sandbox",
+      sessionDisabled: [],
+      channel: "whatsapp",
+    });
+    const names = active.map((tool) => tool.name);
+
+    expect(names).not.toContain("propose_soul_update");
+    expect(names).toContain("review_own_soul");
+    expect(names).toContain("view_pending_proposals");
+  });
+
+  it("keeps legacy draft_only alias behavior for read-only tool filtering", () => {
     const active = resolveActiveTools({
       allTools: ALL_TOOLS,
       platformBlocked: [],

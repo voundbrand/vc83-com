@@ -4,10 +4,10 @@
  * Main entry point for AI conversations using provider adapters
  */
 
-import { action } from "../_generated/server";
+import { action, internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
 import { getToolSchemas, executeTool } from "./tools/registry";
 import { calculateCostFromUsage } from "./modelPricing";
@@ -23,11 +23,13 @@ import {
 import {
   SAFE_FALLBACK_MODEL_ID,
   determineModelSelectionSource,
+  isModelAllowedForOrg,
   normalizeCanonicalBillingSource,
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
 } from "./modelPolicy";
+import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
 import {
   buildAuthProfileFailureCountMap,
   resolveAuthProfilesForProvider,
@@ -45,11 +47,24 @@ import {
   executeChatCompletionWithFailover,
   type ChatRuntimeFailoverResult,
 } from "./chatRuntimeOrchestration";
+import { normalizeConversationRoutingPin } from "./conversations";
+import { evaluateSessionRoutingPinUpdate } from "./sessionRoutingPolicy";
+import {
+  TRUST_EVENT_TAXONOMY_VERSION,
+  validateTrustEventPayload,
+  type TrustEventPayload,
+} from "./trustEvents";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      >;
   // tool_calls format varies between API and DB storage
   tool_calls?: unknown;
   tool_call_id?: string;
@@ -146,6 +161,17 @@ interface ToolCallResult {
 interface ConversationMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
+  attachments?: Array<{
+    _id: Id<"aiMessageAttachments">;
+    kind: "image";
+    storageId: Id<"_storage">;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    width?: number;
+    height?: number;
+    url?: string;
+  }>;
   toolCalls?: Array<{
     id: string;
     name: string;
@@ -159,9 +185,685 @@ interface ConversationMessage {
 interface ModelResolutionPayload {
   requestedModel?: string;
   selectedModel: string;
+  usedModel?: string;
+  selectedAuthProfileId?: string;
+  usedAuthProfileId?: string;
   selectionSource: string;
   fallbackUsed: boolean;
   fallbackReason?: string;
+}
+
+interface ResolvedSendAttachment {
+  attachmentId: Id<"aiMessageAttachments">;
+  kind: "image";
+  storageId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  width?: number;
+  height?: number;
+  url: string;
+}
+
+interface SendAttachmentReferenceInput {
+  attachmentId: Id<"aiMessageAttachments">;
+}
+
+interface SendInlineAttachmentInput {
+  type: string;
+  name?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  url?: string;
+  uri?: string;
+  sourceId?: string;
+  width?: number;
+  height?: number;
+}
+
+type SendAttachmentInput = SendAttachmentReferenceInput | SendInlineAttachmentInput;
+
+interface ChatCollaborationRouteInput {
+  surface: "group" | "dm";
+  dmThreadId?: string;
+  specialistAgentId?: string;
+  specialistLabel?: string;
+}
+
+interface StoredMessageCollaboration {
+  surface: "group" | "dm";
+  threadType: "group_thread" | "dm_thread";
+  threadId: string;
+  groupThreadId: string;
+  dmThreadId?: string;
+  lineageId?: string;
+  correlationId?: string;
+  workflowKey?: string;
+  authorityIntentType?: "read_only" | "proposal" | "commit";
+  visibilityScope: "group" | "dm" | "operator_only" | "system";
+  specialistAgentId?: string;
+  specialistLabel?: string;
+}
+
+interface OperatorCollaborationDefaultsPolicy {
+  defaultSurface: "group" | "dm";
+  allowSpecialistDmRouting: boolean;
+  proposalOnlyDmActions: boolean;
+}
+
+export const MACOS_COMPANION_INGRESS_TRUST_EVENT_NAME =
+  "trust.runtime.macos_companion_ingress_observed.v1" as const;
+export const MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME =
+  "trust.runtime.macos_companion_delivery_failed.v1" as const;
+
+const MACOS_COMPANION_OBSERVABILITY_POLICY_TYPE = "macos_companion_observability";
+const MACOS_COMPANION_OBSERVABILITY_POLICY_ID = "mcr_012_observability_v1";
+const MACOS_COMPANION_OBSERVABILITY_TOOL_NAME = "macos_companion_runtime";
+
+type MacosCompanionTrustEventName =
+  | typeof MACOS_COMPANION_INGRESS_TRUST_EVENT_NAME
+  | typeof MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME;
+
+interface MacosCompanionRuntimeToolResult {
+  tool: string;
+  status: string;
+  result?: unknown;
+  error?: string;
+}
+
+interface BuildMacosCompanionObservabilityPayloadArgs {
+  eventName: MacosCompanionTrustEventName;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  conversationId: Id<"aiConversations">;
+  sessionId: Id<"agentSessions">;
+  runtimeStatus: string;
+  toolResults?: MacosCompanionRuntimeToolResult[];
+  liveSessionId?: string;
+  cameraRuntime?: unknown;
+  voiceRuntime?: unknown;
+  transportRuntime?: unknown;
+  avObservability?: unknown;
+  geminiLive?: unknown;
+  deliveryFailureReason?: string;
+  occurredAt?: number;
+}
+
+function supportsVisionCapability(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const matrix = value as Record<string, unknown>;
+  return matrix.vision === true;
+}
+
+function normalizeNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function appendMacosCompanionFallbackReason(
+  reasons: Set<string>,
+  value: unknown
+) {
+  const normalized = normalizeNonEmptyString(value);
+  if (normalized) {
+    reasons.add(normalized);
+  }
+}
+
+function appendMacosCompanionFallbackReasonList(
+  reasons: Set<string>,
+  value: unknown
+) {
+  if (!Array.isArray(value)) {
+    return;
+  }
+  for (const entry of value) {
+    appendMacosCompanionFallbackReason(reasons, entry);
+  }
+}
+
+function collectMacosCompanionFallbackReasons(args: {
+  cameraRuntime?: unknown;
+  voiceRuntime?: unknown;
+  transportRuntime?: unknown;
+  avObservability?: unknown;
+}): string[] {
+  const reasons = new Set<string>();
+  const cameraRuntime = normalizeRecord(args.cameraRuntime);
+  const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const transportRuntime = normalizeRecord(args.transportRuntime);
+  const transportObservability = normalizeRecord(transportRuntime?.observability);
+  const avObservability = normalizeRecord(args.avObservability);
+
+  appendMacosCompanionFallbackReason(reasons, cameraRuntime?.fallbackReason);
+  appendMacosCompanionFallbackReason(reasons, cameraRuntime?.stopReason);
+  appendMacosCompanionFallbackReason(reasons, voiceRuntime?.fallbackReason);
+  appendMacosCompanionFallbackReason(reasons, voiceRuntime?.runtimeError);
+  appendMacosCompanionFallbackReason(reasons, voiceRuntime?.transcriptionError);
+  appendMacosCompanionFallbackReason(reasons, transportRuntime?.fallbackReason);
+  appendMacosCompanionFallbackReason(reasons, transportObservability?.fallbackReason);
+  appendMacosCompanionFallbackReason(reasons, avObservability?.fallbackReason);
+  appendMacosCompanionFallbackReasonList(
+    reasons,
+    transportObservability?.fallbackTransitionReasons
+  );
+  appendMacosCompanionFallbackReasonList(
+    reasons,
+    avObservability?.fallbackTransitionReasons
+  );
+
+  return Array.from(reasons).sort();
+}
+
+function collectMacosCompanionApprovalIds(
+  toolResults: MacosCompanionRuntimeToolResult[] | undefined
+): string[] {
+  if (!toolResults || toolResults.length === 0) {
+    return [];
+  }
+
+  const ids = new Set<string>();
+  for (const result of toolResults) {
+    const payload = normalizeRecord(result.result);
+    if (!payload) {
+      continue;
+    }
+    const approvalId =
+      normalizeNonEmptyString(payload.approvalId) ??
+      normalizeNonEmptyString(payload.approvalArtifactId) ??
+      normalizeNonEmptyString(payload.executionId) ??
+      normalizeNonEmptyString(payload.requestId);
+    if (approvalId) {
+      ids.add(approvalId);
+    }
+  }
+
+  return Array.from(ids).sort();
+}
+
+function resolveMacosCompanionApprovalStatus(
+  toolResults: MacosCompanionRuntimeToolResult[] | undefined
+): string {
+  if (!toolResults || toolResults.length === 0) {
+    return "none";
+  }
+  if (toolResults.some((result) => result.status === "pending_approval")) {
+    return "pending";
+  }
+  if (toolResults.some((result) => result.status === "failed")) {
+    return "failed_or_missing";
+  }
+  if (toolResults.some((result) => result.status === "success")) {
+    return "granted_or_not_required";
+  }
+  return "unknown";
+}
+
+function resolveMacosCompanionGateOutcome(args: {
+  runtimeStatus: string;
+  toolResults: MacosCompanionRuntimeToolResult[] | undefined;
+}): string {
+  if (
+    args.runtimeStatus === "error"
+    || args.runtimeStatus === "credits_exhausted"
+    || args.runtimeStatus === "rate_limited"
+  ) {
+    return "blocked";
+  }
+  if (args.toolResults?.some((result) => result.status === "pending_approval")) {
+    return "approval_required";
+  }
+  if (args.toolResults?.some((result) => result.status === "failed")) {
+    return "executed_with_failures";
+  }
+  return "executed";
+}
+
+function resolveMacosCompanionVoiceSessionId(args: {
+  voiceRuntime?: unknown;
+  avObservability?: unknown;
+}): string | undefined {
+  const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const avObservability = normalizeRecord(args.avObservability);
+  return (
+    normalizeNonEmptyString(voiceRuntime?.voiceSessionId) ??
+    normalizeNonEmptyString(voiceRuntime?.sessionId) ??
+    normalizeNonEmptyString(avObservability?.voiceSessionId)
+  );
+}
+
+export function buildMacosCompanionObservabilityTrustPayload(
+  args: BuildMacosCompanionObservabilityPayloadArgs
+): TrustEventPayload {
+  const occurredAt = typeof args.occurredAt === "number"
+    ? Math.floor(args.occurredAt)
+    : Date.now();
+  const fallbackReasons = collectMacosCompanionFallbackReasons({
+    cameraRuntime: args.cameraRuntime,
+    voiceRuntime: args.voiceRuntime,
+    transportRuntime: args.transportRuntime,
+    avObservability: args.avObservability,
+  });
+  const approvalIds = collectMacosCompanionApprovalIds(args.toolResults);
+  const approvalStatus = resolveMacosCompanionApprovalStatus(args.toolResults);
+  const gateOutcome = resolveMacosCompanionGateOutcome({
+    runtimeStatus: args.runtimeStatus,
+    toolResults: args.toolResults,
+  });
+  const voiceSessionId = resolveMacosCompanionVoiceSessionId({
+    voiceRuntime: args.voiceRuntime,
+    avObservability: args.avObservability,
+  });
+  const liveSessionId =
+    normalizeNonEmptyString(args.liveSessionId) ??
+    normalizeNonEmptyString(normalizeRecord(args.avObservability)?.liveSessionId);
+
+  const sourceObjectIds = [
+    `conversation:${String(args.conversationId)}`,
+    `agent_session:${String(args.sessionId)}`,
+    liveSessionId ? `live_session:${liveSessionId}` : null,
+    voiceSessionId ? `voice_session:${voiceSessionId}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const decisionReason = fallbackReasons.length > 0
+    ? `fallback:${fallbackReasons.join("|")}`
+    : "fallback:none";
+  const baseFailureReason =
+    normalizeNonEmptyString(args.deliveryFailureReason) ??
+    normalizeNonEmptyString(args.toolResults?.find((result) => result.status === "failed")?.error);
+  const failureReason = baseFailureReason ?? "delivery_failure_unreported";
+  const approvalId = approvalIds[0] ?? "none";
+
+  return {
+    event_id: `trust:${args.eventName}:${String(args.conversationId)}:${occurredAt}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: occurredAt,
+    org_id: args.organizationId,
+    mode: "runtime",
+    channel: "desktop",
+    session_id: String(args.sessionId),
+    actor_type: "user",
+    actor_id: String(args.userId),
+    policy_type: MACOS_COMPANION_OBSERVABILITY_POLICY_TYPE,
+    policy_id: MACOS_COMPANION_OBSERVABILITY_POLICY_ID,
+    tool_name: MACOS_COMPANION_OBSERVABILITY_TOOL_NAME,
+    enforcement_decision: gateOutcome,
+    approval_id: approvalId,
+    approval_status: approvalStatus,
+    source_object_ids: sourceObjectIds,
+    decision_reason: decisionReason,
+    ...(args.eventName === MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME
+      ? { failure_reason: failureReason }
+      : baseFailureReason
+        ? { failure_reason: baseFailureReason }
+        : {}),
+  };
+}
+
+function isSendAttachmentReference(
+  value: SendAttachmentInput
+): value is SendAttachmentReferenceInput {
+  return (
+    "attachmentId" in value
+    && typeof value.attachmentId === "string"
+    && !("type" in value)
+  );
+}
+
+function normalizeInlineSendAttachments(
+  attachments: SendAttachmentInput[] | undefined
+): SendInlineAttachmentInput[] {
+  if (!attachments || attachments.length === 0) {
+    return [];
+  }
+  const normalized: SendInlineAttachmentInput[] = [];
+  for (const attachment of attachments) {
+    if (!("type" in attachment)) {
+      continue;
+    }
+    const type = normalizeNonEmptyString(attachment.type)?.toLowerCase();
+    if (!type) {
+      continue;
+    }
+    const normalizedAttachment: SendInlineAttachmentInput = { type };
+    const name = normalizeNonEmptyString(attachment.name);
+    if (name) {
+      normalizedAttachment.name = name;
+    }
+    const mimeType = normalizeNonEmptyString(attachment.mimeType)?.toLowerCase();
+    if (mimeType) {
+      normalizedAttachment.mimeType = mimeType;
+    }
+    if (
+      typeof attachment.sizeBytes === "number"
+      && Number.isFinite(attachment.sizeBytes)
+      && attachment.sizeBytes > 0
+    ) {
+      normalizedAttachment.sizeBytes = Math.max(1, Math.round(attachment.sizeBytes));
+    }
+    const url = normalizeNonEmptyString(attachment.url);
+    if (url) {
+      normalizedAttachment.url = url;
+    }
+    const uri = normalizeNonEmptyString(attachment.uri);
+    if (uri) {
+      normalizedAttachment.uri = uri;
+    }
+    const sourceId = normalizeNonEmptyString(attachment.sourceId);
+    if (sourceId) {
+      normalizedAttachment.sourceId = sourceId;
+    }
+    if (typeof attachment.width === "number" && Number.isFinite(attachment.width) && attachment.width > 0) {
+      normalizedAttachment.width = Math.round(attachment.width);
+    }
+    if (typeof attachment.height === "number" && Number.isFinite(attachment.height) && attachment.height > 0) {
+      normalizedAttachment.height = Math.round(attachment.height);
+    }
+    normalized.push(normalizedAttachment);
+  }
+  return normalized.slice(0, 8);
+}
+
+function normalizeChatCollaborationRoute(
+  value: unknown
+): ChatCollaborationRouteInput | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const surface = record.surface === "dm" ? "dm" : record.surface === "group" ? "group" : null;
+  if (!surface) {
+    return null;
+  }
+
+  const dmThreadId = normalizeNonEmptyString(record.dmThreadId);
+  const specialistAgentId = normalizeNonEmptyString(record.specialistAgentId);
+  const specialistLabel = normalizeNonEmptyString(record.specialistLabel);
+
+  if (surface === "dm" && !dmThreadId) {
+    return null;
+  }
+
+  return {
+    surface,
+    dmThreadId,
+    specialistAgentId,
+    specialistLabel,
+  };
+}
+
+function normalizeOperatorCollaborationDefaultsPolicy(
+  value: unknown
+): OperatorCollaborationDefaultsPolicy {
+  if (!value || typeof value !== "object") {
+    return {
+      defaultSurface: "group",
+      allowSpecialistDmRouting: true,
+      proposalOnlyDmActions: true,
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    defaultSurface: record.defaultSurface === "dm" ? "dm" : "group",
+    allowSpecialistDmRouting:
+      typeof record.allowSpecialistDmRouting === "boolean"
+        ? record.allowSpecialistDmRouting
+        : true,
+    proposalOnlyDmActions:
+      typeof record.proposalOnlyDmActions === "boolean"
+        ? record.proposalOnlyDmActions
+        : true,
+  };
+}
+
+interface OperatorCollaborationCutoverConfig {
+  shellEnabled: boolean;
+  rolloutPercent: number;
+  forceLegacyShell: boolean;
+  cohortBucket: number;
+  collaborationShellEnabled: boolean;
+  reason:
+    | "cutover_enabled"
+    | "legacy_forced"
+    | "cutover_disabled"
+    | "cohort_holdback";
+}
+
+const OPERATOR_COLLAB_CUTOVER_ENABLED_ENV_KEYS = [
+  "OPERATOR_COLLABORATION_SHELL_ENABLED",
+] as const;
+const OPERATOR_COLLAB_CUTOVER_ENABLED_LEGACY_ENV_KEYS = [
+  "NEXT_PUBLIC_OPERATOR_COLLABORATION_SHELL_ENABLED",
+] as const;
+const OPERATOR_COLLAB_CUTOVER_ROLLOUT_ENV_KEYS = [
+  "OPERATOR_COLLABORATION_SHELL_ROLLOUT_PERCENT",
+] as const;
+const OPERATOR_COLLAB_CUTOVER_ROLLOUT_LEGACY_ENV_KEYS = [
+  "NEXT_PUBLIC_OPERATOR_COLLABORATION_SHELL_ROLLOUT_PERCENT",
+] as const;
+const OPERATOR_COLLAB_CUTOVER_FORCE_LEGACY_ENV_KEYS = [
+  "OPERATOR_COLLABORATION_SHELL_FORCE_LEGACY",
+] as const;
+const OPERATOR_COLLAB_CUTOVER_FORCE_LEGACY_FALLBACK_ENV_KEYS = [
+  "NEXT_PUBLIC_OPERATOR_COLLABORATION_SHELL_FORCE_LEGACY",
+] as const;
+const STRICT_ENV_MAX_NAME_LENGTH = 39;
+
+function buildProcessEnvSnapshot():
+  | Record<string, string | undefined>
+  | undefined {
+  if (typeof process === "undefined" || typeof process.env !== "object") {
+    return undefined;
+  }
+  try {
+    // Snapshot once so legacy NEXT_PUBLIC_* keys remain readable in non-strict env runtimes.
+    return { ...process.env };
+  } catch {
+    return undefined;
+  }
+}
+
+function readEnvValueFromRecord(
+  env: Record<string, string | undefined> | undefined,
+  key: string
+): string | undefined {
+  if (!env) {
+    return undefined;
+  }
+  const value = env[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function readShortProcessEnvValue(key: string): string | undefined {
+  if (
+    typeof process === "undefined" ||
+    typeof process.env !== "object" ||
+    key.length > STRICT_ENV_MAX_NAME_LENGTH
+  ) {
+    return undefined;
+  }
+  const value = process.env[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function readFirstDefinedEnvValue(
+  args: {
+    primaryKeys: readonly string[];
+    legacyKeys?: readonly string[];
+    env?: Record<string, string | undefined>;
+  }
+): string | undefined {
+  const env = args.env ?? buildProcessEnvSnapshot();
+  for (const key of args.primaryKeys) {
+    const value =
+      readEnvValueFromRecord(env, key) ??
+      (args.env ? undefined : readShortProcessEnvValue(key));
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+  for (const key of args.legacyKeys ?? []) {
+    const value = readEnvValueFromRecord(env, key);
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function parseEnvBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes") {
+    return true;
+  }
+  if (normalized === "0" || normalized === "false" || normalized === "no") {
+    return false;
+  }
+  return fallback;
+}
+
+function parseEnvPercent(value: string | undefined, fallback: number): number {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  if (parsed < 0) {
+    return 0;
+  }
+  if (parsed > 100) {
+    return 100;
+  }
+  return parsed;
+}
+
+function hashSeedToPercent(seed: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash) % 100;
+}
+
+export function resolveOperatorCollaborationCutoverConfig(args: {
+  organizationId: Id<"organizations"> | string;
+  conversationId: Id<"aiConversations"> | string;
+  env?: Record<string, string | undefined>;
+}): OperatorCollaborationCutoverConfig {
+  const shellEnabled = parseEnvBoolean(
+    readFirstDefinedEnvValue({
+      primaryKeys: OPERATOR_COLLAB_CUTOVER_ENABLED_ENV_KEYS,
+      legacyKeys: OPERATOR_COLLAB_CUTOVER_ENABLED_LEGACY_ENV_KEYS,
+      env: args.env,
+    }),
+    true
+  );
+  const rolloutPercent = parseEnvPercent(
+    readFirstDefinedEnvValue({
+      primaryKeys: OPERATOR_COLLAB_CUTOVER_ROLLOUT_ENV_KEYS,
+      legacyKeys: OPERATOR_COLLAB_CUTOVER_ROLLOUT_LEGACY_ENV_KEYS,
+      env: args.env,
+    }),
+    100
+  );
+  const forceLegacyShell = parseEnvBoolean(
+    readFirstDefinedEnvValue({
+      primaryKeys: OPERATOR_COLLAB_CUTOVER_FORCE_LEGACY_ENV_KEYS,
+      legacyKeys: OPERATOR_COLLAB_CUTOVER_FORCE_LEGACY_FALLBACK_ENV_KEYS,
+      env: args.env,
+    }),
+    false
+  );
+  const seed = `operator_collab_shell:${String(args.organizationId)}:${String(args.conversationId)}`;
+  const cohortBucket = hashSeedToPercent(seed);
+  const inRolloutCohort = cohortBucket < rolloutPercent;
+
+  if (forceLegacyShell) {
+    return {
+      shellEnabled,
+      rolloutPercent,
+      forceLegacyShell,
+      cohortBucket,
+      collaborationShellEnabled: false,
+      reason: "legacy_forced",
+    };
+  }
+  if (!shellEnabled) {
+    return {
+      shellEnabled,
+      rolloutPercent,
+      forceLegacyShell,
+      cohortBucket,
+      collaborationShellEnabled: false,
+      reason: "cutover_disabled",
+    };
+  }
+  if (!inRolloutCohort) {
+    return {
+      shellEnabled,
+      rolloutPercent,
+      forceLegacyShell,
+      cohortBucket,
+      collaborationShellEnabled: false,
+      reason: "cohort_holdback",
+    };
+  }
+  return {
+    shellEnabled,
+    rolloutPercent,
+    forceLegacyShell,
+    cohortBucket,
+    collaborationShellEnabled: true,
+    reason: "cutover_enabled",
+  };
+}
+
+function normalizeModelResolutionPayload(
+  value: unknown
+): ModelResolutionPayload | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const selectedModel = normalizeNonEmptyString(record.selectedModel);
+  const selectionSource = normalizeNonEmptyString(record.selectionSource);
+  if (!selectedModel || !selectionSource) {
+    return null;
+  }
+  if (typeof record.fallbackUsed !== "boolean") {
+    return null;
+  }
+
+  return {
+    requestedModel: normalizeNonEmptyString(record.requestedModel),
+    selectedModel,
+    usedModel: normalizeNonEmptyString(record.usedModel),
+    selectedAuthProfileId: normalizeNonEmptyString(record.selectedAuthProfileId),
+    usedAuthProfileId: normalizeNonEmptyString(record.usedAuthProfileId),
+    selectionSource,
+    fallbackUsed: record.fallbackUsed,
+    fallbackReason: normalizeNonEmptyString(record.fallbackReason),
+  };
 }
 
 export function buildModelResolutionPayload(args: {
@@ -182,9 +884,13 @@ export function buildModelResolutionPayload(args: {
     args.selectionSource !== "preferred" && args.selectionSource !== "session_pinned";
   const fallbackUsed =
     selectionFallbackUsed || modelFallbackUsed || authProfileFallbackUsed;
+  const usedModel = args.usedModel ?? args.selectedModel;
   return {
     requestedModel: args.requestedModel,
-    selectedModel: args.usedModel ?? args.selectedModel,
+    selectedModel: args.selectedModel,
+    usedModel,
+    selectedAuthProfileId: normalizeNonEmptyString(args.selectedAuthProfileId),
+    usedAuthProfileId: normalizeNonEmptyString(args.usedAuthProfileId),
     selectionSource: args.selectionSource,
     fallbackUsed,
     fallbackReason: modelFallbackUsed
@@ -241,6 +947,211 @@ export function resolveChatToolApprovalPolicy(settings: {
   };
 }
 
+interface DesktopOperatorRoutingContract {
+  externalContactIdentifier: string;
+  operatorRouteIdentity: {
+    providerId: "desktop_operator";
+    providerInstallationId: string;
+    providerProfileId: string;
+    providerProfileType: "organization";
+    routeKey: string;
+  };
+  operatorRouteSelectors: {
+    channel: "desktop";
+    peer: string;
+    channelRef: string;
+  };
+  operatorRoutingThreadId: string;
+  operatorRoutingLineageId: string;
+  operatorRoutingTenantId: string;
+}
+
+function buildDesktopOperatorRoutingContract(args: {
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  conversationId: Id<"aiConversations">;
+}): DesktopOperatorRoutingContract {
+  const externalContactIdentifier = `desktop:${args.userId}:${args.conversationId}`;
+  const operatorRouteInstallationId = `desktop_operator:${args.organizationId}`;
+  const routeKey = `${operatorRouteInstallationId}:${args.conversationId}`;
+  const operatorRoutingThreadId = `group_thread:${args.conversationId}`;
+  const operatorRoutingLineageId = `desktop_lineage:${args.organizationId}:${args.conversationId}`;
+  return {
+    externalContactIdentifier,
+    operatorRouteIdentity: {
+      providerId: "desktop_operator",
+      providerInstallationId: operatorRouteInstallationId,
+      providerProfileId: operatorRouteInstallationId,
+      providerProfileType: "organization",
+      routeKey,
+    },
+    operatorRouteSelectors: {
+      channel: "desktop",
+      peer: externalContactIdentifier,
+      channelRef: String(args.conversationId),
+    },
+    operatorRoutingThreadId,
+    operatorRoutingLineageId,
+    operatorRoutingTenantId: String(args.organizationId),
+  };
+}
+
+export const recordMacosCompanionObservabilityTrustEvent = internalMutation({
+  args: {
+    eventName: v.union(
+      v.literal(MACOS_COMPANION_INGRESS_TRUST_EVENT_NAME),
+      v.literal(MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME),
+    ),
+    payload: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const payload = args.payload as TrustEventPayload;
+    const validation = validateTrustEventPayload(args.eventName, payload);
+    await ctx.db.insert("aiTrustEvents", {
+      event_name: args.eventName,
+      payload,
+      schema_validation_status: validation.ok ? "passed" : "failed",
+      schema_errors: validation.ok ? undefined : validation.errors,
+      created_at: Date.now(),
+    });
+  },
+});
+
+export const resolveVoiceRuntimeSession = action({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    conversationId: v.optional(v.id("aiConversations")),
+  },
+  handler: async (ctx, args) => {
+    let conversationId = args.conversationId;
+    if (!conversationId) {
+      conversationId = await (ctx as any).runMutation(
+        generatedApi.api.ai.conversations.createConversation,
+        {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          title: "New Chat",
+        }
+      ) as Id<"aiConversations">;
+    }
+
+    const routing = buildDesktopOperatorRoutingContract({
+      organizationId: args.organizationId,
+      userId: args.userId,
+      conversationId,
+    });
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: args.organizationId,
+        channel: "desktop",
+      }
+    );
+
+    const routedOperatorAgent = await (ctx as any).runQuery(
+      generatedApi.internal.agentOntology.getActiveAgentForOrg,
+      {
+        organizationId: args.organizationId,
+        channel: "desktop",
+        routeSelectors: routing.operatorRouteSelectors,
+      }
+    ) as {
+      _id?: Id<"objects">;
+    } | null;
+
+    if (!routedOperatorAgent?._id) {
+      throw new Error(
+        "OPERATOR_ROUTING_UNRESOLVED: Missing orchestrator route for desktop operator channel."
+      );
+    }
+
+    const operatorSession = await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentSessions.resolveSession,
+      {
+        agentId: routedOperatorAgent._id,
+        organizationId: args.organizationId,
+        channel: "desktop",
+        externalContactIdentifier: routing.externalContactIdentifier,
+        channelRouteIdentity: routing.operatorRouteIdentity,
+      }
+    ) as { _id?: Id<"agentSessions"> } | null;
+
+    if (!operatorSession?._id) {
+      throw new Error(
+        "OPERATOR_SESSION_UNRESOLVED: Failed to resolve desktop operator session."
+      );
+    }
+
+    const collaborationUpsert = await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentSessions.upsertSessionCollaborationContract,
+      {
+        sessionId: operatorSession._id,
+        kernel: {
+          threadType: "group_thread",
+          threadId: routing.operatorRoutingThreadId,
+          groupThreadId: routing.operatorRoutingThreadId,
+          lineageId: routing.operatorRoutingLineageId,
+          visibilityScope: "group",
+          correlationId: `desktop_corr:${conversationId}`,
+        },
+        authority: {
+          authorityRole: "orchestrator",
+          intentType: "read_only",
+          mutatesState: false,
+        },
+        updatedBy: `desktop_chat:${args.userId}`,
+      }
+    ) as {
+      success?: boolean;
+      error?: string;
+      reason?: string;
+    };
+
+    if (!collaborationUpsert?.success) {
+      throw new Error(
+        `OPERATOR_COLLAB_METADATA_BLOCKED: ${
+          collaborationUpsert?.reason || collaborationUpsert?.error || "unknown_error"
+        }`
+      );
+    }
+
+    const routingMetadataUpsert = await (ctx as any).runMutation(
+      generatedApi.internal.ai.agentSessions.upsertSessionRoutingMetadata,
+      {
+        sessionId: operatorSession._id,
+        tenantId: routing.operatorRoutingTenantId,
+        lineageId: routing.operatorRoutingLineageId,
+        threadId: routing.operatorRoutingThreadId,
+        workflowKey: "message_ingress",
+        updatedBy: `desktop_chat:${args.userId}`,
+      }
+    ) as {
+      success?: boolean;
+      error?: string;
+      reason?: string;
+    };
+
+    if (!routingMetadataUpsert?.success) {
+      throw new Error(
+        `OPERATOR_ROUTING_METADATA_BLOCKED: ${
+          routingMetadataUpsert?.reason || routingMetadataUpsert?.error || "unknown_error"
+        }`
+      );
+    }
+
+    return {
+      conversationId,
+      agentSessionId: operatorSession._id,
+      externalContactIdentifier: routing.externalContactIdentifier,
+      routeKey: routing.operatorRouteIdentity.routeKey,
+      threadId: routing.operatorRoutingThreadId,
+      lineageId: routing.operatorRoutingLineageId,
+    };
+  },
+});
+
 export const sendMessage = action({
   args: {
     conversationId: v.optional(v.id("aiConversations")),
@@ -248,6 +1159,50 @@ export const sendMessage = action({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     selectedModel: v.optional(v.string()),
+    mode: v.optional(v.union(v.literal("auto"), v.literal("plan"), v.literal("plan_soft"))),
+    reasoningEffort: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("extra_high"))
+    ),
+    privacyMode: v.optional(v.boolean()),
+    references: v.optional(v.array(v.object({
+      url: v.string(),
+      content: v.optional(v.string()),
+      status: v.union(v.literal("loading"), v.literal("ready"), v.literal("error")),
+      error: v.optional(v.string()),
+    }))),
+    attachments: v.optional(
+      v.array(
+        v.union(
+          v.object({
+            attachmentId: v.id("aiMessageAttachments"),
+          }),
+          v.object({
+            type: v.string(),
+            name: v.optional(v.string()),
+            mimeType: v.optional(v.string()),
+            sizeBytes: v.optional(v.number()),
+            url: v.optional(v.string()),
+            uri: v.optional(v.string()),
+            sourceId: v.optional(v.string()),
+            width: v.optional(v.number()),
+            height: v.optional(v.number()),
+          })
+        )
+      )
+    ),
+    collaboration: v.optional(v.object({
+      surface: v.union(v.literal("group"), v.literal("dm")),
+      dmThreadId: v.optional(v.string()),
+      specialistAgentId: v.optional(v.string()),
+      specialistLabel: v.optional(v.string()),
+    })),
+    liveSessionId: v.optional(v.string()),
+    cameraRuntime: v.optional(v.any()),
+    voiceRuntime: v.optional(v.any()),
+    commandPolicy: v.optional(v.any()),
+    transportRuntime: v.optional(v.any()),
+    avObservability: v.optional(v.any()),
+    geminiLive: v.optional(v.any()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"), v.literal("layers_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
@@ -262,6 +1217,20 @@ export const sendMessage = action({
     cost: number;
     modelResolution: ModelResolutionPayload;
   }> => {
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: args.organizationId,
+      }
+    );
+    await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: args.organizationId,
+        channel: "desktop",
+      }
+    );
+
     // 1. Get or create conversation
     let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
     let conversationSlug: string | undefined;
@@ -284,60 +1253,693 @@ export const sendMessage = action({
       throw new Error("Failed to initialize conversation");
     }
 
+    const attachmentInputs = (args.attachments || []) as SendAttachmentInput[];
+    const requestedAttachmentIds = Array.from(
+      new Set(
+        attachmentInputs
+          .filter(isSendAttachmentReference)
+          .map((attachment) => attachment.attachmentId)
+      )
+    );
+    const resolvedAttachments = requestedAttachmentIds.length > 0
+      ? await (ctx as any).runQuery(generatedApi.api.ai.chatAttachments.resolveSendAttachments, {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          attachmentIds: requestedAttachmentIds,
+        }) as ResolvedSendAttachment[]
+      : [];
+    const inlineAttachments = normalizeInlineSendAttachments(attachmentInputs);
+
+    const useLegacyPageBuilderFlow = args.context === "page_builder";
+    const operatorCollabCutover = resolveOperatorCollaborationCutoverConfig({
+      organizationId: args.organizationId,
+      conversationId,
+    });
+    const operatorCollaborationShellEnabled =
+      !useLegacyPageBuilderFlow && operatorCollabCutover.collaborationShellEnabled;
+    const operatorRoutingLineageId = `desktop_lineage:${args.organizationId}:${conversationId}`;
+    const operatorRoutingThreadId = `group_thread:${conversationId}`;
+    let requestedCollaborationRoute = !operatorCollaborationShellEnabled
+      ? null
+      : useLegacyPageBuilderFlow
+      ? null
+      : normalizeChatCollaborationRoute(args.collaboration);
+    let collaborationSurface = requestedCollaborationRoute?.surface ?? "group";
+    let activeDmThreadId = collaborationSurface === "dm"
+      ? requestedCollaborationRoute?.dmThreadId
+      : undefined;
+    let inboundThreadId = collaborationSurface === "dm" && activeDmThreadId
+      ? activeDmThreadId
+      : operatorRoutingThreadId;
+    let inboundWorkflowKey = collaborationSurface === "dm"
+      ? "proposal"
+      : "message_ingress";
+    let inboundAuthorityIntentType: StoredMessageCollaboration["authorityIntentType"] =
+      collaborationSurface === "dm"
+        ? "proposal"
+        : "read_only";
+    let inboundCorrelationId = collaborationSurface === "dm" && activeDmThreadId
+      ? `desktop_corr:${conversationId}:${activeDmThreadId}`
+      : `desktop_corr:${conversationId}`;
+    const buildMessageCollaboration = (): StoredMessageCollaboration | undefined =>
+      useLegacyPageBuilderFlow
+        ? undefined
+        : {
+            surface: collaborationSurface,
+            threadType: collaborationSurface === "dm" ? "dm_thread" : "group_thread",
+            threadId: inboundThreadId,
+            groupThreadId: operatorRoutingThreadId,
+            dmThreadId: activeDmThreadId,
+            lineageId: operatorRoutingLineageId,
+            correlationId: inboundCorrelationId,
+            workflowKey: inboundWorkflowKey,
+            authorityIntentType: inboundAuthorityIntentType,
+            visibilityScope: collaborationSurface === "dm" ? "dm" : "group",
+            specialistAgentId: requestedCollaborationRoute?.specialistAgentId,
+            specialistLabel: requestedCollaborationRoute?.specialistLabel,
+          };
+    let messageCollaboration = buildMessageCollaboration();
+    let preflightRoutedOperatorAgent:
+      | {
+          _id?: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+        }
+      | null = null;
+
+    if (!useLegacyPageBuilderFlow) {
+      const preflightOperatorRouteSelectors = {
+        channel: "desktop",
+        peer: `desktop:${args.userId}:${conversationId}`,
+        channelRef: String(conversationId),
+      };
+      preflightRoutedOperatorAgent = await (ctx as any).runQuery(
+        generatedApi.internal.agentOntology.getActiveAgentForOrg,
+        {
+          organizationId: args.organizationId,
+          channel: "desktop",
+          routeSelectors: preflightOperatorRouteSelectors,
+        }
+      ) as {
+        _id?: Id<"objects">;
+        customProperties?: Record<string, unknown>;
+      } | null;
+
+      if (!preflightRoutedOperatorAgent?._id) {
+        const ensuredOperatorAgent = await (ctx as any).runMutation(
+          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: preflightOperatorRouteSelectors,
+          }
+        ) as { agentId?: Id<"objects"> } | null;
+
+        preflightRoutedOperatorAgent = await (ctx as any).runQuery(
+          generatedApi.internal.agentOntology.getActiveAgentForOrg,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: preflightOperatorRouteSelectors,
+          }
+        ) as {
+          _id?: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+        } | null;
+
+        if (!preflightRoutedOperatorAgent?._id && ensuredOperatorAgent?.agentId) {
+          preflightRoutedOperatorAgent = await (ctx as any).runQuery(
+            generatedApi.internal.agentOntology.getAgentInternal,
+            {
+              agentId: ensuredOperatorAgent.agentId,
+            }
+          ) as {
+            _id?: Id<"objects">;
+            customProperties?: Record<string, unknown>;
+          } | null;
+        }
+      }
+
+      if (!preflightRoutedOperatorAgent?._id) {
+        throw new Error(
+          "OPERATOR_ROUTING_UNRESOLVED: Missing orchestrator route for desktop operator channel."
+        );
+      }
+
+      const operatorCollaborationDefaults =
+        normalizeOperatorCollaborationDefaultsPolicy(
+          preflightRoutedOperatorAgent.customProperties?.operatorCollaborationDefaults
+        );
+      if (
+        collaborationSurface === "dm" &&
+        !operatorCollaborationDefaults.allowSpecialistDmRouting
+      ) {
+        requestedCollaborationRoute = null;
+        collaborationSurface = "group";
+        activeDmThreadId = undefined;
+        inboundThreadId = operatorRoutingThreadId;
+        inboundWorkflowKey = "message_ingress";
+        inboundAuthorityIntentType = "read_only";
+        inboundCorrelationId = `desktop_corr:${conversationId}`;
+        messageCollaboration = buildMessageCollaboration();
+      }
+    }
+
     // 2. Add user message
-    await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
+    const userMessageId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
       conversationId,
       role: "user",
       content: args.message,
       timestamp: Date.now(),
-    });
+      collaboration: messageCollaboration,
+    }) as Id<"aiMessages">;
+
+    if (resolvedAttachments.length > 0) {
+      await (ctx as any).runMutation(generatedApi.internal.ai.chatAttachments.linkAttachmentsToMessage, {
+        organizationId: args.organizationId,
+        userId: args.userId,
+        conversationId,
+        messageId: userMessageId,
+        attachmentIds: resolvedAttachments.map((attachment) => attachment.attachmentId),
+      });
+    }
 
     // 3. Get conversation history
     const conversation = await (ctx as any).runQuery(generatedApi.api.ai.conversations.getConversation, {
       conversationId,
-    }) as { messages: ConversationMessage[]; slug?: string; modelId?: string | null };
+    }) as {
+      messages: ConversationMessage[];
+      slug?: string;
+      modelId?: string | null;
+      routingPin?: unknown;
+    };
+    const conversationHasImageAttachments = conversation.messages.some((message) =>
+      (message.attachments || []).some((attachment) => attachment.kind === "image")
+    );
+    const conversationRoutingPin = normalizeConversationRoutingPin(
+      (conversation as Record<string, unknown>).routingPin
+    );
+    const conversationPinnedModel =
+      conversationRoutingPin?.modelId ??
+      (typeof conversation.modelId === "string" && conversation.modelId.trim().length > 0
+        ? conversation.modelId.trim()
+        : null);
+    const conversationPinnedAuthProfileId = conversationRoutingPin?.authProfileId ?? null;
 
     // Capture slug for new conversations (to return for URL update)
     if (isNewConversation && conversation.slug) {
       conversationSlug = conversation.slug;
     }
-
-    const useLegacyPageBuilderFlow = args.context === "page_builder";
     if (!useLegacyPageBuilderFlow) {
       const externalContactIdentifier = `desktop:${args.userId}:${conversationId}`;
-      const agentResult = await (ctx as any).runAction(
-        generatedApi.api.ai.agentExecution.processInboundMessage,
+      const operatorRouteInstallationId = `desktop_operator:${args.organizationId}`;
+      const operatorRouteKey = `${operatorRouteInstallationId}:${conversationId}`;
+      const operatorRouteIdentity = {
+        providerId: "desktop_operator",
+        providerInstallationId: operatorRouteInstallationId,
+        providerProfileId: operatorRouteInstallationId,
+        providerProfileType: "organization" as const,
+        routeKey: operatorRouteKey,
+      };
+      const operatorRouteSelectors = {
+        channel: "desktop",
+        peer: externalContactIdentifier,
+        channelRef: String(conversationId),
+      };
+      const operatorRoutingTenantId = String(args.organizationId);
+      const operatorRoutingWorkflowKey = "message_ingress";
+      let routedOperatorAgent = preflightRoutedOperatorAgent;
+
+      if (!routedOperatorAgent?._id) {
+        const ensuredOperatorAgent = await (ctx as any).runMutation(
+          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: operatorRouteSelectors,
+          }
+        ) as { agentId?: Id<"objects"> } | null;
+        routedOperatorAgent = await (ctx as any).runQuery(
+          generatedApi.internal.agentOntology.getActiveAgentForOrg,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: operatorRouteSelectors,
+          }
+        ) as {
+          _id?: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+        } | null;
+        if (!routedOperatorAgent?._id && ensuredOperatorAgent?.agentId) {
+          routedOperatorAgent = await (ctx as any).runQuery(
+            generatedApi.internal.agentOntology.getAgentInternal,
+            {
+              agentId: ensuredOperatorAgent.agentId,
+            }
+          ) as {
+            _id?: Id<"objects">;
+            customProperties?: Record<string, unknown>;
+          } | null;
+        }
+      }
+
+      if (!routedOperatorAgent?._id) {
+        throw new Error(
+          "OPERATOR_ROUTING_UNRESOLVED: Missing orchestrator route for desktop operator channel."
+        );
+      }
+      const operatorCollaborationDefaults =
+        normalizeOperatorCollaborationDefaultsPolicy(
+          routedOperatorAgent.customProperties?.operatorCollaborationDefaults
+        );
+
+      const operatorSession = await (ctx as any).runMutation(
+        generatedApi.internal.ai.agentSessions.resolveSession,
         {
+          agentId: routedOperatorAgent._id,
           organizationId: args.organizationId,
           channel: "desktop",
           externalContactIdentifier,
-          message: args.message,
-          metadata: {
-            skipOutbound: true,
-            source: "desktop_chat",
-            conversationId,
-            userId: args.userId,
-            selectedModel: args.selectedModel,
+          channelRouteIdentity: operatorRouteIdentity,
+        }
+      ) as { _id?: Id<"agentSessions"> } | null;
+      if (!operatorSession?._id) {
+        throw new Error(
+          "OPERATOR_SESSION_UNRESOLVED: Failed to resolve desktop operator session."
+        );
+      }
+      const operatorSessionId = operatorSession._id;
+
+      const collaborationUpsert = await (ctx as any).runMutation(
+        generatedApi.internal.ai.agentSessions.upsertSessionCollaborationContract,
+        {
+          sessionId: operatorSessionId,
+          kernel: {
+            threadType: "group_thread",
+            threadId: operatorRoutingThreadId,
+            groupThreadId: operatorRoutingThreadId,
+            lineageId: operatorRoutingLineageId,
+            visibilityScope: "group",
+            correlationId: `desktop_corr:${conversationId}`,
           },
+          authority: {
+            authorityRole: "orchestrator",
+            intentType: "read_only",
+            mutatesState: false,
+          },
+          updatedBy: `desktop_chat:${args.userId}`,
         }
       ) as {
+        success?: boolean;
+        error?: string;
+        reason?: string;
+      };
+      if (!collaborationUpsert?.success) {
+        throw new Error(
+          `OPERATOR_COLLAB_METADATA_BLOCKED: ${
+            collaborationUpsert?.reason || collaborationUpsert?.error || "unknown_error"
+          }`
+        );
+      }
+
+      const routingMetadataUpsert = await (ctx as any).runMutation(
+        generatedApi.internal.ai.agentSessions.upsertSessionRoutingMetadata,
+        {
+          sessionId: operatorSessionId,
+          tenantId: operatorRoutingTenantId,
+          lineageId: operatorRoutingLineageId,
+          threadId: operatorRoutingThreadId,
+          workflowKey: operatorRoutingWorkflowKey,
+          updatedBy: `desktop_chat:${args.userId}`,
+        }
+      ) as {
+        success?: boolean;
+        error?: string;
+        reason?: string;
+      };
+      if (!routingMetadataUpsert?.success) {
+        throw new Error(
+          `OPERATOR_ROUTING_METADATA_BLOCKED: ${
+            routingMetadataUpsert?.reason || routingMetadataUpsert?.error || "unknown_error"
+          }`
+        );
+      }
+
+      type DesktopAgentExecutionResult = {
         status: string;
         message?: string;
         response?: string;
-        toolResults?: Array<{ tool: string; status: string; result?: unknown; error?: string }>;
+        modelResolution?: ModelResolutionPayload;
+        toolResults?: MacosCompanionRuntimeToolResult[];
       };
 
+      const emitMacosCompanionObservabilityTrustEvent = async (
+        eventName: MacosCompanionTrustEventName,
+        runtimeResult: DesktopAgentExecutionResult,
+        deliveryFailureReason?: string,
+      ) => {
+        try {
+          const payload = buildMacosCompanionObservabilityTrustPayload({
+            eventName,
+            organizationId: args.organizationId,
+            userId: args.userId,
+            conversationId,
+            sessionId: operatorSessionId,
+            runtimeStatus: runtimeResult.status,
+            toolResults: runtimeResult.toolResults,
+            liveSessionId: normalizeNonEmptyString(args.liveSessionId),
+            cameraRuntime:
+              args.cameraRuntime && typeof args.cameraRuntime === "object"
+                ? args.cameraRuntime
+                : undefined,
+            voiceRuntime:
+              args.voiceRuntime && typeof args.voiceRuntime === "object"
+                ? args.voiceRuntime
+                : undefined,
+            transportRuntime:
+              args.transportRuntime && typeof args.transportRuntime === "object"
+                ? args.transportRuntime
+                : undefined,
+            avObservability:
+              args.avObservability && typeof args.avObservability === "object"
+                ? args.avObservability
+                : undefined,
+            geminiLive:
+              args.geminiLive && typeof args.geminiLive === "object"
+                ? args.geminiLive
+                : undefined,
+            deliveryFailureReason,
+          });
+          await (ctx as any).runMutation(
+            generatedApi.internal.ai.chat.recordMacosCompanionObservabilityTrustEvent,
+            {
+              eventName,
+              payload,
+            }
+          );
+        } catch (error) {
+          console.error(
+            "[AI Chat] Failed to persist macOS companion observability trust event:",
+            error
+          );
+        }
+      };
+
+      const inboundRuntimeMetadata = {
+        skipOutbound: true,
+        source: "desktop_chat",
+        routingMode: "orchestrator_first",
+        operatorRouteEnforced: true,
+        providerId: operatorRouteIdentity.providerId,
+        providerInstallationId: operatorRouteIdentity.providerInstallationId,
+        providerProfileId: operatorRouteIdentity.providerProfileId,
+        providerProfileType: operatorRouteIdentity.providerProfileType,
+        routeKey: operatorRouteIdentity.routeKey,
+        channelRef: String(conversationId),
+        providerChannelId: String(conversationId),
+        routeSelectors: operatorRouteSelectors,
+        tenantId: operatorRoutingTenantId,
+        lineageId: operatorRoutingLineageId,
+        threadId: inboundThreadId,
+        groupThreadId: operatorRoutingThreadId,
+        dmThreadId: activeDmThreadId,
+        workflowKey: inboundWorkflowKey,
+        authorityIntentType: inboundAuthorityIntentType,
+        intentType: inboundAuthorityIntentType,
+        workflowIntent: inboundAuthorityIntentType,
+        collaborationSurface: collaborationSurface,
+        visibilityScope: collaborationSurface === "dm" ? "dm" : "group",
+        specialistAgentId: requestedCollaborationRoute?.specialistAgentId,
+        specialistLabel: requestedCollaborationRoute?.specialistLabel,
+        operatorCollaborationShellEnabled,
+        operatorCollaborationCutoverReason: operatorCollabCutover.reason,
+        operatorCollaborationRolloutPercent: operatorCollabCutover.rolloutPercent,
+        operatorCollaborationCohortBucket: operatorCollabCutover.cohortBucket,
+        operatorCollaborationDefaultSurface:
+          operatorCollaborationDefaults.defaultSurface,
+        operatorCollaborationAllowSpecialistDmRouting:
+          operatorCollaborationDefaults.allowSpecialistDmRouting,
+        operatorCollaborationProposalOnlyDmActions:
+          operatorCollaborationDefaults.proposalOnlyDmActions,
+        conversationId,
+        userId: args.userId,
+        selectedModel: args.selectedModel,
+        mode: args.mode,
+        reasoningEffort: args.reasoningEffort,
+        privacyMode: args.privacyMode === true,
+        references: args.references,
+        attachments: [
+          ...resolvedAttachments.map((attachment) => ({
+            attachmentId: attachment.attachmentId,
+            type: attachment.kind,
+            name: attachment.fileName,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            url: attachment.url,
+            storageId: attachment.storageId,
+            width: attachment.width,
+            height: attachment.height,
+          })),
+          ...inlineAttachments.map((attachment) => ({
+            type: attachment.type,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            // `url` is consumed by inbound image normalizer when available.
+            url: attachment.url ?? attachment.uri,
+            sourceId: attachment.sourceId,
+            width: attachment.width,
+            height: attachment.height,
+          })),
+        ],
+        liveSessionId: normalizeNonEmptyString(args.liveSessionId),
+        cameraRuntime:
+          args.cameraRuntime && typeof args.cameraRuntime === "object"
+            ? args.cameraRuntime
+            : undefined,
+        voiceRuntime:
+          args.voiceRuntime && typeof args.voiceRuntime === "object"
+            ? args.voiceRuntime
+            : undefined,
+        commandPolicy:
+          args.commandPolicy && typeof args.commandPolicy === "object"
+            ? args.commandPolicy
+            : undefined,
+        transportRuntime:
+          args.transportRuntime && typeof args.transportRuntime === "object"
+            ? args.transportRuntime
+            : undefined,
+        avObservability:
+          args.avObservability && typeof args.avObservability === "object"
+            ? args.avObservability
+            : undefined,
+        geminiLive:
+          args.geminiLive && typeof args.geminiLive === "object"
+            ? args.geminiLive
+            : undefined,
+      };
+
+      const runInboundAgentExecution = async (): Promise<DesktopAgentExecutionResult> =>
+        await (ctx as any).runAction(
+          generatedApi.api.ai.agentExecution.processInboundMessage,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            externalContactIdentifier,
+            message: args.message,
+            metadata: inboundRuntimeMetadata,
+          }
+        ) as DesktopAgentExecutionResult;
+
+      let agentResult = await runInboundAgentExecution();
+      const noActiveAgentFailure = normalizeNonEmptyString(agentResult.message)
+        ?.toLowerCase()
+        .includes("no active agent found") === true;
+      if (agentResult.status === "error" && noActiveAgentFailure) {
+        await (ctx as any).runMutation(
+          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: operatorRouteSelectors,
+          }
+        );
+        agentResult = await runInboundAgentExecution();
+      }
+
+      await emitMacosCompanionObservabilityTrustEvent(
+        MACOS_COMPANION_INGRESS_TRUST_EVENT_NAME,
+        agentResult
+      );
+
       if (agentResult.status === "credits_exhausted") {
+        await emitMacosCompanionObservabilityTrustEvent(
+          MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
+          agentResult,
+          "credits_exhausted"
+        );
         throw new Error("CREDITS_EXHAUSTED: Not enough credits for this request.");
       }
       if (agentResult.status === "rate_limited") {
+        await emitMacosCompanionObservabilityTrustEvent(
+          MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
+          agentResult,
+          "rate_limited"
+        );
         throw new Error(agentResult.message || "Rate limit exceeded. Please try again later.");
       }
       if (agentResult.status === "error") {
-        throw new Error(agentResult.message || "Failed to process message via agent runtime.");
+        await emitMacosCompanionObservabilityTrustEvent(
+          MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
+          agentResult,
+          normalizeNonEmptyString(agentResult.message) ?? "runtime_error"
+        );
+        const runtimeErrorMessage =
+          normalizeNonEmptyString(agentResult.message)
+          || "Failed to process message via agent runtime.";
+        const runtimeErrorModelId =
+          conversationPinnedModel
+          || normalizeNonEmptyString(args.selectedModel)
+          || SAFE_FALLBACK_MODEL_ID;
+        const runtimeErrorModelResolution = buildModelResolutionPayload({
+          requestedModel: normalizeNonEmptyString(args.selectedModel),
+          selectedModel: runtimeErrorModelId,
+          usedModel: runtimeErrorModelId,
+          selectionSource: "runtime_error",
+          selectedAuthProfileId: conversationPinnedAuthProfileId,
+          usedAuthProfileId: conversationPinnedAuthProfileId,
+        });
+        await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
+          conversationId,
+          role: "assistant",
+          content: runtimeErrorMessage,
+          timestamp: Date.now(),
+          modelResolution: runtimeErrorModelResolution,
+        });
+        return {
+          conversationId,
+          slug: conversationSlug,
+          message: runtimeErrorMessage,
+          toolCalls: [],
+          usage: null,
+          cost: 0,
+          modelResolution: runtimeErrorModelResolution,
+        };
+      }
+      let replayedAssistantMessage: string | null = null;
+      let replayedToolCalls: ToolCallResult[] | null = null;
+      let runtimeModelResolution = normalizeModelResolutionPayload(
+        agentResult.modelResolution
+      );
+      if (!runtimeModelResolution && agentResult.status === "duplicate_acknowledged") {
+        const replayConversation = await (ctx as any).runQuery(
+          generatedApi.api.ai.conversations.getConversation,
+          { conversationId }
+        ) as {
+          modelId?: string | null;
+          messages?: Array<Record<string, unknown>>;
+        } | null;
+
+        const replayMessages = Array.isArray(replayConversation?.messages)
+          ? replayConversation.messages
+          : [];
+        for (let index = replayMessages.length - 1; index >= 0; index -= 1) {
+          const replayMessage = replayMessages[index];
+          if (replayMessage?.role !== "assistant") {
+            continue;
+          }
+          const normalizedReplayResolution = normalizeModelResolutionPayload(
+            replayMessage.modelResolution
+          );
+          if (!normalizedReplayResolution) {
+            continue;
+          }
+          runtimeModelResolution = normalizedReplayResolution;
+          replayedAssistantMessage =
+            typeof replayMessage.content === "string"
+              ? replayMessage.content
+              : null;
+          const rawToolCalls = Array.isArray(replayMessage.toolCalls)
+            ? replayMessage.toolCalls
+            : [];
+          replayedToolCalls = rawToolCalls.map((toolCall, toolIndex) => {
+            const record =
+              toolCall && typeof toolCall === "object"
+                ? (toolCall as Record<string, unknown>)
+                : {};
+            const toolName = normalizeNonEmptyString(record.name) ?? "tool";
+            const rawStatus = normalizeNonEmptyString(record.status);
+            const normalizedStatus =
+              rawStatus === "success"
+                ? "success"
+                : rawStatus === "pending_approval"
+                  ? "pending_approval"
+                  : "failed";
+            return {
+              id:
+                normalizeNonEmptyString(record.id) ??
+                `agent_tool_replay_${Date.now()}_${toolIndex}`,
+              name: toolName,
+              arguments:
+                record.arguments && typeof record.arguments === "object"
+                  ? (record.arguments as Record<string, unknown>)
+                  : {},
+              result: record.result,
+              status: normalizedStatus,
+              error: normalizeNonEmptyString(record.error),
+            } satisfies ToolCallResult;
+          });
+          break;
+        }
+
+        if (!runtimeModelResolution) {
+          const replayModelId =
+            normalizeNonEmptyString(replayConversation?.modelId) ??
+            conversationPinnedModel ??
+            normalizeNonEmptyString(args.selectedModel);
+          if (replayModelId) {
+            runtimeModelResolution = buildModelResolutionPayload({
+              requestedModel: normalizeNonEmptyString(args.selectedModel),
+              selectedModel: replayModelId,
+              usedModel: replayModelId,
+              selectionSource: "duplicate_acknowledged_replay",
+              selectedAuthProfileId: conversationPinnedAuthProfileId,
+              usedAuthProfileId: conversationPinnedAuthProfileId,
+            });
+          }
+        }
+      }
+      if (!runtimeModelResolution) {
+        throw new Error(
+          "Agent runtime did not return model resolution metadata for desktop chat persistence."
+        );
+      }
+      const runtimeUsedModel =
+        runtimeModelResolution.usedModel ?? runtimeModelResolution.selectedModel;
+      const hasExplicitModelOverride =
+        typeof args.selectedModel === "string" && args.selectedModel.trim().length > 0;
+      const conversationRoutingPinDecision = evaluateSessionRoutingPinUpdate({
+        pinnedModelId: conversationRoutingPin?.modelId ?? null,
+        pinnedAuthProfileId: conversationRoutingPin?.authProfileId ?? null,
+        selectedModelId: runtimeModelResolution.selectedModel,
+        usedModelId: runtimeUsedModel,
+        selectedAuthProfileId: runtimeModelResolution.selectedAuthProfileId ?? null,
+        usedAuthProfileId: runtimeModelResolution.usedAuthProfileId ?? null,
+        hasExplicitModelOverride,
+      });
+      if (conversationRoutingPinDecision.shouldUpdateRoutingPin) {
+        await (ctx as any).runMutation(
+          generatedApi.api.ai.conversations.upsertConversationRoutingPin,
+          {
+            conversationId,
+            modelId: runtimeUsedModel,
+            authProfileId: runtimeModelResolution.usedAuthProfileId ?? undefined,
+            pinReason: conversationRoutingPinDecision.pinReason!,
+            unlockReason: conversationRoutingPinDecision.unlockReason,
+          }
+        );
       }
 
-      const toolCalls: ToolCallResult[] = (agentResult.toolResults || []).map((toolResult, index) => ({
+      const toolCalls: ToolCallResult[] = replayedToolCalls ?? (agentResult.toolResults || []).map((toolResult, index) => ({
         id: `agent_tool_${Date.now()}_${index}`,
         name: toolResult.tool,
         arguments: {},
@@ -351,7 +1953,11 @@ export const sendMessage = action({
         error: toolResult.error,
       }));
 
-      const assistantMessage = (agentResult.response || agentResult.message || "").trim();
+      const assistantMessage = (
+        replayedAssistantMessage ??
+        agentResult.response ??
+        (agentResult.status === "duplicate_acknowledged" ? "" : agentResult.message ?? "")
+      ).trim();
       if (assistantMessage.length > 0) {
         const executedToolCalls = toolCalls.filter(
           (toolCall): toolCall is ToolCallResult & { status: "success" | "failed" } =>
@@ -363,12 +1969,8 @@ export const sendMessage = action({
           content: assistantMessage,
           timestamp: Date.now(),
           toolCalls: executedToolCalls.length > 0 ? executedToolCalls : undefined,
-          modelResolution: {
-            requestedModel: args.selectedModel,
-            selectedModel: args.selectedModel || "agent_execution",
-            selectionSource: "agent_execution",
-            fallbackUsed: false,
-          },
+          modelResolution: runtimeModelResolution,
+          collaboration: messageCollaboration,
         });
       }
 
@@ -379,23 +1981,57 @@ export const sendMessage = action({
         toolCalls,
         usage: null,
         cost: 0,
-        modelResolution: {
-          requestedModel: args.selectedModel,
-          selectedModel: args.selectedModel || "agent_execution",
-          selectionSource: "agent_execution",
-          fallbackUsed: false,
-        },
+        modelResolution: runtimeModelResolution,
       };
     }
 
     // 4. Get AI settings for model selection
-    const settings = await (ctx as any).runQuery(generatedApi.api.ai.settings.getAISettings, {
-      organizationId: args.organizationId,
-    });
-
-    if (!settings?.enabled) {
-      throw new Error("AI features not enabled for this organization");
-    }
+    let settings = ((await (ctx as any).runQuery(
+      generatedApi.api.ai.settings.getAISettings,
+      {
+        organizationId: args.organizationId,
+      }
+    )) ?? {
+      enabled: true,
+      billingMode: "platform",
+      billingSource: "platform",
+      currentMonthSpend: 0,
+      humanInLoopEnabled: true,
+      toolApprovalMode: "all",
+      llm: {
+        enabledModels: [
+          {
+            modelId: ONBOARDING_DEFAULT_MODEL_ID,
+            isDefault: true,
+            enabledAt: Date.now(),
+          },
+        ],
+        defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
+        providerId: "openrouter",
+        temperature: 0.7,
+        maxTokens: 4000,
+      },
+    }) as any;
+    const onboardingEnabledModels =
+      Array.isArray(settings?.llm?.enabledModels) &&
+      settings.llm.enabledModels.length > 0
+        ? settings.llm.enabledModels
+        : [
+            {
+              modelId: ONBOARDING_DEFAULT_MODEL_ID,
+              isDefault: true,
+              enabledAt: Date.now(),
+            },
+          ];
+    settings = {
+      ...settings,
+      llm: {
+        ...(settings.llm || {}),
+        enabledModels: onboardingEnabledModels,
+        defaultModelId:
+          settings?.llm?.defaultModelId ?? onboardingEnabledModels[0].modelId,
+      },
+    };
 
     // Check rate limit
     const rateLimit = await (ctx as any).runQuery(generatedApi.api.ai.settings.checkRateLimit, {
@@ -419,37 +2055,125 @@ export const sendMessage = action({
     const platformEnabledModels = await (ctx as any).runQuery(
       generatedApi.api.ai.platformModels.getEnabledModels,
       {}
-    ) as Array<{ id: string }>;
+    ) as Array<{
+      id: string;
+      isFreeTierLocked?: boolean;
+      capabilityMatrix?: {
+        text?: boolean;
+        vision?: boolean;
+        audio_in?: boolean;
+        audio_out?: boolean;
+        tools?: boolean;
+        json?: boolean;
+      } | null;
+    }>;
 
     if (platformEnabledModels.length === 0) {
-      throw new Error("No platform-enabled AI models are currently configured");
+      throw new Error(
+        "No release-ready platform AI models are configured. Validate and re-enable at least one model."
+      );
     }
 
-    const conversationPinnedModel =
-      typeof conversation.modelId === "string" && conversation.modelId.trim().length > 0
-        ? conversation.modelId.trim()
-        : null;
-    const preferredModel = resolveRequestedModel(settings, args.selectedModel);
-    const orgDefaultModel = resolveOrgDefaultModel(settings);
-    const orgEnabledModelIds = Array.isArray(settings.llm.enabledModels)
+    const licenseSnapshot = await (ctx as any).runQuery(
+      generatedApi.internal.licensing.helpers.getLicenseInternalQuery,
+      { organizationId: args.organizationId }
+    ) as { planTier?: string } | null;
+    const isFreeTierOrganization = licenseSnapshot?.planTier === "free";
+
+    const explicitRequestedModel = normalizeNonEmptyString(args.selectedModel);
+    const platformEnabledModelIds = platformEnabledModels.map(
+      (platformModel) => platformModel.id
+    );
+    const configuredFreeTierModelId =
+      platformEnabledModels.find((platformModel) => platformModel.isFreeTierLocked === true)?.id ?? null;
+    const fallbackFreeTierModelId = selectFirstPlatformEnabledModel(
+      [ONBOARDING_DEFAULT_MODEL_ID, platformEnabledModelIds[0]],
+      platformEnabledModelIds
+    );
+    const effectiveFreeTierModelId =
+      configuredFreeTierModelId ?? fallbackFreeTierModelId;
+
+    if (isFreeTierOrganization && !effectiveFreeTierModelId) {
+      throw new Error(
+        "No release-ready free-tier model is configured. Set a free-tier lock in Super Admin > Platform AI Models."
+      );
+    }
+
+    if (explicitRequestedModel) {
+      if (
+        isFreeTierOrganization &&
+        effectiveFreeTierModelId &&
+        explicitRequestedModel !== effectiveFreeTierModelId
+      ) {
+        throw new Error(
+          `Free-tier organizations are pinned to "${effectiveFreeTierModelId}". Select that model to continue.`
+        );
+      }
+
+      if (
+        !isFreeTierOrganization &&
+        !isModelAllowedForOrg(settings, explicitRequestedModel)
+      ) {
+        throw new Error(
+          `Model "${explicitRequestedModel}" is not enabled for this organization. Select one of the models configured by your organization owner.`
+        );
+      }
+
+      const explicitPlatformModel = selectFirstPlatformEnabledModel(
+        [explicitRequestedModel],
+        platformEnabledModelIds
+      );
+      if (!explicitPlatformModel) {
+        throw new Error(
+          `Model "${explicitRequestedModel}" is not currently release-ready on this platform. Select a currently enabled model and retry.`
+        );
+      }
+    }
+
+    const preferredModel =
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? effectiveFreeTierModelId
+        : resolveRequestedModel(settings, explicitRequestedModel);
+    const orgDefaultModel =
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? effectiveFreeTierModelId
+        : resolveOrgDefaultModel(settings);
+    const orgEnabledModelIdsRaw = Array.isArray(settings.llm.enabledModels)
       ? settings.llm.enabledModels.map(
           (enabled: { modelId?: string }) => enabled.modelId
         )
       : [];
-    const firstPlatformEnabledModel = platformEnabledModels[0]?.id ?? null;
+    const orgEnabledModelIds =
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? [effectiveFreeTierModelId]
+        : orgEnabledModelIdsRaw;
+    const modelResolutionPoolIds =
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? [effectiveFreeTierModelId]
+        : platformEnabledModelIds;
+    const firstPlatformEnabledModel = platformEnabledModelIds[0] ?? null;
     const model = selectFirstPlatformEnabledModel(
       [
-        !args.selectedModel ? conversationPinnedModel : null,
+        !explicitRequestedModel && !isFreeTierOrganization ? conversationPinnedModel : null,
         preferredModel,
         orgDefaultModel,
-        SAFE_FALLBACK_MODEL_ID,
+        isFreeTierOrganization ? effectiveFreeTierModelId : SAFE_FALLBACK_MODEL_ID,
         firstPlatformEnabledModel,
       ],
-      platformEnabledModels.map((platformModel) => platformModel.id)
+      modelResolutionPoolIds
     );
 
     if (!model) {
       throw new Error("Unable to resolve a platform-enabled model for this organization");
+    }
+
+    if (conversationHasImageAttachments) {
+      const selectedPlatformModel = platformEnabledModels.find((platformModel) => platformModel.id === model);
+      if (!supportsVisionCapability(selectedPlatformModel?.capabilityMatrix)) {
+        throw new Error(
+          "The current model does not support image input. Select a vision-capable model and retry."
+        );
+      }
     }
 
     const envApiKeysByProvider = buildEnvApiKeysByProvider({
@@ -514,24 +2238,28 @@ export const sendMessage = action({
           detectProvider(candidateModelId, runtimeProviderId) === runtimeProviderId
         );
     const providerScopedPlatformEnabledModelIds = runtimeProviderId === "openrouter"
-      ? platformEnabledModels.map((platformModel) => platformModel.id)
+      ? modelResolutionPoolIds
       : platformEnabledModels
         .map((platformModel) => platformModel.id)
         .filter((candidateModelId: string) =>
           detectProvider(candidateModelId, runtimeProviderId) === runtimeProviderId
         );
     const runtimeModelPool =
-      providerScopedPlatformEnabledModelIds.length > 0
-        ? providerScopedPlatformEnabledModelIds
-        : platformEnabledModels.map((platformModel) => platformModel.id);
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? [effectiveFreeTierModelId]
+        : providerScopedPlatformEnabledModelIds.length > 0
+          ? providerScopedPlatformEnabledModelIds
+          : platformEnabledModels.map((platformModel) => platformModel.id);
     const runtimeOrgModelPool =
       providerScopedOrgEnabledModelIds.length > 0
         ? providerScopedOrgEnabledModelIds
         : orgEnabledModelIds;
     const runtimeSafeFallbackModelId =
-      runtimeProviderId === "openrouter"
-        ? SAFE_FALLBACK_MODEL_ID
-        : runtimeModelPool[0] ?? model;
+      isFreeTierOrganization && effectiveFreeTierModelId
+        ? effectiveFreeTierModelId
+        : runtimeProviderId === "openrouter"
+          ? SAFE_FALLBACK_MODEL_ID
+          : runtimeModelPool[0] ?? model;
     const authProfileProviderById = new Map(
       authProfilesWithBaseUrl.map((profile) => [profile.profileId, profile.providerId])
     );
@@ -540,7 +2268,10 @@ export const sendMessage = action({
     );
 
     const selectionSource =
-      !args.selectedModel && conversationPinnedModel && model === conversationPinnedModel
+      !explicitRequestedModel &&
+      !isFreeTierOrganization &&
+      conversationPinnedModel &&
+      model === conversationPinnedModel
         ? "session_pinned"
         : determineModelSelectionSource({
             selectedModel: model,
@@ -767,6 +2498,20 @@ ${knowledgeBlock}`;
     // In prototype mode (page_builder context), only provide read-only tools
     const builderMode = isPageBuilderContext ? args.builderMode : undefined;
     const availableTools = getToolSchemas(builderMode);
+    if (availableTools.length > 0) {
+      const selectedPlatformModel = platformEnabledModels.find(
+        (platformModel) => platformModel.id === model
+      );
+      const toolingCapabilityGate = evaluateRoutingCapabilityRequirements({
+        capabilityMatrix: selectedPlatformModel?.capabilityMatrix ?? undefined,
+        requiredCapabilities: ["tools", "json"],
+      });
+      if (!toolingCapabilityGate.passed) {
+        throw new Error(
+          "Selected model route is not release-ready for tool calling. Enable a validated tools+json model and retry."
+        );
+      }
+    }
 
     console.log(`[AI Chat] Builder mode: ${builderMode || 'none'}, available tools: ${availableTools.length}`);
     const recordAuthProfileSuccess = async ({
@@ -819,6 +2564,7 @@ ${knowledgeBlock}`;
       tools: availableTools,
       selectedModel: args.selectedModel,
       conversationPinnedModel,
+      conversationPinnedAuthProfileId,
       orgEnabledModelIds: runtimeOrgModelPool,
       orgDefaultModelId: orgDefaultModel,
       platformEnabledModelIds: runtimeModelPool,
@@ -923,6 +2669,7 @@ ${knowledgeBlock}`;
           autonomyLevel: chatApprovalPolicy.autonomyLevel,
           toolName: toolCall.function.name,
           requireApprovalFor: chatApprovalPolicy.requireApprovalFor,
+          toolArgs: parsedArgs,
         });
         // Auto-recovery bypasses approval so retries can execute immediately.
         const shouldPropose = !args.isAutoRecovery && needsApproval;
@@ -958,6 +2705,15 @@ ${knowledgeBlock}`;
                 organizationId: args.organizationId,
                 userId: args.userId,
                 conversationId, // Pass conversationId for feature requests
+                runtimePolicy: {
+                  codeExecution: {
+                    autonomyLevel: chatApprovalPolicy.autonomyLevel,
+                    requireApprovalFor: chatApprovalPolicy.requireApprovalFor || [],
+                    approvalRequired: needsApproval,
+                    approvalGranted: !needsApproval,
+                    policySource: "chat_tool_approval_policy",
+                  },
+                },
               },
               toolCall.function.name,
               parsedArgs
@@ -1280,6 +3036,26 @@ ${knowledgeBlock}`;
     const deductionLlmBillingSource = resolveLlmBillingSource(
       usedAuthProfileId ?? selectedAuthProfileId ?? authProfilesWithBaseUrl[0]?.profileId ?? null
     );
+    const usageSnapshot = response.usage || {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0,
+    };
+    const promptTokens = Math.max(0, usageSnapshot.prompt_tokens || 0);
+    const completionTokens = Math.max(0, usageSnapshot.completion_tokens || 0);
+    const totalTokens = Math.max(
+      0,
+      usageSnapshot.total_tokens ?? promptTokens + completionTokens
+    );
+    const nativeCostInCents = Math.max(0, Math.round(cost * 100));
+    let chatCreditsCharged = 0;
+    let chatCreditChargeStatus:
+      | "charged"
+      | "skipped_unmetered"
+      | "skipped_insufficient_credits"
+      | "skipped_not_required"
+      | "failed" = "failed";
+
     try {
       const chatCreditDeduction = await (ctx as any).runMutation(
         generatedApi.internal.credits.index.deductCreditsInternalMutation,
@@ -1296,7 +3072,13 @@ ${knowledgeBlock}`;
         }
       );
 
-      if (!chatCreditDeduction.success) {
+      if (chatCreditDeduction.success && !chatCreditDeduction.skipped) {
+        chatCreditsCharged = messageCreditCost;
+        chatCreditChargeStatus = "charged";
+      } else if (chatCreditDeduction.success && chatCreditDeduction.skipped) {
+        chatCreditChargeStatus = "skipped_not_required";
+      } else if (!chatCreditDeduction.success) {
+        chatCreditChargeStatus = "skipped_insufficient_credits";
         console.warn("[AI Chat] Credit deduction skipped:", {
           organizationId: args.organizationId,
           errorCode: chatCreditDeduction.errorCode,
@@ -1307,6 +3089,55 @@ ${knowledgeBlock}`;
       }
     } catch (error) {
       console.error("[AI Chat] Credit deduction failed after successful response:", error);
+      chatCreditChargeStatus = "failed";
+    }
+
+    try {
+      await (ctx as any).runMutation(generatedApi.api.ai.billing.recordUsage, {
+        organizationId: args.organizationId,
+        userId: args.userId,
+        requestType: "chat",
+        provider,
+        model: usedModel,
+        action: "chat_completion",
+        requestCount: 1,
+        inputTokens: promptTokens,
+        outputTokens: completionTokens,
+        totalTokens,
+        costInCents: nativeCostInCents,
+        nativeUsageUnit: "tokens",
+        nativeUsageQuantity: totalTokens,
+        nativeInputUnits: promptTokens,
+        nativeOutputUnits: completionTokens,
+        nativeTotalUnits: totalTokens,
+        nativeCostInCents,
+        nativeCostCurrency: "USD",
+        nativeCostSource: "estimated_model_pricing",
+        creditsCharged: chatCreditsCharged,
+        creditChargeStatus: chatCreditChargeStatus,
+        success: true,
+        billingSource: deductionLlmBillingSource,
+        requestSource: "llm",
+        ledgerMode: "credits_ledger",
+        creditLedgerAction: "agent_message",
+        usageMetadata: {
+          context: args.context || "normal",
+          selectionSource,
+          failoverStage,
+          selectedAuthProfileId,
+          usedAuthProfileId,
+          proposedToolCount,
+          containsVisionAttachments: conversationHasImageAttachments,
+          visionAttachmentCount: conversationHasImageAttachments
+            ? resolvedAttachments.length
+            : 0,
+          visionPreferredProvider: conversationHasImageAttachments
+            ? "gemini"
+            : null,
+        },
+      });
+    } catch (error) {
+      console.error("[AI Chat] Failed to persist AI usage telemetry:", error);
     }
 
     // 12. Collect training data (silent, non-blocking)

@@ -26,6 +26,29 @@ function getInternal(): any {
   return _internalCache;
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 // ============================================================================
 // ACTION: Detect Web App Connections
 // ============================================================================
@@ -130,6 +153,8 @@ export const executeWebAppConnections = internalAction({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     appId: v.id("objects"),
+    conversationId: v.optional(v.id("aiConversations")),
+    idempotencyKey: v.optional(v.string()),
     decisions: v.array(
       v.object({
         itemId: v.string(),
@@ -141,6 +166,37 @@ export const executeWebAppConnections = internalAction({
   },
   handler: async (ctx, args) => {
     const internal = getInternal();
+    const payloadDigest = hashString(
+      stableStringify({
+        appId: args.appId,
+        decisions: args.decisions,
+      })
+    );
+    const idempotencyKey =
+      args.idempotencyKey?.trim() || `${args.appId}:${payloadDigest}`;
+    const experienceKey = `builder_webapp:${idempotencyKey}`;
+    const stepKey = "connect_webapp_data";
+    const signature = `${experienceKey}:${stepKey}`;
+
+    const existing = await ctx.runQuery(
+      internal.ai.tools.internalToolMutations.internalFindOrchestrationArtifact,
+      {
+        organizationId: args.organizationId,
+        artifactType: "builder_app",
+        signature,
+      }
+    );
+
+    if (existing?._id) {
+      return {
+        created: [],
+        linked: [],
+        skipped: [],
+        errors: [],
+        reusedRun: true,
+        idempotencyKey,
+      };
+    }
 
     // Build decision lookup
     const decisionMap = new Map(args.decisions.map((d) => [d.itemId, d]));
@@ -283,7 +339,25 @@ export const executeWebAppConnections = internalAction({
       }
     );
 
-    return results;
+    await ctx.runMutation(
+      internal.ai.tools.internalToolMutations.internalStampOrchestrationMetadata,
+      {
+        organizationId: args.organizationId,
+        objectId: args.appId,
+        playbook: "builder_managed_publish",
+        experienceKey,
+        stepKey,
+        signature,
+        payloadDigest,
+        conversationId: args.conversationId,
+      }
+    );
+
+    return {
+      ...results,
+      reusedRun: false,
+      idempotencyKey,
+    };
   },
 });
 

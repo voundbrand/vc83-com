@@ -16,6 +16,16 @@ describe("agent execution harness wiring", () => {
         autonomyLevel: "autonomous",
         modelProvider: "openrouter",
         modelId: "anthropic/claude-sonnet-4.5",
+        unifiedPersonality: true,
+        teamAccessMode: "invisible",
+        dreamTeamSpecialists: [
+          {
+            soulBlendId: "blend:strategist",
+            specialistSubtype: "general",
+            directAccessEnabled: true,
+            meetingParticipant: true,
+          },
+        ],
       },
       ["list_team_agents", "tag_in_specialist"],
       {
@@ -60,6 +70,9 @@ describe("agent execution harness wiring", () => {
     expect(prompt).toContain("**Available tools (2):**");
     expect(prompt).toContain("- list_team_agents");
     expect(prompt).toContain("- tag_in_specialist");
+    expect(prompt).toContain("Unified personality enabled");
+    expect(prompt).toContain("specialist access mode is `invisible`");
+    expect(prompt).toContain("Dream Team catalog contract loaded (1 specialist entries");
   });
 
   it("keeps harness block before handoff instructions in prompt assembly", () => {
@@ -85,5 +98,141 @@ describe("agent execution harness wiring", () => {
     expect(harnessIndex).toBeGreaterThan(-1);
     expect(handoffIndex).toBeGreaterThan(-1);
     expect(harnessIndex).toBeLessThan(handoffIndex);
+  });
+
+  it("surfaces mode/archetype overlays and sensitive guardrails in harness context", () => {
+    const harnessContext = buildHarnessContext(
+      {
+        displayName: "Private Coach",
+        autonomyLevel: "autonomous",
+        activeSoulMode: "private",
+        activeArchetype: "life_coach",
+      },
+      ["search_contacts"],
+      {
+        messageCount: 2,
+        channel: "telegram_private",
+        hasCrmContact: false,
+      },
+    );
+
+    expect(harnessContext).toContain("**Soul mode:** private");
+    expect(harnessContext).toContain("**Active archetype:** The Life Coach");
+    expect(harnessContext).toContain("Identity invariant");
+    expect(harnessContext).toContain("Sensitive archetype runtime guardrails active");
+  });
+
+  it("renders personal-workspace cross-org read-only enrichment context", () => {
+    const harnessContext = buildHarnessContext(
+      {
+        displayName: "Personal Operator",
+        autonomyLevel: "supervised",
+      },
+      ["list_team_agents"],
+      {
+        messageCount: 1,
+        channel: "desktop",
+        hasCrmContact: false,
+      },
+      undefined,
+      undefined,
+      { name: "Alex Personal", slug: "alex", planTier: "free" },
+      undefined,
+      [
+        {
+          organizationName: "Acme Agency",
+          roleName: "org_owner",
+          workspaceType: "business",
+          primaryAgentName: "Acme Operator",
+          primaryAgentSubtype: "general",
+          dreamTeamContractCount: 6,
+        },
+      ],
+    );
+
+    expect(harnessContext).toContain("Cross-org read-only soul enrichment active");
+    expect(harnessContext).toContain("Acme Agency");
+    expect(harnessContext).toContain("Dream Team contracts 6");
+    expect(harnessContext).toContain("Never perform cross-org writes");
+  });
+
+  it("renders autonomy domain defaults and trust progression guidance", () => {
+    const harnessContext = buildHarnessContext(
+      {
+        displayName: "Ops Controller",
+        autonomyLevel: "autonomous",
+        domainAutonomy: {
+          appointment_booking: {
+            level: "live",
+            promotedAt: 1_739_900_000_000,
+            promotedBy: "ops_lead",
+          },
+        },
+        autonomyTrust: {
+          trustScore: 0.94,
+          signalCount: 35,
+          successfulActionCount: 44,
+          policyViolationCount: 0,
+          recentFailureCount: 0,
+          delegationOptIn: true,
+        },
+      },
+      [],
+      {
+        messageCount: 1,
+        channel: "webchat",
+        hasCrmContact: false,
+      },
+    );
+
+    expect(harnessContext).toContain("**Domain autonomy:** appointment_booking defaults to `live`");
+    expect(harnessContext).toContain("**Trust progression:** promote autonomous -> delegation");
+  });
+
+  it("renders privacy and quality firewall guardrails in harness context", () => {
+    const harnessContext = buildHarnessContext(
+      {
+        displayName: "Private Operator",
+        autonomyLevel: "supervised",
+        modelId: "local/phi-4-mini",
+        modelProvider: "openai_compatible",
+        privacyMode: "local_only",
+        qualityTierFloor: "silver",
+        localModelIds: ["local/phi-4-mini", "local/qwen2.5"],
+        localConnection: {
+          connectorId: "ollama",
+          status: "connected",
+          modelIds: ["local/phi-4-mini", "local/qwen2.5"],
+          capabilityLimits: {
+            tools: false,
+            vision: false,
+            audio_in: false,
+            audio_out: false,
+            json: true,
+            networkEgress: "blocked",
+          },
+        },
+        selectedModelQualityTier: "bronze",
+        selectedRouteIsLocal: true,
+        selectedPolicyGuardrail:
+          "Privacy mode local-only blocks cloud model routes.",
+        selectedModelDriftWarning:
+          "Model switch may reduce response quality consistency.",
+      },
+      [],
+      {
+        messageCount: 1,
+        channel: "desktop",
+        hasCrmContact: false,
+      },
+    );
+
+    expect(harnessContext).toContain("**Privacy mode:** local_only.");
+    expect(harnessContext).toContain("**Quality firewall floor:** silver.");
+    expect(harnessContext).toContain("network_egress=blocked");
+    expect(harnessContext).toContain("Selected route quality tier: bronze.");
+    expect(harnessContext).toContain("Selected route locality: local.");
+    expect(harnessContext).toContain("Active privacy safeguard");
+    expect(harnessContext).toContain("Active drift safeguard");
   });
 });

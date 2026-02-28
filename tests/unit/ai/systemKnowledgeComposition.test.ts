@@ -39,4 +39,29 @@ describe("system knowledge composition contract", () => {
     expect(bundle.telemetry.requestedTriggers).toEqual(["lead_generation"]);
     expect(bundle.telemetry.matchedTriggers).toContain("lead_generation");
   });
+
+  it("loads support troubleshooting and billing docs for support triggers", () => {
+    const bundle = composeKnowledgeContract("customer", [
+      "support_runtime",
+      "support_billing",
+    ]);
+
+    const ids = bundle.documents.map((doc) => doc.id);
+    expect(ids).toContain("support-troubleshooting-playbook");
+    expect(ids).toContain("support-pricing-billing-reference");
+    expect(bundle.telemetry.requestedTriggers).toEqual([
+      "support_runtime",
+      "support_billing",
+    ]);
+    expect(bundle.telemetry.matchedTriggers).toContain("support_runtime");
+    expect(bundle.telemetry.matchedTriggers).toContain("support_billing");
+  });
+
+  it("loads agent recommender playbook for agent-selection triggers", () => {
+    const bundle = composeKnowledgeContract("customer", ["agent_selection"]);
+    const ids = bundle.documents.map((doc) => doc.id);
+
+    expect(ids).toContain("support-agent-selection-recommender");
+    expect(bundle.telemetry.matchedTriggers).toContain("agent_selection");
+  });
 });

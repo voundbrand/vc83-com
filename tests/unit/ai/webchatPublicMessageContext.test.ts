@@ -197,4 +197,51 @@ describe("resolvePublicMessageContextFromDb", () => {
     });
     expect(db.query).not.toHaveBeenCalled();
   });
+
+  it("direct_agent_entry mode bypasses session lookup and resolves via agent", async () => {
+    const db = makeDb({
+      session: {
+        organizationId: ORG_LEGACY,
+        agentId: AGENT_OTHER,
+        channel: "webchat",
+      },
+      agent: makeEnabledAgent([{ channel: "webchat", enabled: true }]),
+    });
+
+    const result = await resolvePublicMessageContextFromDb(db, {
+      agentId: AGENT_PRIMARY,
+      channel: "webchat",
+      sessionToken: "wc_session_should_be_ignored",
+      deploymentMode: "direct_agent_entry",
+    });
+
+    expect(result).toEqual({
+      organizationId: ORG_PRIMARY,
+      agentId: AGENT_PRIMARY,
+      channel: "webchat",
+      source: "agent",
+      organizationIdStatus: "resolved",
+    });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it("direct_agent_entry mode requires a valid agent", async () => {
+    const db = makeDb({
+      session: {
+        organizationId: ORG_PRIMARY,
+        agentId: AGENT_PRIMARY,
+        channel: "webchat",
+      },
+      agent: null,
+    });
+
+    const result = await resolvePublicMessageContextFromDb(db, {
+      channel: "webchat",
+      sessionToken: "wc_session_123",
+      deploymentMode: "direct_agent_entry",
+    });
+
+    expect(result).toBeNull();
+    expect(db.query).not.toHaveBeenCalled();
+  });
 });

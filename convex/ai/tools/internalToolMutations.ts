@@ -8,6 +8,8 @@
 import { internalMutation, internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../../_generated/dataModel";
+import { checkResourceLimit } from "../../licensing/helpers";
+import { generateVercelDeployUrl } from "../../publishingHelpers";
 import {
   CHECKOUT_LIFECYCLE_STATUS_VALUES,
   EVENT_LIFECYCLE_STATUS_VALUES,
@@ -16,6 +18,152 @@ import {
   normalizeEventLifecycleStatus,
   normalizeOrchestrationStatus,
 } from "../../orchestrationContract";
+
+const OUTREACH_PREFERRED_CHANNEL_VALUES = [
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+const OUTREACH_FALLBACK_METHOD_VALUES = [
+  "none",
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+const DEFAULT_CONTACT_OUTREACH_PREFERENCES = {
+  preferredChannel: "sms",
+  allowedHours: {
+    start: "09:00",
+    end: "17:00",
+    timezone: "local",
+  },
+  fallbackMethod: "email",
+} as const;
+
+const HOUR_24_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function normalizeHour(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.trim();
+  return HOUR_24_REGEX.test(normalized) ? normalized : fallback;
+}
+
+function resolveOutreachPreferences(
+  currentRaw: unknown,
+  patchRaw?: unknown
+): {
+  preferredChannel: "sms" | "email" | "telegram" | "phone_call";
+  allowedHours: { start: string; end: string; timezone?: string };
+  fallbackMethod: "none" | "sms" | "email" | "telegram" | "phone_call";
+} {
+  const current =
+    currentRaw && typeof currentRaw === "object"
+      ? (currentRaw as Record<string, unknown>)
+      : {};
+  const patch =
+    patchRaw && typeof patchRaw === "object"
+      ? (patchRaw as Record<string, unknown>)
+      : {};
+  const currentAllowedHours =
+    current.allowedHours && typeof current.allowedHours === "object"
+      ? (current.allowedHours as Record<string, unknown>)
+      : {};
+  const patchAllowedHours =
+    patch.allowedHours && typeof patch.allowedHours === "object"
+      ? (patch.allowedHours as Record<string, unknown>)
+      : {};
+
+  const preferredChannel =
+    typeof patch.preferredChannel === "string" &&
+    OUTREACH_PREFERRED_CHANNEL_VALUES.includes(
+      patch.preferredChannel as "sms" | "email" | "telegram" | "phone_call"
+    )
+      ? (patch.preferredChannel as "sms" | "email" | "telegram" | "phone_call")
+      : typeof current.preferredChannel === "string" &&
+          OUTREACH_PREFERRED_CHANNEL_VALUES.includes(
+            current.preferredChannel as
+              | "sms"
+              | "email"
+              | "telegram"
+              | "phone_call"
+          )
+        ? (current.preferredChannel as
+            | "sms"
+            | "email"
+            | "telegram"
+            | "phone_call")
+        : DEFAULT_CONTACT_OUTREACH_PREFERENCES.preferredChannel;
+
+  const fallbackMethod =
+    typeof patch.fallbackMethod === "string" &&
+    OUTREACH_FALLBACK_METHOD_VALUES.includes(
+      patch.fallbackMethod as
+        | "none"
+        | "sms"
+        | "email"
+        | "telegram"
+        | "phone_call"
+    )
+      ? (patch.fallbackMethod as
+          | "none"
+          | "sms"
+          | "email"
+          | "telegram"
+          | "phone_call")
+      : typeof current.fallbackMethod === "string" &&
+          OUTREACH_FALLBACK_METHOD_VALUES.includes(
+            current.fallbackMethod as
+              | "none"
+              | "sms"
+              | "email"
+              | "telegram"
+              | "phone_call"
+          )
+        ? (current.fallbackMethod as
+            | "none"
+            | "sms"
+            | "email"
+            | "telegram"
+            | "phone_call")
+        : DEFAULT_CONTACT_OUTREACH_PREFERENCES.fallbackMethod;
+
+  const timezoneFromPatch =
+    typeof patchAllowedHours.timezone === "string" &&
+    patchAllowedHours.timezone.trim().length > 0
+      ? patchAllowedHours.timezone.trim()
+      : undefined;
+  const timezoneFromCurrent =
+    typeof currentAllowedHours.timezone === "string" &&
+    currentAllowedHours.timezone.trim().length > 0
+      ? currentAllowedHours.timezone.trim()
+      : DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.timezone;
+
+  return {
+    preferredChannel,
+    allowedHours: {
+      start: normalizeHour(
+        patchAllowedHours.start,
+        normalizeHour(
+          currentAllowedHours.start,
+          DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.start
+        )
+      ),
+      end: normalizeHour(
+        patchAllowedHours.end,
+        normalizeHour(
+          currentAllowedHours.end,
+          DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.end
+        )
+      ),
+      timezone: timezoneFromPatch ?? timezoneFromCurrent,
+    },
+    fallbackMethod,
+  };
+}
 
 /**
  * Get user by ID (for email sending and other operations)
@@ -38,6 +186,657 @@ export const getOrganizationById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.organizationId);
+  },
+});
+
+// ============================================================================
+// BUILDER INTERNAL HELPERS (agent tooling runtime)
+// ============================================================================
+
+const builderSubtypeValidator = v.union(
+  v.literal("v0_generated"),
+  v.literal("template_based"),
+  v.literal("custom")
+);
+
+const builderDeploymentModeValidator = v.union(
+  v.literal("managed"),
+  v.literal("external")
+);
+
+const builderDeploymentStatusValidator = v.union(
+  v.literal("not_deployed"),
+  v.literal("deploying"),
+  v.literal("deployed"),
+  v.literal("failed")
+);
+
+const builderFileValidator = v.object({
+  path: v.string(),
+  content: v.string(),
+  language: v.string(),
+});
+
+const builderModifiedByValidator = v.union(
+  v.literal("v0"),
+  v.literal("user"),
+  v.literal("self-heal"),
+  v.literal("scaffold")
+);
+
+function hashBuilderFileContent(content: string): string {
+  let hash = 0;
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return hash.toString(36);
+}
+
+function sanitizeRepoProjectName(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function resolveManagedBuilderUrl(args: {
+  appId: Id<"objects">;
+  v0DemoUrl?: string | null;
+  v0WebUrl?: string | null;
+}) {
+  if (args.v0DemoUrl && args.v0DemoUrl.trim().length > 0) {
+    return args.v0DemoUrl;
+  }
+  if (args.v0WebUrl && args.v0WebUrl.trim().length > 0) {
+    return args.v0WebUrl;
+  }
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com").replace(
+    /\/+$/,
+    ""
+  );
+  return `${baseUrl}/builder/new?appId=${args.appId}`;
+}
+
+/**
+ * Internal: create builder app without session-bound mutation wrappers.
+ */
+export const internalCreateBuilderApp = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    subtype: builderSubtypeValidator,
+    conversationId: v.optional(v.id("aiConversations")),
+    v0ChatId: v.optional(v.string()),
+    v0WebUrl: v.optional(v.string()),
+    v0DemoUrl: v.optional(v.string()),
+    deploymentMode: v.optional(builderDeploymentModeValidator),
+  },
+  handler: async (ctx, args) => {
+    await checkResourceLimit(ctx, args.organizationId, "builder_app", "maxBuilderApps");
+
+    const year = new Date().getFullYear();
+    const existingApps = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "builder_app")
+      )
+      .collect();
+
+    const thisYearApps = existingApps.filter((app) => {
+      const props = app.customProperties as { appCode?: string } | undefined;
+      return props?.appCode?.startsWith(`APP-${year}-`);
+    });
+    const nextNumber = (thisYearApps.length + 1).toString().padStart(3, "0");
+    const appCode = `APP-${year}-${nextNumber}`;
+    const deploymentMode = args.deploymentMode ?? "managed";
+
+    const customProperties = {
+      appCode,
+      v0ChatId: args.v0ChatId,
+      v0WebUrl: args.v0WebUrl,
+      v0DemoUrl: args.v0DemoUrl,
+      sdkVersion: "1.0.0",
+      requiredEnvVars: [
+        {
+          key: "NEXT_PUBLIC_L4YERCAK3_API_KEY",
+          description: "Your l4yercak3 API key",
+          required: true,
+        },
+        {
+          key: "NEXT_PUBLIC_L4YERCAK3_URL",
+          description: "l4yercak3 API URL",
+          required: false,
+          defaultValue: "https://agreeable-lion-828.convex.site",
+        },
+        {
+          key: "L4YERCAK3_ORG_ID",
+          description: "Your organization ID",
+          required: true,
+        },
+      ],
+      linkedObjects: {
+        events: [] as Id<"objects">[],
+        products: [] as Id<"objects">[],
+        forms: [] as Id<"objects">[],
+        contacts: [] as Id<"objects">[],
+        invoices: [] as Id<"objects">[],
+        tickets: [] as Id<"objects">[],
+        bookings: [] as Id<"objects">[],
+        workflows: [] as Id<"objects">[],
+        checkouts: [] as Id<"objects">[],
+        agents: [] as Id<"objects">[],
+      },
+      deployment: {
+        mode: deploymentMode,
+        githubRepo: null as string | null,
+        githubBranch: "main",
+        vercelProjectId: null as string | null,
+        vercelDeployUrl: null as string | null,
+        productionUrl: null as string | null,
+        managedUrl: null as string | null,
+        status: "not_deployed" as const,
+        lastDeployedAt: null as number | null,
+        deploymentError: null as string | null,
+      },
+      connectionStatus: "pending",
+      conversationId: args.conversationId,
+    };
+
+    const now = Date.now();
+    const appId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "builder_app",
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description,
+      status: args.v0ChatId ? "ready" : "draft",
+      customProperties,
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (deploymentMode === "managed") {
+      const managedUrl = resolveManagedBuilderUrl({
+        appId,
+        v0DemoUrl: args.v0DemoUrl ?? null,
+        v0WebUrl: args.v0WebUrl ?? null,
+      });
+      await ctx.db.patch(appId, {
+        customProperties: {
+          ...customProperties,
+          deployment: {
+            ...customProperties.deployment,
+            managedUrl,
+          },
+        },
+        updatedAt: Date.now(),
+      });
+    }
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: appId,
+      actionType: "created",
+      actionData: {
+        appCode,
+        subtype: args.subtype,
+        deploymentMode,
+        hasV0Chat: Boolean(args.v0ChatId),
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return { appId, appCode, deploymentMode };
+  },
+});
+
+/**
+ * Internal: fetch builder app by id.
+ */
+export const internalGetBuilderApp = internalQuery({
+  args: {
+    appId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      return null;
+    }
+    return app;
+  },
+});
+
+/**
+ * Internal: fetch builder files for an app.
+ */
+export const internalGetBuilderFiles = internalQuery({
+  args: {
+    appId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("builderFiles")
+      .withIndex("by_app", (q) => q.eq("appId", args.appId))
+      .collect();
+  },
+});
+
+/**
+ * Internal: upsert builder files.
+ */
+export const internalUpsertBuilderFiles = internalMutation({
+  args: {
+    appId: v.id("objects"),
+    files: v.array(builderFileValidator),
+    modifiedBy: builderModifiedByValidator,
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const isScaffold = args.modifiedBy === "scaffold";
+    const existing = await ctx.db
+      .query("builderFiles")
+      .withIndex("by_app", (q) => q.eq("appId", args.appId))
+      .collect();
+
+    const existingByPath = new Map(existing.map((file) => [file.path, file]));
+    for (const file of args.files) {
+      const contentHash = hashBuilderFileContent(file.content);
+      const existingFile = existingByPath.get(file.path);
+      if (existingFile) {
+        if (existingFile.contentHash !== contentHash) {
+          await ctx.db.patch(existingFile._id, {
+            content: file.content,
+            language: file.language,
+            contentHash,
+            lastModifiedAt: now,
+            lastModifiedBy: args.modifiedBy,
+          });
+        }
+      } else {
+        await ctx.db.insert("builderFiles", {
+          appId: args.appId,
+          path: file.path,
+          content: file.content,
+          language: file.language,
+          contentHash,
+          lastModifiedAt: now,
+          lastModifiedBy: args.modifiedBy,
+          isScaffold,
+        });
+      }
+    }
+
+    return { upserted: args.files.length };
+  },
+});
+
+/**
+ * Internal: update builder deployment metadata.
+ */
+export const internalUpdateBuilderDeployment = internalMutation({
+  args: {
+    appId: v.id("objects"),
+    deploymentMode: v.optional(builderDeploymentModeValidator),
+    githubRepo: v.optional(v.string()),
+    githubBranch: v.optional(v.string()),
+    vercelProjectId: v.optional(v.string()),
+    vercelDeployUrl: v.optional(v.string()),
+    productionUrl: v.optional(v.string()),
+    managedUrl: v.optional(v.string()),
+    status: v.optional(builderDeploymentStatusValidator),
+    deploymentError: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    const currentDeployment =
+      (currentProps.deployment as Record<string, unknown> | undefined) || {};
+
+    const nextDeployment: Record<string, unknown> = {
+      ...currentDeployment,
+      mode:
+        args.deploymentMode ??
+        (currentDeployment.mode as string | undefined) ??
+        "managed",
+    };
+
+    if (args.githubRepo !== undefined) nextDeployment.githubRepo = args.githubRepo;
+    if (args.githubBranch !== undefined)
+      nextDeployment.githubBranch = args.githubBranch;
+    if (args.vercelProjectId !== undefined)
+      nextDeployment.vercelProjectId = args.vercelProjectId;
+    if (args.vercelDeployUrl !== undefined)
+      nextDeployment.vercelDeployUrl = args.vercelDeployUrl;
+    if (args.productionUrl !== undefined)
+      nextDeployment.productionUrl = args.productionUrl;
+    if (args.managedUrl !== undefined) nextDeployment.managedUrl = args.managedUrl;
+    if (args.deploymentError !== undefined)
+      nextDeployment.deploymentError = args.deploymentError;
+
+    if (args.status !== undefined) {
+      nextDeployment.status = args.status;
+      if (args.status === "deployed") {
+        nextDeployment.lastDeployedAt = Date.now();
+        nextDeployment.deploymentError = null;
+      }
+    }
+
+    let appStatus = app.status;
+    if (args.status === "deploying") appStatus = "deploying";
+    if (args.status === "deployed") appStatus = "deployed";
+    if (args.status === "failed") appStatus = "failed";
+
+    await ctx.db.patch(args.appId, {
+      status: appStatus,
+      customProperties: {
+        ...currentProps,
+        deployment: nextDeployment,
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, deployment: nextDeployment };
+  },
+});
+
+/**
+ * Internal: generate Vercel deploy URL and stamp app deployment metadata.
+ */
+export const internalGenerateVercelDeployUrl = internalMutation({
+  args: {
+    appId: v.id("objects"),
+    userId: v.optional(v.id("users")),
+    githubRepo: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    const envVars = (currentProps.requiredEnvVars || []) as Array<{
+      key: string;
+      description: string;
+      required: boolean;
+      defaultValue?: string;
+    }>;
+
+    const vercelDeployUrl = generateVercelDeployUrl(
+      args.githubRepo,
+      envVars.length > 0 ? envVars : undefined,
+      sanitizeRepoProjectName(app.name)
+    );
+
+    const currentDeployment =
+      (currentProps.deployment as Record<string, unknown> | undefined) || {};
+    const updatedDeployment = {
+      ...currentDeployment,
+      mode: "external",
+      githubRepo: args.githubRepo,
+      vercelDeployUrl,
+    };
+
+    await ctx.db.patch(args.appId, {
+      customProperties: {
+        ...currentProps,
+        deployment: updatedDeployment,
+      },
+      updatedAt: Date.now(),
+    });
+
+    if (args.userId) {
+      await ctx.db.insert("objectActions", {
+        organizationId: app.organizationId,
+        objectId: args.appId,
+        actionType: "deploy_url_generated",
+        actionData: {
+          githubRepo: args.githubRepo,
+          vercelDeployUrl,
+          deploymentMode: "external",
+        },
+        performedBy: args.userId,
+        performedAt: Date.now(),
+      });
+    }
+
+    return {
+      success: true,
+      githubRepo: args.githubRepo,
+      vercelDeployUrl,
+    };
+  },
+});
+
+/**
+ * Internal: search existing records for connection matching without session-bound queries.
+ */
+export const internalGetExistingRecordsForConnection = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    detectedItems: v.array(
+      v.object({
+        id: v.string(),
+        type: v.string(),
+        name: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const typeMap: Record<string, string> = {
+      contact: "crm_contact",
+      form: "form",
+      product: "product",
+      event: "event",
+      invoice: "invoice",
+      ticket: "ticket",
+      booking: "booking",
+      workflow: "workflow",
+      checkout: "checkout_instance",
+      agent: "org_agent",
+    };
+
+    const results: Record<
+      string,
+      Array<{
+        id: string;
+        name: string;
+        similarity: number;
+        isExactMatch: boolean;
+        details: Record<string, unknown>;
+      }>
+    > = {};
+
+    const typeCache: Record<
+      string,
+      Array<{ _id: Id<"objects">; name: string; type: string; subtype?: string; status: string }>
+    > = {};
+
+    for (const item of args.detectedItems) {
+      const objectType = typeMap[item.type];
+      if (!objectType) {
+        results[item.id] = [];
+        continue;
+      }
+
+      if (!typeCache[objectType]) {
+        typeCache[objectType] = await ctx.db
+          .query("objects")
+          .withIndex("by_org_type", (q) =>
+            q.eq("organizationId", args.organizationId).eq("type", objectType)
+          )
+          .collect() as Array<{ _id: Id<"objects">; name: string; type: string; subtype?: string; status: string }>;
+      }
+
+      const records = typeCache[objectType];
+      const itemName = item.name.toLowerCase().trim();
+
+      results[item.id] = records
+        .map((record) => {
+          const recordName = record.name.toLowerCase().trim();
+          const isExactMatch = recordName === itemName;
+
+          let similarity = 0;
+          if (isExactMatch) {
+            similarity = 1.0;
+          } else if (recordName.includes(itemName) || itemName.includes(recordName)) {
+            similarity = 0.7;
+          } else {
+            const itemWords = itemName.split(/\s+/);
+            const recordWords = recordName.split(/\s+/);
+            const commonWords = itemWords.filter((word) => recordWords.includes(word));
+            if (commonWords.length > 0) {
+              similarity = commonWords.length / Math.max(itemWords.length, recordWords.length);
+            } else if (itemName.length > 0 && recordName.length > 0) {
+              const sharedChars = [...new Set(itemName)]
+                .filter((char) => recordName.includes(char)).length;
+              similarity = sharedChars / Math.max(itemName.length, recordName.length) * 0.3;
+            }
+          }
+
+          return {
+            id: record._id as string,
+            name: record.name,
+            similarity,
+            isExactMatch,
+            details: {
+              type: record.type,
+              subtype: record.subtype,
+              status: record.status,
+            },
+          };
+        })
+        .filter((match) => match.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 5);
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Internal: link records to builder app.
+ */
+export const internalLinkObjectsToBuilderApp = internalMutation({
+  args: {
+    appId: v.id("objects"),
+    userId: v.id("users"),
+    events: v.optional(v.array(v.id("objects"))),
+    products: v.optional(v.array(v.id("objects"))),
+    forms: v.optional(v.array(v.id("objects"))),
+    contacts: v.optional(v.array(v.id("objects"))),
+    invoices: v.optional(v.array(v.id("objects"))),
+    tickets: v.optional(v.array(v.id("objects"))),
+    bookings: v.optional(v.array(v.id("objects"))),
+    workflows: v.optional(v.array(v.id("objects"))),
+    checkouts: v.optional(v.array(v.id("objects"))),
+    agents: v.optional(v.array(v.id("objects"))),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    const currentLinkedObjects =
+      (currentProps.linkedObjects as Record<string, Id<"objects">[]> | undefined) || {};
+
+    const nextLinkedObjects = {
+      events: args.events ?? currentLinkedObjects.events ?? [],
+      products: args.products ?? currentLinkedObjects.products ?? [],
+      forms: args.forms ?? currentLinkedObjects.forms ?? [],
+      contacts: args.contacts ?? currentLinkedObjects.contacts ?? [],
+      invoices: args.invoices ?? currentLinkedObjects.invoices ?? [],
+      tickets: args.tickets ?? currentLinkedObjects.tickets ?? [],
+      bookings: args.bookings ?? currentLinkedObjects.bookings ?? [],
+      workflows: args.workflows ?? currentLinkedObjects.workflows ?? [],
+      checkouts: args.checkouts ?? currentLinkedObjects.checkouts ?? [],
+      agents: args.agents ?? currentLinkedObjects.agents ?? [],
+    };
+
+    await ctx.db.patch(args.appId, {
+      customProperties: {
+        ...currentProps,
+        linkedObjects: nextLinkedObjects,
+      },
+      updatedAt: Date.now(),
+    });
+
+    const allLinkedIds = [
+      ...(args.events || []),
+      ...(args.products || []),
+      ...(args.forms || []),
+      ...(args.contacts || []),
+      ...(args.invoices || []),
+      ...(args.tickets || []),
+      ...(args.bookings || []),
+      ...(args.workflows || []),
+      ...(args.checkouts || []),
+      ...(args.agents || []),
+    ];
+
+    for (const linkedId of allLinkedIds) {
+      const existingLink = await ctx.db
+        .query("objectLinks")
+        .withIndex("by_from_link_type", (q) =>
+          q.eq("fromObjectId", args.appId).eq("linkType", "uses")
+        )
+        .filter((q) => q.eq(q.field("toObjectId"), linkedId))
+        .first();
+      if (!existingLink) {
+        await ctx.db.insert("objectLinks", {
+          organizationId: app.organizationId,
+          fromObjectId: args.appId,
+          toObjectId: linkedId,
+          linkType: "uses",
+          createdBy: args.userId,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    return { success: true, linkedObjects: nextLinkedObjects };
+  },
+});
+
+/**
+ * Internal: update data-connection completion state on builder app.
+ */
+export const internalUpdateConnectionStatus = internalMutation({
+  args: {
+    appId: v.id("objects"),
+    connectionStatus: v.string(),
+    connectionCompletedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const app = await ctx.db.get(args.appId);
+    if (!app || app.type !== "builder_app") {
+      throw new Error("Builder app not found");
+    }
+
+    const currentProps = (app.customProperties || {}) as Record<string, unknown>;
+    await ctx.db.patch(args.appId, {
+      customProperties: {
+        ...currentProps,
+        connectionStatus: args.connectionStatus,
+        connectionCompletedAt: args.connectionCompletedAt || Date.now(),
+      },
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });
 
@@ -210,10 +1009,23 @@ export const internalCreateContact = internalMutation({
     jobTitle: v.optional(v.string()),
     company: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
+    outreachPreferences: v.optional(v.object({
+      preferredChannel: v.optional(v.string()),
+      allowedHours: v.optional(v.object({
+        start: v.optional(v.string()),
+        end: v.optional(v.string()),
+        timezone: v.optional(v.string()),
+      })),
+      fallbackMethod: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     // Direct creation without session check (already authenticated in action)
     const now = Date.now();
+    const outreachPreferences = resolveOutreachPreferences(
+      DEFAULT_CONTACT_OUTREACH_PREFERENCES,
+      args.outreachPreferences
+    );
     const contactId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
       type: "crm_contact",
@@ -233,6 +1045,7 @@ export const internalCreateContact = internalMutation({
         company: args.company,
         tags: args.tags || [],
         notes: "",
+        outreachPreferences,
         customFields: {},
       },
     });
@@ -1941,6 +2754,15 @@ export const internalUpdateContact = internalMutation({
     company: v.optional(v.string()),
     notes: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
+    outreachPreferences: v.optional(v.object({
+      preferredChannel: v.optional(v.string()),
+      allowedHours: v.optional(v.object({
+        start: v.optional(v.string()),
+        end: v.optional(v.string()),
+        timezone: v.optional(v.string()),
+      })),
+      fallbackMethod: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     const contact = await ctx.db.get(args.contactId);
@@ -1970,6 +2792,12 @@ export const internalUpdateContact = internalMutation({
     if (args.company !== undefined) propsUpdates.company = args.company;
     if (args.notes !== undefined) propsUpdates.notes = args.notes;
     if (args.tags !== undefined) propsUpdates.tags = args.tags;
+    if (args.outreachPreferences !== undefined) {
+      propsUpdates.outreachPreferences = resolveOutreachPreferences(
+        existingProps.outreachPreferences,
+        args.outreachPreferences
+      );
+    }
 
     if (Object.keys(propsUpdates).length > 0) {
       updates.customProperties = { ...existingProps, ...propsUpdates };

@@ -2,8 +2,18 @@ import {
   composeKnowledgeContract,
   type KnowledgeCompositionContract,
 } from "./systemKnowledge/index";
+import {
+  buildArchetypePromptOverlay,
+  resolveActiveArchetypeRuntimeContract,
+  resolveSensitiveArchetypeRuntimeConstraint,
+} from "./archetypes";
+import {
+  normalizeAutonomyLevel,
+  type AutonomyLevelInput,
+} from "./autonomy";
 import { buildInterviewPromptContext } from "./interviewRunner";
 import type { KnowledgeContextDocument } from "./memoryComposer";
+import { resolveSoulModeRuntimeContract } from "./soulModes";
 
 export interface SemanticKnowledgeChunkSearchChunk {
   chunkId: string;
@@ -37,11 +47,17 @@ export interface AgentPromptConfig {
   systemPrompt?: string;
   faqEntries?: Array<{ q: string; a: string }>;
   blockedTopics?: string[];
-  autonomyLevel: "supervised" | "autonomous" | "draft_only";
+  autonomyLevel: AutonomyLevelInput;
+  activeSoulMode?: string;
+  activeArchetype?: string | null;
+  modeChannelBindings?: unknown;
+  enabledArchetypes?: unknown;
+  activeChannel?: string;
 }
 
 export interface AgentPromptHandoffContext {
   sharedContext?: string;
+  teamAccessMode?: "invisible" | "direct" | "meeting";
   lastHandoff?: {
     fromAgent: string;
     reason: string;
@@ -351,6 +367,83 @@ export function buildAgentSystemPrompt(
   }
 
   parts.push(`You are ${config.displayName || "an AI assistant"} for this organization.`);
+  parts.push("\n--- IDENTITY + GREETING GUARDRAILS ---");
+  parts.push(
+    "Do not adopt or invent a legacy chatbot persona, personal alias, or canned role intro (for example, names like 'Kai').",
+  );
+  parts.push(
+    "Do not open with a capabilities menu or sales-style bullet list unless the user explicitly asks what you can do.",
+  );
+  parts.push(
+    "When the user sends a simple greeting (for example 'hello'), reply briefly in current orchestrator voice and ask one focused next-step question.",
+  );
+  parts.push(
+    "Keep identity consistent with this runtime configuration and current thread mode; do not frame yourself as a generic CRM/forms assistant.",
+  );
+  parts.push(
+    "One-of-one ownership invariant: the user should experience you as their dedicated operator, not as a shared agency desk or rotating team.",
+  );
+  parts.push(
+    "Do not describe yourself as one of many agents serving many users unless the user explicitly asks for architecture/debug details.",
+  );
+  parts.push("--- END IDENTITY + GREETING GUARDRAILS ---");
+
+  const soulModeRuntime = resolveSoulModeRuntimeContract({
+    activeSoulMode: config.activeSoulMode,
+    modeChannelBindings: config.modeChannelBindings,
+    channel: config.activeChannel,
+  });
+  const archetypeRuntime = resolveActiveArchetypeRuntimeContract({
+    requestedArchetype: config.activeArchetype,
+    enabledArchetypes: config.enabledArchetypes,
+    mode: soulModeRuntime.mode,
+    modeDefaultArchetype: soulModeRuntime.config.archetypeDefault,
+  });
+  const sensitiveArchetypeConstraint = resolveSensitiveArchetypeRuntimeConstraint(
+    archetypeRuntime.archetype?.id ?? null,
+  );
+
+  parts.push("\n--- CORE IDENTITY INVARIANTS ---");
+  parts.push(
+    "Mode and archetype overlays are lenses on top of the same soul. Identity anchors remain immutable from interview origin.",
+  );
+  parts.push("--- END CORE IDENTITY INVARIANTS ---");
+
+  parts.push("\n--- SOUL MODE OVERLAY ---");
+  parts.push(`Active mode: ${soulModeRuntime.mode} (${soulModeRuntime.config.label})`);
+  parts.push(`Mode source: ${soulModeRuntime.source}`);
+  parts.push(`Mode tone override: ${soulModeRuntime.config.toneOverride}`);
+  parts.push(`Mode tool scope: ${soulModeRuntime.config.toolScope}`);
+  parts.push(`Mode privacy level: ${soulModeRuntime.config.privacyLevel}`);
+  if (soulModeRuntime.config.description) {
+    parts.push(`Mode guidance: ${soulModeRuntime.config.description}`);
+  }
+  parts.push("--- END SOUL MODE OVERLAY ---");
+
+  parts.push("\n--- ARCHETYPE OVERLAY ---");
+  if (archetypeRuntime.archetype) {
+    parts.push(buildArchetypePromptOverlay(archetypeRuntime.archetype));
+    parts.push(`Archetype source: ${archetypeRuntime.source}`);
+  } else {
+    parts.push("Archetype: General");
+    if (archetypeRuntime.blockedReason) {
+      parts.push(`Archetype fallback reason: ${archetypeRuntime.blockedReason}`);
+    }
+  }
+  parts.push("--- END ARCHETYPE OVERLAY ---");
+
+  if (sensitiveArchetypeConstraint) {
+    parts.push("\n--- SENSITIVE ARCHETYPE GUARDRAILS ---");
+    parts.push(
+      `Runtime constraint: enforce read-only execution = ${sensitiveArchetypeConstraint.forceReadOnlyTools}.`,
+    );
+    parts.push(`Disclaimer: ${sensitiveArchetypeConstraint.disclaimer}`);
+    parts.push(`Referral guidance: ${sensitiveArchetypeConstraint.referralGuidance}`);
+    parts.push(
+      `Blocked topics for this archetype: ${sensitiveArchetypeConstraint.blockedTopics.join(", ")}.`,
+    );
+    parts.push("--- END SENSITIVE ARCHETYPE GUARDRAILS ---");
+  }
 
   if (config.language) {
     parts.push(`Primary language: ${config.language}.`);
@@ -380,17 +473,42 @@ export function buildAgentSystemPrompt(
     }
   }
 
-  if (config.blockedTopics?.length) {
+  const combinedBlockedTopics = Array.from(
+    new Set([
+      ...(config.blockedTopics ?? []),
+      ...(sensitiveArchetypeConstraint?.blockedTopics ?? []),
+    ]),
+  );
+
+  if (combinedBlockedTopics.length > 0) {
     parts.push(
-      `\nIMPORTANT: Do NOT discuss these topics: ${config.blockedTopics.join(
+      `\nIMPORTANT: Do NOT discuss these topics: ${combinedBlockedTopics.join(
         ", "
       )}. Politely redirect the conversation if asked.`
     );
   }
 
-  if (config.autonomyLevel === "draft_only") {
+  const resolvedAutonomyLevel = normalizeAutonomyLevel(config.autonomyLevel);
+  if (soulModeRuntime.config.toolScope === "none") {
     parts.push(
       "\nIMPORTANT: You are in draft-only mode. Generate responses but do NOT execute any tools. Describe what you would do instead."
+    );
+  } else if (resolvedAutonomyLevel === "sandbox") {
+    if (String(config.autonomyLevel).toLowerCase() === "draft_only") {
+      parts.push(
+        "\nIMPORTANT: You are in draft-only mode. Generate responses but do NOT execute any tools. Describe what you would do instead."
+      );
+    } else {
+      parts.push(
+        "\nIMPORTANT: You are in sandbox autonomy mode. Use read-only tools only and do NOT perform mutating actions."
+      );
+    }
+  } else if (
+    soulModeRuntime.config.toolScope === "read_only"
+    || sensitiveArchetypeConstraint?.forceReadOnlyTools
+  ) {
+    parts.push(
+      "\nIMPORTANT: Runtime is enforcing read-only execution for this mode/archetype. Do not perform mutating tool actions."
     );
   }
 
@@ -412,6 +530,16 @@ export function buildAgentSystemPrompt(
 
   if (resolvedHandoffContext) {
     parts.push("\n--- TEAM HANDOFF ---");
+    if (resolvedHandoffContext.teamAccessMode) {
+      parts.push(`Access mode: ${resolvedHandoffContext.teamAccessMode}`);
+      if (resolvedHandoffContext.teamAccessMode === "invisible") {
+        parts.push("Keep responses in primary-agent voice and treat specialist output as internal advice.");
+      } else if (resolvedHandoffContext.teamAccessMode === "meeting") {
+        parts.push("Keep the primary agent visible and synthesize specialist contributions.");
+      } else {
+        parts.push("You are in direct specialist mode for this handoff.");
+      }
+    }
     if (resolvedHandoffContext.lastHandoff) {
       const handoffSummary =
         resolvedHandoffContext.lastHandoff.summary ??

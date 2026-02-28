@@ -1,0 +1,84 @@
+name: agent-catalog-drift
+
+on:
+  pull_request:
+    paths:
+      - "convex/ai/agentCatalogAdmin.ts"
+      - "convex/ai/agentCatalogSync.ts"
+      - "convex/crons.ts"
+      - "convex/schemas/agentProductizationSchemas.ts"
+      - "docs/prd/souls/AGENT_PRODUCT_CATALOG.md"
+      - "docs/prd/souls/TOOL_REQUIREMENT_MATRIX.md"
+      - "docs/prd/souls/SOUL_SEED_LIBRARY.md"
+      - "docs/prd/souls/IMPLEMENTATION_OVERVIEW.md"
+      - "docs/prd/souls/IMPLEMENTATION_ROADMAP.md"
+      - "scripts/ci/check-agent-catalog-drift.sh"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/agent-catalog-drift.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "convex/ai/agentCatalogAdmin.ts"
+      - "convex/ai/agentCatalogSync.ts"
+      - "convex/crons.ts"
+      - "convex/schemas/agentProductizationSchemas.ts"
+      - "docs/prd/souls/AGENT_PRODUCT_CATALOG.md"
+      - "docs/prd/souls/TOOL_REQUIREMENT_MATRIX.md"
+      - "docs/prd/souls/SOUL_SEED_LIBRARY.md"
+      - "docs/prd/souls/IMPLEMENTATION_OVERVIEW.md"
+      - "docs/prd/souls/IMPLEMENTATION_ROADMAP.md"
+      - "scripts/ci/check-agent-catalog-drift.sh"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/agent-catalog-drift.yml"
+  schedule:
+    - cron: "20 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  drift-audit:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run agent catalog drift audit
+        id: audit
+        continue-on-error: ${{ vars.AGENT_CATALOG_AUDIT_ENFORCE != 'true' }}
+        env:
+          AGENT_CATALOG_AUDIT_BLOCKING: ${{ vars.AGENT_CATALOG_AUDIT_ENFORCE }}
+          AGENT_CATALOG_DATASET_VERSION: "agp_v1"
+          AGENT_CATALOG_AUDIT_REPORT_PATH: "tmp/reports/agent-catalog-drift/audit-report.json"
+          CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+        run: npm run agents:catalog:audit
+
+      - name: Surface non-blocking drift warning
+        if: steps.audit.outcome == 'failure' && vars.AGENT_CATALOG_AUDIT_ENFORCE != 'true'
+        run: |
+          echo "::warning::Agent catalog drift audit reported findings/failures in non-blocking rollout mode."
+          echo "::warning::Set repository variable AGENT_CATALOG_AUDIT_ENFORCE=true to promote this workflow to blocking mode."
+
+      - name: Upload drift report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-catalog-drift-report
+          path: tmp/reports/agent-catalog-drift
+          if-no-files-found: warn

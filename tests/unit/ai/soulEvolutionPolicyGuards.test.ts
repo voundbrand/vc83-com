@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SOUL_EVOLUTION_POLICY,
+  evaluateModelSwitchDrift,
   normalizeSoulEvolutionPolicy,
 } from "../../../convex/ai/soulEvolution";
 
@@ -54,5 +55,48 @@ describe("normalizeSoulEvolutionPolicy", () => {
     expect(fallback.protectedFields).toEqual(
       DEFAULT_SOUL_EVOLUTION_POLICY.protectedFields
     );
+  });
+
+  it("evaluates model-switch drift warnings from recent samples", () => {
+    const evaluation = evaluateModelSwitchDrift({
+      threshold: 0.4,
+      minimumSamples: 3,
+      samples: [
+        {
+          responseId: "a",
+          driftScores: {
+            identity: 0.5,
+            scope: 0.3,
+            boundary: 0.4,
+            performance: 0.3,
+            overall: 0.44,
+          },
+        },
+        {
+          responseId: "b",
+          driftScores: {
+            identity: 0.45,
+            scope: 0.35,
+            boundary: 0.4,
+            performance: 0.33,
+            overall: 0.42,
+          },
+        },
+        {
+          responseId: "c",
+          driftScores: {
+            identity: 0.48,
+            scope: 0.36,
+            boundary: 0.41,
+            performance: 0.34,
+            overall: 0.43,
+          },
+        },
+      ],
+    });
+
+    expect(evaluation.sampleCount).toBe(3);
+    expect(evaluation.exceedsThreshold).toBe(true);
+    expect(evaluation.userVisibleWarning).toBeDefined();
   });
 });

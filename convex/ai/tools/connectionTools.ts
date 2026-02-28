@@ -105,6 +105,7 @@ export const connectWebAppDataTool: AITool = {
     "for each detected item from detect_webapp_connections. " +
     "Creates new organization records from placeholder data and/or links to existing records. " +
     "All connections are applied in a single batch operation. " +
+    "Supports idempotent retries via idempotencyKey. " +
     "For high-confidence matches (similarity 1.0), you can auto-link without asking the user. " +
     "For lower confidence, ask the user first.",
   status: "ready",
@@ -149,6 +150,11 @@ export const connectWebAppDataTool: AITool = {
           required: ["itemId", "action"],
         },
       },
+      idempotencyKey: {
+        type: "string",
+        description:
+          "Optional stable key for retry-safe connection runs. Reusing the same key avoids duplicate side effects.",
+      },
     },
     required: ["appId", "decisions"],
   },
@@ -162,6 +168,7 @@ export const connectWebAppDataTool: AITool = {
         linkedRecordId?: string;
         overrides?: Record<string, unknown>;
       }>;
+      idempotencyKey?: string;
     }
   ) => {
     // Validate: link decisions must have linkedRecordId
@@ -186,10 +193,15 @@ export const connectWebAppDataTool: AITool = {
           userId: ctx.userId,
           appId: args.appId as Id<"objects">,
           decisions: args.decisions,
+          idempotencyKey: args.idempotencyKey,
+          conversationId: ctx.conversationId,
         }
       );
 
       const parts: string[] = [];
+      if (result.reusedRun) {
+        parts.push("reused previous idempotent run");
+      }
       if (result.created.length > 0) parts.push(`${result.created.length} new record${result.created.length === 1 ? "" : "s"} created`);
       if (result.linked.length > 0) parts.push(`${result.linked.length} existing record${result.linked.length === 1 ? "" : "s"} linked`);
       if (result.skipped.length > 0) parts.push(`${result.skipped.length} item${result.skipped.length === 1 ? "" : "s"} skipped`);
@@ -202,6 +214,8 @@ export const connectWebAppDataTool: AITool = {
         linked: result.linked,
         skipped: result.skipped,
         errors: result.errors,
+        reusedRun: result.reusedRun === true,
+        idempotencyKey: result.idempotencyKey,
         nextStep:
           result.errors.length === 0
             ? "Data is connected. Call deploy_webapp to deploy the app."

@@ -17,13 +17,23 @@ import { crmToolDefinition } from "./crmTool";
 import { webinarToolDefinition } from "./webinarTool";
 import { benefitsToolDefinition } from "./benefitsTool";
 import { bookingToolDefinition } from "./bookingTool";
+import {
+  polymarketLiveExecutionToolDefinition,
+  polymarketResearchToolDefinition,
+} from "./polymarketTool";
 import { activeCampaignToolDefinition } from "./activeCampaignTool";
 import { activityProtocolToolDefinition } from "./activityProtocolTool";
 import { sequencesToolDefinition } from "./sequencesTool";
 import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
+import { transcribeYoutubeVideoTool } from "./youtubeTranscribeTool";
+import { transcribeAudioTool } from "./mediaTools";
 import { INTERVIEW_TOOLS } from "./interviewTools";
-import { tagInSpecialistTool, listTeamAgentsTool } from "./teamTools";
+import {
+  tagInSpecialistTool,
+  listTeamAgentsTool,
+  syncDmSummaryToGroupTool,
+} from "./teamTools";
 import {
   createWebAppTool,
   deployWebAppTool,
@@ -44,6 +54,10 @@ import {
   reviewOwnSoulTool,
   viewPendingProposalsTool,
 } from "./soulEvolutionTools";
+import { runPlatformProductivityLoopTool } from "./platformProductivityLoopTool";
+import { runEvalAnalystChecksTool } from "./evalAnalystTool";
+import { platformSoulAdminTool } from "./platformSoulAdminTool";
+import { executeCodeTool } from "./codeExecutionTool";
 import {
   CRITICAL_TOOL_CONTRACTS,
   type CriticalToolName,
@@ -51,8 +65,14 @@ import {
 } from "./contracts";
 import type { Id } from "../../_generated/dataModel";
 import type { ActionCtx } from "../../_generated/server";
+import { query } from "../../_generated/server";
+import { v } from "convex/values";
+import { requireAuthenticatedUser } from "../../rbacHelpers";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
+export const VC83_NATIVE_RUNTIME_AUTHORITY_PRECEDENCE =
+  "vc83_runtime_policy" as const;
+export const VC83_NATIVE_TOOL_REGISTRY_ROUTE = "vc83_tool_registry" as const;
 
 /**
  * Tool status types
@@ -71,6 +91,93 @@ export interface ToolExecutionContext extends ActionCtx {
   agentSessionId?: Id<"agentSessions">;
   channel?: string;
   contactId?: string;
+  runtimePolicy?: {
+    codeExecution?: {
+      autonomyLevel?:
+        | "supervised"
+        | "sandbox"
+        | "autonomous"
+        | "delegation"
+        | "draft_only";
+      requireApprovalFor?: string[];
+      approvalRequired?: boolean;
+      approvalGranted?: boolean;
+      approvalId?: string;
+      policySource?: string;
+    };
+    appointmentBookingDomainDefault?: "sandbox" | "live";
+    polymarketDomainDefault?: "paper" | "live";
+    ingressEnvelope?: {
+      contractVersion?: string;
+      ingressSurface?: "chat" | "voice" | "camera" | "desktop" | string;
+      channel?: string;
+      routeKey?: string;
+      externalContactIdentifier?: string;
+      ingressEventId?: string;
+      occurredAt?: number;
+    };
+    mutationAuthority?: {
+      organizationId?: string;
+      operatorId?: string;
+      scopeKey?: string;
+      primaryAgentId?: string;
+      authorityAgentId?: string;
+      speakerAgentId?: string;
+      mutatingToolExecutionAllowed?: boolean;
+      invariantViolations?: string[];
+    };
+    nativeVisionEdge?: {
+      contractVersion?: string;
+      ingressSurface?: "chat" | "voice" | "camera" | "desktop" | string;
+      liveSessionSignal?: boolean;
+      nativeCompanionIngressSignal?: boolean;
+      providerPattern?: string;
+      nativeAuthorityPrecedence?: "vc83_runtime_policy" | string;
+      registryRoute?: "vc83_tool_registry" | string;
+      normalizedIntentCount?: number;
+      actionableIntentCount?: number;
+      mutatingIntentCount?: number;
+      trustGateRequired?: boolean;
+      approvalGatePolicy?: string;
+      directDeviceMutationRequested?: boolean;
+      intents?: Array<{
+        intentId?: string;
+        intentType?: "read_only" | "mutating" | string;
+        toolName?: string;
+        action?: string;
+        executionMode?: "paper" | "live" | "unknown" | string;
+        routeTarget?: "vc83_tool_registry" | string;
+        requestedRoute?: string;
+        directDeviceMutationRequested?: boolean;
+      }>;
+    };
+    meetingConcierge?: {
+      explicitConfirmDetected?: boolean;
+      previewIntentDetected?: boolean;
+      extractedPayloadReady?: boolean;
+      missingRequiredFields?: string[];
+      fallbackReasons?: string[];
+      ingestLatencyMs?: number;
+      sourceAttestation?: {
+        verificationRequired?: boolean;
+        verified?: boolean;
+        verificationStatus?: string;
+        quarantinedSourceIds?: string[];
+        reasonCodes?: string[];
+      };
+      commandPolicy?: {
+        policyRequired?: boolean;
+        status?: "not_required" | "allowed" | "blocked" | string;
+        allowed?: boolean;
+        reasonCode?: string;
+        policyVersion?: string;
+        evaluatedCommands?: string[];
+        observedAttemptedCommands?: string[];
+        blockedCommand?: string;
+      };
+    };
+    runtimeAuthorityPrecedence?: "vc83_runtime_policy" | string;
+  };
 }
 
 export type ChannelSafeCtaVariant = {
@@ -177,9 +284,73 @@ const requestFeatureTool: AITool = {
  * 0. OAUTH CONNECTION CHECK TOOL
  */
 
+const MICROSOFT_CONTACT_SCOPES = [
+  "Contacts.Read",
+  "Contacts.ReadWrite",
+  "Contacts.Read.Shared",
+  "Contacts.ReadWrite.Shared",
+];
+
+const MICROSOFT_SEND_EMAIL_SCOPES = ["Mail.Send"];
+const MICROSOFT_READ_EMAIL_SCOPES = ["Mail.Read", "Mail.ReadWrite"];
+const MICROSOFT_CALENDAR_READ_SCOPES = [
+  "Calendars.Read",
+  "Calendars.ReadWrite",
+  "Calendars.Read.Shared",
+  "Calendars.ReadWrite.Shared",
+];
+const MICROSOFT_CALENDAR_WRITE_SCOPES = [
+  "Calendars.ReadWrite",
+  "Calendars.ReadWrite.Shared",
+];
+
+const GOOGLE_CONTACT_SCOPES = [
+  "https://www.googleapis.com/auth/contacts.readonly",
+  "https://www.googleapis.com/auth/contacts",
+];
+const GOOGLE_SEND_EMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
+const GOOGLE_READ_EMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const GOOGLE_CALENDAR_READ_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+];
+const GOOGLE_CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+];
+
+function hasAnyScope(scopes: string[] | undefined, allowedScopes: readonly string[]) {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return false;
+  }
+  return scopes.some((scope) => allowedScopes.includes(scope));
+}
+
+function getOAuthFeatureReadiness(provider: "microsoft" | "google", scopes: string[] | undefined) {
+  if (provider === "microsoft") {
+    return {
+      canSyncContacts: hasAnyScope(scopes, MICROSOFT_CONTACT_SCOPES),
+      canSendEmail: hasAnyScope(scopes, MICROSOFT_SEND_EMAIL_SCOPES),
+      canReadEmail: hasAnyScope(scopes, MICROSOFT_READ_EMAIL_SCOPES),
+      canAccessCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_READ_SCOPES),
+      canWriteCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_WRITE_SCOPES),
+    };
+  }
+
+  return {
+    canSyncContacts: hasAnyScope(scopes, GOOGLE_CONTACT_SCOPES),
+    canSendEmail: hasAnyScope(scopes, GOOGLE_SEND_EMAIL_SCOPES),
+    canReadEmail: hasAnyScope(scopes, GOOGLE_READ_EMAIL_SCOPES),
+    canAccessCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_READ_SCOPES),
+    canWriteCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_WRITE_SCOPES),
+  };
+}
+
 const checkOAuthConnectionTool: AITool = {
   name: "check_oauth_connection",
-  description: "Check if user has connected their Microsoft/Google OAuth account. CRITICAL: Always call this tool FIRST before suggesting OAuth-related actions like syncing contacts or sending emails. Returns connection status, available scopes, and connected email.",
+  description: "Check if user has connected their Microsoft/Google OAuth account. CRITICAL: Always call this tool FIRST before suggesting OAuth-related actions like syncing contacts, planning calendar actions, or sending emails. Returns connection status, available scopes, connected email, and calendar write-readiness routing signals.",
   status: "ready",
   readOnly: true,
   parameters: {
@@ -194,71 +365,213 @@ const checkOAuthConnectionTool: AITool = {
     required: ["provider"]
   },
   execute: async (ctx, args) => {
-    const provider = args.provider || "microsoft";
+    const provider = (args.provider || "microsoft") as "microsoft" | "google";
+    const providerLabel = provider === "google" ? "Google" : "Microsoft";
 
-    // Only support Microsoft for now
-    if (provider !== "microsoft") {
+    const plannerReadiness = await (ctx as any).runQuery(
+      generatedApi.api.calendarSyncOntology.getPlannerCalendarWriteReadiness,
+      {
+        sessionId: ctx.sessionId,
+        provider,
+      }
+    );
+    const providerPlannerReadiness = (plannerReadiness?.readiness || {})[
+      provider
+    ] as
+      | {
+          hasPersonalConnection?: boolean;
+          hasOrganizationalConnection?: boolean;
+          recommendedWorkConnectionType?: string;
+          recommendedPrivateConnectionType?: string;
+          work?: { calendarWriteReady?: boolean; syncEnabled?: boolean };
+        }
+      | undefined;
+
+    if (provider === "microsoft") {
+      const connection = await (ctx as any).runQuery(
+        generatedApi.api.oauth.microsoft.getUserMicrosoftConnection,
+        {
+          sessionId: ctx.sessionId,
+        }
+      );
+
+      if (!connection) {
+        return {
+          success: true,
+          isConnected: false,
+          provider: "microsoft",
+          message: "❌ No Microsoft account connected",
+          requiresConnection: true,
+          instructions: [
+            "To connect your Microsoft account:",
+            "1. Open **Settings** (⚙️ icon in taskbar)",
+            "2. Go to **Integrations** tab",
+            "3. Click **Connect Microsoft Account**",
+            "4. Select which permissions you need",
+            "5. Grant access in Microsoft's authorization page",
+          ],
+          actionButton: {
+            label: "Open Settings → Integrations",
+            action: "open_settings_integrations",
+            variant: "primary",
+          },
+        };
+      }
+
+      const availableFeatures = getOAuthFeatureReadiness(
+        "microsoft",
+        connection.scopes
+      );
+      const calendarSyncEnabled =
+        ((connection.syncSettings || {}) as Record<string, unknown>).calendar ===
+        true;
+      const calendarWriteReady =
+        providerPlannerReadiness?.work?.calendarWriteReady ??
+        (connection.status === "active" &&
+          calendarSyncEnabled &&
+          availableFeatures.canWriteCalendar);
+
       return {
-        success: false,
-        error: "UNSUPPORTED_PROVIDER",
-        message: `Provider ${provider} not yet supported. Only Microsoft is available.`,
-        isConnected: false
+        success: true,
+        isConnected: true,
+        provider: "microsoft",
+        connectionType: connection.connectionType,
+        connectedEmail: connection.providerEmail,
+        status: connection.status,
+        scopes: connection.scopes,
+        syncSettings: connection.syncSettings,
+        connectedAt: connection.connectedAt,
+        lastSyncAt: connection.lastSyncAt,
+        message: `✅ ${providerLabel} account connected: ${connection.providerEmail}`,
+        availableFeatures,
+        calendarReadiness: {
+          canAccessCalendar: availableFeatures.canAccessCalendar,
+          canWriteCalendar: availableFeatures.canWriteCalendar,
+          syncEnabled: calendarSyncEnabled,
+          calendarWriteReady,
+        },
+        calendarWriteReady,
+        modeRouting: {
+          hasPersonalConnection:
+            providerPlannerReadiness?.hasPersonalConnection ??
+            connection.connectionType === "personal",
+          hasOrganizationalConnection:
+            providerPlannerReadiness?.hasOrganizationalConnection ??
+            connection.connectionType === "organizational",
+          recommendedWorkConnectionType:
+            providerPlannerReadiness?.recommendedWorkConnectionType ??
+            connection.connectionType,
+          recommendedPrivateConnectionType:
+            providerPlannerReadiness?.recommendedPrivateConnectionType ??
+            connection.connectionType,
+        },
       };
     }
 
-    // Check if user has connected their Microsoft account
-    const connection = await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
-      sessionId: ctx.sessionId
-    });
+    const googleStatus = await (ctx as any).runQuery(
+      generatedApi.api.oauth.google.getGoogleConnectionStatus,
+      {
+        sessionId: ctx.sessionId,
+      }
+    );
 
-    if (!connection) {
+    const personalConnection = googleStatus?.personal || null;
+    const organizationalConnection = googleStatus?.organizational || null;
+    const resolvedConnection =
+      (organizationalConnection?.status === "active" &&
+        organizationalConnection) ||
+      (personalConnection?.status === "active" && personalConnection) ||
+      organizationalConnection ||
+      personalConnection;
+
+    if (!resolvedConnection) {
       return {
         success: true,
         isConnected: false,
-        provider: "microsoft",
-        message: "❌ No Microsoft account connected",
+        provider: "google",
+        message: "❌ No Google account connected",
         requiresConnection: true,
         instructions: [
-          "To connect your Microsoft account:",
+          "To connect your Google account:",
           "1. Open **Settings** (⚙️ icon in taskbar)",
           "2. Go to **Integrations** tab",
-          "3. Click **Connect Microsoft Account**",
-          "4. Select which permissions you need",
-          "5. Grant access in Microsoft's authorization page"
+          "3. Click **Connect Google Account**",
+          "4. Select the calendar permissions you need",
+          "5. Grant access in Google's authorization page",
         ],
         actionButton: {
           label: "Open Settings → Integrations",
           action: "open_settings_integrations",
-          variant: "primary"
-        }
+          variant: "primary",
+        },
       };
     }
 
-    // User is connected!
+    const availableFeatures = getOAuthFeatureReadiness(
+      "google",
+      resolvedConnection.scopes
+    );
+    const calendarSyncEnabled =
+      ((resolvedConnection.syncSettings || {}) as Record<string, unknown>)
+        .calendar === true;
+    const calendarWriteReady =
+      providerPlannerReadiness?.work?.calendarWriteReady ??
+      (resolvedConnection.status === "active" &&
+        calendarSyncEnabled &&
+        availableFeatures.canWriteCalendar);
+
     return {
       success: true,
       isConnected: true,
-      provider: "microsoft",
-      connectedEmail: connection.providerEmail,
-      status: connection.status,
-      scopes: connection.scopes,
-      connectedAt: connection.connectedAt,
-      lastSyncAt: connection.lastSyncAt,
-      message: `✅ Microsoft account connected: ${connection.providerEmail}`,
-      availableFeatures: {
-        canSyncContacts: connection.scopes.some((s: string) =>
-          s === "Contacts.Read" || s === "Contacts.ReadWrite"
-        ),
-        canSendEmail: connection.scopes.some((s: string) =>
-          s === "Mail.Send"
-        ),
-        canReadEmail: connection.scopes.some((s: string) =>
-          s === "Mail.Read" || s === "Mail.ReadWrite"
-        ),
-        canAccessCalendar: connection.scopes.some((s: string) =>
-          s === "Calendars.Read" || s === "Calendars.ReadWrite"
-        )
-      }
+      provider: "google",
+      connectionType: resolvedConnection.connectionType,
+      connectedEmail: resolvedConnection.email,
+      status: resolvedConnection.status,
+      scopes: resolvedConnection.scopes || [],
+      syncSettings: resolvedConnection.syncSettings,
+      connectedAt: resolvedConnection.connectedAt,
+      lastSyncAt: resolvedConnection.lastSyncAt,
+      message: `✅ ${providerLabel} account connected: ${resolvedConnection.email}`,
+      availableFeatures,
+      calendarReadiness: {
+        canAccessCalendar: availableFeatures.canAccessCalendar,
+        canWriteCalendar: availableFeatures.canWriteCalendar,
+        syncEnabled: calendarSyncEnabled,
+        calendarWriteReady,
+      },
+      calendarWriteReady,
+      modeRouting: {
+        hasPersonalConnection:
+          providerPlannerReadiness?.hasPersonalConnection ??
+          Boolean(personalConnection),
+        hasOrganizationalConnection:
+          providerPlannerReadiness?.hasOrganizationalConnection ??
+          Boolean(organizationalConnection),
+        recommendedWorkConnectionType:
+          providerPlannerReadiness?.recommendedWorkConnectionType ??
+          (organizationalConnection ? "organizational" : personalConnection ? "personal" : "none"),
+        recommendedPrivateConnectionType:
+          providerPlannerReadiness?.recommendedPrivateConnectionType ??
+          (personalConnection ? "personal" : organizationalConnection ? "organizational" : "none"),
+      },
+      availableConnections: {
+        personal: personalConnection
+          ? {
+              id: personalConnection.id,
+              email: personalConnection.email,
+              status: personalConnection.status,
+              connectionType: personalConnection.connectionType,
+            }
+          : null,
+        organizational: organizationalConnection
+          ? {
+              id: organizationalConnection.id,
+              email: organizationalConnection.email,
+              status: organizationalConnection.status,
+              connectionType: organizationalConnection.connectionType,
+            }
+          : null,
+      },
     };
   }
 };
@@ -316,28 +629,47 @@ const syncContactsTool: AITool = {
   status: "ready",
   parameters: contactSyncToolDefinition.function.parameters,
   execute: async (ctx, args) => {
-    // CRITICAL: Validate Microsoft OAuth connection and scopes BEFORE attempting sync
+    // CRITICAL: Validate OAuth connection and scopes BEFORE attempting sync
     const provider = args.provider || "microsoft";
+    const providerTitle = provider === "google" ? "Google" : "Microsoft";
+    const providerConnections = provider === "google"
+      ? await (ctx as any).runQuery(generatedApi.api.oauth.google.getGoogleConnectionStatus, {
+        sessionId: ctx.sessionId
+      })
+      : await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
+        sessionId: ctx.sessionId
+      });
 
-    // Check if user has connected their Microsoft account
-    const connection = await (ctx as any).runQuery(generatedApi.api.oauth.microsoft.getUserMicrosoftConnection, {
-      sessionId: ctx.sessionId
-    });
+    const connection = provider === "google"
+      ? (
+        providerConnections?.organizational?.status === "active"
+          ? providerConnections.organizational
+          : providerConnections?.personal?.status === "active"
+            ? providerConnections.personal
+            : providerConnections?.organizational || providerConnections?.personal || null
+      )
+      : providerConnections;
 
     if (!connection) {
       return {
         success: false,
         error: "NO_OAUTH_CONNECTION",
-        message: `❌ No ${provider} account connected. You need to connect your ${provider} account first.`,
+        message: `❌ No ${providerTitle} account connected. You need to connect your ${providerTitle} account first.`,
         instructions: [
           `1. Click the **Settings** icon (⚙️) in your taskbar`,
           `2. Go to **Integrations** tab`,
-          `3. Click **Connect ${provider} Account**`,
-          `4. Grant permission to read contacts (scope: Contacts.Read or Contacts.ReadWrite)`,
+          `3. Click **Connect ${providerTitle} Account**`,
+          provider === "google"
+            ? `4. Grant permission to read contacts (scope: https://www.googleapis.com/auth/contacts.readonly or https://www.googleapis.com/auth/contacts)`
+            : `4. Grant permission to read contacts (scope: Contacts.Read or Contacts.ReadWrite)`,
           `5. Once connected, come back here and try again`
         ],
-        requiredScopes: ["Contacts.Read", "Contacts.ReadWrite"],
-        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts",
+        requiredScopes: provider === "google"
+          ? GOOGLE_CONTACT_SCOPES
+          : MICROSOFT_CONTACT_SCOPES,
+        helpUrl: provider === "google"
+          ? "https://docs.l4yercak3.com/integrations/google-contacts"
+          : "https://docs.l4yercak3.com/integrations/microsoft-contacts",
         actionButton: {
           label: "Open Settings → Integrations",
           action: "open_settings_integrations",
@@ -347,7 +679,9 @@ const syncContactsTool: AITool = {
     }
 
     // Verify connection has required scopes for contact sync
-    const requiredScopes = ["Contacts.Read", "Contacts.ReadWrite"];
+    const requiredScopes = provider === "google"
+      ? GOOGLE_CONTACT_SCOPES
+      : MICROSOFT_CONTACT_SCOPES;
     const hasContactScope = connection.scopes.some((scope: string) =>
       requiredScopes.includes(scope)
     );
@@ -356,25 +690,41 @@ const syncContactsTool: AITool = {
       return {
         success: false,
         error: "INSUFFICIENT_SCOPES",
-        message: `❌ Your ${provider} connection doesn't have permission to read contacts.`,
+        message: `❌ Your ${providerTitle} connection doesn't have permission to read contacts.`,
         instructions: [
           `Your current permissions: ${connection.scopes.join(", ")}`,
           ``,
           `To fix this:`,
           `1. Go to **Settings** → **Integrations**`,
-          `2. Click **Disconnect** next to your ${provider} account`,
-          `3. Click **Connect ${provider} Account** again`,
-          `4. **IMPORTANT**: When Microsoft asks for permissions, make sure to check the box for "Read your contacts" or "Manage your contacts"`,
+          `2. Click **Disconnect** next to your ${providerTitle} account`,
+          `3. Click **Connect ${providerTitle} Account** again`,
+          provider === "google"
+            ? `4. **IMPORTANT**: When Google asks for permissions, include contact access scopes`
+            : `4. **IMPORTANT**: When Microsoft asks for permissions, make sure to check the box for "Read your contacts" or "Manage your contacts"`,
           `5. Try syncing again`
         ],
         currentScopes: connection.scopes,
         requiredScopes,
-        helpUrl: "https://docs.l4yercak3.com/integrations/microsoft-contacts#scopes",
+        helpUrl: provider === "google"
+          ? "https://docs.l4yercak3.com/integrations/google-contacts#scopes"
+          : "https://docs.l4yercak3.com/integrations/microsoft-contacts#scopes",
         actionButton: {
-          label: "Reconnect Microsoft Account",
+          label: `Reconnect ${providerTitle} Account`,
           action: "open_settings_integrations",
           variant: "warning"
         }
+      };
+    }
+
+    if (provider === "google") {
+      return {
+        success: false,
+        error: "PROVIDER_NOT_IMPLEMENTED",
+        message: "Google contacts sync pipeline is not implemented yet. OAuth readiness is now validated and ready for planner/runtime gating.",
+        instructions: [
+          "Use Microsoft for contact sync execution right now.",
+          "Keep Google connected for calendar-aware planning and write-readiness checks.",
+        ],
       };
     }
 
@@ -1205,10 +1555,122 @@ const manageBookingsTool: AITool = {
       dateFrom: args.dateFrom,
       dateTo: args.dateTo,
       limit: args.limit,
+      // Appointment outreach mission fields
+      serviceType: args.serviceType,
+      dateWindowStart: args.dateWindowStart,
+      dateWindowEnd: args.dateWindowEnd,
+      locationPreference: args.locationPreference,
+      outreachReason: args.outreachReason,
+      outreachIdempotencyKey: args.outreachIdempotencyKey,
+      preferredOutreachChannel: args.preferredOutreachChannel,
+      outreachFallbackMethod: args.outreachFallbackMethod,
+      outreachAllowedHoursStart: args.outreachAllowedHoursStart,
+      outreachAllowedHoursEnd: args.outreachAllowedHoursEnd,
+      outreachAllowedTimezone: args.outreachAllowedTimezone,
+      autonomyDomainLevel: args.autonomyDomainLevel,
+      autonomyPromotionApprovalId: args.autonomyPromotionApprovalId,
+      autonomyPromotionReason: args.autonomyPromotionReason,
+      callFallbackApproved: args.callFallbackApproved,
+      callConsentDisclosure: args.callConsentDisclosure,
+      maxOutreachAttempts: args.maxOutreachAttempts,
+      runImmediately: args.runImmediately,
+      appointmentBookingDomainDefault:
+        ctx.runtimePolicy?.appointmentBookingDomainDefault,
+      // Meeting concierge demo fields
+      personName: args.personName,
+      personEmail: args.personEmail,
+      personPhone: args.personPhone,
+      company: args.company,
+      meetingTitle: args.meetingTitle,
+      meetingDurationMinutes: args.meetingDurationMinutes,
+      schedulingWindowStart: args.schedulingWindowStart,
+      schedulingWindowEnd: args.schedulingWindowEnd,
+      attendeeCalendarConnectionId: args.attendeeCalendarConnectionId,
+      operatorCalendarConnectionId: args.operatorCalendarConnectionId,
+      confirmationChannel: args.confirmationChannel,
+      confirmationRecipient: args.confirmationRecipient,
+      conciergeIdempotencyKey: args.conciergeIdempotencyKey,
+      jobTitle: args.jobTitle,
     });
 
     return result;
   }
+};
+
+const managePolymarketTool: AITool = {
+  name: "manage_polymarket",
+  description:
+    "Native Polymarket operator research and paper-mode execution tool. Use for market discovery, opportunity scoring, risk-bounded planning, and paper simulations only.",
+  status: "ready",
+  readOnly: true,
+  parameters: polymarketResearchToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    return await (ctx as any).runAction(
+      generatedApi.api.ai.tools.polymarketTool.executeManagePolymarket,
+      {
+        sessionId: ctx.sessionId,
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        action: args.action,
+        marketQuery: args.marketQuery,
+        tags: args.tags,
+        marketUniverse: args.marketUniverse,
+        minLiquidityUsd: args.minLiquidityUsd,
+        minVolumeUsd: args.minVolumeUsd,
+        limit: args.limit,
+        riskBudgetUsd: args.riskBudgetUsd,
+        maxPositionUsd: args.maxPositionUsd,
+        maxOpenPositions: args.maxOpenPositions,
+        executionMode: args.executionMode,
+        runtimeDefaultExecutionMode:
+          ctx.runtimePolicy?.polymarketDomainDefault,
+        marketId: args.marketId,
+        side: args.side,
+        stakeUsd: args.stakeUsd,
+        priceLimit: args.priceLimit,
+        rationale: args.rationale,
+        idempotencyKey: args.idempotencyKey,
+      },
+    );
+  },
+};
+
+const executePolymarketLiveTool: AITool = {
+  name: "execute_polymarket_live",
+  description:
+    "Native Polymarket live execution tool. Always approval-governed and fail-closed without explicit live approval context.",
+  status: "ready",
+  parameters: polymarketLiveExecutionToolDefinition.function.parameters,
+  execute: async (ctx, args) => {
+    return await (ctx as any).runAction(
+      generatedApi.api.ai.tools.polymarketTool.executePolymarketLiveExecution,
+      {
+        sessionId: ctx.sessionId,
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+        conversationId: ctx.conversationId,
+        action: args.action,
+        executionMode: args.executionMode,
+        runtimeDefaultExecutionMode:
+          ctx.runtimePolicy?.polymarketDomainDefault,
+        marketId: args.marketId,
+        question: args.question,
+        side: args.side,
+        stakeUsd: args.stakeUsd,
+        maxPositionUsd: args.maxPositionUsd,
+        priceLimit: args.priceLimit,
+        rationale: args.rationale,
+        idempotencyKey: args.idempotencyKey,
+        liveExecutionApprovalId: args.liveExecutionApprovalId,
+        runtimeApprovalRequired:
+          ctx.runtimePolicy?.codeExecution?.approvalRequired,
+        runtimeApprovalGranted:
+          ctx.runtimePolicy?.codeExecution?.approvalGranted,
+        runtimeApprovalId: ctx.runtimePolicy?.codeExecution?.approvalId,
+      },
+    );
+  },
 };
 
 /**
@@ -3360,6 +3822,7 @@ const configureAIModelsTool: AITool = {
 export const TOOL_REGISTRY: Record<string, AITool> = {
   // Meta Tools
   request_feature: requestFeatureTool,
+  execute_code: executeCodeTool,
 
   // OAuth Connection Check
   check_oauth_connection: checkOAuthConnectionTool,
@@ -3390,6 +3853,8 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Bookings
   manage_bookings: manageBookingsTool,
+  manage_polymarket: managePolymarketTool,
+  execute_polymarket_live: executePolymarketLiveTool,
 
   // Activity Protocol
   manage_activity_protocol: manageActivityProtocolTool,
@@ -3440,6 +3905,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Media
   upload_media: uploadMediaTool,
   search_media: searchMediaTool,
+  transcribe_audio: transcribeAudioTool,
 
   // Templates
   create_template: createTemplateTool,
@@ -3543,11 +4009,12 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
   // Page Builder - Image Search
   search_unsplash_images: searchUnsplashImagesTool,
+  transcribe_youtube_video: transcribeYoutubeVideoTool,
 
   // Escalation — agent-initiated human handoff
   escalate_to_human: {
     name: "escalate_to_human",
-    description: "Escalate the current conversation to a human team member. Use when: the customer explicitly asks to speak with a person, you encounter a topic outside your expertise, the conversation involves a complaint or legal matter, or you've been unable to resolve the issue after multiple attempts. This notifies the team and puts the conversation on hold.",
+    description: "Escalate the current conversation to a human team member. Use only when deterministic escalation criteria are met: explicit human request, billing/refund dispute, security or account-access risk, legal/compliance risk, or unresolved issue after repeated verification attempts. This notifies the team and puts the conversation on hold.",
     status: "ready" as ToolStatus,
     readOnly: true,
     parameters: {
@@ -3566,6 +4033,11 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
           type: "string",
           description: "Brief summary of the conversation so far for the human team member",
         },
+        criteria_matched: {
+          type: "array",
+          description: "Deterministic escalation criteria that triggered this handoff.",
+          items: { type: "string" },
+        },
       },
       required: ["reason", "urgency", "context_summary"],
     },
@@ -3578,7 +4050,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { internal: internalApi } = require("../../_generated/api") as { internal: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-      // Create escalation record on session
+      // Create escalation record on session (includes deterministic support ticket path)
       await ctx.runMutation(internalApi.ai.escalation.createEscalation, {
         sessionId: ctx.agentSessionId,
         agentId: ctx.agentId,
@@ -3587,6 +4059,16 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
         urgency: args.urgency || "normal",
         triggerType: "agent_initiated",
       });
+      const escalationState = await ctx.runQuery(
+        internalApi.ai.escalation.getSessionEscalationState,
+        {
+          sessionId: ctx.agentSessionId,
+        },
+      );
+      const supportTicketNumber = typeof escalationState?.supportTicketNumber === "string"
+        ? escalationState.supportTicketNumber
+        : undefined;
+      const supportTicketId = escalationState?.supportTicketId;
 
       // Load agent name for notifications
       const agent = await ctx.runQuery(internalApi.agentOntology.getAgentInternal, {
@@ -3629,7 +4111,11 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 
       return {
         success: true,
-        message: "Escalation created. The team has been notified via Telegram, Pushover, and email. Please inform the customer that a team member will be with them shortly.",
+        message: supportTicketNumber
+          ? `Escalation created. Support case ${supportTicketNumber} is open and the team has been notified via Telegram, Pushover, and email.`
+          : "Escalation created. The team has been notified via Telegram, Pushover, and email. Please inform the customer that a team member will be with them shortly.",
+        supportTicketNumber,
+        supportTicketId,
       };
     },
   },
@@ -3637,11 +4123,17 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   // Team Coordination Tools (Agent-to-Agent Handoffs)
   tag_in_specialist: tagInSpecialistTool,
   list_team_agents: listTeamAgentsTool,
+  sync_dm_summary_to_group: syncDmSummaryToGroupTool,
+
+  // LayerCake Productivity + Eval tools
+  run_platform_productivity_loop: runPlatformProductivityLoopTool,
+  run_eval_analyst_checks: runEvalAnalystChecksTool,
 
   // Soul Evolution Tools (owner-approved self-tuning)
   propose_soul_update: proposeSoulUpdateTool,
   review_own_soul: reviewOwnSoulTool,
   view_pending_proposals: viewPendingProposalsTool,
+  platform_soul_admin: platformSoulAdminTool,
 
   // Interview Tools (Guided Session Mode)
   ...INTERVIEW_TOOLS,
@@ -3693,7 +4185,9 @@ export const PROTOTYPE_MODE_ALLOWED_TOOLS = [
   // Read-only/search tools
   "search_contacts",
   "search_media",
+  "transcribe_audio",
   "search_unsplash_images",
+  "transcribe_youtube_video",
   "list_events",
   "list_products",
   "list_forms",
@@ -3766,12 +4260,14 @@ export const DATABASE_WRITE_TOOLS = [
   "manage_projects",
   "manage_benefits",
   "manage_bookings",
+  "execute_polymarket_live",
   "manage_activity_protocol",
   "manage_sequences",
   "manage_webinars",
   "activecampaign",
   "configure_booking_workflow",
   "propose_soul_update",
+  "platform_soul_admin",
 ];
 
 export type BuilderMode = "prototype" | "connect";
@@ -3802,6 +4298,89 @@ export function getToolSchemas(builderMode?: BuilderMode): OpenAIFunctionSchema[
   }));
 }
 
+function summarizeInvariantViolations(value: unknown): string {
+  if (!Array.isArray(value)) {
+    return "unknown_violation";
+  }
+  const violations = value
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .map((entry) => entry.trim());
+  return violations.length > 0 ? violations.join(", ") : "unknown_violation";
+}
+
+function assertNativeEdgeToolExecutionPolicy(
+  ctx: ToolExecutionContext,
+  tool: AITool
+) {
+  const nativeVisionEdgeRaw = ctx.runtimePolicy?.nativeVisionEdge;
+  if (!nativeVisionEdgeRaw || typeof nativeVisionEdgeRaw !== "object") {
+    return;
+  }
+  const nativeVisionEdge = nativeVisionEdgeRaw as Record<string, unknown>;
+  const actionableIntentCount =
+    typeof nativeVisionEdge.actionableIntentCount === "number"
+      && Number.isFinite(nativeVisionEdge.actionableIntentCount)
+      ? Math.max(0, Math.floor(nativeVisionEdge.actionableIntentCount))
+      : 0;
+  const nativeCompanionIngressSignal =
+    nativeVisionEdge.nativeCompanionIngressSignal === true;
+  if (actionableIntentCount <= 0 && !nativeCompanionIngressSignal) {
+    return;
+  }
+
+  const precedenceRaw = ctx.runtimePolicy?.runtimeAuthorityPrecedence;
+  const precedence =
+    typeof precedenceRaw === "string" ? precedenceRaw.trim() : "";
+  if (
+    precedence.length > 0
+    && precedence !== VC83_NATIVE_RUNTIME_AUTHORITY_PRECEDENCE
+  ) {
+    throw new Error(
+      "Native edge tool execution requires vc83 runtime authority precedence.",
+    );
+  }
+
+  const registryRouteRaw = nativeVisionEdge.registryRoute;
+  const registryRoute =
+    typeof registryRouteRaw === "string" ? registryRouteRaw.trim() : "";
+  if (
+    registryRoute.length > 0
+    && registryRoute !== VC83_NATIVE_TOOL_REGISTRY_ROUTE
+  ) {
+    throw new Error(
+      "Native edge intents must route through the vc83 tool registry.",
+    );
+  }
+
+  if (tool.readOnly === true) {
+    return;
+  }
+
+  if (nativeVisionEdge.directDeviceMutationRequested === true) {
+    throw new Error(
+      "Direct device-side mutation path is blocked. Route through native vc83 tool registry with trust/approval gates.",
+    );
+  }
+
+  if (
+    nativeVisionEdge.trustGateRequired === true
+    && !ctx.runtimePolicy?.mutationAuthority
+  ) {
+    throw new Error(
+      "Mutating native edge intent requires trust-gate authority context.",
+    );
+  }
+
+  if (ctx.runtimePolicy?.mutationAuthority?.mutatingToolExecutionAllowed === false) {
+    const violationSummary = summarizeInvariantViolations(
+      ctx.runtimePolicy.mutationAuthority.invariantViolations,
+    );
+    throw new Error(
+      `Mutating tool execution blocked by authority invariant: ${violationSummary}.`,
+    );
+  }
+}
+
 /**
  * Execute a tool by name
  */
@@ -3816,6 +4395,8 @@ export async function executeTool(
     throw new Error(`Unknown tool: ${toolName}`);
   }
 
+  assertNativeEdgeToolExecutionPolicy(ctx, tool);
+
   // TODO: Check permissions
   // if (!checkPermissions(ctx, tool.permissions)) {
   //   throw new Error(`Missing permissions for ${toolName}`);
@@ -3824,3 +4405,23 @@ export async function executeTool(
   // Execute tool (will return tutorial guidance if status is "placeholder")
   return await tool.execute(ctx, args);
 }
+
+/**
+ * Public metadata endpoint used by the agent tools UI.
+ */
+export const getToolList = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    return Object.entries(TOOL_REGISTRY).map(([key, tool]) => ({
+      key,
+      name: tool.name,
+      description: tool.description,
+      status: tool.status,
+      readOnly: tool.readOnly === true,
+    }));
+  },
+});

@@ -15,6 +15,7 @@
 
 import { internalQuery } from "../_generated/server";
 import { v } from "convex/values";
+import { shouldRestrictToolsToReadOnly } from "./autonomy";
 
 // ============================================================================
 // TYPES
@@ -79,8 +80,12 @@ const GENERAL_PROFILE = [
   // Meta
   "request_feature",
   "check_oauth_connection",
+  "start_slack_workspace_connect",
   // Escalation
   "escalate_to_human",
+  // LayerCake productivity/eval synthesis
+  "run_platform_productivity_loop",
+  "run_eval_analyst_checks",
   // CRM (read + write)
   "create_contact",
   "search_contacts",
@@ -108,6 +113,9 @@ const GENERAL_PROFILE = [
   "set_product_price",
   "activate_product",
   "deactivate_product",
+  // Markets
+  "manage_polymarket",
+  "execute_polymarket_live",
   // Forms
   "create_form",
   "list_forms",
@@ -118,6 +126,8 @@ const GENERAL_PROFILE = [
   "list_tickets",
   // Media
   "search_media",
+  "transcribe_audio",
+  "transcribe_youtube_video",
   // Settings
   "update_organization_settings",
   // Soul evolution (owner-approved proposals + self-review)
@@ -133,7 +143,9 @@ const GENERAL_PROFILE = [
 const SUPPORT_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "start_slack_workspace_connect",
   "escalate_to_human",
+  "run_platform_productivity_loop",
   // CRM (read-heavy)
   "search_contacts",
   "update_contact",
@@ -151,6 +163,8 @@ const SUPPORT_PROFILE = [
   "list_products",
   // Media (read)
   "search_media",
+  "transcribe_audio",
+  "transcribe_youtube_video",
   // Soul evolution
   "propose_soul_update",
   "review_own_soul",
@@ -164,7 +178,9 @@ const SUPPORT_PROFILE = [
 const SALES_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "start_slack_workspace_connect",
   "escalate_to_human",
+  "run_platform_productivity_loop",
   // CRM
   "create_contact",
   "search_contacts",
@@ -183,15 +199,22 @@ const SALES_PROFILE = [
   "process_payment",
   "create_checkout_page",
   "publish_checkout",
+  // Markets
+  "manage_polymarket",
+  "execute_polymarket_live",
   // Email
   "create_template",
   "send_email_from_template",
   // Events
   "list_events",
+  // Media (read)
+  "transcribe_audio",
+  "transcribe_youtube_video",
   // Soul evolution
   "propose_soul_update",
   "review_own_soul",
   "view_pending_proposals",
+  "manage_polymarket",
 ];
 
 /**
@@ -201,7 +224,9 @@ const SALES_PROFILE = [
 const BOOKING_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "start_slack_workspace_connect",
   "escalate_to_human",
+  "run_platform_productivity_loop",
   // CRM
   "create_contact",
   "search_contacts",
@@ -213,6 +238,7 @@ const BOOKING_PROFILE = [
   "register_attendee",
   "manage_bookings",
   "configure_booking_workflow",
+  "transcribe_audio",
   // Forms
   "list_forms",
   "get_form_responses",
@@ -225,6 +251,29 @@ const BOOKING_PROFILE = [
 ];
 
 /**
+ * "personal_operator" - constrained private-life operator scope
+ * Calendar + contacts + booking/outreach only.
+ * Appointment outreach is executed through `manage_bookings` operation
+ * `execute_appointment_outreach`.
+ */
+const PERSONAL_OPERATOR_PROFILE = [
+  "check_oauth_connection",
+  "escalate_to_human",
+  "create_contact",
+  "search_contacts",
+  "update_contact",
+  "tag_contacts",
+  "sync_contacts",
+  "create_event",
+  "list_events",
+  "update_event",
+  "register_attendee",
+  "manage_bookings",
+  "configure_booking_workflow",
+  "transcribe_audio",
+];
+
+/**
  * "readonly" — safe read-only tools for draft_only autonomy
  * Matches the existing PROTOTYPE_MODE_ALLOWED_TOOLS + a few more
  */
@@ -232,6 +281,8 @@ const READONLY_PROFILE = [
   "request_feature",
   "check_oauth_connection",
   "escalate_to_human",
+  "run_platform_productivity_loop",
+  "run_eval_analyst_checks",
   "search_contacts",
   "list_events",
   "list_products",
@@ -240,6 +291,8 @@ const READONLY_PROFILE = [
   "list_workflows",
   "get_form_responses",
   "search_media",
+  "transcribe_audio",
+  "transcribe_youtube_video",
   "search_unsplash_images",
   "check_deploy_status",
   "detect_webapp_connections",
@@ -254,8 +307,9 @@ export const TOOL_PROFILES: Record<string, string[]> = {
   support: SUPPORT_PROFILE,
   sales: SALES_PROFILE,
   booking: BOOKING_PROFILE,
+  personal_operator: PERSONAL_OPERATOR_PROFILE,
   readonly: READONLY_PROFILE,
-  admin: ["*"], // all tools — no profile filtering
+  admin: ["*"], // all tools - no profile filtering
 };
 
 // ============================================================================
@@ -314,6 +368,8 @@ export function getPlatformBlockedTools(): string[] {
 
 export const READ_ONLY_TOOLS = new Set([
   "check_oauth_connection",
+  "run_platform_productivity_loop",
+  "run_eval_analyst_checks",
   "search_contacts",
   "list_events",
   "list_products",
@@ -322,6 +378,8 @@ export const READ_ONLY_TOOLS = new Set([
   "list_workflows",
   "get_form_responses",
   "search_media",
+  "transcribe_audio",
+  "transcribe_youtube_video",
   "search_unsplash_images",
   "check_deploy_status",
   "detect_webapp_connections",
@@ -493,7 +551,7 @@ export function resolveActiveToolsWithAudit(
   }
 
   // ── Layer 3b: Autonomy filter ──
-  if (params.autonomyLevel === "draft_only") {
+  if (shouldRestrictToolsToReadOnly(params.autonomyLevel)) {
     tools = applyScopedFilter(
       tools,
       (tool) => tool.readOnly === true,

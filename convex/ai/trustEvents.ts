@@ -1,7 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 
-export const TRUST_EVENT_TAXONOMY_VERSION = "2026-02-19.v3";
+export const TRUST_EVENT_TAXONOMY_VERSION = "2026-02-27.v7";
 export const TRUST_EVENT_NAMESPACE = "trust";
 
 export const TRUST_EVENT_MODE_VALUES = [
@@ -67,6 +67,57 @@ export const trustEventSchemaValidationStatusValidator = v.union(
   v.literal("failed"),
 );
 
+export type TrustTimelineSurface =
+  | "session"
+  | "group"
+  | "dm"
+  | "handoff"
+  | "proposal"
+  | "commit";
+
+function normalizeTrustTraceString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function resolveTrustTimelineSurfaceFromWorkflow(
+  workflowKey: unknown
+): TrustTimelineSurface {
+  const normalized = normalizeTrustTraceString(workflowKey)?.toLowerCase();
+  if (normalized === "proposal" || normalized === "collaboration_proposal") {
+    return "proposal";
+  }
+  if (normalized === "commit" || normalized === "collaboration_commit") {
+    return "commit";
+  }
+  return "session";
+}
+
+export function buildTrustTimelineCorrelationId(args: {
+  lineageId?: unknown;
+  threadId?: unknown;
+  fallbackThreadId?: unknown;
+  correlationId?: unknown;
+  surface?: TrustTimelineSurface;
+  sourceId?: unknown;
+}): string {
+  const lineageId = normalizeTrustTraceString(args.lineageId) || "lineage:none";
+  const threadId =
+    normalizeTrustTraceString(args.threadId)
+    || normalizeTrustTraceString(args.fallbackThreadId)
+    || "thread:none";
+  const explicitCorrelation = normalizeTrustTraceString(args.correlationId);
+  if (explicitCorrelation) {
+    return `${lineageId}|${threadId}|corr:${explicitCorrelation}`;
+  }
+  const surface = args.surface ?? "session";
+  const sourceId = normalizeTrustTraceString(args.sourceId) || "source:none";
+  return `${lineageId}|${threadId}|${surface}|${sourceId}`;
+}
+
 export const TRUST_CONTEXT_EVENT_NAMES = [
   "trust.context.layer_boundaries_validated.v1",
   "trust.context.layer_violation_blocked.v1",
@@ -115,10 +166,51 @@ export const TRUST_SOUL_EVENT_NAMES = [
   "trust.soul.rollback_executed.v1",
 ] as const;
 
+export const TRUST_TOOL_FOUNDRY_EVENT_NAMES = [
+  "trust.tool_foundry.proposal_created.v1",
+  "trust.tool_foundry.promotion_requested.v1",
+  "trust.tool_foundry.promotion_granted.v1",
+  "trust.tool_foundry.promotion_denied.v1",
+  "trust.tool_foundry.execution_blocked.v1",
+] as const;
+
 export const TRUST_GUARDRAIL_EVENT_NAMES = [
   "trust.guardrail.policy_evaluated.v1",
   "trust.guardrail.policy_blocked.v1",
   "trust.guardrail.policy_overridden.v1",
+] as const;
+
+export const TRUST_VACATION_GUARDRAIL_EVENT_NAMES = [
+  "trust.guardrail.vacation_request_received.v1",
+  "trust.guardrail.vacation_policy_evaluated.v1",
+  "trust.guardrail.vacation_decision_recorded.v1",
+  "trust.guardrail.vacation_calendar_mutation.v1",
+  "trust.guardrail.vacation_override_requested.v1",
+] as const;
+
+export const TRUST_APPOINTMENT_CALL_EVENT_NAMES = [
+  "trust.guardrail.appointment_call_approval_requested.v1",
+  "trust.guardrail.appointment_call_approval_resolved.v1",
+  "trust.guardrail.appointment_call_approval_blocked.v1",
+] as const;
+
+export const TRUST_CODE_EXECUTION_EVENT_NAMES = [
+  "trust.guardrail.code_execution_requested.v1",
+  "trust.guardrail.code_execution_allowed.v1",
+  "trust.guardrail.code_execution_blocked.v1",
+  "trust.guardrail.code_execution_outcome.v1",
+] as const;
+
+export const TRUST_MACOS_COMPANION_EVENT_NAMES = [
+  "trust.runtime.macos_companion_ingress_observed.v1",
+  "trust.runtime.macos_companion_delivery_failed.v1",
+] as const;
+
+export const TRUST_AUTONOMY_EVENT_NAMES = [
+  "trust.autonomy.trust_score_updated.v1",
+  "trust.autonomy.promotion_proposed.v1",
+  "trust.autonomy.promotion_resolved.v1",
+  "trust.autonomy.demotion_triggered.v1",
 ] as const;
 
 export const TRUST_TEAM_EVENT_NAMES = [
@@ -137,6 +229,10 @@ export const TRUST_ADMIN_EVENT_NAMES = [
   "trust.admin.training_session_started.v1",
   "trust.admin.training_artifact_published.v1",
   "trust.admin.training_session_completed.v1",
+  "trust.admin.platform_soul_step_up_verified.v1",
+  "trust.admin.platform_soul_elevation_granted.v1",
+  "trust.admin.platform_soul_apply_dual_approval_recorded.v1",
+  "trust.admin.platform_soul_action_audited.v1",
 ] as const;
 
 export const TRUST_EVENT_NAME_VALUES = [
@@ -148,7 +244,13 @@ export const TRUST_EVENT_NAME_VALUES = [
   ...TRUST_KNOWLEDGE_EVENT_NAMES,
   ...TRUST_SETUP_EVENT_NAMES,
   ...TRUST_SOUL_EVENT_NAMES,
+  ...TRUST_TOOL_FOUNDRY_EVENT_NAMES,
   ...TRUST_GUARDRAIL_EVENT_NAMES,
+  ...TRUST_VACATION_GUARDRAIL_EVENT_NAMES,
+  ...TRUST_APPOINTMENT_CALL_EVENT_NAMES,
+  ...TRUST_CODE_EXECUTION_EVENT_NAMES,
+  ...TRUST_MACOS_COMPANION_EVENT_NAMES,
+  ...TRUST_AUTONOMY_EVENT_NAMES,
   ...TRUST_TEAM_EVENT_NAMES,
   ...TRUST_TELEMETRY_EVENT_NAMES,
   ...TRUST_ADMIN_EVENT_NAMES,
@@ -180,9 +282,32 @@ export const trustEventNameValidator = v.union(
   v.literal("trust.soul.proposal_created.v1"),
   v.literal("trust.soul.proposal_reviewed.v1"),
   v.literal("trust.soul.rollback_executed.v1"),
+  v.literal("trust.tool_foundry.proposal_created.v1"),
+  v.literal("trust.tool_foundry.promotion_requested.v1"),
+  v.literal("trust.tool_foundry.promotion_granted.v1"),
+  v.literal("trust.tool_foundry.promotion_denied.v1"),
+  v.literal("trust.tool_foundry.execution_blocked.v1"),
   v.literal("trust.guardrail.policy_evaluated.v1"),
   v.literal("trust.guardrail.policy_blocked.v1"),
   v.literal("trust.guardrail.policy_overridden.v1"),
+  v.literal("trust.guardrail.vacation_request_received.v1"),
+  v.literal("trust.guardrail.vacation_policy_evaluated.v1"),
+  v.literal("trust.guardrail.vacation_decision_recorded.v1"),
+  v.literal("trust.guardrail.vacation_calendar_mutation.v1"),
+  v.literal("trust.guardrail.vacation_override_requested.v1"),
+  v.literal("trust.guardrail.appointment_call_approval_requested.v1"),
+  v.literal("trust.guardrail.appointment_call_approval_resolved.v1"),
+  v.literal("trust.guardrail.appointment_call_approval_blocked.v1"),
+  v.literal("trust.guardrail.code_execution_requested.v1"),
+  v.literal("trust.guardrail.code_execution_allowed.v1"),
+  v.literal("trust.guardrail.code_execution_blocked.v1"),
+  v.literal("trust.guardrail.code_execution_outcome.v1"),
+  v.literal("trust.runtime.macos_companion_ingress_observed.v1"),
+  v.literal("trust.runtime.macos_companion_delivery_failed.v1"),
+  v.literal("trust.autonomy.trust_score_updated.v1"),
+  v.literal("trust.autonomy.promotion_proposed.v1"),
+  v.literal("trust.autonomy.promotion_resolved.v1"),
+  v.literal("trust.autonomy.demotion_triggered.v1"),
   v.literal("trust.team.handoff_started.v1"),
   v.literal("trust.team.handoff_completed.v1"),
   v.literal("trust.team.handoff_dropped_context.v1"),
@@ -192,6 +317,10 @@ export const trustEventNameValidator = v.union(
   v.literal("trust.admin.training_session_started.v1"),
   v.literal("trust.admin.training_artifact_published.v1"),
   v.literal("trust.admin.training_session_completed.v1"),
+  v.literal("trust.admin.platform_soul_step_up_verified.v1"),
+  v.literal("trust.admin.platform_soul_elevation_granted.v1"),
+  v.literal("trust.admin.platform_soul_apply_dual_approval_recorded.v1"),
+  v.literal("trust.admin.platform_soul_action_audited.v1"),
 );
 
 const TRUST_EVENT_NAME_PATTERN =
@@ -294,12 +423,93 @@ const SOUL_REQUIRED_ADDITIONAL_FIELDS = [
   "rollback_target",
 ] as const;
 
+const TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS = [
+  "proposal_id",
+  "proposal_version",
+  "tool_name",
+  "risk_level",
+  "review_decision",
+  "rollback_target",
+  "decision_reason",
+  "correlation_id",
+  "lineage_id",
+  "thread_id",
+  "workflow_key",
+  "frontline_intake_trigger",
+  "boundary_reason",
+] as const;
+
 const GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS = [
   "policy_type",
   "policy_id",
   "tool_name",
   "enforcement_decision",
   "override_source",
+] as const;
+
+export const TRUST_APPOINTMENT_CALL_REQUIRED_ADDITIONAL_FIELDS = [
+  "policy_type",
+  "policy_id",
+  "tool_name",
+  "enforcement_decision",
+  "consent_scope",
+  "consent_decision",
+  "consent_prompt_version",
+  "recording_disclosure_status",
+  "medical_data_policy",
+  "phi_handling_mode",
+  "approval_id",
+] as const;
+
+export const TRUST_CODE_EXECUTION_REQUIRED_ADDITIONAL_FIELDS = [
+  "policy_type",
+  "policy_id",
+  "tool_name",
+  "enforcement_decision",
+  "autonomy_domain",
+  "autonomy_level_from",
+  "autonomy_level_to",
+  "decision_reason",
+  "execution_request_id",
+  "sandbox_profile",
+  "network_egress",
+  "approval_id",
+  "execution_outcome",
+  "execution_source_hash",
+  "execution_source_bytes",
+  "approval_required",
+  "approval_status",
+] as const;
+
+export const TRUST_MACOS_COMPANION_INGRESS_REQUIRED_ADDITIONAL_FIELDS = [
+  "policy_type",
+  "policy_id",
+  "tool_name",
+  "enforcement_decision",
+  "approval_id",
+  "approval_status",
+  "decision_reason",
+  "source_object_ids",
+] as const;
+
+export const TRUST_MACOS_COMPANION_DELIVERY_REQUIRED_ADDITIONAL_FIELDS = [
+  "policy_type",
+  "policy_id",
+  "tool_name",
+  "enforcement_decision",
+  "approval_id",
+  "approval_status",
+  "failure_reason",
+  "source_object_ids",
+] as const;
+
+export const TRUST_AUTONOMY_REQUIRED_ADDITIONAL_FIELDS = [
+  "autonomy_domain",
+  "autonomy_level_from",
+  "autonomy_level_to",
+  "trust_score",
+  "trust_signal_count",
+  "decision_reason",
 ] as const;
 
 const TEAM_REQUIRED_ADDITIONAL_FIELDS = [
@@ -323,6 +533,22 @@ export const TRUST_ADMIN_REQUIRED_ADDITIONAL_FIELDS = [
   "training_template_id",
   "parity_mode",
   "customer_agent_template_link",
+] as const;
+
+export const TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS = [
+  "platform_agent_id",
+  "privileged_action",
+  "privileged_reason_code",
+  "privileged_ticket_id",
+  "privileged_elevation_id",
+  "privileged_step_up_verified_at",
+  "privileged_elevation_expires_at",
+  "privileged_decision",
+] as const;
+
+export const TRUST_ADMIN_PRIVILEGED_DUAL_APPROVAL_REQUIRED_ADDITIONAL_FIELDS = [
+  ...TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
+  "privileged_dual_approver_ids",
 ] as const;
 
 export interface TrustEventBasePayload {
@@ -400,6 +626,32 @@ export interface TrustEventAdditionalPayload {
   tool_name?: string;
   enforcement_decision?: string;
   override_source?: string;
+  recording_disclosure_status?: string;
+  medical_data_policy?: string;
+  phi_handling_mode?: string;
+  approval_id?: string;
+  autonomy_domain?: string;
+  autonomy_level_from?: string;
+  autonomy_level_to?: string;
+  trust_score?: number;
+  trust_signal_count?: number;
+  decision_reason?: string;
+  correlation_id?: string;
+  lineage_id?: string;
+  thread_id?: string;
+  workflow_key?: string;
+  frontline_intake_trigger?: string;
+  boundary_reason?: string;
+  execution_request_id?: string;
+  sandbox_profile?: string;
+  network_egress?: string;
+  execution_outcome?: string;
+  execution_duration_ms?: number;
+  execution_timeout_ms?: number;
+  execution_source_hash?: string;
+  execution_source_bytes?: number;
+  approval_required?: string;
+  approval_status?: string;
 
   team_session_id?: string;
   handoff_id?: string;
@@ -417,6 +669,14 @@ export interface TrustEventAdditionalPayload {
   training_template_id?: string;
   parity_mode?: string;
   customer_agent_template_link?: string;
+  privileged_action?: string;
+  privileged_reason_code?: string;
+  privileged_ticket_id?: string;
+  privileged_elevation_id?: string;
+  privileged_step_up_verified_at?: number;
+  privileged_elevation_expires_at?: number;
+  privileged_dual_approver_ids?: string[];
+  privileged_decision?: string;
 }
 
 export type TrustEventPayload = TrustEventBasePayload &
@@ -528,6 +788,26 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
     allowed_modes: ["agents"],
     required_additional_fields: SOUL_REQUIRED_ADDITIONAL_FIELDS,
   },
+  "trust.tool_foundry.proposal_created.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.tool_foundry.promotion_requested.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.tool_foundry.promotion_granted.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.tool_foundry.promotion_denied.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.tool_foundry.execution_blocked.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TOOL_FOUNDRY_REQUIRED_ADDITIONAL_FIELDS,
+  },
   "trust.guardrail.policy_evaluated.v1": {
     allowed_modes: ["agents", "runtime"],
     required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
@@ -539,6 +819,78 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
   "trust.guardrail.policy_overridden.v1": {
     allowed_modes: ["agents", "runtime"],
     required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.vacation_request_received.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.vacation_policy_evaluated.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.vacation_decision_recorded.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.vacation_calendar_mutation.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.vacation_override_requested.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: GUARDRAIL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.appointment_call_approval_requested.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_APPOINTMENT_CALL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.appointment_call_approval_resolved.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_APPOINTMENT_CALL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.appointment_call_approval_blocked.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_APPOINTMENT_CALL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.code_execution_requested.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_CODE_EXECUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.code_execution_allowed.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_CODE_EXECUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.code_execution_blocked.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_CODE_EXECUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.guardrail.code_execution_outcome.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_CODE_EXECUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.runtime.macos_companion_ingress_observed.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_MACOS_COMPANION_INGRESS_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.runtime.macos_companion_delivery_failed.v1": {
+    allowed_modes: ["runtime"],
+    required_additional_fields: TRUST_MACOS_COMPANION_DELIVERY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.autonomy.trust_score_updated.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TRUST_AUTONOMY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.autonomy.promotion_proposed.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TRUST_AUTONOMY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.autonomy.promotion_resolved.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TRUST_AUTONOMY_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.autonomy.demotion_triggered.v1": {
+    allowed_modes: ["agents", "runtime"],
+    required_additional_fields: TRUST_AUTONOMY_REQUIRED_ADDITIONAL_FIELDS,
   },
   "trust.team.handoff_started.v1": {
     allowed_modes: ["agents", "runtime"],
@@ -575,6 +927,23 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
   "trust.admin.training_session_completed.v1": {
     allowed_modes: ["admin"],
     required_additional_fields: TRUST_ADMIN_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.platform_soul_step_up_verified.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields: TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.platform_soul_elevation_granted.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields: TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.platform_soul_apply_dual_approval_recorded.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields:
+      TRUST_ADMIN_PRIVILEGED_DUAL_APPROVAL_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.platform_soul_action_audited.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields: TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
   },
 };
 

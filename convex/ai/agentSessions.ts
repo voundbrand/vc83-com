@@ -11,10 +11,34 @@
  * 4. Stats updated after each exchange
  */
 
-import { query, mutation, internalQuery, internalMutation, internalAction } from "../_generated/server";
+import { action, query, mutation, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
-import { requireAuthenticatedUser } from "../rbacHelpers";
+import { checkPermission, getUserContext, requireAuthenticatedUser } from "../rbacHelpers";
+import {
+  AGENT_TURN_TRANSITION_POLICY_VERSION,
+  COLLABORATION_CONTRACT_VERSION,
+  assertAgentExecutionBundleContract,
+  assertAgentTurnTransitionEdge,
+  assertCollaborationRuntimeContract,
+  assertRuntimeIdempotencyContract,
+  assertTurnQueueContract,
+  agentExecutionBundleContractValidator,
+  agentTurnRunAttemptContractValidator,
+  collaborationAuthorityContractValidator,
+  collaborationKernelContractValidator,
+  runtimeIdempotencyContractValidator,
+  turnQueueContractValidator,
+  type AgentExecutionBundleContract,
+  type AgentTurnReplayInvariantStatus,
+  type AgentTurnRunAttemptContract,
+  type AgentTurnState,
+  type AgentTurnTransition,
+  type CollaborationAuthorityContract,
+  type CollaborationKernelContract,
+  type RuntimeIdempotencyContract,
+  type TurnQueueContract,
+} from "../schemas/aiSchemas";
 import {
   getSessionPolicyFromConfig,
   resolveSessionTTL,
@@ -30,9 +54,47 @@ import {
   type AgentLifecycleState,
 } from "./agentLifecycle";
 import {
+  normalizeCollaborationSyncCheckpointContract,
   resolveThreadDeliveryState,
   type ThreadDeliveryState,
 } from "./agentExecution";
+import {
+  buildTrustTimelineCorrelationId,
+  resolveTrustTimelineSurfaceFromWorkflow,
+  type TrustTimelineSurface,
+} from "./trustEvents";
+import {
+  AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS,
+  evaluateAgentOpsAlertThreshold,
+  type AgentOpsAlertMetricKey,
+  type AgentOpsAlertSeverity,
+} from "./trustTelemetry";
+import {
+  determineOrgLayer,
+  getOrgIdsForScope,
+  resolveScopedOrgTarget,
+  type Scope,
+  type ScopedOrg,
+} from "../lib/layerScope";
+import {
+  CONTACT_MEMORY_FIELD_ORDER,
+  buildSessionReactivationMemorySnapshot,
+  buildRollingSessionMemorySnapshot,
+  extractSessionContactMemoryCandidates,
+  normalizeSessionContactMemoryRecord,
+  normalizeSessionReactivationMemoryRecord,
+  normalizeSessionRollingSummaryMemoryRecord,
+  planSessionContactMemoryMerge,
+  SESSION_CONTACT_MEMORY_CONTRACT_VERSION,
+  SESSION_CONTACT_MEMORY_PROVENANCE_VERSION,
+  SESSION_CONTACT_MEMORY_SOURCE_POLICY,
+  SESSION_CONTACT_MEMORY_TRUST_EVENT_NAME,
+  type SessionContactMemoryField,
+  type SessionContactMemoryRecord,
+  type SessionReactivationMemoryRecord,
+  type SessionRollingSummaryMemoryRecord,
+} from "./memoryComposer";
+import { OpenRouterClient } from "./openrouter";
 
 // Lazy-load internal to avoid circular dependency with _generated/api
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +107,10 @@ function getInternalRef(): any {
   }
   return _internalRef;
 }
+
+// Lazy-load full generated API to access public billing mutations from actions.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../_generated/api");
 
 export type SessionRouteProfileType = "platform" | "organization";
 
@@ -60,6 +126,23 @@ export interface SessionChannelRouteIdentityRecord {
 }
 
 export const LEGACY_SESSION_ROUTING_KEY = "legacy";
+export const SESSION_ROUTING_METADATA_CONTRACT_VERSION =
+  "occ_operator_routing_v1" as const;
+
+export interface SessionRoutingMetadataRecord {
+  contractVersion: typeof SESSION_ROUTING_METADATA_CONTRACT_VERSION;
+  tenantId: string;
+  lineageId: string;
+  threadId: string;
+  workflowKey: string;
+  updatedAt: number;
+  updatedBy?: string;
+}
+
+interface SessionCollaborationKernelIdentity {
+  lineageId?: string;
+  threadId?: string;
+}
 
 function normalizeRouteIdentityString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -73,6 +156,83 @@ function normalizeSessionRouteProfileType(
   value: unknown
 ): SessionRouteProfileType | undefined {
   return value === "platform" || value === "organization" ? value : undefined;
+}
+
+function normalizeSessionCollaborationKernelIdentity(
+  value: unknown
+): SessionCollaborationKernelIdentity | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const lineageId = normalizeRouteIdentityString(record.lineageId);
+  const threadId = normalizeRouteIdentityString(record.threadId);
+  if (!lineageId && !threadId) {
+    return undefined;
+  }
+  return {
+    lineageId,
+    threadId,
+  };
+}
+
+export function normalizeSessionRoutingMetadata(
+  value: unknown
+): SessionRoutingMetadataRecord | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.contractVersion !== SESSION_ROUTING_METADATA_CONTRACT_VERSION) {
+    return undefined;
+  }
+  const tenantId = normalizeRouteIdentityString(record.tenantId);
+  const lineageId = normalizeRouteIdentityString(record.lineageId);
+  const threadId = normalizeRouteIdentityString(record.threadId);
+  const workflowKey = normalizeRouteIdentityString(record.workflowKey)?.toLowerCase();
+  const updatedBy = normalizeRouteIdentityString(record.updatedBy);
+  if (
+    !tenantId
+    || !lineageId
+    || !threadId
+    || !workflowKey
+    || typeof record.updatedAt !== "number"
+    || !Number.isFinite(record.updatedAt)
+  ) {
+    return undefined;
+  }
+  return {
+    contractVersion: SESSION_ROUTING_METADATA_CONTRACT_VERSION,
+    tenantId,
+    lineageId,
+    threadId,
+    workflowKey,
+    updatedAt: record.updatedAt,
+    updatedBy,
+  };
+}
+
+export function resolveSessionRoutingMetadataConsistencyError(args: {
+  routingMetadata: SessionRoutingMetadataRecord;
+  expectedTenantId: string;
+  collaborationKernel?: SessionCollaborationKernelIdentity;
+}): string | null {
+  if (args.routingMetadata.tenantId !== args.expectedTenantId) {
+    return "tenant_mismatch";
+  }
+  if (!args.collaborationKernel) {
+    return "collaboration_contract_missing";
+  }
+  if (!args.collaborationKernel.lineageId || !args.collaborationKernel.threadId) {
+    return "collaboration_kernel_missing_identity";
+  }
+  if (
+    args.collaborationKernel.lineageId !== args.routingMetadata.lineageId
+    || args.collaborationKernel.threadId !== args.routingMetadata.threadId
+  ) {
+    return "collaboration_routing_identity_mismatch";
+  }
+  return null;
 }
 
 export function normalizeSessionChannelRouteIdentity(
@@ -219,6 +379,243 @@ export function selectActiveSessionForRoute<T extends RouteScopedSessionCandidat
     promoteLegacy: false,
     routingKey: incomingRoutingKey,
   };
+}
+
+function normalizeSessionScopeToken(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeSessionFiniteTimestamp(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(0, Math.trunc(value));
+}
+
+function normalizeSessionFiniteDurationMs(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(0, Math.trunc(value));
+}
+
+export interface SessionReactivationTriggerDecision {
+  shouldClose: boolean;
+  closeReason: "idle_timeout" | "expired" | null;
+  reactivationTriggered: boolean;
+  inactivityGapMs: number;
+  inactivityThresholdMs: number;
+  sessionAgeMs: number;
+}
+
+export function evaluateSessionReactivationTrigger(args: {
+  now?: number;
+  lastMessageAt?: number;
+  startedAt?: number;
+  inactivityTimeoutMs?: number;
+  maxDurationMs?: number;
+}): SessionReactivationTriggerDecision {
+  const now = normalizeSessionFiniteTimestamp(args.now) ?? Date.now();
+  const lastMessageAt = normalizeSessionFiniteTimestamp(args.lastMessageAt);
+  const startedAt = normalizeSessionFiniteTimestamp(args.startedAt);
+  const inactivityTimeoutMs = normalizeSessionFiniteDurationMs(args.inactivityTimeoutMs);
+  const maxDurationMs = normalizeSessionFiniteDurationMs(args.maxDurationMs);
+  if (
+    lastMessageAt === null
+    || startedAt === null
+    || inactivityTimeoutMs === null
+    || inactivityTimeoutMs <= 0
+    || maxDurationMs === null
+    || maxDurationMs <= 0
+  ) {
+    return {
+      shouldClose: false,
+      closeReason: null,
+      reactivationTriggered: false,
+      inactivityGapMs: 0,
+      inactivityThresholdMs: inactivityTimeoutMs ?? 0,
+      sessionAgeMs: 0,
+    };
+  }
+
+  const inactivityGapMs = Math.max(0, now - lastMessageAt);
+  const sessionAgeMs = Math.max(0, now - startedAt);
+  const isInactive = inactivityGapMs >= inactivityTimeoutMs;
+  const isExpired = sessionAgeMs >= maxDurationMs;
+  const closeReason = isExpired
+    ? "expired" as const
+    : isInactive
+      ? "idle_timeout" as const
+      : null;
+
+  return {
+    shouldClose: Boolean(closeReason),
+    closeReason,
+    reactivationTriggered: isInactive,
+    inactivityGapMs,
+    inactivityThresholdMs: inactivityTimeoutMs,
+    sessionAgeMs,
+  };
+}
+
+export interface SessionReactivationMemoryScopeDecision {
+  allowed: boolean;
+  reason?:
+    | "missing_scope"
+    | "session_org_mismatch"
+    | "channel_mismatch"
+    | "contact_mismatch"
+    | "route_mismatch";
+}
+
+export function evaluateSessionReactivationMemoryReadScope(args: {
+  sessionOrganizationId?: Id<"organizations"> | string | null;
+  requestedOrganizationId?: Id<"organizations"> | string | null;
+  sessionChannel?: string | null;
+  requestedChannel?: string | null;
+  sessionExternalContactIdentifier?: string | null;
+  requestedExternalContactIdentifier?: string | null;
+  sessionRoutingKey?: string | null;
+  requestedSessionRoutingKey?: string | null;
+}): SessionReactivationMemoryScopeDecision {
+  const sessionOrganizationId = normalizeSessionScopeToken(args.sessionOrganizationId);
+  const requestedOrganizationId = normalizeSessionScopeToken(args.requestedOrganizationId);
+  const sessionChannel = normalizeSessionScopeToken(args.sessionChannel);
+  const requestedChannel = normalizeSessionScopeToken(args.requestedChannel);
+  const sessionExternalContactIdentifier = normalizeSessionScopeToken(
+    args.sessionExternalContactIdentifier
+  );
+  const requestedExternalContactIdentifier = normalizeSessionScopeToken(
+    args.requestedExternalContactIdentifier
+  );
+  const sessionRoutingKey = normalizeSessionScopeToken(args.sessionRoutingKey);
+  const requestedSessionRoutingKey = normalizeSessionScopeToken(
+    args.requestedSessionRoutingKey
+  );
+
+  if (
+    !sessionOrganizationId
+    || !requestedOrganizationId
+    || !sessionChannel
+    || !requestedChannel
+    || !sessionExternalContactIdentifier
+    || !requestedExternalContactIdentifier
+    || !sessionRoutingKey
+    || !requestedSessionRoutingKey
+  ) {
+    return {
+      allowed: false,
+      reason: "missing_scope",
+    };
+  }
+  if (sessionOrganizationId !== requestedOrganizationId) {
+    return {
+      allowed: false,
+      reason: "session_org_mismatch",
+    };
+  }
+  if (sessionChannel !== requestedChannel) {
+    return {
+      allowed: false,
+      reason: "channel_mismatch",
+    };
+  }
+  if (sessionExternalContactIdentifier !== requestedExternalContactIdentifier) {
+    return {
+      allowed: false,
+      reason: "contact_mismatch",
+    };
+  }
+  if (sessionRoutingKey !== requestedSessionRoutingKey) {
+    return {
+      allowed: false,
+      reason: "route_mismatch",
+    };
+  }
+  return { allowed: true };
+}
+
+export interface SessionReactivationMemoryCacheDecision {
+  allowed: boolean;
+  reason?: "cache_missing_or_invalid" | "cache_stale";
+  memory?: SessionReactivationMemoryRecord;
+}
+
+export function evaluateSessionReactivationMemoryCacheState(args: {
+  value: unknown;
+  now?: number;
+}): SessionReactivationMemoryCacheDecision {
+  const memory = normalizeSessionReactivationMemoryRecord(args.value);
+  if (!memory) {
+    return {
+      allowed: false,
+      reason: "cache_missing_or_invalid",
+    };
+  }
+  const now = normalizeSessionFiniteTimestamp(args.now) ?? Date.now();
+  if (memory.cacheExpiresAt <= now) {
+    return {
+      allowed: false,
+      reason: "cache_stale",
+    };
+  }
+  return {
+    allowed: true,
+    memory,
+  };
+}
+
+function assertPersistedSessionCollaborationContract(
+  sessionRecord: Record<string, unknown>
+) {
+  const collaboration = sessionRecord.collaboration;
+  if (!collaboration || typeof collaboration !== "object") {
+    return;
+  }
+  const collaborationRecord = collaboration as Record<string, unknown>;
+  const kernel = collaborationRecord.kernel;
+  const authority = collaborationRecord.authority;
+  if (!kernel || typeof kernel !== "object" || !authority || typeof authority !== "object") {
+    throw new Error("Persisted collaboration contract missing kernel or authority payload.");
+  }
+  assertCollaborationRuntimeContract({
+    kernel: kernel as CollaborationKernelContract,
+    authority: authority as CollaborationAuthorityContract,
+  });
+}
+
+function assertPersistedSessionRoutingMetadataContract(
+  sessionRecord: Record<string, unknown>
+) {
+  if (!sessionRecord.routingMetadata) {
+    return;
+  }
+  const routingMetadata = normalizeSessionRoutingMetadata(sessionRecord.routingMetadata);
+  if (!routingMetadata) {
+    throw new Error("Persisted session routing metadata contract is invalid.");
+  }
+  const expectedTenantId = String(sessionRecord.organizationId);
+  const collaborationRecord =
+    sessionRecord.collaboration && typeof sessionRecord.collaboration === "object"
+      ? (sessionRecord.collaboration as Record<string, unknown>)
+      : undefined;
+  const collaborationKernel = normalizeSessionCollaborationKernelIdentity(
+    collaborationRecord?.kernel
+  );
+  const consistencyError = resolveSessionRoutingMetadataConsistencyError({
+    routingMetadata,
+    expectedTenantId,
+    collaborationKernel,
+  });
+  if (consistencyError) {
+    throw new Error(
+      `Persisted session routing metadata contract failed consistency checks (${consistencyError}).`
+    );
+  }
 }
 
 interface AgentModelResolutionTelemetry {
@@ -753,31 +1150,6 @@ export function aggregateSoulDriftTelemetry(
   };
 }
 
-type AgentTurnState =
-  | "queued"
-  | "running"
-  | "suspended"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-type AgentTurnTransition =
-  | "inbound_received"
-  | "turn_enqueued"
-  | "lease_acquired"
-  | "lease_heartbeat"
-  | "lease_released"
-  | "handoff_initiated"
-  | "handoff_completed"
-  | "escalation_started"
-  | "escalation_resolved"
-  | "stale_recovered"
-  | "terminal_deliverable_recorded"
-  | "turn_suspended"
-  | "turn_completed"
-  | "turn_failed"
-  | "duplicate_dropped";
-
 type TurnLeaseNextState = "suspended" | "completed" | "cancelled";
 
 const DEFAULT_TURN_LEASE_MS = 45_000;
@@ -853,6 +1225,13 @@ async function appendExecutionEdge(
     metadata?: unknown;
   }
 ): Promise<void> {
+  assertAgentTurnTransitionEdge({
+    transition: args.transition,
+    fromState: args.fromState,
+    toState: args.toState,
+  });
+
+  const replayInvariantStatus: AgentTurnReplayInvariantStatus = "validated";
   const occurredAt = Date.now();
   const edgeOrdinal = await nextEdgeOrdinal(ctx, args.turnId);
   await ctx.db.insert("executionEdges", {
@@ -864,10 +1243,37 @@ async function appendExecutionEdge(
     fromState: args.fromState,
     toState: args.toState,
     edgeOrdinal,
+    transitionPolicyVersion: AGENT_TURN_TRANSITION_POLICY_VERSION,
+    replayInvariantStatus,
     metadata: args.metadata,
     occurredAt,
     createdAt: occurredAt,
   });
+}
+
+function normalizeExecutionContractString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function isIdempotencyExpired(expiresAt: unknown, now: number): boolean {
+  return typeof expiresAt === "number" && expiresAt <= now;
+}
+
+function resolveReplayConflictLabel(intentType: unknown):
+  | "replay_duplicate_ingress"
+  | "replay_duplicate_proposal"
+  | "replay_duplicate_commit" {
+  if (intentType === "proposal") {
+    return "replay_duplicate_proposal";
+  }
+  if (intentType === "commit") {
+    return "replay_duplicate_commit";
+  }
+  return "replay_duplicate_ingress";
 }
 
 /**
@@ -881,25 +1287,138 @@ export const createInboundTurn = internalMutation({
     agentId: v.id("objects"),
     idempotencyKey: v.optional(v.string()),
     inboundMessageHash: v.optional(v.string()),
+    queueContract: v.optional(turnQueueContractValidator),
+    idempotencyContract: v.optional(runtimeIdempotencyContractValidator),
+    runAttempt: v.optional(agentTurnRunAttemptContractValidator),
+    executionBundle: v.optional(agentExecutionBundleContractValidator),
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    if (args.queueContract) {
+      assertTurnQueueContract(args.queueContract as TurnQueueContract);
+    }
+    if (args.idempotencyContract) {
+      assertRuntimeIdempotencyContract(
+        args.idempotencyContract as RuntimeIdempotencyContract
+      );
+    }
+    if (args.executionBundle) {
+      assertAgentExecutionBundleContract(
+        args.executionBundle as AgentExecutionBundleContract
+      );
+    }
+
     const normalizedIdempotencyKey =
       typeof args.idempotencyKey === "string" && args.idempotencyKey.trim().length > 0
         ? args.idempotencyKey.trim()
         : undefined;
+    const normalizedScopeKey = normalizeExecutionContractString(
+      args.idempotencyContract?.scopeKey
+    );
+    const normalizedPayloadHash = normalizeExecutionContractString(
+      args.idempotencyContract?.payloadHash
+    );
+    const now = Date.now();
+    const replayConflictLabel = resolveReplayConflictLabel(
+      args.idempotencyContract?.intentType
+    );
 
-    if (normalizedIdempotencyKey) {
-      const duplicate = await ctx.db
+    let duplicate:
+      | {
+          _id: Id<"agentTurns">;
+          transitionVersion: number;
+          state: AgentTurnState;
+          idempotencyExpiresAt?: number;
+        }
+      | undefined;
+
+    if (normalizedScopeKey) {
+      const scopeCandidates = await ctx.db
+        .query("agentTurns")
+        .withIndex("by_org_idempotency_scope_key", (q) =>
+          q
+            .eq("organizationId", args.organizationId)
+            .eq("idempotencyScopeKey", normalizedScopeKey)
+        )
+        .collect();
+      duplicate = scopeCandidates
+        .sort((a, b) => {
+          if (a.queuedAt !== b.queuedAt) {
+            return a.queuedAt - b.queuedAt;
+          }
+          return String(a._id).localeCompare(String(b._id));
+        })
+        .find((candidate) => {
+          if (isIdempotencyExpired(candidate.idempotencyExpiresAt, now)) {
+            return false;
+          }
+          const candidatePayloadHash = normalizeExecutionContractString(
+            (candidate.idempotencyContract as Record<string, unknown> | undefined)
+              ?.payloadHash
+          );
+          if (
+            normalizedPayloadHash &&
+            candidatePayloadHash &&
+            candidatePayloadHash !== normalizedPayloadHash
+          ) {
+            return false;
+          }
+          if (
+            normalizedIdempotencyKey &&
+            candidate.idempotencyKey === normalizedIdempotencyKey
+          ) {
+            return true;
+          }
+          if (!normalizedPayloadHash || !candidatePayloadHash) {
+            return false;
+          }
+          return candidatePayloadHash === normalizedPayloadHash;
+        });
+    }
+
+    if (!duplicate && normalizedIdempotencyKey) {
+      const keyCandidates = await ctx.db
         .query("agentTurns")
         .withIndex("by_org_idempotency_key", (q) =>
           q
             .eq("organizationId", args.organizationId)
             .eq("idempotencyKey", normalizedIdempotencyKey)
         )
-        .first();
+        .collect();
+      duplicate = keyCandidates
+        .sort((a, b) => {
+          if (a.queuedAt !== b.queuedAt) {
+            return a.queuedAt - b.queuedAt;
+          }
+          return String(a._id).localeCompare(String(b._id));
+        })
+        .find((candidate) => {
+          if (isIdempotencyExpired(candidate.idempotencyExpiresAt, now)) {
+            return false;
+          }
+          const candidatePayloadHash = normalizeExecutionContractString(
+            (candidate.idempotencyContract as Record<string, unknown> | undefined)
+              ?.payloadHash
+          );
+          if (
+            normalizedPayloadHash &&
+            candidatePayloadHash &&
+            candidatePayloadHash !== normalizedPayloadHash
+          ) {
+            return false;
+          }
+          return true;
+        }) as
+          | {
+              _id: Id<"agentTurns">;
+              transitionVersion: number;
+              state: AgentTurnState;
+              idempotencyExpiresAt?: number;
+            }
+          | undefined;
+    }
 
-      if (duplicate) {
+    if (duplicate) {
         const duplicateState = duplicate.state as AgentTurnState;
         await appendExecutionEdge(ctx, {
           organizationId: args.organizationId,
@@ -911,7 +1430,10 @@ export const createInboundTurn = internalMutation({
           toState: duplicateState,
           metadata: {
             idempotencyKey: normalizedIdempotencyKey,
+            idempotencyScopeKey: normalizedScopeKey,
+            queueConcurrencyKey: args.queueContract?.concurrencyKey,
             duplicateTurnId: duplicate._id,
+            conflictLabel: replayConflictLabel,
           },
         });
 
@@ -920,11 +1442,11 @@ export const createInboundTurn = internalMutation({
           transitionVersion: duplicate.transitionVersion,
           state: duplicate.state,
           duplicate: true,
+          conflictLabel: replayConflictLabel,
+          replayOutcome: "duplicate_acknowledged" as const,
         };
-      }
     }
 
-    const now = Date.now();
     const turnId = await ctx.db.insert("agentTurns", {
       organizationId: args.organizationId,
       sessionId: args.sessionId,
@@ -932,7 +1454,15 @@ export const createInboundTurn = internalMutation({
       state: "queued",
       transitionVersion: 0,
       idempotencyKey: normalizedIdempotencyKey,
+      idempotencyScopeKey: normalizedScopeKey,
+      idempotencyExpiresAt: args.idempotencyContract?.expiresAt,
+      idempotencyContract: args.idempotencyContract as RuntimeIdempotencyContract | undefined,
       inboundMessageHash: args.inboundMessageHash,
+      queueContract: args.queueContract as TurnQueueContract | undefined,
+      queueConcurrencyKey: args.queueContract?.concurrencyKey,
+      queueOrderingKey: args.queueContract?.orderingKey,
+      runAttempt: args.runAttempt as AgentTurnRunAttemptContract | undefined,
+      executionBundle: args.executionBundle as AgentExecutionBundleContract | undefined,
       metadata: args.metadata,
       queuedAt: now,
       createdAt: now,
@@ -948,6 +1478,8 @@ export const createInboundTurn = internalMutation({
       toState: "queued",
       metadata: {
         idempotencyKey: normalizedIdempotencyKey,
+        idempotencyScopeKey: normalizedScopeKey,
+        queueConcurrencyKey: args.queueContract?.concurrencyKey,
       },
     });
 
@@ -960,6 +1492,8 @@ export const createInboundTurn = internalMutation({
       toState: "queued",
       metadata: {
         idempotencyKey: normalizedIdempotencyKey,
+        idempotencyScopeKey: normalizedScopeKey,
+        queueConcurrencyKey: args.queueContract?.concurrencyKey,
       },
     });
 
@@ -968,6 +1502,8 @@ export const createInboundTurn = internalMutation({
       transitionVersion: 0,
       state: "queued" as const,
       duplicate: false,
+      conflictLabel: "replay_duplicate_ingress" as const,
+      replayOutcome: "accepted" as const,
     };
   },
 });
@@ -1143,6 +1679,56 @@ export const recordTurnTerminalDeliverable = internalMutation({
 });
 
 /**
+ * Persist deterministic run-attempt envelope fields on a turn.
+ */
+export const recordTurnRunAttempt = internalMutation({
+  args: {
+    turnId: v.id("agentTurns"),
+    runAttempt: agentTurnRunAttemptContractValidator,
+  },
+  handler: async (ctx, args) => {
+    const turn = await ctx.db.get(args.turnId);
+    if (!turn) {
+      return { success: false, error: "turn_not_found" as const };
+    }
+
+    await ctx.db.patch(args.turnId, {
+      runAttempt: args.runAttempt as AgentTurnRunAttemptContract,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Pin execution bundle version snapshot on the turn lifecycle record.
+ */
+export const recordTurnExecutionBundle = internalMutation({
+  args: {
+    turnId: v.id("agentTurns"),
+    executionBundle: agentExecutionBundleContractValidator,
+  },
+  handler: async (ctx, args) => {
+    const turn = await ctx.db.get(args.turnId);
+    if (!turn) {
+      return { success: false, error: "turn_not_found" as const };
+    }
+
+    assertAgentExecutionBundleContract(
+      args.executionBundle as AgentExecutionBundleContract
+    );
+
+    await ctx.db.patch(args.turnId, {
+      executionBundle: args.executionBundle as AgentExecutionBundleContract,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Acquire a running lease for a turn with optimistic concurrency checks.
  * Rejects acquisition when another unexpired running turn exists for the same session/agent.
  */
@@ -1155,6 +1741,7 @@ export const acquireTurnLease = internalMutation({
     leaseOwner: v.string(),
     expectedVersion: v.number(),
     leaseDurationMs: v.optional(v.number()),
+    queueConcurrencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const turn = await ctx.db.get(args.turnId);
@@ -1181,15 +1768,41 @@ export const acquireTurnLease = internalMutation({
     }
 
     const now = Date.now();
-    const runningTurns = await ctx.db
-      .query("agentTurns")
-      .withIndex("by_session_agent_state", (q) =>
-        q
-          .eq("sessionId", args.sessionId)
-          .eq("agentId", args.agentId)
-          .eq("state", "running")
-      )
-      .collect();
+    const turnRecord = turn as Record<string, unknown>;
+    const persistedQueueConcurrencyKey = normalizeExecutionContractString(
+      turnRecord.queueConcurrencyKey
+    );
+    const queueConcurrencyKey =
+      normalizeExecutionContractString(args.queueConcurrencyKey)
+      ?? persistedQueueConcurrencyKey;
+    const queueWorkflowKey = normalizeExecutionContractString(
+      (turnRecord.queueContract as Record<string, unknown> | undefined)?.workflowKey
+    );
+    const conflictLabel =
+      queueWorkflowKey === "commit"
+      || queueWorkflowKey === "collaboration_commit"
+        ? "conflict_commit_in_progress"
+        : "conflict_turn_in_progress";
+
+    const runningTurns = queueConcurrencyKey
+      ? await ctx.db
+          .query("agentTurns")
+          .withIndex("by_org_queue_concurrency_state", (q) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("queueConcurrencyKey", queueConcurrencyKey)
+              .eq("state", "running")
+          )
+          .collect()
+      : await ctx.db
+          .query("agentTurns")
+          .withIndex("by_session_agent_state", (q) =>
+            q
+              .eq("sessionId", args.sessionId)
+              .eq("agentId", args.agentId)
+              .eq("state", "running")
+          )
+          .collect();
 
     const conflictingTurn = runningTurns.find(
       (runningTurn) =>
@@ -1202,6 +1815,8 @@ export const acquireTurnLease = internalMutation({
         success: false,
         error: "dual_active_turn" as const,
         conflictingTurnId: conflictingTurn._id,
+        conflictLabel,
+        queueConcurrencyKey,
       };
     }
 
@@ -1243,6 +1858,7 @@ export const acquireTurnLease = internalMutation({
         leaseOwner: args.leaseOwner,
         expectedVersion: args.expectedVersion,
         nextVersion,
+        queueConcurrencyKey,
       },
     });
 
@@ -1532,6 +2148,8 @@ export const resolveSession = internalMutation({
 
     if (existing && existing.status === "active") {
       const existingRecord = existing as unknown as Record<string, unknown>;
+      assertPersistedSessionCollaborationContract(existingRecord);
+      assertPersistedSessionRoutingMetadataContract(existingRecord);
       const patch: Record<string, unknown> = {};
       if (existingSelection.promoteLegacy && incomingRouteIdentity) {
         patch.channelRouteIdentity = incomingRouteIdentity;
@@ -1554,12 +2172,17 @@ export const resolveSession = internalMutation({
       const { ttl, maxDuration } = resolveSessionTTL(policy, existing.channel);
       const now = Date.now();
 
-      const isIdle = (now - existing.lastMessageAt) > ttl;
-      const isExpired = (now - existing.startedAt) > maxDuration;
+      const reactivationTrigger = evaluateSessionReactivationTrigger({
+        now,
+        lastMessageAt: existing.lastMessageAt,
+        startedAt: existing.startedAt,
+        inactivityTimeoutMs: ttl,
+        maxDurationMs: maxDuration,
+      });
 
-      if (isIdle || isExpired) {
+      if (reactivationTrigger.shouldClose && reactivationTrigger.closeReason) {
         // Close the stale session
-        const closeReason = isExpired ? "expired" as const : "idle_timeout" as const;
+        const closeReason = reactivationTrigger.closeReason;
         await ctx.db.patch(existing._id, {
           status: closeReason === "expired" ? "expired" : "closed",
           closedAt: now,
@@ -1578,6 +2201,10 @@ export const resolveSession = internalMutation({
           incomingRouteIdentity ||
           normalizeSessionChannelRouteIdentity(existing.channelRouteIdentity);
         const nextRoutingKey = buildSessionRoutingKey(nextRouteIdentity);
+        const existingSessionRecord = existing as Record<string, unknown>;
+        const existingSessionRoutingKey = resolveSessionRoutingKeyFromRecord(
+          existingSessionRecord
+        );
         const newSessionData: Record<string, unknown> = {
           agentId: args.agentId,
           organizationId: args.organizationId,
@@ -1596,11 +2223,32 @@ export const resolveSession = internalMutation({
         // If policy says "resume", carry forward summary context
         if (policy.onReopen === "resume") {
           newSessionData.previousSessionId = existing._id;
-          const summary = (existing as Record<string, unknown>).summary as
+          const summary = existingSessionRecord.summary as
             | { text: string }
             | undefined;
           if (summary?.text) {
             newSessionData.previousSessionSummary = summary.text;
+          }
+          const reactivationMemory = reactivationTrigger.reactivationTriggered
+            ? buildSessionReactivationMemorySnapshot({
+                sourceSessionId: String(existing._id),
+                sourceOrganizationId: String(existing.organizationId),
+                sourceChannel: existing.channel,
+                sourceExternalContactIdentifier: existing.externalContactIdentifier,
+                sourceSessionRoutingKey: existingSessionRoutingKey,
+                sourceCloseReason: closeReason,
+                sourceClosedAt: now,
+                sourceLastMessageAt: existing.lastMessageAt,
+                inactivityGapMs: reactivationTrigger.inactivityGapMs,
+                rollingSummaryMemory: normalizeSessionRollingSummaryMemoryRecord(
+                  existingSessionRecord.rollingSummaryMemory
+                ),
+                sessionSummary: summary?.text,
+                now,
+              })
+            : null;
+          if (reactivationMemory) {
+            newSessionData.reactivationMemory = reactivationMemory;
           }
         }
 
@@ -1630,6 +2278,197 @@ export const resolveSession = internalMutation({
     });
 
     return await ctx.db.get(sessionId);
+  },
+});
+
+/**
+ * Upsert typed collaboration kernel + authority contract on a session.
+ * Validation is fail-closed and enforces orchestrator-only mutating commits.
+ */
+export const upsertSessionCollaborationContract = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    kernel: collaborationKernelContractValidator,
+    authority: collaborationAuthorityContractValidator,
+    updatedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return { success: false, error: "session_not_found" as const };
+    }
+
+    const normalizedKernelLineageId = normalizeRouteIdentityString(
+      (args.kernel as Record<string, unknown>).lineageId
+    );
+    const normalizedKernelThreadId = normalizeRouteIdentityString(
+      (args.kernel as Record<string, unknown>).threadId
+    );
+    if (!normalizedKernelLineageId || !normalizedKernelThreadId) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "collaboration_kernel_missing_identity",
+      };
+    }
+
+    try {
+      assertCollaborationRuntimeContract({
+        kernel: args.kernel as CollaborationKernelContract,
+        authority: args.authority as CollaborationAuthorityContract,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: error instanceof Error ? error.message : "collaboration_contract_validation_failed",
+      };
+    }
+
+    const existingRoutingMetadata = normalizeSessionRoutingMetadata(
+      (session as Record<string, unknown>).routingMetadata
+    );
+    if ((session as Record<string, unknown>).routingMetadata && !existingRoutingMetadata) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "routing_metadata_contract_invalid",
+      };
+    }
+    if (existingRoutingMetadata) {
+      const consistencyError = resolveSessionRoutingMetadataConsistencyError({
+        routingMetadata: existingRoutingMetadata,
+        expectedTenantId: String(session.organizationId),
+        collaborationKernel: {
+          lineageId: normalizedKernelLineageId,
+          threadId: normalizedKernelThreadId,
+        },
+      });
+      if (consistencyError) {
+        return {
+          success: false,
+          error: "blocked_policy" as const,
+          reason: consistencyError,
+        };
+      }
+    }
+
+    const now = Date.now();
+    const collaborationContract = {
+      contractVersion: COLLABORATION_CONTRACT_VERSION,
+      kernel: args.kernel,
+      authority: args.authority,
+      updatedAt: now,
+      updatedBy: args.updatedBy,
+    };
+
+    await ctx.db.patch(args.sessionId, {
+      collaboration: collaborationContract,
+    });
+
+    return {
+      success: true,
+      collaboration: collaborationContract,
+    };
+  },
+});
+
+/**
+ * Upsert operator collaboration routing metadata contract on a session.
+ * Fail closed when tenant/lineage/thread metadata is absent or mismatched.
+ */
+export const upsertSessionRoutingMetadata = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    tenantId: v.string(),
+    lineageId: v.string(),
+    threadId: v.string(),
+    workflowKey: v.string(),
+    updatedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return { success: false, error: "session_not_found" as const };
+    }
+
+    const tenantId = normalizeRouteIdentityString(args.tenantId);
+    const lineageId = normalizeRouteIdentityString(args.lineageId);
+    const threadId = normalizeRouteIdentityString(args.threadId);
+    const workflowKey = normalizeRouteIdentityString(args.workflowKey)?.toLowerCase();
+    const updatedBy = normalizeRouteIdentityString(args.updatedBy);
+
+    if (!tenantId || !lineageId || !threadId || !workflowKey) {
+      return {
+        success: false,
+        error: "routing_metadata_invalid" as const,
+      };
+    }
+
+    const expectedTenantId = String(session.organizationId);
+    const collaborationRecord =
+      (session as Record<string, unknown>).collaboration
+      && typeof (session as Record<string, unknown>).collaboration === "object"
+        ? (session as Record<string, unknown>).collaboration as Record<string, unknown>
+        : undefined;
+    const collaborationKernel = normalizeSessionCollaborationKernelIdentity(
+      collaborationRecord?.kernel
+    );
+    const nextRoutingMetadata: SessionRoutingMetadataRecord = {
+      contractVersion: SESSION_ROUTING_METADATA_CONTRACT_VERSION,
+      tenantId,
+      lineageId,
+      threadId,
+      workflowKey,
+      updatedAt: Date.now(),
+      updatedBy,
+    };
+    const consistencyError = resolveSessionRoutingMetadataConsistencyError({
+      routingMetadata: nextRoutingMetadata,
+      expectedTenantId,
+      collaborationKernel,
+    });
+    if (consistencyError) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: consistencyError,
+      };
+    }
+
+    const existingRoutingMetadata = normalizeSessionRoutingMetadata(
+      (session as Record<string, unknown>).routingMetadata
+    );
+    if ((session as Record<string, unknown>).routingMetadata && !existingRoutingMetadata) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "routing_metadata_contract_invalid",
+      };
+    }
+    if (
+      existingRoutingMetadata
+      && (
+        existingRoutingMetadata.tenantId !== tenantId
+        || existingRoutingMetadata.lineageId !== lineageId
+        || existingRoutingMetadata.threadId !== threadId
+      )
+    ) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "routing_metadata_mismatch",
+      };
+    }
+
+    await ctx.db.patch(args.sessionId, {
+      routingMetadata: nextRoutingMetadata,
+    });
+
+    return {
+      success: true,
+      routingMetadata: nextRoutingMetadata,
+    };
   },
 });
 
@@ -1732,8 +2571,1066 @@ export const upsertSessionRoutingPin = internalMutation({
 });
 
 // ============================================================================
+// OPERATOR PINNED NOTES (L3 MEMORY LAYER)
+// ============================================================================
+
+const OPERATOR_PINNED_NOTE_TITLE_MAX_CHARS = 160;
+const OPERATOR_PINNED_NOTE_BODY_MAX_CHARS = 4_000;
+const OPERATOR_PINNED_NOTE_LIMIT_DEFAULT = 25;
+const OPERATOR_PINNED_NOTE_LIMIT_MAX = 100;
+const OPERATOR_PINNED_NOTE_SORT_MIN = -9_999;
+const OPERATOR_PINNED_NOTE_SORT_MAX = 9_999;
+
+export type OperatorPinnedNotesAction = "read" | "create" | "update" | "delete";
+
+export interface OperatorPinnedNotesAccessDecision {
+  allowed: boolean;
+  requiredPermission: "view_organization" | "manage_organization";
+  reason?:
+    | "session_org_mismatch"
+    | "missing_permission";
+}
+
+export function evaluateOperatorPinnedNotesAccess(args: {
+  action: OperatorPinnedNotesAction;
+  sessionOrganizationId?: Id<"organizations"> | null;
+  requestedOrganizationId: Id<"organizations">;
+  isSuperAdmin: boolean;
+  hasPermission: boolean;
+}): OperatorPinnedNotesAccessDecision {
+  const requiredPermission =
+    args.action === "read" ? "view_organization" : "manage_organization";
+  const sessionOrgMatchesRequested =
+    Boolean(args.sessionOrganizationId)
+    && String(args.sessionOrganizationId) === String(args.requestedOrganizationId);
+
+  if (!args.isSuperAdmin && !sessionOrgMatchesRequested) {
+    return {
+      allowed: false,
+      requiredPermission,
+      reason: "session_org_mismatch",
+    };
+  }
+
+  if (!args.hasPermission) {
+    return {
+      allowed: false,
+      requiredPermission,
+      reason: "missing_permission",
+    };
+  }
+
+  return {
+    allowed: true,
+    requiredPermission,
+  };
+}
+
+function normalizeOperatorPinnedNoteTitle(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return normalized.slice(0, OPERATOR_PINNED_NOTE_TITLE_MAX_CHARS);
+}
+
+function normalizeOperatorPinnedNoteBody(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, OPERATOR_PINNED_NOTE_BODY_MAX_CHARS);
+}
+
+function normalizeOperatorPinnedNoteSortOrder(
+  value: unknown,
+  fallback: number
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(
+    OPERATOR_PINNED_NOTE_SORT_MIN,
+    Math.min(OPERATOR_PINNED_NOTE_SORT_MAX, Math.trunc(value))
+  );
+}
+
+function clampOperatorPinnedNotesLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return OPERATOR_PINNED_NOTE_LIMIT_DEFAULT;
+  }
+  return Math.max(
+    1,
+    Math.min(OPERATOR_PINNED_NOTE_LIMIT_MAX, Math.trunc(value))
+  );
+}
+
+function sortOperatorPinnedNoteRecords<T extends {
+  sortOrder?: number;
+  pinnedAt?: number;
+  updatedAt?: number;
+  _id?: unknown;
+  noteId?: string;
+}>(records: T[]): T[] {
+  return [...records].sort((a, b) => {
+    const sortOrderDelta = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+    if (sortOrderDelta !== 0) {
+      return sortOrderDelta;
+    }
+    const pinnedAtDelta = (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0);
+    if (pinnedAtDelta !== 0) {
+      return pinnedAtDelta;
+    }
+    const updatedAtDelta = (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+    if (updatedAtDelta !== 0) {
+      return updatedAtDelta;
+    }
+    const aKey = String(a.noteId ?? a._id ?? "");
+    const bKey = String(b.noteId ?? b._id ?? "");
+    return aKey.localeCompare(bKey);
+  });
+}
+
+function mapOperatorPinnedNote(record: {
+  _id: Id<"operatorPinnedNotes">;
+  organizationId: Id<"organizations">;
+  title?: string;
+  note: string;
+  sortOrder: number;
+  pinnedAt: number;
+  createdBy: Id<"users">;
+  updatedBy: Id<"users">;
+  createdAt: number;
+  updatedAt: number;
+}) {
+  return {
+    noteId: String(record._id),
+    organizationId: String(record.organizationId),
+    title: record.title,
+    note: record.note,
+    sortOrder: record.sortOrder,
+    pinnedAt: record.pinnedAt,
+    createdBy: String(record.createdBy),
+    updatedBy: String(record.updatedBy),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+async function resolveNextOperatorPinnedNoteSortOrder(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: Id<"organizations">
+): Promise<number> {
+  const existing = await ctx.db
+    .query("operatorPinnedNotes")
+    .withIndex("by_organization_sort_order", (q: any) =>
+      q.eq("organizationId", organizationId)
+    )
+    .collect();
+  const maxSortOrder = existing.reduce((max: number, note: { sortOrder?: number }) => {
+    const current =
+      typeof note.sortOrder === "number" && Number.isFinite(note.sortOrder)
+        ? Math.trunc(note.sortOrder)
+        : 0;
+    return Math.max(max, current);
+  }, 0);
+  return Math.min(OPERATOR_PINNED_NOTE_SORT_MAX, maxSortOrder + 100);
+}
+
+async function requireOperatorPinnedNotesAccess(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  organizationId: Id<"organizations">;
+  action: OperatorPinnedNotesAction;
+}) {
+  const auth = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  let isSuperAdmin = false;
+  try {
+    const userContext = await getUserContext(
+      args.ctx,
+      auth.userId,
+      args.organizationId
+    );
+    isSuperAdmin =
+      userContext.isGlobal && userContext.roleName === "super_admin";
+  } catch {
+    isSuperAdmin = false;
+  }
+
+  const requiredPermission =
+    args.action === "read" ? "view_organization" : "manage_organization";
+  const hasPermission = await checkPermission(
+    args.ctx,
+    auth.userId,
+    requiredPermission,
+    args.organizationId
+  );
+
+  const decision = evaluateOperatorPinnedNotesAccess({
+    action: args.action,
+    sessionOrganizationId: auth.organizationId,
+    requestedOrganizationId: args.organizationId,
+    isSuperAdmin,
+    hasPermission,
+  });
+
+  if (!decision.allowed) {
+    throw new Error("Unauthorized operator pinned notes access.");
+  }
+
+  return {
+    userId: auth.userId,
+    decision,
+  };
+}
+
+export const listOperatorPinnedNotes = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireOperatorPinnedNotesAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      action: "read",
+    });
+
+    const limit = clampOperatorPinnedNotesLimit(args.limit);
+    const notes = await ctx.db
+      .query("operatorPinnedNotes")
+      .withIndex("by_organization_sort_order", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    return sortOperatorPinnedNoteRecords(notes)
+      .slice(0, limit)
+      .map(mapOperatorPinnedNote);
+  },
+});
+
+export const createOperatorPinnedNote = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    title: v.optional(v.string()),
+    note: v.string(),
+    sortOrder: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOperatorPinnedNotesAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      action: "create",
+    });
+
+    const note = normalizeOperatorPinnedNoteBody(args.note);
+    if (note.length === 0) {
+      throw new Error("Pinned note content is required.");
+    }
+
+    const defaultSortOrder = await resolveNextOperatorPinnedNoteSortOrder(
+      ctx,
+      args.organizationId
+    );
+    const sortOrder = normalizeOperatorPinnedNoteSortOrder(
+      args.sortOrder,
+      defaultSortOrder
+    );
+    const title = normalizeOperatorPinnedNoteTitle(args.title);
+    const now = Date.now();
+
+    const noteId = await ctx.db.insert("operatorPinnedNotes", {
+      organizationId: args.organizationId,
+      title,
+      note,
+      sortOrder,
+      pinnedAt: now,
+      createdBy: access.userId,
+      updatedBy: access.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const created = await ctx.db.get(noteId);
+    if (!created) {
+      throw new Error("Failed to persist operator pinned note.");
+    }
+
+    return mapOperatorPinnedNote(created);
+  },
+});
+
+export const updateOperatorPinnedNote = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    noteId: v.id("operatorPinnedNotes"),
+    title: v.optional(v.string()),
+    note: v.optional(v.string()),
+    sortOrder: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOperatorPinnedNotesAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      action: "update",
+    });
+
+    const existing = await ctx.db.get(args.noteId);
+    if (!existing || existing.organizationId !== args.organizationId) {
+      throw new Error("Pinned note not found.");
+    }
+
+    const patch: Record<string, unknown> = {
+      updatedBy: access.userId,
+      updatedAt: Date.now(),
+    };
+
+    if (typeof args.title !== "undefined") {
+      patch.title = normalizeOperatorPinnedNoteTitle(args.title);
+    }
+    if (typeof args.note !== "undefined") {
+      const nextNote = normalizeOperatorPinnedNoteBody(args.note);
+      if (nextNote.length === 0) {
+        throw new Error("Pinned note content is required.");
+      }
+      patch.note = nextNote;
+    }
+    if (typeof args.sortOrder !== "undefined") {
+      patch.sortOrder = normalizeOperatorPinnedNoteSortOrder(
+        args.sortOrder,
+        existing.sortOrder
+      );
+    }
+
+    await ctx.db.patch(args.noteId, patch);
+    const updated = await ctx.db.get(args.noteId);
+    if (!updated) {
+      throw new Error("Pinned note not found after update.");
+    }
+
+    return mapOperatorPinnedNote(updated);
+  },
+});
+
+export const deleteOperatorPinnedNote = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    noteId: v.id("operatorPinnedNotes"),
+  },
+  handler: async (ctx, args) => {
+    await requireOperatorPinnedNotesAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      action: "delete",
+    });
+
+    const existing = await ctx.db.get(args.noteId);
+    if (!existing || existing.organizationId !== args.organizationId) {
+      throw new Error("Pinned note not found.");
+    }
+
+    await ctx.db.delete(args.noteId);
+    return {
+      success: true,
+      noteId: String(args.noteId),
+    };
+  },
+});
+
+export const getRuntimeOperatorPinnedNotes = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = clampOperatorPinnedNotesLimit(args.limit);
+    const notes = await ctx.db
+      .query("operatorPinnedNotes")
+      .withIndex("by_organization_sort_order", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    return sortOperatorPinnedNoteRecords(notes)
+      .slice(0, limit)
+      .map((note) => ({
+        noteId: String(note._id),
+        title: note.title,
+        note: note.note,
+        sortOrder: note.sortOrder,
+        pinnedAt: note.pinnedAt,
+        updatedAt: note.updatedAt,
+      }));
+  },
+});
+
+// ============================================================================
+// ROLLING SESSION MEMORY (L2)
+// ============================================================================
+
+const SESSION_ROLLING_MEMORY_HISTORY_LIMIT_DEFAULT = 60;
+const SESSION_ROLLING_MEMORY_HISTORY_LIMIT_MAX = 200;
+
+function clampSessionRollingMemoryHistoryLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return SESSION_ROLLING_MEMORY_HISTORY_LIMIT_DEFAULT;
+  }
+  return Math.max(
+    10,
+    Math.min(SESSION_ROLLING_MEMORY_HISTORY_LIMIT_MAX, Math.trunc(value))
+  );
+}
+
+export interface SessionRollingMemoryScopeDecision {
+  allowed: boolean;
+  reason?: "missing_scope" | "session_org_mismatch";
+}
+
+export function evaluateSessionRollingMemoryWriteScope(args: {
+  sessionOrganizationId?: Id<"organizations"> | null;
+  requestedOrganizationId?: Id<"organizations"> | null;
+}): SessionRollingMemoryScopeDecision {
+  if (!args.sessionOrganizationId || !args.requestedOrganizationId) {
+    return {
+      allowed: false,
+      reason: "missing_scope",
+    };
+  }
+  if (String(args.sessionOrganizationId) !== String(args.requestedOrganizationId)) {
+    return {
+      allowed: false,
+      reason: "session_org_mismatch",
+    };
+  }
+  return { allowed: true };
+}
+
+export const getSessionRollingSummaryMemory = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<SessionRollingSummaryMemoryRecord | null> => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const scope = evaluateSessionRollingMemoryWriteScope({
+      sessionOrganizationId: session.organizationId,
+      requestedOrganizationId: args.organizationId,
+    });
+    if (!scope.allowed) {
+      return null;
+    }
+
+    return normalizeSessionRollingSummaryMemoryRecord(
+      (session as Record<string, unknown>).rollingSummaryMemory
+    );
+  },
+});
+
+export const getSessionReactivationMemory = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+    externalContactIdentifier: v.string(),
+    sessionRoutingKey: v.string(),
+  },
+  handler: async (ctx, args): Promise<SessionReactivationMemoryRecord | null> => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const sessionRecord = session as Record<string, unknown>;
+    const scope = evaluateSessionReactivationMemoryReadScope({
+      sessionOrganizationId: session.organizationId,
+      requestedOrganizationId: args.organizationId,
+      sessionChannel: session.channel,
+      requestedChannel: args.channel,
+      sessionExternalContactIdentifier: session.externalContactIdentifier,
+      requestedExternalContactIdentifier: args.externalContactIdentifier,
+      sessionRoutingKey: resolveSessionRoutingKeyFromRecord(sessionRecord),
+      requestedSessionRoutingKey: args.sessionRoutingKey,
+    });
+    if (!scope.allowed) {
+      return null;
+    }
+
+    const cacheState = evaluateSessionReactivationMemoryCacheState({
+      value: sessionRecord.reactivationMemory,
+    });
+    if (!cacheState.allowed || !cacheState.memory) {
+      return null;
+    }
+
+    const previousSessionId = normalizeSessionScopeToken(sessionRecord.previousSessionId);
+    if (!previousSessionId || previousSessionId !== cacheState.memory.source.sessionId) {
+      return null;
+    }
+
+    const sourceScope = evaluateSessionReactivationMemoryReadScope({
+      sessionOrganizationId: cacheState.memory.source.organizationId,
+      requestedOrganizationId: String(args.organizationId),
+      sessionChannel: cacheState.memory.source.channel,
+      requestedChannel: args.channel,
+      sessionExternalContactIdentifier:
+        cacheState.memory.source.externalContactIdentifier,
+      requestedExternalContactIdentifier: args.externalContactIdentifier,
+      sessionRoutingKey: cacheState.memory.source.sessionRoutingKey,
+      requestedSessionRoutingKey: args.sessionRoutingKey,
+    });
+    if (!sourceScope.allowed) {
+      return null;
+    }
+
+    return cacheState.memory;
+  },
+});
+
+export const refreshSessionRollingSummaryMemory = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    organizationId: v.id("organizations"),
+    historyLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return { success: false, error: "session_not_found" as const };
+    }
+
+    const scope = evaluateSessionRollingMemoryWriteScope({
+      sessionOrganizationId: session.organizationId,
+      requestedOrganizationId: args.organizationId,
+    });
+    if (!scope.allowed) {
+      return {
+        success: false,
+        error: "blocked_scope" as const,
+        reason: scope.reason,
+      };
+    }
+
+    const historyLimit = clampSessionRollingMemoryHistoryLimit(args.historyLimit);
+    const messages = await ctx.db
+      .query("agentSessionMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    const recentMessages = messages
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(-historyLimit);
+
+    const snapshot = buildRollingSessionMemorySnapshot({
+      messages: recentMessages.map((message) => ({
+        role: message.role,
+        content: message.content,
+        timestamp: message.timestamp,
+        toolCalls: (message as Record<string, unknown>).toolCalls,
+      })),
+    });
+    if (!snapshot) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "no_eligible_sources" as const,
+      };
+    }
+
+    await ctx.db.patch(args.sessionId, {
+      rollingSummaryMemory: snapshot,
+    });
+
+    return {
+      success: true,
+      memory: snapshot,
+    };
+  },
+});
+
+// ============================================================================
+// STRUCTURED CONTACT MEMORY (L4)
+// ============================================================================
+
+const SESSION_CONTACT_MEMORY_LIMIT_DEFAULT = 12;
+const SESSION_CONTACT_MEMORY_LIMIT_MAX = 40;
+const SESSION_CONTACT_MEMORY_POLICY_VERSION =
+  "session_contact_memory_policy_v1" as const;
+
+const SESSION_CONTACT_MEMORY_FIELD_ORDER = new Map<SessionContactMemoryField, number>(
+  CONTACT_MEMORY_FIELD_ORDER.map((field, index) => [field, index])
+);
+
+function clampSessionContactMemoryLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return SESSION_CONTACT_MEMORY_LIMIT_DEFAULT;
+  }
+  return Math.max(
+    1,
+    Math.min(SESSION_CONTACT_MEMORY_LIMIT_MAX, Math.trunc(value))
+  );
+}
+
+export interface SessionContactMemoryScopeDecision {
+  allowed: boolean;
+  reason?:
+    | "missing_scope"
+    | "session_org_mismatch"
+    | "channel_mismatch"
+    | "contact_mismatch"
+    | "route_mismatch";
+}
+
+export function evaluateSessionContactMemoryWriteScope(args: {
+  sessionOrganizationId?: Id<"organizations"> | string | null;
+  requestedOrganizationId?: Id<"organizations"> | string | null;
+  sessionChannel?: string | null;
+  requestedChannel?: string | null;
+  sessionExternalContactIdentifier?: string | null;
+  requestedExternalContactIdentifier?: string | null;
+  sessionRoutingKey?: string | null;
+  requestedSessionRoutingKey?: string | null;
+}): SessionContactMemoryScopeDecision {
+  const sessionOrganizationId = normalizeSessionScopeToken(args.sessionOrganizationId);
+  const requestedOrganizationId = normalizeSessionScopeToken(args.requestedOrganizationId);
+  const sessionChannel = normalizeSessionScopeToken(args.sessionChannel);
+  const requestedChannel = normalizeSessionScopeToken(args.requestedChannel);
+  const sessionExternalContactIdentifier = normalizeSessionScopeToken(
+    args.sessionExternalContactIdentifier
+  );
+  const requestedExternalContactIdentifier = normalizeSessionScopeToken(
+    args.requestedExternalContactIdentifier
+  );
+  const sessionRoutingKey = normalizeSessionScopeToken(args.sessionRoutingKey);
+  const requestedSessionRoutingKey = normalizeSessionScopeToken(
+    args.requestedSessionRoutingKey
+  );
+
+  if (
+    !sessionOrganizationId
+    || !requestedOrganizationId
+    || !sessionChannel
+    || !requestedChannel
+    || !sessionExternalContactIdentifier
+    || !requestedExternalContactIdentifier
+    || !sessionRoutingKey
+    || !requestedSessionRoutingKey
+  ) {
+    return {
+      allowed: false,
+      reason: "missing_scope",
+    };
+  }
+  if (sessionOrganizationId !== requestedOrganizationId) {
+    return {
+      allowed: false,
+      reason: "session_org_mismatch",
+    };
+  }
+  if (sessionChannel !== requestedChannel) {
+    return {
+      allowed: false,
+      reason: "channel_mismatch",
+    };
+  }
+  if (sessionExternalContactIdentifier !== requestedExternalContactIdentifier) {
+    return {
+      allowed: false,
+      reason: "contact_mismatch",
+    };
+  }
+  if (sessionRoutingKey !== requestedSessionRoutingKey) {
+    return {
+      allowed: false,
+      reason: "route_mismatch",
+    };
+  }
+  return { allowed: true };
+}
+
+export interface SessionContactMemoryProvenanceDecision {
+  allowed: boolean;
+  reason?:
+    | "missing_provenance"
+    | "invalid_contract_version"
+    | "invalid_source_policy"
+    | "invalid_actor"
+    | "invalid_trust_event";
+}
+
+export function evaluateSessionContactMemoryWriteProvenance(args: {
+  provenance?: {
+    contractVersion?: string | null;
+    sourcePolicy?: string | null;
+    actor?: string | null;
+    trustEventName?: string | null;
+  } | null;
+}): SessionContactMemoryProvenanceDecision {
+  if (!args.provenance) {
+    return {
+      allowed: false,
+      reason: "missing_provenance",
+    };
+  }
+
+  const contractVersion = normalizeSessionScopeToken(args.provenance.contractVersion);
+  if (contractVersion !== SESSION_CONTACT_MEMORY_CONTRACT_VERSION) {
+    return {
+      allowed: false,
+      reason: "invalid_contract_version",
+    };
+  }
+
+  const sourcePolicy = normalizeSessionScopeToken(args.provenance.sourcePolicy);
+  if (sourcePolicy !== SESSION_CONTACT_MEMORY_SOURCE_POLICY) {
+    return {
+      allowed: false,
+      reason: "invalid_source_policy",
+    };
+  }
+
+  const actor = normalizeSessionScopeToken(args.provenance.actor);
+  if (actor !== "agent_execution_pipeline") {
+    return {
+      allowed: false,
+      reason: "invalid_actor",
+    };
+  }
+
+  const trustEventName = normalizeSessionScopeToken(args.provenance.trustEventName);
+  if (trustEventName !== SESSION_CONTACT_MEMORY_TRUST_EVENT_NAME) {
+    return {
+      allowed: false,
+      reason: "invalid_trust_event",
+    };
+  }
+
+  return { allowed: true };
+}
+
+function sortSessionContactMemoryRecords(
+  records: SessionContactMemoryRecord[]
+): SessionContactMemoryRecord[] {
+  return [...records].sort((a, b) => {
+    const fieldDelta =
+      (SESSION_CONTACT_MEMORY_FIELD_ORDER.get(a.field) ?? 999)
+      - (SESSION_CONTACT_MEMORY_FIELD_ORDER.get(b.field) ?? 999);
+    if (fieldDelta !== 0) {
+      return fieldDelta;
+    }
+    const updatedAtDelta = b.updatedAt - a.updatedAt;
+    if (updatedAtDelta !== 0) {
+      return updatedAtDelta;
+    }
+    return a.memoryId.localeCompare(b.memoryId);
+  });
+}
+
+export const getSessionContactMemory = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+    externalContactIdentifier: v.string(),
+    sessionRoutingKey: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<SessionContactMemoryRecord[]> => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return [];
+    }
+
+    const sessionRecord = session as Record<string, unknown>;
+    const scope = evaluateSessionContactMemoryWriteScope({
+      sessionOrganizationId: session.organizationId,
+      requestedOrganizationId: args.organizationId,
+      sessionChannel: session.channel,
+      requestedChannel: args.channel,
+      sessionExternalContactIdentifier: session.externalContactIdentifier,
+      requestedExternalContactIdentifier: args.externalContactIdentifier,
+      sessionRoutingKey: resolveSessionRoutingKeyFromRecord(sessionRecord),
+      requestedSessionRoutingKey: args.sessionRoutingKey,
+    });
+    if (!scope.allowed) {
+      return [];
+    }
+
+    const records = await ctx.db
+      .query("contactMemoryRecords")
+      .withIndex("by_scope", (q) =>
+        q.eq("organizationId", args.organizationId)
+          .eq("channel", args.channel)
+          .eq("externalContactIdentifier", args.externalContactIdentifier)
+          .eq("sessionRoutingKey", args.sessionRoutingKey)
+      )
+      .collect();
+
+    const normalized = records
+      .map((record) =>
+        normalizeSessionContactMemoryRecord({
+          ...record,
+          memoryId: String(record._id),
+        })
+      )
+      .filter((record): record is SessionContactMemoryRecord => Boolean(record))
+      .filter((record) => record.status === "active");
+
+    const limit = clampSessionContactMemoryLimit(args.limit);
+    return sortSessionContactMemoryRecords(normalized).slice(0, limit);
+  },
+});
+
+export const refreshSessionContactMemory = internalMutation({
+  args: {
+    sessionId: v.id("agentSessions"),
+    turnId: v.id("agentTurns"),
+    organizationId: v.id("organizations"),
+    channel: v.string(),
+    externalContactIdentifier: v.string(),
+    sessionRoutingKey: v.string(),
+    userMessage: v.string(),
+    toolResults: v.optional(v.array(v.object({
+      tool: v.optional(v.string()),
+      status: v.optional(v.string()),
+      result: v.optional(v.any()),
+    }))),
+    provenance: v.object({
+      contractVersion: v.string(),
+      sourcePolicy: v.string(),
+      actor: v.string(),
+      trustEventName: v.string(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return { success: false, error: "session_not_found" as const };
+    }
+
+    const turn = await ctx.db.get(args.turnId);
+    if (
+      !turn
+      || turn.sessionId !== args.sessionId
+      || turn.organizationId !== args.organizationId
+    ) {
+      return {
+        success: false,
+        error: "blocked_scope" as const,
+        reason: "turn_scope_mismatch" as const,
+      };
+    }
+
+    const sessionRecord = session as Record<string, unknown>;
+    const scope = evaluateSessionContactMemoryWriteScope({
+      sessionOrganizationId: session.organizationId,
+      requestedOrganizationId: args.organizationId,
+      sessionChannel: session.channel,
+      requestedChannel: args.channel,
+      sessionExternalContactIdentifier: session.externalContactIdentifier,
+      requestedExternalContactIdentifier: args.externalContactIdentifier,
+      sessionRoutingKey: resolveSessionRoutingKeyFromRecord(sessionRecord),
+      requestedSessionRoutingKey: args.sessionRoutingKey,
+    });
+    if (!scope.allowed) {
+      return {
+        success: false,
+        error: "blocked_scope" as const,
+        reason: scope.reason,
+      };
+    }
+
+    const provenance = evaluateSessionContactMemoryWriteProvenance({
+      provenance: args.provenance,
+    });
+    if (!provenance.allowed) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: provenance.reason,
+      };
+    }
+
+    const extractedCandidates = extractSessionContactMemoryCandidates({
+      userMessage: args.userMessage,
+      toolResults: args.toolResults,
+    });
+    if (extractedCandidates.length === 0) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "no_eligible_sources" as const,
+      };
+    }
+
+    const scopedRecords = await ctx.db
+      .query("contactMemoryRecords")
+      .withIndex("by_scope", (q) =>
+        q.eq("organizationId", args.organizationId)
+          .eq("channel", args.channel)
+          .eq("externalContactIdentifier", args.externalContactIdentifier)
+          .eq("sessionRoutingKey", args.sessionRoutingKey)
+      )
+      .collect();
+
+    const idLookup = new Map<string, Id<"contactMemoryRecords">>();
+    for (const record of scopedRecords) {
+      idLookup.set(String(record._id), record._id);
+    }
+
+    const normalizedExisting = scopedRecords.map((record) =>
+      normalizeSessionContactMemoryRecord({
+        ...record,
+        memoryId: String(record._id),
+      })
+    );
+    const invalidExistingCount = normalizedExisting.filter((record) => !record).length;
+    if (invalidExistingCount > 0) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "invalid_existing_provenance" as const,
+      };
+    }
+
+    const mergePlan = planSessionContactMemoryMerge({
+      existingRecords: normalizedExisting as SessionContactMemoryRecord[],
+      candidates: extractedCandidates,
+    });
+
+    if (mergePlan.candidates.length === 0) {
+      return {
+        success: false,
+        error: "blocked_policy" as const,
+        reason: "ambiguous_candidate_values" as const,
+        ambiguousFields: mergePlan.ambiguousFields,
+      };
+    }
+
+    if (mergePlan.operations.length === 0) {
+      return {
+        success: true,
+        policyVersion: SESSION_CONTACT_MEMORY_POLICY_VERSION,
+        extractedCandidateCount: extractedCandidates.length,
+        eligibleCandidateCount: mergePlan.candidates.length,
+        insertedCount: 0,
+        supersededCount: 0,
+        ambiguousFields: mergePlan.ambiguousFields,
+      };
+    }
+
+    const insertedIdsByOperation = new Map<string, Id<"contactMemoryRecords">>();
+    const now = Date.now();
+    for (const operation of mergePlan.operations) {
+      const supersedesMemoryId =
+        operation.supersedesMemoryId ? idLookup.get(operation.supersedesMemoryId) : undefined;
+      const revertedFromMemoryId =
+        operation.revertedFromMemoryId ? idLookup.get(operation.revertedFromMemoryId) : undefined;
+      const trustEventId = [
+        SESSION_CONTACT_MEMORY_TRUST_EVENT_NAME,
+        String(args.sessionId),
+        String(args.turnId),
+        operation.candidate.dedupeKey,
+      ].join(":");
+
+      const insertedId = await ctx.db.insert("contactMemoryRecords", {
+        organizationId: args.organizationId,
+        channel: args.channel,
+        externalContactIdentifier: args.externalContactIdentifier,
+        sessionRoutingKey: args.sessionRoutingKey,
+        contractVersion: SESSION_CONTACT_MEMORY_CONTRACT_VERSION,
+        sourcePolicy: SESSION_CONTACT_MEMORY_SOURCE_POLICY,
+        field: operation.candidate.field,
+        value: operation.candidate.value,
+        normalizedValue: operation.candidate.normalizedValue,
+        dedupeKey: operation.candidate.dedupeKey,
+        status: "active",
+        supersedesMemoryId,
+        revertedFromMemoryId,
+        provenance: {
+          contractVersion: SESSION_CONTACT_MEMORY_PROVENANCE_VERSION,
+          sourceKind: operation.candidate.sourceKind,
+          sourceSessionId: String(args.sessionId),
+          sourceTurnId: String(args.turnId),
+          sourceMessageRole:
+            operation.candidate.sourceKind === "user_message"
+              ? "user"
+              : undefined,
+          sourceToolName:
+            operation.candidate.sourceKind === "verified_tool_result"
+              ? operation.candidate.sourceToolName
+              : undefined,
+          sourceExcerpt: operation.candidate.sourceExcerpt,
+          sourceTimestamp: now,
+          actor: "agent_execution_pipeline",
+          trustEventName: SESSION_CONTACT_MEMORY_TRUST_EVENT_NAME,
+          trustEventId,
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+      insertedIdsByOperation.set(operation.operationKey, insertedId);
+    }
+
+    let supersededCount = 0;
+    for (const operation of mergePlan.operations) {
+      if (!operation.supersedesMemoryId) {
+        continue;
+      }
+      const supersedesId = idLookup.get(operation.supersedesMemoryId);
+      const insertedId = insertedIdsByOperation.get(operation.operationKey);
+      if (!supersedesId || !insertedId) {
+        continue;
+      }
+      await ctx.db.patch(supersedesId, {
+        status: "superseded",
+        supersededByMemoryId: insertedId,
+        updatedAt: now,
+      });
+      supersededCount += 1;
+    }
+
+    return {
+      success: true,
+      policyVersion: SESSION_CONTACT_MEMORY_POLICY_VERSION,
+      extractedCandidateCount: extractedCandidates.length,
+      eligibleCandidateCount: mergePlan.candidates.length,
+      insertedCount: mergePlan.operations.length,
+      supersededCount,
+      ambiguousFields: mergePlan.ambiguousFields,
+      insertedMemoryIds: Array.from(insertedIdsByOperation.values()).map(String),
+    };
+  },
+});
+
+// ============================================================================
 // MESSAGE MANAGEMENT (Internal)
 // ============================================================================
+
+function resolveMessageHistoryLimit(value: number | undefined, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(500, Math.max(1, Math.floor(value)));
+}
 
 /**
  * Get conversation history for a session
@@ -1744,15 +3641,15 @@ export const getSessionMessages = internalQuery({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const limit = resolveMessageHistoryLimit(args.limit, 20);
     const messages = await ctx.db
       .query("agentSessionMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .collect();
+      .withIndex("by_session_timestamp", (q) => q.eq("sessionId", args.sessionId))
+      .order("desc")
+      .take(limit);
 
-    // Return most recent N messages, sorted by timestamp
-    const sorted = messages.sort((a, b) => a.timestamp - b.timestamp);
-    const limit = args.limit || 20;
-    return sorted.slice(-limit);
+    // Preserve existing chronological output ordering while using bounded descending reads.
+    return messages.reverse();
   },
 });
 
@@ -2119,6 +4016,31 @@ export const updateSessionSummary = internalMutation({
   },
 });
 
+export const getSessionSummaryBillingContext = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return null;
+    }
+    return {
+      organizationId: session.organizationId,
+      agentId: session.agentId,
+    };
+  },
+});
+
+export const getSessionByIdInternal = internalQuery({
+  args: {
+    sessionId: v.id("agentSessions"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.sessionId);
+  },
+});
+
 /**
  * Generate an LLM summary of a closed session's conversation.
  * Scheduled asynchronously when a session closes with onClose="summarize_and_archive".
@@ -2127,6 +4049,14 @@ export const updateSessionSummary = internalMutation({
 export const generateSessionSummary = internalAction({
   args: { sessionId: v.id("agentSessions") },
   handler: async (ctx, { sessionId }) => {
+    const billingContext = await ctx.runQuery(
+      getInternalRef().ai.agentSessions.getSessionSummaryBillingContext,
+      { sessionId }
+    );
+    if (!billingContext) {
+      return;
+    }
+
     const messages = await ctx.runQuery(
       getInternalRef().ai.agentSessions.getSessionMessages,
       { sessionId, limit: 20 }
@@ -2144,34 +4074,81 @@ export const generateSessionSummary = internalAction({
       return;
     }
 
+    const model = "openai/gpt-4o-mini";
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Summarize this conversation in 2-3 sentences. Focus on: what the customer wanted, what was done, any unresolved issues. Be concise.",
-            },
-            { role: "user", content: transcript },
-          ],
-          max_tokens: 200,
-        }),
+      const client = new OpenRouterClient(apiKey);
+      const response = await client.chatCompletion({
+        model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Summarize this conversation in 2-3 sentences. Focus on: what the customer wanted, what was done, any unresolved issues. Be concise.",
+          },
+          { role: "user", content: transcript },
+        ],
+        max_tokens: 200,
       });
+      const usage = response?.usage ?? null;
+      const promptTokens = Math.max(0, usage?.prompt_tokens ?? 0);
+      const completionTokens = Math.max(0, usage?.completion_tokens ?? 0);
+      const totalTokens = Math.max(
+        0,
+        usage?.total_tokens ?? promptTokens + completionTokens
+      );
+      const costUsd =
+        typeof response?.cost === "number"
+          ? Math.max(0, response.cost)
+          : client.calculateCost(
+            {
+              prompt_tokens: promptTokens,
+              completion_tokens: completionTokens,
+            },
+            model
+          );
+      const nativeCostInCents = Math.max(0, Math.round(costUsd * 100));
 
-      if (!response.ok) {
-        console.error(`[SessionSummary] OpenRouter returned ${response.status}`);
-        return;
+      try {
+        await ctx.runMutation(generatedApi.api.ai.billing.recordUsage, {
+          organizationId: billingContext.organizationId,
+          requestType: "completion",
+          provider: "openrouter",
+          model,
+          action: "session_summary_generation",
+          requestCount: 1,
+          inputTokens: promptTokens,
+          outputTokens: completionTokens,
+          totalTokens,
+          costInCents: nativeCostInCents,
+          nativeUsageUnit: "tokens",
+          nativeUsageQuantity: totalTokens,
+          nativeInputUnits: promptTokens,
+          nativeOutputUnits: completionTokens,
+          nativeTotalUnits: totalTokens,
+          nativeCostInCents,
+          nativeCostCurrency: "USD",
+          nativeCostSource: "estimated_model_pricing",
+          creditsCharged: 0,
+          creditChargeStatus: "skipped_not_required",
+          success: true,
+          billingSource: "platform",
+          requestSource: "llm",
+          ledgerMode: "credits_ledger",
+          creditLedgerAction: "session_summary_generation",
+          usageMetadata: {
+            source: "agent_session_summary",
+            sessionId: String(sessionId),
+            agentId: String(billingContext.agentId),
+          },
+        });
+      } catch (usageError) {
+        console.warn(
+          "[SessionSummary] Failed to persist usage telemetry:",
+          usageError
+        );
       }
 
-      const data = await response.json();
-      const summaryText = data.choices?.[0]?.message?.content;
+      const summaryText = response?.choices?.[0]?.message?.content;
 
       if (summaryText) {
         await ctx.runMutation(
@@ -2631,14 +4608,329 @@ export const getSessionMessagesAuth = query({
   handler: async (ctx, args) => {
     await requireAuthenticatedUser(ctx, args.sessionId);
 
+    const limit = resolveMessageHistoryLimit(args.limit, 50);
     const messages = await ctx.db
       .query("agentSessionMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.agentSessionId))
+      .withIndex("by_session_timestamp", (q) => q.eq("sessionId", args.agentSessionId))
+      .order("desc")
+      .take(limit);
+
+    return messages.reverse();
+  },
+});
+
+export interface OperatorCollaborationSpecialistSurface {
+  agentId: string;
+  displayName: string;
+  dmThreadId: string;
+  roleLabel: "specialist" | "active_specialist";
+  visibilityScope: "operator_orchestrator_specialist";
+  active: boolean;
+}
+
+export interface OperatorCollaborationSyncCheckpointState {
+  status: "issued" | "resumed" | "aborted" | "expired";
+  tokenId: string;
+  token: string;
+  lineageId: string;
+  dmThreadId: string;
+  groupThreadId: string;
+  issuedForEventId: string;
+  issuedAt: number;
+  expiresAt: number;
+  abortReason?: string;
+}
+
+export interface OperatorCollaborationContextPayload {
+  threadId: string;
+  sessionId: string;
+  groupThreadId: string;
+  lineageId: string;
+  orchestratorAgentId: string;
+  orchestratorLabel: string;
+  activeSpecialistAgentId?: string;
+  specialists: OperatorCollaborationSpecialistSurface[];
+  syncCheckpoint?: OperatorCollaborationSyncCheckpointState;
+}
+
+/**
+ * Resolve deterministic operator collaboration context for the desktop AI chat surface.
+ * Uses conversation ownership + desktop channel route identity to locate the active thread.
+ */
+export const getOperatorCollaborationContext = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    conversationId: v.id("aiConversations"),
+  },
+  handler: async (ctx, args): Promise<OperatorCollaborationContextPayload | null> => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      return null;
+    }
+    if (conversation.organizationId !== args.organizationId) {
+      return null;
+    }
+    if (conversation.userId !== auth.userId) {
+      return null;
+    }
+
+    const externalContactIdentifier = `desktop:${auth.userId}:${args.conversationId}`;
+    const sessions = await ctx.db
+      .query("agentSessions")
+      .withIndex("by_org_channel_contact", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("channel", "desktop")
+          .eq("externalContactIdentifier", externalContactIdentifier)
+      )
       .collect();
 
-    const sorted = messages.sort((a, b) => a.timestamp - b.timestamp);
-    const limit = args.limit || 50;
-    return sorted.slice(-limit);
+    if (sessions.length === 0) {
+      return null;
+    }
+
+    const orderedSessions = [...sessions].sort((a, b) => {
+      const aActive = a.status === "active" ? 1 : 0;
+      const bActive = b.status === "active" ? 1 : 0;
+      if (aActive !== bActive) {
+        return bActive - aActive;
+      }
+      const aUpdated = Math.max(a.lastMessageAt || 0, a.startedAt || 0);
+      const bUpdated = Math.max(b.lastMessageAt || 0, b.startedAt || 0);
+      if (aUpdated !== bUpdated) {
+        return bUpdated - aUpdated;
+      }
+      return String(b._id).localeCompare(String(a._id));
+    });
+    const thread = orderedSessions[0];
+    const threadRecord = thread as unknown as Record<string, unknown>;
+    const collaborationRecord =
+      threadRecord.collaboration && typeof threadRecord.collaboration === "object"
+        ? (threadRecord.collaboration as Record<string, unknown>)
+        : undefined;
+    const kernelRecord =
+      collaborationRecord?.kernel && typeof collaborationRecord.kernel === "object"
+        ? (collaborationRecord.kernel as Record<string, unknown>)
+        : undefined;
+
+    const groupThreadId =
+      normalizeControlCenterTraceString(kernelRecord?.groupThreadId)
+      || normalizeControlCenterTraceString(kernelRecord?.threadId)
+      || `group_thread:${args.conversationId}`;
+    const lineageId =
+      normalizeControlCenterTraceString(kernelRecord?.lineageId)
+      || `desktop_lineage:${args.organizationId}:${args.conversationId}`;
+
+    const orchestratorAgentId = String(thread.agentId);
+    const activeAgentId = thread.teamSession?.activeAgentId
+      ? String(thread.teamSession.activeAgentId)
+      : orchestratorAgentId;
+    const activeSpecialistAgentId =
+      activeAgentId !== orchestratorAgentId ? activeAgentId : undefined;
+
+    const instanceAgentIds = new Set<string>();
+    instanceAgentIds.add(orchestratorAgentId);
+    if (thread.teamSession?.activeAgentId) {
+      instanceAgentIds.add(String(thread.teamSession.activeAgentId));
+    }
+    for (const participantId of thread.teamSession?.participatingAgentIds || []) {
+      instanceAgentIds.add(String(participantId));
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agentMap = new Map<string, any>();
+    await Promise.all(
+      Array.from(instanceAgentIds).map(async (instanceAgentId) => {
+        const agent = await ctx.db.get(instanceAgentId as Id<"objects">);
+        if (agent) {
+          agentMap.set(instanceAgentId, agent);
+        }
+      })
+    );
+
+    const specialists: OperatorCollaborationSpecialistSurface[] = Array.from(instanceAgentIds)
+      .filter((instanceAgentId) => instanceAgentId !== orchestratorAgentId)
+      .map((instanceAgentId) => {
+        const displayName =
+          readAgentDisplayName(agentMap.get(instanceAgentId))
+          || instanceAgentId;
+        const active = instanceAgentId === activeSpecialistAgentId;
+        const roleLabel: OperatorCollaborationSpecialistSurface["roleLabel"] = active
+          ? "active_specialist"
+          : "specialist";
+        const visibilityScope: OperatorCollaborationSpecialistSurface["visibilityScope"] =
+          "operator_orchestrator_specialist";
+        return {
+          agentId: instanceAgentId,
+          displayName,
+          dmThreadId: `dm_thread:${args.conversationId}:${instanceAgentId}`,
+          roleLabel,
+          visibilityScope,
+          active,
+        };
+      })
+      .sort((a, b) => {
+        if (a.active !== b.active) {
+          return a.active ? -1 : 1;
+        }
+        if (a.displayName !== b.displayName) {
+          return a.displayName.localeCompare(b.displayName);
+        }
+        return a.agentId.localeCompare(b.agentId);
+      });
+
+    const syncCheckpoint = normalizeCollaborationSyncCheckpointContract(
+      collaborationRecord?.syncCheckpoint
+    );
+    const syncCheckpointState: OperatorCollaborationSyncCheckpointState | undefined =
+      syncCheckpoint
+        ? {
+            status: syncCheckpoint.status,
+            tokenId: syncCheckpoint.tokenId,
+            token: syncCheckpoint.token,
+            lineageId: syncCheckpoint.lineageId,
+            dmThreadId: syncCheckpoint.dmThreadId,
+            groupThreadId: syncCheckpoint.groupThreadId,
+            issuedForEventId: syncCheckpoint.issuedForEventId,
+            issuedAt: syncCheckpoint.issuedAt,
+            expiresAt: syncCheckpoint.expiresAt,
+            abortReason: syncCheckpoint.abortReason,
+          }
+        : undefined;
+
+    return {
+      threadId: String(thread._id),
+      sessionId: String(thread._id),
+      groupThreadId,
+      lineageId,
+      orchestratorAgentId,
+      orchestratorLabel:
+        readAgentDisplayName(agentMap.get(orchestratorAgentId))
+        || "Orchestrator",
+      activeSpecialistAgentId,
+      specialists,
+      syncCheckpoint: syncCheckpointState,
+    };
+  },
+});
+
+/**
+ * Explicit operator action for DM-to-group summary sync.
+ * Uses deterministic sync attempt IDs in the bridge when caller omits one.
+ */
+export const getOperatorCollaborationSyncThread = internalQuery({
+  args: {
+    threadId: v.string(),
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const thread = await ctx.db.get(args.threadId as Id<"agentSessions">);
+    if (!thread || thread.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    const expectedContactPrefix = `desktop:${args.userId}:`;
+    if (!thread.externalContactIdentifier.startsWith(expectedContactPrefix)) {
+      return null;
+    }
+
+    const threadRecord = thread as unknown as Record<string, unknown>;
+    const collaborationRecord =
+      threadRecord.collaboration && typeof threadRecord.collaboration === "object"
+        ? (threadRecord.collaboration as Record<string, unknown>)
+        : undefined;
+    const persistedCheckpoint = normalizeCollaborationSyncCheckpointContract(
+      collaborationRecord?.syncCheckpoint
+    );
+
+    return {
+      threadId: thread._id,
+      requestedByAgentId: thread.agentId,
+      persistedSyncCheckpointToken: persistedCheckpoint?.token,
+    };
+  },
+});
+
+export const syncOperatorDmSummaryToGroup = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    threadId: v.string(),
+    dmThreadId: v.string(),
+    summary: v.string(),
+    syncCheckpointToken: v.optional(v.string()),
+    syncAttemptId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await ctx.runQuery(
+      getInternalRef().rbacHelpers.requireAuthenticatedUserQuery,
+      { sessionId: args.sessionId }
+    ) as { userId: Id<"users"> };
+
+    const syncThread = await ctx.runQuery(
+      getInternalRef().ai.agentSessions.getOperatorCollaborationSyncThread,
+      {
+        threadId: args.threadId,
+        organizationId: args.organizationId,
+        userId: auth.userId,
+      }
+    ) as {
+      threadId: Id<"agentSessions">;
+      requestedByAgentId: Id<"objects">;
+      persistedSyncCheckpointToken?: string;
+    } | null;
+
+    if (!syncThread) {
+      return {
+        status: "error",
+        message: "Operator collaboration thread not found.",
+      };
+    }
+
+    const providedSyncToken = normalizeControlCenterTraceString(args.syncCheckpointToken);
+    const resolvedSyncToken =
+      providedSyncToken
+      || syncThread.persistedSyncCheckpointToken
+      || "";
+
+    const bridgeResult = await ctx.runAction(
+      getInternalRef().ai.teamHarness.syncDmSummaryToGroupBridge,
+      {
+        sessionId: syncThread.threadId,
+        organizationId: args.organizationId,
+        requestedByAgentId: syncThread.requestedByAgentId,
+        summary: args.summary,
+        dmThreadId: args.dmThreadId,
+        syncCheckpointToken: resolvedSyncToken,
+        syncAttemptId: args.syncAttemptId,
+      }
+    ) as {
+      status?: string;
+      message?: string;
+      response?: string;
+      sessionId?: string;
+      turnId?: string;
+      syncAttemptId?: string;
+    };
+
+    return {
+      status: bridgeResult.status || "error",
+      message:
+        bridgeResult.response
+        || bridgeResult.message
+        || "DM summary sync request did not return a message.",
+      sessionId: bridgeResult.sessionId,
+      turnId: bridgeResult.turnId,
+      syncAttemptId: bridgeResult.syncAttemptId,
+      tokenSource: providedSyncToken
+        ? "request"
+        : syncThread.persistedSyncCheckpointToken
+          ? "session_checkpoint"
+          : "missing",
+    };
   },
 });
 
@@ -2648,6 +4940,9 @@ export interface ControlCenterThreadRow {
   threadId: string;
   sessionId: string;
   organizationId: string;
+  organizationName?: string;
+  organizationSlug?: string;
+  organizationLayer?: number;
   templateAgentId: string;
   templateAgentName: string;
   lifecycleState: AgentLifecycleState;
@@ -2671,6 +4966,12 @@ export type ControlCenterTimelineEventKind =
   | "approval"
   | "escalation"
   | "handoff"
+  | "ingress"
+  | "routing"
+  | "execution"
+  | "delivery"
+  | "proposal"
+  | "commit"
   | "tool"
   | "memory"
   | "soul"
@@ -2679,10 +4980,22 @@ export type ControlCenterTimelineEventKind =
 export type ControlCenterTimelineActorType = "agent" | "operator" | "system";
 
 export type ControlCenterEscalationGate = AgentEscalationGate;
+export type ControlCenterOperatorTraceScope = "org_owner" | "super_admin";
+export type ControlCenterTimelineThreadType =
+  | "group_thread"
+  | "dm_thread"
+  | "session_thread";
+export type ControlCenterTimelinePipelineStage =
+  | "ingress"
+  | "routing"
+  | "execution"
+  | "delivery";
 
 export interface ControlCenterTimelineEvent {
   eventId: string;
+  eventOrdinal: number;
   sessionId: string;
+  turnId?: string;
   threadId: string;
   kind: ControlCenterTimelineEventKind;
   occurredAt: number;
@@ -2698,6 +5011,15 @@ export interface ControlCenterTimelineEvent {
   trustEventName?: string;
   trustEventId?: string;
   sourceObjectIds?: string[];
+  pipelineStage?: ControlCenterTimelinePipelineStage;
+  threadType?: ControlCenterTimelineThreadType;
+  lineageId?: string;
+  groupThreadId?: string;
+  dmThreadId?: string;
+  workflowKey?: string;
+  authorityIntentType?: string;
+  correlationId: string;
+  visibilityScope: ControlCenterOperatorTraceScope;
   metadata?: Record<string, unknown>;
 }
 
@@ -2713,8 +5035,48 @@ export interface ControlCenterAgentInstanceSummary {
   displayName?: string;
 }
 
+export interface ControlCenterThreadRouteContext {
+  sessionRoutingKey: string;
+  routeIdentity?: SessionChannelRouteIdentityRecord;
+  routingMetadata?: SessionRoutingMetadataRecord;
+}
+
+export interface ControlCenterSelectedAgentContext {
+  instanceAgentId: string;
+  templateAgentId: string;
+  roleLabel: string;
+  displayName?: string;
+  templateDisplayName?: string;
+}
+
+export interface ControlCenterDeliveryContext {
+  lifecycleState: AgentLifecycleState;
+  deliveryState: ThreadDeliveryState;
+}
+
+export interface ControlCenterLatestTurnContext {
+  turnId: string;
+  state?: string;
+  updatedAt?: number;
+  transitionPolicyVersion?: string;
+  replayInvariantStatus?: string;
+}
+
+export interface ControlCenterThreadContext {
+  sessionId: string;
+  organizationId: string;
+  channel: string;
+  externalContactIdentifier: string;
+  route: ControlCenterThreadRouteContext;
+  selectedAgent: ControlCenterSelectedAgentContext;
+  delivery: ControlCenterDeliveryContext;
+  latestTurn?: ControlCenterLatestTurnContext;
+}
+
 export interface ControlCenterThreadDrillDown {
   threadId: string;
+  visibilityScope: ControlCenterOperatorTraceScope;
+  context: ControlCenterThreadContext;
   timelineEvents: ControlCenterTimelineEvent[];
   lineage: ControlCenterAgentInstanceSummary[];
 }
@@ -2736,6 +5098,353 @@ interface TimelineRetrievalMetadata {
   citationCount?: number;
   chunkCitationCount?: number;
   citations?: TimelineRetrievalCitation[];
+}
+
+interface ControlCenterTraceContext {
+  threadType: ControlCenterTimelineThreadType;
+  threadId: string;
+  groupThreadId?: string;
+  dmThreadId?: string;
+  lineageId?: string;
+  correlationId?: string;
+  authorityIntentType?: string;
+}
+
+type TimelineEventDraft =
+  Omit<ControlCenterTimelineEvent, "eventOrdinal" | "correlationId" | "visibilityScope"> & {
+    correlationId?: string;
+    orderingHint?: number;
+    sourceIdForCorrelation?: string;
+  };
+
+function normalizeControlCenterTraceString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function resolveControlCenterWorkflowKey(value: unknown): string | undefined {
+  const normalized = normalizeControlCenterTraceString(value);
+  return normalized ? normalized.toLowerCase() : undefined;
+}
+
+function resolveControlCenterTimelineKindFromWorkflow(
+  workflowKey: string | undefined,
+  fallbackKind: ControlCenterTimelineEventKind
+): ControlCenterTimelineEventKind {
+  if (!workflowKey) {
+    return fallbackKind;
+  }
+  const surface = resolveTrustTimelineSurfaceFromWorkflow(workflowKey);
+  if (surface === "proposal") {
+    return "proposal";
+  }
+  if (surface === "commit") {
+    return "commit";
+  }
+  return fallbackKind;
+}
+
+function resolveControlCenterPipelineStage(
+  kind: ControlCenterTimelineEventKind
+): ControlCenterTimelinePipelineStage | undefined {
+  if (kind === "ingress") {
+    return "ingress";
+  }
+  if (kind === "routing") {
+    return "routing";
+  }
+  if (kind === "delivery") {
+    return "delivery";
+  }
+  if (kind === "execution" || kind === "proposal" || kind === "commit") {
+    return "execution";
+  }
+  return undefined;
+}
+
+function resolveExecutionTransitionPresentation(
+  transition: unknown
+): {
+  kind: ControlCenterTimelineEventKind;
+  pipelineStage: ControlCenterTimelinePipelineStage;
+  title: string;
+} {
+  const normalized = normalizeControlCenterTraceString(transition) ?? "unknown_transition";
+  if (normalized === "inbound_received") {
+    return {
+      kind: "ingress",
+      pipelineStage: "ingress",
+      title: "Ingress Received",
+    };
+  }
+  if (normalized === "turn_enqueued") {
+    return {
+      kind: "routing",
+      pipelineStage: "routing",
+      title: "Queued For Runtime",
+    };
+  }
+  if (normalized === "terminal_deliverable_recorded" || normalized === "turn_completed") {
+    return {
+      kind: "delivery",
+      pipelineStage: "delivery",
+      title: "Delivery Artifact Recorded",
+    };
+  }
+  if (normalized === "handoff_initiated" || normalized === "handoff_completed") {
+    return {
+      kind: "handoff",
+      pipelineStage: "execution",
+      title: `Execution ${humanizeLifecycleToken(normalized)}`,
+    };
+  }
+  if (normalized === "escalation_started" || normalized === "escalation_resolved") {
+    return {
+      kind: "escalation",
+      pipelineStage: "execution",
+      title: `Execution ${humanizeLifecycleToken(normalized)}`,
+    };
+  }
+  return {
+    kind: "execution",
+    pipelineStage: "execution",
+    title: `Execution ${humanizeLifecycleToken(normalized)}`,
+  };
+}
+
+function resolveReceiptStagePresentation(args: {
+  status: unknown;
+  phase: "accepted" | "processing" | "terminal";
+}): {
+  kind: ControlCenterTimelineEventKind;
+  pipelineStage: ControlCenterTimelinePipelineStage;
+  title: string;
+} {
+  const status = normalizeControlCenterTraceString(args.status) ?? "unknown";
+  if (args.phase === "accepted") {
+    return {
+      kind: "ingress",
+      pipelineStage: "ingress",
+      title: "Ingress Receipt Accepted",
+    };
+  }
+  if (args.phase === "processing") {
+    return {
+      kind: "routing",
+      pipelineStage: "routing",
+      title: "Receipt Routed To Runtime",
+    };
+  }
+  if (status === "completed") {
+    return {
+      kind: "delivery",
+      pipelineStage: "delivery",
+      title: "Receipt Completed",
+    };
+  }
+  if (status === "duplicate") {
+    return {
+      kind: "routing",
+      pipelineStage: "routing",
+      title: "Duplicate Receipt Collapsed",
+    };
+  }
+  return {
+    kind: "execution",
+    pipelineStage: "execution",
+    title: "Receipt Failed",
+  };
+}
+
+function resolveControlCenterTraceContext(args: {
+  threadRecord: Record<string, unknown>;
+  fallbackThreadId: string;
+}): ControlCenterTraceContext {
+  const collaboration = args.threadRecord.collaboration;
+  if (!collaboration || typeof collaboration !== "object") {
+    return {
+      threadType: "session_thread",
+      threadId: args.fallbackThreadId,
+    };
+  }
+  const collaborationRecord = collaboration as Record<string, unknown>;
+  const kernel = collaborationRecord.kernel as Record<string, unknown> | undefined;
+  const authority = collaborationRecord.authority as Record<string, unknown> | undefined;
+  const kernelThreadType = kernel?.threadType;
+  const threadType: ControlCenterTimelineThreadType =
+    kernelThreadType === "group_thread" || kernelThreadType === "dm_thread"
+      ? kernelThreadType
+      : "session_thread";
+
+  return {
+    threadType,
+    threadId: normalizeControlCenterTraceString(kernel?.threadId) ?? args.fallbackThreadId,
+    groupThreadId: normalizeControlCenterTraceString(kernel?.groupThreadId),
+    dmThreadId: normalizeControlCenterTraceString(kernel?.dmThreadId),
+    lineageId: normalizeControlCenterTraceString(kernel?.lineageId),
+    correlationId: normalizeControlCenterTraceString(kernel?.correlationId),
+    authorityIntentType: normalizeControlCenterTraceString(authority?.intentType),
+  };
+}
+
+function resolveControlCenterCorrelationId(args: {
+  draft: TimelineEventDraft;
+  trace: ControlCenterTraceContext;
+}): string {
+  const surface: TrustTimelineSurface =
+    args.draft.kind === "handoff"
+      ? "handoff"
+      : args.draft.kind === "proposal"
+        ? "proposal"
+        : args.draft.kind === "commit"
+          ? "commit"
+          : args.trace.threadType === "group_thread"
+            ? "group"
+            : args.trace.threadType === "dm_thread"
+              ? "dm"
+              : "session";
+
+  return buildTrustTimelineCorrelationId({
+    lineageId: args.trace.lineageId,
+    threadId: args.trace.threadId,
+    fallbackThreadId: args.draft.threadId,
+    correlationId: args.draft.correlationId ?? args.trace.correlationId,
+    surface,
+    sourceId: args.draft.sourceIdForCorrelation ?? args.draft.eventId,
+  });
+}
+
+function applyControlCenterTimelineOrdering(args: {
+  drafts: TimelineEventDraft[];
+  trace: ControlCenterTraceContext;
+  visibilityScope: ControlCenterOperatorTraceScope;
+  limit: number;
+}): ControlCenterTimelineEvent[] {
+  const ascending = [...args.drafts].sort((a, b) => {
+    if (a.occurredAt !== b.occurredAt) {
+      return a.occurredAt - b.occurredAt;
+    }
+    const aOrderingHint = a.orderingHint ?? 0;
+    const bOrderingHint = b.orderingHint ?? 0;
+    if (aOrderingHint !== bOrderingHint) {
+      return aOrderingHint - bOrderingHint;
+    }
+    return a.eventId.localeCompare(b.eventId);
+  });
+
+  const withOrdinals = ascending.map((draft, index): ControlCenterTimelineEvent => {
+    const workflowKey = resolveControlCenterWorkflowKey(draft.workflowKey);
+    const resolvedKind = resolveControlCenterTimelineKindFromWorkflow(
+      workflowKey,
+      draft.kind
+    );
+    const correlationId = resolveControlCenterCorrelationId({
+      draft: {
+        ...draft,
+        kind: resolvedKind,
+      },
+      trace: args.trace,
+    });
+    return {
+      ...draft,
+      kind: resolvedKind,
+      workflowKey,
+      pipelineStage: draft.pipelineStage ?? resolveControlCenterPipelineStage(resolvedKind),
+      eventOrdinal: index + 1,
+      correlationId,
+      visibilityScope: args.visibilityScope,
+      threadType: draft.threadType ?? args.trace.threadType,
+      lineageId: draft.lineageId ?? args.trace.lineageId,
+      groupThreadId: draft.groupThreadId ?? args.trace.groupThreadId,
+      dmThreadId: draft.dmThreadId ?? args.trace.dmThreadId,
+      authorityIntentType:
+        draft.authorityIntentType ?? args.trace.authorityIntentType,
+    };
+  });
+
+  return withOrdinals
+    .sort((a, b) => b.eventOrdinal - a.eventOrdinal)
+    .slice(0, args.limit);
+}
+
+function roleScopedTimelineMetadata(args: {
+  visibilityScope: ControlCenterOperatorTraceScope;
+  base?: Record<string, unknown>;
+  superAdminDebug?: Record<string, unknown>;
+}): Record<string, unknown> | undefined {
+  const base = args.base ? { ...args.base } : {};
+  if (args.visibilityScope === "super_admin" && args.superAdminDebug) {
+    return {
+      ...base,
+      debug: args.superAdminDebug,
+    };
+  }
+  return Object.keys(base).length > 0 ? base : undefined;
+}
+
+async function resolveControlCenterTraceAccess(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  organizationId: Id<"organizations">;
+}): Promise<ControlCenterOperatorTraceScope> {
+  const auth = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  const userContext = await getUserContext(
+    args.ctx,
+    auth.userId,
+    args.organizationId
+  );
+  return userContext.isGlobal && userContext.roleName === "super_admin"
+    ? "super_admin"
+    : "org_owner";
+}
+
+interface AgentOpsScopedAccess {
+  visibilityScope: ControlCenterOperatorTraceScope;
+  scope: Scope;
+  scopeOrganizationId: Id<"organizations">;
+  scopedOrgs: ScopedOrg[];
+}
+
+async function resolveAgentOpsScopedAccess(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  organizationId: Id<"organizations">;
+  requestedScope?: Scope;
+  requestedScopeOrganizationId?: Id<"organizations">;
+}): Promise<AgentOpsScopedAccess> {
+  const auth = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  const userContext = await getUserContext(
+    args.ctx,
+    auth.userId,
+    args.organizationId
+  );
+  const isSuperAdmin =
+    userContext.isGlobal && userContext.roleName === "super_admin";
+  const visibilityScope: ControlCenterOperatorTraceScope = isSuperAdmin
+    ? "super_admin"
+    : "org_owner";
+  const target = resolveScopedOrgTarget({
+    viewerOrganizationId: args.organizationId,
+    requestedScope: args.requestedScope,
+    requestedScopeOrganizationId: args.requestedScopeOrganizationId,
+    allowCrossOrg: isSuperAdmin,
+  });
+  const scopedOrgs = await getOrgIdsForScope(
+    args.ctx.db,
+    target.scopeOrganizationId,
+    target.scope
+  );
+  return {
+    visibilityScope,
+    scope: target.scope,
+    scopeOrganizationId: target.scopeOrganizationId,
+    scopedOrgs,
+  };
 }
 
 function resolveOpenEscalationMeta(session: {
@@ -3013,6 +5722,986 @@ export function sortControlCenterThreadRows(rows: ControlCenterThreadRow[]): Con
   });
 }
 
+export interface AgentOpsScopeOption {
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  layer: 2 | 3;
+  hasChildren: boolean;
+}
+
+export interface AgentOpsScopeOptionsPayload {
+  visibilityScope: ControlCenterOperatorTraceScope;
+  canCrossOrg: boolean;
+  defaultOrganizationId: string;
+  organizations: AgentOpsScopeOption[];
+}
+
+export const getAgentOpsScopeOptions = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args): Promise<AgentOpsScopeOptionsPayload> => {
+    const scopedAccess = await resolveAgentOpsScopedAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      requestedScope: "org",
+    });
+
+    if (scopedAccess.visibilityScope !== "super_admin") {
+      const org = await ctx.db.get(args.organizationId);
+      return {
+        visibilityScope: scopedAccess.visibilityScope,
+        canCrossOrg: false,
+        defaultOrganizationId: String(args.organizationId),
+        organizations: [
+          {
+            organizationId: String(args.organizationId),
+            organizationName: org?.name || "Current organization",
+            organizationSlug: org?.slug || "",
+            layer: org ? determineOrgLayer(org) : 2,
+            hasChildren: false,
+          },
+        ],
+      };
+    }
+
+    const organizations = (await ctx.db.query("organizations").collect())
+      .filter((organization) => organization.isActive !== false);
+    const parentOrgIds = new Set(
+      organizations
+        .filter((organization) => Boolean(organization.parentOrganizationId))
+        .map((organization) => String(organization.parentOrganizationId))
+    );
+
+    return {
+      visibilityScope: scopedAccess.visibilityScope,
+      canCrossOrg: true,
+      defaultOrganizationId: String(args.organizationId),
+      organizations: organizations
+        .map((organization) => ({
+          organizationId: String(organization._id),
+          organizationName: organization.name || "Unknown organization",
+          organizationSlug: organization.slug || "",
+          layer: determineOrgLayer(organization),
+          hasChildren: parentOrgIds.has(String(organization._id)),
+        }))
+        .sort((a, b) =>
+          a.organizationName.localeCompare(b.organizationName, undefined, {
+            sensitivity: "base",
+          })
+        ),
+    };
+  },
+});
+
+export type AgentOpsIncidentState =
+  | "open"
+  | "acknowledged"
+  | "mitigated"
+  | "closed";
+
+export type AgentOpsIncidentSeverity =
+  | "critical"
+  | "high"
+  | "medium"
+  | "low";
+
+export type AgentOpsIncidentMetricKey = AgentOpsAlertMetricKey | "manual";
+
+export interface AgentOpsThresholdSnapshot {
+  metric: AgentOpsAlertMetricKey;
+  ruleId: string;
+  displayName: string;
+  description: string;
+  windowHours: number;
+  observedValue: number;
+  warningThreshold: number;
+  criticalThreshold: number;
+  thresholdValue: number | null;
+  severity: AgentOpsAlertSeverity;
+  sampleSize: number;
+  rollbackCriteria: string;
+  escalationOwner: "runtime_oncall" | "ops_owner" | "platform_admin";
+}
+
+export interface AgentOpsIncidentLogEntry {
+  at: number;
+  actorUserId: string;
+  note: string;
+}
+
+export interface AgentOpsClosureEvidence {
+  summary: string;
+  references: string[];
+  closedByUserId: string;
+  closedAt: number;
+}
+
+export interface AgentOpsIncidentSummary {
+  incidentId: string;
+  title: string;
+  description?: string;
+  organizationId: string;
+  scopeOrganizationId: string;
+  scopeOrganizationName?: string;
+  scope: Scope;
+  metric: AgentOpsIncidentMetricKey;
+  ruleId?: string;
+  state: AgentOpsIncidentState;
+  severity: AgentOpsIncidentSeverity;
+  ownerUserId?: string;
+  openedAt: number;
+  acknowledgedAt?: number;
+  mitigatedAt?: number;
+  closedAt?: number;
+  mitigationLog: AgentOpsIncidentLogEntry[];
+  closureEvidence?: AgentOpsClosureEvidence;
+  thresholdSnapshot?: AgentOpsThresholdSnapshot;
+  updatedAt: number;
+}
+
+export interface AgentOpsIncidentWorkspace {
+  visibilityScope: ControlCenterOperatorTraceScope;
+  scope: Scope;
+  scopeOrganizationId: string;
+  scopeOrganizationName: string;
+  thresholds: AgentOpsThresholdSnapshot[];
+  incidents: AgentOpsIncidentSummary[];
+}
+
+const AGENT_OPS_INCIDENT_OBJECT_TYPE = "agent_ops_incident";
+const AGENT_OPS_INCIDENT_VERSION = "agent_ops_incident_v1";
+
+function normalizeAgentOpsIncidentState(value: unknown): AgentOpsIncidentState {
+  if (
+    value === "open"
+    || value === "acknowledged"
+    || value === "mitigated"
+    || value === "closed"
+  ) {
+    return value;
+  }
+  return "open";
+}
+
+function normalizeAgentOpsIncidentSeverity(
+  value: unknown
+): AgentOpsIncidentSeverity {
+  if (
+    value === "critical"
+    || value === "high"
+    || value === "medium"
+    || value === "low"
+  ) {
+    return value;
+  }
+  return "medium";
+}
+
+function normalizeAgentOpsIncidentMetric(
+  value: unknown
+): AgentOpsIncidentMetricKey {
+  if (
+    value === "fallback_spike"
+    || value === "tool_failure_spike"
+    || value === "ingress_failure_spike"
+    || value === "manual"
+  ) {
+    return value;
+  }
+  return "manual";
+}
+
+function normalizeIncidentScope(value: unknown): Scope {
+  return value === "layer" ? "layer" : "org";
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is string =>
+      typeof entry === "string" && entry.trim().length > 0
+    )
+    .map((entry) => entry.trim());
+}
+
+function readAgentOpsIncidentLog(
+  value: unknown
+): AgentOpsIncidentLogEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is Record<string, unknown> =>
+      Boolean(entry) && typeof entry === "object"
+    )
+    .map((entry) => ({
+      at: typeof entry.at === "number" ? entry.at : 0,
+      actorUserId:
+        typeof entry.actorUserId === "string" ? entry.actorUserId : "unknown",
+      note: typeof entry.note === "string" ? entry.note : "",
+    }))
+    .filter((entry) => entry.at > 0 && entry.note.length > 0);
+}
+
+function mapAgentOpsAlertSeverityToIncident(
+  severity: AgentOpsAlertSeverity
+): AgentOpsIncidentSeverity {
+  if (severity === "critical") {
+    return "critical";
+  }
+  if (severity === "warning") {
+    return "high";
+  }
+  return "low";
+}
+
+function computeIngressFailureRate(args: {
+  statuses: string[];
+}): {
+  failureRate: number;
+  sampleSize: number;
+} {
+  const sampleSize = args.statuses.length;
+  if (sampleSize === 0) {
+    return {
+      failureRate: 0,
+      sampleSize: 0,
+    };
+  }
+  const failed = args.statuses.filter((status) => status === "error").length;
+  return {
+    failureRate: Number((failed / sampleSize).toFixed(4)),
+    sampleSize,
+  };
+}
+
+async function evaluateAgentOpsThresholdSnapshots(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  scopedOrgs: ScopedOrg[];
+}): Promise<AgentOpsThresholdSnapshot[]> {
+  const now = Date.now();
+  const thresholdDefs = AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS;
+  const maxWindowHours = Math.max(
+    ...Object.values(thresholdDefs).map((definition) => definition.windowHours)
+  );
+  const maxWindowSince = now - maxWindowHours * 60 * 60 * 1000;
+
+  const modelFallbackRecords: AgentActionTelemetryRecord[] = [];
+  const timedToolResultRecords: Array<AgentToolResultRecord & { performedAt: number }> = [];
+  const webhookStatusRecords: Array<{ processedAt: number; status: string }> = [];
+
+  for (const scopedOrg of args.scopedOrgs) {
+    const [messageProcessedActions, webhookEvents] = await Promise.all([
+      args.ctx.db
+        .query("objectActions")
+        .withIndex("by_org_action_type", (q: any) =>
+          q.eq("organizationId", scopedOrg.orgId).eq("actionType", "message_processed")
+        )
+        .collect(),
+      args.ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q: any) =>
+          q.eq("organizationId", scopedOrg.orgId).eq("type", "webhook_event")
+        )
+        .collect(),
+    ]);
+
+    for (const action of messageProcessedActions) {
+      if (action.performedAt < maxWindowSince) {
+        continue;
+      }
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      modelFallbackRecords.push({
+        performedAt: action.performedAt,
+        modelResolution: actionData.modelResolution as
+          | AgentModelResolutionTelemetry
+          | undefined,
+      });
+      const toolResults = Array.isArray(actionData.toolResults)
+        ? actionData.toolResults
+        : [];
+      for (const toolResult of toolResults) {
+        if (!toolResult || typeof toolResult !== "object") {
+          timedToolResultRecords.push({
+            performedAt: action.performedAt,
+          });
+          continue;
+        }
+        const toolResultRecord = toolResult as Record<string, unknown>;
+        timedToolResultRecords.push({
+          performedAt: action.performedAt,
+          status:
+            typeof toolResultRecord.status === "string"
+              ? toolResultRecord.status
+              : undefined,
+          tool:
+            typeof toolResultRecord.tool === "string"
+              ? toolResultRecord.tool
+              : undefined,
+        });
+      }
+    }
+
+    for (const webhook of webhookEvents) {
+      const props = (webhook.customProperties || {}) as Record<string, unknown>;
+      const processedAt =
+        (typeof props.processedAt === "number" ? props.processedAt : 0)
+        || webhook.createdAt
+        || webhook._creationTime
+        || 0;
+      if (processedAt < maxWindowSince) {
+        continue;
+      }
+      const eventStatus = typeof props.eventStatus === "string"
+        ? props.eventStatus.trim().toLowerCase()
+        : "";
+      webhookStatusRecords.push({
+        processedAt,
+        status: eventStatus,
+      });
+    }
+  }
+
+  const snapshots: AgentOpsThresholdSnapshot[] = [];
+  for (const [metric, definition] of Object.entries(thresholdDefs) as Array<
+    [AgentOpsAlertMetricKey, typeof thresholdDefs[AgentOpsAlertMetricKey]]
+  >) {
+    const since = now - definition.windowHours * 60 * 60 * 1000;
+    if (metric === "fallback_spike") {
+      const scopedRecords = modelFallbackRecords.filter(
+        (record) => record.performedAt >= since
+      );
+      const aggregation = aggregateAgentModelFallback(scopedRecords, {
+        windowHours: definition.windowHours,
+        since,
+      });
+      const evaluation = evaluateAgentOpsAlertThreshold(
+        metric,
+        aggregation.fallbackRate
+      );
+      snapshots.push({
+        metric,
+        ruleId: definition.ruleId,
+        displayName: definition.displayName,
+        description: definition.description,
+        windowHours: definition.windowHours,
+        observedValue: aggregation.fallbackRate,
+        warningThreshold: definition.warningThreshold,
+        criticalThreshold: definition.criticalThreshold,
+        thresholdValue: evaluation.thresholdValue,
+        severity: evaluation.severity,
+        sampleSize: aggregation.actionsWithModelResolution,
+        rollbackCriteria: definition.rollbackCriteria,
+        escalationOwner: definition.escalationOwner,
+      });
+      continue;
+    }
+
+    if (metric === "tool_failure_spike") {
+      const scopedResults = timedToolResultRecords
+        .filter((record) => record.performedAt >= since)
+        .map((record) => ({
+          tool: record.tool,
+          status: record.status,
+        }));
+      const aggregation = aggregateAgentToolSuccessFailure(scopedResults, {
+        windowHours: definition.windowHours,
+        since,
+      });
+      const evaluation = evaluateAgentOpsAlertThreshold(
+        metric,
+        aggregation.failureRate
+      );
+      snapshots.push({
+        metric,
+        ruleId: definition.ruleId,
+        displayName: definition.displayName,
+        description: definition.description,
+        windowHours: definition.windowHours,
+        observedValue: aggregation.failureRate,
+        warningThreshold: definition.warningThreshold,
+        criticalThreshold: definition.criticalThreshold,
+        thresholdValue: evaluation.thresholdValue,
+        severity: evaluation.severity,
+        sampleSize: aggregation.successCount + aggregation.failureCount,
+        rollbackCriteria: definition.rollbackCriteria,
+        escalationOwner: definition.escalationOwner,
+      });
+      continue;
+    }
+
+    const statuses = webhookStatusRecords
+      .filter((record) => record.processedAt >= since)
+      .map((record) => record.status);
+    const ingressAggregation = computeIngressFailureRate({ statuses });
+    const evaluation = evaluateAgentOpsAlertThreshold(
+      metric,
+      ingressAggregation.failureRate
+    );
+    snapshots.push({
+      metric,
+      ruleId: definition.ruleId,
+      displayName: definition.displayName,
+      description: definition.description,
+      windowHours: definition.windowHours,
+      observedValue: ingressAggregation.failureRate,
+      warningThreshold: definition.warningThreshold,
+      criticalThreshold: definition.criticalThreshold,
+      thresholdValue: evaluation.thresholdValue,
+      severity: evaluation.severity,
+      sampleSize: ingressAggregation.sampleSize,
+      rollbackCriteria: definition.rollbackCriteria,
+      escalationOwner: definition.escalationOwner,
+    });
+  }
+
+  return snapshots;
+}
+
+function mapAgentOpsIncidentObject(
+  incidentObject: {
+    _id: Id<"objects">;
+    organizationId: Id<"organizations">;
+    name: string;
+    description?: string;
+    status: string;
+    updatedAt: number;
+    customProperties?: Record<string, unknown>;
+  }
+): AgentOpsIncidentSummary {
+  const customProperties = (incidentObject.customProperties || {}) as Record<string, unknown>;
+  const scope = normalizeIncidentScope(customProperties.scope);
+  const openedAt = typeof customProperties.openedAt === "number"
+    ? customProperties.openedAt
+    : incidentObject.updatedAt;
+  const acknowledgedAt = typeof customProperties.acknowledgedAt === "number"
+    ? customProperties.acknowledgedAt
+    : undefined;
+  const mitigatedAt = typeof customProperties.mitigatedAt === "number"
+    ? customProperties.mitigatedAt
+    : undefined;
+  const closedAt = typeof customProperties.closedAt === "number"
+    ? customProperties.closedAt
+    : undefined;
+
+  const closureEvidenceRecord =
+    customProperties.closureEvidence && typeof customProperties.closureEvidence === "object"
+      ? (customProperties.closureEvidence as Record<string, unknown>)
+      : undefined;
+  const thresholdRecord =
+    customProperties.thresholdSnapshot && typeof customProperties.thresholdSnapshot === "object"
+      ? (customProperties.thresholdSnapshot as Record<string, unknown>)
+      : undefined;
+
+  return {
+    incidentId: String(incidentObject._id),
+    title: incidentObject.name || "Agent Ops Incident",
+    description: incidentObject.description,
+    organizationId: String(incidentObject.organizationId),
+    scopeOrganizationId:
+      typeof customProperties.scopeOrganizationId === "string"
+        ? customProperties.scopeOrganizationId
+        : String(incidentObject.organizationId),
+    scopeOrganizationName:
+      typeof customProperties.scopeOrganizationName === "string"
+        ? customProperties.scopeOrganizationName
+        : undefined,
+    scope,
+    metric: normalizeAgentOpsIncidentMetric(customProperties.metric),
+    ruleId:
+      typeof customProperties.ruleId === "string"
+        ? customProperties.ruleId
+        : undefined,
+    state: normalizeAgentOpsIncidentState(incidentObject.status),
+    severity: normalizeAgentOpsIncidentSeverity(customProperties.severity),
+    ownerUserId:
+      typeof customProperties.ownerUserId === "string"
+        ? customProperties.ownerUserId
+        : undefined,
+    openedAt,
+    acknowledgedAt,
+    mitigatedAt,
+    closedAt,
+    mitigationLog: readAgentOpsIncidentLog(customProperties.mitigationLog),
+    closureEvidence: closureEvidenceRecord
+      ? {
+          summary:
+            typeof closureEvidenceRecord.summary === "string"
+              ? closureEvidenceRecord.summary
+              : "",
+          references: readStringArray(closureEvidenceRecord.references),
+          closedByUserId:
+            typeof closureEvidenceRecord.closedByUserId === "string"
+              ? closureEvidenceRecord.closedByUserId
+              : "unknown",
+          closedAt:
+            typeof closureEvidenceRecord.closedAt === "number"
+              ? closureEvidenceRecord.closedAt
+              : closedAt || openedAt,
+        }
+      : undefined,
+    thresholdSnapshot: thresholdRecord
+      ? {
+          metric: normalizeAgentOpsIncidentMetric(thresholdRecord.metric) as AgentOpsAlertMetricKey,
+          ruleId:
+            typeof thresholdRecord.ruleId === "string"
+              ? thresholdRecord.ruleId
+              : "unknown",
+          displayName:
+            typeof thresholdRecord.displayName === "string"
+              ? thresholdRecord.displayName
+              : "Unknown metric",
+          description:
+            typeof thresholdRecord.description === "string"
+              ? thresholdRecord.description
+              : "",
+          windowHours:
+            typeof thresholdRecord.windowHours === "number"
+              ? thresholdRecord.windowHours
+              : 24,
+          observedValue:
+            typeof thresholdRecord.observedValue === "number"
+              ? thresholdRecord.observedValue
+              : 0,
+          warningThreshold:
+            typeof thresholdRecord.warningThreshold === "number"
+              ? thresholdRecord.warningThreshold
+              : 0,
+          criticalThreshold:
+            typeof thresholdRecord.criticalThreshold === "number"
+              ? thresholdRecord.criticalThreshold
+              : 0,
+          thresholdValue:
+            typeof thresholdRecord.thresholdValue === "number"
+              ? thresholdRecord.thresholdValue
+              : null,
+          severity:
+            thresholdRecord.severity === "critical"
+            || thresholdRecord.severity === "warning"
+            || thresholdRecord.severity === "ok"
+              ? thresholdRecord.severity
+              : "ok",
+          sampleSize:
+            typeof thresholdRecord.sampleSize === "number"
+              ? thresholdRecord.sampleSize
+              : 0,
+          rollbackCriteria:
+            typeof thresholdRecord.rollbackCriteria === "string"
+              ? thresholdRecord.rollbackCriteria
+              : "",
+          escalationOwner:
+            thresholdRecord.escalationOwner === "runtime_oncall"
+            || thresholdRecord.escalationOwner === "ops_owner"
+            || thresholdRecord.escalationOwner === "platform_admin"
+              ? thresholdRecord.escalationOwner
+              : "ops_owner",
+        }
+      : undefined,
+    updatedAt: incidentObject.updatedAt,
+  };
+}
+
+async function loadAgentOpsIncidentsForScope(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  scope: Scope;
+  scopeOrganizationId: Id<"organizations">;
+}): Promise<AgentOpsIncidentSummary[]> {
+  const incidents = await args.ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q
+        .eq("organizationId", args.scopeOrganizationId)
+        .eq("type", AGENT_OPS_INCIDENT_OBJECT_TYPE)
+    )
+    .collect();
+
+  return incidents
+    .filter((incident: any) => {
+      const customProperties = (incident.customProperties || {}) as Record<string, unknown>;
+      const incidentScope = normalizeIncidentScope(customProperties.scope);
+      const incidentScopeOrgId =
+        typeof customProperties.scopeOrganizationId === "string"
+          ? customProperties.scopeOrganizationId
+          : String(incident.organizationId);
+      return (
+        incidentScope === args.scope
+        && incidentScopeOrgId === String(args.scopeOrganizationId)
+      );
+    })
+    .map((incident: any) =>
+      mapAgentOpsIncidentObject({
+        _id: incident._id,
+        organizationId: incident.organizationId,
+        name: incident.name,
+        description: incident.description,
+        status: incident.status,
+        updatedAt: incident.updatedAt,
+        customProperties: incident.customProperties as Record<string, unknown> | undefined,
+      })
+    )
+    .sort((a: AgentOpsIncidentSummary, b: AgentOpsIncidentSummary) => b.updatedAt - a.updatedAt);
+}
+
+export const getAgentOpsIncidentWorkspace = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    scope: v.optional(v.union(v.literal("org"), v.literal("layer"))),
+    scopeOrganizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args): Promise<AgentOpsIncidentWorkspace> => {
+    const scopedAccess = await resolveAgentOpsScopedAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      requestedScope: args.scope,
+      requestedScopeOrganizationId: args.scopeOrganizationId,
+    });
+    const thresholds = await evaluateAgentOpsThresholdSnapshots({
+      ctx,
+      scopedOrgs: scopedAccess.scopedOrgs,
+    });
+    const incidents = await loadAgentOpsIncidentsForScope({
+      ctx,
+      scope: scopedAccess.scope,
+      scopeOrganizationId: scopedAccess.scopeOrganizationId,
+    });
+
+    return {
+      visibilityScope: scopedAccess.visibilityScope,
+      scope: scopedAccess.scope,
+      scopeOrganizationId: String(scopedAccess.scopeOrganizationId),
+      scopeOrganizationName:
+        scopedAccess.scopedOrgs[0]?.orgName || "Unknown organization",
+      thresholds,
+      incidents,
+    };
+  },
+});
+
+function trimIncidentNote(value: string | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export const syncAgentOpsThresholdIncidents = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    scope: v.optional(v.union(v.literal("org"), v.literal("layer"))),
+    scopeOrganizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const scopedAccess = await resolveAgentOpsScopedAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      requestedScope: args.scope,
+      requestedScopeOrganizationId: args.scopeOrganizationId,
+    });
+    const thresholds = await evaluateAgentOpsThresholdSnapshots({
+      ctx,
+      scopedOrgs: scopedAccess.scopedOrgs,
+    });
+    const existingIncidents = await loadAgentOpsIncidentsForScope({
+      ctx,
+      scope: scopedAccess.scope,
+      scopeOrganizationId: scopedAccess.scopeOrganizationId,
+    });
+    const activeByMetric = new Map<AgentOpsAlertMetricKey, AgentOpsIncidentSummary>();
+    for (const incident of existingIncidents) {
+      if (
+        (incident.state === "open"
+          || incident.state === "acknowledged"
+          || incident.state === "mitigated")
+        && incident.metric !== "manual"
+      ) {
+        activeByMetric.set(incident.metric, incident);
+      }
+    }
+
+    const createdIncidentIds: string[] = [];
+    const updatedIncidentIds: string[] = [];
+    const now = Date.now();
+
+    for (const threshold of thresholds) {
+      if (threshold.severity === "ok") {
+        continue;
+      }
+
+      const existing = activeByMetric.get(threshold.metric);
+      if (existing) {
+        const incidentId = existing.incidentId as Id<"objects">;
+        const incidentObject = await ctx.db.get(incidentId);
+        if (!incidentObject) {
+          continue;
+        }
+        const customProperties = (incidentObject.customProperties || {}) as Record<string, unknown>;
+        const nextSeverity = mapAgentOpsAlertSeverityToIncident(threshold.severity);
+        await ctx.db.patch(incidentId, {
+          updatedAt: now,
+          customProperties: {
+            ...customProperties,
+            severity: nextSeverity,
+            thresholdSnapshot: threshold,
+            updatedByUserId: String(auth.userId),
+            incidentVersion: AGENT_OPS_INCIDENT_VERSION,
+          },
+        });
+        await ctx.db.insert("objectActions", {
+          organizationId: scopedAccess.scopeOrganizationId,
+          objectId: incidentId,
+          actionType: "incident.alert_triggered",
+          actionData: {
+            metric: threshold.metric,
+            severity: threshold.severity,
+            observedValue: threshold.observedValue,
+            thresholdValue: threshold.thresholdValue,
+            ruleId: threshold.ruleId,
+            scope: scopedAccess.scope,
+          },
+          performedBy: auth.userId,
+          performedAt: now,
+        });
+        updatedIncidentIds.push(String(incidentId));
+        continue;
+      }
+
+      const incidentId = await ctx.db.insert("objects", {
+        organizationId: scopedAccess.scopeOrganizationId,
+        type: AGENT_OPS_INCIDENT_OBJECT_TYPE,
+        subtype: "alert_threshold",
+        name: `${threshold.displayName} incident`,
+        description: `${threshold.description} Escalation rule ${threshold.ruleId}.`,
+        status: "open",
+        customProperties: {
+          incidentVersion: AGENT_OPS_INCIDENT_VERSION,
+          metric: threshold.metric,
+          ruleId: threshold.ruleId,
+          scope: scopedAccess.scope,
+          scopeOrganizationId: String(scopedAccess.scopeOrganizationId),
+          scopeOrganizationName: scopedAccess.scopedOrgs[0]?.orgName || "Unknown organization",
+          scopedOrganizationIds: scopedAccess.scopedOrgs.map((org) => String(org.orgId)),
+          severity: mapAgentOpsAlertSeverityToIncident(threshold.severity),
+          ownerUserId: null,
+          openedAt: now,
+          acknowledgedAt: null,
+          mitigatedAt: null,
+          closedAt: null,
+          mitigationLog: [],
+          closureEvidence: null,
+          thresholdSnapshot: threshold,
+          createdByUserId: String(auth.userId),
+          updatedByUserId: String(auth.userId),
+          stateHistory: [
+            {
+              state: "open",
+              at: now,
+              actorUserId: String(auth.userId),
+              note: "Opened automatically from threshold breach.",
+            },
+          ],
+        },
+        createdBy: auth.userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await ctx.db.insert("objectActions", {
+        organizationId: scopedAccess.scopeOrganizationId,
+        objectId: incidentId,
+        actionType: "incident.opened",
+        actionData: {
+          metric: threshold.metric,
+          severity: threshold.severity,
+          observedValue: threshold.observedValue,
+          thresholdValue: threshold.thresholdValue,
+          ruleId: threshold.ruleId,
+          scope: scopedAccess.scope,
+        },
+        performedBy: auth.userId,
+        performedAt: now,
+      });
+      createdIncidentIds.push(String(incidentId));
+    }
+
+    return {
+      createdIncidentIds,
+      updatedIncidentIds,
+      thresholds,
+    };
+  },
+});
+
+const INCIDENT_STATE_TRANSITIONS: Record<
+  AgentOpsIncidentState,
+  AgentOpsIncidentState[]
+> = {
+  open: ["acknowledged"],
+  acknowledged: ["mitigated"],
+  mitigated: ["closed"],
+  closed: [],
+};
+
+export const transitionAgentOpsIncidentState = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    incidentId: v.id("objects"),
+    nextState: v.union(
+      v.literal("acknowledged"),
+      v.literal("mitigated"),
+      v.literal("closed")
+    ),
+    ownerUserId: v.optional(v.string()),
+    note: v.optional(v.string()),
+    closureSummary: v.optional(v.string()),
+    closureEvidenceReferences: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const incident = await ctx.db.get(args.incidentId);
+    if (!incident || incident.type !== AGENT_OPS_INCIDENT_OBJECT_TYPE) {
+      throw new Error("Agent Ops incident not found.");
+    }
+
+    const incidentCustomProps =
+      (incident.customProperties || {}) as Record<string, unknown>;
+    await resolveAgentOpsScopedAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      requestedScope: normalizeIncidentScope(incidentCustomProps.scope),
+      requestedScopeOrganizationId: incident.organizationId,
+    });
+
+    const currentState = normalizeAgentOpsIncidentState(incident.status);
+    if (!INCIDENT_STATE_TRANSITIONS[currentState].includes(args.nextState)) {
+      throw new Error(
+        `Invalid incident transition: ${currentState} -> ${args.nextState}.`
+      );
+    }
+
+    const now = Date.now();
+    const history = Array.isArray(incidentCustomProps.stateHistory)
+      ? [...incidentCustomProps.stateHistory]
+      : [];
+    const mitigationLog = readAgentOpsIncidentLog(
+      incidentCustomProps.mitigationLog
+    );
+    const actorUserId = String(auth.userId);
+
+    const note = trimIncidentNote(args.note);
+    if (args.nextState === "mitigated" && !note) {
+      throw new Error("Mitigated state requires a mitigation note.");
+    }
+    const closureSummary = trimIncidentNote(args.closureSummary);
+    const closureEvidenceReferences = readStringArray(
+      args.closureEvidenceReferences
+    );
+    if (
+      args.nextState === "closed"
+      && (!closureSummary || closureEvidenceReferences.length === 0)
+    ) {
+      throw new Error(
+        "Closed state requires closure summary and at least one evidence reference."
+      );
+    }
+
+    const nextCustomProperties: Record<string, unknown> = {
+      ...incidentCustomProps,
+      incidentVersion: AGENT_OPS_INCIDENT_VERSION,
+      updatedByUserId: actorUserId,
+      mitigationLog,
+      stateHistory: history,
+    };
+
+    if (args.nextState === "acknowledged") {
+      nextCustomProperties.ownerUserId =
+        trimIncidentNote(args.ownerUserId) || actorUserId;
+      nextCustomProperties.acknowledgedAt = now;
+    } else if (args.nextState === "mitigated") {
+      nextCustomProperties.mitigatedAt = now;
+      nextCustomProperties.mitigationLog = [
+        ...mitigationLog,
+        {
+          at: now,
+          actorUserId,
+          note: note as string,
+        },
+      ];
+    } else if (args.nextState === "closed") {
+      nextCustomProperties.closedAt = now;
+      nextCustomProperties.closureEvidence = {
+        summary: closureSummary,
+        references: closureEvidenceReferences,
+        closedByUserId: actorUserId,
+        closedAt: now,
+      };
+    }
+
+    history.push({
+      state: args.nextState,
+      at: now,
+      actorUserId,
+      note:
+        args.nextState === "acknowledged"
+          ? "Incident acknowledged by operator."
+          : args.nextState === "mitigated"
+            ? note
+            : closureSummary,
+    });
+
+    await ctx.db.patch(args.incidentId, {
+      status: args.nextState,
+      updatedAt: now,
+      customProperties: nextCustomProperties,
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: incident.organizationId,
+      objectId: args.incidentId,
+      actionType: `incident.${args.nextState}`,
+      actionData: {
+        previousState: currentState,
+        nextState: args.nextState,
+        note,
+        closureSummary,
+        closureEvidenceReferences,
+      },
+      performedBy: auth.userId,
+      performedAt: now,
+    });
+
+    const updatedIncident = await ctx.db.get(args.incidentId);
+    if (!updatedIncident) {
+      throw new Error("Failed to load updated incident.");
+    }
+
+    return mapAgentOpsIncidentObject({
+      _id: updatedIncident._id,
+      organizationId: updatedIncident.organizationId,
+      name: updatedIncident.name,
+      description: updatedIncident.description,
+      status: updatedIncident.status,
+      updatedAt: updatedIncident.updatedAt,
+      customProperties: updatedIncident.customProperties as Record<string, unknown> | undefined,
+    });
+  },
+});
+
 /**
  * Get control-center thread rows with lifecycle/delivery separation.
  */
@@ -3021,33 +6710,50 @@ export const getControlCenterThreadRows = query({
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     agentId: v.optional(v.id("objects")),
+    scope: v.optional(v.union(v.literal("org"), v.literal("layer"))),
+    scopeOrganizationId: v.optional(v.id("organizations")),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<ControlCenterThreadRow[]> => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const scopedAccess = await resolveAgentOpsScopedAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      requestedScope: args.scope,
+      requestedScopeOrganizationId: args.scopeOrganizationId,
+    });
 
-    const [activeSessions, handedOffSessions] = await Promise.all([
-      ctx.db
-        .query("agentSessions")
-        .withIndex("by_org_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", "active")
-        )
-        .collect(),
-      ctx.db
-        .query("agentSessions")
-        .withIndex("by_org_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", "handed_off")
-        )
-        .collect(),
-    ]);
+    const scopedSessions = (
+      await Promise.all(
+        scopedAccess.scopedOrgs.map(async (scopedOrg) => {
+          const [activeSessions, handedOffSessions] = await Promise.all([
+            ctx.db
+              .query("agentSessions")
+              .withIndex("by_org_status", (q) =>
+                q.eq("organizationId", scopedOrg.orgId).eq("status", "active")
+              )
+              .collect(),
+            ctx.db
+              .query("agentSessions")
+              .withIndex("by_org_status", (q) =>
+                q.eq("organizationId", scopedOrg.orgId).eq("status", "handed_off")
+              )
+              .collect(),
+          ]);
+          return [...activeSessions, ...handedOffSessions].map((session) => ({
+            session,
+            scopedOrg,
+          }));
+        })
+      )
+    ).flat();
 
-    const sessions = [...activeSessions, ...handedOffSessions];
-    if (sessions.length === 0) {
+    if (scopedSessions.length === 0) {
       return [];
     }
 
     const agentIds = new Set<string>();
-    for (const session of sessions) {
+    for (const { session } of scopedSessions) {
       agentIds.add(String(session.agentId));
       if (session.teamSession?.activeAgentId) {
         agentIds.add(String(session.teamSession.activeAgentId));
@@ -3089,7 +6795,7 @@ export const getControlCenterThreadRows = query({
     );
 
     const rows = await Promise.all(
-      sessions.map(async (session): Promise<ControlCenterThreadRow | null> => {
+      scopedSessions.map(async ({ session, scopedOrg }): Promise<ControlCenterThreadRow | null> => {
         const lifecycleState = resolveSessionLifecycleState(session);
         const waitingOnHuman = resolveWaitingOnHuman(lifecycleState);
         const { escalationCountOpen, escalationUrgency } = resolveOpenEscalationMeta(session);
@@ -3155,6 +6861,9 @@ export const getControlCenterThreadRows = query({
           threadId: String(session._id),
           sessionId: String(session._id),
           organizationId: String(session.organizationId),
+          organizationName: scopedOrg.orgName,
+          organizationSlug: scopedOrg.orgSlug,
+          organizationLayer: scopedOrg.layer,
           templateAgentId: String(templateAgentId),
           templateAgentName,
           lifecycleState,
@@ -3196,7 +6905,11 @@ export const getControlCenterThreadDrillDown = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<ControlCenterThreadDrillDown | null> => {
-    await requireAuthenticatedUser(ctx, args.sessionId);
+    const visibilityScope = await resolveControlCenterTraceAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
 
     const threadId = args.threadId as Id<"agentSessions">;
     const thread = await ctx.db.get(threadId);
@@ -3213,6 +6926,32 @@ export const getControlCenterThreadDrillDown = query({
       .order("desc")
       .take(trustScanLimit);
 
+    const threadRecord = thread as unknown as Record<string, unknown>;
+    const latestTurn = await ctx.db
+      .query("agentTurns")
+      .withIndex("by_session_created", (q) => q.eq("sessionId", threadId))
+      .order("desc")
+      .first();
+    const lifecycleState = resolveSessionLifecycleState(thread);
+    const deliveryState = resolveThreadDeliveryState({
+      sessionStatus: thread.status,
+      escalationStatus: thread.escalationState?.status,
+      latestTurnState: latestTurn?.state,
+    });
+    const routeIdentity = normalizeSessionChannelRouteIdentity(
+      threadRecord.channelRouteIdentity
+    );
+    const routingMetadata = normalizeSessionRoutingMetadata(
+      threadRecord.routingMetadata
+    );
+    const sessionRoutingKey =
+      normalizeControlCenterTraceString(threadRecord.sessionRoutingKey)
+      || buildSessionRoutingKey(routeIdentity);
+    const traceContext = resolveControlCenterTraceContext({
+      threadRecord,
+      fallbackThreadId: args.threadId,
+    });
+
     const trustTimelineEvents = trustEvents
       .filter((event) =>
         (
@@ -3222,7 +6961,7 @@ export const getControlCenterThreadDrillDown = query({
         )
         && event.payload.session_id === args.threadId
       )
-      .map((event): ControlCenterTimelineEvent => {
+      .map((event): TimelineEventDraft => {
         const isOperatorReplyEvent =
           event.event_name === "trust.lifecycle.operator_reply_in_stream.v1";
         const isMemoryEvent = isMemoryTrustEventName(event.event_name);
@@ -3269,15 +7008,25 @@ export const getControlCenterThreadDrillDown = query({
             ? `Operator reply recorded at ${checkpointLabel}. Actor ${actorType}:${actorId}.`
             : `${transitionLabel}. Actor ${actorType}:${actorId}.`;
 
+        const workflowKey = resolveControlCenterWorkflowKey(
+          event.payload.lifecycle_transition_reason
+        );
+        const payloadRecord = event.payload as Record<string, unknown>;
+        const trustTurnId =
+          normalizeControlCenterTraceString(payloadRecord.turn_id)
+          || normalizeControlCenterTraceString(payloadRecord.turnId);
+
         return {
           eventId:
             typeof event.payload.event_id === "string" && event.payload.event_id.trim().length > 0
               ? event.payload.event_id
               : String(event._id),
           sessionId: args.threadId,
+          turnId: trustTurnId,
           threadId: args.threadId,
           kind,
           occurredAt: event.payload.occurred_at || event.created_at,
+          orderingHint: event.payload.occurred_at || event.created_at,
           actorType,
           actorId,
           fromState,
@@ -3287,22 +7036,31 @@ export const getControlCenterThreadDrillDown = query({
           title,
           summary,
           reason,
+          workflowKey,
           trustEventName: event.event_name,
           trustEventId:
             typeof event.payload.event_id === "string" ? event.payload.event_id : undefined,
           sourceObjectIds: event.payload.source_object_ids,
-          metadata: {
-            schemaValidationStatus: event.schema_validation_status,
-            eventVersion: event.payload.event_version,
-            ...(isMemoryEvent
-              ? {
-                  consentScope: event.payload.consent_scope,
-                  consentDecision: event.payload.consent_decision,
-                  memoryCandidateIds: event.payload.memory_candidate_ids,
-                  consentPromptVersion: event.payload.consent_prompt_version,
-                }
-              : {}),
-          },
+          metadata: roleScopedTimelineMetadata({
+            visibilityScope,
+            base: {
+              schemaValidationStatus: event.schema_validation_status,
+              eventVersion: event.payload.event_version,
+              turnId: trustTurnId,
+              ...(isMemoryEvent
+                ? {
+                    consentScope: event.payload.consent_scope,
+                    consentDecision: event.payload.consent_decision,
+                    memoryCandidateIds: event.payload.memory_candidate_ids,
+                    consentPromptVersion: event.payload.consent_prompt_version,
+                  }
+                : {}),
+            },
+            superAdminDebug: {
+              schemaErrors: event.schema_errors,
+              trustPayload: event.payload,
+            },
+          }),
         };
       });
 
@@ -3368,7 +7126,7 @@ export const getControlCenterThreadDrillDown = query({
         action.organizationId === args.organizationId
         && action.actionType === "message_processed"
       )
-      .map((action): ControlCenterTimelineEvent | null => {
+      .map((action): TimelineEventDraft | null => {
         const actionData = (action.actionData || {}) as Record<string, unknown>;
         const actionSessionId =
           typeof actionData.sessionId === "string"
@@ -3396,37 +7154,388 @@ export const getControlCenterThreadDrillDown = query({
         const bridgeCitationCount = retrieval.citations?.filter((citation) =>
           citation.source === "knowledge_item_bridge"
         ).length || 0;
+        const workflowKey = resolveControlCenterWorkflowKey(
+          (actionData.queueContract as Record<string, unknown> | undefined)?.workflowKey
+            ?? (actionData.idempotencyContract as Record<string, unknown> | undefined)?.intentType
+            ?? actionData.workflowKey
+        );
+        const authorityIntentType = normalizeControlCenterTraceString(
+          (actionData.collaboration as Record<string, unknown> | undefined)?.authorityIntentType
+        );
+        const lineageId = normalizeControlCenterTraceString(
+          (actionData.queueContract as Record<string, unknown> | undefined)?.lineageId
+        );
+        const threadId = normalizeControlCenterTraceString(
+          (actionData.queueContract as Record<string, unknown> | undefined)?.threadId
+        );
+        const turnId = normalizeControlCenterTraceString(actionData.turnId);
 
         return {
           eventId: `retrieval:${String(action._id)}`,
           sessionId: args.threadId,
-          threadId: args.threadId,
+          turnId,
+          threadId: threadId ?? args.threadId,
           kind: "tool",
           occurredAt: action.performedAt,
+          orderingHint: action.performedAt,
           actorType: "agent",
           actorId: String(action.objectId),
           escalationGate: "not_applicable",
           title: "Retrieval Citation Snapshot",
           summary: `Mode ${retrieval.mode || "unknown"}${retrieval.path ? ` via ${retrieval.path}` : ""}; ${citationCount} citation${citationCount === 1 ? "" : "s"} (${chunkCitationCount} chunk, ${bridgeCitationCount} bridge).`,
           sourceObjectIds: [String(action.objectId)],
-          metadata: {
-            retrieval,
-            citationCount,
-            chunkCitationCount,
-            bridgeCitationCount,
-            fallbackUsed: retrieval.fallbackUsed,
-            fallbackReason: retrieval.fallbackReason,
-          },
+          pipelineStage: "execution",
+          workflowKey,
+          authorityIntentType,
+          lineageId,
+          dmThreadId: traceContext.dmThreadId,
+          groupThreadId: traceContext.groupThreadId,
+          metadata: roleScopedTimelineMetadata({
+            visibilityScope,
+            base: {
+              retrieval,
+              citationCount,
+              chunkCitationCount,
+              bridgeCitationCount,
+              fallbackUsed: retrieval.fallbackUsed,
+              fallbackReason: retrieval.fallbackReason,
+              turnId,
+            },
+            superAdminDebug: {
+              actionId: action._id,
+              queueContract: actionData.queueContract,
+              idempotencyContract: actionData.idempotencyContract,
+              executionBundle: actionData.executionBundle,
+            },
+          }),
+          sourceIdForCorrelation: turnId ?? String(action._id),
         };
       })
-      .filter((event): event is ControlCenterTimelineEvent => event !== null)
+      .filter((event): event is TimelineEventDraft => event !== null)
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .slice(0, Math.min(eventLimit, 40));
 
+    const executionEdgeScanLimit = Math.max(180, eventLimit * 10);
+    const executionEdges = await ctx.db
+      .query("executionEdges")
+      .withIndex("by_session_time", (q) => q.eq("sessionId", threadId))
+      .order("desc")
+      .take(executionEdgeScanLimit);
+
+    const turnIds = new Set<string>();
+    for (const edge of executionEdges) {
+      turnIds.add(String(edge.turnId));
+    }
+    for (const action of retrievalActions) {
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      const turnId = normalizeControlCenterTraceString(actionData.turnId);
+      if (turnId) {
+        turnIds.add(turnId);
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const turnMap = new Map<string, any>();
+    await Promise.all(
+      Array.from(turnIds).map(async (turnIdValue) => {
+        const turn = await ctx.db.get(turnIdValue as Id<"agentTurns">);
+        if (turn) {
+          turnMap.set(turnIdValue, turn);
+        }
+      })
+    );
+
+    const executionTimelineEvents = executionEdges
+      .map((edge): TimelineEventDraft => {
+        const edgeMetadata = (edge.metadata || {}) as Record<string, unknown>;
+        const turn = turnMap.get(String(edge.turnId)) as Record<string, unknown> | undefined;
+        const queueContract =
+          (turn?.queueContract as Record<string, unknown> | undefined)
+          || (edgeMetadata.queueContract as Record<string, unknown> | undefined);
+        const idempotencyContract =
+          (turn?.idempotencyContract as Record<string, unknown> | undefined)
+          || (edgeMetadata.idempotencyContract as Record<string, unknown> | undefined);
+        const workflowKey = resolveControlCenterWorkflowKey(
+          queueContract?.workflowKey ?? idempotencyContract?.intentType
+        );
+        const presentation = resolveExecutionTransitionPresentation(edge.transition);
+        const reason = normalizeControlCenterTraceString(edgeMetadata.reason);
+        const transition = normalizeControlCenterTraceString(edge.transition) || "unknown";
+        const turnState = normalizeControlCenterTraceString(turn?.state);
+        const terminalDeliverable =
+          (turn?.terminalDeliverable as Record<string, unknown> | undefined)
+          || (edgeMetadata.terminalDeliverable as Record<string, unknown> | undefined);
+        const summaryParts = [
+          `Transition ${transition} (#${edge.edgeOrdinal}).`,
+          turnState ? `Turn state ${turnState}.` : null,
+          reason ? `Reason ${reason}.` : null,
+          terminalDeliverable?.pointerType
+            ? `Deliverable ${String(terminalDeliverable.pointerType)}.`
+            : null,
+        ].filter((part): part is string => Boolean(part));
+
+        return {
+          eventId: `edge:${String(edge._id)}`,
+          sessionId: args.threadId,
+          turnId: String(edge.turnId),
+          threadId: args.threadId,
+          kind: presentation.kind,
+          occurredAt: edge.occurredAt,
+          orderingHint: edge.edgeOrdinal,
+          actorType: "system",
+          actorId: String(edge.agentId),
+          checkpoint: transition,
+          escalationGate: "not_applicable",
+          title: presentation.title,
+          summary: summaryParts.join(" "),
+          reason,
+          sourceObjectIds: [String(edge.agentId)],
+          pipelineStage: presentation.pipelineStage,
+          workflowKey,
+          lineageId: normalizeControlCenterTraceString(queueContract?.lineageId),
+          metadata: roleScopedTimelineMetadata({
+            visibilityScope,
+            base: {
+              edgeOrdinal: edge.edgeOrdinal,
+              turnId: String(edge.turnId),
+              fromState: edge.fromState,
+              toState: edge.toState,
+              transitionPolicyVersion: edge.transitionPolicyVersion,
+              replayInvariantStatus: edge.replayInvariantStatus,
+            },
+            superAdminDebug: {
+              edgeMetadata,
+              queueContract,
+              idempotencyContract,
+            },
+          }),
+          sourceIdForCorrelation: `${String(edge.turnId)}:${String(edge.edgeOrdinal)}`,
+        };
+      })
+      .slice(0, Math.max(eventLimit * 2, 120));
+
+    const receiptScanLimit = Math.max(180, eventLimit * 8);
+    const receipts = await ctx.db
+      .query("agentInboxReceipts")
+      .withIndex("by_session", (q) => q.eq("sessionId", threadId))
+      .order("desc")
+      .take(receiptScanLimit);
+
+    const receiptTimelineEvents: TimelineEventDraft[] = [];
+    for (const receipt of receipts) {
+      const queueContract = (receipt.queueContract || {}) as Record<string, unknown>;
+      const idempotencyContract =
+        (receipt.idempotencyContract || {}) as Record<string, unknown>;
+      const workflowKey = resolveControlCenterWorkflowKey(
+        queueContract.workflowKey ?? idempotencyContract.intentType
+      );
+      const lineageId = normalizeControlCenterTraceString(queueContract.lineageId);
+      const threadIdFromContract = normalizeControlCenterTraceString(queueContract.threadId);
+      const turnId = receipt.turnId ? String(receipt.turnId) : undefined;
+      const receiptSourceObjectIds = [String(receipt.agentId)];
+      const common = {
+        sessionId: args.threadId,
+        turnId,
+        threadId: args.threadId,
+        actorType: "system" as const,
+        actorId: String(receipt.agentId),
+        escalationGate: "not_applicable" as const,
+        sourceObjectIds: receiptSourceObjectIds,
+        workflowKey,
+        lineageId,
+        metadata: roleScopedTimelineMetadata({
+          visibilityScope,
+          base: {
+            receiptId: String(receipt._id),
+            receiptStatus: receipt.status,
+            idempotencyKey: receipt.idempotencyKey,
+            duplicateCount: receipt.duplicateCount,
+            queueConcurrencyKey: receipt.queueConcurrencyKey,
+            queueOrderingKey: receipt.queueOrderingKey,
+            turnId,
+          },
+          superAdminDebug: {
+            queueContract: receipt.queueContract,
+            idempotencyContract: receipt.idempotencyContract,
+            receiptMetadata: receipt.metadata,
+          },
+        }),
+      };
+
+      const acceptedPresentation = resolveReceiptStagePresentation({
+        status: receipt.status,
+        phase: "accepted",
+      });
+      receiptTimelineEvents.push({
+        eventId: `receipt:${String(receipt._id)}:accepted`,
+        ...common,
+        kind: acceptedPresentation.kind,
+        pipelineStage: acceptedPresentation.pipelineStage,
+        occurredAt: receipt.firstSeenAt,
+        orderingHint: 1,
+        title: acceptedPresentation.title,
+        summary: `Ingress receipt accepted for ${receipt.channel}:${receipt.externalContactIdentifier}.`,
+        sourceIdForCorrelation: turnId ?? String(receipt._id),
+        correlationId: buildTrustTimelineCorrelationId({
+          lineageId,
+          threadId: threadIdFromContract,
+          fallbackThreadId: args.threadId,
+          surface: "session",
+          sourceId: `receipt:${String(receipt._id)}:accepted`,
+        }),
+      });
+
+      if (typeof receipt.processingStartedAt === "number") {
+        const processingPresentation = resolveReceiptStagePresentation({
+          status: receipt.status,
+          phase: "processing",
+        });
+        receiptTimelineEvents.push({
+          eventId: `receipt:${String(receipt._id)}:processing`,
+          ...common,
+          kind: processingPresentation.kind,
+          pipelineStage: processingPresentation.pipelineStage,
+          occurredAt: receipt.processingStartedAt,
+          orderingHint: 2,
+          title: processingPresentation.title,
+          summary: `Runtime acquired processing lease${turnId ? ` for turn ${turnId}` : ""}.`,
+          sourceIdForCorrelation: turnId ?? String(receipt._id),
+        });
+      }
+
+      const terminalAt = receipt.completedAt ?? receipt.failedAt;
+      const hasTerminalEvent =
+        receipt.status === "completed"
+        || receipt.status === "failed"
+        || receipt.status === "duplicate";
+      if (hasTerminalEvent && typeof terminalAt === "number") {
+        const terminalPresentation = resolveReceiptStagePresentation({
+          status: receipt.status,
+          phase: "terminal",
+        });
+        const terminalSummary =
+          receipt.status === "failed"
+            ? `Runtime failed${receipt.failureReason ? `: ${receipt.failureReason}` : "."}`
+            : receipt.status === "duplicate"
+              ? "Duplicate ingress collapsed to prior deterministic outcome."
+              : "Runtime completed and receipt finalized.";
+        receiptTimelineEvents.push({
+          eventId: `receipt:${String(receipt._id)}:terminal`,
+          ...common,
+          kind: terminalPresentation.kind,
+          pipelineStage: terminalPresentation.pipelineStage,
+          occurredAt: terminalAt,
+          orderingHint: 3,
+          title: terminalPresentation.title,
+          summary: terminalSummary,
+          reason: receipt.failureReason ?? undefined,
+          sourceIdForCorrelation: turnId ?? String(receipt._id),
+        });
+      }
+    }
+
+    const operatorDeliveryTimelineEvents = retrievalActions
+      .filter((action) =>
+        action.organizationId === args.organizationId
+        && action.actionType === "session_reply_in_stream"
+      )
+      .map((action): TimelineEventDraft | null => {
+        const actionData = (action.actionData || {}) as Record<string, unknown>;
+        const actionSessionId = normalizeControlCenterTraceString(actionData.sessionId);
+        if (!actionSessionId || actionSessionId !== args.threadId) {
+          return null;
+        }
+        const turnId = normalizeControlCenterTraceString(actionData.turnId);
+        const reason = normalizeControlCenterTraceString(actionData.reason);
+        return {
+          eventId: `delivery:${String(action._id)}`,
+          sessionId: args.threadId,
+          turnId,
+          threadId: args.threadId,
+          kind: "delivery",
+          occurredAt: action.performedAt,
+          orderingHint: action.performedAt,
+          actorType: "operator",
+          actorId: normalizeControlCenterTraceString(actionData.performedBy) || "operator",
+          checkpoint: "operator_reply_in_stream",
+          escalationGate: "not_applicable",
+          title: "Operator Reply Delivered",
+          summary: `In-stream operator reply delivered to ${thread.channel}.`,
+          reason,
+          sourceObjectIds: [String(action.objectId)],
+          pipelineStage: "delivery",
+          workflowKey: "operator_reply",
+          metadata: roleScopedTimelineMetadata({
+            visibilityScope,
+            base: {
+              providerConversationId: actionData.providerConversationId,
+              providerMessageId: actionData.providerMessageId,
+              trustEventName: actionData.trustEventName,
+              trustEventId: actionData.trustEventId,
+            },
+            superAdminDebug: {
+              actionData,
+            },
+          }),
+          sourceIdForCorrelation: String(action._id),
+        };
+      })
+      .filter((event): event is TimelineEventDraft => event !== null);
+
     const rootInstanceId = String(thread.agentId);
     const activeInstanceId = String(thread.teamSession?.activeAgentId || thread.agentId);
-    const rootTemplateId =
-      readTemplateAgentId(agentMap.get(rootInstanceId)) || thread.agentId;
+    const activeAgent = agentMap.get(activeInstanceId);
+    const rootAgent = agentMap.get(rootInstanceId);
+    const rootTemplateId = readTemplateAgentId(rootAgent) || thread.agentId;
+    const selectedTemplateAgentId =
+      readTemplateAgentId(activeAgent)
+      || rootTemplateId;
+    const selectedTemplateAgent = agentMap.get(String(selectedTemplateAgentId));
+    const selectedAgentContext: ControlCenterSelectedAgentContext = {
+      instanceAgentId: activeInstanceId,
+      templateAgentId: String(selectedTemplateAgentId),
+      roleLabel: resolveInstanceRoleLabel({
+        instanceId: activeInstanceId,
+        rootInstanceId,
+        activeInstanceId,
+      }),
+      displayName: readAgentDisplayName(activeAgent) || undefined,
+      templateDisplayName: readAgentDisplayName(selectedTemplateAgent) || undefined,
+    };
+    const latestTurnRecord = latestTurn as Record<string, unknown> | null;
+    const latestTurnContext = latestTurn
+      ? {
+          turnId: String(latestTurn._id),
+          state: normalizeControlCenterTraceString(latestTurnRecord?.state),
+          updatedAt:
+            typeof latestTurnRecord?.updatedAt === "number"
+              ? latestTurnRecord.updatedAt
+              : undefined,
+          transitionPolicyVersion: normalizeControlCenterTraceString(
+            latestTurnRecord?.transitionPolicyVersion
+          ),
+          replayInvariantStatus: normalizeControlCenterTraceString(
+            latestTurnRecord?.replayInvariantStatus
+          ),
+        }
+      : undefined;
+    const context: ControlCenterThreadContext = {
+      sessionId: args.threadId,
+      organizationId: String(thread.organizationId),
+      channel: thread.channel,
+      externalContactIdentifier: thread.externalContactIdentifier,
+      route: {
+        sessionRoutingKey,
+        routeIdentity,
+        routingMetadata,
+      },
+      selectedAgent: selectedAgentContext,
+      delivery: {
+        lifecycleState,
+        deliveryState,
+      },
+      latestTurn: latestTurnContext,
+    };
 
     const lineage: ControlCenterAgentInstanceSummary[] = Array.from(instanceIds)
       .map((instanceId) => {
@@ -3477,7 +7586,7 @@ export const getControlCenterThreadDrillDown = query({
         return a.spawnedAt - b.spawnedAt;
       });
 
-    const handoffTimelineEvents = handoffHistory.map((handoff, index): ControlCenterTimelineEvent => {
+    const handoffTimelineEvents = handoffHistory.map((handoff, index): TimelineEventDraft => {
       const fromAgentId = String(handoff.fromAgentId);
       const toAgentId = String(handoff.toAgentId);
       const toAgentLabel =
@@ -3490,6 +7599,7 @@ export const getControlCenterThreadDrillDown = query({
         threadId: args.threadId,
         kind: "handoff",
         occurredAt: handoff.timestamp,
+        orderingHint: index + 1,
         actorType: "agent",
         actorId: fromAgentId,
         checkpoint: "handoff_completed",
@@ -3498,18 +7608,38 @@ export const getControlCenterThreadDrillDown = query({
         summary: handoff.summary,
         reason: handoff.reason,
         sourceObjectIds: [fromAgentId, toAgentId],
-        metadata: {
-          goal: handoff.goal,
-        },
+        pipelineStage: "execution",
+        metadata: roleScopedTimelineMetadata({
+          visibilityScope,
+          base: {
+            goal: handoff.goal,
+          },
+          superAdminDebug: {
+            handoffIndex: index,
+          },
+        }),
+        sourceIdForCorrelation: `${fromAgentId}:${toAgentId}:${String(index)}`,
       };
     });
 
-    const timelineEvents = [...trustTimelineEvents, ...retrievalTimelineEvents, ...handoffTimelineEvents]
-      .sort((a, b) => b.occurredAt - a.occurredAt)
-      .slice(0, eventLimit);
+    const timelineEvents = applyControlCenterTimelineOrdering({
+      drafts: [
+        ...trustTimelineEvents,
+        ...executionTimelineEvents,
+        ...receiptTimelineEvents,
+        ...retrievalTimelineEvents,
+        ...operatorDeliveryTimelineEvents,
+        ...handoffTimelineEvents,
+      ],
+      trace: traceContext,
+      visibilityScope,
+      limit: eventLimit,
+    });
 
     return {
       threadId: args.threadId,
+      visibilityScope,
+      context,
       timelineEvents,
       lineage,
     };
@@ -3547,7 +7677,8 @@ const RECEIPT_STATUSES = [
 async function collectOrgReceipts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
-  organizationId: string
+  organizationId: Id<"organizations">,
+  agentId?: Id<"objects">
 ) {
   const receipts = await Promise.all(
     RECEIPT_STATUSES.map((status) =>
@@ -3559,7 +7690,11 @@ async function collectOrgReceipts(
         .collect()
     )
   );
-  return receipts.flat();
+  const flattened = receipts.flat();
+  if (!agentId) {
+    return flattened;
+  }
+  return flattened.filter((receipt) => receipt.agentId === agentId);
 }
 
 /**
@@ -3569,6 +7704,7 @@ export const getAgingReceipts = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
     minAgeMinutes: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
@@ -3578,12 +7714,19 @@ export const getAgingReceipts = query({
     const minAgeMinutes = Math.max(1, Math.floor(args.minAgeMinutes ?? 15));
     const minAgeMs = minAgeMinutes * 60 * 1000;
     const now = Date.now();
-    const receipts = await collectOrgReceipts(ctx, args.organizationId);
+    const receipts = await collectOrgReceipts(
+      ctx,
+      args.organizationId,
+      args.agentId
+    );
 
     return receipts
       .filter((receipt) => receipt.status === "accepted" || receipt.status === "processing")
       .map((receipt) => ({
         receiptId: receipt._id,
+        agentId: receipt.agentId,
+        channel: receipt.channel,
+        externalContactIdentifier: receipt.externalContactIdentifier,
         status: receipt.status,
         turnId: receipt.turnId,
         idempotencyKey: receipt.idempotencyKey,
@@ -3605,6 +7748,7 @@ export const getDuplicateReceipts = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
     minDuplicateCount: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
@@ -3612,12 +7756,19 @@ export const getDuplicateReceipts = query({
     await requireAuthenticatedUser(ctx, args.sessionId);
 
     const minDuplicateCount = Math.max(1, Math.floor(args.minDuplicateCount ?? 1));
-    const receipts = await collectOrgReceipts(ctx, args.organizationId);
+    const receipts = await collectOrgReceipts(
+      ctx,
+      args.organizationId,
+      args.agentId
+    );
 
     return receipts
       .filter((receipt) => receipt.duplicateCount >= minDuplicateCount)
       .map((receipt) => ({
         receiptId: receipt._id,
+        agentId: receipt.agentId,
+        channel: receipt.channel,
+        externalContactIdentifier: receipt.externalContactIdentifier,
         status: receipt.status,
         turnId: receipt.turnId,
         idempotencyKey: receipt.idempotencyKey,
@@ -3642,6 +7793,7 @@ export const getStuckReceipts = query({
   args: {
     sessionId: v.string(),
     organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
     staleMinutes: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
@@ -3658,12 +7810,19 @@ export const getStuckReceipts = query({
         q.eq("organizationId", args.organizationId).eq("status", "processing")
       )
       .collect();
+    const filteredProcessingReceipts = args.agentId
+      ? processingReceipts.filter((receipt) => receipt.agentId === args.agentId)
+      : processingReceipts;
 
-    return processingReceipts
+    return filteredProcessingReceipts
       .map((receipt) => {
         const startedAt = receipt.processingStartedAt ?? receipt.firstSeenAt;
         return {
           receiptId: receipt._id,
+          agentId: receipt.agentId,
+          channel: receipt.channel,
+          externalContactIdentifier: receipt.externalContactIdentifier,
+          status: receipt.status,
           turnId: receipt.turnId,
           idempotencyKey: receipt.idempotencyKey,
           processingAgeMs: now - startedAt,
@@ -3699,14 +7858,19 @@ export const getReplaySafeReceiptDebug = query({
     const now = Date.now();
     return {
       receiptId: receipt._id,
+      agentId: receipt.agentId,
+      channel: receipt.channel,
+      externalContactIdentifier: receipt.externalContactIdentifier,
       status: receipt.status,
       turnId: receipt.turnId,
       idempotencyKey: receipt.idempotencyKey,
       duplicateCount: receipt.duplicateCount,
+      queueConcurrencyKey: receipt.queueConcurrencyKey,
+      queueOrderingKey: receipt.queueOrderingKey,
       canReplay,
       replayMetadata: canReplay
         ? {
-            replayOfReceiptId: receipt._id,
+          replayOfReceiptId: receipt._id,
             debugReplay: true,
             idempotencyKey: `${receipt.idempotencyKey}:debug:${now}`,
           }

@@ -12,6 +12,7 @@ import {
   aiCredentialSourceValidator,
   aiProviderIdValidator,
 } from "../schemas/coreSchemas";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
 
 const PROVIDER_AGNOSTIC_SETTINGS_MIGRATION_KEY =
   "provider_agnostic_auth_profiles_v1" as const;
@@ -296,6 +297,323 @@ export function findRetiredModelIds(
     .filter((modelId) => retired.has(modelId));
 }
 
+type EnabledModelSelection = {
+  modelId: string;
+  isDefault: boolean;
+  customLabel?: string;
+  enabledAt: number;
+};
+
+function normalizeEnabledModelSelections(
+  value: unknown,
+  now: number
+): EnabledModelSelection[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const normalized: EnabledModelSelection[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const modelEntry = entry as {
+      modelId?: unknown;
+      isDefault?: unknown;
+      customLabel?: unknown;
+      enabledAt?: unknown;
+    };
+    const modelId =
+      typeof modelEntry.modelId === "string"
+        ? modelEntry.modelId.trim()
+        : "";
+    if (!modelId || seen.has(modelId)) {
+      continue;
+    }
+    seen.add(modelId);
+    normalized.push({
+      modelId,
+      isDefault: modelEntry.isDefault === true,
+      customLabel:
+        typeof modelEntry.customLabel === "string" &&
+        modelEntry.customLabel.trim().length > 0
+          ? modelEntry.customLabel.trim()
+          : undefined,
+      enabledAt:
+        typeof modelEntry.enabledAt === "number"
+          ? modelEntry.enabledAt
+          : now,
+    });
+  }
+
+  return normalized;
+}
+
+function areEnabledModelSelectionsEqual(
+  left: EnabledModelSelection[],
+  right: EnabledModelSelection[]
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftRow = left[index];
+    const rightRow = right[index];
+    if (
+      leftRow.modelId !== rightRow.modelId ||
+      leftRow.isDefault !== rightRow.isDefault ||
+      leftRow.customLabel !== rightRow.customLabel ||
+      leftRow.enabledAt !== rightRow.enabledAt
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function resolveStarterDefaultModelSelections(
+  ctx: { db: { query: Function } },
+  now: number
+): Promise<{
+  enabledModels: EnabledModelSelection[];
+  defaultModelId: string;
+}> {
+  const onboardingDefaultModel = await (ctx.db as any)
+    .query("aiModels")
+    .withIndex("by_model_id", (q: any) =>
+      q.eq("modelId", ONBOARDING_DEFAULT_MODEL_ID)
+    )
+    .first();
+
+  const systemDefaultsRaw = await (ctx.db as any)
+    .query("aiModels")
+    .withIndex("by_system_default", (q: any) =>
+      q.eq("isSystemDefault", true)
+    )
+    .collect();
+  const systemDefaults = systemDefaultsRaw.filter(
+    (model: { lifecycleStatus?: string }) =>
+      model.lifecycleStatus !== "retired"
+  );
+  const onboardingDefaultEnabled =
+    onboardingDefaultModel &&
+    onboardingDefaultModel.lifecycleStatus !== "retired";
+
+  const prioritizedDefaults = onboardingDefaultEnabled
+    ? [
+        onboardingDefaultModel,
+        ...systemDefaults.filter(
+          (model: { modelId: string }) =>
+            model.modelId !== onboardingDefaultModel.modelId
+        ),
+      ]
+    : systemDefaults;
+
+  if (prioritizedDefaults.length > 0) {
+    return {
+      enabledModels: prioritizedDefaults.map(
+        (model: { modelId: string }, index: number) => ({
+          modelId: model.modelId,
+          isDefault: index === 0,
+          enabledAt: now,
+        })
+      ),
+      defaultModelId: prioritizedDefaults[0].modelId,
+    };
+  }
+
+  return {
+    enabledModels: [
+      {
+        modelId: ONBOARDING_DEFAULT_MODEL_ID,
+        isDefault: true,
+        enabledAt: now,
+      },
+    ],
+    defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
+  };
+}
+
+/**
+ * INTERNAL: Ensure organization AI settings always include at least one enabled model
+ * with a valid defaultModelId.
+ */
+export const ensureOrganizationModelDefaultsInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const starterDefaults = await resolveStarterDefaultModelSelections(ctx as any, now);
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!settings) {
+      const insertedId = await ctx.db.insert("organizationAiSettings", {
+        organizationId: args.organizationId,
+        enabled: true,
+        billingMode: "platform",
+        billingSource: "platform",
+        settingsContractVersion: "provider_agnostic_v1",
+        llm: {
+          providerId: "openrouter",
+          enabledModels: starterDefaults.enabledModels,
+          defaultModelId: starterDefaults.defaultModelId,
+          temperature: 0.7,
+          maxTokens: 4000,
+          providerAuthProfiles: [],
+        },
+        embedding: {
+          provider: "none",
+          model: "",
+          dimensions: 0,
+        },
+        currentMonthSpend: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return {
+        created: true,
+        updated: true,
+        settingsId: insertedId,
+        modelCount: starterDefaults.enabledModels.length,
+        defaultModelId: starterDefaults.defaultModelId,
+      };
+    }
+
+    const currentLlm = (settings.llm || {}) as Record<string, unknown>;
+    const currentEnabledModels = normalizeEnabledModelSelections(
+      currentLlm.enabledModels,
+      now
+    );
+    let nextEnabledModels = currentEnabledModels;
+    let nextDefaultModelId =
+      typeof currentLlm.defaultModelId === "string" &&
+      currentLlm.defaultModelId.trim().length > 0
+        ? currentLlm.defaultModelId.trim()
+        : undefined;
+    let updated = false;
+
+    if (nextEnabledModels.length === 0) {
+      nextEnabledModels = starterDefaults.enabledModels;
+      nextDefaultModelId = starterDefaults.defaultModelId;
+      updated = true;
+    } else {
+      if (
+        !nextDefaultModelId ||
+        !nextEnabledModels.some((model) => model.modelId === nextDefaultModelId)
+      ) {
+        const flaggedDefault = nextEnabledModels.find((model) => model.isDefault);
+        nextDefaultModelId =
+          flaggedDefault?.modelId || nextEnabledModels[0].modelId;
+        updated = true;
+      }
+
+      const defaultNormalized = nextEnabledModels.map((model) => ({
+        ...model,
+        isDefault: model.modelId === nextDefaultModelId,
+      }));
+      if (!areEnabledModelSelectionsEqual(nextEnabledModels, defaultNormalized)) {
+        updated = true;
+      }
+      nextEnabledModels = defaultNormalized;
+    }
+
+    const nextTemperature =
+      typeof currentLlm.temperature === "number"
+        ? currentLlm.temperature
+        : 0.7;
+    if (typeof currentLlm.temperature !== "number") {
+      updated = true;
+    }
+
+    const nextMaxTokens =
+      typeof currentLlm.maxTokens === "number"
+        ? currentLlm.maxTokens
+        : 4000;
+    if (typeof currentLlm.maxTokens !== "number") {
+      updated = true;
+    }
+
+    const normalizedProviderId =
+      normalizeProviderId(
+        (typeof currentLlm.providerId === "string"
+          ? currentLlm.providerId
+          : typeof currentLlm.provider === "string"
+            ? currentLlm.provider
+            : undefined) || "openrouter"
+      ) || "openrouter";
+    if (currentLlm.providerId !== normalizedProviderId) {
+      updated = true;
+    }
+
+    const nextBillingMode =
+      settings.billingMode === "byok" ? "byok" : "platform";
+    if (settings.billingMode !== nextBillingMode) {
+      updated = true;
+    }
+
+    const nextBillingSource =
+      settings.billingSource ??
+      mapBillingModeToBillingSource(nextBillingMode);
+    if (!settings.billingSource) {
+      updated = true;
+    }
+
+    const nextContractVersion =
+      settings.settingsContractVersion ?? "provider_agnostic_v1";
+    if (!settings.settingsContractVersion) {
+      updated = true;
+    }
+
+    const llmWithDefaults = ensureProviderAgnosticLlmContract(
+      {
+        ...currentLlm,
+        providerId: normalizedProviderId,
+        enabledModels: nextEnabledModels,
+        defaultModelId: nextDefaultModelId!,
+        temperature: nextTemperature,
+        maxTokens: nextMaxTokens,
+      } as any,
+      nextBillingMode
+    );
+
+    if (!updated) {
+      return {
+        created: false,
+        updated: false,
+        settingsId: settings._id,
+        modelCount: nextEnabledModels.length,
+        defaultModelId: nextDefaultModelId,
+      };
+    }
+
+    await ctx.db.patch(settings._id, {
+      billingMode: nextBillingMode,
+      billingSource: nextBillingSource,
+      settingsContractVersion: nextContractVersion,
+      llm: llmWithDefaults,
+      updatedAt: now,
+    });
+
+    return {
+      created: false,
+      updated: true,
+      settingsId: settings._id,
+      modelCount: nextEnabledModels.length,
+      defaultModelId: nextDefaultModelId,
+    };
+  },
+});
+
 /**
  * Get AI settings for an organization
  */
@@ -410,6 +728,42 @@ export const upsertAISettings = mutation({
       // Shared settings
       temperature: v.number(),
       maxTokens: v.number(),
+      privacyMode: v.optional(v.union(
+        v.literal("off"),
+        v.literal("prefer_local"),
+        v.literal("local_only"),
+      )),
+      qualityTierFloor: v.optional(v.union(
+        v.literal("gold"),
+        v.literal("silver"),
+        v.literal("bronze"),
+        v.literal("unrated"),
+      )),
+      localModelIds: v.optional(v.array(v.string())),
+      localConnection: v.optional(v.object({
+        connectorId: v.union(
+          v.literal("ollama"),
+          v.literal("lm_studio"),
+          v.literal("llama_cpp"),
+        ),
+        baseUrl: v.string(),
+        status: v.union(
+          v.literal("connected"),
+          v.literal("degraded"),
+          v.literal("disconnected"),
+        ),
+        modelIds: v.array(v.string()),
+        defaultModelId: v.optional(v.string()),
+        capabilityLimits: v.object({
+          tools: v.boolean(),
+          vision: v.boolean(),
+          audio_in: v.boolean(),
+          audio_out: v.boolean(),
+          json: v.boolean(),
+          networkEgress: v.literal("blocked"),
+        }),
+        detectedAt: v.optional(v.number()),
+      })),
       openrouterApiKey: v.optional(v.string()),
       authProfiles: v.optional(v.array(v.object({
         profileId: v.string(),
@@ -458,6 +812,15 @@ export const upsertAISettings = mutation({
     // Auto-populate system defaults if no models provided
     let llmConfig = args.llm;
     if (!llmConfig.enabledModels || llmConfig.enabledModels.length === 0) {
+      const now = Date.now();
+
+      const onboardingDefaultModel = await ctx.db
+        .query("aiModels")
+        .withIndex("by_model_id", (q) =>
+          q.eq("modelId", ONBOARDING_DEFAULT_MODEL_ID)
+        )
+        .first();
+
       // Get system default models (models marked by super admin as recommended)
       const systemDefaultsRaw = await ctx.db
         .query("aiModels")
@@ -466,18 +829,42 @@ export const upsertAISettings = mutation({
       const systemDefaults = systemDefaultsRaw.filter(
         (model) => model.lifecycleStatus !== "retired"
       );
+      const onboardingDefaultEnabled =
+        onboardingDefaultModel &&
+        onboardingDefaultModel.lifecycleStatus !== "retired";
 
-      // Auto-enable system defaults
-      if (systemDefaults.length > 0) {
-        const now = Date.now();
+      const prioritizedDefaults = onboardingDefaultEnabled
+        ? [
+            onboardingDefaultModel,
+            ...systemDefaults.filter(
+              (model) => model.modelId !== onboardingDefaultModel.modelId
+            ),
+          ]
+        : systemDefaults;
+
+      // Auto-enable default starter model(s) for onboarding.
+      if (prioritizedDefaults.length > 0) {
         llmConfig = {
           ...llmConfig,
-          enabledModels: systemDefaults.map((model, index) => ({
+          enabledModels: prioritizedDefaults.map((model, index) => ({
             modelId: model.modelId,
             isDefault: index === 0, // First system default is the default
             enabledAt: now,
           })),
-          defaultModelId: systemDefaults[0].modelId,
+          defaultModelId: prioritizedDefaults[0].modelId,
+        };
+      } else {
+        // Final fallback: keep onboarding unblocked even if catalog/system defaults are unset.
+        llmConfig = {
+          ...llmConfig,
+          enabledModels: [
+            {
+              modelId: ONBOARDING_DEFAULT_MODEL_ID,
+              isDefault: true,
+              enabledAt: now,
+            },
+          ],
+          defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
         };
       }
     }
@@ -584,7 +971,7 @@ export const upsertAISettings = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        enabled: args.enabled,
+        enabled: true,
         billingMode: args.billingMode,
         billingSource,
         settingsContractVersion,
@@ -604,7 +991,7 @@ export const upsertAISettings = mutation({
 
     return await ctx.db.insert("organizationAiSettings", {
       organizationId: args.organizationId,
-      enabled: args.enabled,
+      enabled: true,
       billingMode: args.billingMode,
       billingSource,
       settingsContractVersion,

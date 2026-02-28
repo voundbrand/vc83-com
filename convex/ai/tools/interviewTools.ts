@@ -29,6 +29,14 @@ import {
   buildCreditCheckoutRedirectUrls,
   calculateCreditsFromAmount,
 } from "../../stripe/creditCheckout";
+import {
+  normalizeEmailForResponse,
+  normalizeOptionalNameForResponse,
+} from "../../onboarding/claimTokenResponse";
+import {
+  normalizeUniversalOnboardingChannel,
+  requiresClaimedAccountForOnboardingCompletion,
+} from "../../onboarding/universalOnboardingPolicy";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,15 +57,66 @@ type RuntimeChannel = "telegram" | "webchat" | "native_guest";
 type OAuthProvider = "google" | "microsoft" | "github";
 
 function normalizeRuntimeChannel(channel?: string): RuntimeChannel {
-  if (channel === "telegram") return "telegram";
-  if (channel === "native_guest") return "native_guest";
-  return "webchat";
+  return normalizeUniversalOnboardingChannel(channel);
 }
 
 function cleanOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizePhoneForResponse(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const digitCount = trimmed.replace(/\D/g, "").length;
+  if (digitCount < 7) return undefined;
+  return trimmed;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function resolveActiveEmailDomainConfigId(
+  ctx: ToolExecutionContext,
+  organizationId: Id<"organizations">,
+): Promise<Id<"objects"> | undefined> {
+  const orgDomainConfigs = await ctx.runQuery(getInternal().domainConfigOntology.listDomainConfigsForOrg, {
+    organizationId,
+  });
+  const orgActive = orgDomainConfigs?.find((config: { status?: string }) => config.status === "active");
+  if (orgActive?._id) {
+    return orgActive._id as Id<"objects">;
+  }
+
+  const systemOrg = await ctx.runQuery(getInternal().helpers.backendTranslationQueries.getSystemOrganization, {});
+  if (!systemOrg?._id) {
+    return undefined;
+  }
+
+  const systemDomainConfigs = await ctx.runQuery(getInternal().domainConfigOntology.listDomainConfigsForOrg, {
+    organizationId: systemOrg._id,
+  });
+  const systemActive = systemDomainConfigs?.find((config: { status?: string }) => config.status === "active");
+  if (systemActive?._id) {
+    return systemActive._id as Id<"objects">;
+  }
+
+  return undefined;
+}
+
+function resolveAuditChannel(channel: RuntimeChannel): "webchat" | "native_guest" | null {
+  if (channel === "webchat" || channel === "native_guest") {
+    return channel;
+  }
+  return null;
 }
 
 function buildChannelSafeUrlCta(args: {
@@ -96,6 +155,7 @@ function buildChannelSafeUrlCta(args: {
 function buildOAuthSignupUrl(args: {
   provider: OAuthProvider;
   identityClaimToken?: string;
+  betaCode?: string;
   onboardingChannel?: RuntimeChannel;
   attribution?: {
     source?: string;
@@ -117,6 +177,9 @@ function buildOAuthSignupUrl(args: {
 
   if (args.identityClaimToken) {
     params.set("identityClaimToken", args.identityClaimToken);
+  }
+  if (args.betaCode) {
+    params.set("betaCode", args.betaCode);
   }
 
   if (args.attribution?.source) params.set("utm_source", args.attribution.source);
@@ -173,6 +236,85 @@ async function tryIssueGuestClaimToken(args: {
     console.warn("[interviewTools] Unable to issue guest claim token:", error);
     return undefined;
   }
+}
+
+async function resolveGuestAccountCreationGate(args: {
+  ctx: ToolExecutionContext;
+  channel: RuntimeChannel;
+  contactId?: string;
+}): Promise<
+  | {
+      allowed: true;
+    }
+  | {
+      allowed: false;
+      reason:
+        | "missing_guest_session"
+        | "guest_session_unclaimed"
+        | "guest_session_not_found";
+      cta: ChannelSafeCtaPayload;
+    }
+> {
+  if (!requiresClaimedAccountForOnboardingCompletion(args.channel)) {
+    return { allowed: true };
+  }
+
+  const sessionToken = cleanOptionalString(args.contactId);
+  const buildSignupCta = async (tokenSource?: string) => {
+    const claimToken = await tryIssueGuestClaimToken({
+      ctx: args.ctx,
+      channel: args.channel,
+      contactId: tokenSource,
+    });
+    return buildChannelSafeUrlCta({
+      label: "Create your account first",
+      url: buildOAuthSignupUrl({
+        provider: "google",
+        identityClaimToken: claimToken,
+        onboardingChannel: args.channel,
+        appBaseUrl: resolvePublicAppUrl(),
+      }),
+      fallbackText:
+        "Open this secure link to create or connect your account before launching your workspace.",
+    });
+  };
+
+  if (!sessionToken) {
+    return {
+      allowed: false,
+      reason: "missing_guest_session",
+      cta: await buildSignupCta(undefined),
+    };
+  }
+
+  try {
+    const session = await args.ctx.runQuery(
+      getInternal().api.v1.webchatApi.getWebchatSession,
+      {
+        sessionToken,
+      }
+    );
+
+    if (!session) {
+      return {
+        allowed: false,
+        reason: "guest_session_not_found",
+        cta: await buildSignupCta(sessionToken),
+      };
+    }
+
+    if (session.claimedByUserId) {
+      return { allowed: true };
+    }
+  } catch (error) {
+    console.warn("[interviewTools] Guest session claim check failed (fail-closed):", error);
+  }
+
+  return {
+    allowed: false,
+    reason: "guest_session_unclaimed",
+    cta: await buildSignupCta(sessionToken),
+  };
 }
 
 // ============================================================================
@@ -416,7 +558,7 @@ export const getExtractedDataTool: AITool = {
 
 const completeOnboardingTool: AITool = {
   name: "complete_onboarding",
-  description: "Complete the onboarding interview. Creates the user's organization, bootstraps their AI agent, and switches Telegram routing so their next message goes to their own agent. ONLY call this after the user has confirmed all collected information is correct.",
+  description: "Complete the onboarding interview. Finalizes workspace personalization (create or reuse), bootstraps the user's AI agent, and switches channel routing handoff when applicable. ONLY call this after the user has confirmed all collected information is correct.",
   parameters: {
     type: "object",
     properties: {},
@@ -428,6 +570,7 @@ const completeOnboardingTool: AITool = {
     const agentSessionId = ctx.agentSessionId as Id<"agentSessions"> | undefined;
     const channel = ctx.channel;
     const contactId = ctx.contactId;
+    const runtimeChannel = normalizeRuntimeChannel(channel);
 
     if (!agentSessionId || !channel || !contactId) {
       return {
@@ -436,10 +579,27 @@ const completeOnboardingTool: AITool = {
       };
     }
 
+    const accountGate = await resolveGuestAccountCreationGate({
+      ctx,
+      channel: runtimeChannel,
+      contactId,
+    });
+    if (!accountGate.allowed) {
+      return {
+        success: false,
+        flow: "complete_onboarding",
+        error: "account_required",
+        channel: runtimeChannel,
+        cta: accountGate.cta,
+        message:
+          "Finish account creation/login first, then confirm launch and I will complete onboarding.",
+      };
+    }
+
     try {
       const result = await ctx.runAction(getInternal().onboarding.completeOnboarding.run, {
         sessionId: agentSessionId,
-        telegramChatId: contactId,
+        channelContactIdentifier: contactId,
         channel,
         organizationId: ctx.organizationId,
       });
@@ -451,6 +611,638 @@ const completeOnboardingTool: AITool = {
         error: String(e),
       };
     }
+  },
+};
+
+// ============================================================================
+// AUDIT DELIVERABLE TOOLS
+// ============================================================================
+
+const requestAuditDeliverableEmailTool: AITool = {
+  name: "request_audit_deliverable_email",
+  description:
+    "Prepare the value-first transition into email capture for audit mode. " +
+    "Use only after you've delivered a concrete workflow recommendation to the user.",
+  parameters: {
+    type: "object",
+    properties: {
+      workflowRecommendation: {
+        type: "string",
+        description:
+          "Optional workflow recommendation summary if it hasn't already been persisted in the audit session.",
+      },
+      clientName: {
+        type: "string",
+        description: "Optional client name to personalize the capture prompt.",
+      },
+    },
+    required: [],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: { workflowRecommendation?: string; clientName?: string }
+  ) {
+    const runtimeChannel = normalizeRuntimeChannel(ctx.channel);
+    const auditChannel = resolveAuditChannel(runtimeChannel);
+    if (!auditChannel) {
+      return {
+        success: false,
+        flow: "audit_deliverable_email_capture",
+        error: "unsupported_channel",
+        message: "Audit deliverable email capture is only supported for webchat and native_guest.",
+      };
+    }
+
+    const sessionToken = cleanOptionalString(ctx.contactId);
+    if (!sessionToken) {
+      return {
+        success: false,
+        flow: "audit_deliverable_email_capture",
+        error: "missing_session_token",
+        message: "No session token found for the current audit conversation.",
+      };
+    }
+
+    const session = await ctx.runQuery(
+      getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+      {
+        organizationId: ctx.organizationId,
+        channel: auditChannel,
+        sessionToken,
+      }
+    );
+
+    if (!session) {
+      return {
+        success: false,
+        flow: "audit_deliverable_email_capture",
+        error: "audit_session_not_found",
+        message: "Audit session not found. Start or resume the audit flow first.",
+      };
+    }
+
+    if ((session.answeredQuestionCount as number) < 5) {
+      return {
+        success: false,
+        flow: "audit_deliverable_email_capture",
+        error: "audit_not_completed",
+        message: "Finish the five audit questions before asking for email delivery.",
+      };
+    }
+
+    const workflowRecommendation =
+      cleanOptionalString(args.workflowRecommendation) ||
+      cleanOptionalString(session.workflowRecommendation);
+
+    if (!workflowRecommendation) {
+      return {
+        success: false,
+        flow: "audit_deliverable_email_capture",
+        error: "workflow_recommendation_required",
+        message: "Deliver a concrete workflow recommendation before requesting email capture.",
+      };
+    }
+
+    const clientName =
+      normalizeOptionalNameForResponse(args.clientName) ||
+      normalizeOptionalNameForResponse(session.capturedName);
+
+    const prompt = clientName
+      ? `I will send this as a clean one-page workflow report, ${clientName}. What is the best email for delivery?`
+      : "I will send this as a clean one-page workflow report. What is the best email for delivery?";
+
+    return {
+      success: true,
+      flow: "audit_deliverable_email_capture",
+      channel: auditChannel,
+      readyForEmailCapture: true,
+      suggestedPrompt: prompt,
+      workflowRecommendation,
+      clientName: clientName || undefined,
+      message:
+        "Workflow value has been delivered. Ask for email now and then call generate_audit_workflow_deliverable.",
+    };
+  },
+};
+
+const generateAuditWorkflowDeliverableTool: AITool = {
+  name: "generate_audit_workflow_deliverable",
+  description:
+    "Generate and persist the One of One audit workflow PDF deliverable after email capture. " +
+    "Runs deterministic/idempotent generation and returns storage/download references. " +
+    "Minimum qualification data for delivery is firstName, lastName, email, phone, and founderContactRequested.",
+  parameters: {
+    type: "object",
+    properties: {
+      email: {
+        type: "string",
+        description: "Captured email address for deliverable handoff.",
+      },
+      firstName: {
+        type: "string",
+        description: "Lead first name (required).",
+      },
+      lastName: {
+        type: "string",
+        description: "Lead last name (required).",
+      },
+      phone: {
+        type: "string",
+        description: "Lead phone number (required).",
+      },
+      clientName: {
+        type: "string",
+        description: "Optional client name for the PDF cover details.",
+      },
+      deliveryAddress: {
+        type: "string",
+        description: "Optional delivery address for sales follow-up context.",
+      },
+      annualRevenue: {
+        type: "string",
+        description: "Optional revenue band or annual/monthly revenue amount.",
+      },
+      aiProjectExperience: {
+        type: "string",
+        description: "Optional prior AI project experience summary.",
+      },
+      employeeCount: {
+        type: "string",
+        description: "Optional employee count/team size.",
+      },
+      industry: {
+        type: "string",
+        description: "Optional industry/vertical.",
+      },
+      ownershipShare: {
+        type: "string",
+        description: "Optional ownership share/percentage.",
+      },
+      aiBudgetStatus: {
+        type: "string",
+        description: "Optional current AI budget status (for example: set, not_set).",
+      },
+      aiBudgetTimeline: {
+        type: "string",
+        description: "Optional timing if AI budget is not set today.",
+      },
+      founderContactRequested: {
+        type: "boolean",
+        description:
+          "Required explicit yes/no answer: should the founder of sevenlayers.io contact this lead to set up a call?",
+      },
+      "sales_call": {
+        type: "boolean",
+        description: "Optional legacy call-intent flag.",
+      },
+      workflowRecommendation: {
+        type: "string",
+        description:
+          "Optional workflow recommendation summary. If omitted, the tool uses the audit session's stored recommendation.",
+      },
+      workflowName: {
+        type: "string",
+        description: "Optional explicit workflow title.",
+      },
+      workflowOutcome: {
+        type: "string",
+        description: "Optional expected outcome statement for the report.",
+      },
+      weeklyHoursRecovered: {
+        type: "number",
+        description: "Optional weekly hours saved estimate.",
+      },
+    },
+    required: ["email", "firstName", "lastName", "phone", "founderContactRequested"],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      clientName?: string;
+      deliveryAddress?: string;
+      annualRevenue?: string;
+      aiProjectExperience?: string;
+      employeeCount?: string;
+      industry?: string;
+      ownershipShare?: string;
+      aiBudgetStatus?: string;
+      aiBudgetTimeline?: string;
+      founderContactRequested: boolean;
+      "sales_call"?: boolean;
+      workflowRecommendation?: string;
+      workflowName?: string;
+      workflowOutcome?: string;
+      weeklyHoursRecovered?: number;
+    }
+  ) {
+    const runtimeChannel = normalizeRuntimeChannel(ctx.channel);
+    const auditChannel = resolveAuditChannel(runtimeChannel);
+    if (!auditChannel) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "unsupported_channel",
+        message: "Audit deliverable generation is only supported for webchat and native_guest.",
+      };
+    }
+
+    const sessionToken = cleanOptionalString(ctx.contactId);
+    if (!sessionToken) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "missing_session_token",
+        message: "No session token found for the current audit conversation.",
+      };
+    }
+
+    const capturedEmail = normalizeEmailForResponse(args.email);
+    if (!capturedEmail) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "invalid_email",
+        message: "A valid email is required before generating the audit deliverable.",
+      };
+    }
+
+    const firstName = normalizeOptionalNameForResponse(args.firstName);
+    const lastName = normalizeOptionalNameForResponse(args.lastName);
+    const capturedPhone = normalizePhoneForResponse(args.phone);
+    if (!firstName || !lastName || !capturedPhone) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "missing_required_contact_fields",
+        message:
+          "First name, last name, and a valid phone number are required before generating the audit deliverable.",
+      };
+    }
+
+    if (typeof args.founderContactRequested !== "boolean") {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "founder_contact_answer_required",
+        message:
+          "Capture an explicit yes/no answer on founder follow-up before generating the audit deliverable.",
+      };
+    }
+
+    const salesCall = typeof args["sales_call"] === "boolean"
+      ? args["sales_call"]
+      : args.founderContactRequested;
+
+    const session = await ctx.runQuery(
+      getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+      {
+        organizationId: ctx.organizationId,
+        channel: auditChannel,
+        sessionToken,
+      }
+    );
+
+    if (!session) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "audit_session_not_found",
+        message: "Audit session not found. Start or resume the audit flow first.",
+      };
+    }
+
+    const workflowRecommendation =
+      cleanOptionalString(args.workflowRecommendation) ||
+      cleanOptionalString(session.workflowRecommendation);
+
+    if (!workflowRecommendation) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "workflow_recommendation_required",
+        message: "Deliver and persist a workflow recommendation before generating the report.",
+      };
+    }
+
+    const completionResult = await ctx.runMutation(
+      getInternal().onboarding.auditMode.completeAuditModeSession,
+      {
+        organizationId: ctx.organizationId,
+        channel: auditChannel,
+        sessionToken,
+        workflowRecommendation,
+      }
+    );
+
+    if (!completionResult?.success) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: completionResult?.errorCode || "audit_completion_failed",
+        message: "Could not persist audit workflow recommendation before PDF generation.",
+      };
+    }
+
+    const fullName = `${firstName} ${lastName}`.trim();
+    const clientName =
+      normalizeOptionalNameForResponse(args.clientName) ||
+      fullName ||
+      normalizeOptionalNameForResponse(session.capturedName);
+
+    const generationResult = await ctx.runAction(
+      getInternal().onboarding.auditDeliverable.generateAuditWorkflowDeliverable,
+      {
+        organizationId: ctx.organizationId,
+        channel: auditChannel,
+        sessionToken,
+        input: {
+          clientName: clientName || undefined,
+          businessType: cleanOptionalString(args.industry),
+          revenueRange: cleanOptionalString(args.annualRevenue),
+          teamSize: cleanOptionalString(args.employeeCount),
+          workflowSummary: workflowRecommendation,
+          workflowName: cleanOptionalString(args.workflowName),
+          workflowOutcome: cleanOptionalString(args.workflowOutcome),
+          weeklyHoursRecovered:
+            typeof args.weeklyHoursRecovered === "number"
+              ? args.weeklyHoursRecovered
+              : undefined,
+        },
+      }
+    );
+
+    if (!generationResult?.success) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: generationResult?.errorCode || "deliverable_generation_failed",
+        message: generationResult?.message || "Audit deliverable generation failed.",
+      };
+    }
+
+    const downloadUrl = cleanOptionalString(generationResult.downloadUrl);
+    const cta = downloadUrl
+      ? buildChannelSafeUrlCta({
+          label: "Download workflow report",
+          url: downloadUrl,
+          fallbackText: "Open this secure link to download your workflow report.",
+        })
+      : undefined;
+
+    let leadEmailDelivery:
+      | {
+          success: boolean;
+          skipped?: boolean;
+          reason?: string;
+          error?: string;
+          messageId?: string;
+        }
+      | undefined;
+    let salesEmailDelivery:
+      | {
+          success: boolean;
+          skipped?: boolean;
+          reason?: string;
+          error?: string;
+          messageId?: string;
+        }
+      | undefined;
+    let founderCallOrchestration:
+      | {
+          success: boolean;
+          skipped?: boolean;
+          reason?: string;
+          error?: string;
+          provider?: string;
+          requestAccepted?: boolean;
+          callId?: string;
+          conferenceId?: string;
+        }
+      | undefined;
+
+    if (downloadUrl) {
+      const domainConfigId = await resolveActiveEmailDomainConfigId(ctx, ctx.organizationId);
+      if (!domainConfigId) {
+        leadEmailDelivery = {
+          success: false,
+          skipped: true,
+          reason: "missing_domain_config",
+        };
+        salesEmailDelivery = {
+          success: false,
+          skipped: true,
+          reason: "missing_domain_config",
+        };
+      } else {
+        const safeFirstName = escapeHtml(firstName);
+        const safeFullName = escapeHtml(`${firstName} ${lastName}`.trim());
+        const safeDownloadUrl = escapeHtml(downloadUrl);
+        const safePhone = escapeHtml(capturedPhone);
+        const safeRevenue = escapeHtml(cleanOptionalString(args.annualRevenue) || "Not provided");
+        const safeAiExp = escapeHtml(cleanOptionalString(args.aiProjectExperience) || "Not provided");
+        const safeEmployeeCount = escapeHtml(cleanOptionalString(args.employeeCount) || "Not provided");
+        const safeIndustry = escapeHtml(cleanOptionalString(args.industry) || "Not provided");
+        const safeOwnership = escapeHtml(cleanOptionalString(args.ownershipShare) || "Not provided");
+        const safeBudgetStatus = escapeHtml(cleanOptionalString(args.aiBudgetStatus) || "Not provided");
+        const safeBudgetTimeline = escapeHtml(cleanOptionalString(args.aiBudgetTimeline) || "Not provided");
+        const safeDeliveryAddress = escapeHtml(cleanOptionalString(args.deliveryAddress) || "Not provided");
+        const safeWorkflow = escapeHtml(workflowRecommendation);
+
+        try {
+          const leadResult = await ctx.runAction(getInternal().emailDelivery.sendEmail, {
+            domainConfigId,
+            to: capturedEmail,
+            subject: "Your One of One workflow implementation report",
+            html: [
+              "<p>Hi " + safeFirstName + ",</p>",
+              "<p>Your workflow implementation report is ready.</p>",
+              "<p><a href=\"" + safeDownloadUrl + "\">Download your report</a></p>",
+              "<p>If you want support implementing it, reply to this email and we can set up a call.</p>",
+            ].join(""),
+            text: [
+              `Hi ${firstName},`,
+              "",
+              "Your workflow implementation report is ready.",
+              `Download: ${downloadUrl}`,
+              "",
+              "If you want support implementing it, reply to this email and we can set up a call.",
+            ].join("\n"),
+          });
+          leadEmailDelivery = {
+            success: Boolean(leadResult?.success),
+            messageId: cleanOptionalString(leadResult?.messageId),
+            error: cleanOptionalString(leadResult?.error),
+          };
+        } catch (error) {
+          leadEmailDelivery = {
+            success: false,
+            error: error instanceof Error ? error.message : "lead_email_send_failed",
+          };
+        }
+
+        const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+        try {
+          const salesResult = await ctx.runAction(getInternal().emailDelivery.sendEmail, {
+            domainConfigId,
+            to: salesInbox,
+            subject: `New audit lead: ${firstName} ${lastName}`,
+            html: [
+              "<h2>New Qualified Audit Lead</h2>",
+              `<p><strong>Name:</strong> ${safeFullName}</p>`,
+              `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
+              `<p><strong>Phone:</strong> ${safePhone}</p>`,
+              `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
+              `<p><strong>Founder Contact Requested:</strong> ${args.founderContactRequested ? "Yes" : "No"}</p>`,
+              `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
+              `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
+              `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
+              `<p><strong>Industry:</strong> ${safeIndustry}</p>`,
+              `<p><strong>Ownership Share:</strong> ${safeOwnership}</p>`,
+              `<p><strong>AI Budget Status:</strong> ${safeBudgetStatus}</p>`,
+              `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
+              `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
+              `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
+              `<p><a href="${safeDownloadUrl}">Open lead workflow report</a></p>`,
+            ].join(""),
+            text: [
+              "New Qualified Audit Lead",
+              `Name: ${firstName} ${lastName}`,
+              `Email: ${capturedEmail}`,
+              `Phone: ${capturedPhone}`,
+              `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
+              `Founder Contact Requested: ${args.founderContactRequested ? "Yes" : "No"}`,
+              `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+              `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+              `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+              `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+              `Ownership Share: ${cleanOptionalString(args.ownershipShare) || "Not provided"}`,
+              `AI Budget Status: ${cleanOptionalString(args.aiBudgetStatus) || "Not provided"}`,
+              `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
+              `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
+              `Workflow Recommendation: ${workflowRecommendation}`,
+              `Report URL: ${downloadUrl}`,
+            ].join("\n"),
+          });
+          salesEmailDelivery = {
+            success: Boolean(salesResult?.success),
+            messageId: cleanOptionalString(salesResult?.messageId),
+            error: cleanOptionalString(salesResult?.error),
+          };
+        } catch (error) {
+          salesEmailDelivery = {
+            success: false,
+            error: error instanceof Error ? error.message : "sales_email_send_failed",
+          };
+        }
+
+        if (args.founderContactRequested) {
+          try {
+            const callResult = await ctx.runAction(getInternal().integrations.infobip.startFounderThreeWayCall, {
+              organizationId: ctx.organizationId,
+              leadPhone: capturedPhone,
+              leadName: `${firstName} ${lastName}`.trim(),
+              founderName: "Remington",
+              notes:
+                "Founder contact requested from Samantha lead capture flow. Owner-first three-way bridge requested.",
+              context: {
+                source: "ai.tools.generate_audit_workflow_deliverable",
+                email: capturedEmail,
+                salesCall: salesCall,
+                founderContactRequested: args.founderContactRequested,
+                downloadUrl,
+                annualRevenue: cleanOptionalString(args.annualRevenue),
+                aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
+                employeeCount: cleanOptionalString(args.employeeCount),
+                industry: cleanOptionalString(args.industry),
+                ownershipShare: cleanOptionalString(args.ownershipShare),
+                aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
+                aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
+                deliveryAddress: cleanOptionalString(args.deliveryAddress),
+              },
+            });
+
+            founderCallOrchestration = {
+              success: Boolean(callResult?.success),
+              skipped: Boolean(callResult?.skipped),
+              reason: cleanOptionalString(callResult?.reason),
+              error: cleanOptionalString(callResult?.error),
+              provider: cleanOptionalString(callResult?.provider),
+              requestAccepted: Boolean(callResult?.requestAccepted),
+              callId: cleanOptionalString(callResult?.callId),
+              conferenceId: cleanOptionalString(callResult?.conferenceId),
+            };
+          } catch (error) {
+            founderCallOrchestration = {
+              success: false,
+              error: error instanceof Error ? error.message : "founder_call_orchestration_failed",
+            };
+          }
+        } else {
+          founderCallOrchestration = {
+            success: false,
+            skipped: true,
+            reason: "founder_contact_not_requested",
+          };
+        }
+      }
+    } else {
+      leadEmailDelivery = {
+        success: false,
+        skipped: true,
+        reason: "missing_download_url",
+      };
+      salesEmailDelivery = {
+        success: false,
+        skipped: true,
+        reason: "missing_download_url",
+      };
+      founderCallOrchestration = {
+        success: false,
+        skipped: true,
+        reason: "missing_download_url",
+      };
+    }
+
+    return {
+      success: true,
+      flow: "audit_deliverable_generation",
+      channel: auditChannel,
+      email: capturedEmail,
+      firstName,
+      lastName,
+      phone: capturedPhone,
+      clientName: clientName || undefined,
+      deliveryAddress: cleanOptionalString(args.deliveryAddress),
+      annualRevenue: cleanOptionalString(args.annualRevenue),
+      aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
+      employeeCount: cleanOptionalString(args.employeeCount),
+      industry: cleanOptionalString(args.industry),
+      ownershipShare: cleanOptionalString(args.ownershipShare),
+      aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
+      aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
+      founderContactRequested: args.founderContactRequested,
+      sales_call: salesCall,
+      leadEmailDelivery,
+      salesEmailDelivery,
+      founderCallOrchestration,
+      deduped: Boolean(generationResult.deduped),
+      fileName: cleanOptionalString(generationResult.fileName),
+      storageId: cleanOptionalString(generationResult.storageId),
+      downloadUrl: downloadUrl || undefined,
+      sourceDownloadUrl: cleanOptionalString(generationResult.sourceDownloadUrl),
+      inputFingerprint: cleanOptionalString(generationResult.inputFingerprint),
+      cta,
+      message:
+        "Audit workflow report generated. Share the download link now and continue with the handoff offer.",
+    };
   },
 };
 
@@ -490,7 +1282,7 @@ const verifyTelegramLinkTool: AITool = {
     ctx: ToolExecutionContext,
     args: { action: string; email?: string; code?: string }
   ) {
-    const contactId = ctx.contactId; // telegramChatId
+    const contactId = ctx.contactId; // channelContactIdentifier
     if (!contactId) {
       return { success: false, error: "No Telegram chat context" };
     }
@@ -592,6 +1384,10 @@ const startAccountCreationHandoffTool: AITool = {
         type: "string",
         description: "Optional signed claim token to preserve guest/Telegram onboarding context during signup",
       },
+      betaCode: {
+        type: "string",
+        description: "Optional beta code to attach to signup handoff for instant approval when valid",
+      },
     },
     required: [],
   },
@@ -599,12 +1395,13 @@ const startAccountCreationHandoffTool: AITool = {
 
   async execute(
     ctx: ToolExecutionContext,
-    args: { provider?: OAuthProvider; identityClaimToken?: string }
+    args: { provider?: OAuthProvider; identityClaimToken?: string; betaCode?: string }
   ) {
     const provider: OAuthProvider = args.provider || "google";
     const channel = normalizeRuntimeChannel(ctx.channel);
     const contactId = cleanOptionalString(ctx.contactId);
     let claimToken = cleanOptionalString(args.identityClaimToken);
+    const betaCode = cleanOptionalString(args.betaCode);
 
     if (!claimToken) {
       claimToken = await tryIssueGuestClaimToken({
@@ -617,6 +1414,7 @@ const startAccountCreationHandoffTool: AITool = {
     const accountUrl = buildOAuthSignupUrl({
       provider,
       identityClaimToken: claimToken,
+      betaCode,
       onboardingChannel: channel,
     });
 
@@ -625,6 +1423,23 @@ const startAccountCreationHandoffTool: AITool = {
       url: accountUrl,
       fallbackText: "Open this secure link to create or connect your account.",
     });
+
+    const auditChannel = resolveAuditChannel(channel);
+    if (auditChannel && contactId) {
+      try {
+        await ctx.runMutation(getInternal().onboarding.auditMode.openAuditModeHandoff, {
+          organizationId: ctx.organizationId,
+          channel: auditChannel,
+          sessionToken: contactId,
+          metadata: {
+            source: "ai.tools.start_account_creation_handoff",
+            provider,
+          },
+        });
+      } catch (handoffError) {
+        console.warn("[interviewTools] Audit handoff telemetry emission failed (non-blocking):", handoffError);
+      }
+    }
 
     return {
       success: true,
@@ -637,6 +1452,94 @@ const startAccountCreationHandoffTool: AITool = {
       message:
         "Share the CTA and wait for the user to finish signup/login before continuing onboarding.",
     };
+  },
+};
+
+const startSlackWorkspaceConnectTool: AITool = {
+  name: "start_slack_workspace_connect",
+  description:
+    "Create a one-click Slack workspace OAuth CTA for authenticated users. " +
+    "Use when the user asks to connect Slack quickly from chat.",
+  parameters: {
+    type: "object",
+    properties: {
+      returnUrl: {
+        type: "string",
+        description:
+          "Optional URL to return to after OAuth completes. Defaults to integrations window.",
+      },
+    },
+    required: [],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: { returnUrl?: string }
+  ) {
+    const channel = normalizeRuntimeChannel(ctx.channel);
+    const sessionId = cleanOptionalString(ctx.sessionId);
+    const appBaseUrl = resolvePublicAppUrl();
+    const integrationsUrl = `${appBaseUrl}/?openWindow=integrations`;
+    const returnUrl = cleanOptionalString(args.returnUrl) || integrationsUrl;
+
+    if (!sessionId) {
+      const cta = buildChannelSafeUrlCta({
+        label: "Open Integrations",
+        url: integrationsUrl,
+        fallbackText: "Open integrations to connect Slack from your dashboard.",
+      });
+
+      return {
+        success: false,
+        flow: "slack_connect",
+        error: "session_required",
+        channel,
+        cta,
+        message:
+          "Slack one-click connect requires an authenticated dashboard session. Open Integrations and connect Slack there.",
+      };
+    }
+
+    try {
+      const oauthResult = await ctx.runMutation(getApi().api.oauth.slack.initiateSlackOAuth, {
+        sessionId,
+        connectionType: "organizational",
+        returnUrl,
+      });
+
+      const cta = buildChannelSafeUrlCta({
+        label: "Connect Slack Workspace",
+        url: oauthResult.authUrl as string,
+        fallbackText: "Open this secure link to connect your Slack workspace.",
+      });
+
+      return {
+        success: true,
+        flow: "slack_connect",
+        channel,
+        authUrl: oauthResult.authUrl as string,
+        cta,
+        message:
+          "Share the CTA and wait for OAuth completion. After approval, Slack will be connected.",
+      };
+    } catch (error) {
+      const cta = buildChannelSafeUrlCta({
+        label: "Open Integrations",
+        url: integrationsUrl,
+        fallbackText: "Open integrations to complete Slack setup manually.",
+      });
+
+      return {
+        success: false,
+        flow: "slack_connect",
+        channel,
+        error: String(error),
+        cta,
+        message:
+          "Could not generate the Slack connect link automatically. Open Integrations and reconnect from the Slack panel.",
+      };
+    }
   },
 };
 
@@ -654,11 +1557,19 @@ const startSubAccountFlowTool: AITool = {
       },
       businessName: {
         type: "string",
-        description: "Required for action='create_now': client business name",
+        description: "Legacy alias for workspaceName when action='create_now'",
+      },
+      workspaceName: {
+        type: "string",
+        description: "Required for action='create_now': client workspace name",
       },
       industry: {
         type: "string",
-        description: "Required for action='create_now': client industry",
+        description: "Legacy alias for workspaceContext when action='create_now'",
+      },
+      workspaceContext: {
+        type: "string",
+        description: "Required for action='create_now': client workspace context",
       },
       description: {
         type: "string",
@@ -689,7 +1600,9 @@ const startSubAccountFlowTool: AITool = {
     ctx: ToolExecutionContext,
     args: {
       action?: "open_dashboard" | "create_now";
+      workspaceName?: string;
       businessName?: string;
+      workspaceContext?: string;
       industry?: string;
       description?: string;
       targetAudience?: string;
@@ -742,14 +1655,14 @@ const startSubAccountFlowTool: AITool = {
       };
     }
 
-    const businessName = cleanOptionalString(args.businessName);
-    const industry = cleanOptionalString(args.industry);
+    const workspaceName = cleanOptionalString(args.workspaceName) || cleanOptionalString(args.businessName);
+    const workspaceContext = cleanOptionalString(args.workspaceContext) || cleanOptionalString(args.industry);
     const description = cleanOptionalString(args.description);
     const targetAudience = cleanOptionalString(args.targetAudience);
 
     const missingFields = [
-      !businessName ? "businessName" : null,
-      !industry ? "industry" : null,
+      !workspaceName ? "workspaceName" : null,
+      !workspaceContext ? "workspaceContext" : null,
       !description ? "description" : null,
       !targetAudience ? "targetAudience" : null,
     ].filter(Boolean) as string[];
@@ -762,7 +1675,7 @@ const startSubAccountFlowTool: AITool = {
         error: "missing_required_fields",
         missingFields,
         message:
-          "Need businessName, industry, description, and targetAudience to create a sub-account immediately.",
+          "Need workspaceName, workspaceContext, description, and targetAudience to create a sub-account immediately.",
       };
     }
 
@@ -771,8 +1684,8 @@ const startSubAccountFlowTool: AITool = {
       getInternal().onboarding.agencySubOrgBootstrap.bootstrapClientOrg,
       {
         parentOrganizationId: ctx.organizationId,
-        businessName,
-        industry,
+        businessName: workspaceName,
+        industry: workspaceContext,
         description,
         targetAudience,
         language: cleanOptionalString(args.language),
@@ -1186,8 +2099,11 @@ export const INTERVIEW_TOOLS: Record<string, AITool> = {
   get_interview_progress: getInterviewProgressTool,
   get_extracted_data: getExtractedDataTool,
   complete_onboarding: completeOnboardingTool,
+  request_audit_deliverable_email: requestAuditDeliverableEmailTool,
+  generate_audit_workflow_deliverable: generateAuditWorkflowDeliverableTool,
   verify_telegram_link: verifyTelegramLinkTool,
   start_account_creation_handoff: startAccountCreationHandoffTool,
+  start_slack_workspace_connect: startSlackWorkspaceConnectTool,
   start_sub_account_flow: startSubAccountFlowTool,
   start_plan_upgrade_checkout: startPlanUpgradeCheckoutTool,
   start_credit_pack_checkout: startCreditPackCheckoutTool,

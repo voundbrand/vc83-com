@@ -6,6 +6,7 @@
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
+import { resolvePlatformSoulScope } from "../platformSoulScope";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -83,6 +84,18 @@ Your proposal goes to the owner for approval. Be specific about WHAT to change a
     const agentId = (ctx as any).agentId;
     if (!agentId) {
       return { error: "No agent context for soul evolution" };
+    }
+
+    const agent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, { agentId });
+    const agentConfig = (agent?.customProperties as Record<string, unknown> | undefined) ?? {};
+    const platformScope = resolvePlatformSoulScope(agentConfig);
+    if (platformScope.isPlatformL2) {
+      return {
+        success: false,
+        blocked: true,
+        message:
+          "This target is a platform-managed L2 soul. Use platform_soul_admin actions (view/propose/approve_apply/rollback).",
+      };
     }
 
     // Collect recent message excerpts as evidence

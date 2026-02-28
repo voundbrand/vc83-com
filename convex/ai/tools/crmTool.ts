@@ -31,6 +31,114 @@ import { Id } from "../../_generated/dataModel";
 
 const generatedApi: any = require("../../_generated/api");
 
+const OUTREACH_PREFERRED_CHANNEL_VALUES = [
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+const OUTREACH_FALLBACK_METHOD_VALUES = [
+  "none",
+  "sms",
+  "email",
+  "telegram",
+  "phone_call",
+] as const;
+
+const DEFAULT_CONTACT_OUTREACH_PREFERENCES = {
+  preferredChannel: "sms",
+  allowedHours: {
+    start: "09:00",
+    end: "17:00",
+    timezone: "local",
+  },
+  fallbackMethod: "email",
+} as const;
+
+const HOUR_24_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function normalizeHour(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.trim();
+  return HOUR_24_REGEX.test(normalized) ? normalized : fallback;
+}
+
+function withContactOutreachDefaults(
+  outreachPreferencesRaw: unknown
+): {
+  preferredChannel: "sms" | "email" | "telegram" | "phone_call";
+  allowedHours: { start: string; end: string; timezone?: string };
+  fallbackMethod: "none" | "sms" | "email" | "telegram" | "phone_call";
+} {
+  const outreachPreferences =
+    outreachPreferencesRaw &&
+    typeof outreachPreferencesRaw === "object"
+      ? (outreachPreferencesRaw as Record<string, unknown>)
+      : {};
+  const allowedHours =
+    outreachPreferences.allowedHours &&
+    typeof outreachPreferences.allowedHours === "object"
+      ? (outreachPreferences.allowedHours as Record<string, unknown>)
+      : {};
+
+  const preferredChannel =
+    typeof outreachPreferences.preferredChannel === "string" &&
+    OUTREACH_PREFERRED_CHANNEL_VALUES.includes(
+      outreachPreferences.preferredChannel as
+        | "sms"
+        | "email"
+        | "telegram"
+        | "phone_call"
+    )
+      ? (outreachPreferences.preferredChannel as
+          | "sms"
+          | "email"
+          | "telegram"
+          | "phone_call")
+      : DEFAULT_CONTACT_OUTREACH_PREFERENCES.preferredChannel;
+
+  const fallbackMethod =
+    typeof outreachPreferences.fallbackMethod === "string" &&
+    OUTREACH_FALLBACK_METHOD_VALUES.includes(
+      outreachPreferences.fallbackMethod as
+        | "none"
+        | "sms"
+        | "email"
+        | "telegram"
+        | "phone_call"
+    )
+      ? (outreachPreferences.fallbackMethod as
+          | "none"
+          | "sms"
+          | "email"
+          | "telegram"
+          | "phone_call")
+      : DEFAULT_CONTACT_OUTREACH_PREFERENCES.fallbackMethod;
+
+  const timezone =
+    typeof allowedHours.timezone === "string" &&
+    allowedHours.timezone.trim().length > 0
+      ? allowedHours.timezone.trim()
+      : DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.timezone;
+
+  return {
+    preferredChannel,
+    allowedHours: {
+      start: normalizeHour(
+        allowedHours.start,
+        DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.start
+      ),
+      end: normalizeHour(
+        allowedHours.end,
+        DEFAULT_CONTACT_OUTREACH_PREFERENCES.allowedHours.end
+      ),
+      timezone,
+    },
+    fallbackMethod,
+  };
+}
+
 // ============================================================================
 // TOOL DEFINITION
 // ============================================================================
@@ -151,6 +259,28 @@ SMART QUESTIONS TO ASK:
           enum: ["customer", "lead", "prospect"],
           description: "Type of contact (for create_contact). customer=paying client, lead=unqualified potential, prospect=qualified potential"
         },
+        preferredOutreachChannel: {
+          type: "string",
+          enum: ["sms", "email", "telegram", "phone_call"],
+          description: "Preferred outreach channel for this contact (optional)"
+        },
+        outreachAllowedHoursStart: {
+          type: "string",
+          description: "Allowed outreach start time in HH:MM 24-hour format (optional)"
+        },
+        outreachAllowedHoursEnd: {
+          type: "string",
+          description: "Allowed outreach end time in HH:MM 24-hour format (optional)"
+        },
+        outreachAllowedTimezone: {
+          type: "string",
+          description: "Timezone label for outreach hours (optional)"
+        },
+        outreachFallbackMethod: {
+          type: "string",
+          enum: ["none", "sms", "email", "telegram", "phone_call"],
+          description: "Fallback outreach method if preferred channel fails (optional)"
+        },
         notes: {
           type: "string",
           description: "Additional notes about contact or organization"
@@ -215,6 +345,11 @@ export const executeManageCRM = action({
     phone: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
     contactType: v.optional(v.string()),
+    preferredOutreachChannel: v.optional(v.string()),
+    outreachAllowedHoursStart: v.optional(v.string()),
+    outreachAllowedHoursEnd: v.optional(v.string()),
+    outreachAllowedTimezone: v.optional(v.string()),
+    outreachFallbackMethod: v.optional(v.string()),
     notes: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     // Search
@@ -523,6 +658,9 @@ async function searchContacts(
     phone: contact.customProperties?.phone,
     jobTitle: contact.customProperties?.jobTitle,
     company: contact.customProperties?.company,
+    outreachPreferences: withContactOutreachDefaults(
+      contact.customProperties?.outreachPreferences
+    ),
     type: contact.subtype,
     status: contact.status,
   }));
@@ -556,6 +694,16 @@ async function createContact(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any
 ) {
+  const outreachPreferences = withContactOutreachDefaults({
+    preferredChannel: args.preferredOutreachChannel,
+    allowedHours: {
+      start: args.outreachAllowedHoursStart,
+      end: args.outreachAllowedHoursEnd,
+      timezone: args.outreachAllowedTimezone,
+    },
+    fallbackMethod: args.outreachFallbackMethod,
+  });
+
   // Create CRM contact in objects table (NOT users table!)
   const contactId = await (ctx as any).runMutation(
     generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact,
@@ -570,6 +718,7 @@ async function createContact(
       jobTitle: args.jobTitle,
       company: args.organizationName, // Store company name in contact if provided
       tags: args.tags,
+      outreachPreferences,
     }
   );
 
@@ -664,6 +813,9 @@ async function getOrganizationContacts(
     email: contact.customProperties?.email,
     jobTitle: contact.customProperties?.jobTitle,
     phone: contact.customProperties?.phone,
+    outreachPreferences: withContactOutreachDefaults(
+      contact.customProperties?.outreachPreferences
+    ),
   }));
 
   return {

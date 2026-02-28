@@ -5,7 +5,8 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { mutation, query, type QueryCtx } from "../_generated/server";
 
 /**
  * Generate a URL-friendly slug from a title
@@ -46,14 +47,370 @@ function generateSlug(title: string): string {
 interface ConversationModelResolution {
   requestedModel?: string;
   selectedModel: string;
+  usedModel?: string;
+  selectedAuthProfileId?: string;
+  usedAuthProfileId?: string;
   selectionSource: string;
   fallbackUsed: boolean;
   fallbackReason?: string;
 }
 
+export interface ConversationRoutingPin {
+  modelId?: string;
+  authProfileId?: string;
+  pinReason: string;
+  pinnedAt: number;
+  updatedAt: number;
+  unlockReason?: string;
+  unlockedAt?: number;
+}
+
+export const CONVERSATION_CONTINUITY_CONTRACT_VERSION =
+  "yai_conversation_continuity_v1" as const;
+
+export type ConversationIngressSurface =
+  | "chat"
+  | "desktop"
+  | "iphone"
+  | "android"
+  | "webchat"
+  | "voice"
+  | "camera";
+
+export type ConversationIdempotencyIntentType =
+  | "ingress"
+  | "orchestration"
+  | "proposal"
+  | "commit";
+
+export type ConversationIdempotencyReplayOutcome =
+  | "accepted"
+  | "duplicate_acknowledged"
+  | "replay_previous_result"
+  | "conflict_commit_in_progress";
+
+interface ConversationCollaborationTelemetryInput {
+  threadType?: "group_thread" | "dm_thread";
+  threadId?: string;
+  groupThreadId?: string;
+  dmThreadId?: string;
+  lineageId?: string;
+  correlationId?: string;
+  workflowKey?: string;
+  authorityIntentType?: string;
+}
+
+export interface ConversationContinuityTelemetryInput {
+  conversationId: string;
+  organizationId: string;
+  userId: string;
+  ingressSurface: ConversationIngressSurface;
+  previousIngressSurface?: ConversationIngressSurface;
+  occurredAt?: number;
+  collaboration?: ConversationCollaborationTelemetryInput;
+  idempotencyKey: string;
+  idempotencyContract?: {
+    scopeKey?: string;
+    payloadHash?: string;
+    intentType?: string;
+    replayOutcome?: string;
+  };
+}
+
+export interface ConversationContinuityTelemetry {
+  contractVersion: typeof CONVERSATION_CONTINUITY_CONTRACT_VERSION;
+  organizationId: string;
+  userId: string;
+  conversationId: string;
+  continuityKey: string;
+  occurredAt: number;
+  ingressSurface: ConversationIngressSurface;
+  previousIngressSurface?: ConversationIngressSurface;
+  crossChannelContinuation: boolean;
+  sessionThreadType: "group_thread" | "dm_thread";
+  sessionThreadId: string;
+  groupThreadId: string;
+  dmThreadId?: string;
+  lineageId?: string;
+  correlationId?: string;
+  workflowKey?: string;
+  authorityIntentType?: string;
+  idempotency: {
+    key: string;
+    scopeKey: string;
+    payloadHash?: string;
+    intentType: ConversationIdempotencyIntentType;
+    replayOutcome: ConversationIdempotencyReplayOutcome;
+    isReplay: boolean;
+  };
+}
+
+const CONVERSATION_IDEMPOTENCY_REPLAY_OUTCOMES = new Set<
+  ConversationIdempotencyReplayOutcome
+>([
+  "accepted",
+  "duplicate_acknowledged",
+  "replay_previous_result",
+  "conflict_commit_in_progress",
+]);
+
+const CONVERSATION_IDEMPOTENCY_REPLAY_ONLY_OUTCOMES = new Set<
+  ConversationIdempotencyReplayOutcome
+>([
+  "duplicate_acknowledged",
+  "replay_previous_result",
+  "conflict_commit_in_progress",
+]);
+
+const CONVERSATION_IDEMPOTENCY_INTENT_TYPES = new Set<
+  ConversationIdempotencyIntentType
+>([
+  "ingress",
+  "orchestration",
+  "proposal",
+  "commit",
+]);
+
+function normalizeConversationIdempotencyReplayOutcome(
+  value: unknown
+): ConversationIdempotencyReplayOutcome {
+  const normalized = normalizeNonEmptyString(value);
+  if (
+    normalized &&
+    CONVERSATION_IDEMPOTENCY_REPLAY_OUTCOMES.has(
+      normalized as ConversationIdempotencyReplayOutcome
+    )
+  ) {
+    return normalized as ConversationIdempotencyReplayOutcome;
+  }
+  return "accepted";
+}
+
+function normalizeConversationIdempotencyIntentType(
+  value: unknown
+): ConversationIdempotencyIntentType {
+  const normalized = normalizeNonEmptyString(value);
+  if (
+    normalized &&
+    CONVERSATION_IDEMPOTENCY_INTENT_TYPES.has(
+      normalized as ConversationIdempotencyIntentType
+    )
+  ) {
+    return normalized as ConversationIdempotencyIntentType;
+  }
+  return "ingress";
+}
+
+/**
+ * Build deterministic continuity telemetry for chat-first parity across desktop/mobile.
+ * Contract aligns conversation-level routing pins with collaboration kernel identities.
+ */
+export function buildConversationContinuityTelemetry(
+  input: ConversationContinuityTelemetryInput
+): ConversationContinuityTelemetry {
+  const conversationId = normalizeNonEmptyString(input.conversationId);
+  const organizationId = normalizeNonEmptyString(input.organizationId);
+  const userId = normalizeNonEmptyString(input.userId);
+  const idempotencyKey = normalizeNonEmptyString(input.idempotencyKey);
+  if (!conversationId || !organizationId || !userId || !idempotencyKey) {
+    throw new Error(
+      "Continuity telemetry requires non-empty conversationId, organizationId, userId, and idempotencyKey."
+    );
+  }
+
+  const collaboration = input.collaboration;
+  const groupThreadId =
+    normalizeNonEmptyString(collaboration?.groupThreadId) || conversationId;
+  const sessionThreadId =
+    normalizeNonEmptyString(collaboration?.threadId) || groupThreadId;
+  const sessionThreadType: "group_thread" | "dm_thread" =
+    collaboration?.threadType === "dm_thread" ? "dm_thread" : "group_thread";
+  const lineageId = normalizeNonEmptyString(collaboration?.lineageId);
+  const continuityIdentity = lineageId || groupThreadId;
+  const continuityKey = [
+    organizationId,
+    continuityIdentity,
+    sessionThreadId,
+  ].join(":");
+
+  const idempotencyIntentType = normalizeConversationIdempotencyIntentType(
+    input.idempotencyContract?.intentType || collaboration?.authorityIntentType
+  );
+  const idempotencyReplayOutcome =
+    normalizeConversationIdempotencyReplayOutcome(
+      input.idempotencyContract?.replayOutcome
+    );
+  const idempotencyScopeKey =
+    normalizeNonEmptyString(input.idempotencyContract?.scopeKey) ||
+    [organizationId, continuityIdentity, idempotencyIntentType].join(":");
+  const occurredAt = normalizeOptionalTimestamp(input.occurredAt) ?? Date.now();
+  const previousIngressSurface = input.previousIngressSurface;
+
+  return {
+    contractVersion: CONVERSATION_CONTINUITY_CONTRACT_VERSION,
+    organizationId,
+    userId,
+    conversationId,
+    continuityKey,
+    occurredAt,
+    ingressSurface: input.ingressSurface,
+    previousIngressSurface,
+    crossChannelContinuation:
+      typeof previousIngressSurface === "string" &&
+      previousIngressSurface !== input.ingressSurface,
+    sessionThreadType,
+    sessionThreadId,
+    groupThreadId,
+    dmThreadId: normalizeNonEmptyString(collaboration?.dmThreadId),
+    lineageId,
+    correlationId: normalizeNonEmptyString(collaboration?.correlationId),
+    workflowKey: normalizeNonEmptyString(collaboration?.workflowKey),
+    authorityIntentType: normalizeNonEmptyString(
+      collaboration?.authorityIntentType
+    ),
+    idempotency: {
+      key: idempotencyKey,
+      scopeKey: idempotencyScopeKey,
+      payloadHash: normalizeNonEmptyString(input.idempotencyContract?.payloadHash),
+      intentType: idempotencyIntentType,
+      replayOutcome: idempotencyReplayOutcome,
+      isReplay: CONVERSATION_IDEMPOTENCY_REPLAY_ONLY_OUTCOMES.has(
+        idempotencyReplayOutcome
+      ),
+    },
+  };
+}
+
 interface ConversationModelResolutionRecord {
   timestamp: number;
   modelResolution?: ConversationModelResolution;
+}
+
+export interface SupportEscalationCriteriaInput {
+  requestedHuman: boolean;
+  billingDispute: boolean;
+  accountSecurityRisk: boolean;
+  legalRisk: boolean;
+  unresolvedCheckFailures: number;
+  frustrationSignals: number;
+  unsupportedRequest: boolean;
+}
+
+export interface SupportEscalationDecision {
+  shouldEscalate: boolean;
+  urgency: "low" | "normal" | "high";
+  matchedCriteria: string[];
+}
+
+/**
+ * Deterministic support escalation contract used by support endpoints/workflows.
+ * Any matched high-impact criterion forces escalation.
+ */
+export function evaluateSupportEscalationCriteria(
+  input: SupportEscalationCriteriaInput
+): SupportEscalationDecision {
+  const matchedCriteria: string[] = [];
+
+  if (input.requestedHuman) {
+    matchedCriteria.push("explicit_human_request");
+  }
+  if (input.billingDispute) {
+    matchedCriteria.push("billing_dispute_or_refund");
+  }
+  if (input.accountSecurityRisk) {
+    matchedCriteria.push("account_or_security_risk");
+  }
+  if (input.legalRisk) {
+    matchedCriteria.push("legal_or_compliance_risk");
+  }
+  if (input.unresolvedCheckFailures >= 2) {
+    matchedCriteria.push("repeated_unresolved_verification");
+  }
+  if (input.frustrationSignals >= 2) {
+    matchedCriteria.push("high_negative_sentiment");
+  }
+  if (input.unsupportedRequest) {
+    matchedCriteria.push("unsupported_request_path");
+  }
+
+  const highUrgencyCriteria = new Set([
+    "billing_dispute_or_refund",
+    "account_or_security_risk",
+    "legal_or_compliance_risk",
+  ]);
+  const shouldEscalate = matchedCriteria.length > 0;
+  const urgency: "low" | "normal" | "high" = matchedCriteria.some((criterion) =>
+    highUrgencyCriteria.has(criterion)
+  )
+    ? "high"
+    : shouldEscalate
+    ? "normal"
+    : "low";
+
+  return {
+    shouldEscalate,
+    urgency,
+    matchedCriteria,
+  };
+}
+
+async function hydrateMessagesWithAttachments(
+  ctx: QueryCtx,
+  messages: Array<{
+    _id: Id<"aiMessages">;
+    role: "system" | "user" | "assistant" | "tool";
+    content: string;
+    collaboration?: {
+      surface: "group" | "dm";
+      threadType: "group_thread" | "dm_thread";
+      threadId: string;
+      groupThreadId: string;
+      dmThreadId?: string;
+      lineageId?: string;
+      correlationId?: string;
+      workflowKey?: string;
+      authorityIntentType?: string;
+      visibilityScope: "group" | "dm" | "operator_only" | "system";
+      specialistAgentId?: string;
+      specialistLabel?: string;
+    };
+    timestamp: number;
+  }>
+) {
+  return await Promise.all(
+    messages.map(async (message) => {
+      const attachments = await ctx.db
+        .query("aiMessageAttachments")
+        .withIndex("by_message", (q) => q.eq("messageId", message._id))
+        .collect();
+
+      if (!attachments || attachments.length === 0) {
+        return message;
+      }
+
+      const resolvedAttachments = await Promise.all(
+        attachments.map(async (attachment) => {
+          const url = await ctx.storage.getUrl(attachment.storageId);
+          return {
+            _id: attachment._id,
+            kind: attachment.kind,
+            storageId: attachment.storageId,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            width: attachment.width,
+            height: attachment.height,
+            url: url ?? undefined,
+          };
+        })
+      );
+
+      return {
+        ...message,
+        attachments: resolvedAttachments,
+      };
+    })
+  );
 }
 
 export interface ModelFallbackAggregation {
@@ -67,7 +424,19 @@ export interface ModelFallbackAggregation {
   fallbackReasons: Array<{ reason: string; count: number }>;
 }
 
-function normalizeModelResolution(
+function normalizeNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeOptionalTimestamp(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function normalizeConversationModelResolution(
   value: unknown
 ): ConversationModelResolution | null {
   if (!value || typeof value !== "object") {
@@ -75,10 +444,9 @@ function normalizeModelResolution(
   }
 
   const record = value as Record<string, unknown>;
-  if (typeof record.selectedModel !== "string") {
-    return null;
-  }
-  if (typeof record.selectionSource !== "string") {
+  const selectedModel = normalizeNonEmptyString(record.selectedModel);
+  const selectionSource = normalizeNonEmptyString(record.selectionSource);
+  if (!selectedModel || !selectionSource) {
     return null;
   }
   if (typeof record.fallbackUsed !== "boolean") {
@@ -86,13 +454,42 @@ function normalizeModelResolution(
   }
 
   return {
-    requestedModel:
-      typeof record.requestedModel === "string" ? record.requestedModel : undefined,
-    selectedModel: record.selectedModel,
-    selectionSource: record.selectionSource,
+    requestedModel: normalizeNonEmptyString(record.requestedModel),
+    selectedModel,
+    usedModel: normalizeNonEmptyString(record.usedModel),
+    selectedAuthProfileId: normalizeNonEmptyString(record.selectedAuthProfileId),
+    usedAuthProfileId: normalizeNonEmptyString(record.usedAuthProfileId),
+    selectionSource,
     fallbackUsed: record.fallbackUsed,
-    fallbackReason:
-      typeof record.fallbackReason === "string" ? record.fallbackReason : undefined,
+    fallbackReason: normalizeNonEmptyString(record.fallbackReason),
+  };
+}
+
+export function normalizeConversationRoutingPin(
+  value: unknown
+): ConversationRoutingPin | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const modelId = normalizeNonEmptyString(record.modelId);
+  const authProfileId = normalizeNonEmptyString(record.authProfileId);
+  const pinReason = normalizeNonEmptyString(record.pinReason);
+  const pinnedAt = normalizeOptionalTimestamp(record.pinnedAt);
+  const updatedAt = normalizeOptionalTimestamp(record.updatedAt);
+  if (!pinReason || pinnedAt === undefined || updatedAt === undefined) {
+    return null;
+  }
+
+  return {
+    modelId,
+    authProfileId,
+    pinReason,
+    pinnedAt,
+    updatedAt,
+    unlockReason: normalizeNonEmptyString(record.unlockReason),
+    unlockedAt: normalizeOptionalTimestamp(record.unlockedAt),
   };
 }
 
@@ -106,7 +503,7 @@ export function aggregateConversationModelFallback(
   const fallbackReasonCounts = new Map<string, number>();
 
   for (const record of records) {
-    const normalized = normalizeModelResolution(record.modelResolution);
+    const normalized = normalizeConversationModelResolution(record.modelResolution);
     if (!normalized) {
       continue;
     }
@@ -199,9 +596,12 @@ export const getConversation = query({
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
+    const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
+    const hydratedMessages = await hydrateMessagesWithAttachments(ctx, sortedMessages);
+
     return {
       ...conversation,
-      messages: messages.sort((a, b) => a.timestamp - b.timestamp),
+      messages: hydratedMessages,
     };
   },
 });
@@ -229,9 +629,12 @@ export const getConversationBySlug = query({
       .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
       .collect();
 
+    const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
+    const hydratedMessages = await hydrateMessagesWithAttachments(ctx, sortedMessages);
+
     return {
       ...conversation,
-      messages: messages.sort((a, b) => a.timestamp - b.timestamp),
+      messages: hydratedMessages,
     };
   },
 });
@@ -282,12 +685,35 @@ export const addMessage = mutation({
     modelResolution: v.optional(v.object({
       requestedModel: v.optional(v.string()),
       selectedModel: v.string(),
+      usedModel: v.optional(v.string()),
+      selectedAuthProfileId: v.optional(v.string()),
+      usedAuthProfileId: v.optional(v.string()),
       selectionSource: v.string(),
       fallbackUsed: v.boolean(),
       fallbackReason: v.optional(v.string()),
     })),
+    collaboration: v.optional(v.object({
+      surface: v.union(v.literal("group"), v.literal("dm")),
+      threadType: v.union(v.literal("group_thread"), v.literal("dm_thread")),
+      threadId: v.string(),
+      groupThreadId: v.string(),
+      dmThreadId: v.optional(v.string()),
+      lineageId: v.optional(v.string()),
+      correlationId: v.optional(v.string()),
+      workflowKey: v.optional(v.string()),
+      authorityIntentType: v.optional(v.string()),
+      visibilityScope: v.union(
+        v.literal("group"),
+        v.literal("dm"),
+        v.literal("operator_only"),
+        v.literal("system"),
+      ),
+      specialistAgentId: v.optional(v.string()),
+      specialistLabel: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
+    const messageModelId = args.modelResolution?.usedModel ?? args.modelResolution?.selectedModel;
     // Add message
     const messageId = await ctx.db.insert("aiMessages", {
       conversationId: args.conversationId,
@@ -296,14 +722,15 @@ export const addMessage = mutation({
       timestamp: args.timestamp,
       toolCalls: args.toolCalls,
       modelResolution: args.modelResolution,
-      modelId: args.modelResolution?.selectedModel,
+      modelId: messageModelId,
+      collaboration: args.collaboration,
     });
 
     // Update conversation timestamp
     const conversation = await ctx.db.get(args.conversationId);
     if (conversation) {
       await ctx.db.patch(args.conversationId, {
-        modelId: args.modelResolution?.selectedModel ?? conversation.modelId,
+        modelId: messageModelId ?? conversation.modelId,
         updatedAt: Date.now(),
       });
     }
@@ -347,6 +774,44 @@ export const setConversationModel = mutation({
 });
 
 /**
+ * Upsert conversation-level routing pin metadata (model + auth profile).
+ * Mirrors agent session pin payload so desktop chat follows deterministic parity.
+ */
+export const upsertConversationRoutingPin = mutation({
+  args: {
+    conversationId: v.id("aiConversations"),
+    modelId: v.optional(v.string()),
+    authProfileId: v.optional(v.string()),
+    pinReason: v.string(),
+    unlockReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return;
+
+    const now = Date.now();
+    const existingPin = normalizeConversationRoutingPin(
+      (conversation as Record<string, unknown>).routingPin
+    );
+    const nextModelId = args.modelId ?? existingPin?.modelId;
+
+    await ctx.db.patch(args.conversationId, {
+      routingPin: {
+        modelId: nextModelId,
+        authProfileId: args.authProfileId ?? existingPin?.authProfileId,
+        pinReason: args.pinReason,
+        pinnedAt: existingPin?.pinnedAt ?? now,
+        updatedAt: now,
+        unlockReason: args.unlockReason,
+        unlockedAt: args.unlockReason ? now : undefined,
+      },
+      modelId: nextModelId ?? conversation.modelId,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
  * Clear all messages from a conversation (for debugging/testing)
  */
 export const clearConversationMessages = mutation({
@@ -359,14 +824,26 @@ export const clearConversationMessages = mutation({
       .query("aiMessages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
+    const now = Date.now();
 
     for (const message of messages) {
+      const attachments = await ctx.db
+        .query("aiMessageAttachments")
+        .withIndex("by_message", (q) => q.eq("messageId", message._id))
+        .collect();
+      for (const attachment of attachments) {
+        await ctx.db.patch(attachment._id, {
+          messageId: undefined,
+          status: "orphaned",
+          updatedAt: now,
+        });
+      }
       await ctx.db.delete(message._id);
     }
 
     // Update conversation timestamp
     await ctx.db.patch(args.conversationId, {
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     console.log(`[AI Conversations] Cleared ${messages.length} messages from conversation ${args.conversationId}`);

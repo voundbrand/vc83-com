@@ -54,6 +54,17 @@ const DEFAULT_EXPLICIT_REQUEST_PATTERNS = [
   "live agent",
 ];
 
+const PRIVILEGED_GATE_BYPASS_PATTERNS = [
+  "bypass approval",
+  "skip approval",
+  "ignore approval",
+  "bypass guardrail",
+  "disable guardrail",
+  "skip consent",
+  "force apply in production",
+  "apply without approval",
+];
+
 export const DEFAULT_UNCERTAINTY_PHRASES = [
   "i'm not sure",
   "i don't have that information",
@@ -172,8 +183,77 @@ export interface EscalationPolicy {
 
 export type ToolApprovalAutonomyLevel =
   | "supervised"
+  | "sandbox"
   | "autonomous"
+  | "delegation"
   | "draft_only";
+
+function normalizeApprovalPayloadString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function requiresAppointmentCallHITL(args: {
+  toolName: string;
+  toolArgs?: Record<string, unknown>;
+}): boolean {
+  if (args.toolName !== "manage_bookings") {
+    return false;
+  }
+  const toolArgs = args.toolArgs;
+  if (!toolArgs) {
+    return false;
+  }
+  const action = normalizeApprovalPayloadString(toolArgs.action);
+  if (action !== "execute_appointment_outreach") {
+    return false;
+  }
+
+  const preferredChannel = normalizeApprovalPayloadString(
+    toolArgs.preferredOutreachChannel
+  );
+  const fallbackMethod = normalizeApprovalPayloadString(
+    toolArgs.outreachFallbackMethod
+  );
+  const requestedAutonomy = normalizeApprovalPayloadString(
+    toolArgs.autonomyDomainLevel
+  );
+  const callFallbackApproved = toolArgs.callFallbackApproved === true;
+
+  return (
+    preferredChannel === "phone_call" ||
+    fallbackMethod === "phone_call" ||
+    requestedAutonomy === "live" ||
+    callFallbackApproved
+  );
+}
+
+function requiresPolymarketLiveExecutionHITL(args: {
+  toolName: string;
+  toolArgs?: Record<string, unknown>;
+}): boolean {
+  if (args.toolName !== "execute_polymarket_live") {
+    return false;
+  }
+  const toolArgs = args.toolArgs;
+  if (!toolArgs) {
+    return true;
+  }
+  const action = normalizeApprovalPayloadString(toolArgs.action);
+  if (action && action !== "execute_live_order") {
+    return false;
+  }
+  const requestedMode = normalizeApprovalPayloadString(
+    toolArgs.executionMode ?? toolArgs.mode,
+  );
+  if (requestedMode && requestedMode !== "live") {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Shared tool-approval decision helper used by chat + agent runtimes.
@@ -182,12 +262,21 @@ export function shouldRequireToolApproval(args: {
   autonomyLevel: ToolApprovalAutonomyLevel;
   toolName: string;
   requireApprovalFor?: string[];
+  toolArgs?: Record<string, unknown>;
 }): boolean {
+  if (requiresAppointmentCallHITL(args)) {
+    return true;
+  }
+
+  if (requiresPolymarketLiveExecutionHITL(args)) {
+    return true;
+  }
+
   if (args.autonomyLevel === "supervised") {
     return true;
   }
 
-  if (args.autonomyLevel === "draft_only") {
+  if (args.autonomyLevel === "draft_only" || args.autonomyLevel === "sandbox") {
     return false;
   }
 
@@ -243,6 +332,16 @@ export function checkPreLLMEscalation(
 ): EscalationTrigger | null {
   const policy = resolvePolicy(config.escalationPolicy);
   const msgLower = message.toLowerCase();
+
+  for (const pattern of PRIVILEGED_GATE_BYPASS_PATTERNS) {
+    if (msgLower.includes(pattern)) {
+      return {
+        reason: "Privileged gate bypass intent detected",
+        urgency: "high",
+        triggerType: "privileged_gate_bypass",
+      };
+    }
+  }
 
   // 1. Explicit human request patterns (cheapest check)
   const explicitCfg = policy.triggers.explicitRequest!;
@@ -532,6 +631,47 @@ export const createEscalation = internalMutation({
       teamSession: session?.teamSession,
       disabledTools: session?.errorState?.disabledTools,
     });
+    const existingEscalationState = session?.escalationState;
+
+    let supportTicketId = existingEscalationState?.supportTicketId;
+    let supportTicketNumber = existingEscalationState?.supportTicketNumber;
+    let supportTicketCreatedAt = existingEscalationState?.supportTicketCreatedAt;
+
+    if (!supportTicketId || !supportTicketNumber) {
+      const recentMessages = await ctx.db
+        .query("agentSessionMessages")
+        .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+        .order("desc")
+        .take(6);
+      const transcriptSummary = recentMessages
+        .slice()
+        .reverse()
+        .map((message) => `${message.role}: ${message.content}`)
+        .join("\n")
+        .slice(0, 2000);
+
+      const ticket = await (ctx as any).runMutation(
+        generatedApi.internal.ticketOntology.createSupportEscalationTicketInternal,
+        {
+          organizationId: args.organizationId,
+          sessionId: args.sessionId,
+          agentId: args.agentId,
+          reason: args.reason,
+          urgency: args.urgency,
+          triggerType: args.triggerType,
+          transcriptSummary,
+          contactIdentifier: session?.externalContactIdentifier,
+          userId: undefined,
+        },
+      ) as {
+        ticketId: Id<"objects">;
+        ticketNumber: string;
+      };
+
+      supportTicketId = ticket.ticketId;
+      supportTicketNumber = ticket.ticketNumber;
+      supportTicketCreatedAt = now;
+    }
 
     // Patch session with escalation state
     await ctx.db.patch(args.sessionId, {
@@ -541,6 +681,9 @@ export const createEscalation = internalMutation({
         urgency: args.urgency,
         triggerType: args.triggerType,
         escalatedAt: now,
+        supportTicketId,
+        supportTicketNumber,
+        supportTicketCreatedAt,
       },
     });
 
@@ -558,6 +701,8 @@ export const createEscalation = internalMutation({
           urgency: args.urgency,
           triggerType: args.triggerType,
           reason: args.reason,
+          supportTicketId,
+          supportTicketNumber,
           harnessContext,
         },
       },
@@ -572,6 +717,8 @@ export const createEscalation = internalMutation({
           reason: args.reason,
           urgency: args.urgency,
           triggerType: args.triggerType,
+          supportTicketId,
+          supportTicketNumber,
           harnessContext,
         },
       });
@@ -589,6 +736,8 @@ export const createEscalation = internalMutation({
         reason: args.reason,
         urgency: args.urgency,
         triggerType: args.triggerType,
+        supportTicketId,
+        supportTicketNumber,
         harnessContext,
       },
       performedAt: now,

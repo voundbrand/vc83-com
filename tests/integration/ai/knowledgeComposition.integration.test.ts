@@ -35,4 +35,29 @@ describe("knowledge composition integration", () => {
     expect(composed.telemetry.documentCount).toBe(composed.documents.length);
     expect(composed.telemetry.totalBytes).toBeGreaterThan(0);
   });
+
+  it("hydrates support-specific docs when support triggers are requested", () => {
+    const composed = composeKnowledgeContract("customer", [
+      "support_runtime",
+      "support_billing",
+    ]);
+
+    const prompt = buildAgentSystemPrompt(
+      {
+        displayName: "Support Agent",
+        autonomyLevel: "autonomous",
+      },
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      composed,
+    );
+
+    expect(composed.documents.some((doc) => doc.id === "support-troubleshooting-playbook")).toBe(true);
+    expect(composed.documents.some((doc) => doc.id === "support-pricing-billing-reference")).toBe(true);
+    expect(prompt).toContain("Support Troubleshooting Playbook");
+    expect(prompt).toContain("Support Pricing and Billing Reference");
+  });
 });
