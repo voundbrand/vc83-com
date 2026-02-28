@@ -130,9 +130,9 @@ describe("Slack signature boundary integration", () => {
       type: "event_callback",
       event_id: "EvThread1",
       event: {
-        type: "message",
+        type: "app_mention",
         user: "U777",
-        text: "thread update",
+        text: "<@U-BOT> thread update",
         channel: "C999",
         ts: "1700000010.001",
         thread_ts: "1700000000.123",

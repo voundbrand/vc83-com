@@ -1,7 +1,31 @@
-# Slack Integration Workstream Master Plan
+# Slack Integration Workstream Master Plan (Superseded)
 
 **Date:** 2026-02-18  
-**Scope:** Add Slack as a first-party integration on the platform with secure OAuth, inbound event processing, and outbound messaging support.
+**Scope:** Add Slack as a first-party integration on the platform with secure OAuth, inbound event processing, and outbound messaging support.  
+**Status:** `SUPERSEDED` / `DEPRECATED` as of 2026-02-24
+
+---
+
+## Superseded status and canonical ownership
+
+This document is archived for historical traceability only.  
+Canonical Slack architecture planning/execution is now tracked in ACE lane `G`:
+
+1. `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/MASTER_PLAN.md`
+2. `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/SLACK_MULTI_TENANT_ENDPOINT_MANIFEST_IMPLEMENTATION_PLAN.md`
+3. `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/INTEGRATION_ENDPOINT_MIGRATION_PROVIDER_PLAYBOOK.md`
+
+Re-validation against current implementation (2026-02-24):
+
+1. Unified Slack ingress is implemented at `/integrations/slack/events`, `/integrations/slack/commands`, and `/integrations/slack/interactivity` with legacy aliases preserved in `convex/http.ts`.
+2. Provider-agnostic endpoint and tenant-resolution contracts exist in `convex/integrations/endpointResolver.ts` and `convex/integrations/tenantResolver.ts`.
+3. Slack OAuth callback endpoint resolution is unified to `/integrations/slack/oauth/callback` in `convex/oauth/slack.ts`, with compatibility callback handlers still present.
+4. Manifest generation/runtime UX uses the unified endpoint bundle and pre-manifest wizard controls in `src/components/window-content/integrations-window/slack-settings.tsx`.
+
+Archive rule:
+
+1. Do not open new Slack architecture scope in this plan.
+2. Use ACE lane `G` artifacts for all active changes and migration/provider-extension decisions.
 
 ---
 
@@ -15,7 +39,7 @@ Deliver a production-safe Slack integration where organizations can:
 
 ---
 
-## Current state in this codebase
+## Historical state snapshot (2026-02-17 baseline; superseded)
 
 1. `oauthConnections` schema already includes `provider: "slack"` in `convex/schemas/coreSchemas.ts`.
 2. Integrations UI already shows a Slack card, but it is `coming_soon` in `src/components/window-content/integrations-window/index.tsx`.
@@ -190,6 +214,8 @@ Mitigation: add structured logs/metrics for connect failures, webhook rejects, a
 
 ## Slack app registration quick setup (external prerequisite)
 
+> Historical snapshot only. Canonical endpoint contracts are now `/integrations/slack/*` in ACE lane `G` docs.
+
 1. Create a Slack app at [https://api.slack.com/apps](https://api.slack.com/apps) using **From scratch**.
 2. In **OAuth & Permissions**, add your bot scopes for v1 (core: `chat:write`, `app_mentions:read`, `channels:history`, `channels:read`; add `commands` only when slash commands rollout is enabled) and set the redirect URL to your callback endpoint (`/api/oauth/slack/callback`).
 3. In **Event Subscriptions**, enable events and set the Request URL to your Slack events endpoint (for example `/slack/events` on your Convex HTTP domain); subscribe to bot events you need (at minimum `app_mention`, plus message events if required by scope).
@@ -202,6 +228,8 @@ Mitigation: add structured logs/metrics for connect failures, webhook rejects, a
 ## Lane F operator runbook + user setup guide (`SLI-011`)
 
 ### Slack endpoint matrix (register these exact URLs)
+
+> Deprecated matrix retained for historical context. Do not use this as the current source of truth.
 
 | Environment | OAuth callback URL (Slack Redirect URL) | Events API URL (Slack Request URL) |
 |---|---|---|

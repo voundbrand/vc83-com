@@ -1,13 +1,17 @@
-# Slack Integration Workstream Index
+# Slack Integration Workstream Index (Superseded)
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/slack-integration-workstream`  
-**Source request:** Set up Slack as a first-party platform integration using queue-first CI planning/docs structure (2026-02-17)
+**Source request:** Set up Slack as a first-party platform integration using queue-first CI planning/docs structure (2026-02-17)  
+**Status:** `SUPERSEDED` / `DEPRECATED` as of 2026-02-24
+
+> This workstream is archived. Canonical Slack architecture and ongoing integration planning moved to Agent Creation Experience (ACE) lane `G`.
 
 ---
 
 ## Purpose
 
-Queue-first execution layer for Slack integration delivery across OAuth lifecycle, channel runtime, security hardening, and rollout closeout.
+Historical archive for the original Slack-first delivery stream (`SLI-*`).  
+Do not open new Slack architecture work in this folder.
 
 ---
 
@@ -20,9 +24,20 @@ Queue-first execution layer for Slack integration delivery across OAuth lifecycl
 
 ---
 
+## Canonical references (active)
+
+Use these ACE artifacts for current and future Slack integration work:
+
+1. Master plan (authoritative): `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/MASTER_PLAN.md`
+2. Slack unified endpoint + pre-manifest design: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/SLACK_MULTI_TENANT_ENDPOINT_MANIFEST_IMPLEMENTATION_PLAN.md`
+3. Migration/backfill + rollback + provider extension playbook: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/INTEGRATION_ENDPOINT_MIGRATION_PROVIDER_PLAYBOOK.md`
+4. Execution queue (lane `G` complete history): `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/TASK_QUEUE.md`
+
+---
+
 ## Status
 
-Current kickoff:
+Historical closeout (retained for traceability):
 
 1. `SLI-001` (`DONE`): baseline audit + v1 scope lock with frozen v1 exclusions.
 2. `SLI-002` (`DONE`): environment/secrets + feature-flag contract completed and verified (`npm run typecheck`, `npm run lint`, `npm run docs:guard`).
@@ -33,22 +48,18 @@ Current kickoff:
 7. `SLI-011` (`DONE`): lane `F` operator runbook and user setup guide published with exact local/staging/prod callback + events URL matrix.
 8. `SLI-012` (`DONE`): launch readiness review and queue/docs closeout verified with full pass (`typecheck`, `lint`, `test:unit`, `test:integration`, `docs:guard`).
 
-Closeout state:
+Superseded assessment (re-validated 2026-02-24):
 
-1. Lane `D` + lane `E` implementation gates are complete (`SLI-008`, `SLI-010`).
-2. Lane `F` documentation and launch-readiness closeout is complete (`SLI-011`, `SLI-012`).
-3. `TASK_QUEUE.md`, `MASTER_PLAN.md`, and `INDEX.md` are synchronized after verification reruns.
+1. Core `SLI-*` implementation goals are delivered, but this workstream no longer represents canonical Slack architecture direction.
+2. Canonical ingress pattern is now unified `/integrations/slack/*` with compatibility aliases, as defined and delivered in ACE lane `G`.
+3. Keep this folder read-only except archive/redirect maintenance updates.
 
 ---
 
 ## Lane progress board
 
-- [x] Lane A (`SLI-001`..`SLI-002` done)
-- [ ] Lane B (`SLI-003`..`SLI-004`, implementation landed; verification blocked on shared `V-TYPE`)
-- [ ] Lane C (`SLI-005`..`SLI-007`, `SLI-006` done; `SLI-005`/`SLI-007` still blocked in queue metadata)
-- [x] Lane D (`SLI-008` done)
-- [x] Lane E (`SLI-009` and `SLI-010` done)
-- [x] Lane F (`SLI-011` and `SLI-012` done)
+- [x] Historical lanes `A`..`F` delivered for the original Slack-first stream.
+- [x] Workstream archived; active architecture ownership moved to ACE lane `G`.
 
 ---
 
@@ -56,5 +67,5 @@ Closeout state:
 
 - Validate docs policy: `npm run docs:guard`
 - Read queue: `cat /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/slack-integration-workstream/TASK_QUEUE.md`
-- Run core checks: `npm run typecheck && npm run lint`
-- Run integration checks: `npm run test:unit && npm run test:integration`
+- Read canonical ACE plan: `cat /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/MASTER_PLAN.md`
+- Read canonical ACE migration playbook: `cat /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-creation-experience-convergence/INTEGRATION_ENDPOINT_MIGRATION_PROVIDER_PLAYBOOK.md`
