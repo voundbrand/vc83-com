@@ -53,24 +53,36 @@ interface UseVoiceRuntimeArgs {
   interviewSessionId?: Id<"agentSessions">;
 }
 
+interface VoiceRuntimeContextOverride {
+  authSessionId?: string;
+  interviewSessionId?: Id<"agentSessions">;
+}
+
 function normalizeProviderId(
   value: VoiceRuntimeProviderId | null | undefined,
 ): VoiceRuntimeProviderId {
   return value === "elevenlabs" ? "elevenlabs" : "browser";
 }
 
-function requireRuntimeContext(args: UseVoiceRuntimeArgs): {
+function requireRuntimeContext(
+  args: UseVoiceRuntimeArgs,
+  override?: VoiceRuntimeContextOverride,
+): {
   authSessionId: string;
   interviewSessionId: Id<"agentSessions">;
 } {
-  if (!args.authSessionId || !args.interviewSessionId) {
+  const authSessionId = override?.authSessionId ?? args.authSessionId;
+  const interviewSessionId =
+    override?.interviewSessionId ?? args.interviewSessionId;
+
+  if (!authSessionId || !interviewSessionId) {
     throw new Error(
       "Voice runtime requires auth session and interview session context.",
     );
   }
   return {
-    authSessionId: args.authSessionId,
-    interviewSessionId: args.interviewSessionId,
+    authSessionId,
+    interviewSessionId,
   };
 }
 
@@ -145,9 +157,10 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       requestedProviderId?: VoiceRuntimeProviderId;
       requestedVoiceId?: string;
       voiceSessionId?: string;
+      runtimeContext?: VoiceRuntimeContextOverride;
     },
   ): Promise<OpenVoiceSessionResult> => {
-    const runtimeContext = requireRuntimeContext(args);
+    const runtimeContext = requireRuntimeContext(args, options?.runtimeContext);
     return (await openVoiceSessionAction({
       sessionId: runtimeContext.authSessionId,
       interviewSessionId: runtimeContext.interviewSessionId,
@@ -161,8 +174,9 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     voiceSessionId: string;
     activeProviderId?: VoiceRuntimeProviderId;
     reason?: string;
+    runtimeContext?: VoiceRuntimeContextOverride;
   }) => {
-    const runtimeContext = requireRuntimeContext(args);
+    const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
     return (await closeVoiceSessionAction({
       sessionId: runtimeContext.authSessionId,
       interviewSessionId: runtimeContext.interviewSessionId,
@@ -174,8 +188,9 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
 
   const probeProviderHealth = async (options?: {
     requestedProviderId?: VoiceRuntimeProviderId;
+    runtimeContext?: VoiceRuntimeContextOverride;
   }): Promise<ProbeVoiceHealthResult> => {
-    const runtimeContext = requireRuntimeContext(args);
+    const runtimeContext = requireRuntimeContext(args, options?.runtimeContext);
     return (await probeVoiceProviderHealthAction({
       sessionId: runtimeContext.authSessionId,
       interviewSessionId: runtimeContext.interviewSessionId,
@@ -189,8 +204,9 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     requestedProviderId?: VoiceRuntimeProviderId;
     requestedVoiceId?: string;
     language?: string;
+    runtimeContext?: VoiceRuntimeContextOverride;
   }): Promise<TranscribeVoiceResult> => {
-    const runtimeContext = requireRuntimeContext(args);
+    const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
     const audioBase64 = await blobToBase64(options.blob);
     return (await transcribeVoiceAudioAction({
       sessionId: runtimeContext.authSessionId,
@@ -210,13 +226,14 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     requestedProviderId?: VoiceRuntimeProviderId;
     requestedVoiceId?: string;
     speakBrowserFallback?: boolean;
+    runtimeContext?: VoiceRuntimeContextOverride;
   }): Promise<
     SynthesizeVoiceResult & {
       playbackDataUrl?: string;
       usedBrowserSpeechSynthesis?: boolean;
     }
   > => {
-    const runtimeContext = requireRuntimeContext(args);
+    const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
     const synthesis = (await synthesizeVoicePreviewAction({
       sessionId: runtimeContext.authSessionId,
       interviewSessionId: runtimeContext.interviewSessionId,

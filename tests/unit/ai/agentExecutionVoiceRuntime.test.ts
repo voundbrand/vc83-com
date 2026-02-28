@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveInboundVoiceRuntimeRequest } from "../../../convex/ai/agentExecution";
+import {
+  resolveInboundVoiceRuntimeRequest,
+  resolveVoiceRuntimeLanguage,
+  resolveVoiceRuntimeVoiceId,
+} from "../../../convex/ai/agentExecution";
 
 describe("agentExecution voice runtime request parsing", () => {
   it("returns null when voice runtime metadata is absent", () => {
@@ -52,5 +56,87 @@ describe("agentExecution voice runtime request parsing", () => {
     });
 
     expect(result?.requestedProviderId).toBe("browser");
+  });
+
+  it("uses agent-level voice language when inbound metadata omits language", () => {
+    const request = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+      },
+    });
+
+    expect(request).not.toBeNull();
+    expect(
+      resolveVoiceRuntimeLanguage({
+        inboundVoiceRequest: request!,
+        agentConfig: {
+          voiceLanguage: "fr",
+          language: "en",
+        },
+      }),
+    ).toBe("fr");
+  });
+
+  it("uses language fallback order inbound -> voiceLanguage -> language", () => {
+    const request = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+        language: "de",
+      },
+    });
+
+    expect(request).not.toBeNull();
+    expect(
+      resolveVoiceRuntimeLanguage({
+        inboundVoiceRequest: request!,
+        agentConfig: {
+          voiceLanguage: "fr",
+          language: "en",
+        },
+      }),
+    ).toBe("de");
+  });
+
+  it("uses voice id fallback order inbound -> agent override -> org default", () => {
+    const request = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+      },
+    });
+
+    expect(request).not.toBeNull();
+    expect(
+      resolveVoiceRuntimeVoiceId({
+        inboundVoiceRequest: request!,
+        agentConfig: {
+          elevenLabsVoiceId: "voice_agent",
+        },
+        orgDefaultVoiceId: "voice_org",
+      }),
+    ).toBe("voice_agent");
+
+    expect(
+      resolveVoiceRuntimeVoiceId({
+        inboundVoiceRequest: {
+          ...request!,
+          requestedVoiceId: "voice_inbound",
+        },
+        agentConfig: {
+          elevenLabsVoiceId: "voice_agent",
+        },
+        orgDefaultVoiceId: "voice_org",
+      }),
+    ).toBe("voice_inbound");
+
+    expect(
+      resolveVoiceRuntimeVoiceId({
+        inboundVoiceRequest: request!,
+        agentConfig: {},
+        orgDefaultVoiceId: "voice_org",
+      }),
+    ).toBe("voice_org");
   });
 });

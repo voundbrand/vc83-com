@@ -33,8 +33,8 @@ const VOICE_ASSISTANT_WINDOW_CONTRACTS: Record<VoiceAssistantWindowId, VoiceAssi
     title: "AI Assistant",
     titleKey: "ui.app.ai_assistant",
     iconId: "ai-assistant",
-    position: { x: 230, y: 70 },
-    size: { width: 1400, height: 1200 },
+    position: { x: 260, y: 56 },
+    size: { width: 430, height: 820 },
     serviceContractId: VOICE_ASSISTANT_SERVICE_CONTRACT.id,
   },
   "brain-voice": {
@@ -59,4 +59,3 @@ export function getVoiceAssistantWindowContract(windowId: VoiceAssistantWindowId
 export function isVoiceAssistantProductCode(code: string): code is VoiceAssistantProductCode {
   return VOICE_ASSISTANT_PRODUCT_CODE_SET.has(code as VoiceAssistantProductCode);
 }
-

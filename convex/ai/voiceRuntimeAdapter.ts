@@ -36,16 +36,40 @@ export interface VoiceSynthesisArgs {
   voiceId?: string;
 }
 
+export interface VoiceSynthesisCancelArgs {
+  voiceSessionId: string;
+  assistantMessageId: string;
+}
+
 export interface VoiceRuntimeSession {
   voiceSessionId: string;
   providerId: VoiceRuntimeProviderId;
   openedAt: number;
 }
 
+export type VoiceUsageCostSource =
+  | "provider_reported"
+  | "estimated_unit_pricing"
+  | "not_available";
+
+export interface VoiceUsageTelemetry {
+  nativeUsageUnit: string;
+  nativeUsageQuantity: number;
+  nativeInputUnits?: number;
+  nativeOutputUnits?: number;
+  nativeTotalUnits?: number;
+  nativeCostInCents?: number;
+  nativeCostCurrency?: string;
+  nativeCostSource: VoiceUsageCostSource;
+  providerRequestId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface VoiceTranscriptionResult {
   text: string;
   providerId: VoiceRuntimeProviderId;
   confidence?: number;
+  usage?: VoiceUsageTelemetry;
   raw?: unknown;
 }
 
@@ -54,6 +78,15 @@ export interface VoiceSynthesisResult {
   mimeType: string;
   audioBase64?: string;
   fallbackText?: string;
+  usage?: VoiceUsageTelemetry;
+  raw?: unknown;
+}
+
+export interface VoiceSynthesisCancelResult {
+  providerId: VoiceRuntimeProviderId;
+  cancelled: boolean;
+  idempotent: boolean;
+  reason?: string;
   raw?: unknown;
 }
 
@@ -64,6 +97,9 @@ export interface VoiceRuntimeAdapter {
   closeSession(args: VoiceRuntimeSessionCloseArgs): Promise<void>;
   transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult>;
   synthesize(args: VoiceSynthesisArgs): Promise<VoiceSynthesisResult>;
+  cancelSynthesis(
+    args: VoiceSynthesisCancelArgs,
+  ): Promise<VoiceSynthesisCancelResult>;
 }
 
 export interface ElevenLabsBinding {
@@ -105,8 +141,18 @@ type NonBrowserVoiceRuntimeProviderId = Exclude<
 const ELEVENLABS_DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
 const ELEVENLABS_DEFAULT_STT_MODEL = "scribe_v1";
 const ELEVENLABS_DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
+const ELEVENLABS_ESTIMATED_STT_USD_PER_HOUR = 0.4;
+const ELEVENLABS_ESTIMATED_TTS_USD_PER_1K_CHAR = 0.3;
+const ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND = 4_000;
 const BROWSER_ADAPTER_UNSUPPORTED_REASON =
   "browser_runtime_requires_client_side_voice_processing";
+
+export interface VoicePcmContractLike {
+  encoding: "pcm_s16le" | "pcm_f32le";
+  sampleRateHz: number;
+  channels: number;
+  frameDurationMs: number;
+}
 
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -114,6 +160,18 @@ function normalizeString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+export function resolvePcmTranscriptionMimeType(
+  pcm: VoicePcmContractLike,
+): string {
+  const channels = Number.isFinite(pcm.channels) ? Math.max(1, Math.floor(pcm.channels)) : 1;
+  const sampleRateHz =
+    Number.isFinite(pcm.sampleRateHz) && pcm.sampleRateHz > 0
+      ? Math.floor(pcm.sampleRateHz)
+      : 16000;
+  const subtype = pcm.encoding === "pcm_f32le" ? "L32" : "L16";
+  return `audio/${subtype};rate=${sampleRateHz};channels=${channels}`;
 }
 
 function normalizeBaseUrl(value: string | undefined): string {
@@ -167,6 +225,100 @@ function parseJsonSafely(value: string): unknown {
   }
 }
 
+function parseNonNegativeNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+function readHeaderNumber(
+  headers: Headers,
+  names: string[],
+): number | null {
+  for (const name of names) {
+    const value = normalizeString(headers.get(name));
+    if (!value) {
+      continue;
+    }
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function readProviderRequestId(headers: Headers): string | undefined {
+  return (
+    normalizeString(headers.get("x-request-id")) ??
+    normalizeString(headers.get("request-id")) ??
+    normalizeString(headers.get("xi-request-id")) ??
+    undefined
+  );
+}
+
+function roundToThree(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function readNestedNumber(
+  root: Record<string, unknown>,
+  path: string[],
+): number | null {
+  let current: unknown = root;
+  for (const key of path) {
+    if (typeof current !== "object" || current === null) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return parseNonNegativeNumber(current);
+}
+
+function readDurationSeconds(payload: Record<string, unknown>): number | null {
+  const directSeconds =
+    parseNonNegativeNumber(payload.audio_duration_seconds) ??
+    parseNonNegativeNumber(payload.duration_seconds);
+  if (directSeconds !== null) {
+    return directSeconds;
+  }
+
+  const msDuration =
+    parseNonNegativeNumber(payload.audio_duration_ms) ??
+    parseNonNegativeNumber(payload.duration_ms);
+  if (msDuration !== null) {
+    return msDuration / 1000;
+  }
+
+  const nestedSeconds =
+    readNestedNumber(payload, ["usage", "duration_seconds"]) ??
+    readNestedNumber(payload, ["metadata", "duration_seconds"]) ??
+    readNestedNumber(payload, ["usage", "audio_duration_seconds"]);
+  if (nestedSeconds !== null) {
+    return nestedSeconds;
+  }
+
+  const nestedMs =
+    readNestedNumber(payload, ["usage", "duration_ms"]) ??
+    readNestedNumber(payload, ["metadata", "duration_ms"]) ??
+    readNestedNumber(payload, ["usage", "audio_duration_ms"]);
+  if (nestedMs !== null) {
+    return nestedMs / 1000;
+  }
+
+  return null;
+}
+
+function readReportedCostUsd(payload: Record<string, unknown>): number | null {
+  return (
+    parseNonNegativeNumber(payload.cost_usd) ??
+    parseNonNegativeNumber(payload.usage_cost_usd) ??
+    readNestedNumber(payload, ["usage", "cost_usd"]) ??
+    readNestedNumber(payload, ["usage", "total_cost_usd"])
+  );
+}
+
 function ensureFetch(fetchFn?: FetchLike): FetchLike {
   if (fetchFn) {
     return fetchFn;
@@ -206,20 +358,53 @@ class BrowserVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
   }
 
   async transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult> {
-    void args;
     return {
       text: "",
       providerId: this.providerId,
+      usage: {
+        nativeUsageUnit: "requests",
+        nativeUsageQuantity: 1,
+        nativeInputUnits: args.audioBytes.byteLength,
+        nativeTotalUnits: args.audioBytes.byteLength,
+        nativeCostSource: "not_available",
+        metadata: {
+          reason: BROWSER_ADAPTER_UNSUPPORTED_REASON,
+          mimeType: normalizeString(args.mimeType) ?? "audio/webm",
+        },
+      },
       raw: { reason: BROWSER_ADAPTER_UNSUPPORTED_REASON },
     };
   }
 
   async synthesize(args: VoiceSynthesisArgs): Promise<VoiceSynthesisResult> {
+    const characterCount = Math.max(0, args.text.length);
     return {
       providerId: this.providerId,
       mimeType: "text/plain",
       fallbackText: args.text,
+      usage: {
+        nativeUsageUnit: "characters",
+        nativeUsageQuantity: characterCount,
+        nativeInputUnits: characterCount,
+        nativeTotalUnits: characterCount,
+        nativeCostSource: "not_available",
+        metadata: {
+          reason: BROWSER_ADAPTER_UNSUPPORTED_REASON,
+        },
+      },
       raw: { reason: BROWSER_ADAPTER_UNSUPPORTED_REASON },
+    };
+  }
+
+  async cancelSynthesis(
+    args: VoiceSynthesisCancelArgs,
+  ): Promise<VoiceSynthesisCancelResult> {
+    void args;
+    return {
+      providerId: this.providerId,
+      cancelled: true,
+      idempotent: true,
+      reason: "browser_runtime_local_cancellation",
     };
   }
 }
@@ -309,6 +494,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
   }
 
   async transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult> {
+    const inputByteLength = args.audioBytes.byteLength;
     const formData = new FormData();
     const audioBuffer = Uint8Array.from(args.audioBytes).buffer;
     const blob = new Blob([audioBuffer], {
@@ -339,6 +525,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     }
 
     const payload = (await response.json()) as Record<string, unknown>;
+    const providerRequestId = readProviderRequestId(response.headers);
     const text =
       normalizeString(payload.text) ??
       normalizeString(payload.transcript) ??
@@ -348,9 +535,52 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
       throw new Error("ElevenLabs transcription returned no transcript text.");
     }
 
+    const headerDurationSeconds =
+      readHeaderNumber(response.headers, [
+        "x-audio-duration-seconds",
+        "x-duration-seconds",
+      ]);
+    const payloadDurationSeconds = readDurationSeconds(payload);
+    const durationSeconds =
+      payloadDurationSeconds ??
+      headerDurationSeconds ??
+      inputByteLength / ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND;
+    const reportedCostUsd =
+      readReportedCostUsd(payload) ??
+      readHeaderNumber(response.headers, ["x-cost-usd", "x-billing-cost-usd"]);
+    const estimatedCostUsd =
+      (durationSeconds / 3600) * ELEVENLABS_ESTIMATED_STT_USD_PER_HOUR;
+    const costUsd = reportedCostUsd ?? estimatedCostUsd;
+    const nativeCostInCents =
+      Number.isFinite(costUsd) && costUsd > 0
+        ? Math.max(0, Math.round(costUsd * 100))
+        : undefined;
+
     return {
       text,
       providerId: this.providerId,
+      usage: {
+        nativeUsageUnit: "audio_seconds",
+        nativeUsageQuantity: roundToThree(durationSeconds),
+        nativeInputUnits: roundToThree(durationSeconds),
+        nativeTotalUnits: roundToThree(durationSeconds),
+        nativeCostInCents,
+        nativeCostCurrency: nativeCostInCents !== undefined ? "USD" : undefined,
+        nativeCostSource:
+          reportedCostUsd !== null ? "provider_reported" : "estimated_unit_pricing",
+        providerRequestId,
+        metadata: {
+          modelId: this.sttModelId,
+          mimeType: normalizeString(args.mimeType) ?? "audio/webm",
+          inputBytes: inputByteLength,
+          durationSource:
+            payloadDurationSeconds !== null
+              ? "provider_payload"
+              : headerDurationSeconds !== null
+              ? "provider_header"
+              : "byte_estimate",
+        },
+      },
       raw: payload,
     };
   }
@@ -392,11 +622,60 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
       throw new Error("ElevenLabs synthesis returned empty audio.");
     }
 
+    const providerRequestId = readProviderRequestId(response.headers);
+    const inputCharacterCount = Math.max(0, args.text.length);
+    const reportedCharacterCount =
+      readHeaderNumber(response.headers, [
+        "x-characters-used",
+        "x-character-count",
+      ]) ?? parseNonNegativeNumber(inputCharacterCount);
+    const reportedCostUsd = readHeaderNumber(response.headers, [
+      "x-cost-usd",
+      "x-billing-cost-usd",
+    ]);
+    const estimatedCostUsd =
+      ((reportedCharacterCount ?? inputCharacterCount) / 1000) *
+      ELEVENLABS_ESTIMATED_TTS_USD_PER_1K_CHAR;
+    const costUsd = reportedCostUsd ?? estimatedCostUsd;
+    const nativeCostInCents =
+      Number.isFinite(costUsd) && costUsd > 0
+        ? Math.max(0, Math.round(costUsd * 100))
+        : undefined;
+    const normalizedCharacterCount = reportedCharacterCount ?? inputCharacterCount;
+
     return {
       providerId: this.providerId,
       mimeType: response.headers.get("content-type") ?? "audio/mpeg",
       audioBase64: Buffer.from(audioBuffer).toString("base64"),
+      usage: {
+        nativeUsageUnit: "characters",
+        nativeUsageQuantity: normalizedCharacterCount,
+        nativeInputUnits: normalizedCharacterCount,
+        nativeTotalUnits: normalizedCharacterCount,
+        nativeCostInCents,
+        nativeCostCurrency: nativeCostInCents !== undefined ? "USD" : undefined,
+        nativeCostSource:
+          reportedCostUsd !== null ? "provider_reported" : "estimated_unit_pricing",
+        providerRequestId,
+        metadata: {
+          modelId: this.ttsModelId,
+          voiceId,
+          responseBytes: audioBuffer.byteLength,
+        },
+      },
       raw: { voiceId },
+    };
+  }
+
+  async cancelSynthesis(
+    args: VoiceSynthesisCancelArgs,
+  ): Promise<VoiceSynthesisCancelResult> {
+    void args;
+    return {
+      providerId: this.providerId,
+      cancelled: true,
+      idempotent: true,
+      reason: "best_effort_provider_cancel_not_supported",
     };
   }
 }

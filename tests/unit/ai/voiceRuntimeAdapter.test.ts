@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createElevenLabsVoiceRuntimeAdapter,
+  resolvePcmTranscriptionMimeType,
   resolveVoiceRuntimeAdapter,
 } from "../../../convex/ai/voiceRuntimeAdapter";
 
@@ -102,5 +103,101 @@ describe("voiceRuntimeAdapter", () => {
     expect(synthesis.providerId).toBe("elevenlabs");
     expect(synthesis.mimeType).toBe("audio/mpeg");
     expect(synthesis.audioBase64).toBeDefined();
+    expect(synthesis.usage?.nativeUsageUnit).toBe("characters");
+    expect(synthesis.usage?.nativeUsageQuantity).toBeGreaterThan(0);
+    expect(synthesis.usage?.nativeCostSource).toBe("estimated_unit_pricing");
+  });
+
+  it("returns deterministic cancellation semantics for browser and elevenlabs adapters", async () => {
+    const browserResolved = await resolveVoiceRuntimeAdapter({});
+    const browserCancel = await browserResolved.adapter.cancelSynthesis({
+      voiceSessionId: "voice-session-cancel-1",
+      assistantMessageId: "assistant-message-cancel-1",
+    });
+    expect(browserCancel.providerId).toBe("browser");
+    expect(browserCancel.cancelled).toBe(true);
+    expect(browserCancel.idempotent).toBe(true);
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ voices: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    const elevenResolved = await resolveVoiceRuntimeAdapter({
+      requestedProviderId: "elevenlabs",
+      elevenLabsBinding: { apiKey: "secret-key" },
+      fetchFn,
+    });
+    const elevenCancel = await elevenResolved.adapter.cancelSynthesis({
+      voiceSessionId: "voice-session-cancel-2",
+      assistantMessageId: "assistant-message-cancel-2",
+    });
+    expect(elevenCancel.providerId).toBe("elevenlabs");
+    expect(elevenCancel.cancelled).toBe(true);
+    expect(elevenCancel.idempotent).toBe(true);
+    expect(elevenCancel.reason).toBe("best_effort_provider_cancel_not_supported");
+  });
+
+  it("includes transcription usage telemetry and provider request id", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ voices: [{ voice_id: "voice_123" }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ text: "hello", duration_seconds: 2 }), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": "req_voice_123",
+          },
+        }),
+      );
+
+    const adapter = createElevenLabsVoiceRuntimeAdapter({
+      apiKey: "secret-key",
+      fetchFn,
+    });
+
+    const health = await adapter.probeHealth();
+    expect(health.status).toBe("healthy");
+
+    const transcription = await adapter.transcribe({
+      voiceSessionId: "voice-session-2",
+      audioBytes: Uint8Array.from([1, 2, 3, 4]),
+      mimeType: "audio/webm",
+      language: "en",
+    });
+
+    expect(transcription.text).toBe("hello");
+    expect(transcription.providerId).toBe("elevenlabs");
+    expect(transcription.usage?.nativeUsageUnit).toBe("audio_seconds");
+    expect(transcription.usage?.nativeUsageQuantity).toBe(2);
+    expect(transcription.usage?.providerRequestId).toBe("req_voice_123");
+  });
+
+  it("derives deterministic PCM websocket mime type for transcription relay", () => {
+    expect(
+      resolvePcmTranscriptionMimeType({
+        encoding: "pcm_s16le",
+        sampleRateHz: 16000,
+        channels: 1,
+        frameDurationMs: 20,
+      })
+    ).toBe("audio/L16;rate=16000;channels=1");
+    expect(
+      resolvePcmTranscriptionMimeType({
+        encoding: "pcm_f32le",
+        sampleRateHz: 48000,
+        channels: 2,
+        frameDurationMs: 10,
+      })
+    ).toBe("audio/L32;rate=48000;channels=2");
   });
 });
