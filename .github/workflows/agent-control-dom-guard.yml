@@ -1,0 +1,35 @@
+name: agent-control-dom-guard
+
+on:
+  pull_request:
+    paths:
+      - "src/components/window-content/super-admin-organizations-window/agent-control-center-tab.tsx"
+      - "tests/unit/ai/agentControlCenterTab.clickthrough.dom.test.ts"
+      - "tests/setup-dom.ts"
+      - "vitest.dom.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/agent-control-dom-guard.yml"
+
+jobs:
+  dom-clickthrough-guard:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Agent Control DOM click-through suite
+        run: npm run test:unit:dom
