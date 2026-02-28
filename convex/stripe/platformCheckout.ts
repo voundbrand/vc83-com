@@ -91,7 +91,7 @@ export function normalizeCheckoutTierInput(
 }
 
 const DEFAULT_PUBLIC_APP_URL = "https://app.l4yercak3.com";
-const SCALE_STORE_TRIAL_DAYS = 14;
+const STORE_TRIAL_DAYS = 14;
 
 type FunnelAttribution = {
   channel?: "webchat" | "native_guest" | "telegram" | "platform_web" | "unknown";
@@ -226,18 +226,18 @@ export const createPlatformCheckoutSession = action({
       generatedApi.api.licensing.helpers.getLicense,
       { organizationId: args.organizationId }
     );
-    const hadPreviousScaleTrial =
-      runtimeTier === "agency"
+    const hadPreviousTrial =
+      runtimeTier === "agency" || runtimeTier === "pro"
         ? await (ctx as any).runQuery(
             generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
             { organizationId: args.organizationId }
           )
         : false;
-    const isScaleTrialEligible =
-      runtimeTier === "agency" &&
+    const isStoreTrialEligible =
+      (runtimeTier === "agency" || runtimeTier === "pro") &&
       (license?.planTier || "free") === "free" &&
-      !hadPreviousScaleTrial;
-    const checkoutType = isScaleTrialEligible ? "platform-trial" : "platform-tier";
+      !hadPreviousTrial;
+    const checkoutType = isStoreTrialEligible ? "platform-trial" : "platform-tier";
     const trialStartedAt = Date.now().toString();
 
     // Prepare customer data with stored billing address if available
@@ -356,7 +356,7 @@ export const createPlatformCheckoutSession = action({
         platform: "l4yercak3",
         type: checkoutType,
         isB2B: args.isB2B ? "true" : "false",
-        ...(isScaleTrialEligible ? { trialStartedAt } : {}),
+        ...(isStoreTrialEligible ? { trialStartedAt } : {}),
         ...byokCommercialMetadata,
         ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
         ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
@@ -368,7 +368,7 @@ export const createPlatformCheckoutSession = action({
         ...(args.funnelCampaign?.landingPath ? { funnelLandingPath: args.funnelCampaign.landingPath } : {}),
       },
       subscription_data: {
-        ...(isScaleTrialEligible ? { trial_period_days: SCALE_STORE_TRIAL_DAYS } : {}),
+        ...(isStoreTrialEligible ? { trial_period_days: STORE_TRIAL_DAYS } : {}),
         metadata: {
           organizationId: args.organizationId,
           tier: runtimeTier,
@@ -376,7 +376,7 @@ export const createPlatformCheckoutSession = action({
           billingPeriod: args.billingPeriod,
           platform: "l4yercak3",
           type: checkoutType,
-          ...(isScaleTrialEligible ? { trialStartedAt } : {}),
+          ...(isStoreTrialEligible ? { trialStartedAt } : {}),
           ...byokCommercialMetadata,
           ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
           ...(args.funnelCampaign?.source ? { utmSource: args.funnelCampaign.source } : {}),
@@ -842,6 +842,7 @@ export const getSubscriptionStatus = action({
     hasSubscription: boolean;
     currentTier: string;
     currentPublicTier: "free" | "pro" | "scale" | "enterprise";
+    trialEligible: boolean;
     scaleTrialEligible: boolean;
     billingPeriod?: string;
     currentPeriodEnd?: number;
@@ -865,11 +866,11 @@ export const getSubscriptionStatus = action({
 
     // Get current plan tier from license (single source of truth)
     const license = await (ctx as any).runQuery(generatedApi.api.licensing.helpers.getLicense, { organizationId: args.organizationId });
-    const hadPreviousScaleTrial: boolean = await (ctx as any).runQuery(
+    const hadPreviousTrial: boolean = await (ctx as any).runQuery(
       generatedApi.internal.stripe.trialHelpers.checkPreviousTrial,
       { organizationId: args.organizationId }
     );
-    const scaleTrialEligible = (license?.planTier || "free") === "free" && !hadPreviousScaleTrial;
+    const trialEligible = (license?.planTier || "free") === "free" && !hadPreviousTrial;
 
     if (!org?.stripeSubscriptionId) {
       const fallbackByokPolicy = resolveByokCommercialPolicyForTier(
@@ -879,7 +880,8 @@ export const getSubscriptionStatus = action({
         hasSubscription: false,
         currentTier: license?.planTier || "free",
         currentPublicTier: mapRuntimeTierToPublicStoreTier(license?.planTier),
-        scaleTrialEligible,
+        trialEligible,
+        scaleTrialEligible: trialEligible,
         cancelAtPeriodEnd: false,
         byokCommercialPolicy: {
           mode: fallbackByokPolicy.mode,
@@ -939,6 +941,7 @@ export const getSubscriptionStatus = action({
         hasSubscription: true,
         currentTier: license.planTier || "free",
         currentPublicTier: mapRuntimeTierToPublicStoreTier(license.planTier),
+        trialEligible: false,
         scaleTrialEligible: false,
         billingPeriod: subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         currentPeriodEnd: subscription.current_period_end * 1000,
@@ -962,7 +965,8 @@ export const getSubscriptionStatus = action({
         hasSubscription: false,
         currentTier: license?.planTier || "free",
         currentPublicTier: mapRuntimeTierToPublicStoreTier(license?.planTier),
-        scaleTrialEligible,
+        trialEligible,
+        scaleTrialEligible: trialEligible,
         cancelAtPeriodEnd: false,
         byokCommercialPolicy: {
           mode: fallbackByokPolicy.mode,

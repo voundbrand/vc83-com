@@ -50,7 +50,10 @@ export const aiUsage = defineTable({
     v.literal("chat"),                      // AI chat message
     v.literal("embedding"),                 // Vector embedding generation
     v.literal("completion"),                // Text completion
-    v.literal("tool_call")                  // AI tool/function call
+    v.literal("tool_call"),                 // AI tool/function call
+    v.literal("voice_stt"),                 // Voice transcription (speech-to-text)
+    v.literal("voice_tts"),                 // Voice synthesis (text-to-speech)
+    v.literal("voice_session")              // Voice session lifecycle event
   ),
 
   // Provider and model info
@@ -78,10 +81,36 @@ export const aiUsage = defineTable({
   )),
   billingLedgerReason: v.optional(v.string()),
   creditLedgerAction: v.optional(v.string()),
+  creditsCharged: v.optional(v.number()),
+  creditChargeStatus: v.optional(v.union(
+    v.literal("charged"),
+    v.literal("skipped_unmetered"),
+    v.literal("skipped_insufficient_credits"),
+    v.literal("skipped_not_required"),
+    v.literal("failed")
+  )),
   legacyTokenAccountingStatus: v.optional(v.union(
     v.literal("skipped"),
     v.literal("deprecated_blocked")
   )),
+
+  // Provider-native usage telemetry (provider/model/action-level)
+  action: v.optional(v.string()),
+  nativeUsageUnit: v.optional(v.string()),
+  nativeUsageQuantity: v.optional(v.number()),
+  nativeInputUnits: v.optional(v.number()),
+  nativeOutputUnits: v.optional(v.number()),
+  nativeTotalUnits: v.optional(v.number()),
+  nativeCostInCents: v.optional(v.number()),
+  nativeCostCurrency: v.optional(v.string()),
+  nativeCostSource: v.optional(v.union(
+    v.literal("provider_reported"),
+    v.literal("estimated_model_pricing"),
+    v.literal("estimated_unit_pricing"),
+    v.literal("not_available")
+  )),
+  providerRequestId: v.optional(v.string()),
+  usageMetadata: v.optional(v.any()),
 
   // Privacy audit fields (for Privacy-Enhanced tier compliance)
   dataCollectionPolicy: v.optional(v.string()),  // "deny" for Privacy-Enhanced, "allow" for Standard
@@ -110,7 +139,17 @@ export const aiUsage = defineTable({
   .index("by_user", ["userId"])
 
   // Query recent requests for monitoring
-  .index("by_created_at", ["organizationId", "createdAt"]);
+  .index("by_created_at", ["organizationId", "createdAt"])
+
+  // Query global time windows for super-admin analytics
+  .index("by_created_at_global", ["createdAt"])
+
+  // Query global billing source windows for economics rollups
+  .index("by_billing_source_created", ["billingSource", "createdAt"])
+
+  // Query provider/model windows for breakdowns
+  .index("by_provider_created", ["provider", "createdAt"])
+  .index("by_provider_model_created", ["provider", "model", "createdAt"]);
 
 /**
  * AI SUBSCRIPTIONS v3.1

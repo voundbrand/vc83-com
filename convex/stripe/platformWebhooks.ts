@@ -112,6 +112,39 @@ function extractFunnelCampaign(metadata?: Record<string, string | undefined>) {
   return hasSignal ? campaign : undefined;
 }
 
+export function isSubscriptionPaymentConfirmed(status: string): boolean {
+  return status === "active";
+}
+
+async function maybeProcessReferralSubscriptionReward(
+  ctx: ActionCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    subscriptionStatus: string;
+    stripeSubscriptionId: string;
+    stripeCustomerId: string;
+  }
+) {
+  // Referral subscription credits are only granted once payment has cleared.
+  if (!isSubscriptionPaymentConfirmed(args.subscriptionStatus)) {
+    return;
+  }
+
+  try {
+    await (ctx as any).runMutation(
+      generatedApi.internal.credits.index.processReferralSubscriptionRewardInternal,
+      {
+        referredOrganizationId: args.organizationId,
+        stripeSubscriptionId: args.stripeSubscriptionId,
+        stripeCustomerId: args.stripeCustomerId,
+        paymentConfirmedAt: Date.now(),
+      }
+    );
+  } catch (error) {
+    console.error("[Platform Webhooks] Referral subscription reward processing failed:", error);
+  }
+}
+
 /**
  * PROCESS PLATFORM SUBSCRIPTION WEBHOOK
  *
@@ -385,6 +418,13 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
       amount: items.data[0]?.price?.unit_amount || 0,
       currency: items.data[0]?.price?.currency || "eur",
     });
+
+    await maybeProcessReferralSubscriptionReward(ctx, {
+      organizationId: org._id,
+      subscriptionStatus: status,
+      stripeSubscriptionId: id,
+      stripeCustomerId: customer,
+    });
     return;
   }
 
@@ -405,8 +445,15 @@ async function handleSubscriptionCreated(ctx: ActionCtx, subscription: StripeSub
     currency: items.data[0]?.price?.currency || "eur",
   });
 
+  await maybeProcessReferralSubscriptionReward(ctx, {
+    organizationId,
+    subscriptionStatus: status,
+    stripeSubscriptionId: id,
+    stripeCustomerId: customer,
+  });
+
   if (status === "trialing") {
-    await maybeRecordScaleTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
+    await maybeRecordStoreTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
   }
 
   // Send upgrade email for new paid subscriptions
@@ -469,8 +516,15 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
       currency: items.data[0]?.price?.currency || "eur",
     });
 
+    await maybeProcessReferralSubscriptionReward(ctx, {
+      organizationId: org._id,
+      subscriptionStatus: status,
+      stripeSubscriptionId: id,
+      stripeCustomerId: customer,
+    });
+
     if (status === "trialing") {
-      await maybeRecordScaleTrialStart(ctx, org._id, tier, trial_end ? trial_end * 1000 : undefined);
+      await maybeRecordStoreTrialStart(ctx, org._id, tier, trial_end ? trial_end * 1000 : undefined);
     }
     return;
   }
@@ -496,8 +550,15 @@ async function handleSubscriptionUpdated(ctx: ActionCtx, subscription: StripeSub
     currency: items.data[0]?.price?.currency || "eur",
   });
 
+  await maybeProcessReferralSubscriptionReward(ctx, {
+    organizationId,
+    subscriptionStatus: status,
+    stripeSubscriptionId: id,
+    stripeCustomerId: customer,
+  });
+
   if (status === "trialing") {
-    await maybeRecordScaleTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
+    await maybeRecordStoreTrialStart(ctx, organizationId, tier, trial_end ? trial_end * 1000 : undefined);
   }
 
   // Send lifecycle emails based on what changed
@@ -585,14 +646,14 @@ async function handleSubscriptionDeleted(ctx: ActionCtx, subscription: StripeSub
   });
 }
 
-async function maybeRecordScaleTrialStart(
+async function maybeRecordStoreTrialStart(
   ctx: ActionCtx,
   organizationId: Id<"organizations">,
   tier: string,
   trialEndsAt?: number
 ) {
   const normalizedTier = TIER_MAP[tier.toLowerCase()] || "free";
-  if (normalizedTier !== "agency") {
+  if (normalizedTier !== "agency" && normalizedTier !== "pro") {
     return;
   }
 

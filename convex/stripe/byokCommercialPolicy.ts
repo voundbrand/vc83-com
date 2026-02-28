@@ -160,12 +160,12 @@ const BASE_POLICY_BY_TIER: Record<
   },
   pro: {
     mode: "flat_platform_fee",
-    byokEligible: true,
+    byokEligible: false,
     flatPlatformFeeCents: configuredFlatPlatformFeeCents,
     optionalSurchargeBps: 0,
     bundledInTier: false,
     migrationDefault: true,
-    summary: "BYOK enabled with flat platform orchestration fee.",
+    summary: "BYOK is locked on Pro; upgrade to Scale or Enterprise.",
   },
   agency: {
     mode: "tier_bundled",

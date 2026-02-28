@@ -1,0 +1,73 @@
+name: ai-usage-guard
+
+on:
+  pull_request:
+    paths:
+      - "convex/ai/**"
+      - "convex/integrations/**"
+      - "tests/unit/ai/nonChatUsageMetering.test.ts"
+      - "tests/unit/ai/platformEconomicsAggregation.test.ts"
+      - "tests/unit/ai/providerExecutionTelemetryCoverage.test.ts"
+      - "scripts/ci/check-ai-usage-metering.sh"
+      - "scripts/ci/check-ai-economics-contract.sh"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ai-usage-guard.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "convex/ai/**"
+      - "convex/integrations/**"
+      - "tests/unit/ai/nonChatUsageMetering.test.ts"
+      - "tests/unit/ai/platformEconomicsAggregation.test.ts"
+      - "tests/unit/ai/providerExecutionTelemetryCoverage.test.ts"
+      - "scripts/ci/check-ai-usage-metering.sh"
+      - "scripts/ci/check-ai-economics-contract.sh"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ai-usage-guard.yml"
+
+jobs:
+  ai-usage-guard:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run AI usage metering guard
+        shell: bash
+        run: |
+          bash scripts/ci/check-ai-usage-metering.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
+      - name: Run AI economics contract guard
+        shell: bash
+        run: |
+          npm run ai:economics:guard

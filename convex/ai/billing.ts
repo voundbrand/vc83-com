@@ -13,8 +13,18 @@
  */
 
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+  type MutationCtx,
+} from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import type { AiBillingSource } from "../channels/types";
+import { CREDITS_PER_USD } from "./modelPricing";
+import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 import {
   resolveAiCreditBillingPolicy,
   resolveAiLegacyTokenLedgerPolicy,
@@ -38,6 +48,31 @@ const aiCreditRequestSourceArgValidator = v.union(
 const aiBillingLedgerModeArgValidator = v.union(
   v.literal("credits_ledger"),
   v.literal("legacy_tokens")
+);
+
+const aiUsageRequestTypeArgValidator = v.union(
+  v.literal("chat"),
+  v.literal("embedding"),
+  v.literal("completion"),
+  v.literal("tool_call"),
+  v.literal("voice_stt"),
+  v.literal("voice_tts"),
+  v.literal("voice_session")
+);
+
+const aiUsageCreditChargeStatusArgValidator = v.union(
+  v.literal("charged"),
+  v.literal("skipped_unmetered"),
+  v.literal("skipped_insufficient_credits"),
+  v.literal("skipped_not_required"),
+  v.literal("failed")
+);
+
+const aiUsageNativeCostSourceArgValidator = v.union(
+  v.literal("provider_reported"),
+  v.literal("estimated_model_pricing"),
+  v.literal("estimated_unit_pricing"),
+  v.literal("not_available")
 );
 
 function normalizeCreditLedgerAction(value: unknown): string | null {
@@ -70,6 +105,720 @@ export function resolveAiUsageBillingGuardrail(args: {
     billingPolicy,
     ledgerPolicy,
     requiresCreditLedgerAction: billingPolicy.enforceCredits,
+  };
+}
+
+export type AiUsageRequestType =
+  | "chat"
+  | "embedding"
+  | "completion"
+  | "tool_call"
+  | "voice_stt"
+  | "voice_tts"
+  | "voice_session";
+
+export type AiUsageCreditChargeStatus =
+  | "charged"
+  | "skipped_unmetered"
+  | "skipped_insufficient_credits"
+  | "skipped_not_required"
+  | "failed";
+
+export type AiUsageNativeCostSource =
+  | "provider_reported"
+  | "estimated_model_pricing"
+  | "estimated_unit_pricing"
+  | "not_available";
+
+export type AiUsageBillingSource = "platform" | "byok" | "private";
+
+type AiUsageTelemetryRecord = {
+  organizationId: string;
+  provider: string;
+  model: string;
+  requestType: AiUsageRequestType | string;
+  action?: string | null;
+  requestCount?: number | null;
+  billingSource?: AiUsageBillingSource | null;
+  creditsCharged?: number | null;
+  costInCents?: number | null;
+  nativeCostInCents?: number | null;
+  nativeCostSource?: AiUsageNativeCostSource | string | null;
+};
+
+type EconomicsAggregateRow = {
+  requests: number;
+  platformRequests: number;
+  byokRequests: number;
+  privateRequests: number;
+  nativeCostInCents: number;
+  platformNativeCostInCents: number;
+  creditsCharged: number;
+  platformCreditsCharged: number;
+};
+
+type CostQualitySource =
+  | "provider_reported"
+  | "estimated_model_pricing"
+  | "estimated_unit_pricing"
+  | "not_available"
+  | "unspecified";
+
+type CostQualityAggregateRow = {
+  requests: number;
+  platformRequests: number;
+  nativeCostInCents: number;
+  platformNativeCostInCents: number;
+};
+
+type EconomicsOutputMetrics = {
+  requests: number;
+  platformRequests: number;
+  byokRequests: number;
+  privateRequests: number;
+  nativeCostInCents: number;
+  platformNativeCostInCents: number;
+  creditsCharged: number;
+  platformCreditsCharged: number;
+  platformCreditRevenueInCents: number;
+  platformGrossMarginInCents: number;
+  platformGrossMarginPct: number;
+};
+
+type PlatformEconomicsOverview = {
+  range: {
+    startTs: number;
+    endTs: number;
+    durationHours: number;
+  };
+  assumptions: {
+    creditsPerUsd: number;
+    creditValueBasisCents: number;
+    marginFormula:
+      "gross_margin = credits_charged * (100 / credits_per_usd) - native_cost_cents";
+  };
+  totals: {
+    allUsageRequests: number;
+    allUsageNativeCostInCents: number;
+    allUsageCreditsCharged: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    platformNativeCostInCents: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  };
+  costQuality: {
+    providerReportedRequestPct: number;
+    estimatedModelPricingRequestPct: number;
+    providerReportedPlatformCostPct: number;
+    estimatedModelPricingPlatformCostPct: number;
+    sourceBreakdown: Array<{
+      source:
+        | "provider_reported"
+        | "estimated_model_pricing"
+        | "estimated_unit_pricing"
+        | "not_available"
+        | "unspecified";
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      requestPct: number;
+      platformRequestPct: number;
+      platformCostPct: number;
+    }>;
+  };
+  organizations: Array<{
+    organizationId: string;
+    name: string | null;
+    isPlatformOrganization: boolean;
+    requests: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    nativeCostInCents: number;
+    platformNativeCostInCents: number;
+    creditsCharged: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  }>;
+  providerBreakdown: Array<{
+    provider: string;
+    requests: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    nativeCostInCents: number;
+    platformNativeCostInCents: number;
+    creditsCharged: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  }>;
+  modelBreakdown: Array<{
+    provider: string;
+    model: string;
+    requests: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    nativeCostInCents: number;
+    platformNativeCostInCents: number;
+    creditsCharged: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  }>;
+  actionBreakdown: Array<{
+    action: string;
+    requests: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    nativeCostInCents: number;
+    platformNativeCostInCents: number;
+    creditsCharged: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  }>;
+  platformOrganization: {
+    organizationId: string;
+    name: string | null;
+    requests: number;
+    platformRequests: number;
+    byokRequests: number;
+    privateRequests: number;
+    nativeCostInCents: number;
+    platformNativeCostInCents: number;
+    creditsCharged: number;
+    platformCreditsCharged: number;
+    platformCreditRevenueInCents: number;
+    platformGrossMarginInCents: number;
+    platformGrossMarginPct: number;
+  } | null;
+};
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeNonNegativeInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeNonNegativeNumber(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, value);
+}
+
+function normalizeAiUsageBillingSource(value: unknown): AiUsageBillingSource {
+  if (value === "platform" || value === "byok" || value === "private") {
+    return value;
+  }
+  return "platform";
+}
+
+function normalizeAiUsageNativeCostSource(value: unknown): CostQualitySource {
+  if (
+    value === "provider_reported"
+    || value === "estimated_model_pricing"
+    || value === "estimated_unit_pricing"
+    || value === "not_available"
+  ) {
+    return value;
+  }
+  return "unspecified";
+}
+
+function resolvePct(numerator: number, denominator: number): number {
+  if (denominator <= 0) {
+    return 0;
+  }
+  return Number(((numerator / denominator) * 100).toFixed(2));
+}
+
+function resolveDefaultBillingPeriod(now: number): {
+  periodStart: number;
+  periodEnd: number;
+} {
+  const date = new Date(now);
+  const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+  const end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) - 1;
+  return {
+    periodStart: start,
+    periodEnd: end,
+  };
+}
+
+function creditsToRevenueInCents(credits: number): number {
+  if (!Number.isFinite(credits) || credits <= 0) {
+    return 0;
+  }
+  return Math.round((credits * 100) / CREDITS_PER_USD);
+}
+
+function resolveMarginPct(revenueInCents: number, costInCents: number): number {
+  if (revenueInCents <= 0) {
+    return 0;
+  }
+  return Number((((revenueInCents - costInCents) / revenueInCents) * 100).toFixed(2));
+}
+
+function createEconomicsAggregateRow(): EconomicsAggregateRow {
+  return {
+    requests: 0,
+    platformRequests: 0,
+    byokRequests: 0,
+    privateRequests: 0,
+    nativeCostInCents: 0,
+    platformNativeCostInCents: 0,
+    creditsCharged: 0,
+    platformCreditsCharged: 0,
+  };
+}
+
+function createCostQualityAggregateRow(): CostQualityAggregateRow {
+  return {
+    requests: 0,
+    platformRequests: 0,
+    nativeCostInCents: 0,
+    platformNativeCostInCents: 0,
+  };
+}
+
+function accumulateEconomicsRow(args: {
+  row: EconomicsAggregateRow;
+  billingSource: AiUsageBillingSource;
+  requests: number;
+  nativeCostInCents: number;
+  creditsCharged: number;
+}) {
+  args.row.requests += args.requests;
+  args.row.nativeCostInCents += args.nativeCostInCents;
+  args.row.creditsCharged += args.creditsCharged;
+
+  if (args.billingSource === "platform") {
+    args.row.platformRequests += args.requests;
+    args.row.platformNativeCostInCents += args.nativeCostInCents;
+    args.row.platformCreditsCharged += args.creditsCharged;
+    return;
+  }
+
+  if (args.billingSource === "byok") {
+    args.row.byokRequests += args.requests;
+    return;
+  }
+
+  args.row.privateRequests += args.requests;
+}
+
+function accumulateCostQualityRow(args: {
+  row: CostQualityAggregateRow;
+  billingSource: AiUsageBillingSource;
+  requests: number;
+  nativeCostInCents: number;
+}) {
+  args.row.requests += args.requests;
+  args.row.nativeCostInCents += args.nativeCostInCents;
+  if (args.billingSource === "platform") {
+    args.row.platformRequests += args.requests;
+    args.row.platformNativeCostInCents += args.nativeCostInCents;
+  }
+}
+
+function toEconomicsOutput<TExtra extends Record<string, unknown>>(args: {
+  row: EconomicsAggregateRow;
+  extra: TExtra;
+}): TExtra & EconomicsOutputMetrics {
+  const platformCreditRevenueInCents = creditsToRevenueInCents(
+    args.row.platformCreditsCharged
+  );
+  const platformGrossMarginInCents =
+    platformCreditRevenueInCents - args.row.platformNativeCostInCents;
+
+  return {
+    ...args.extra,
+    requests: args.row.requests,
+    platformRequests: args.row.platformRequests,
+    byokRequests: args.row.byokRequests,
+    privateRequests: args.row.privateRequests,
+    nativeCostInCents: args.row.nativeCostInCents,
+    platformNativeCostInCents: args.row.platformNativeCostInCents,
+    creditsCharged: args.row.creditsCharged,
+    platformCreditsCharged: args.row.platformCreditsCharged,
+    platformCreditRevenueInCents,
+    platformGrossMarginInCents,
+    platformGrossMarginPct: resolveMarginPct(
+      platformCreditRevenueInCents,
+      args.row.platformNativeCostInCents
+    ),
+  };
+}
+
+export function aggregatePlatformEconomics(args: {
+  records: AiUsageTelemetryRecord[];
+  startTs: number;
+  endTs: number;
+  organizationNamesById?: Record<string, string | null>;
+  platformOrganizationId?: string | null;
+}): PlatformEconomicsOverview {
+  const totals = createEconomicsAggregateRow();
+  const orgRows = new Map<string, EconomicsAggregateRow>();
+  const providerRows = new Map<string, EconomicsAggregateRow>();
+  const modelRows = new Map<string, EconomicsAggregateRow>();
+  const actionRows = new Map<string, EconomicsAggregateRow>();
+  const costQualityRows = new Map<CostQualitySource, CostQualityAggregateRow>();
+
+  for (const record of args.records) {
+    const organizationId = normalizeOptionalString(record.organizationId);
+    if (!organizationId) {
+      continue;
+    }
+    const provider = normalizeOptionalString(record.provider) ?? "unknown_provider";
+    const model = normalizeOptionalString(record.model) ?? "unknown_model";
+    const action =
+      normalizeOptionalString(record.action) ??
+      normalizeOptionalString(record.requestType) ??
+      "unknown_action";
+
+    const billingSource = normalizeAiUsageBillingSource(record.billingSource);
+    const nativeCostSource = normalizeAiUsageNativeCostSource(record.nativeCostSource);
+    const requests = Math.max(1, normalizeNonNegativeInt(record.requestCount));
+    const nativeCostInCents = normalizeNonNegativeInt(
+      record.nativeCostInCents ?? record.costInCents
+    );
+    const creditsCharged = normalizeNonNegativeInt(record.creditsCharged);
+
+    accumulateEconomicsRow({
+      row: totals,
+      billingSource,
+      requests,
+      nativeCostInCents,
+      creditsCharged,
+    });
+
+    const orgRow = orgRows.get(organizationId) ?? createEconomicsAggregateRow();
+    accumulateEconomicsRow({
+      row: orgRow,
+      billingSource,
+      requests,
+      nativeCostInCents,
+      creditsCharged,
+    });
+    orgRows.set(organizationId, orgRow);
+
+    const providerRow = providerRows.get(provider) ?? createEconomicsAggregateRow();
+    accumulateEconomicsRow({
+      row: providerRow,
+      billingSource,
+      requests,
+      nativeCostInCents,
+      creditsCharged,
+    });
+    providerRows.set(provider, providerRow);
+
+    const modelKey = `${provider}::${model}`;
+    const modelRow = modelRows.get(modelKey) ?? createEconomicsAggregateRow();
+    accumulateEconomicsRow({
+      row: modelRow,
+      billingSource,
+      requests,
+      nativeCostInCents,
+      creditsCharged,
+    });
+    modelRows.set(modelKey, modelRow);
+
+    const actionRow = actionRows.get(action) ?? createEconomicsAggregateRow();
+    accumulateEconomicsRow({
+      row: actionRow,
+      billingSource,
+      requests,
+      nativeCostInCents,
+      creditsCharged,
+    });
+    actionRows.set(action, actionRow);
+
+    const costQualityRow =
+      costQualityRows.get(nativeCostSource) ?? createCostQualityAggregateRow();
+    accumulateCostQualityRow({
+      row: costQualityRow,
+      billingSource,
+      requests,
+      nativeCostInCents,
+    });
+    costQualityRows.set(nativeCostSource, costQualityRow);
+  }
+
+  const organizations = Array.from(orgRows.entries())
+    .map(([organizationId, row]) =>
+      toEconomicsOutput({
+        row,
+        extra: {
+          organizationId,
+          name: args.organizationNamesById?.[organizationId] ?? null,
+          isPlatformOrganization:
+            Boolean(args.platformOrganizationId) &&
+            organizationId === args.platformOrganizationId,
+        },
+      })
+    )
+    .sort(
+      (left, right) =>
+        right.platformNativeCostInCents - left.platformNativeCostInCents
+        || right.platformCreditsCharged - left.platformCreditsCharged
+        || right.requests - left.requests
+    );
+
+  const providerBreakdown = Array.from(providerRows.entries())
+    .map(([provider, row]) =>
+      toEconomicsOutput({
+        row,
+        extra: { provider },
+      })
+    )
+    .sort(
+      (left, right) =>
+        right.platformNativeCostInCents - left.platformNativeCostInCents
+        || right.platformCreditsCharged - left.platformCreditsCharged
+        || right.requests - left.requests
+    );
+
+  const modelBreakdown = Array.from(modelRows.entries())
+    .map(([key, row]) => {
+      const [provider, model] = key.split("::", 2);
+      return toEconomicsOutput({
+        row,
+        extra: {
+          provider,
+          model,
+        },
+      });
+    })
+    .sort(
+      (left, right) =>
+        right.platformNativeCostInCents - left.platformNativeCostInCents
+        || right.platformCreditsCharged - left.platformCreditsCharged
+        || right.requests - left.requests
+    );
+
+  const actionBreakdown = Array.from(actionRows.entries())
+    .map(([action, row]) =>
+      toEconomicsOutput({
+        row,
+        extra: { action },
+      })
+    )
+    .sort(
+      (left, right) =>
+        right.platformNativeCostInCents - left.platformNativeCostInCents
+        || right.platformCreditsCharged - left.platformCreditsCharged
+        || right.requests - left.requests
+    );
+
+  const platformCreditRevenueInCents = creditsToRevenueInCents(
+    totals.platformCreditsCharged
+  );
+  const platformGrossMarginInCents =
+    platformCreditRevenueInCents - totals.platformNativeCostInCents;
+
+  const sourceOrder: CostQualitySource[] = [
+    "provider_reported",
+    "estimated_model_pricing",
+    "estimated_unit_pricing",
+    "not_available",
+    "unspecified",
+  ];
+  const costQualityBySource = sourceOrder.map((source) => {
+    const row = costQualityRows.get(source) ?? createCostQualityAggregateRow();
+    return {
+      source,
+      requests: row.requests,
+      platformRequests: row.platformRequests,
+      nativeCostInCents: row.nativeCostInCents,
+      platformNativeCostInCents: row.platformNativeCostInCents,
+      requestPct: resolvePct(row.requests, totals.requests),
+      platformRequestPct: resolvePct(row.platformRequests, totals.platformRequests),
+      platformCostPct: resolvePct(
+        row.platformNativeCostInCents,
+        totals.platformNativeCostInCents
+      ),
+    };
+  });
+  const providerReportedCostQuality = costQualityBySource.find(
+    (row) => row.source === "provider_reported"
+  );
+  const estimatedModelPricingCostQuality = costQualityBySource.find(
+    (row) => row.source === "estimated_model_pricing"
+  );
+
+  const platformOrganization =
+    args.platformOrganizationId
+      ? organizations.find(
+          (organization) => organization.organizationId === args.platformOrganizationId
+        ) ??
+        toEconomicsOutput({
+          row: createEconomicsAggregateRow(),
+          extra: {
+            organizationId: args.platformOrganizationId,
+            name: args.organizationNamesById?.[args.platformOrganizationId] ?? null,
+            isPlatformOrganization: true,
+          },
+        })
+      : null;
+
+  return {
+    range: {
+      startTs: args.startTs,
+      endTs: args.endTs,
+      durationHours: Number(
+        (((args.endTs - args.startTs) / (1000 * 60 * 60)).toFixed(2))
+      ),
+    },
+    assumptions: {
+      creditsPerUsd: CREDITS_PER_USD,
+      creditValueBasisCents: Math.round(100 / CREDITS_PER_USD),
+      marginFormula:
+        "gross_margin = credits_charged * (100 / credits_per_usd) - native_cost_cents",
+    },
+    totals: {
+      allUsageRequests: totals.requests,
+      allUsageNativeCostInCents: totals.nativeCostInCents,
+      allUsageCreditsCharged: totals.creditsCharged,
+      platformRequests: totals.platformRequests,
+      byokRequests: totals.byokRequests,
+      privateRequests: totals.privateRequests,
+      platformNativeCostInCents: totals.platformNativeCostInCents,
+      platformCreditsCharged: totals.platformCreditsCharged,
+      platformCreditRevenueInCents,
+      platformGrossMarginInCents,
+      platformGrossMarginPct: resolveMarginPct(
+        platformCreditRevenueInCents,
+        totals.platformNativeCostInCents
+      ),
+    },
+    costQuality: {
+      providerReportedRequestPct: providerReportedCostQuality?.requestPct ?? 0,
+      estimatedModelPricingRequestPct:
+        estimatedModelPricingCostQuality?.requestPct ?? 0,
+      providerReportedPlatformCostPct:
+        providerReportedCostQuality?.platformCostPct ?? 0,
+      estimatedModelPricingPlatformCostPct:
+        estimatedModelPricingCostQuality?.platformCostPct ?? 0,
+      sourceBreakdown: costQualityBySource,
+    },
+    organizations,
+    providerBreakdown,
+    modelBreakdown,
+    actionBreakdown,
+    platformOrganization,
+  };
+}
+
+async function requireSuperAdminSession(
+  ctx: QueryCtx | MutationCtx,
+  sessionId: string
+): Promise<{ userId: Id<"users"> }> {
+  const { userId } = await requireAuthenticatedUser(ctx, sessionId);
+  const userContext = await getUserContext(ctx, userId);
+  if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "Only super admins can access platform economics analytics.",
+    });
+  }
+  return { userId };
+}
+
+function resolvePlatformOrganizationIdFromEnv(): Id<"organizations"> | null {
+  const platformOrgId = normalizeOptionalString(process.env.PLATFORM_ORG_ID);
+  const fallbackOrgId = normalizeOptionalString(process.env.TEST_ORG_ID);
+  const candidate = platformOrgId ?? fallbackOrgId;
+  return candidate ? (candidate as Id<"organizations">) : null;
+}
+
+async function resolvePlatformOrganization(
+  ctx: QueryCtx | MutationCtx
+): Promise<{ _id: Id<"organizations">; name: string } | null> {
+  const envOrgId = resolvePlatformOrganizationIdFromEnv();
+  if (envOrgId) {
+    const envOrg = await ctx.db.get(envOrgId);
+    if (envOrg) {
+      return {
+        _id: envOrg._id,
+        name: envOrg.name,
+      };
+    }
+  }
+
+  const systemOrg = await ctx.db
+    .query("organizations")
+    .withIndex("by_slug", (q) => q.eq("slug", "system"))
+    .first();
+
+  if (!systemOrg) {
+    return null;
+  }
+
+  return {
+    _id: systemOrg._id,
+    name: systemOrg.name,
+  };
+}
+
+const DEFAULT_ECONOMICS_RANGE_HOURS = 24 * 7;
+const MAX_ECONOMICS_RANGE_HOURS = 24 * 180;
+
+function resolveEconomicsTimeRange(args: {
+  now: number;
+  startTs?: number;
+  endTs?: number;
+  rangeHours?: number;
+}): { startTs: number; endTs: number } {
+  const normalizedEndTs =
+    typeof args.endTs === "number" && Number.isFinite(args.endTs)
+      ? Math.floor(args.endTs)
+      : args.now;
+  const normalizedRangeHours =
+    typeof args.rangeHours === "number" && Number.isFinite(args.rangeHours)
+      ? Math.min(
+          MAX_ECONOMICS_RANGE_HOURS,
+          Math.max(1, Math.floor(args.rangeHours))
+        )
+      : DEFAULT_ECONOMICS_RANGE_HOURS;
+  const fallbackStartTs = normalizedEndTs - normalizedRangeHours * 60 * 60 * 1000;
+  const normalizedStartTs =
+    typeof args.startTs === "number" && Number.isFinite(args.startTs)
+      ? Math.floor(args.startTs)
+      : fallbackStartTs;
+
+  if (normalizedStartTs >= normalizedEndTs) {
+    return {
+      startTs: normalizedEndTs - normalizedRangeHours * 60 * 60 * 1000,
+      endTs: normalizedEndTs,
+    };
+  }
+
+  return {
+    startTs: normalizedStartTs,
+    endTs: normalizedEndTs,
   };
 }
 
@@ -236,6 +985,84 @@ export const getUsageSummary = query({
       costInCents,
       byModel,
       byRequestType,
+    };
+  },
+});
+
+/**
+ * GET PLATFORM ECONOMICS SUMMARY
+ *
+ * Super-admin rollup for platform-funded AI usage economics.
+ */
+export const getPlatformEconomicsSummary = query({
+  args: {
+    sessionId: v.string(),
+    startTs: v.optional(v.number()),
+    endTs: v.optional(v.number()),
+    rangeHours: v.optional(v.number()),
+    refreshNonce: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    void args.refreshNonce;
+
+    const now = Date.now();
+    const { startTs, endTs } = resolveEconomicsTimeRange({
+      now,
+      startTs: args.startTs,
+      endTs: args.endTs,
+      rangeHours: args.rangeHours,
+    });
+    const usageRecords = await ctx.db
+      .query("aiUsage")
+      .withIndex("by_created_at_global", (q) =>
+        q.gte("createdAt", startTs).lte("createdAt", endTs)
+      )
+      .collect();
+
+    const platformOrganization = await resolvePlatformOrganization(ctx);
+    const uniqueOrganizationIds = new Set<string>();
+    for (const record of usageRecords) {
+      uniqueOrganizationIds.add(String(record.organizationId));
+    }
+    if (platformOrganization?._id) {
+      uniqueOrganizationIds.add(String(platformOrganization._id));
+    }
+
+    const organizationNamesById: Record<string, string | null> = {};
+    await Promise.all(
+      Array.from(uniqueOrganizationIds).map(async (organizationId) => {
+        const organization = await ctx.db.get(
+          organizationId as Id<"organizations">
+        );
+        organizationNamesById[organizationId] = organization?.name ?? null;
+      })
+    );
+
+    const summary = aggregatePlatformEconomics({
+      records: usageRecords.map((record) => ({
+        organizationId: String(record.organizationId),
+        provider: record.provider,
+        model: record.model,
+        requestType: record.requestType,
+        action: record.action ?? null,
+        requestCount: record.requestCount,
+        billingSource: record.billingSource ?? null,
+        creditsCharged: record.creditsCharged ?? null,
+        costInCents: record.costInCents ?? null,
+        nativeCostInCents: record.nativeCostInCents ?? null,
+        nativeCostSource: record.nativeCostSource ?? null,
+      })),
+      startTs,
+      endTs,
+      organizationNamesById,
+      platformOrganizationId: platformOrganization?._id ?? null,
+    });
+
+    return {
+      ...summary,
+      generatedAt: now,
+      recordCount: usageRecords.length,
     };
   },
 });
@@ -473,17 +1300,27 @@ export const recordUsage = mutation({
   args: {
     organizationId: v.id("organizations"),
     userId: v.optional(v.id("users")),
-    requestType: v.union(
-      v.literal("chat"),
-      v.literal("embedding"),
-      v.literal("completion"),
-      v.literal("tool_call")
-    ),
+    requestType: aiUsageRequestTypeArgValidator,
     provider: v.string(),
     model: v.string(),
+    action: v.optional(v.string()),
+    requestCount: v.optional(v.number()),
     inputTokens: v.number(),
     outputTokens: v.number(),
+    totalTokens: v.optional(v.number()),
     costInCents: v.number(),
+    nativeUsageUnit: v.optional(v.string()),
+    nativeUsageQuantity: v.optional(v.number()),
+    nativeInputUnits: v.optional(v.number()),
+    nativeOutputUnits: v.optional(v.number()),
+    nativeTotalUnits: v.optional(v.number()),
+    nativeCostInCents: v.optional(v.number()),
+    nativeCostCurrency: v.optional(v.string()),
+    nativeCostSource: v.optional(aiUsageNativeCostSourceArgValidator),
+    providerRequestId: v.optional(v.string()),
+    usageMetadata: v.optional(v.any()),
+    creditsCharged: v.optional(v.number()),
+    creditChargeStatus: v.optional(aiUsageCreditChargeStatusArgValidator),
     success: v.boolean(),
     errorMessage: v.optional(v.string()),
     requestDurationMs: v.optional(v.number()),
@@ -507,6 +1344,8 @@ export const recordUsage = mutation({
       });
     }
 
+    const now = Date.now();
+
     const creditLedgerAction = normalizeCreditLedgerAction(args.creditLedgerAction);
     if (usageGuardrail.requiresCreditLedgerAction && !creditLedgerAction) {
       throw new ConvexError({
@@ -521,50 +1360,99 @@ export const recordUsage = mutation({
       .query("aiSubscriptions")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .first();
+    const billingPeriodFallback = resolveDefaultBillingPeriod(now);
+    const periodStart =
+      subscription?.currentPeriodStart ?? billingPeriodFallback.periodStart;
+    const periodEnd = subscription?.currentPeriodEnd ?? billingPeriodFallback.periodEnd;
+    const tier = subscription?.tier ?? "standard";
 
-    if (!subscription) {
-      throw new Error("No active subscription found");
-    }
-
-    // Calculate total tokens
-    const totalTokens = args.inputTokens + args.outputTokens;
+    const requestCount = Math.max(1, normalizeNonNegativeInt(args.requestCount ?? 1));
+    const inputTokens = normalizeNonNegativeInt(args.inputTokens);
+    const outputTokens = normalizeNonNegativeInt(args.outputTokens);
+    const totalTokens = Math.max(
+      inputTokens + outputTokens,
+      normalizeNonNegativeInt(args.totalTokens)
+    );
+    const costInCents = normalizeNonNegativeInt(args.costInCents);
+    const nativeCostInCents = normalizeNonNegativeInt(args.nativeCostInCents);
+    const creditsCharged = normalizeNonNegativeInt(args.creditsCharged);
+    const creditChargeStatus =
+      args.creditChargeStatus ??
+      (usageGuardrail.billingPolicy.enforceCredits
+        ? creditsCharged > 0
+          ? "charged"
+          : "skipped_unmetered"
+        : "skipped_not_required");
+    const providerRequestId = normalizeOptionalString(args.providerRequestId) ?? undefined;
+    const action = normalizeOptionalString(args.action) ?? undefined;
+    const nativeCostCurrency =
+      normalizeOptionalString(args.nativeCostCurrency) ??
+      (nativeCostInCents > 0 ? "USD" : undefined);
+    const nativeCostSource =
+      args.nativeCostSource ??
+      (nativeCostInCents > 0 ? "estimated_model_pricing" : "not_available");
+    const nativeUsageQuantity = normalizeNonNegativeNumber(args.nativeUsageQuantity);
+    const nativeInputUnits = normalizeNonNegativeNumber(args.nativeInputUnits);
+    const nativeOutputUnits = normalizeNonNegativeNumber(args.nativeOutputUnits);
+    const nativeTotalUnits = Math.max(
+      normalizeNonNegativeNumber(args.nativeTotalUnits),
+      nativeInputUnits + nativeOutputUnits,
+      nativeUsageQuantity
+    );
+    const requestDurationMs = normalizeNonNegativeInt(args.requestDurationMs);
 
     // Create usage record
     const usageId = await ctx.db.insert("aiUsage", {
       organizationId: args.organizationId,
       userId: args.userId,
-      periodStart: subscription.currentPeriodStart,
-      periodEnd: subscription.currentPeriodEnd,
-      requestCount: 1,
-      inputTokens: args.inputTokens,
-      outputTokens: args.outputTokens,
+      periodStart,
+      periodEnd,
+      requestCount,
+      inputTokens,
+      outputTokens,
       totalTokens,
-      costInCents: args.costInCents,
+      costInCents,
       requestType: args.requestType,
       provider: args.provider,
       model: args.model,
-      tier: subscription.tier,
+      tier,
       billingSource: usageGuardrail.billingPolicy.effectiveBillingSource,
       requestSource: usageGuardrail.billingPolicy.requestSource,
       billingPolicyReason: usageGuardrail.billingPolicy.reason,
       billingLedger: usageGuardrail.ledgerPolicy.effectiveLedgerMode,
       billingLedgerReason: usageGuardrail.ledgerPolicy.reason,
       creditLedgerAction: creditLedgerAction ?? undefined,
+      creditsCharged,
+      creditChargeStatus,
+      action,
+      nativeUsageUnit: normalizeOptionalString(args.nativeUsageUnit) ?? undefined,
+      nativeUsageQuantity: nativeUsageQuantity > 0 ? nativeUsageQuantity : undefined,
+      nativeInputUnits: nativeInputUnits > 0 ? nativeInputUnits : undefined,
+      nativeOutputUnits: nativeOutputUnits > 0 ? nativeOutputUnits : undefined,
+      nativeTotalUnits: nativeTotalUnits > 0 ? nativeTotalUnits : undefined,
+      nativeCostInCents: nativeCostInCents > 0 ? nativeCostInCents : undefined,
+      nativeCostCurrency,
+      nativeCostSource,
+      providerRequestId,
+      usageMetadata: args.usageMetadata,
       legacyTokenAccountingStatus: "skipped",
       success: args.success,
       errorMessage: args.errorMessage,
-      requestDurationMs: args.requestDurationMs,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      requestDurationMs: requestDurationMs > 0 ? requestDurationMs : undefined,
+      createdAt: now,
+      updatedAt: now,
     });
 
     return {
       usageId,
-      tokensUsed: totalTokens,
-      remainingIncludedTokens: Math.max(
-        0,
-        subscription.includedTokensTotal - subscription.includedTokensUsed
-      ),
+      tokensUsed: totalTokens * requestCount,
+      remainingIncludedTokens:
+        subscription
+          ? Math.max(
+              0,
+              subscription.includedTokensTotal - subscription.includedTokensUsed
+            )
+          : null,
       billingPolicy: usageGuardrail.billingPolicy,
       ledgerPolicy: usageGuardrail.ledgerPolicy,
       legacyTokenAccountingSkipped: true,
