@@ -5,6 +5,33 @@ import { useTranslation } from "@/contexts/translation-context";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../convex/_generated/api");
 
+const missingTranslationWarnings = new Set<string>();
+
+function warnMissingTranslationOnce(
+  fingerprint: string,
+  message: string,
+  ...details: unknown[]
+) {
+  const enableDebugWarnings =
+    process.env.NODE_ENV === "development"
+    && process.env.NEXT_PUBLIC_DEBUG_I18N_MISSING_KEYS === "1";
+
+  if (!enableDebugWarnings) {
+    return;
+  }
+
+  if (missingTranslationWarnings.has(fingerprint)) {
+    return;
+  }
+  missingTranslationWarnings.add(fingerprint);
+
+  if (details.length > 0) {
+    console.warn(message, ...details);
+    return;
+  }
+  console.warn(message);
+}
+
 /**
  * USE NAMESPACE TRANSLATIONS HOOK
  *
@@ -43,14 +70,23 @@ export function useNamespaceTranslations(namespace: string) {
       return key;
     }
 
+    // Support both absolute keys (ui.agents_window.header.title)
+    // and namespace-relative keys (header.title).
+    const fullyQualifiedKey = key.startsWith(`${namespace}.`)
+      ? key
+      : `${namespace}.${key}`;
+
     // Look up translation in the key-value map
     let value = translationsMap[key];
+    if (!value && fullyQualifiedKey !== key) {
+      value = translationsMap[fullyQualifiedKey];
+    }
 
     if (!value) {
-      // Debug logging in development only
-      if (process.env.NODE_ENV === 'development') {
-        console.warn(`[Translation] Missing key: ${key} in namespace: ${namespace} for locale: ${locale}`);
-      }
+      warnMissingTranslationOnce(
+        `single:${locale}:${namespace}:${key}`,
+        `[Translation] Missing key: ${key} in namespace: ${namespace} for locale: ${locale}`
+      );
 
       // Fallback: return the key
       return key;
@@ -66,8 +102,18 @@ export function useNamespaceTranslations(namespace: string) {
     return value;
   };
 
+  const tWithFallback = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>,
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
+
   return {
     t,
+    tWithFallback,
     isLoading: translationsMap === undefined,
     translationsMap,
   };
@@ -119,17 +165,10 @@ export function useMultipleNamespaces(namespaces: string[]) {
     let value = translationsMap[key];
 
     if (!value) {
-      // Debug logging in development only
-      if (process.env.NODE_ENV === 'development') {
-        // Enhanced debug logging for window title issues
-        if (key.includes('ui.windows.')) {
-          const windowKeys = Object.keys(translationsMap).filter(k => k.startsWith('ui.windows.'));
-          console.warn(`[Translation] Missing window title: "${key}"`);
-          console.warn(`[Translation] Loaded ${windowKeys.length} window keys:`, windowKeys.slice(0, 15));
-        } else {
-          console.warn(`[Translation] Missing key: ${key} in namespaces: ${namespaces.join(", ")} for locale: ${locale}`);
-        }
-      }
+      warnMissingTranslationOnce(
+        `multi:${locale}:${namespaces.join("|")}:${key}`,
+        `[Translation] Missing key: ${key} in namespaces: ${namespaces.join(", ")} for locale: ${locale}`
+      );
 
       // Fallback: return the key
       return key;
@@ -145,8 +184,18 @@ export function useMultipleNamespaces(namespaces: string[]) {
     return value;
   };
 
+  const tWithFallback = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>,
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
+
   return {
     t,
+    tWithFallback,
     isLoading: translationsMap === undefined,
     translationsMap,
   };

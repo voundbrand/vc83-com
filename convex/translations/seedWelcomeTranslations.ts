@@ -100,6 +100,42 @@ export const seed = internalMutation({
         }
       },
       {
+        key: "ui.welcome.v2.tagline",
+        values: {
+          en: "Voice-first agent setup with deploy handoff in about 15 minutes.",
+        },
+      },
+      {
+        key: "ui.welcome.v2.description_para1",
+        values: {
+          en: "Start in Talk mode for voice-first setup, or switch to Type mode at any step. The first-run flow keeps both paths in sync.",
+        },
+      },
+      {
+        key: "ui.welcome.v2.description_para2",
+        values: {
+          en: "Capture your agent mission, trust checkpoints, and channel guardrails in one guided pass without opening separate configuration tools.",
+        },
+      },
+      {
+        key: "ui.welcome.v2.description_para3",
+        values: {
+          en: "After calibration, deployment handoff appears immediately with choices for Webchat, Telegram, or Both so launch momentum is not lost.",
+        },
+      },
+      {
+        key: "ui.welcome.v2.cta",
+        values: {
+          en: "Create my agent now",
+        },
+      },
+      {
+        key: "ui.welcome.first_run_path",
+        values: {
+          en: "First-run path: Talk or Type -> Soul-binding completion -> Deploy to Webchat / Telegram / Both.",
+        },
+      },
+      {
         key: "ui.welcome.footer",
         values: {
           en: "Built for business · Agents that earn trust",

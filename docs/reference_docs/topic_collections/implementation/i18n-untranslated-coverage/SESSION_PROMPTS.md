@@ -2,142 +2,126 @@
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage`
 
-Use one prompt per lane/worktree.
-
-Always read first:
+Read before executing any lane:
 
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md`
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/MASTER_PLAN.md`
 - `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/INDEX.md`
 
+Concurrency contract:
+
+1. `IUC-013` and `IUC-014` are complete and serve as the current baseline snapshot.
+2. Lane `B` (`IUC-015`) and lane `C` (`IUC-016`..`IUC-018`) may run in parallel, but only one `IN_PROGRESS` row per lane.
+3. Lane `D` starts only after `IUC-015`..`IUC-018` are `DONE`.
+4. Lane `E` starts only after `IUC-019` is `DONE`.
+5. Lane `F` starts only after `IUC-020` is `DONE`.
+
 ---
 
-## Session A (Lane A: discovery and audit tooling)
+## Session B (Lane B: builder/layers regression cleanup)
 
 ```text
 You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane A tasks from:
+Execute only Lane B rows from:
 /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
 
 Scope:
-- IUC-001..IUC-003
+- IUC-015
 
 Rules:
-1) Before each task, list top 3 regression risks.
-2) Run queue Verify commands exactly.
-3) Keep audit output deterministic and scoped (builder, layers, window-content).
-4) Treat allowlist entries as explicit exceptions with reason comments.
-5) Update TASK_QUEUE.md status + notes immediately after each task.
+1) Run row Verify commands exactly.
+2) Keep UX behavior unchanged while replacing user-facing literals with translation lookups.
+3) Do not edit window-content surfaces in this lane.
+4) Keep fallback copy explicit when translation keys are missing.
+5) Update TASK_QUEUE.md status/notes immediately after completion.
 
-Stop when Lane A has no promotable tasks.
+Stop when Lane B has no promotable rows.
 ```
 
 ---
 
-## Session B (Lane B: builder UI migration)
+## Session C (Lane C: window-content hotspot burn-down)
 
 ```text
 You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane B tasks from:
+Execute only Lane C rows from:
 /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
 
 Scope:
-- IUC-004..IUC-005
+- IUC-016
+- IUC-017
+- IUC-018
 
 Rules:
-1) Confirm IUC-003 is DONE before starting.
-2) Before each task, list top 3 regression risks.
-3) Run queue Verify commands exactly.
-4) Preserve existing builder UX/flows while replacing literals with translation keys.
-5) Do not edit translation seed contracts in this lane.
+1) Start with highest-priority promotable row (P0 then lowest ID).
+2) Run row Verify commands exactly.
+3) Keep changes scoped to the lane's primary files and avoid translation seed edits.
+4) Prioritize user-visible labels, placeholders, alerts/confirms/prompts, and status text.
+5) Update TASK_QUEUE.md status/notes after each completed row.
 
-Stop when Lane B has no promotable tasks.
+Stop when Lane C has no promotable rows.
 ```
 
 ---
 
-## Session C (Lane C: layers and desktop window hotspots)
+## Session D (Lane D: six-locale seed parity follow-through)
 
 ```text
 You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane C tasks from:
+Execute only Lane D rows from:
 /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
 
 Scope:
-- IUC-006..IUC-007
+- IUC-019
 
 Rules:
-1) Confirm IUC-003 is DONE before IUC-006.
-2) Before each task, list top 3 regression risks.
-3) Run queue Verify commands exactly.
-4) Prioritize user-visible alerts/placeholders/loading/empty states.
-5) Do not modify builder-only files owned by Lane B unless re-queued.
+1) Confirm IUC-015..IUC-018 are DONE before starting.
+2) Run row Verify commands exactly.
+3) Every new key must include en,de,pl,es,fr,ja values in the same change.
+4) Do not perform UI refactors in this lane.
+5) Update TASK_QUEUE.md status/notes after completion.
 
-Stop when Lane C has no promotable tasks.
+Stop when Lane D has no promotable rows.
 ```
 
 ---
 
-## Session D (Lane D: six-locale completeness)
+## Session E (Lane E: guard-to-green enforcement)
 
 ```text
 You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane D tasks from:
+Execute only Lane E rows from:
 /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
 
 Scope:
-- IUC-008..IUC-009
+- IUC-020
 
 Rules:
-1) Confirm IUC-003 is DONE before IUC-008.
-2) Before each task, list top 3 regression risks.
-3) Run queue Verify commands exactly.
-4) Enforce six-locale parity for every newly introduced key.
-5) Avoid UI refactors in this lane; stay in translation contracts and seed assets.
+1) Confirm IUC-019 is DONE before starting.
+2) Run row Verify commands exactly.
+3) Achieve newFindings=0 without broadening allowlists.
+4) Treat baseline rebases as blocked unless explicitly approved.
+5) Update TASK_QUEUE.md status/notes with exact command output.
 
-Stop when Lane D has no promotable tasks.
+Stop when Lane E has no promotable rows.
 ```
 
 ---
 
-## Session E (Lane E: CI and regression gates)
+## Session F (Lane F: documentation closeout)
 
 ```text
 You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane E tasks from:
+Execute only Lane F rows from:
 /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
 
 Scope:
-- IUC-010
+- IUC-021
 
 Rules:
-1) Confirm IUC-005, IUC-007, and IUC-009 are DONE before starting.
-2) Before the task, list top 3 regression risks.
-3) Run queue Verify commands exactly.
-4) CI should block new untranslated literals but keep migration debt handling pragmatic.
-5) Keep exceptions explicit and reviewed (no silent ignores).
-
-Stop when Lane E has no promotable tasks.
-```
-
----
-
-## Session F (Lane F: QA and closeout)
-
-```text
-You are Codex in /Users/foundbrand_001/Development/vc83-com.
-Execute only Lane F tasks from:
-/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md
-
-Scope:
-- IUC-011..IUC-012
-
-Rules:
-1) Confirm all P0 tasks are DONE or BLOCKED before starting.
-2) Before each task, list top 3 regression risks.
-3) Run queue Verify commands exactly.
-4) Capture six-locale QA outcomes and unresolved debt in docs.
-5) Finalize TASK_QUEUE.md, MASTER_PLAN.md, and INDEX.md in one closeout pass.
-
-Stop when closeout is complete.
+1) Confirm IUC-020 is DONE before starting.
+2) Run row Verify commands exactly.
+3) Sync TASK_QUEUE.md, MASTER_PLAN.md, INDEX.md, and QA_MATRIX.md in one pass.
+4) Include before/after audit delta stats and unresolved debt summary.
+5) Stop after docs are synchronized and verified.
 ```

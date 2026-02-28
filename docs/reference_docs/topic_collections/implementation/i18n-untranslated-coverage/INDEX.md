@@ -1,13 +1,13 @@
 # I18n Untranslated Coverage Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage`  
-**Source request:** Find untranslated content in `/builder`, `/layers`, and missed surfaces; pragmatically translate into six supported languages (2026-02-17)
+**Source request:** Enforce namespaced translation CI guard, run it, and plan remediation for missing translated app surfaces (2026-02-25)
 
 ---
 
 ## Purpose
 
-Queue-first execution layer for detecting and removing untranslated user-facing English strings in high-impact UI surfaces while enforcing six-language translation parity.
+Queue-first execution hub for i18n regression enforcement and translation debt burn-down in builder/layers/window-content surfaces.
 
 ---
 
@@ -17,49 +17,60 @@ Queue-first execution layer for detecting and removing untranslated user-facing 
 - Session prompts: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/SESSION_PROMPTS.md`
 - Master plan: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/MASTER_PLAN.md`
 - QA matrix: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/QA_MATRIX.md`
-- Index (this file): `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/INDEX.md`
+- Current audit report: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/reports/current.json`
+- Baseline audit report: `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/reports/baseline.json`
 
 ---
 
-## Status
+## Latest status (2026-02-25)
 
-Current kickoff:
+1. Added GitHub Actions enforcement workflow: `.github/workflows/i18n-guard.yml` (`IUC-013` `DONE`).
+2. Ran guard commands and captured fresh snapshot (`IUC-014` `DONE`):
+   - `npm run i18n:audit`: fail (`newFindings=1199`, `files=425`, `findings=7408`, `allowlisted=4`)
+   - Scope totals: `builder=252`, `layers=100`, `window-content=7056`
+   - Delta vs baseline: `builder=26`, `layers=2`, `window-content=1171`
+   - `npx tsx scripts/i18n/check-locale-completeness.ts --locales en,de,pl,es,fr,ja`: pass (`filesScanned=109`, `keysInRequiredNamespaces=337`)
+3. Reopened remediation wave queued as `IUC-015`..`IUC-021`.
+4. Next promotable row: `IUC-015` (builder/layers regression cleanup).
 
-1. `IUC-001` (`DONE`): baseline locale and hotspot inventory completed.
-2. `IUC-002` (`DONE`): scoped deterministic untranslated-string scanner landed with explicit allowlist exceptions and reasoned audit output.
-3. `IUC-003` (`DONE`): CI command + baseline threshold contract landed (`npm run i18n:audit` fails only on new scoped findings).
-4. `IUC-004` (`DONE`): builder chrome navigation labels in `builder-layout`, `builder-header`, and `builder-logo-menu` migrated to translation keys with fallbacks.
-5. `IUC-005` (`DONE`): builder docs/chat/publish panels migrated from hardcoded placeholders/confirms/alerts/status literals to translation lookups with fallback text.
-6. `IUC-006` (`DONE`): builder-route and preview/file-explorer loading/error/empty states moved to translation-backed `ui.builder.*` lookups with safe fallback copy.
-7. `IUC-007` (`DONE`): Stripe + org security runtime alerts/confirms/notification messaging and passkey CTA/empty/setup surfaces now use translation-backed lookups with fallbacks.
-8. `IUC-008` (`DONE`): canonical six-locale namespace contract landed with deterministic seed validation (`scripts/i18n/check-locale-completeness.ts`) and updated translation contract docs.
-9. `IUC-009` (`DONE`): seeded missing builder/layers/window-content key coverage via `seedBuilderI18nCoverage.ts`, `seedLayersI18nCoverage.ts`, and `seedPaymentsI18nCoverage.ts` with strict six-locale parity.
-10. `IUC-010` (`DONE`): CI regression gate hardened with allowlist contract validation, location-insensitive baseline matching fallback, and dedicated `tests/unit/i18n` coverage; scoped baseline explicitly rebased so `npm run i18n:audit` blocks future additions without forcing legacy debt cleanup in this lane.
-11. `IUC-011` (`DONE`): published six-locale QA matrix with persistence/fallback evidence and locale diff counts, plus unresolved debt ledger.
-12. `IUC-012` (`DONE`): closed out queue/master/index sync with explicit do-not-regress ownership policy and rollout gate status.
+---
 
-Closeout state:
+## Hotspot prioritization (new findings)
 
-1. Queue execution is complete through Lane `F`.
-2. Remaining rollout blockers are documented debt: `npm run i18n:audit` (`newFindings=13` in `text-editor-window`) and `npm run typecheck` errors in Slack OAuth/integrations files.
+1. `src/components/window-content/agents/agent-trust-cockpit.tsx` (`197`)
+2. `src/components/window-content/super-admin-organizations-window/agent-control-center-tab.tsx` (`90`)
+3. `src/components/window-content/agents-window.tsx` (`75`)
+4. `src/components/window-content/web-publishing-window/webchat-deployment-tab.tsx` (`61`)
+5. `src/components/window-content/org-owner-manage-window/ai-settings-tab.tsx` (`46`)
+6. `src/components/window-content/super-admin-organizations-window/platform-economics-tab.tsx` (`46`)
+7. `src/components/window-content/integrations-window/ai-connections-settings.tsx` (`41`)
+8. `src/components/window-content/integrations-window/personal-operator-setup.tsx` (`40`)
+
+Cluster totals:
+
+- `window-content/agents` + `agents-window.tsx`: `407`
+- `window-content/super-admin-organizations-window`: `290`
+- `window-content/integrations-window`: `179`
+- `window-content/ai-chat-window`: `84`
+- `window-content/web-publishing-window`: `80`
 
 ---
 
 ## Lane progress board
 
-- [x] Lane A (`IUC-001`..`IUC-003`)
-- [x] Lane B (`IUC-004`..`IUC-005`)
-- [x] Lane C (`IUC-006`..`IUC-007`)
-- [x] Lane D (`IUC-008`..`IUC-009`)
-- [x] Lane E (`IUC-010`)
-- [x] Lane F (`IUC-011`..`IUC-012`)
+- [x] Lane A (historical baseline + tooling `IUC-001`..`IUC-003`, refresh `IUC-014`)
+- [ ] Lane B (`IUC-015`)
+- [ ] Lane C (`IUC-016`..`IUC-018`)
+- [ ] Lane D (`IUC-019`)
+- [x] Lane E (workflow wiring `IUC-013`)
+- [ ] Lane E (guard-to-green `IUC-020`)
+- [ ] Lane F (`IUC-021`)
 
 ---
 
 ## Operating commands
 
 - Validate docs policy: `npm run docs:guard`
-- Read queue: `cat /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md`
-- Run core quality checks: `npm run typecheck && npm run lint`
-- Run i18n audit (baseline threshold): `npm run i18n:audit`
-- Run six-locale seed parity check: `npx tsx scripts/i18n/check-locale-completeness.ts --locales en,de,pl,es,fr,ja`
+- Run i18n regression guard: `npm run i18n:audit`
+- Run six-locale namespace parity check: `npx tsx scripts/i18n/check-locale-completeness.ts --locales en,de,pl,es,fr,ja`
+- Open queue: `cat /Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/i18n-untranslated-coverage/TASK_QUEUE.md`

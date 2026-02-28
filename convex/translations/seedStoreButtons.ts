@@ -111,6 +111,52 @@ export const seed = internalMutation({
         }
       },
 
+      // === DAILY FREE CREDITS CALLOUT ===
+      {
+        key: "ui.store.daily_credits.badge",
+        values: {
+          en: "Free tier feature",
+          de: "Free-Tier-Funktion",
+          pl: "Funkcja planu Free",
+          es: "Función del plan gratis",
+          fr: "Fonction du forfait gratuit",
+          ja: "無料プラン機能",
+        }
+      },
+      {
+        key: "ui.store.daily_credits.title",
+        values: {
+          en: "Daily Free Credits",
+          de: "Tägliche Gratis-Credits",
+          pl: "Codzienne darmowe kredyty",
+          es: "Créditos diarios gratis",
+          fr: "Crédits gratuits quotidiens",
+          ja: "毎日の無料クレジット",
+        }
+      },
+      {
+        key: "ui.store.daily_credits.description",
+        values: {
+          en: "Free users receive 5 credits every day to test and explore L4YERCAK3 features.",
+          de: "Kostenlose Nutzer erhalten jeden Tag 5 Credits, um L4YERCAK3-Funktionen zu testen und zu erkunden.",
+          pl: "Użytkownicy planu Free otrzymują codziennie 5 kredytów, aby testować i poznawać funkcje L4YERCAK3.",
+          es: "Los usuarios gratuitos reciben 5 créditos cada día para probar y explorar las funciones de L4YERCAK3.",
+          fr: "Les utilisateurs gratuits reçoivent 5 crédits chaque jour pour tester et explorer les fonctionnalités de L4YERCAK3.",
+          ja: "無料ユーザーは、L4YERCAK3 の機能を試して活用するために、毎日 5 クレジットを受け取れます。",
+        }
+      },
+      {
+        key: "ui.store.daily_credits.reset_note",
+        values: {
+          en: "Credits reset daily and don't roll over.",
+          de: "Credits werden täglich zurückgesetzt und nicht übertragen.",
+          pl: "Kredyty resetują się codziennie i nie przechodzą na kolejny dzień.",
+          es: "Los créditos se reinician a diario y no se acumulan.",
+          fr: "Les crédits sont réinitialisés chaque jour et ne sont pas reportés.",
+          ja: "クレジットは毎日リセットされ、繰り越されません。",
+        }
+      },
+
       // === CUSTOM FRONTEND SECTION ===
       {
         key: "ui.store.custom.example_text",

@@ -4,9 +4,76 @@
  * Translation-specific queries using the ontology framework.
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
+import type { Id } from "./_generated/dataModel";
+
+const NAMESPACE_KEY_DELIMITER = ".";
+const NAMESPACE_RANGE_UPPER_BOUND_SUFFIX = "/";
+const MAX_TRANSLATIONS_PER_NAMESPACE = 1500;
+const MAX_TRANSLATIONS_PER_MULTI_REQUEST = 2200;
+const MAX_NAMESPACES_PER_MULTI_REQUEST = 12;
+
+function normalizeNamespace(rawNamespace: string): string {
+  const trimmed = rawNamespace.trim();
+  const normalized = trimmed.replace(/\.+$/, "");
+  if (normalized.length === 0) {
+    throw new Error("Translation namespace must be non-empty.");
+  }
+
+  if (normalized.includes(NAMESPACE_RANGE_UPPER_BOUND_SUFFIX)) {
+    throw new Error(
+      `Invalid namespace "${rawNamespace}". Slash characters are not allowed.`,
+    );
+  }
+
+  return normalized;
+}
+
+function getNamespaceRange(namespace: string): {
+  normalizedNamespace: string;
+  lowerBound: string;
+  upperBound: string;
+} {
+  const normalizedNamespace = normalizeNamespace(namespace);
+  const lowerBound = `${normalizedNamespace}${NAMESPACE_KEY_DELIMITER}`;
+  const upperBound = `${normalizedNamespace}${NAMESPACE_RANGE_UPPER_BOUND_SUFFIX}`;
+  return {
+    normalizedNamespace,
+    lowerBound,
+    upperBound,
+  };
+}
+
+async function loadNamespaceTranslationsWithLimit(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+  locale: string,
+  namespace: string,
+  limit: number,
+) {
+  const { normalizedNamespace, lowerBound, upperBound } = getNamespaceRange(namespace);
+  const rows = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type_locale_name", (q) =>
+      q
+        .eq("organizationId", organizationId)
+        .eq("type", "translation")
+        .eq("locale", locale)
+        .gte("name", lowerBound)
+        .lt("name", upperBound),
+    )
+    .take(limit + 1);
+
+  if (rows.length > limit) {
+    throw new Error(
+      `Namespace "${normalizedNamespace}" exceeds the ${limit} translation limit for one request. Split this namespace into smaller segments.`,
+    );
+  }
+
+  return rows;
+}
 
 /**
  * GET TRANSLATIONS BY NAMESPACE (as key-value map)
@@ -40,22 +107,16 @@ export const getTranslationsByNamespace = query({
 
     if (!systemOrg) return {};
 
-    const translations = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type_locale", q =>
-        q.eq("organizationId", systemOrg._id)
-         .eq("type", "translation")
-         .eq("locale", args.locale)
-      )
-      .collect();
-
-    // Filter to only translations in this namespace
-    const namespaceTranslations = translations.filter(t =>
-      t.name.startsWith(args.namespace + ".")
+    const namespaceTranslations = await loadNamespaceTranslationsWithLimit(
+      ctx,
+      systemOrg._id,
+      args.locale,
+      args.namespace,
+      MAX_TRANSLATIONS_PER_NAMESPACE,
     );
 
     const translationMap: Record<string, string> = {};
-    namespaceTranslations.forEach(t => {
+    namespaceTranslations.forEach((t) => {
       if (t.value) translationMap[t.name] = t.value;
     });
 
@@ -93,24 +154,44 @@ export const getMultipleNamespaces = query({
 
     if (!systemOrg) return {};
 
-    const translations = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type_locale", q =>
-        q.eq("organizationId", systemOrg._id)
-         .eq("type", "translation")
-         .eq("locale", args.locale)
-      )
-      .collect();
+    const normalizedNamespaces = [...new Set(args.namespaces.map(normalizeNamespace))];
+    if (normalizedNamespaces.length === 0) {
+      return {};
+    }
 
-    // Filter to only translations in requested namespaces
-    const filteredTranslations = translations.filter(t =>
-      args.namespaces.some(ns => t.name.startsWith(ns + "."))
-    );
+    if (normalizedNamespaces.length > MAX_NAMESPACES_PER_MULTI_REQUEST) {
+      throw new Error(
+        `Too many namespaces in one request (${normalizedNamespaces.length}). Maximum allowed is ${MAX_NAMESPACES_PER_MULTI_REQUEST}.`,
+      );
+    }
 
     const translationMap: Record<string, string> = {};
-    filteredTranslations.forEach(t => {
-      if (t.value) translationMap[t.name] = t.value;
-    });
+    let totalTranslationsLoaded = 0;
+    for (const namespace of normalizedNamespaces) {
+      const remainingBudget = MAX_TRANSLATIONS_PER_MULTI_REQUEST - totalTranslationsLoaded;
+      if (remainingBudget <= 0) {
+        throw new Error(
+          `Requested namespaces exceed total translation budget (${MAX_TRANSLATIONS_PER_MULTI_REQUEST}) for one request.`,
+        );
+      }
+
+      const namespaceLimit = Math.min(
+        MAX_TRANSLATIONS_PER_NAMESPACE,
+        remainingBudget,
+      );
+      const rows = await loadNamespaceTranslationsWithLimit(
+        ctx,
+        systemOrg._id,
+        args.locale,
+        namespace,
+        namespaceLimit,
+      );
+      totalTranslationsLoaded += rows.length;
+
+      rows.forEach((row) => {
+        if (row.value) translationMap[row.name] = row.value;
+      });
+    }
 
     return translationMap;
   },
