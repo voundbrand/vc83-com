@@ -1,0 +1,68 @@
+name: tool-foundry-guard
+
+on:
+  pull_request:
+    paths:
+      - "convex/ai/toolFoundry/**"
+      - "tests/unit/ai/toolFoundryContracts.test.ts"
+      - "docs/reference_docs/topic_collections/implementation/tool-foundry/**"
+      - "scripts/ci/check-tool-foundry-guard.sh"
+      - ".github/workflows/tool-foundry-guard.yml"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "convex/ai/toolFoundry/**"
+      - "tests/unit/ai/toolFoundryContracts.test.ts"
+      - "docs/reference_docs/topic_collections/implementation/tool-foundry/**"
+      - "scripts/ci/check-tool-foundry-guard.sh"
+      - ".github/workflows/tool-foundry-guard.yml"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  tool-foundry-guard:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Tool Foundry contract guard
+        shell: bash
+        run: |
+          bash scripts/ci/check-tool-foundry-guard.sh "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
+      - name: Run Tool Foundry unit policy tests
+        run: npm run test:unit:tool-foundry
+
+      - name: Run docs guard
+        run: npm run docs:guard
