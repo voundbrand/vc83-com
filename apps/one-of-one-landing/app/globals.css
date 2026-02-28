@@ -1,0 +1,415 @@
+@import "tailwindcss";
+
+/* Codec Pro can be re-enabled here once font files are added under public/fonts */
+
+@layer base {
+  /* Scheme B: "Daylight" (Light — default) */
+  :root {
+    /* Core Surfaces */
+    --color-bg: #F4F3EF;
+    --color-surface: #FFFFFF;
+    --color-surface-raised: #FFFFFF;
+    --color-surface-hover: #F7F7F5;
+    --color-surface-active: #EFEEEB;
+
+    /* Text */
+    --color-text: #1A1A1A;
+    --color-text-secondary: #6B6B6B;
+    --color-text-tertiary: #A0A09B;
+
+    /* Borders */
+    --color-border: #E0DDD6;
+    --color-border-hover: #CCC9C0;
+    --color-border-focus: #E8520A;
+
+    /* Accent - Orange brand constant */
+    --color-accent: #E8520A;
+    --color-accent-hover: #CC4709;
+    --color-accent-subtle: rgba(232,82,10,0.07);
+
+    /* Semantic */
+    --color-success: #16A34A;
+    --color-success-subtle: rgba(22,163,74,0.08);
+    --color-warn: #D97706;
+    --color-warn-subtle: rgba(217,119,6,0.08);
+    --color-error: #DC2626;
+    --color-error-subtle: rgba(220,38,38,0.08);
+    --color-info: #2563EB;
+    --color-info-subtle: rgba(37,99,235,0.08);
+
+    /* Buttons */
+    --btn-primary-bg: #E8E5DD;
+    --btn-primary-text: #1A1A1A;
+    --btn-primary-border: #C4BFB3;
+    --btn-primary-hover: #DDD9D0;
+    --btn-secondary-bg: #FFFFFF;
+    --btn-secondary-text: #1A1A1A;
+    --btn-secondary-border: #E0DDD6;
+    --btn-secondary-hover: #F7F7F5;
+    --btn-ghost-text: #6B6B6B;
+    --btn-ghost-hover: #F4F3EF;
+    --btn-danger-bg: #DC2626;
+    --btn-danger-text: #FFFFFF;
+    --btn-danger-hover: #B91C1C;
+    --btn-accent-bg: #E8520A;
+    --btn-accent-text: #FFFFFF;
+    --btn-accent-hover: #CC4709;
+
+    /* Window Chrome */
+    --window-bg: #FFFFFF;
+    --window-border: #E0DDD6;
+    --titlebar-bg: #F4F3EF;
+    --titlebar-text: #6B6B6B;
+    --titlebar-btn: #D6D3CB;
+    --titlebar-btn-hover: #C0BDB5;
+    --titlebar-close: #DC2626;
+
+    /* Menu */
+    --menu-bg: #FFFFFF;
+    --menu-border: #E0DDD6;
+    --menu-hover: #F7F7F5;
+    --menu-divider: #EFEEEB;
+
+    /* Input */
+    --input-bg: #FFFFFF;
+    --input-border: #E0DDD6;
+
+    /* Code */
+    --code-bg: #F7F7F5;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.03);
+    --shadow-lg: 0 16px 48px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
+    --shadow-focus: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-border-focus);
+    --overlay: rgba(0,0,0,0.35);
+
+    /* Radius */
+    --radius-none: 0px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --radius-full: 9999px;
+
+    /* Spacing */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+    --space-24: 96px;
+
+    /* Motion */
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 500ms;
+    --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --easing-in: cubic-bezier(0.4, 0, 1, 1);
+    --easing-out: cubic-bezier(0, 0, 0.2, 1);
+    --easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* shadcn compatibility tokens */
+    --background: 44 10% 95%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 20 91% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 15% 91%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 40 15% 91%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 20 91% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 36 14% 85%;
+    --input: 36 14% 85%;
+    --ring: 20 91% 48%;
+    --radius: 0.5rem;
+  }
+
+  /* Scheme A: "Midnight" (Dark) */
+  .dark {
+    /* Core Surfaces */
+    --color-bg: #0A0A0A;
+    --color-surface: #141414;
+    --color-surface-raised: #1A1A1A;
+    --color-surface-hover: #1E1E1E;
+    --color-surface-active: #252525;
+
+    /* Text */
+    --color-text: #EDEDED;
+    --color-text-secondary: #888888;
+    --color-text-tertiary: #555555;
+
+    /* Borders */
+    --color-border: #262626;
+    --color-border-hover: #3A3A3A;
+    --color-border-focus: #E8520A;
+
+    /* Accent - Orange brand constant */
+    --color-accent: #E8520A;
+    --color-accent-hover: #CC4709;
+    --color-accent-subtle: rgba(232,82,10,0.10);
+
+    /* Semantic */
+    --color-success: #34D399;
+    --color-success-subtle: rgba(52,211,153,0.10);
+    --color-warn: #FBBF24;
+    --color-warn-subtle: rgba(251,191,36,0.10);
+    --color-error: #EF4444;
+    --color-error-subtle: rgba(239,68,68,0.10);
+    --color-info: #3B82F6;
+    --color-info-subtle: rgba(59,130,246,0.10);
+
+    /* Buttons */
+    --btn-primary-bg: #000000;
+    --btn-primary-text: #EDEDED;
+    --btn-primary-border: #333333;
+    --btn-primary-hover: #171717;
+    --btn-secondary-bg: #1E1E1E;
+    --btn-secondary-text: #CCCCCC;
+    --btn-secondary-border: #333333;
+    --btn-secondary-hover: #282828;
+    --btn-ghost-text: #888888;
+    --btn-ghost-hover: #1A1A1A;
+    --btn-danger-bg: #7F1D1D;
+    --btn-danger-text: #FCA5A5;
+    --btn-danger-hover: #991B1B;
+    --btn-accent-bg: #E8520A;
+    --btn-accent-text: #FFFFFF;
+    --btn-accent-hover: #CC4709;
+
+    /* Window Chrome */
+    --window-bg: #111111;
+    --window-border: #262626;
+    --titlebar-bg: #0D0D0D;
+    --titlebar-text: #777777;
+    --titlebar-btn: #333333;
+    --titlebar-btn-hover: #444444;
+    --titlebar-close: #EF4444;
+
+    /* Menu */
+    --menu-bg: #141414;
+    --menu-border: #262626;
+    --menu-hover: #1E1E1E;
+    --menu-divider: #1E1E1E;
+
+    /* Input */
+    --input-bg: #0F0F0F;
+    --input-border: #262626;
+
+    /* Code */
+    --code-bg: #0D0D0D;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.65);
+    --shadow-lg: 0 12px 48px rgba(0,0,0,0.8);
+    --shadow-focus: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-border-focus);
+    --overlay: rgba(0,0,0,0.65);
+
+    /* shadcn compatibility tokens */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 93%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 20 91% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 53%;
+    --accent: 20 91% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 93%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 20 91% 48%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    background-color: var(--color-bg);
+  }
+
+  body {
+    font-family: var(--font-geist-sans), 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Brand name styling - always lowercase italic */
+  .brand-name {
+    text-transform: lowercase;
+    font-style: italic;
+    font-family: var(--font-playfair), serif;
+  }
+
+  /* Logo text styling - CODEC PRO uppercase */
+  .logo-text {
+    font-family: 'Codec Pro', var(--font-geist-sans), system-ui, sans-serif;
+    text-transform: uppercase;
+  }
+
+  .logo-text-seven {
+    font-weight: 700;
+  }
+
+  .logo-text-layers {
+    font-weight: 300;
+  }
+
+  /* Accent button */
+  .btn-accent {
+    background-color: var(--btn-accent-bg);
+    color: var(--btn-accent-text);
+    border: 1px solid transparent;
+    transition: background-color var(--duration-normal) var(--easing-default);
+  }
+
+  .btn-accent:hover {
+    background-color: var(--btn-accent-hover);
+  }
+
+  /* Primary button */
+  .btn-primary {
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+    border: 1px solid var(--btn-primary-border);
+    transition: background-color var(--duration-normal) var(--easing-default);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--btn-primary-hover);
+  }
+
+  /* Secondary button */
+  .btn-secondary {
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border: 1px solid var(--btn-secondary-border);
+    transition: background-color var(--duration-normal) var(--easing-default);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--btn-secondary-hover);
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--btn-ghost-text);
+    border: 1px solid transparent;
+    transition: background-color var(--duration-normal) var(--easing-default);
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--btn-ghost-hover);
+  }
+}
+
+@layer components {
+  /* Chat widget styling */
+  .chat-container {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .chat-message-user {
+    background-color: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+  }
+
+  .chat-message-assistant {
+    background-color: var(--color-surface-hover);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+
+  .chat-message-rich > * + * {
+    margin-top: var(--space-2);
+  }
+
+  .chat-input {
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    transition: border-color var(--duration-normal) var(--easing-default);
+  }
+
+  .chat-input:focus {
+    border-color: var(--color-border-focus);
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  /* Card styling */
+  .card-surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+
+  .card-surface:hover {
+    border-color: var(--color-border-hover);
+  }
+
+  /* Proof block styling */
+  .proof-block {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+  }
+
+  /* Path cards */
+  .path-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    transition: border-color var(--duration-normal) var(--easing-default),
+                box-shadow var(--duration-normal) var(--easing-default);
+  }
+
+  .path-card:hover {
+    border-color: var(--color-border-hover);
+    box-shadow: var(--shadow-md);
+  }
+}
